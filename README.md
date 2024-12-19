@@ -1,3 +1,10 @@
+MSFS2024 adaptation of the great JoinFS utility
+===============================================
+This fork offers MSFS2024 integration to JoinFS. A proper release will follow shortly.
+
+Original README
+===============
+
 JoinFS is an advanced multiplayer client for flight simulators including Microsoft Flight Simulator 2020, FSX, X-Plane and Prepar3D. Allows players to fly together across different simulators.
 
 Disclaimer
