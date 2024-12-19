@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension" xmlns:netfx="http://schemas.microsoft.com/wix/NetFxExtension">
+  <?define JoinFS_TargetDir=$(var.JoinFS-FS2020.TargetDir)?>
+  <Product Id="*" Name="JoinFS - FS2020" Language="1033" Version="!(bind.FileVersion.AppExe)" Manufacturer="Peter Memmott" UpgradeCode="5980A7CC-9F59-41E8-8D2D-6398306F7688">
+    <Package InstallerVersion="405" Compressed="yes" InstallScope="perMachine" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of JoinFS is already installed." AllowSameVersionUpgrades="yes" />
+    <MediaTemplate EmbedCab="yes" />
+
+    <PropertyRef Id="NETFRAMEWORK40FULL"/>
+
+    <UIRef Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <Icon Id="AppIcon" SourceFile="$(var.JoinFS-FS2020.ProjectDir)App.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.JoinFS-FS2020.TargetDir)Licence.rtf" />
+    <WixVariable Id="WixUIInfoIco" Value="$(var.JoinFS-FS2020.ProjectDir)App.ico" />
+
+    <Condition Message=".NET Framework 4.0 required.">
+      <![CDATA[Installed OR NETFRAMEWORK40FULL]]>
+    </Condition>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="JoinFS-FS2020" >
+          <Directory Id="FRENCHFOLDER" Name="fr" />
+          <Directory Id="DUTCHFOLDER" Name="nl" />
+          <Directory Id="ITALIANFOLDER" Name="it" />
+          <Directory Id="GERMANFOLDER" Name="de" />
+          <Directory Id="RUSSIANFOLDER" Name="ru" />
+          <Directory Id="SPANISHFOLDER" Name="es" />
+  		  <Directory Id="KOREANFOLDER" Name="ko" />
+		  <Directory Id="PORTUGUESEFOLDER" Name="pt" />
+		</Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="JoinFS - FS2020" />
+      </Directory>
+      <Directory Id="DesktopFolder" Name="Desktop">
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ApplicationMenuShortcuts" Guid="76327E73-6119-47BD-90E3-7901CD92E747">
+        <Shortcut Id="ApplicationStartMenuShortcut" Name="JoinFS - FS2020" Description="Multiplayer across flight simulators" Target="[INSTALLFOLDER]JoinFS-FS2020.exe" WorkingDirectory="INSTALLFOLDER"/>
+        <Shortcut Id="LicenceStartMenuShortcut" Name="Licence" Description="JoinFS Licence And Terms" Target="[INSTALLFOLDER]Licence.rtf" WorkingDirectory="INSTALLFOLDER"/>
+        <util:InternetShortcut Id="AboutShortcut" Name="About" Target="http://joinfs.net/"/>
+        <util:InternetShortcut Id="ManualShortcut" Name="Manual" Target="http://joinfs.net/manual.html"/>
+        <Shortcut Id="UninstallShortcut" Name="Uninstall" Description="Uninstalls JoinFS" Target="[SystemFolder]msiexec.exe" Arguments="/x [ProductCode]"/>
+        <RemoveFolder Id="RemoveApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall"/>
+        <RegistryValue Root="HKCU" Key="Software\Peter Memmott\JoinFS - FS2020" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="DesktopFolder">
+      <Component Id="ApplicationDesktopShortcuts" Guid="D935E6E2-460E-467B-AB05-278D1D9FC900">
+        <Shortcut Id="ApplicationDesktopShortcut" Name="JoinFS - FS2020" Description="Multiplayer across flight simulators" Target="[INSTALLFOLDER]JoinFS-FS2020.exe" WorkingDirectory="INSTALLFOLDER"/>
+        <RemoveFolder Id="RemoveDesktopFolder" Directory="DesktopFolder" On="uninstall"/>
+        <RegistryValue Root="HKCU" Key="Software\Peter Memmott\JoinFS - FS2020" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="AppSimconnect" Guid="879AE3D9-ED7C-437E-A3F2-6B0A378BADAF">
+        <File Id="AppSimconnect" Name="Microsoft.FlightSimulator.SimConnect.dll" Source="$(var.JoinFS_TargetDir)Microsoft.FlightSimulator.SimConnect.dll" KeyPath="yes" Assembly=".net" AssemblyApplication="AppExe" />
+      </Component>
+      <Component Id="AppSimconnectDll" Guid="A05A3081-587A-4D4B-8FAD-260C0CEDAC65">
+        <File Id="AppSimconnectDll" Name="SimConnect.dll" Source="$(var.JoinFS_TargetDir)SimConnect.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="AppExe" Guid="D7FC4806-0754-4990-96D1-3124E4894A6E">
+        <File Id="AppExe" Name="JoinFS-FS2020.exe" Source="$(var.JoinFS_TargetDir)JoinFS-FS2020.exe" KeyPath="yes" Checksum="yes" />
+      </Component>
+      <Component Id="AppConfig" Guid="986F58FB-DAF8-434B-9FE7-69FBE4A7021B">
+        <File Id="AppConfig" Name="JoinFS-FS2020.exe.config" Source="$(var.JoinFS_TargetDir)JoinFS-FS2020.exe.config" KeyPath="yes" />
+      </Component>
+      <Component Id="AppLicence" Guid="D0050C14-1164-439C-8A20-18F0E1EA26CC">
+        <File Id="AppLicence" Name="Licence.rtf" Source="$(var.JoinFS_TargetDir)Licence.rtf" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <DirectoryRef Id="FRENCHFOLDER">
+      <Component Id="FrenchResource" Guid="13720024-01E6-4950-8919-8D81891DAB1A">
+        <File Id="FrenchResource" Name="JoinFS-FS2020.resources.dll" Source="$(var.JoinFS_TargetDir)fr\JoinFS-FS2020.resources.dll" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="DUTCHFOLDER">
+      <Component Id="DutchResource" Guid="99C03CBB-DE8E-46F8-9F37-3552D71B349A">
+        <File Id="DutchResource" Name="JoinFS-FS2020.resources.dll" Source="$(var.JoinFS_TargetDir)nl\JoinFS-FS2020.resources.dll" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="ITALIANFOLDER">
+      <Component Id="ItalianResource" Guid="2059C8D7-4199-4BDB-9814-BC29E9ECFAE3">
+        <File Id="ItalianResource" Name="JoinFS-FS2020.resources.dll" Source="$(var.JoinFS_TargetDir)it\JoinFS-FS2020.resources.dll" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="GERMANFOLDER">
+      <Component Id="GermanResource" Guid="9644668E-61D0-43DC-AD3A-DE6B2DD145CC">
+        <File Id="GermanResource" Name="JoinFS-FS2020.resources.dll" Source="$(var.JoinFS_TargetDir)de\JoinFS-FS2020.resources.dll" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="RUSSIANFOLDER">
+      <Component Id="RussianResource" Guid="C3F137B6-21AF-4DEC-B4F2-3CBB75AE1E83">
+        <File Id="RussianResource" Name="JoinFS-FS2020.resources.dll" Source="$(var.JoinFS_TargetDir)ru\JoinFS-FS2020.resources.dll" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="SPANISHFOLDER">
+      <Component Id="SpanishResource" Guid="0F054FE5-154D-450F-9CAD-DAB81CCF61D8">
+        <File Id="SpanishResource" Name="JoinFS-FS2020.resources.dll" Source="$(var.JoinFS_TargetDir)es\JoinFS-FS2020.resources.dll" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+	  <DirectoryRef Id="KOREANFOLDER">
+		  <Component Id="KoreanResource" Guid="8AC5D9C2-9D0A-4786-A77C-D877BB3CCC05">
+			  <File Id="KoreanResource" Name="JoinFS-FS2020.resources.dll" Source="$(var.JoinFS_TargetDir)ko\JoinFS-FS2020.resources.dll" KeyPath="yes" />
+		  </Component>
+	  </DirectoryRef>
+
+	  <DirectoryRef Id="PORTUGUESEFOLDER">
+		  <Component Id="PortugueseResource" Guid="9A627A0E-DD0B-42B6-BA13-C29499E67AC2">
+			  <File Id="PortugueseResource" Name="JoinFS-FS2020.resources.dll" Source="$(var.JoinFS_TargetDir)pt\JoinFS-FS2020.resources.dll" KeyPath="yes" />
+		  </Component>
+	  </DirectoryRef>
+
+	  <Feature Id="ProductFeature" Title="JoinFS - FS2020" Description="Multiplayer across flight simulators" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="FrenchResource" />
+      <ComponentRef Id="DutchResource" />
+      <ComponentRef Id="ItalianResource" />
+      <ComponentRef Id="GermanResource" />
+      <ComponentRef Id="RussianResource" />
+      <ComponentRef Id="SpanishResource" />
+ 	  <ComponentRef Id="KoreanResource" />
+ 	  <ComponentRef Id="PortugueseResource" />
+   	  <ComponentRef Id="ApplicationMenuShortcuts" />
+      <ComponentRef Id="ApplicationDesktopShortcuts" />
+    </Feature>
+
+  </Product>
+
+</Wix>

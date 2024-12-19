@@ -240,6 +240,29 @@ namespace JoinFS
                 }
             }
 
+            // check for MSFS2024
+            if (simulatorName == "Microsoft Flight Simulator 2024")
+            {
+                // change message
+                Label_Specify.Text = "Please specify the 'Flight Simulator Packages' folder:";
+
+                // addons
+                addOns.Add("My MSFS 2024");
+                //addOns.Add("MSFS 2024 Standard");
+                //addOns.Add("MSFS 2024 Deluxe");
+                //addOns.Add("MSFS 2024 Premium Deluxe");
+                //addOns.Add("MSFS 2024 Aviator");
+
+                // addons selected
+                addOnsSelected = new bool[addOns.Count];
+                // for each addon
+                for (int index = 0; index < addOns.Count && index < addOnsSelected.Length; index++)
+                {
+                    // check if selected
+                    addOnsSelected[index] = initialAddOns.Contains(addOns[index]);
+                }
+            }
+
             // check for initial additionals
             if (initialAdditionals.Length > 0)
             {

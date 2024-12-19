@@ -46,11 +46,21 @@ namespace JoinFS
         {
             public string model;
             public string substitute;
+#if FS2024
+            public string livery;
+            public string substituteLivery;
 
+            public Item(string model, string substitute, string livery, string substLivery)
+#else
             public Item(string model, string substitute)
+#endif
             {
                 this.model = model;
                 this.substitute = substitute;
+#if FS2024
+                this.livery = livery;
+                this.substituteLivery = substLivery;
+#endif
             }
         }
 
@@ -145,7 +155,12 @@ namespace JoinFS
                     if (main.substitution.matches.ContainsKey(defaultModel.Value))
                     {
                         // add row
+#if FS2024
+                        // TODO: something is not good at the livery substitution
+                        itemList.Add(new Item(defaultModel.Value, main.substitution.matches[defaultModel.Value].title, main.substitution.matches[defaultModel.Value].variation, main.substitution.matches[defaultModel.Value].variation));
+#else
                         itemList.Add(new Item(defaultModel.Value, main.substitution.matches[defaultModel.Value].title));
+#endif
                     }
                 }
 
@@ -156,7 +171,12 @@ namespace JoinFS
                     if (main.substitution.defaultModels.ContainsValue(key) == false)
                     {
                         // add row
+#if FS2024
+                        // TODO: something is not good at the livery substitution
+                        itemList.Add(new Item(key, main.substitution.matches[key].title, main.substitution.matches[key].variation, main.substitution.matches[key].variation));
+#else
                         itemList.Add(new Item(key, main.substitution.matches[key].title));
+#endif
                     }
                 }
             }
@@ -285,11 +305,19 @@ namespace JoinFS
         {
             // get selected model
             string model = GetSelectedModel();
+
             // check for selection
             if (model != null)
             {
                 // edit model match
+#if FS2024
+                // TODO: livery matching is not yet correct. solve it!
+                string livery = main.substitution.matches[model].variation;
+
+                if (main.substitution.EditMatch(model, livery, main.substitution.GetTypeRole(model)))
+#else
                 if (main.substitution.EditMatch(model, main.substitution.GetTypeRole(model)))
+#endif
                 {
                     RefreshWindow();
                 }

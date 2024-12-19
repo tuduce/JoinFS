@@ -4,17 +4,16 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{8755A336-E832-4F7C-92DF-975B80828E6D}</ProjectGuid>
+    <ProjectGuid>{ADB6858F-B575-496B-8EFF-3859E3F855BE}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>JoinFS</RootNamespace>
-    <AssemblyName>JoinFS-XPLANE</AssemblyName>
+    <AssemblyName>JoinFS-FS2024</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <IsWebBootstrapper>false</IsWebBootstrapper>
     <TargetFrameworkProfile />
-    <PublishUrl>
-    </PublishUrl>
+    <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
     <UpdateEnabled>true</UpdateEnabled>
@@ -26,8 +25,8 @@
     <MapFileExtensions>true</MapFileExtensions>
     <SupportUrl>http://joinfs.net</SupportUrl>
     <TargetCulture>en</TargetCulture>
-    <ProductName>JoinFS-XPLANE</ProductName>
-    <PublisherName>Peter Memmott</PublisherName>
+    <ProductName>JoinFS-FS2024</ProductName>
+    <PublisherName>Peter Memmott, FS2024 by tudux</PublisherName>
     <OpenBrowserOnPublish>false</OpenBrowserOnPublish>
     <ApplicationRevision>2</ApplicationRevision>
     <ApplicationVersion>0.3.2.%2a</ApplicationVersion>
@@ -40,9 +39,9 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>XPLANE\bin\Debug\</OutputPath>
-    <IntermediateOutputPath>XPLANE\obj\Debug\</IntermediateOutputPath>
-    <DefineConstants>TRACE;DEBUG;XPLANE</DefineConstants>
+    <OutputPath>FS2024\bin\Debug\</OutputPath>
+    <IntermediateOutputPath>FS2020\obj\Debug\</IntermediateOutputPath>
+    <DefineConstants>TRACE;DEBUG;FS2024;SIMCONNECT</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -50,16 +49,17 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
-    <ManifestCertificateThumbprint>7A136ABD081997B5940D90461946FC1009D2F188</ManifestCertificateThumbprint>
+    <ManifestCertificateThumbprint>1A4142376C1101AC3F88BCD93553676DF80FFB7B</ManifestCertificateThumbprint>
   </PropertyGroup>
   <PropertyGroup>
-    <ManifestKeyFile>joinfs.pfx</ManifestKeyFile>
+    <ManifestKeyFile>
+    </ManifestKeyFile>
   </PropertyGroup>
   <PropertyGroup>
     <GenerateManifests>false</GenerateManifests>
   </PropertyGroup>
   <PropertyGroup>
-    <SignManifests>false</SignManifests>
+    <SignManifests>true</SignManifests>
   </PropertyGroup>
   <PropertyGroup />
   <PropertyGroup />
@@ -69,10 +69,10 @@
     <ApplicationIcon>Resources\App.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup>
-    <SignAssembly>true</SignAssembly>
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
   <PropertyGroup>
-    <AssemblyOriginatorKeyFile>joinfs.pfx</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>JoinFS-MSFS2024.pfx</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject>JoinFS.Program</StartupObject>
@@ -84,9 +84,9 @@
     <TargetZone>Internet</TargetZone>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <OutputPath>XPLANE\bin\Release\</OutputPath>
-    <IntermediateOutputPath>XPLANE\obj\Release\</IntermediateOutputPath>
-    <DefineConstants>XPLANE</DefineConstants>
+    <OutputPath>FS2020\bin\Release\</OutputPath>
+    <IntermediateOutputPath>FS2020\obj\Release\</IntermediateOutputPath>
+    <DefineConstants>FS2020;SIMCONNECT</DefineConstants>
     <Optimize>true</Optimize>
     <DebugType>none</DebugType>
     <PlatformTarget>x64</PlatformTarget>
@@ -102,7 +102,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug FS2024|AnyCPU'">
     <DebugSymbols>true</DebugSymbols>
     <OutputPath>bin\Debug FS2024\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;XPLANE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;FS2020;SIMCONNECT</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DebugType>full</DebugType>
@@ -113,7 +113,7 @@
   <ItemGroup>
     <Reference Include="Microsoft.FlightSimulator.SimConnect, Version=11.0.62651.3, Culture=neutral, PublicKeyToken=baf445ffb3a06b5c, processorArchitecture=AMD64">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>FS2020\Microsoft.FlightSimulator.SimConnect.dll</HintPath>
+      <HintPath>FS2024\Microsoft.FlightSimulator.SimConnect.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.configuration" />
@@ -216,12 +216,6 @@
     <Compile Include="Forms\MatchingForm.Designer.cs">
       <DependentUpon>MatchingForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="Forms\ScanForm_XPLANE.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\ScanForm_XPLANE.designer.cs">
-      <DependentUpon>ScanForm_XPLANE.cs</DependentUpon>
-    </Compile>
     <Compile Include="Forms\ShortcutForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -323,7 +317,6 @@
     <Compile Include="Forms\XPlaneForm.Designer.cs">
       <DependentUpon>XPlaneForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="XPlane.cs" />
     <EmbeddedResource Include="Forms\AboutForm.de.resx">
       <DependentUpon>AboutForm.cs</DependentUpon>
     </EmbeddedResource>
@@ -770,33 +763,6 @@
     <EmbeddedResource Include="Forms\ScanForm.ru.resx">
       <DependentUpon>ScanForm.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\ScanForm_XPLANE.de.resx">
-      <DependentUpon>ScanForm_XPLANE.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\ScanForm_XPLANE.es.resx">
-      <DependentUpon>ScanForm_XPLANE.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\ScanForm_XPLANE.fr.resx">
-      <DependentUpon>ScanForm_XPLANE.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\ScanForm_XPLANE.it.resx">
-      <DependentUpon>ScanForm_XPLANE.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\ScanForm_XPLANE.ko.resx">
-      <DependentUpon>ScanForm_XPLANE.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\ScanForm_XPLANE.nl.resx">
-      <DependentUpon>ScanForm_XPLANE.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\ScanForm_XPLANE.pt.resx">
-      <DependentUpon>ScanForm_XPLANE.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\ScanForm_XPLANE.resx">
-      <DependentUpon>ScanForm_XPLANE.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\ScanForm_XPLANE.ru.resx">
-      <DependentUpon>ScanForm_XPLANE.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="Forms\SessionForm.es.resx">
       <DependentUpon>SessionForm.cs</DependentUpon>
     </EmbeddedResource>
@@ -1141,16 +1107,6 @@
       <DependentUpon>Resources.resx</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
-    <EmbeddedResource Include="Properties\Resources-XPLANE.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources-XPLANE.Designer.cs</LastGenOutput>
-      <SubType>Designer</SubType>
-    </EmbeddedResource>
-    <Compile Include="Properties\Resources-XPLANE.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Resources-XPLANE.resx</DependentUpon>
-      <DesignTime>True</DesignTime>
-    </Compile>
     <EmbeddedResource Include="Forms\ScanForm.resx">
       <DependentUpon>ScanForm.cs</DependentUpon>
     </EmbeddedResource>
@@ -1172,18 +1128,15 @@
     <EmbeddedResource Include="Resources\strings.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>strings.Designer.cs</LastGenOutput>
-      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\PermissionsForm.resx">
       <DependentUpon>PermissionsForm.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\strings.ru.resx" />
+    <None Include="JoinFS-MSFS2024.pfx" />
     <None Include="joinfs.pfx" />
     <None Include="Licence.rtf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="lin.xpl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Properties\app.manifest">
@@ -1198,17 +1151,6 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
-    <None Include="Resources\XPMP2_C172_r2.dat" />
-    <None Include="Resources\XPMP2_Credits.dat" />
-    <None Include="Resources\XPMP2_Doc8643.dat" />
-    <None Include="Resources\XPMP2_MapIcons.dat" />
-    <None Include="Resources\XPMP2_Obj8DataRefs.dat" />
-    <None Include="Resources\XPMP2_r2.dat" />
-    <None Include="Resources\XPMP2_related.dat" />
-    <None Include="Resources\XPMP2_xsb_aircraft.dat" />
-    <None Include="win.xpl">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config">
@@ -1251,11 +1193,11 @@
   </Target>
   -->
   <Target Name="AfterBuild">
-    <Exec Command="&quot;C:\Program Files (x86)\Microsoft SDKs\ClickOnce\SignTool\signtool.exe&quot; sign /f &quot;$(ProjectDir)joinfs.pfx&quot; /p WSAiwsdj9( &quot;$(TargetPath)&quot;" />
+    <Exec Command="&quot;C:\Program Files (x86)\Microsoft SDKs\ClickOnce\SignTool\signtool.exe&quot; sign /f &quot;$(ProjectDir)JoinFS-MSFS2024.pfx&quot; /p WSAiwsdj9( &quot;$(TargetPath)&quot;" />
   </Target>
   <PropertyGroup>
-    <PostBuildEvent>
-    </PostBuildEvent>
+    <PostBuildEvent>copy "$(ProjectDir)FS2024\SimConnect.dll" "$(TargetDir)"
+</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <PreBuildEvent>

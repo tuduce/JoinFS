@@ -890,6 +890,8 @@ namespace JoinFS
 
 #if FS2020
                 MonitorEvent("Starting JoinFS-FS2020 v" + version);
+#elif FS2024
+                MonitorEvent("Starting JoinFS-FS2024 v" + version);
 #elif XPLANE
                 MonitorEvent("Starting JoinFS-XPLANE v" + version);
 #elif P3DV4

@@ -6,6 +6,14 @@ using System.Windows.Forms;
 using System.IO;
 using System.Globalization;
 using JoinFS.Properties;
+using System.Net.NetworkInformation;
+using System.Drawing;
+using System.Net.Sockets;
+using static System.Net.Mime.MediaTypeNames;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TextBox;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
+using System.Security.Policy;
+using System.Windows.Forms.VisualStyles;
 
 namespace JoinFS
 {
@@ -180,12 +188,39 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Does a model exist
+        /// </summary>
+        /// <returns>Model exists</returns>
+        public bool ModelExists(string title, string variation)
+        {
+            return GetModel(title, variation) != null;
+        }
+
+        /// <summary>
         /// Get a model by title
         /// </summary>
         /// <returns>Model exists</returns>
         public Model GetModel(string title)
         {
+#if FS2024
+            string[] parts = title.Split('|');
+            if (parts.Length == 2)
+            {
+                return models.Find(m => m.title.Equals(parts[0]) && m.variation.Equals(parts[1]));
+            }
+            return models.Find(m => m.title.Equals(parts[0]));
+#else
             return models.Find(m => m.title.Equals(title));
+#endif
+        }
+
+        /// <summary>
+        /// Get a model by title and livery
+        /// </summary>
+        /// <returns>Model exists</returns>
+        public Model GetModel(string title, string variation)
+        {
+            return models.Find(m => m.title.Equals(title) && m.variation.Equals(variation));
         }
 
         /// <summary>
@@ -380,7 +415,11 @@ namespace JoinFS
                 }
 
                 // check if model is already listed
+#if FS2024
+                Model model = GetModel(scanTitle, scanVariation);
+#else
                 Model model = GetModel(scanTitle);
+#endif
                 if (model != null)
                 {
                     // update the model details
@@ -426,7 +465,6 @@ namespace JoinFS
             }
         }
 
-
         /// <summary>
         /// Dynamic update of the model list
         /// </summary>
@@ -449,6 +487,14 @@ namespace JoinFS
             main.ScheduleSubstitutionSave();
         }
 
+        // TODO: guard with #idefined MSFS2024
+        /// <summary>
+        /// Get all the models available in MSFS2024
+        /// </summary>
+        public void ScanSimForModels()
+        {
+            main.sim.RequestSimulatorModels();
+        }
 
         /// <summary>
         /// Dynamic update of the model list
@@ -579,7 +625,8 @@ namespace JoinFS
                     List<string> scanFolders = new List<string>();
 
                     // MSF
-                    if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020")
+                    if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020" ||
+                        main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
                     {
                         // add folder to list
                         scanFolders.Add(simFolder);
@@ -895,8 +942,9 @@ namespace JoinFS
                         }
                     }
 
-                    // check for MSFS2020
-                    if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020")
+                    // check for MSFS2020 or MSFS2024
+                    if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020" ||
+                        main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
                     {
                         // check for initial addons
                         if (initialAddOns.Length > 0)
@@ -906,7 +954,11 @@ namespace JoinFS
                             // for each addon
                             foreach (var addOn in addOns)
                             {
-                                if (addOn == "Asobo Standard")
+                                if (addOn == "My MSFS 2024")
+                                {
+                                    ScanSimForModels();
+                                }
+                                else if (addOn == "Asobo Standard")
                                 {
                                     SubmitModel("Airbus A320neo", "Asobo", "Airbus A320", "neo", 0, "Airliner");
                                     SubmitModel("Boeing 787-10 Asobo", "Asobo", "Boeing 787-10", "_default", 0, "Airliner");
@@ -1538,7 +1590,11 @@ namespace JoinFS
                             // split line
                             string[] parts = line.Split('|');
                             // check that model is not already present
+#if FS2024
+                            if (ModelExists(parts[0], parts[3]) == false)
+#else
                             if (ModelExists(parts[0]) == false)
+#endif
                             {
                                 // check for correct parts
                                 if (parts.Length == 4)
@@ -2282,7 +2338,11 @@ namespace JoinFS
         /// <param name="modelTitle"></param>
         /// <param name="typerole"></param>
         /// <returns></returns>
+#if FS2024
+        public bool EditMatch(string modelTitle, string modelVariation, int typerole)
+#else
         public bool EditMatch(string modelTitle, int typerole)
+#endif
         {
 #if !SERVER && !CONSOLE
             // check for some models
@@ -2291,14 +2351,22 @@ namespace JoinFS
                 try
                 {
                     // show dialog for choosing match model
+#if FS2024
+                    SubstitutionForm substitutionForm = new SubstitutionForm(main, modelTitle, modelVariation, typerole);
+#else
                     SubstitutionForm substitutionForm = new SubstitutionForm(main, modelTitle, typerole);
+#endif
                     switch (substitutionForm.ShowDialog())
                     {
                         case System.Windows.Forms.DialogResult.OK:
                             lock (main.conch)
                             {
                                 // find replace with model
+#if FS2024
+                                Model model = GetModel(substitutionForm.GetWithModel(), substitutionForm.GetWithVariation());
+#else
                                 Model model = GetModel(substitutionForm.GetWithModel());
+#endif
                                 if (model != null)
                                 {
                                     // update model match
@@ -2338,7 +2406,7 @@ namespace JoinFS
                 MessageBox.Show("The model list is empty. Use 'File|Scan For Models...' to generate a list.", Main.name + ": Model Matching");
             }
 #endif
-            return false;
+                                return false;
         }
 
         /// <summary>
@@ -2347,7 +2415,11 @@ namespace JoinFS
         /// <param name="modelTitle"></param>
         /// <param name="typerole"></param>
         /// <returns></returns>
+#if FS2024
+        public bool EditMasquerade(string modelTitle, string modelVariation, int typerole)
+#else
         public bool EditMasquerade(string modelTitle, int typerole)
+#endif
         {
 #if !SERVER && !CONSOLE
             // check for some models
@@ -2356,14 +2428,22 @@ namespace JoinFS
                 try
                 {
                     // show dialog for choosing match model
+#if FS2024
+                    SubstitutionForm substitutionForm = new SubstitutionForm(main, modelTitle, modelVariation, typerole);
+#else
                     SubstitutionForm substitutionForm = new SubstitutionForm(main, modelTitle, typerole);
+#endif
                     switch (substitutionForm.ShowDialog())
                     {
                         case System.Windows.Forms.DialogResult.OK:
                             lock (main.conch)
                             {
                                 // find replace with model
+#if FS2024
+                                Model model = GetModel(substitutionForm.GetWithModel(), substitutionForm.GetWithVariation());
+#else
                                 Model model = GetModel(substitutionForm.GetWithModel());
+#endif
                                 if (model != null)
                                 {
                                     // update model masquerade
@@ -2399,7 +2479,7 @@ namespace JoinFS
                 MessageBox.Show("The model list is empty. Use 'File|Scan For Models...' to generate a list.", Main.name + ": Model Masquerading");
             }
 #endif
-            return false;
+                                return false;
         }
 
         /// <summary>
@@ -2485,13 +2565,22 @@ namespace JoinFS
         /// </summary>
         /// <param name="model">Model to check</param>
         /// <returns>Matched model</returns>
+#if FS2024
+        public void Match(string title, string livery, int typerole, out Model model, out Type type)
+        // in MSFS2024 aircraft livery is the model variation
+#else
         public void Match(string title, int typerole, out Model model, out Type type)
+#endif
         {
             // check for existing model match
             if (matches.ContainsKey(title))
             {
                 // check for original model
+#if FS2024
+                model = GetModel(matches[title].title, matches[title].variation);
+#else
                 model = GetModel(matches[title].title);
+#endif
                 if (model != null)
                 {
                     // use matched model
@@ -2501,7 +2590,11 @@ namespace JoinFS
             }
 
             // check for original model
+#if FS2024
+            model = GetModel(title, livery);
+#else
             model = GetModel(title);
+#endif
             if (model != null)
             {
                 // use the specified model

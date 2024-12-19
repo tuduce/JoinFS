@@ -8,6 +8,9 @@ namespace JoinFS
     {
         Main main;
 
+#if FS2024
+        string variation;
+#endif
         string replace;
         int typerole;
 
@@ -20,6 +23,13 @@ namespace JoinFS
         {
             return Text_Title.Text;
         }
+
+#if FS2024
+        public string GetWithVariation()
+        {
+            return variation;
+        }
+#endif
 
         public void UpdateType(string filter)
         {
@@ -132,6 +142,7 @@ namespace JoinFS
             Text_Title.Text = "";
 
             string title = "";
+            string variation = "";
 
             lock (main.conch)
             {
@@ -142,21 +153,30 @@ namespace JoinFS
                     if (model.type.Equals(Combo_Type.Text) && model.variation.Equals(Combo_Variation.Text))
                     {
                         title = model.title;
+                        variation = model.variation;
                     }
                 }
             }
 
             // add to list
-            Text_Title.Text = title;
+            Text_Title.Text = title + "(Var: " + variation + ")";
         }
 
+#if FS2024
+        public SubstitutionForm(Main main, string replace, string livery, int typerole)
+#else
         public SubstitutionForm(Main main, string replace, int typerole)
+#endif
         {
             InitializeComponent();
 
             this.main = main;
             this.replace = replace;
             this.typerole = typerole;
+
+#if FS2024
+            this.variation = livery;
+#endif
 
             // change icon
             Icon = main.icon;
@@ -205,13 +225,21 @@ namespace JoinFS
             UpdateType("");
 
             // fill form
+#if FS2024
+            Text_Replace.Text = replace + " ( Var: " + variation + ")";
+#else
             Text_Replace.Text = replace;
+#endif
 
             // get match
             Substitution.Model model;
             lock (main.conch)
             {
+#if FS2024
+                main.substitution.Match(replace, variation, typerole, out model, out Substitution.Type type);
+#else
                 main.substitution.Match(replace, typerole, out model, out Substitution.Type type);
+#endif
             }
 
             // check if model exists
@@ -220,7 +248,11 @@ namespace JoinFS
                 // set UI
                 Combo_Type.Text = model.type;
                 Combo_Variation.Text = model.variation;
+#if FS2024
+                Text_Title.Text = model.title + " ( Var: " + model.variation + ")";
+#else
                 Text_Title.Text = model.title;
+#endif
             }
             else
             {

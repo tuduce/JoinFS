@@ -80,6 +80,9 @@ namespace JoinFS
                 sc.AddToDataDefinition(Sim.Definitions.OBJECT_GET_INFO, "ATC MODEL", null, SIMCONNECT_DATATYPE.STRING32, 0.0f, SimConnect.SIMCONNECT_UNUSED);
                 sc.AddToDataDefinition(Sim.Definitions.OBJECT_GET_INFO, "TITLE", null, SIMCONNECT_DATATYPE.STRING256, 0.0f, SimConnect.SIMCONNECT_UNUSED);
                 sc.AddToDataDefinition(Sim.Definitions.OBJECT_GET_INFO, "IS USER SIM", null, SIMCONNECT_DATATYPE.INT32, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+#if FS2024
+                sc.AddToDataDefinition(Sim.Definitions.OBJECT_GET_INFO, "LIVERY NAME", null, SIMCONNECT_DATATYPE.STRING256, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+#endif
 
                 // define a position velocity variables structure
                 sc.AddToDataDefinition(Sim.Definitions.OBJECT_POSITION_VELOCITY, "Plane Latitude", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
@@ -226,6 +229,9 @@ namespace JoinFS
                 sc.OnRecvException += new SimConnect.RecvExceptionEventHandler(RecvException);
                 sc.OnRecvEventFrame += new SimConnect.RecvEventFrameEventHandler(RecvEventFrame);
                 sc.OnRecvEvent += new SimConnect.RecvEventEventHandler(RecvEvent);
+#if FS2024
+                sc.OnRecvEnumerateSimobjectAndLiveryList += new SimConnect.RecvEnumerateSimobjectAndLiveryListEventHandler(RecvModelList);
+#endif
 
                 // system events
                 sc.SubscribeToSystemEvent(Sim.Event.OBJECT_ADDED, "ObjectAdded");
@@ -245,6 +251,16 @@ namespace JoinFS
 
         ~SimConnectInterface()
         {
+        }
+
+        public void RequestSimulatorModels()
+        {
+#if FS2024
+            //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.USER);
+            sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT);
+            sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER);
+            sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.HOT_AIR_BALLOON);
+#endif
         }
 
         void RecvSimObjectData(SimConnect sender, SIMCONNECT_RECV_SIMOBJECT_DATA data)
@@ -276,6 +292,13 @@ namespace JoinFS
         {
             sim.ProcessEvent(data.uEventID, data.dwData);
         }
+
+#if FS2024
+        void RecvModelList(SimConnect sender, SIMCONNECT_RECV_ENUMERATE_SIMOBJECT_AND_LIVERY_LIST data)
+        {
+            sim.ProcessModelList(data);
+        }
+#endif
 
         void RecvOpen(SimConnect sender, SIMCONNECT_RECV_OPEN data)
         {
@@ -503,7 +526,18 @@ namespace JoinFS
         {
             try
             {
-                sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.ALL);
+                if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020")
+                {
+                    sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.ALL);
+                }
+#if FS2024
+                else if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
+                {
+                    sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT);
+                    sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER);
+                    sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.HOT_AIR_BALLOON);
+                }
+#endif
             }
             catch (COMException ex)
             {
@@ -608,6 +642,10 @@ namespace JoinFS
             {
                 // get title
                 string title = obj.ModelTitle;
+#if FS2024
+                // get livery
+                string livery = obj.ModelLivery;
+#endif
                 // convert the long hyphen
                 title = title.Replace("–", "â€“");
 
@@ -615,7 +653,19 @@ namespace JoinFS
                 if (obj is Sim.Plane)
                 {
                     // create aircraft
-                    sc.AICreateNonATCAircraft(title, sim.MakeAtcId(obj as Sim.Aircraft), initPosition, Sim.Requests.CREATE_OBJECT);
+                    if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020")
+                    {
+                        sc.AICreateNonATCAircraft(title, sim.MakeAtcId(obj as Sim.Aircraft), initPosition, Sim.Requests.CREATE_OBJECT);
+                    }
+#if FS2024
+                    else if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
+                    {
+                        // TODO: remove monitor output
+                        string tailNumber = sim.MakeAtcId(obj as Sim.Aircraft);
+                        main.MonitorEvent("Spawning " + title + " w/ livery " + livery + " tail no: " + tailNumber);
+                        sc.AICreateNonATCAircraft_EX1(title, livery, tailNumber, initPosition, Sim.Requests.CREATE_OBJECT);
+                    }
+#endif
                 }
                 else
                 {
@@ -768,6 +818,7 @@ namespace JoinFS
             CREATE_OBJECT,
             RELEASE_AI,
             REMOVE_OBJECT,
+            GET_MODELS_AND_LIVERIES,
         };
 
         /// <summary>
@@ -882,6 +933,10 @@ namespace JoinFS
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
             public String model;
             public int isUser;
+#if FS2024
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+            public String livery;
+#endif
         };
 
         /// <summary>
@@ -1382,6 +1437,9 @@ namespace JoinFS
             public uint netId = uint.MaxValue;
             public uint simId = uint.MaxValue;
             public string ownerModel = "";
+#if FS2024
+            public string ownerLivery = "";
+#endif
             public Substitution.Model subModel = null;
             public Substitution.Type subType = Substitution.Type.Original;
             public int typerole = Substitution.TypeRole_SingleProp;
@@ -1416,6 +1474,10 @@ namespace JoinFS
             public bool takeControl = false;
 
             public string ModelTitle { get { return subModel != null ? subModel.title : ownerModel; } }
+
+#if FS2024
+            public string ModelLivery { get { return subModel != null ? subModel.variation : ownerLivery; } }
+#endif
 
             /// <summary>
             /// Object position
@@ -1530,7 +1592,11 @@ namespace JoinFS
             }
 
             // update match
+#if FS2024
+            UpdateObject(obj, obj.ownerModel, obj.ownerLivery, obj.typerole);
+#else
             UpdateObject(obj, obj.ownerModel, obj.typerole);
+#endif
         }
 
         /// <summary>
@@ -1824,13 +1890,23 @@ namespace JoinFS
         /// Update the model for an object
         /// </summary>
         /// <param name="model"></param>
+#if FS2024
+        public void UpdateObject(Obj obj, string model, string livery, int typerole)
+#else
         public void UpdateObject(Obj obj, string model, int typerole)
+#endif
         {
+            obj.typerole = typerole;
             // update model
             obj.ownerModel = model;
-            obj.typerole = typerole;
+#if FS2024
+            obj.ownerLivery = livery;
+            // model match
+            main.substitution?.Match(obj.ownerModel, obj.ownerLivery, obj.typerole, out obj.subModel, out obj.subType);
+#else
             // model match
             main.substitution ?. Match(obj.ownerModel, obj.typerole, out obj.subModel, out obj.subType);
+#endif
             // reset failed flag
             obj.failed = false;
         }
@@ -1973,7 +2049,11 @@ namespace JoinFS
         /// <param name="ownerGuid">Owner of the object</param>
         /// <param name="netId">Owner's sim ID</param>
         /// <param name="engine">Aircraft engine</param>
+#if FS2024        
+        public Obj UpdateObject(LocalNode.Nuid ownerNuid, uint netId, string model, string livery, int typerole, double netTime, ref ObjectPositionVelocity positionVelocity)
+#else
         public Obj UpdateObject(LocalNode.Nuid ownerNuid, uint netId, string model, int typerole, double netTime, ref ObjectPositionVelocity positionVelocity)
+#endif
         {
             // get object
             Obj obj = objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId);
@@ -1984,7 +2064,11 @@ namespace JoinFS
                 // set expire time
                 obj.expireTime = main.ElapsedTime + OBJECT_EXPIRE_TIME;
                 // model
+#if FS2024
+                UpdateObject(obj, model, livery, typerole);
+#else
                 UpdateObject(obj, model, typerole);
+#endif
                 // update position and velocity
                 UpdateObject(obj, netTime, ref positionVelocity);
                 // create variables
@@ -2084,7 +2168,7 @@ namespace JoinFS
                         UpdateObject(obj, obj.netPosition);
                         // zero sim velocity
                         simconnect.SetData(Definitions.OBJECT_VELOCITY, obj.simId, new ObjectVelocity());
-#if FS2020
+#if (FS2020 || FS2024)
                         // set orientation
                         simconnect.SetData(Definitions.OBJECT_EULER, obj.simId, new ObjectEuler(obj.netPosition.angles));
                         obj.simPosition.angles = obj.netPosition.angles.Clone();
@@ -2109,7 +2193,7 @@ namespace JoinFS
 
                         // largest difference in altitude before reset
                         double altitudeDeltaLimit = 50.0;
-#if FS2020
+#if (FS2020 || FS2024)
                         // FS2020 has an issue where the aircraft remains glued to the ground, so reset much earlier when the altitude diverts on the ground
                         if (simPosition.ground != 0) altitudeDeltaLimit = 0.2;
 #endif
@@ -2121,7 +2205,7 @@ namespace JoinFS
                             UpdateObject(obj, netPosition);
                             // update sim velocity
                             simconnect.SetData(Definitions.OBJECT_VELOCITY, obj.simId, new ObjectVelocity(netVelocity.linear, netVelocity.angular, netVelocity.acc));
-#if FS2020
+#if (FS2020 || FS2024)
                             // set orientation
                             simconnect.SetData(Definitions.OBJECT_EULER, obj.simId, new ObjectEuler(netPosition.angles));
                             obj.simPosition.angles = netPosition.angles.Clone();
@@ -2145,7 +2229,7 @@ namespace JoinFS
                                     // add delta to angular velocity to catch up
                                     netVelocity.angular += deltaAngles * 1.5;
                                 }
-#if FS2020
+#if (FS2020 || FS2024)
                                 // set orientation
                                 simconnect.SetData(Definitions.OBJECT_EULER, obj.simId, new ObjectEuler(netPosition.angles));
                                 obj.simPosition.angles = netPosition.angles.Clone();
@@ -2282,7 +2366,11 @@ namespace JoinFS
             /// </summary>
             /// <param name="simId">SimConnect ID</param>
             /// <param name="simInfo">SimConnect aircraft</param>
+#if FS2024
+            public Aircraft(uint simId, string callsign, string icaoType, string model, string livery, bool isUser)
+#else
             public Aircraft(uint simId, string callsign, string icaoType, string model, bool isUser)
+#endif
             {
                 // set sim ID
                 this.simId = simId;
@@ -2292,6 +2380,9 @@ namespace JoinFS
                 flightPlan.callsign = callsign;
                 flightPlan.icaoType = icaoType;
                 ownerModel = model;
+#if FS2024
+                ownerLivery = livery;
+#endif
                 subModel = null;
                 // check for this user
                 if (isUser)
@@ -2362,12 +2453,22 @@ namespace JoinFS
         /// </summary>
         public class Plane : Aircraft
         {
+            
+#if FS2024
+            /// <summary>
+            /// Constructor
+            /// </summary>
+            /// <param name="simId">SimConnect ID</param>
+            /// <param name="simInfo">SimConnect aircraft</param>
+            public Plane(uint simId, string callsign, string type, string model, string livery, bool isUser) : base(simId, callsign, type, model, livery, isUser) { }
+#else
             /// <summary>
             /// Constructor
             /// </summary>
             /// <param name="simId">SimConnect ID</param>
             /// <param name="simInfo">SimConnect aircraft</param>
             public Plane(uint simId, string callsign, string type, string model, bool isUser) : base(simId, callsign, type, model, isUser) { }
+#endif
 
             /// <summary>
             /// Constructor
@@ -2382,12 +2483,22 @@ namespace JoinFS
         /// </summary>
         public class Helicopter : Aircraft
         {
+
+#if FS2024
+            /// <summary>
+            /// Constructor
+            /// </summary>
+            /// <param name="simId">SimConnect ID</param>
+            /// <param name="simInfo">SimConnect aircraft</param>
+            public Helicopter(uint simId, string callsign, string type, string model, string livery, bool isUser) : base(simId, callsign, type, model, livery, isUser) { }
+#else
             /// <summary>
             /// Constructor
             /// </summary>
             /// <param name="simId">SimConnect ID</param>
             /// <param name="simInfo">SimConnect aircraft</param>
             public Helicopter(uint simId, string callsign, string type, string model, bool isUser) : base(simId, callsign, type, model, isUser) { }
+#endif
 
             /// <summary>
             /// Constructor
@@ -2510,7 +2621,11 @@ namespace JoinFS
         /// <param name="ownerGuid">Owner of the aircraft</param>
         /// <param name="netId">Owner's sim ID</param>
         /// <param name="engine">Aircraft engine</param>
+#if FS2024
+        public Aircraft UpdateAircraft(LocalNode.Nuid ownerNuid, uint netId, bool user, bool plane, string callsign, string nickname, string model, string livery, int typerole, double netTime, ref AircraftPosition aircraftPosition)
+#else
         public Aircraft UpdateAircraft(LocalNode.Nuid ownerNuid, uint netId, bool user, bool plane, string callsign, string nickname, string model, int typerole, double netTime, ref AircraftPosition aircraftPosition)
+#endif
         {
             // check for valid aircraft
             if (!(objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId) is Aircraft aircraft))
@@ -2528,7 +2643,11 @@ namespace JoinFS
                 aircraft.user = user;
                 aircraft.flightPlan.callsign = callsign;
                 // model
+#if FS2024
+                UpdateObject(aircraft, model, livery, typerole);
+#else
                 UpdateObject(aircraft, model, typerole);
+#endif
                 // create variables
                 CreateModelVariables(aircraft);
                 // add aircraft
@@ -3164,6 +3283,21 @@ namespace JoinFS
         Timer trackingTimer = new Timer(1.0);
         Timer variablesTimer = new Timer(1.0);
         Timer flightPlanTimer = new Timer(5.0);
+
+        // TODO: guard with #if MSFS2024
+        /// <summary>
+        /// Request list of models and liverlies
+        /// </summary>
+        public void RequestSimulatorModels()
+        {
+#if SIMCONNECT
+            // check for FS connection
+            if (simconnect != null)
+            {
+                simconnect.RequestSimulatorModels();
+            }
+#endif
+        }
 
         /// <summary>
         /// Request information about aircraft in the sim
@@ -3843,10 +3977,11 @@ namespace JoinFS
             }
         }
 
-#endregion
+        #endregion
 
 #region Callbacks
 
+#if XPLANE || CONSOLE
         /// <summary>
         /// XPlane model notify
         /// </summary>
@@ -3936,6 +4071,7 @@ namespace JoinFS
                 }
             }
         }
+#endif
 
         /// <summary>
         /// XPlane connected notify
@@ -4013,6 +4149,8 @@ namespace JoinFS
                                     string callsign = info.callsign.TrimStart(' ', '\t').TrimEnd(' ', '\t');
                                     // remove any junk from type
                                     string type = info.type;
+                                    // TODO: delete monitor
+                                    // main.MonitorEvent("DEBUG: orig obj type " + type + " model " + info.model + " cat " + info.category);
                                     type = type.Replace("TTATCCOM.AC_MODEL ", "");
                                     type = type.Replace("TTATCCOM.AC_MODEL_", "");
                                     type = type.Replace("TT:ATCCOM.AC_MODEL ", "");
@@ -4022,13 +4160,42 @@ namespace JoinFS
                                     string model = info.model;
                                     // convert the long hyphen
                                     model = model.Replace("â€“", "–");
+
                                     // check category
                                     switch (info.category)
                                     {
                                         case "Boat": obj = new Boat(objectId, callsign, type, model, info.isUser != 0); break;
                                         case "GroundVehicle": obj = new Vehicle(objectId, callsign, type, model, info.isUser != 0); break;
-                                        case "Airplane": obj = new Plane(objectId, callsign, type, model, info.isUser != 0); break;
-                                        case "Helicopter": obj = new Helicopter(objectId, callsign, type, model, info.isUser != 0); break;
+                                        case "Airplane":
+                                            {
+                                                if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
+                                                {
+#if FS2024
+                                                    obj = new Plane(objectId, callsign, type, model, info.livery, info.isUser != 0);
+#endif
+                                                } else
+                                                {
+#if !FS2024
+                                                    obj = new Plane(objectId, callsign, type, model, info.isUser != 0);
+#endif
+                                                }
+                                                break;
+                                            }
+                                        case "Helicopter":
+                                            {
+                                                if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
+                                                {
+#if FS2024
+                                                    obj = new Helicopter(objectId, callsign, type, model, info.livery, info.isUser != 0);
+#endif
+                                                } else
+                                                {
+#if !FS2024
+                                                    obj = new Helicopter(objectId, callsign, type, model, info.isUser != 0);
+#endif
+                                                }
+                                                break;
+                                            }
                                         default: obj = new Obj(objectId, model); break;
                                     }
                                     // set type role
@@ -4411,10 +4578,10 @@ namespace JoinFS
         }
 #endif
 
-        /// <summary>
-        /// Simulator details
-        /// </summary>
-        string simulatorName = "";
+                                                    /// <summary>
+                                                    /// Simulator details
+                                                    /// </summary>
+                                                    string simulatorName = "";
         string simulatorVersion = "0";
 
         /// <summary>
@@ -4447,6 +4614,12 @@ namespace JoinFS
                 name = "Microsoft Flight Simulator 2020";
             }
 
+            // convert name for MSFS2024
+            if (name == "SunRise")
+            {
+                name = "Microsoft Flight Simulator 2024";
+            }
+
             // show messages
             main.MonitorEvent("Connected to simulator");
             main.MonitorEvent("SimConnect '" + simVerMaj.ToString() + "." + simVerMin.ToString() + "." + simBuiMaj.ToString() + "." + simBuiMin.ToString() + "'");
@@ -4470,6 +4643,27 @@ namespace JoinFS
             // load model variables
             LoadModelVariables();
         }
+
+#if FS2024
+        public void ProcessModelList(SIMCONNECT_RECV_ENUMERATE_SIMOBJECT_AND_LIVERY_LIST data)
+        {
+            for (int i = 0; i < data.dwArraySize; ++i)
+	        {
+		        SIMCONNECT_ENUMERATE_SIMOBJECT_LIVERY element = (SIMCONNECT_ENUMERATE_SIMOBJECT_LIVERY) data.rgData[i];
+                if (element.AircraftTitle.Contains("PassiveAircraft") == false)
+                {
+                    // TODO: do something about the static typerole of the model
+                    // We're using in MSFS2024 the variation as livery.
+                    // This is not totally correct in MSFS2024, since variation
+                    // is "Passengers" or "Cargo" and not the livery.
+                    // In MSFS2024 the variation is embedded in the model name.
+                    main.substitution.SubmitModel(element.AircraftTitle, "", element.AircraftTitle, element.LiveryName, 0, "SingleProp");
+                    // main.MonitorEvent("Model " + element.AircraftTitle + " livery " + element.LiveryName);
+                }
+            }
+            main.MonitorEvent("Read " + data.dwArraySize + " models from the simulator.");
+        }
+#endif
 
         public void ProcessQuit()
         {
@@ -5411,7 +5605,11 @@ namespace JoinFS
                         // set timer
                         creatingObjectExpireTime = main.ElapsedTime + NEW_OBJECT_EXPIRE_TIME;
                         // update model
+#if FS2024
+                        UpdateObject(creatingObject, creatingObject.ownerModel, creatingObject.ownerLivery, creatingObject.typerole);
+#else
                         UpdateObject(creatingObject, creatingObject.ownerModel, creatingObject.typerole);
+#endif
                         // check for aircraft
                         if (creatingObject is Aircraft)
                         {
@@ -5429,7 +5627,7 @@ namespace JoinFS
                         simconnect.CreateObject(creatingObject);
                     }
 #endif
-                }
+                    }
             }
 #endif // XPLANE || SIMCONNECT
             // get elapsed time

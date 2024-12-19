@@ -1221,6 +1221,9 @@ namespace JoinFS
         private void Context_Aircraft_Substitute_Click(object sender, EventArgs e)
         {
             string model = "";
+#if FS2024
+            string livery = "";
+#endif
             int typerole = 0;
             bool injected = false;
 
@@ -1232,6 +1235,9 @@ namespace JoinFS
                 if (aircraft != null)
                 {
                     model = aircraft.ownerModel;
+#if FS2024
+                    livery = aircraft.ownerLivery;
+#endif
                     typerole = aircraft.typerole;
                     injected = aircraft.Injected;
                 }
@@ -1244,12 +1250,20 @@ namespace JoinFS
                 if (injected)
                 {
                     // edit match
+#if FS2024
+                    main.substitution ?. EditMatch(model, livery, typerole);
+#else
                     main.substitution ?. EditMatch(model, typerole);
+#endif
                 }
                 else
                 {
                     // edit masquerade
+#if FS2024
+                    main.substitution?.EditMasquerade(model, livery, typerole);
+#else
                     main.substitution ?. EditMasquerade(model, typerole);
+#endif
                 }
             }
         }

@@ -21,6 +21,9 @@ namespace JoinFS
             public string ownerName;
             public Sim.Obj.Owner owner;
             public string ownerModel;
+#if FS2024
+            public string ownerLivery;
+#endif
             public string subModel;
             public int typerole;
             public int count;
@@ -31,13 +34,20 @@ namespace JoinFS
             public bool ignoreNode;
             public bool ignoreModel;
 
+#if FS2024
+            public Item(LocalNode.Nuid nuid, uint simId, string ownerName, Sim.Obj.Owner owner, string ownerModel, string ownerLivery, string subModel, int typerole, int count, string bearingText, double distance, bool broadcast, bool ignoreNode, bool ignoreModel)
+#else
             public Item(LocalNode.Nuid nuid, uint simId, string ownerName, Sim.Obj.Owner owner, string ownerModel, string subModel, int typerole, int count, string bearingText, double distance, bool broadcast, bool ignoreNode, bool ignoreModel)
+#endif
             {
                 this.nuid = nuid;
                 this.simId = simId;
                 this.ownerName = ownerName;
                 this.owner = owner;
                 this.ownerModel = ownerModel;
+#if FS2024
+                this.ownerLivery = ownerLivery;
+#endif
                 this.subModel = subModel;
                 this.typerole = typerole;
                 this.count = count;
@@ -270,7 +280,11 @@ namespace JoinFS
                 }
 
                 // create item
+#if FS2024
+                Item item = new Item(obj.ownerNuid, obj.simId, ownerName, obj.owner, obj.ownerModel, obj.ownerLivery, subModel, obj.typerole, count, bearingText, distance, broadcast, ignoreNode, ignoreModel);
+#else
                 Item item = new Item(obj.ownerNuid, obj.simId, ownerName, obj.owner, obj.ownerModel, subModel, obj.typerole, count, bearingText, distance, broadcast, ignoreNode, ignoreModel);
+#endif
                 // add item
                 itemList.Add(item);
             }
@@ -699,7 +713,11 @@ namespace JoinFS
             if (item != null)
             {
                 // edit model
+#if FS2024
+                if (main.substitution.EditMatch(item.ownerModel, item.ownerLivery, item.typerole))
+#else
                 if (main.substitution.EditMatch(item.ownerModel, item.typerole))
+#endif
                 {
                     RefreshWindow();
                 }

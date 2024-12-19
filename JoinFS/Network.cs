@@ -1716,6 +1716,9 @@ namespace JoinFS
             message.Write(simObject.simTime);
             // add position and velocity
             Sim.Write(message, ref positionVelocity);
+#if FS2024
+            message.Write(simObject.ownerLivery);
+#endif
         }
 
 
@@ -1747,6 +1750,9 @@ namespace JoinFS
             message.Write(netTime);
             // add position and velocity
             Sim.Write(message, ref aircraftPosition);
+#if FS2024
+            message.Write(aircraft.ownerLivery);
+#endif
         }
 
         /// <summary>
@@ -3107,7 +3113,12 @@ namespace JoinFS
                                     Sim.Read(dataVersion, reader, ref positionVelocity);
 
                                     // update position and velocity
+#if FS2024
+                                    string variation = reader.ReadString();
+                                    Sim.Obj simObject = main.sim?.UpdateObject(nuid, netId, model, variation, typerole, netTime, ref positionVelocity);
+#else
                                     Sim.Obj simObject = main.sim ?. UpdateObject(nuid, netId, model, typerole, netTime, ref positionVelocity);
+#endif
 
                                     // check for object
                                     if (simObject != null)
@@ -3176,7 +3187,12 @@ namespace JoinFS
                                             // get nickname
                                             string nickname = user ? main.network.GetNodeName(nuid) : "";
                                             // update position and velocity
+#if FS2024
+                                            string variation = (reader.PeekChar() != -1) ? reader.ReadString() : "";
+                                            Sim.Aircraft aircraft = main.sim?.UpdateAircraft(nuid, netId, user, plane, callsign, nickname, model, variation, typerole, netTime, ref aircraftPosition);
+#else
                                             Sim.Aircraft aircraft = main.sim ?. UpdateAircraft(nuid, netId, user, plane, callsign, nickname, model, typerole, netTime, ref aircraftPosition);
+#endif
                                             // check for aircraft
                                             if (aircraft != null)
                                             {
