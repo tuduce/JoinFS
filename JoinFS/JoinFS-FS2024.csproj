@@ -101,7 +101,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug FS2024|AnyCPU'">
     <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\Debug FS2024\</OutputPath>
+    <OutputPath>FS2024\bin\Debug\</OutputPath>
     <DefineConstants>TRACE;DEBUG;FS2024;SIMCONNECT</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -111,7 +111,7 @@
     <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release FS2024|AnyCPU'">
-    <OutputPath>bin\Release FS2024\</OutputPath>
+    <OutputPath>FS2024\bin\Release\</OutputPath>
     <DefineConstants>FS2020;SIMCONNECT</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Optimize>true</Optimize>

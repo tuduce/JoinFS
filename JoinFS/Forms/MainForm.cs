@@ -157,12 +157,14 @@ namespace JoinFS
                     if (Settings.Default.EarlyUpdate)
                     {
                         //string sc = Program.Code("http://joinfs.net/version-test", true, 1234);
-                        versionWebClient.DownloadStringAsync(new Uri(Program.Code(@"X~*L>OET1e6qF(~=@3r]`<,/p46bjc", false, 1234)));
+                        //string sc = Program.Code("https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/version.txt", true, 1234);
+                        versionWebClient.DownloadStringAsync(new Uri(Program.Code(@"[BrjhWg|fQAE)kyjqzHi#<3KN=>1#$:@(=0D$Fu<rvi()CytxR*BCN'O{$yP~LEJD-*QV){YNNSz_%IOV1hyK)g", false, 1234)));
                     }
                     else
                     {
                         //string sc = Program.Code("http://joinfs.net/version", true, 1234);
-                        versionWebClient.DownloadStringAsync(new Uri(Program.Code(@"K^x9E`;gZ2&:s={%T5zSw:cDz", false, 1234)));
+                        //string sc = Program.Code("https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/version.txt", true, 1234);
+                        versionWebClient.DownloadStringAsync(new Uri(Program.Code(@"[BrjhWg|fQAE)kyjqzHi#<3KN=>1#$:@(=0D$Fu<rvi()CytxR*BCN'O{$yP~LEJD-*QV){YNNSz_%IOV1hyK)g", false, 1234)));
                     }
                 }
                 catch (Exception ex)
