@@ -57,6 +57,12 @@
     <PostBuildEvent>"C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Bin\signtool.exe" sign /f "$(SolutionDir)joinfs.pfx" /p WSAiwsdj9( "!(TargetPath)"
 "$(SolutionDir)FileVersion.exe" "$(SolutionDir)\P3DV4\bin\$(Configuration)\$(TargetName).exe" "!(TargetPath)"</PostBuildEvent>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release FS2024|x86' ">
+    <SuppressPdbOutput>True</SuppressPdbOutput>
+    <SuppressIces>ICE61;ICE82</SuppressIces>
+    <OutputPath>bin\$(Platform)\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
   <!--
 	To modify your build process, add your task inside one of the targets below and uncomment it.
 	Other similar extension points exist, see Wix.targets.

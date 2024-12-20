@@ -3284,7 +3284,6 @@ namespace JoinFS
         Timer variablesTimer = new Timer(1.0);
         Timer flightPlanTimer = new Timer(5.0);
 
-        // TODO: guard with #if MSFS2024
         /// <summary>
         /// Request list of models and liverlies
         /// </summary>
@@ -3400,9 +3399,9 @@ namespace JoinFS
 #endif
         }
 
-        #endregion
+#endregion
 
-        #region SimConnect
+#region SimConnect
 
 #if SIMCONNECT
         /// <summary>
@@ -3624,7 +3623,12 @@ namespace JoinFS
         /// <summary>
         /// Current data version
         /// </summary>
+#if FS2024
+        // TODO: Advance the data version for everybody, not just FS2024
+        public const short VERSION = 21004;
+#else
         public const short VERSION = 21003;
+#endif
 
         /// <summary>
         /// Method for reading specific data versions
@@ -3977,7 +3981,7 @@ namespace JoinFS
             }
         }
 
-        #endregion
+#endregion
 
 #region Callbacks
 
@@ -4149,8 +4153,6 @@ namespace JoinFS
                                     string callsign = info.callsign.TrimStart(' ', '\t').TrimEnd(' ', '\t');
                                     // remove any junk from type
                                     string type = info.type;
-                                    // TODO: delete monitor
-                                    // main.MonitorEvent("DEBUG: orig obj type " + type + " model " + info.model + " cat " + info.category);
                                     type = type.Replace("TTATCCOM.AC_MODEL ", "");
                                     type = type.Replace("TTATCCOM.AC_MODEL_", "");
                                     type = type.Replace("TT:ATCCOM.AC_MODEL ", "");
@@ -4578,10 +4580,10 @@ namespace JoinFS
         }
 #endif
 
-                                                    /// <summary>
-                                                    /// Simulator details
-                                                    /// </summary>
-                                                    string simulatorName = "";
+        /// <summary>
+        /// Simulator details
+        /// </summary>
+        string simulatorName = "";
         string simulatorVersion = "0";
 
         /// <summary>
@@ -4652,7 +4654,7 @@ namespace JoinFS
 		        SIMCONNECT_ENUMERATE_SIMOBJECT_LIVERY element = (SIMCONNECT_ENUMERATE_SIMOBJECT_LIVERY) data.rgData[i];
                 if (element.AircraftTitle.Contains("PassiveAircraft") == false)
                 {
-                    // TODO: do something about the static typerole of the model
+                    // TODO: match the typerole of the model.
                     // We're using in MSFS2024 the variation as livery.
                     // This is not totally correct in MSFS2024, since variation
                     // is "Passengers" or "Cargo" and not the livery.

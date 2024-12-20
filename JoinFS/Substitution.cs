@@ -487,7 +487,6 @@ namespace JoinFS
             main.ScheduleSubstitutionSave();
         }
 
-        // TODO: guard with #idefined MSFS2024
         /// <summary>
         /// Get all the models available in MSFS2024
         /// </summary>

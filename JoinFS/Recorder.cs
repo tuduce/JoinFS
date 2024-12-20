@@ -679,7 +679,7 @@ namespace JoinFS
                     }
                 }
 #if FS2024
-                livery = (reader.PeekChar() != -1) ? reader.ReadString() : "";
+                livery = (version >= 21004) ? reader.ReadString() : "";
 #endif
             }
 
@@ -828,7 +828,7 @@ namespace JoinFS
                     }
                 }
 #if FS2024
-                livery = (reader.PeekChar() != -1) ? reader.ReadString() : "";
+                livery = (version >= 21004) ? reader.ReadString() : "";
 #endif
             }
         }

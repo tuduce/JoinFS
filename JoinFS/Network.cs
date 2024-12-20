@@ -3114,7 +3114,7 @@ namespace JoinFS
 
                                     // update position and velocity
 #if FS2024
-                                    string variation = reader.ReadString();
+                                    string variation = (reader.PeekChar() != -1) ? reader.ReadString() : "";
                                     Sim.Obj simObject = main.sim?.UpdateObject(nuid, netId, model, variation, typerole, netTime, ref positionVelocity);
 #else
                                     Sim.Obj simObject = main.sim ?. UpdateObject(nuid, netId, model, typerole, netTime, ref positionVelocity);
