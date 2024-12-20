@@ -102,7 +102,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug FS2024|AnyCPU'">
     <DebugSymbols>true</DebugSymbols>
     <OutputPath>bin\Debug FS2024\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;FS2020;SIMCONNECT</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;FS2024;SIMCONNECT</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DebugType>full</DebugType>
@@ -1177,6 +1177,11 @@
     <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
       <Visible>False</Visible>
       <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.NetCore.CoreRuntime.8.0.x64">
+      <Visible>False</Visible>
+      <ProductName>.NET Runtime 8.0.11 %28x64%29</ProductName>
       <Install>true</Install>
     </BootstrapperPackage>
     <BootstrapperPackage Include="Microsoft.Windows.Installer.4.5">
