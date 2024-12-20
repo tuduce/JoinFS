@@ -112,7 +112,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release FS2024|AnyCPU'">
     <OutputPath>FS2024\bin\Release\</OutputPath>
-    <DefineConstants>FS2020;SIMCONNECT</DefineConstants>
+    <DefineConstants>FS2024;SIMCONNECT</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Optimize>true</Optimize>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
