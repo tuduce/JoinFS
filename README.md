@@ -1,6 +1,6 @@
 MSFS2024 adaptation of the great JoinFS utility
 ===============================================
-This fork offers MSFS2024 integration to JoinFS. A proper release will follow shortly.
+This fork offers MSFS2024 integration to JoinFS.
 
 Original README
 ===============
