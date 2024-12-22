@@ -102,7 +102,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug FS2024|AnyCPU'">
     <DebugSymbols>true</DebugSymbols>
     <OutputPath>FS2024\bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;FS2024;SIMCONNECT</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;FS2024,SIMCONNECT</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DebugType>full</DebugType>

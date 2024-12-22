@@ -32,10 +32,9 @@
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MatchingForm));
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle2 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle3 = new System.Windows.Forms.DataGridViewCellStyle();
             this.label2 = new System.Windows.Forms.Label();
             this.DataGrid_Substitutions = new System.Windows.Forms.DataGridView();
-            this.ColOriginalModel = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.ColSubstituteModel = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Context_Matching = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.Context_EditMatching_Substitute = new System.Windows.Forms.ToolStripMenuItem();
             this.Context_EditMatching_Remove = new System.Windows.Forms.ToolStripMenuItem();
@@ -44,6 +43,9 @@
             this.label3 = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
             this.label5 = new System.Windows.Forms.Label();
+            this.ColOriginalModel = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.ColSubstituteModel = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.ColModelVariation = new System.Windows.Forms.DataGridViewTextBoxColumn();
             ((System.ComponentModel.ISupportInitialize)(this.DataGrid_Substitutions)).BeginInit();
             this.Context_Matching.SuspendLayout();
             this.SuspendLayout();
@@ -55,7 +57,6 @@
             // 
             // DataGrid_Substitutions
             // 
-            resources.ApplyResources(this.DataGrid_Substitutions, "DataGrid_Substitutions");
             this.DataGrid_Substitutions.AllowUserToAddRows = false;
             this.DataGrid_Substitutions.AllowUserToDeleteRows = false;
             this.DataGrid_Substitutions.AllowUserToResizeColumns = false;
@@ -64,55 +65,35 @@
             this.DataGrid_Substitutions.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.DataGrid_Substitutions.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.ColOriginalModel,
-            this.ColSubstituteModel});
+            this.ColSubstituteModel,
+            this.ColModelVariation});
             this.DataGrid_Substitutions.ContextMenuStrip = this.Context_Matching;
+            resources.ApplyResources(this.DataGrid_Substitutions, "DataGrid_Substitutions");
             this.DataGrid_Substitutions.MultiSelect = false;
             this.DataGrid_Substitutions.Name = "DataGrid_Substitutions";
             this.DataGrid_Substitutions.ReadOnly = true;
             this.DataGrid_Substitutions.RowHeadersVisible = false;
             this.DataGrid_Substitutions.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             // 
-            // ColOriginalModel
-            // 
-            dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
-            this.ColOriginalModel.DefaultCellStyle = dataGridViewCellStyle1;
-            resources.ApplyResources(this.ColOriginalModel, "ColOriginalModel");
-            this.ColOriginalModel.MaxInputLength = 128;
-            this.ColOriginalModel.Name = "ColOriginalModel";
-            this.ColOriginalModel.ReadOnly = true;
-            this.ColOriginalModel.Resizable = System.Windows.Forms.DataGridViewTriState.False;
-            this.ColOriginalModel.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // ColSubstituteModel
-            // 
-            dataGridViewCellStyle2.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
-            this.ColSubstituteModel.DefaultCellStyle = dataGridViewCellStyle2;
-            resources.ApplyResources(this.ColSubstituteModel, "ColSubstituteModel");
-            this.ColSubstituteModel.MaxInputLength = 128;
-            this.ColSubstituteModel.Name = "ColSubstituteModel";
-            this.ColSubstituteModel.ReadOnly = true;
-            this.ColSubstituteModel.Resizable = System.Windows.Forms.DataGridViewTriState.False;
-            this.ColSubstituteModel.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
             // Context_Matching
             // 
-            resources.ApplyResources(this.Context_Matching, "Context_Matching");
             this.Context_Matching.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.Context_EditMatching_Substitute,
             this.Context_EditMatching_Remove});
             this.Context_Matching.Name = "Context_EditMatching";
+            resources.ApplyResources(this.Context_Matching, "Context_Matching");
             this.Context_Matching.Opening += new System.ComponentModel.CancelEventHandler(this.Context_Matching_Opening);
             // 
             // Context_EditMatching_Substitute
             // 
-            resources.ApplyResources(this.Context_EditMatching_Substitute, "Context_EditMatching_Substitute");
             this.Context_EditMatching_Substitute.Name = "Context_EditMatching_Substitute";
+            resources.ApplyResources(this.Context_EditMatching_Substitute, "Context_EditMatching_Substitute");
             this.Context_EditMatching_Substitute.Click += new System.EventHandler(this.Context_Matching_Substitute_Click);
             // 
             // Context_EditMatching_Remove
             // 
-            resources.ApplyResources(this.Context_EditMatching_Remove, "Context_EditMatching_Remove");
             this.Context_EditMatching_Remove.Name = "Context_EditMatching_Remove";
+            resources.ApplyResources(this.Context_EditMatching_Remove, "Context_EditMatching_Remove");
             this.Context_EditMatching_Remove.Click += new System.EventHandler(this.Context_Matching_Remove_Click);
             // 
             // label1
@@ -139,6 +120,39 @@
             // 
             resources.ApplyResources(this.label5, "label5");
             this.label5.Name = "label5";
+            // 
+            // ColOriginalModel
+            // 
+            dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
+            this.ColOriginalModel.DefaultCellStyle = dataGridViewCellStyle1;
+            resources.ApplyResources(this.ColOriginalModel, "ColOriginalModel");
+            this.ColOriginalModel.MaxInputLength = 128;
+            this.ColOriginalModel.Name = "ColOriginalModel";
+            this.ColOriginalModel.ReadOnly = true;
+            this.ColOriginalModel.Resizable = System.Windows.Forms.DataGridViewTriState.False;
+            this.ColOriginalModel.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // ColSubstituteModel
+            // 
+            dataGridViewCellStyle2.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
+            this.ColSubstituteModel.DefaultCellStyle = dataGridViewCellStyle2;
+            resources.ApplyResources(this.ColSubstituteModel, "ColSubstituteModel");
+            this.ColSubstituteModel.MaxInputLength = 128;
+            this.ColSubstituteModel.Name = "ColSubstituteModel";
+            this.ColSubstituteModel.ReadOnly = true;
+            this.ColSubstituteModel.Resizable = System.Windows.Forms.DataGridViewTriState.False;
+            this.ColSubstituteModel.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // ColModelVariation
+            // 
+            dataGridViewCellStyle3.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
+            this.ColModelVariation.DefaultCellStyle = dataGridViewCellStyle3;
+            resources.ApplyResources(this.ColModelVariation, "ColModelVariation");
+            this.ColModelVariation.MaxInputLength = 128;
+            this.ColModelVariation.Name = "ColModelVariation";
+            this.ColModelVariation.ReadOnly = true;
+            this.ColModelVariation.Resizable = System.Windows.Forms.DataGridViewTriState.False;
+            this.ColModelVariation.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // MatchingForm
             // 
@@ -180,5 +194,6 @@
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.DataGridViewTextBoxColumn ColOriginalModel;
         private System.Windows.Forms.DataGridViewTextBoxColumn ColSubstituteModel;
+        private System.Windows.Forms.DataGridViewTextBoxColumn ColModelVariation;
     }
 }

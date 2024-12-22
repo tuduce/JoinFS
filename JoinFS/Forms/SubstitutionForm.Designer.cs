@@ -56,32 +56,32 @@
             // 
             // Button_OK
             // 
-            resources.ApplyResources(this.Button_OK, "Button_OK");
             this.Button_OK.DialogResult = System.Windows.Forms.DialogResult.OK;
+            resources.ApplyResources(this.Button_OK, "Button_OK");
             this.Button_OK.Name = "Button_OK";
             this.Button_OK.UseVisualStyleBackColor = true;
             // 
             // Button_Cancel
             // 
-            resources.ApplyResources(this.Button_Cancel, "Button_Cancel");
             this.Button_Cancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+            resources.ApplyResources(this.Button_Cancel, "Button_Cancel");
             this.Button_Cancel.Name = "Button_Cancel";
             this.Button_Cancel.UseVisualStyleBackColor = true;
             // 
             // Combo_Type
             // 
-            resources.ApplyResources(this.Combo_Type, "Combo_Type");
             this.Combo_Type.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.Combo_Type.FormattingEnabled = true;
+            resources.ApplyResources(this.Combo_Type, "Combo_Type");
             this.Combo_Type.Name = "Combo_Type";
             this.Combo_Type.Sorted = true;
             this.Combo_Type.SelectedValueChanged += new System.EventHandler(this.Combo_Type_SelectedValueChanged);
             // 
             // Combo_Variation
             // 
-            resources.ApplyResources(this.Combo_Variation, "Combo_Variation");
             this.Combo_Variation.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.Combo_Variation.FormattingEnabled = true;
+            resources.ApplyResources(this.Combo_Variation, "Combo_Variation");
             this.Combo_Variation.Name = "Combo_Variation";
             this.Combo_Variation.Sorted = true;
             this.Combo_Variation.SelectedValueChanged += new System.EventHandler(this.Combo_Variation_SelectedValueChanged);
@@ -121,8 +121,8 @@
             // 
             // Button_Original
             // 
-            resources.ApplyResources(this.Button_Original, "Button_Original");
             this.Button_Original.DialogResult = System.Windows.Forms.DialogResult.No;
+            resources.ApplyResources(this.Button_Original, "Button_Original");
             this.Button_Original.Name = "Button_Original";
             this.Button_Original.UseVisualStyleBackColor = true;
             // 

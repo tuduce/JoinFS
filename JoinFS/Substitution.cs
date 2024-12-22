@@ -1378,8 +1378,8 @@ namespace JoinFS
                 ScanForm scanForm = new ScanForm(main, simFolder, initialScanFolders, initialAddOns, initialAdditionals);
 #endif
 
-            // open dialog
-            switch (scanForm.ShowDialog())
+                // open dialog
+                switch (scanForm.ShowDialog())
                 {
                     case System.Windows.Forms.DialogResult.OK:
                         {

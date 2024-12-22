@@ -103,6 +103,44 @@ namespace JoinFS
             return selectedModel;
         }
 
+#if FS2024
+        Substitution.Model GetSelectedModelObject()
+        {
+            // selected model
+            string selectedModel = null;
+            string selectedLivery = null;
+            Substitution.Model selectedModelObject = null;
+
+            // check for selection
+            if (DataGrid_Substitutions.SelectedRows.Count > 0)
+            {
+                // get index
+                int index = DataGrid_Substitutions.SelectedRows[0].Index;
+
+                // check index
+                if (index >= 0 && index < itemList.Count)
+                {
+                    // get selected model
+                    selectedModel = itemList[index].model;
+                    selectedLivery = itemList[index].livery;
+                    selectedModelObject = main.substitution.GetModel(selectedModel, selectedLivery);
+                }
+            }
+
+            // check if no selected model
+            if (selectedModel == null && itemList.Count > 0)
+            {
+                // select first model
+                selectedModel = itemList[0].model;
+                selectedLivery = itemList[0].livery;
+                selectedModelObject = main.substitution.GetModel(selectedModel, selectedLivery);
+            }
+
+            // return selected model
+            return selectedModelObject;
+        }
+#endif
+
         /// <summary>
         /// Refresher
         /// </summary>
@@ -134,6 +172,9 @@ namespace JoinFS
 
             // selected model
             string selectedModel = GetSelectedModel();
+#if FS2024
+            Substitution.Model selectedModelObject = GetSelectedModelObject();
+#endif
 
             // clear existing cells
             itemList.Clear();
@@ -192,6 +233,9 @@ namespace JoinFS
                 // fill row
                 rows[index].Cells[0].Value = itemList[index].model;
                 rows[index].Cells[1].Value = itemList[index].substitute;
+#if FS2024
+                rows[index].Cells[2].Value = itemList[index].substituteLivery;
+#endif
             }
 
             DataGrid_Substitutions.Rows.Clear();
