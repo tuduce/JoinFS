@@ -1072,6 +1072,7 @@ namespace JoinFS
         /// Scheduled operations
         /// </summary>
         volatile bool scheduleSubstitutionLoad = false;
+        volatile bool scheduleSubstitutionMatch = false;
         volatile bool scheduleSubstitutionSave = false;
         volatile bool scheduleSubstitutionClear = false;
         volatile bool scheduleHeightAdjustmentLoad = false;
@@ -1083,6 +1084,14 @@ namespace JoinFS
         public void ScheduleSubstitutionLoad()
         {
             scheduleSubstitutionLoad = true;
+        }
+
+        /// <summary>
+        /// Schedule substitution load
+        /// </summary>
+        public void ScheduleSubstitutionMatch()
+        {
+            scheduleSubstitutionMatch = true;
         }
 
         /// <summary>
@@ -1148,13 +1157,22 @@ namespace JoinFS
                         scheduleSubstitutionClear = false;
                     }
 
-                    // check for scheduled model match load
+                    // check for scheduled model load
                     if (scheduleSubstitutionLoad)
                     {
                         // load model matching
                         substitution ?. Load();
                         // reset
                         scheduleSubstitutionLoad = false;
+                    }
+
+                    // check for scheduled model match
+                    if (scheduleSubstitutionMatch)
+                    {
+                        // match model
+                        substitution?.Match();
+                        // reset
+                        scheduleSubstitutionMatch = false;
                     }
 
                     // check for scheduled model match save

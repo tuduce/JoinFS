@@ -1331,8 +1331,15 @@ namespace JoinFS
                     }
 #endif
 
-                    // save models to file
-                    main.ScheduleSubstitutionSave();
+#if !FS2024
+                    // other sims than FS2024
+                    // FS2024 has async loading of models
+                    main.ScheduleSubstitutionMatch();
+#endif
+                    // TODO: cleanup code, remove this comment block
+                    // not saving models to file at this point
+                    // // save models to file
+                    // main.ScheduleSubstitutionSave();
 
                     // check for models scanned
                     if (models.Count > 0)
@@ -2172,6 +2179,19 @@ namespace JoinFS
                     Scan(false);
                 }
 
+                
+            }
+        }
+
+        public void Match()
+        {
+            // check for simulator
+#if XPLANE || CONSOLE
+            if (main.sim != null)
+#else
+            if (main.sim != null && main.sim.Connected)
+#endif
+            {
                 // check for no models
                 if (models.Count == 0)
                 {
@@ -2185,6 +2205,10 @@ namespace JoinFS
                 LoadMasquerades();
                 // load callsigns
                 LoadCallsigns();
+
+                // now we can save
+                // TODO: does it make sense to save just after loading?
+                main.ScheduleSubstitutionSave();
             }
         }
 

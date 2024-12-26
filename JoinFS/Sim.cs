@@ -256,10 +256,10 @@ namespace JoinFS
         public void RequestSimulatorModels()
         {
 #if FS2024
-            //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.USER);
-            sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT);
-            sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER);
-            sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.HOT_AIR_BALLOON);
+            sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.USER);
+            //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT);
+            //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER);
+            //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.HOT_AIR_BALLOON);
 #endif
         }
 
@@ -3289,7 +3289,7 @@ namespace JoinFS
         /// </summary>
         public void RequestSimulatorModels()
         {
-#if SIMCONNECT
+#if SIMCONNECT && FS2024
             // check for FS connection
             if (simconnect != null)
             {
@@ -4663,7 +4663,12 @@ namespace JoinFS
                     // main.MonitorEvent("Model " + element.AircraftTitle + " livery " + element.LiveryName);
                 }
             }
-            main.MonitorEvent("Read " + data.dwArraySize + " models from the simulator.");
+            // main.MonitorEvent("Read " + data.dwArraySize + " models from the simulator.");
+            if (data.dwEntryNumber + 1 == data.dwOutOf)
+            {
+                main.MonitorEvent("Read all models from the simulator.");
+                main.ScheduleSubstitutionMatch();
+            }
         }
 #endif
 
