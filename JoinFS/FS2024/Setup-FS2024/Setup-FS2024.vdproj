@@ -21,6 +21,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_29F4E1773E8D47CDB7F8235E6EF490A9"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_7F6BC87A8D334B3EB3E785AC0CC19501"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -34,13 +40,13 @@
         "Entry"
         {
         "MsmKey" = "8:_UNDEFINED"
-        "OwnerKey" = "8:_C21E23E25D0914E25208B1BC5A86FFA7"
+        "OwnerKey" = "8:_270C945304AB4FB7BF981934DF34BBB0"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
         "MsmKey" = "8:_UNDEFINED"
-        "OwnerKey" = "8:_270C945304AB4FB7BF981934DF34BBB0"
+        "OwnerKey" = "8:_C21E23E25D0914E25208B1BC5A86FFA7"
         "MsmSig" = "8:_UNDEFINED"
         }
     }
@@ -138,6 +144,26 @@
         }
         "File"
         {
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_29F4E1773E8D47CDB7F8235E6EF490A9"
+            {
+            "SourcePath" = "8:..\\..\\App.ico"
+            "TargetName" = "8:App.ico"
+            "Tag" = "8:"
+            "Folder" = "8:_1DA22E741B9C41A19DA82AE1F5E61061"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_7F6BC87A8D334B3EB3E785AC0CC19501"
             {
             "SourcePath" = "8:..\\SimConnect.dll"
@@ -245,15 +271,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:JoinFS-FS2024"
-        "ProductCode" = "8:{5B0ECEBF-4010-492C-B15A-9F0597A5A6AF}"
-        "PackageCode" = "8:{EF466AD9-F2BA-4A44-9403-C42501CE21D4}"
+        "ProductCode" = "8:{EB072C28-344E-4128-B99C-6CAA475B377A}"
+        "PackageCode" = "8:{565B31B7-12BF-4E5D-AFEE-07FB64B7B462}"
         "UpgradeCode" = "8:{5E0660E2-5CE4-46C1-97C3-3AFBB78A144C}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
-        "RemovePreviousVersions" = "11:FALSE"
+        "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.0.0"
+        "ProductVersion" = "8:3.2.22"
         "Manufacturer" = "8:JoinFS"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -263,7 +289,7 @@
         "Keywords" = "8:"
         "ARPCOMMENTS" = "8:JoinFS is an advanced multiplayer client for flight simulators."
         "ARPURLINFOABOUT" = "8:"
-        "ARPPRODUCTICON" = "8:"
+        "ARPPRODUCTICON" = "8:_29F4E1773E8D47CDB7F8235E6EF490A9"
         "ARPIconIndex" = "3:0"
         "SearchPath" = "8:"
         "UseSystemSearchPath" = "11:TRUE"
@@ -767,7 +793,7 @@
         {
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_270C945304AB4FB7BF981934DF34BBB0"
             {
-            "SourcePath" = "8:..\\..\\obj\\Release FS2024\\JoinFS-FS2024.exe"
+            "SourcePath" = "8:..\\..\\FS2020\\obj\\Release\\JoinFS-FS2024.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_1DA22E741B9C41A19DA82AE1F5E61061"
