@@ -4649,6 +4649,7 @@ namespace JoinFS
 
 #if FS2024
         public bool requestModelListInProgress = false;
+        public bool requestModelListIsVerbose = false;
         public void ProcessModelList(SIMCONNECT_RECV_ENUMERATE_SIMOBJECT_AND_LIVERY_LIST data)
         {
             for (int i = 0; i < data.dwArraySize; ++i)
@@ -4671,6 +4672,20 @@ namespace JoinFS
                 main.MonitorEvent("Read all models from the simulator.");
                 main.ScheduleSubstitutionMatch();
                 requestModelListInProgress = false;
+
+                if (requestModelListIsVerbose)
+                {
+                    // check for models scanned
+                    if (main.substitution.models.Count > 0)
+                    {
+                        main.scheduleShowMessage = Resources.strings.FoundPrefix + " " + main.substitution.models.Count.ToString() + " " + Resources.strings.FoundSuffix;
+                    }
+                    else
+                    {
+                        main.scheduleShowMessage = "No models found";
+                    }
+                    requestModelListIsVerbose = false;
+                }
             }
         }
 #endif

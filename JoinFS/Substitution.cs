@@ -1465,6 +1465,10 @@ namespace JoinFS
                                 Scan(true);
 
                                 // reload matches
+#if FS2024
+                                main.ScheduleSubstitutionMatch();
+                                main.sim.requestModelListIsVerbose = true;
+#else
                                 LoadMatches();
                                 LoadMasquerades();
 
@@ -1477,6 +1481,7 @@ namespace JoinFS
                                 {
                                     main.scheduleShowMessage = "No models found";
                                 }
+#endif
                             }
                         }
                         break;
@@ -1491,7 +1496,7 @@ namespace JoinFS
             }
 
 #endif // !SERVER
-            return false;
+                                return false;
         }
 
         /// <summary>
