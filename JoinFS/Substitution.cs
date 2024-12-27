@@ -2215,12 +2215,20 @@ namespace JoinFS
         /// <summary>
         /// Save model matching
         /// </summary>
-        public void Save()
+        public bool Save()
         {
+#if FS2024
+            if (main.sim != null && main.sim.requestModelListInProgress)
+            {
+                main.MonitorEvent("Trying to save matches while request from sim active");
+                return false;
+            }
+#endif
             SaveModels();
             SaveMatches();
             SaveMasquerades();
             SaveCallsigns();
+            return true;
         }
 
         /// <summary>

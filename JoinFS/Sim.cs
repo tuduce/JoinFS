@@ -3293,6 +3293,7 @@ namespace JoinFS
             // check for FS connection
             if (simconnect != null)
             {
+                requestModelListInProgress = true;
                 simconnect.RequestSimulatorModels();
             }
 #endif
@@ -4647,6 +4648,7 @@ namespace JoinFS
         }
 
 #if FS2024
+        public bool requestModelListInProgress = false;
         public void ProcessModelList(SIMCONNECT_RECV_ENUMERATE_SIMOBJECT_AND_LIVERY_LIST data)
         {
             for (int i = 0; i < data.dwArraySize; ++i)
@@ -4668,6 +4670,7 @@ namespace JoinFS
             {
                 main.MonitorEvent("Read all models from the simulator.");
                 main.ScheduleSubstitutionMatch();
+                requestModelListInProgress = false;
             }
         }
 #endif

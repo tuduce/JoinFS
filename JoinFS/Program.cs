@@ -1179,9 +1179,13 @@ namespace JoinFS
                     if (scheduleSubstitutionSave)
                     {
                         // save model matching
-                        substitution ?. Save();
-                        // reset
-                        scheduleSubstitutionSave = false;
+                        if ((bool)substitution ?. Save())
+                        {
+                            // monitor
+                            MonitorEvent("Model matching saved");
+                            // reset
+                            scheduleSubstitutionSave = false;
+                        }
                     }
 
                     // check for scheduled height adjustment load
