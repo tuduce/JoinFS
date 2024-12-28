@@ -2276,6 +2276,24 @@ namespace JoinFS
             {
                 // ban list file
                 string banListFile = Path.Combine(main.storagePath, "bannedModels - " + main.sim.GetSimulatorName() + ".txt");
+                // download the file if it does not exist
+                if (File.Exists(banListFile) == false)
+                {
+                    // download the file from a web server
+                    string url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/bannedModels.txt";
+                    try
+                    {
+                        // download the file
+                        using (WebClient client = new WebClient())
+                        {
+                            client.DownloadFile(url, banListFile);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        main.MonitorEvent("Error downloading type classifiers: " + ex.Message);
+                    }
+                }
                 // check if file exists
                 if (File.Exists(banListFile))
                 {
