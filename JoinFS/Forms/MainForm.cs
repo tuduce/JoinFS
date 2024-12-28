@@ -608,44 +608,49 @@ namespace JoinFS
             // check if latest version available
             if (latestVersion != null)
             {
-                // check current version
-                if (latestVersion.Length > 0 && latestVersion.Equals(Main.version) == false)
+                if (latestVersion.Length > 0)
                 {
-                    // check if this version has been asked about
-                    if (Settings.Default.AskVersion.Equals(latestVersion) == false)
+                    Version latest = new Version(latestVersion);
+                    Version current = new Version(Main.version);
+                    if (current < latest)
                     {
-                        DialogResult result = MessageBox.Show(Resources.strings.NewVersion, Main.name + ": New Version", MessageBoxButtons.YesNo);
-                        if (result == DialogResult.Yes)
+                        // check if this version has been asked about
+                        if (Settings.Default.AskVersion.Equals(latestVersion) == false)
                         {
-                            // check for early update
-                            if (Settings.Default.EarlyUpdate)
+                            DialogResult result = MessageBox.Show(Resources.strings.NewVersion, Main.name + ": New Version", MessageBoxButtons.YesNo);
+                            if (result == DialogResult.Yes)
                             {
-                                // open install page
-                                //string sc = Program.Code("https://joinfs.net/development.html", true, 1234);
-                                //string sc = Program.Code("https://github.com/tuduce/JoinFS/releases", true, 1234);
-                                // send the users to the releases page of the github repo 
-                                Main.LaunchEncoded(@"bHYFj@rR4jj>U=%Fr9FjbsPCsnDXj[[vL+y?gldke");
+                                // check for early update
+                                if (Settings.Default.EarlyUpdate)
+                                {
+                                    // open install page
+                                    //string sc = Program.Code("https://joinfs.net/development.html", true, 1234);
+                                    //string sc = Program.Code("https://github.com/tuduce/JoinFS/releases", true, 1234);
+                                    // send the users to the releases page of the github repo 
+                                    Main.LaunchEncoded(@"bHYFj@rR4jj>U=%Fr9FjbsPCsnDXj[[vL+y?gldke");
+                                }
+                                else
+                                {
+                                    // open install page
+                                    //string sc = Program.Code("https://joinfs.net/install.html", true, 1234);
+                                    //string sc = Program.Code("https://github.com/tuduce/JoinFS/releases", true, 1234);
+                                    // send the users to the releases page of the github repo
+                                    Main.LaunchEncoded(@"bHYFj@rR4jj>U=%Fr9FjbsPCsnDXj[[vL+y?gldke");
+                                }
+                                // shutdown
+                                main.shutdown = "";
                             }
-                            else
-                            {
-                                // open install page
-                                //string sc = Program.Code("https://joinfs.net/install.html", true, 1234);
-                                //string sc = Program.Code("https://github.com/tuduce/JoinFS/releases", true, 1234);
-                                // send the users to the releases page of the github repo
-                                Main.LaunchEncoded(@"bHYFj@rR4jj>U=%Fr9FjbsPCsnDXj[[vL+y?gldke");
-                            }
-                            // shutdown
-                            main.shutdown = "";
-                        }
 
-                        // write version
-                        Settings.Default.AskVersion = latestVersion;
+                            // write version
+                            Settings.Default.AskVersion = latestVersion;
+                        }
+                        // new version available
+                        newVersion = true;
+                        // update toolbar
+                        Tool_Update.Text = Resources.strings.NewVersionStatus;
+                        Tool_Update.LinkColor = Color.DodgerBlue;
+
                     }
-                    // new version available
-                    newVersion = true;
-                    // update toolbar
-                    Tool_Update.Text = Resources.strings.NewVersionStatus;
-                    Tool_Update.LinkColor = Color.DodgerBlue;
                 }
 
                 // reset latest version
