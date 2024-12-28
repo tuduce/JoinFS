@@ -2303,7 +2303,7 @@ namespace JoinFS
                     string line;
                     while ((line = reader.ReadLine()) != null)
                     {
-                        if (line != "")
+                        if (line != "" && !line.StartsWith("#"))
                         {
                             // add to ban list
                             modelBanList.Add(line);
