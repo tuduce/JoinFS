@@ -86,6 +86,7 @@ namespace JoinFS
 #if FS2024
         Dictionary<string, (string typeRoleName, string compareType)> typeroleClassifier = new Dictionary<string, (string typeRoleName, string compareType)>();
 #endif
+        List<string> modelBanList = new List<string>();
 
         /// <summary>
         /// Convert a string to a typerole
@@ -500,6 +501,11 @@ namespace JoinFS
         /// <param name="title">Name of the Model</param>
         public void SubmitModel(string title, string manufacturer, string type, string variation, int index, string typerole)
         {
+            if (isModelBanned(title))
+            {
+                return;
+            }
+
             scanBlock = true;
             scanTitle = title;
             scanManufacturer = manufacturer;
@@ -514,6 +520,18 @@ namespace JoinFS
             SubmitScan();
             // save
             main.ScheduleSubstitutionSave();
+        }
+
+        bool isModelBanned(string model)
+        {
+            foreach (var ban in modelBanList)
+            {
+                if (model.Contains(ban))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>
@@ -1629,6 +1647,12 @@ namespace JoinFS
                         {
                             // split line
                             string[] parts = line.Split('|');
+                            // check if model is banned
+                            if (isModelBanned(parts[0]))
+                            {
+                                // skip banned model
+                                continue;
+                            }
                             // check that model is not already present
 #if FS2024
                             if (ModelExists(parts[0], parts[3]) == false)
@@ -2241,6 +2265,38 @@ namespace JoinFS
         }
 #endif
 
+        public void LoadModelBanList()
+        {
+            // check for sim
+#if XPLANE || CONSOLE
+            if (main.sim != null)
+#else
+            if (main.sim != null && main.sim.Connected)
+#endif
+            {
+                // ban list file
+                string banListFile = Path.Combine(main.storagePath, "bannedModels - " + main.sim.GetSimulatorName() + ".txt");
+                // check if file exists
+                if (File.Exists(banListFile))
+                {
+                    // open file
+                    StreamReader reader = new StreamReader(banListFile);
+                    // read ban list
+                    string line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        if (line != "")
+                        {
+                            // add to ban list
+                            modelBanList.Add(line);
+                        }
+                    }
+                    // close file
+                    reader.Close();
+                }
+            }
+        }
+
         /// <summary>
         /// Load model matching
         /// </summary>
@@ -2263,6 +2319,7 @@ namespace JoinFS
 #if FS2024
                 LoadTypeClassifiers();
 #endif
+                LoadModelBanList();
 
                 // check for scan setting
                 if (main.settingsScan)
