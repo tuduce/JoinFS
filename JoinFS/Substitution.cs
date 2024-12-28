@@ -14,6 +14,7 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement.TextBox;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 using System.Security.Policy;
 using System.Windows.Forms.VisualStyles;
+using System.Net;
 
 namespace JoinFS
 {
@@ -81,6 +82,10 @@ namespace JoinFS
             { TypeRole_Bomber,          Resources.strings.Bomber },
             { TypeRole_FourProp,        Resources.strings.FourProp },
         };
+
+#if FS2024
+        Dictionary<string, (string typeRoleName, string compareType)> typeroleClassifier = new Dictionary<string, (string typeRoleName, string compareType)>();
+#endif
 
         /// <summary>
         /// Convert a string to a typerole
@@ -417,9 +422,32 @@ namespace JoinFS
                 // check if model is already listed
 #if FS2024
                 Model model = GetModel(scanTitle, scanVariation);
+
+                // check if the typerole is "MSFS2024"
+                // we only get this for MSFS2024
+                if (scanTyperole == "MSFS2024")
+                {
+                    bool found = false;
+                    // iterate over typeroleClassifier and test if typeroleClassifier key is a substring of scanTitle
+                    foreach (var entry in typeroleClassifier)
+                    {
+                        if (scanTitle.Contains(entry.Key))
+                        {
+                            scanTyperole = entry.Value.typeRoleName;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        scanTyperole = "SingleProp";
+                    }
+                }
 #else
                 Model model = GetModel(scanTitle);
 #endif
+
+
                 if (model != null)
                 {
                     // update the model details
@@ -428,7 +456,8 @@ namespace JoinFS
                     model.longType = scanManufacturer + " " + scanType;
                     model.variation = scanVariation;
                     model.index = scanIndex;
-                    model.typerole = TyperoleFromString(scanTyperole);
+                    // don't update typerole. The first classification was most probably correct
+                    // model.typerole = TyperoleFromString(scanTyperole);
                     model.folder = scanFolder;
                 }
                 else
@@ -2158,6 +2187,60 @@ namespace JoinFS
             }
         }
 
+#if FS2024
+        public void LoadTypeClassifiers()
+        {
+            // check for sim
+            if (main.sim != null && main.sim.Connected)
+            {
+                // type classifiers file
+                string typeClassifiersFile = Path.Combine(main.storagePath, "typeclassifiers - " + main.sim.GetSimulatorName() + ".txt");
+                // download the file if it does not exist
+                if (File.Exists(typeClassifiersFile) == false)
+                {
+                    // download the file from a web server
+                    string url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/model2type.txt";
+                    try
+                    {
+                        // download the file
+                        using (WebClient client = new WebClient())
+                        {
+                            client.DownloadFile(url, typeClassifiersFile);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        main.MonitorEvent("Error downloading type classifiers: " + ex.Message);
+                    }
+                }
+                // check if file exists
+                if (File.Exists(typeClassifiersFile))
+                {
+                    // open file
+                    StreamReader reader = new StreamReader(typeClassifiersFile);
+                    // read classifiers
+                    string line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        // parse line
+                        string[] parts = line.Split('|');
+                        // check for three parts
+                        if (parts.Length == 3)
+                        {
+                            // add classifier if doesn't exist
+                            if (typeroleClassifier.ContainsKey(parts[1]) == false)
+                            {
+                                typeroleClassifier.Add(parts[1], (parts[2], parts[0]));
+                            }
+                        }
+                    }
+                    // close file
+                    reader.Close();
+                }
+            }
+        }
+#endif
+
         /// <summary>
         /// Load model matching
         /// </summary>
@@ -2176,6 +2259,10 @@ namespace JoinFS
                 LoadFolders();
                 // load models from file
                 LoadModels();
+
+#if FS2024
+                LoadTypeClassifiers();
+#endif
 
                 // check for scan setting
                 if (main.settingsScan)

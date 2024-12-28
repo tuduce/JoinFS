@@ -4657,12 +4657,11 @@ namespace JoinFS
 		        SIMCONNECT_ENUMERATE_SIMOBJECT_LIVERY element = (SIMCONNECT_ENUMERATE_SIMOBJECT_LIVERY) data.rgData[i];
                 if (element.AircraftTitle.Contains("PassiveAircraft") == false)
                 {
-                    // TODO: match the typerole of the model.
                     // We're using in MSFS2024 the variation as livery.
                     // This is not totally correct in MSFS2024, since variation
                     // is "Passengers" or "Cargo" and not the livery.
                     // In MSFS2024 the variation is embedded in the model name.
-                    main.substitution.SubmitModel(element.AircraftTitle, "", element.AircraftTitle, element.LiveryName, 0, "SingleProp");
+                    main.substitution.SubmitModel(element.AircraftTitle, "", element.AircraftTitle, element.LiveryName, 0, "MSFS2024");
                     // main.MonitorEvent("Model " + element.AircraftTitle + " livery " + element.LiveryName);
                 }
             }
