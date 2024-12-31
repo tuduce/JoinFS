@@ -272,7 +272,7 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:JoinFS-FS2024"
         "ProductCode" = "8:{EB072C28-344E-4128-B99C-6CAA475B377A}"
-        "PackageCode" = "8:{565B31B7-12BF-4E5D-AFEE-07FB64B7B462}"
+        "PackageCode" = "8:{32020D93-F37C-4401-AD5E-84D846BEC489}"
         "UpgradeCode" = "8:{5E0660E2-5CE4-46C1-97C3-3AFBB78A144C}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
@@ -392,6 +392,20 @@
         }
         "Shortcut"
         {
+            "{970C0BB2-C7D0-45D7-ABFA-7EC378858BC0}:_18D0C895AD6D4820AAD76E388B7E1526"
+            {
+            "Name" = "8:JoinFS - FS2024"
+            "Arguments" = "8:"
+            "Description" = "8:"
+            "ShowCmd" = "3:1"
+            "IconIndex" = "3:0"
+            "Transitive" = "11:FALSE"
+            "Target" = "8:_270C945304AB4FB7BF981934DF34BBB0"
+            "Folder" = "8:_C12DBCE8EA3740C68C2F413A03983A8E"
+            "WorkingFolder" = "8:_1DA22E741B9C41A19DA82AE1F5E61061"
+            "Icon" = "8:_29F4E1773E8D47CDB7F8235E6EF490A9"
+            "Feature" = "8:"
+            }
         }
         "UserInterface"
         {
@@ -793,7 +807,7 @@
         {
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_270C945304AB4FB7BF981934DF34BBB0"
             {
-            "SourcePath" = "8:..\\..\\FS2020\\obj\\Release\\JoinFS-FS2024.exe"
+            "SourcePath" = "8:..\\..\\obj\\Release FS2024\\JoinFS-FS2024.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_1DA22E741B9C41A19DA82AE1F5E61061"
@@ -813,6 +827,34 @@
             "ProjectOutputGroupRegister" = "3:1"
             "OutputConfiguration" = "8:"
             "OutputGroupCanonicalName" = "8:Built"
+            "OutputProjectGuid" = "8:{ADB6858F-B575-496B-8EFF-3859E3F855BE}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_3D88E9536D954B9FB729BA0205749364"
+            {
+            "SourcePath" = "8:"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_1DA22E741B9C41A19DA82AE1F5E61061"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:"
+            "OutputGroupCanonicalName" = "8:ContentFiles"
             "OutputProjectGuid" = "8:{ADB6858F-B575-496B-8EFF-3859E3F855BE}"
             "ShowKeyOutput" = "11:TRUE"
                 "ExcludeFilters"
