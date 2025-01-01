@@ -1375,6 +1375,25 @@ namespace JoinFS
                                 }
                             }
                         }
+                        else
+                        {
+#if FS2024
+                            // with no addons in the list, we must trigger the model matching and save manually
+                            main.ScheduleSubstitutionMatch();
+                            // we must show the number of models as well
+                            if (interactive)
+                            {
+                                if (models.Count > 0)
+                                {
+                                    main.scheduleShowMessage = Resources.strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.strings.FoundSuffix;
+                                }
+                                else
+                                {
+                                    main.scheduleShowMessage = "No models found";
+                                }
+                            }
+#endif
+                        }
                     }
 #endif
 
@@ -1386,7 +1405,7 @@ namespace JoinFS
                     // check for models scanned
                     if (models.Count > 0)
                     {
-                        main.MonitorEvent("Scan found " + models.Count + ((models.Count == 1) ? " model" : " models"));
+                        main.MonitorEvent("Scan found " + models.Count + ((models.Count == 1) ? " model" : " models") + " in the community folder(s)");
                     }
                     else
                     {
