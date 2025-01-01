@@ -1803,8 +1803,18 @@ namespace JoinFS
                             // check for two parts
                             if (parts.Length == 2)
                             {
-                                // find model
-                                Model model = GetModel(parts[1]);
+                                // Get model and variation strings
+                                string[] subParts = parts[1].Split('|');
+                                Model model = null;
+                                if (subParts.Length == 2)
+                                {
+                                    // find model
+                                    model = GetModel(subParts[0], subParts[1]);
+                                } else
+                                {
+                                    // find model
+                                    model = GetModel(parts[1]);
+                                }
                                 if (model != null)
                                 {
                                     // add model match
@@ -1874,7 +1884,7 @@ namespace JoinFS
                         foreach (var pair in matches)
                         {
                             // write model match
-                            writer.WriteLine(pair.Key + "=" + pair.Value.title);
+                            writer.WriteLine(pair.Key + "=" + pair.Value.title + "|" + pair.Value.variation);
                         }
                         writer.Close();
                     }
