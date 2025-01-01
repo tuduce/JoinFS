@@ -833,7 +833,7 @@
                 {
                 }
             }
-            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_3D88E9536D954B9FB729BA0205749364"
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_2CBBD1D47FC04E75A550CE608878A046"
             {
             "SourcePath" = "8:"
             "TargetName" = "8:"
@@ -854,7 +854,7 @@
             "IsolateTo" = "8:"
             "ProjectOutputGroupRegister" = "3:1"
             "OutputConfiguration" = "8:"
-            "OutputGroupCanonicalName" = "8:ContentFiles"
+            "OutputGroupCanonicalName" = "8:LocalizedResourceDlls"
             "OutputProjectGuid" = "8:{ADB6858F-B575-496B-8EFF-3859E3F855BE}"
             "ShowKeyOutput" = "11:TRUE"
                 "ExcludeFilters"

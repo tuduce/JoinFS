@@ -163,7 +163,7 @@
     <value>Folgen</value>
   </data>
   <data name="FoundPrefix" xml:space="preserve">
-    <value />
+    <value>Es wurden</value>
   </data>
   <data name="FoundSuffix" xml:space="preserve">
     <value>Modell(e) gefunden</value>
