@@ -4669,7 +4669,6 @@ namespace JoinFS
             if (data.dwEntryNumber + 1 == data.dwOutOf)
             {
                 main.MonitorEvent("Read all models from the simulator.");
-                main.ScheduleSubstitutionMatch();
                 requestModelListInProgress = false;
 
                 if (requestModelListIsVerbose)
@@ -4685,6 +4684,8 @@ namespace JoinFS
                     }
                     requestModelListIsVerbose = false;
                 }
+                // at the very end
+                main.ScheduleSubstitutionMatch();
             }
         }
 #endif

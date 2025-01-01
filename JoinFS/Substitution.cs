@@ -1383,11 +1383,6 @@ namespace JoinFS
                     // FS2024 has async loading of models
                     main.ScheduleSubstitutionMatch();
 #endif
-                    // TODO: cleanup code, remove this comment block
-                    // not saving models to file at this point
-                    // // save models to file
-                    // main.ScheduleSubstitutionSave();
-
                     // check for models scanned
                     if (models.Count > 0)
                     {
@@ -1513,7 +1508,6 @@ namespace JoinFS
 
                                 // reload matches
 #if FS2024
-                                main.ScheduleSubstitutionMatch();
                                 main.sim.requestModelListIsVerbose = true;
 #else
                                 LoadMatches();
