@@ -17,7 +17,8 @@ namespace JoinFS
         public string GetReplaceModel()
         {
 #if FS2024
-            string[] parts = Text_Replace.Text.Split('|');
+            string[] separator = { "[+]" };
+            string[] parts = Text_Replace.Text.Split(separator, StringSplitOptions.None);
             return parts[0].TrimEnd(' ');
 #else
             return Text_Replace.Text;
@@ -27,7 +28,8 @@ namespace JoinFS
         public string GetWithModel()
         {
 #if FS2024
-            string[] parts = Text_Title.Text.Split('|');
+            string[] separator = { "[+]" };
+            string[] parts = Text_Title.Text.Split(separator, StringSplitOptions.None);
             return parts[0].TrimEnd(' ');
 #else
             return Text_Title.Text;
@@ -37,7 +39,8 @@ namespace JoinFS
 #if FS2024
         public string GetWithVariation()
         {
-            string[] parts = Text_Title.Text.Split('|');
+            string[] separator = { "[+]" };
+            string[] parts = Text_Title.Text.Split(separator, StringSplitOptions.None);
             if (parts.Length > 1)
             {
                 return parts[1].TrimStart(' ');
@@ -177,7 +180,7 @@ namespace JoinFS
             }
 
             // add to list
-            Text_Title.Text = title + " | " + variation;
+            Text_Title.Text = title + " [+] " + variation;
         }
 
 #if FS2024
@@ -244,7 +247,7 @@ namespace JoinFS
 
             // fill form
 #if FS2024
-            Text_Replace.Text = replace + " | " + variation;
+            Text_Replace.Text = replace + " [+] " + variation;
 #else
             Text_Replace.Text = replace;
 #endif
@@ -267,7 +270,7 @@ namespace JoinFS
                 Combo_Type.Text = model.type;
                 Combo_Variation.Text = model.variation;
 #if FS2024
-                Text_Title.Text = model.title + " | " + model.variation;
+                Text_Title.Text = model.title + " [+] " + model.variation;
 #else
                 Text_Title.Text = model.title;
 #endif

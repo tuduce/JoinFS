@@ -209,7 +209,8 @@ namespace JoinFS
         public Model GetModel(string title)
         {
 #if FS2024
-            string[] parts = title.Split('|');
+            string[] separator = { "[+]" };
+            string[] parts = title.Split(separator, StringSplitOptions.None);
             if (parts.Length == 2)
             {
                 return models.Find(m => m.title.Equals(parts[0]) && m.variation.Equals(parts[1]));
@@ -1817,7 +1818,8 @@ namespace JoinFS
                             if (parts.Length == 2)
                             {
                                 // Get model and variation strings
-                                string[] subParts = parts[1].Split('|');
+                                string[] separator = { "[+]" };
+                                string[] subParts = parts[1].Split(separator, StringSplitOptions.None);
                                 Model model = null;
                                 if (subParts.Length == 2)
                                 {
@@ -1897,7 +1899,7 @@ namespace JoinFS
                         foreach (var pair in matches)
                         {
                             // write model match
-                            writer.WriteLine(pair.Key + "=" + pair.Value.title + "|" + pair.Value.variation);
+                            writer.WriteLine(pair.Key + "=" + pair.Value.title + "[+]" + pair.Value.variation);
                         }
                         writer.Close();
                     }
