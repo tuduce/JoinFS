@@ -1974,7 +1974,7 @@ namespace JoinFS
                 string AddonsFile = Path.Combine(main.storagePath, "Addons_FS2020.txt");
                 string AddonsFile_Web = Path.Combine(main.storagePath, "Addons_FS2020_Web.txt");
                 // Always download the AddOns file from a web server.
-                string url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/FS-2020-Addons/JoinFS/util/Addons_FS2020.txt";
+                string url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/Addons_FS2020.txt";
 
                 try
                 {
