@@ -15,7 +15,9 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 using System.Security.Policy;
 using System.Windows.Forms.VisualStyles;
 using System.Net;
-
+#if FS2020
+using System.Linq;
+#endif
 namespace JoinFS
 {
     public class Substitution
@@ -32,6 +34,7 @@ namespace JoinFS
         string initialScanFolders = "";
         string initialAddOns = "";
         string initialAdditionals = "";
+        public static string[] AddonsFileContents = { "" };
 
         /// <summary>
         /// Reference to the main form
@@ -989,9 +992,47 @@ namespace JoinFS
                         }
                     }
 
-                    // check for MSFS2020 or MSFS2024
-                    if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020" ||
-                        main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
+                    if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020")
+                    {
+                        if ((AddonsFileContents[0] != ""))
+                        {
+                            try
+                            {
+
+                                string lastaddon = "";
+                                int AddOnnmodels = 0;
+                                foreach (string line in AddonsFileContents)
+                                {
+                                    string[] parts = line.Split('|');
+                                    //count addons and split lines
+                                    lastaddon = parts[0];
+                                    bool ThisAddonSelected = initialAddOns.Contains(lastaddon);
+
+                                    // check that model is not already present
+                                    if (ModelExists(parts[1]) == false && ThisAddonSelected)
+                                    {
+                                        SubmitModel(parts[1], parts[2], parts[3], parts[4], 0, parts[6]);
+                                        AddOnnmodels++;
+                                    }
+                                }
+
+                                // message
+                                main.MonitorEvent("Loaded " + AddOnnmodels + " AddOn Models");
+
+                            }
+                            catch (Exception ex)
+                            {
+                                main.ShowMessage(ex.Message);
+                            }
+                        }
+                        
+                        else
+                        {
+                            main.MonitorEvent("FS2020: No AddOns");
+                        }
+                    }
+                    // check for MSFS2024
+                    if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
                     {
                         // check for initial addons
                         if (initialAddOns.Length > 0)
@@ -1004,375 +1045,6 @@ namespace JoinFS
                                 if (addOn == "My MSFS 2024")
                                 {
                                     ScanSimForModels();
-                                }
-                                else if (addOn == "Asobo Standard")
-                                {
-                                    SubmitModel("Airbus A320neo", "Asobo", "Airbus A320", "neo", 0, "Airliner");
-                                    SubmitModel("Boeing 787-10 Asobo", "Asobo", "Boeing 787-10", "_default", 0, "Airliner");
-                                    SubmitModel("Beechcraft King Air 350i Asobo", "Asobo", "Beechcraft King Air 350i", "_default", 0, "TwinProp");
-                                    SubmitModel("Cessna 208B Grand Caravan EX", "Asobo", "Cessna 208B Grand Caravan", "_default", 0, "SingleProp");
-                                    SubmitModel("TBM 930 Asobo", "Asobo", "TBM 930", "_default", 0, "SingleProp");
-                                    SubmitModel("Cessna CJ4 Citation Asobo", "Asobo", "Cessna CJ4 Citation", "_default", 0, "Airliner");
-                                    SubmitModel("Pitts Special S2S Rufus", "Asobo", "Pitts Special S2S", "Rufus", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S2S Sam", "Asobo", "Pitts Special S2S", "Sam", 0, "SingleProp");
-                                    SubmitModel("Pitts Asobo", "Asobo", "Pitts", "_default", 0, "SingleProp");
-                                    SubmitModel("Bonanza G36 Asobo", "Asobo", "Bonanza G36", "_default", 0, "SingleProp");
-                                    SubmitModel("Cessna 152 Asobo", "Asobo", "Cessna 152", "_default", 0, "SingleProp");
-                                    SubmitModel("Cessna Skyhawk G1000 Asobo", "Asobo", "Cessna Skyhawk", "G1000", 0, "SingleProp");
-                                    SubmitModel("Asobo XCub", "Asobo", "XCub", "_default", 0, "SingleProp");
-                                    SubmitModel("DA40-NG Asobo", "Asobo", "DA40", "NG", 0, "SingleProp");
-                                    SubmitModel("DA62 Asobo", "Asobo", "DA62", "_default", 0, "TwinProp");
-                                    SubmitModel("Extra 330 Asobo", "Asobo", "Extra 330", "_default", 0, "SingleProp");
-                                    SubmitModel("FlightDesignCT Asobo", "Asobo", "FlightDesignCT", "_default", 0, "SingleProp");
-                                    SubmitModel("Icon A5 Asobo", "Asobo", "Icon A5", "_default", 0, "SingleProp");
-                                    SubmitModel("VL3 Asobo", "Asobo", "VL3", "_default", 0, "SingleProp");
-                                    SubmitModel("Mudry Cap 10 C", "Asobo", "Mudry Cap 10 C", "_default", 0, "SingleProp");
-                                    SubmitModel("DR400 Asobo", "Asobo", "DR400", "_default", 0, "SingleProp");
-                                    SubmitModel("Asobo Savage Cub", "Asobo", "Savage Cub", "_default", 0, "SingleProp");
-                                }
-                                else if (addOn == "Asobo Deluxe")
-                                {
-                                    SubmitModel("DA40 TDI Asobo", "Asobo", "DA40", "TDI", 0, "SingleProp");
-                                    SubmitModel("DV20 Asobo", "Asobo", "DV20", "_default", 0, "SingleProp");
-                                    SubmitModel("Asobo Baron G58", "Asobo", "Baron G58", "_default", 0, "TwinProp");
-                                    SubmitModel("Cessna Skyhawk Asobo", "Asobo", "Cessna Skyhawk", "_default", 0, "SingleProp");
-                                    SubmitModel("Cessna 152 Aero Asobo", "Asobo", "Cessna 152", "Aero", 0, "SingleProp");
-                                }
-                                else if (addOn == "Asobo Premium")
-                                {
-                                    SubmitModel("Boeing 747-8i Asobo", "Asobo", "Boeing 747-8i", "_default", 0, "Airliner");
-                                    SubmitModel("SR22 Asobo", "Asobo", "SR22", "_default", 0, "SingleProp");
-                                    SubmitModel("Pipistrel Alpha Electro Asobo", "Asobo", "Pipistrel Alpha Electro", "_default", 0, "SingleProp");
-                                    SubmitModel("Cessna Longitude Asobo", "Asobo", "Cessna Longitude", "_default", 0, "Airliner");
-                                    SubmitModel("Savage Shock Ultra Asobo", "Asobo", "Savage Shock Ultra", "_default", 0, "SingleProp");
-                                }
-                                else if (addOn == "Carenado YMF-5")
-                                {
-                                    SubmitModel("Carenado YMF-5 N56ECC", "Carenado", "Carenado YMF-5", "N56ECC", 0, "SingleProp");
-                                    SubmitModel("Carenado YMF-5 N240ET", "Carenado", "Carenado YMF-5", "N240ET", 0, "SingleProp");
-                                    SubmitModel("Carenado YMF-5 G-YMFT", "Carenado", "Carenado YMF-5", "G-YMFT", 0, "SingleProp");
-                                    SubmitModel("Carenado YMF-5 D-EDOF", "Carenado", "Carenado YMF-5", "D-EDOF", 0, "SingleProp");
-                                    SubmitModel("Carenado YMF-5 N92320", "Carenado", "Carenado YMF-5", "N92320", 0, "SingleProp");
-                                }
-                                else if (addOn == "Carenado PA44 Seminole")
-                                {
-                                    SubmitModel("Carenado PA44 Seminole G-BGCP", "Carenado", "Carenado PA44 Seminole", "G-BGCP", 0, "TwinProp");
-                                    SubmitModel("Carenado PA44 Seminole N638YA", "Carenado", "Carenado PA44 Seminole", "N638YA", 0, "TwinProp");
-                                    SubmitModel("Carenado PA44 Seminole N463PA", "Carenado", "Carenado PA44 Seminole", "N463PA", 0, "TwinProp");
-                                    SubmitModel("Carenado PA44 Seminole N428DG", "Carenado", "Carenado PA44 Seminole", "N428DG", 0, "TwinProp");
-                                    SubmitModel("Carenado PA44 Seminole N806AM", "Carenado", "Carenado PA44 Seminole", "N806AM", 0, "TwinProp");
-                                }
-                                else if (addOn == "Carenado M20R Ovation")
-                                {
-                                    SubmitModel("Carenado M20R Ovation D-ERWO", "Carenado", "Carenado M20R Ovation", "D-ERWO", 0, "SingleProp");
-                                    SubmitModel("Carenado M20R Ovation N541JS", "Carenado", "Carenado M20R Ovation", "N541JS", 0, "SingleProp");
-                                    SubmitModel("Carenado M20R Ovation N48MQ", "Carenado", "Carenado M20R Ovation", "N48MQ", 0, "SingleProp");
-                                    SubmitModel("Carenado M20R Ovation N247VD", "Carenado", "Carenado M20R Ovation", "N247VD", 0, "SingleProp");
-                                }
-                                else if (addOn == "Carenado CT182T Skylane")
-                                {
-                                    SubmitModel("Carenado CT182T Skylane G-ANRW", "Carenado", "Carenado CT182T Skylane", "G-ANRW", 0, "SingleProp");
-                                    SubmitModel("Carenado CT182T Skylane N5996K", "Carenado", "Carenado CT182T Skylane", "N5996K", 0, "SingleProp");
-                                    SubmitModel("Carenado CT182T Skylane N2250R", "Carenado", "Carenado CT182T Skylane", "N2250R", 0, "SingleProp");
-                                    SubmitModel("Carenado CT182T Skylane N2963N", "Carenado", "Carenado CT182T Skylane", "N2963N", 0, "SingleProp");
-                                }
-                                else if (addOn == "Carenado PA34T Seneca V")
-                                {
-                                    SubmitModel("Carenado PA34T Seneca V N95465", "Carenado", "Carenado PA34T Seneca V", "N95465", 0, "TwinProp");
-                                    SubmitModel("Carenado PA34T Seneca V N58688", "Carenado", "Carenado PA34T Seneca V", "N58688", 0, "TwinProp");
-                                    SubmitModel("Carenado PA34T Seneca V N48765", "Carenado", "Carenado PA34T Seneca V", "N48765", 0, "TwinProp");
-                                    SubmitModel("Carenado PA34T Seneca V PT-SRD", "Carenado", "Carenado PA34T Seneca V", "PT-SRD", 0, "TwinProp");
-                                    SubmitModel("Carenado PA34T Seneca V N58630", "Carenado", "Carenado PA34T Seneca V", "N58630", 0, "TwinProp");
-                                    SubmitModel("Carenado PA34T Seneca V WHITE", "Carenado", "Carenado PA34T Seneca V", "WHITE", 0, "TwinProp");
-                                }
-                                else if (addOn == "Carenado PA28R Arrow III")
-                                {
-                                    SubmitModel("Carenado PA28R Arrow III N842TU", "Carenado", "Carenado PA28R Arrow III", "N842TU", 0, "SingleProp");
-                                    SubmitModel("Carenado PA28R Arrow III N19030", "Carenado", "Carenado PA28R Arrow III", "N19030", 0, "SingleProp");
-                                    SubmitModel("Carenado PA28R Arrow III D-ESBT", "Carenado", "Carenado PA28R Arrow III", "D-ESBT", 0, "SingleProp");
-                                    SubmitModel("Carenado PA28R Arrow III G-GMCL", "Carenado", "Carenado PA28R Arrow III", "G-GMCL", 0, "SingleProp");
-                                    SubmitModel("Carenado PA28R Arrow III N3029K", "Carenado", "Carenado PA28R Arrow III", "N3029K", 0, "SingleProp");
-                                }
-                                else if (addOn == "Carenado C170")
-                                {
-                                    SubmitModel("Carenado C170 CC-KMC", "Carenado", "Carenado C170", "CC-KMC", 0, "SingleProp");
-                                    SubmitModel("Carenado C170 N24MJ", "Carenado", "Carenado C170", "N24MJ", 0, "SingleProp");
-                                    SubmitModel("Carenado C170 N250FP", "Carenado", "Carenado C170", "N250FP", 0, "SingleProp");
-                                    SubmitModel("Carenado C170 N78HL", "Carenado", "Carenado C170", "N78HL", 0, "SingleProp");
-                                    SubmitModel("Carenado C170 N2472P", "Carenado", "Carenado C170", "N2472P", 0, "SingleProp");
-                                    SubmitModel("Carenado C170 C-GEXX", "Carenado", "Carenado C170", "C-GEXX", 0, "SingleProp");
-                                    SubmitModel("Carenado C170 WHITE", "Carenado", "Carenado C170", "WHITE", 0, "SingleProp");
-                                }
-                                else if (addOn == "Carenado C170B Tundra")
-                                {
-                                    SubmitModel("Carenado C170B CC-KMC Tundra", "Carenado", "Carenado C170B Tundra", "CC-KMC", 0, "SingleProp");
-                                    SubmitModel("Carenado C170B N24MJ Tundra", "Carenado", "Carenado C170B Tundra", "N24MJ", 0, "SingleProp");
-                                    SubmitModel("Carenado C170B N250FP Tundra", "Carenado", "Carenado C170B Tundra", "N250FP", 0, "SingleProp");
-                                    SubmitModel("Carenado C170B N78HL Tundra", "Carenado", "Carenado C170B Tundra", "N78HL", 0, "SingleProp");
-                                    SubmitModel("Carenado C170B N2472P Tundra", "Carenado", "Carenado C170B Tundra", "N2472P", 0, "SingleProp");
-                                    SubmitModel("Carenado C170B C-GEXX Tundra", "Carenado", "Carenado C170B Tundra", "C-GEXX", 0, "SingleProp");
-                                    SubmitModel("Carenado C170B WHITE Tundra", "Carenado", "Carenado C170B Tundra", "WHITE", 0, "SingleProp");
-                                }
-                                else if (addOn == "MilViz T-45C Goshawk")
-                                {
-                                    SubmitModel("T-45C Goshawk TW-1", "MilViz", "MilViz T-45C Goshawk", "TW-1", 0, "Fighter");
-                                    SubmitModel("T-45C Goshawk TW-2", "MilViz", "MilViz T-45C Goshawk", "TW-2", 0, "Fighter");
-                                    SubmitModel("T-45C Goshawk TW-1 CoNA", "MilViz", "MilViz T-45C Goshawk", "TW-1 CoNA", 0, "Fighter");
-                                    SubmitModel("T-45C Goshawk TW-2 CoNA", "MilViz", "MilViz T-45C Goshawk", "TW-2 CoNA", 0, "Fighter");
-                                    SubmitModel("T-45C Goshawk VX-23", "MilViz", "MilViz T-45C Goshawk", "VX-23", 0, "Fighter");
-                                    SubmitModel("T-45C Goshawk VT-21 Redhawks", "MilViz", "MilViz T-45C Goshawk", "VT-21 Redhawks", 0, "Fighter");
-                                    SubmitModel("T-45C Goshawk VT-22 Golden Hawks", "MilViz", "MilViz T-45C Goshawk", "VT-22 Golden Hawks", 0, "Fighter");
-                                    SubmitModel("T-45C Goshawk VT-7 Eagles", "MilViz", "MilViz T-45C Goshawk", "VT-7 Eagles", 0, "Fighter");
-                                    SubmitModel("T-45C Goshawk VT-9 Tigers", "MilViz", "MilViz T-45C Goshawk", "VT-9 Tigers", 0, "Fighter");
-                                    SubmitModel("T-45C Goshawk VT-86 Sabrehawks", "MilViz", "MilViz T-45C Goshawk", "VT-86 Sabrehawks", 0, "Fighter");
-                                    SubmitModel("T-45C Goshawk VT-86 Special Color", "MilViz", "MilViz T-45C Goshawk", "VT-86 Special Color", 0, "Fighter");
-                                }
-                                else if (addOn == "Aerosoft A333")
-                                {
-                                    SubmitModel("Aerosoft A333 professional AIR CANADA C-GFAF", "Aerosoft", "Aerosoft A333 professional", "AIR CANADA C-GFAF", 0, "Airliner");
-                                    SubmitModel("Aerosoft A333 professional AIRBUS F-WWCB", "Aerosoft", "Aerosoft A333 professional", "AIRBUS F-WWCB", 0, "Airliner");
-                                    SubmitModel("Aerosoft A333 professional CATHAY PACIFIC B-LBJ", "Aerosoft", "Aerosoft A333 professional", "CATHAY PACIFIC B-LBJ", 0, "Airliner");
-                                    SubmitModel("Aerosoft A333 professional CORSAIR INTERNATIONAL F-HSKY", "Aerosoft", "Aerosoft A333 professional", "CORSAIR INTERNATIONAL F-HSKY", 0, "Airliner");
-                                    SubmitModel("Aerosoft A333 professional DRAGON AIR B-LAB", "Aerosoft", "Aerosoft A333 professional", "DRAGON AIR B-LAB", 0, "Airliner");
-                                    SubmitModel("Aerosoft A333 professional EDELWEISS AIR HB-JHQ", "Aerosoft", "Aerosoft A333 professional", "EDELWEISS AIR HB-JHQ", 0, "Airliner");
-                                    SubmitModel("Aerosoft A333 professional EUROWINGS OO-SFB", "Aerosoft", "Aerosoft A333 professional", "EUROWINGS OO-SFB", 0, "Airliner");
-                                    SubmitModel("Aerosoft A333 professional LION AIR PK-LEF", "Aerosoft", "Aerosoft A333 professional", "LION AIR PK-LEF", 0, "Airliner");
-                                    SubmitModel("Aerosoft A333 professional LUFTHANSA D-AIKO", "Aerosoft", "Aerosoft A333 professional", "LUFTHANSA D-AIKO", 0, "Airliner");
-                                    SubmitModel("Aerosoft A333 professional SAUDI ARABIAN AIRLINES HZ-AQI", "Aerosoft", "Aerosoft A333 professional", "SAUDI ARABIAN AIRLINES HZ-AQI", 0, "Airliner");
-                                    SubmitModel("Aerosoft A333 professional SINGAPORE AIRLINES 9V-SSB", "Aerosoft", "Aerosoft A333 professional", "SINGAPORE AIRLINES 9V-SSB", 0, "Airliner");
-                                    SubmitModel("Aerosoft A333 professional SWISS HB-JHK", "Aerosoft", "Aerosoft A333 professional", "SWISS HB-JHK", 0, "Airliner");
-                                    SubmitModel("Aerosoft A333 professional VIRGIN ATLANTIC G-VKSS", "Aerosoft", "Aerosoft A333 professional", "VIRGIN ATLANTIC G-VKSS", 0, "Airliner");
-                                }
-                                else if (addOn == "Aerosoft A321")
-                                {
-                                    SubmitModel("Aerosoft A321 professional BRITISH AIRWAYS G-EUXG", "Aerosoft", "Aerosoft A321 professional", "BRITISH AIRWAYS G-EUXG", 0, "Airliner");
-                                    SubmitModel("Aerosoft A321 professional JETBLUE N976JT", "Aerosoft", "Aerosoft A321 professional", "JETBLUE N976JT", 0, "Airliner");
-                                    SubmitModel("Aerosoft A321 professional LUFTHANSA D-AISP", "Aerosoft", "Aerosoft A321 professional", "LUFTHANSA D-AISP", 0, "Airliner");
-                                    SubmitModel("Aerosoft A321 professional MIDDLE EAST AIRLINES F-ONEO", "Aerosoft", "Aerosoft A321 professional", "MIDDLE EAST AIRLINES F-ONEO", 0, "Airliner");
-                                    SubmitModel("Aerosoft A321 professional MONARCH GMARA", "Aerosoft", "Aerosoft A321 professional", "MONARCH GMARA", 0, "Airliner");
-                                    SubmitModel("Aerosoft A321 professional QATAR AIRWAYS", "Aerosoft", "Aerosoft A321 professional", "QATAR AIRWAYS", 0, "Airliner");
-                                    SubmitModel("Aerosoft A321 professional AIR BERLIN D-ASLB", "Aerosoft", "Aerosoft A321 professional", "AIR BERLIN D-ASLB", 0, "Airliner");
-                                    SubmitModel("Aerosoft A321 professional AIRBUS INDUSTRIES F-WWIA", "Aerosoft", "Aerosoft A321 professional", "AIRBUS INDUSTRIES F-WWIA", 0, "Airliner");
-                                    SubmitModel("Aerosoft A321 professional DELTA N301DN", "Aerosoft", "Aerosoft A321 professional", "DELTA N301DN", 0, "Airliner");
-                                    SubmitModel("Aerosoft A321 professional FINNAIR OH-NEO", "Aerosoft", "Aerosoft A321 professional", "FINNAIR OH-NEO", 0, "Airliner");
-                                    SubmitModel("Aerosoft A321 professional ISRAELI AIRLINES 4X-NEO", "Aerosoft", "Aerosoft A321 professional", "ISRAELI AIRLINES 4X-NEO", 0, "Airliner");
-                                }
-                                else if (addOn == "Aerosoft A320")
-                                {
-                                    SubmitModel("Aerosoft A320 professional BRITISH AIRWAYS G-EUUU", "Aerosoft", "Aerosoft A320 professional", "BRITISH AIRWAYS G-EUUU", 0, "Airliner");
-                                    SubmitModel("Aerosoft A320 professional JETBLUE N828JB", "Aerosoft", "Aerosoft A320 professional", "JETBLUE N828JB", 0, "Airliner");
-                                    SubmitModel("Aerosoft A320 professional UNITED AIRLINES N405UA", "Aerosoft", "Aerosoft A320 professional", "UNITED AIRLINES N405UA", 0, "Airliner");
-                                    SubmitModel("Aerosoft A320 professional VUELING EC-LUO", "Aerosoft", "Aerosoft A320 professional", "VUELING EC-LUO", 0, "Airliner");
-                                    SubmitModel("Aerosoft A320 professional WIZZ AIR UR-WUC", "Aerosoft", "Aerosoft A320 professional", "WIZZ AIR UR-WUC", 0, "Airliner");
-                                    SubmitModel("Aerosoft A320 professional AER LINGUS EI-DEK", "Aerosoft", "Aerosoft A320 professional", "AER LINGUS EI-DEK", 0, "Airliner");
-                                    SubmitModel("Aerosoft A320 professional AIR BERLIN D-ABMS", "Aerosoft", "Aerosoft A320 professional", "AIR BERLIN D-ABMS", 0, "Airliner");
-                                    SubmitModel("Aerosoft A320 professional AIRBUS INDUSTRIES F-WWBA", "Aerosoft", "Aerosoft A320 professional", "AIRBUS INDUSTRIES F-WWBA", 0, "Airliner");
-                                    SubmitModel("Aerosoft A320 professional EASYJET G-EZTB", "Aerosoft", "Aerosoft A320 professional", "EASYJET G-EZTB", 0, "Airliner");
-                                    SubmitModel("Aerosoft A320 professional EUROWINGS D-AIZV", "Aerosoft", "Aerosoft A320 professional", "EUROWINGS D-AIZV", 0, "Airliner");
-                                    SubmitModel("Aerosoft A320 professional LUFTHANSA D-AIZQ", "Aerosoft", "Aerosoft A320 professional", "LUFTHANSA D-AIZQ", 0, "Airliner");
-                                    SubmitModel("Aerosoft A320 professional NIKI OE-LEA", "Aerosoft", "Aerosoft A320 professional", "NIKI OE-LEA", 0, "Airliner");
-                                }
-                                else if (addOn == "Aerosoft A319")
-                                {
-                                    SubmitModel("Aerosoft A319 professional AVIANCA N703AV", "Aerosoft", "Aerosoft A319 professional", "AVIANCA N703AV", 0, "Airliner");
-                                    SubmitModel("Aerosoft A319 professional BRITISH AIRWAYS G-DBCF", "Aerosoft", "Aerosoft A319 professional", "BRITISH AIRWAYS G-DBCF", 0, "Airliner");
-                                    SubmitModel("Aerosoft A319 professional EUROWINGS D-AGWZ", "Aerosoft", "Aerosoft A319 professional", "EUROWINGS D-AGWZ", 0, "Airliner");
-                                    SubmitModel("Aerosoft A319 professional GERMANWINGS D-AGWZ", "Aerosoft", "Aerosoft A319 professional", "GERMANWINGS D-AGWZ", 0, "Airliner");
-                                    SubmitModel("Aerosoft A319 professional TAM PR-MAN", "Aerosoft", "Aerosoft A319 professional", "TAM PR-MAN", 0, "Airliner");
-                                    SubmitModel("Aerosoft A319 professional AEROFLOT VQ-BCP", "Aerosoft", "Aerosoft A319 professional", "AEROFLOT VQ-BCP", 0, "Airliner");
-                                    SubmitModel("Aerosoft A319 professional AIR BERLIN D-ABGN", "Aerosoft", "Aerosoft A319 professional", "AIR BERLIN D-ABGN", 0, "Airliner");
-                                    SubmitModel("Aerosoft A319 professional AMERICAN AIRLINES N8001N", "Aerosoft", "Aerosoft A319 professional", "AMERICAN AIRLINES N8001N", 0, "Airliner");
-                                    SubmitModel("Aerosoft A319 professional DELTA N319NB", "Aerosoft", "Aerosoft A319 professional", "DELTA N319NB", 0, "Airliner");
-                                    SubmitModel("Aerosoft A319 professional EASYJET G-EZAX", "Aerosoft", "Aerosoft A319 professional", "EASYJET G-EZAX", 0, "Airliner");
-                                    SubmitModel("Aerosoft A319 professional LUFTHANSA D-AIBA", "Aerosoft", "Aerosoft A319 professional", "LUFTHANSA D-AIBA", 0, "Airliner");
-                                    SubmitModel("Aerosoft A319 professional LUFTHANSA NEWFLEET D-AIBA", "Aerosoft", "Aerosoft A319 professional", "LUFTHANSA NEWFLEET D-AIBA", 0, "Airliner");
-                                }
-                                else if (addOn == "Aerosoft A318")
-                                {
-                                    SubmitModel("Aerosoft A318 professional AIR FRANCE F-GUGA", "Aerosoft", "Aerosoft A318 professional", "AIR FRANCE F-GUGA", 0, "Airliner");
-                                    SubmitModel("Aerosoft A318 professional AL JABER AVIATION A6-AJC", "Aerosoft", "Aerosoft A318 professional", "AL JABER AVIATION A6-AJC", 0, "Airliner");
-                                    SubmitModel("Aerosoft A318 professional BRITISH AIRWAYS G-EUNA", "Aerosoft", "Aerosoft A318 professional", "BRITISH AIRWAYS G-EUNA", 0, "Airliner");
-                                }
-                                else if (addOn == "Aermacchi MB-339")
-                                {
-                                    SubmitModel("Aermacchi MB-339A Factory Livery", "Aermacchi", "Aermacchi MB-339A", "Factory Livery", 0, "SingleTurbine");
-                                    SubmitModel("Aermacchi MB-339A Aeronautica Militare Ghost Grey", "Aermacchi", "Aermacchi MB-339A", "Aeronautica Militare Ghost Grey", 0, "SingleTurbine");
-                                    SubmitModel("Aermacchi MB-339A Aeronautica Militare Camo", "Aermacchi", "Aermacchi MB-339A", "Aeronautica Militare Camo", 0, "SingleTurbine");
-                                    SubmitModel("Aermacchi MB-339A United Arab Emirates", "Aermacchi", "Aermacchi MB-339A", "United Arab Emirates", 0, "SingleTurbine");
-                                    SubmitModel("Aermacchi MB-339A Royal Malaysian Air Force", "Aermacchi", "Aermacchi MB-339A", "Royal Malaysian Air Force", 0, "SingleTurbine");
-                                    SubmitModel("Aermacchi MB-339A Armada", "Aermacchi", "Aermacchi MB-339A", "Armada", 0, "SingleTurbine");
-                                    SubmitModel("Aermacchi MB-339A MLU Aeronautica Militare Ghost Grey", "Aermacchi", "Aermacchi MB-339A", "MLU Aeronautica Militare Ghost Grey", 0, "SingleTurbine");
-                                    SubmitModel("Aermacchi MB-339PAN Frecce Tricolori", "Aermacchi", "Aermacchi MB-339PAN", "Frecce Tricolori", 0, "SingleTurbine");
-                                }
-                                else if (addOn == "Carenado C337H Skymaster II")
-                                {
-                                    SubmitModel("Carenado C337H Skymaster II N842TU", "Carenado", "Carenado C337H Skymaster II", "N842TU", 0, "TwinProp");
-                                    SubmitModel("Carenado C337H Skymaster II N79252", "Carenado", "Carenado C337H Skymaster II", "N79252", 0, "TwinProp");
-                                    SubmitModel("Carenado C337H Skymaster II N5JD", "Carenado", "Carenado C337H Skymaster II", "N5JD", 0, "TwinProp");
-                                    SubmitModel("Carenado C337H Skymaster II N6276K", "Carenado", "Carenado C337H Skymaster II", "N6276K", 0, "TwinProp");
-                                    SubmitModel("Carenado C337H Skymaster II VH-SBZ", "Carenado", "Carenado C337H Skymaster II", "VH-SBZ", 0, "TwinProp");
-                                    SubmitModel("Carenado C337H Skymaster II N3271S", "Carenado", "Carenado C337H Skymaster II", "N3271S", 0, "TwinProp");
-                                }
-                                else if (addOn == "Junkers Ju52/3m")
-                                {
-                                    SubmitModel("Junkers Ju52/3m 1939", "Junkers", "Junkers Ju52/3m", "1939", 0, "TwinProp");
-                                    SubmitModel("Junkers Ju52/3m Floats", "Junkers", "Junkers Ju52/3m", "Floats", 0, "TwinProp");
-                                    SubmitModel("Junkers Ju52/3m Modern", "Junkers", "Junkers Ju52/3m", "Modern", 0, "TwinProp");
-                                    SubmitModel("Junkers Ju52/3m Skis", "Junkers", "Junkers Ju52/3m", "Skis", 0, "TwinProp");
-                                }
-                                else if (addOn == "Junkers Ju 52")
-                                {
-                                    SubmitModel("Junkers Ju 52 Wheels Livery 01", "Junkers", "Junkers Ju 52", "Wheels Livery 01", 0, "TwinProp");
-                                    SubmitModel("Junkers Ju 52 Wheels Livery 02", "Junkers", "Junkers Ju 52", "Wheels Livery 02", 0, "TwinProp");
-                                    SubmitModel("Junkers Ju 52 Wheels Livery 03", "Junkers", "Junkers Ju 52", "Wheels Livery 03", 0, "TwinProp");
-                                    SubmitModel("Junkers Ju 52 Wheels Livery 04", "Junkers", "Junkers Ju 52", "Wheels Livery 04", 0, "TwinProp");
-                                    SubmitModel("Junkers Ju 52 Floats Livery 01", "Junkers", "Junkers Ju 52", "Floats Livery 01", 0, "TwinProp");
-                                    SubmitModel("Junkers Ju 52 Floats Livery 02", "Junkers", "Junkers Ju 52", "Floats Livery 02", 0, "TwinProp");
-                                    SubmitModel("Junkers Ju 52 Livery Aviators Club", "Junkers", "Junkers Ju 52", "Livery Aviators Club", 0, "TwinProp");
-                                    SubmitModel("Junkers Ju 52 Livery Xbox Aviators Club", "Junkers", "Junkers Ju 52", "Livery Xbox Aviators Club", 0, "TwinProp");
-                                    SubmitModel("Junkers Ju 52 Skis Livery 01", "Junkers", "Junkers Ju 52", "Skis Livery 01", 0, "TwinProp");
-                                    SubmitModel("Junkers Ju 52 Skis Livery 02", "Junkers", "Junkers Ju 52", "Skis Livery 02", 0, "TwinProp");
-                                }
-                                else if (addOn == "Aerosoft DHC-6 Series 100")
-                                {
-                                    SubmitModel("Aerosoft DHC-6 Series 100 Floats Pax", "Aerosoft", "Aerosoft DHC-6 Series 100", "Floats Pax", 0, "TwinProp");
-                                    SubmitModel("Aerosoft DHC-6 Series 100 Wheels Cargo", "Aerosoft", "Aerosoft DHC-6 Series 100", "Wheels Cargo", 0, "TwinProp");
-                                    SubmitModel("Aerosoft DHC-6 Series 100 Wheels Pax", "Aerosoft", "Aerosoft DHC-6 Series 100", "Wheels Pax", 0, "TwinProp");
-                                }
-                                else if (addOn == "Aerosoft DHC-6 Series 300")
-                                {
-                                    SubmitModel("Aerosoft DHC-6 Series 300 Amphibian Pax", "Aerosoft", "Aerosoft DHC-6 Series 300", "Amphibian Pax", 0, "TwinProp");
-                                    SubmitModel("Aerosoft DHC-6 Series 300 Floats Pax", "Aerosoft", "Aerosoft DHC-6 Series 300", "Floats Pax", 0, "TwinProp");
-                                    SubmitModel("Aerosoft DHC-6 Series 300 Floats Pax (Short Nose)", "Aerosoft", "Aerosoft DHC-6 Series 300", "Floats Pax (Short Nose)", 0, "TwinProp");
-                                    SubmitModel("Aerosoft DHC-6 Series 300 Ski Cargo", "Aerosoft", "Aerosoft DHC-6 Series 300", "Ski Cargo", 0, "TwinProp");
-                                    SubmitModel("Aerosoft DHC-6 Series 300 Tundra Cargo", "Aerosoft", "Aerosoft DHC-6 Series 300", "Tundra Cargo", 0, "TwinProp");
-                                    SubmitModel("Aerosoft DHC-6 Series 300 Tundra Pax", "Aerosoft", "Aerosoft DHC-6 Series 300", "Tundra Pax", 0, "TwinProp");
-                                    SubmitModel("Aerosoft DHC-6 Series 300 Wheels Cargo 3-Blade", "Aerosoft", "Aerosoft DHC-6 Series 300", "Wheels Cargo 3-Blade", 0, "TwinProp");
-                                    SubmitModel("Aerosoft DHC-6 Series 300 Wheels Cargo 4-Blade", "Aerosoft", "Aerosoft DHC-6 Series 300", "Wheels Cargo 4-Blade", 0, "TwinProp");
-                                    SubmitModel("Aerosoft DHC-6 Series 300 Wheels Pax", "Aerosoft", "Aerosoft DHC-6 Series 300", "Wheels Pax", 0, "TwinProp");
-                                    SubmitModel("Aerosoft DHC-6 Series 300 Wheels Skydiver", "Aerosoft", "Aerosoft DHC-6 Series 300", "Wheels Skydiver", 0, "TwinProp");
-                                }
-                                else if (addOn == "Asobo L-39")
-                                {
-                                    SubmitModel("Asobo Aero L-39 Albatros Reno", "Asobo", "Aero L-39 Albatros", "Reno", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros Reno Livery 01", "Asobo", "Aero L-39 Albatros", "Livery 01", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros Reno Livery 02", "Asobo", "Aero L-39 Albatros", "Livery 02", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros Reno Livery 03", "Asobo", "Aero L-39 Albatros", "Livery 03", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros Reno Livery 04", "Asobo", "Aero L-39 Albatros", "Livery 04", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros Reno Livery 05", "Asobo", "Aero L-39 Albatros", "Livery 05", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros Reno Livery 06", "Asobo", "Aero L-39 Albatros", "Livery 06", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros Reno Livery 07", "Asobo", "Aero L-39 Albatros", "Livery 07", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros American Patriot", "Asobo", "Aero L-39 Albatros", "American Patriot", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros American Spirit", "Asobo", "Aero L-39 Albatros", "American Spirit", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros Athena", "Asobo", "Aero L-39 Albatros", "Athena", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros Blue Ice", "Asobo", "Aero L-39 Albatros", "Blue Ice", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros Drop Bear", "Asobo", "Aero L-39 Albatros", "Drop Bear", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros Pipsqueak", "Asobo", "Aero L-39 Albatros", "Pipsqueak", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros Red Thunder", "Asobo", "Aero L-39 Albatros", "Red Thunder", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros Robin1", "Asobo", "Aero L-39 Albatros", "Robin1", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros Sarance", "Asobo", "Aero L-39 Albatros", "Sarance", 0, "Fighter");
-                                    SubmitModel("Asobo Aero L-39 Albatros Tumbling Goose", "Asobo", "Aero L-39 Albatros", "Tumbling Goose", 0, "Fighter");
-                                }
-                                else if (addOn == "Asobo P51-D")
-                                {
-                                    SubmitModel("P51-D Mustang Asobo Reno", "Asobo", "P51-D Mustang Reno", "Reno", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Livery 01", "Asobo", "P51-D Mustang Reno", "Livery 01", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Livery 02", "Asobo", "P51-D Mustang Reno", "Livery 02", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Livery 03", "Asobo", "P51-D Mustang Reno", "Livery 03", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Livery 04", "Asobo", "P51-D Mustang Reno", "Livery 04", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Livery 05", "Asobo", "P51-D Mustang Reno", "Livery 05", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Livery 06", "Asobo", "P51-D Mustang Reno", "Livery 06", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Livery 07", "Asobo", "P51-D Mustang Reno", "Livery 07", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Goldfinger", "Asobo", "P51-D Mustang Reno", "Goldfinger", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Lady B", "Asobo", "P51-D Mustang Reno", "Lady B", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Bunny", "Asobo", "P51-D Mustang Reno", "Bunny", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Man O War", "Asobo", "P51-D Mustang Reno", "Man O War", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Miss America", "Asobo", "P51-D Mustang Reno", "Miss America", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Mrs Virginia", "Asobo", "P51-D Mustang Reno", "Mrs Virginia", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Spam Can", "Asobo", "P51-D Mustang Reno", "Spam Can", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Strega", "Asobo", "P51-D Mustang Reno", "Strega", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Voodoo", "Asobo", "P51-D Mustang Reno", "Voodoo", 0, "SingleProp");
-                                    SubmitModel("P51-D Mustang Asobo Reno Wee Willy II", "Asobo", "P51-D Mustang Reno", "Wee Willy II", 0, "SingleProp");
-                                }
-                                else if (addOn == "Asobo T-6")
-                                {
-                                    SubmitModel("North American T-6 Texan Asobo Reno", "Asobo", "North American T-6 Texan Reno", "Reno", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Livery 01", "Asobo", "North American T-6 Texan Reno", "Livery 01", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Livery 02", "Asobo", "North American T-6 Texan Reno", "Livery 02", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Livery 03", "Asobo", "North American T-6 Texan Reno", "Livery 03", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Livery 04", "Asobo", "North American T-6 Texan Reno", "Livery 04", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Livery 05", "Asobo", "North American T-6 Texan Reno", "Livery 05", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Livery 06", "Asobo", "North American T-6 Texan Reno", "Livery 06", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Livery 07", "Asobo", "North American T-6 Texan Reno", "Livery 07", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Almost Perfect", "Asobo", "North American T-6 Texan Reno", "Almost Perfect", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Baby Boomer", "Asobo", "North American T-6 Texan Reno", "Baby Boomer", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Barons Revenge", "Asobo", "North American T-6 Texan Reno", "Barons Revenge", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Big Red", "Asobo", "North American T-6 Texan Reno", "Big Red", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Eros", "Asobo", "North American T-6 Texan Reno", "Eros", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Gotcha", "Asobo", "North American T-6 Texan Reno", "Gotcha", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Gunslinger", "Asobo", "North American T-6 Texan Reno", "Gunslinger", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Radial Velocity", "Asobo", "North American T-6 Texan Reno", "Radial Velocity", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Six Cat", "Asobo", "North American T-6 Texan Reno", "Six Cat", 0, "SingleProp");
-                                    SubmitModel("North American T-6 Texan Asobo Reno Undecided", "Asobo", "North American T-6 Texan Reno", "Undecided", 0, "SingleProp");
-                                }
-                                else if (addOn == "Asobo Pitts")
-                                {
-                                    SubmitModel("Pitts Special S1 Reno Asobo", "Asobo", "Pitts Special S1 Reno", "Asobo", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Asobo Livery 01", "Asobo", "Pitts Special S1 Reno", "Livery 01", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Asobo Livery 02", "Asobo", "Pitts Special S1 Reno", "Livery 02", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Asobo Livery 03", "Asobo", "Pitts Special S1 Reno", "Livery 03", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Asobo Livery 04", "Asobo", "Pitts Special S1 Reno", "Livery 04", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Asobo Livery 05", "Asobo", "Pitts Special S1 Reno", "Livery 05", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Asobo Livery 06", "Asobo", "Pitts Special S1 Reno", "Livery 06", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Asobo Livery 07", "Asobo", "Pitts Special S1 Reno", "Livery 07", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Livery Xbox Aviators Club Asobo", "Asobo", "Pitts Special S1 Reno", "Xbox Aviators Club", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Livery Aviators Club Asobo", "Asobo", "Pitts Special S1 Reno", "Aviators Club", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Black Hawk Asobo", "Asobo", "Pitts Special S1 Reno", "Black Hawk", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Miss Diane Asobo", "Asobo", "Pitts Special S1 Reno", "Miss Diane", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Nice and Ez Asobo", "Asobo", "Pitts Special S1 Reno", "Nice and Ez", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Panther Asobo", "Asobo", "Pitts Special S1 Reno", "Panther", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Racer X Asobo", "Asobo", "Pitts Special S1 Reno", "Racer X", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Second Hand Asobo", "Asobo", "Pitts Special S1 Reno", "Second Hand", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Smokin Hot Asobo", "Asobo", "Pitts Special S1 Reno", "Smokin Hot", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Tango Tango Asobo", "Asobo", "Pitts Special S1 Reno", "Tango Tango", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno The Yellow Bomber Asobo", "Asobo", "Pitts Special S1 Reno", "The Yellow Bomber", 0, "SingleProp");
-                                    SubmitModel("Pitts Special S1 Reno Toto Asobo", "Asobo", "Pitts Special S1 Reno", "Toto", 0, "SingleProp");
-                                }
-                                else if (addOn == "Lockheed C-130E")
-                                {
-                                    SubmitModel("Lockheed C-130E USAF 640544", "Lockheed", "Lockheed C-130E", "USAF 640544", 0, "SingleProp");
-                                    SubmitModel("Lockheed C-130E Brazilian Air Force 2459", "Lockheed", "Lockheed C-130E", "Brazilian Air Force 2459", 0, "SingleProp");
-                                    SubmitModel("Lockheed C-130E RAAF A97181", "Lockheed", "Lockheed C-130E", "RAAF A97181", 0, "SingleProp");
-                                    SubmitModel("Lockheed C-130E RCAF 130307", "Lockheed", "Lockheed C-130E", "RCAF 130307", 0, "SingleProp");
-                                    SubmitModel("Lockheed C-130E USAF 637777", "Lockheed", "Lockheed C-130E", "USAF 637777", 0, "SingleProp");
-                                    SubmitModel("Lockheed C-130E RAF 887", "Lockheed", "Lockheed C-130E", "RAF 887", 0, "SingleProp");
-                                }
-                                else if (addOn == "Beechcraft D18S")
-                                {
-                                    SubmitModel("Beechcraft D18S N85ET", "Carenado", "Beechcraft D18S", "N85ET", 0, "TwinProp");
-                                    SubmitModel("Beechcraft D18S Navy", "Carenado", "Beechcraft D18S", "Navy", 0, "TwinProp");
-                                    SubmitModel("Beechcraft D18S N846DS", "Carenado", "Beechcraft D18S", "N846DS", 0, "TwinProp");
-                                    SubmitModel("Beechcraft D18S N522B", "Carenado", "Beechcraft D18S", "N522B", 0, "TwinProp");
-                                    SubmitModel("Beechcraft D18S C-GJMC", "Carenado", "Beechcraft D18S", "C-GJMC", 0, "TwinProp");
-                                    SubmitModel("Beechcraft D18S N83KT", "Carenado", "Beechcraft D18S", "N83KT", 0, "TwinProp");
-                                    SubmitModel("Beechcraft D18S N438Y", "Carenado", "Beechcraft D18S", "N438Y", 0, "TwinProp");
-                                    SubmitModel("Beechcraft D18S N99ST", "Carenado", "Beechcraft D18S", "N99ST", 0, "TwinProp");
-                                    SubmitModel("Beechcraft D18S Aviators Club Livery", "Carenado", "Beechcraft D18S", "Aviators Club Livery", 0, "TwinProp");
-                                    SubmitModel("Beechcraft D18S Xbox Aviators Club Livery", "Carenado", "Beechcraft D18S", "Xbox Aviators Club Livery", 0, "TwinProp");
-                                }
-                                else if (addOn == "Beechcraft V35B")
-                                {
-                                    SubmitModel("Beechcraft V35B Bonanza G-BSVH", "Carenado", "Beechcraft V35B Bonanza", "G-BSVH", 0, "SingleProp");
-                                    SubmitModel("Beechcraft V35B Bonanza N9609T", "Carenado", "Beechcraft V35B Bonanza", "N9609T", 0, "SingleProp");
-                                    SubmitModel("Beechcraft V35B Bonanza N829K", "Carenado", "Beechcraft V35B Bonanza", "N829K", 0, "SingleProp");
-                                    SubmitModel("Beechcraft V35B Bonanza N295K", "Carenado", "Beechcraft V35B Bonanza", "N295K", 0, "SingleProp");
-                                    SubmitModel("Beechcraft V35B Bonanza G-BGGH", "Carenado", "Beechcraft V35B Bonanza", "G-BGGH", 0, "SingleProp");
-                                    SubmitModel("Beechcraft V35B Bonanza N96652", "Carenado", "Beechcraft V35B Bonanza", "N96652", 0, "SingleProp");
-                                    SubmitModel("Beechcraft V35B Bonanza N828L", "Carenado", "Beechcraft V35B Bonanza", "N828L", 0, "SingleProp");
-                                    SubmitModel("Beechcraft V35B Bonanza N298P", "Carenado", "Beechcraft V35B Bonanza", "N298P", 0, "SingleProp");
-                                    SubmitModel("Beechcraft V35B Bonanza White", "Carenado", "Beechcraft V35B Bonanza", "White", 0, "SingleProp");
-                                    SubmitModel("Beechcraft V35B Aviators Club Livery", "Carenado", "Beechcraft V35B Bonanza", "Aviators Club Livery", 0, "SingleProp");
-                                    SubmitModel("Beechcraft V35B Bonanza Xbox Aviators Club Livery", "Carenado", "Beechcraft V35B Bonanza", "Xbox Aviators Club Livery", 0, "SingleProp");
                                 }
                             }
                         }
@@ -1574,8 +1246,12 @@ namespace JoinFS
             prefixList.Clear();
 
             // for each model
-            foreach (var model in models)
-            {
+#if FS2020
+            foreach (var model in models.ToList())
+#else
+                foreach (var model in models)
+#endif
+                {
                 // for each prefix length
                 for (int length = 4; length <= model.title.Length; length++)
                 {
@@ -1713,8 +1389,8 @@ namespace JoinFS
                     main.ShowMessage(ex.Message);
                 }
 
-                // make prefix list
-                MakePrefixList();
+                // make prefix list      
+            MakePrefixList();
             }
             else
             {
@@ -2290,6 +1966,49 @@ namespace JoinFS
         }
 #endif
 
+#if FS2020
+        public void LoadAddonsList()
+        {
+            // check for sim
+            if (main.sim != null && main.sim.Connected)
+            {
+                // type classifiers file
+                string AddonsFile = Path.Combine(main.storagePath, "Addons_FS2020.txt");
+                string AddonsFile_Web = Path.Combine(main.storagePath, "Addons_FS2020_Web.txt");
+                // Always download the AddOns file from a web server.
+                string url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/Addons_FS2020.txt";
+
+                try
+                {
+                    // download the file
+                    using (WebClient client = new WebClient())
+                    {
+                        client.DownloadFile(url, AddonsFile_Web);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    main.MonitorEvent("Error downloading FS2020 AddOns List: " + ex.Message);
+                }
+                // check if file exists
+                if (File.Exists(AddonsFile_Web))
+                {
+                    File.Copy(AddonsFile_Web, AddonsFile, true);
+                }
+                if (File.Exists(AddonsFile))
+                {
+                    // read AddOns
+                    AddonsFileContents = File.ReadAllLines(AddonsFile);
+                }
+                else
+                {
+                    main.MonitorEvent("Error: FS2020 AddOns List file not found");
+                }
+            }
+        }
+#endif
+
+
         public void LoadModelBanList()
         {
             // check for sim
@@ -2362,6 +2081,10 @@ namespace JoinFS
 #if FS2024
                 LoadTypeClassifiers();
 #endif
+#if FS2020
+                LoadAddonsList();
+#endif
+
                 LoadModelBanList();
 
                 // check for scan setting

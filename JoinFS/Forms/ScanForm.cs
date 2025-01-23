@@ -199,37 +199,43 @@ namespace JoinFS
                 // change message
                 Label_Specify.Text = "Please specify the 'Flight Simulator Packages' folder:";
 
-                // addons
-                addOns.Add("Asobo Standard");
-                addOns.Add("Asobo Deluxe");
-                addOns.Add("Asobo Premium");
-                addOns.Add("Carenado YMF-5");
-                addOns.Add("Carenado PA44 Seminole");
-                addOns.Add("Carenado M20R Ovation");
-                addOns.Add("Carenado CT182T Skylane");
-                addOns.Add("Carenado PA34T Seneca V");
-                addOns.Add("Carenado PA28R Arrow III");
-                addOns.Add("Carenado C170");
-                addOns.Add("Carenado C170B Tundra");
-                addOns.Add("MilViz T-45C Goshawk");
-                addOns.Add("Aerosoft A333");
-                addOns.Add("Aerosoft A321");
-                addOns.Add("Aerosoft A320");
-                addOns.Add("Aerosoft A319");
-                addOns.Add("Aerosoft A318");
-                addOns.Add("Aermacchi MB-339");
-                addOns.Add("Carenado C337H Skymaster II");
-                addOns.Add("Junkers Ju52/3m");
-                addOns.Add("Junkers Ju 52");
-                addOns.Add("Aerosoft DHC-6 Series 100");
-                addOns.Add("Aerosoft DHC-6 Series 300");
-                addOns.Add("Asobo L-39");
-                addOns.Add("Asobo P51-D");
-                addOns.Add("Asobo T-6");
-                addOns.Add("Asobo Pitts");
-                addOns.Add("Lockheed C-130E");
-                addOns.Add("Beechcraft D18S");
-                addOns.Add("Beechcraft V35B");
+                try
+                {
+                    // check AddOns Were Loaded
+                    if (Substitution.AddonsFileContents[0] != "")
+                    {
+                        // read all models from file
+                        // for all lines
+
+                        string Scancurraddon = "";
+                        string Scanlastaddon = "";
+                        int Scannaddons = 0;
+                        foreach (string Scanline in Substitution.AddonsFileContents)
+                        {
+                            string[] Scanparts = Scanline.Split('|');
+                            //count addons and split lines
+                            Scanlastaddon = Scanparts[0];
+                            if (Scancurraddon != Scanlastaddon)
+                            {
+                                Scannaddons++;
+                                addOns.Add(Scanlastaddon);
+                            }
+                            // refresh current
+                            Scancurraddon = Scanlastaddon;
+                        }
+
+                        // message
+                        main.MonitorEvent("Loaded " + addOns.Count + " AddOns");
+                    }
+                    else
+                    {
+                        main.MonitorEvent("FS2020: No AddOns");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    main.ShowMessage(ex.Message);
+                }
                 // addons selected
                 addOnsSelected = new bool[addOns.Count];
                 // for each addon
