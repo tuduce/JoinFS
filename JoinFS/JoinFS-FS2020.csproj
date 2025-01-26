@@ -69,7 +69,7 @@
     <ApplicationIcon>Resources\App.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup>
-    <SignAssembly>true</SignAssembly>
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
   <PropertyGroup>
     <AssemblyOriginatorKeyFile>joinfs.pfx</AssemblyOriginatorKeyFile>
@@ -1192,7 +1192,7 @@
   </Target>
   -->
   <Target Name="AfterBuild">
-    <Exec Command="&quot;C:\Program Files (x86)\Microsoft SDKs\ClickOnce\SignTool\signtool.exe&quot; sign /f &quot;$(ProjectDir)joinfs.pfx&quot; /p WSAiwsdj9( &quot;$(TargetPath)&quot;" />
+    <Exec Command="&quot;C:\Program Files (x86)\Microsoft SDKs\ClickOnce\SignTool\signtool.exe&quot; sign /f &quot;$(ProjectDir)JoinFS-MSFS2024.pfx&quot; /p WSAiwsdj9( &quot;$(TargetPath)&quot;" />
   </Target>
   <PropertyGroup>
     <PostBuildEvent>copy "$(ProjectDir)FS2020\SimConnect.dll" "$(TargetDir)"

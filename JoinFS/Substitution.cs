@@ -15,9 +15,7 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 using System.Security.Policy;
 using System.Windows.Forms.VisualStyles;
 using System.Net;
-#if FS2020
-using System.Linq;
-#endif
+
 namespace JoinFS
 {
     public class Substitution
@@ -998,27 +996,30 @@ namespace JoinFS
                         {
                             try
                             {
-
-                                string lastaddon = "";
-                                int AddOnnmodels = 0;
-                                foreach (string line in AddonsFileContents)
+                                lock (main.conch)
                                 {
-                                    string[] parts = line.Split('|');
-                                    //count addons and split lines
-                                    lastaddon = parts[0];
-                                    bool ThisAddonSelected = initialAddOns.Contains(lastaddon);
 
-                                    // check that model is not already present
-                                    if (ModelExists(parts[1]) == false && ThisAddonSelected)
+                                    string lastaddon = "";
+                                    int AddOnnmodels = 0;
+                                    foreach (string line in AddonsFileContents)
                                     {
-                                        SubmitModel(parts[1], parts[2], parts[3], parts[4], 0, parts[6]);
-                                        AddOnnmodels++;
+                                        string[] parts = line.Split('|');
+                                        //count addons and split lines
+                                        lastaddon = parts[0];
+                                        bool ThisAddonSelected = initialAddOns.Contains(lastaddon);
+
+                                        // check that model is not already present
+                                        if (ModelExists(parts[1]) == false && ThisAddonSelected)
+                                        {
+                                            SubmitModel(parts[1], parts[2], parts[3], parts[4], 0, parts[6]);
+                                            AddOnnmodels++;
+                                        }
                                     }
+
+                                    // message
+                                    main.MonitorEvent("Loaded " + AddOnnmodels + " AddOn Models");
+
                                 }
-
-                                // message
-                                main.MonitorEvent("Loaded " + AddOnnmodels + " AddOn Models");
-
                             }
                             catch (Exception ex)
                             {
@@ -1246,11 +1247,8 @@ namespace JoinFS
             prefixList.Clear();
 
             // for each model
-#if FS2020
-            foreach (var model in models.ToList())
-#else
+
                 foreach (var model in models)
-#endif
                 {
                 // for each prefix length
                 for (int length = 4; length <= model.title.Length; length++)
@@ -1390,7 +1388,7 @@ namespace JoinFS
                 }
 
                 // make prefix list      
-            MakePrefixList();
+                MakePrefixList();
             }
             else
             {

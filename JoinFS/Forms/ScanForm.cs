@@ -201,35 +201,38 @@ namespace JoinFS
 
                 try
                 {
-                    // check AddOns Were Loaded
-                    if (Substitution.AddonsFileContents[0] != "")
+                    lock (main.conch)
                     {
-                        // read all models from file
-                        // for all lines
-
-                        string Scancurraddon = "";
-                        string Scanlastaddon = "";
-                        int Scannaddons = 0;
-                        foreach (string Scanline in Substitution.AddonsFileContents)
+                        // check AddOns Were Loaded
+                        if (Substitution.AddonsFileContents[0] != "")
                         {
-                            string[] Scanparts = Scanline.Split('|');
-                            //count addons and split lines
-                            Scanlastaddon = Scanparts[0];
-                            if (Scancurraddon != Scanlastaddon)
-                            {
-                                Scannaddons++;
-                                addOns.Add(Scanlastaddon);
-                            }
-                            // refresh current
-                            Scancurraddon = Scanlastaddon;
-                        }
+                            // read all models from file
+                            // for all lines
 
-                        // message
-                        main.MonitorEvent("Loaded " + addOns.Count + " AddOns");
-                    }
-                    else
-                    {
-                        main.MonitorEvent("FS2020: No AddOns");
+                            string Scancurraddon = "";
+                            string Scanlastaddon = "";
+                            int Scannaddons = 0;
+                            foreach (string Scanline in Substitution.AddonsFileContents)
+                            {
+                                string[] Scanparts = Scanline.Split('|');
+                                //count addons and split lines
+                                Scanlastaddon = Scanparts[0];
+                                if (Scancurraddon != Scanlastaddon)
+                                {
+                                    Scannaddons++;
+                                    addOns.Add(Scanlastaddon);
+                                }
+                                // refresh current
+                                Scancurraddon = Scanlastaddon;
+                            }
+
+                            // message
+                            main.MonitorEvent("Loaded " + addOns.Count + " AddOns");
+                        }
+                        else
+                        {
+                            main.MonitorEvent("FS2020: No AddOns");
+                        }
                     }
                 }
                 catch (Exception ex)
