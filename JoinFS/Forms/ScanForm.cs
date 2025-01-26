@@ -214,7 +214,8 @@ namespace JoinFS
                             int Scannaddons = 0;
                             foreach (string Scanline in Substitution.AddonsFileContents)
                             {
-                                string[] Scanparts = Scanline.Split('|');
+                                string[] separator = { "[+]" };
+                                string[] Scanparts = Scanline.Split(separator, StringSplitOptions.None);
                                 //count addons and split lines
                                 Scanlastaddon = Scanparts[0];
                                 if (Scancurraddon != Scanlastaddon)
