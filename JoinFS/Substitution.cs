@@ -1003,7 +1003,8 @@ namespace JoinFS
                                     int AddOnnmodels = 0;
                                     foreach (string line in AddonsFileContents)
                                     {
-                                        string[] parts = line.Split('|');
+                                        string[] separator = { "[+]" };
+                                        string[] parts = line.Split(separator, StringSplitOptions.None);
                                         //count addons and split lines
                                         lastaddon = parts[0];
                                         bool ThisAddonSelected = initialAddOns.Contains(lastaddon);
