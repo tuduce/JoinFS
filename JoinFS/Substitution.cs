@@ -1492,19 +1492,48 @@ namespace JoinFS
                             // check for two parts
                             if (parts.Length == 2)
                             {
-                                // Get model and variation strings
-                                string[] separator = { "[+]" };
-                                string[] subParts = parts[1].Split(separator, StringSplitOptions.None);
+                                // TODO: this was introduced with v3.2.24. After "enough" time has passed,
+                                // we can remove this check.
+                                //
+
                                 Model model = null;
-                                if (subParts.Length == 2)
+
+                                // check for old-style separator with the pipe symbol in parts[1]
+                                // checked if the pipe symbol is present in the second part
+                                if (parts[1].Contains("|"))
                                 {
-                                    // find model
-                                    model = GetModel(subParts[0], subParts[1]);
-                                } else
-                                {
-                                    // find model
-                                    model = GetModel(parts[1]);
+                                    // we have the old-style separator
+                                    string[] subParts = parts[1].Split('|');
+                                    model = null;
+                                    if (subParts.Length == 2)
+                                    {
+                                        // find model
+                                        model = GetModel(subParts[0], subParts[1]);
+                                    }
+                                    else
+                                    {
+                                        // find model
+                                        model = GetModel(parts[1]);
+                                    }
                                 }
+                                else
+                                {
+                                    // Get model and variation strings
+                                    string[] separator = { "[+]" };
+                                    string[] subParts = parts[1].Split(separator, StringSplitOptions.None);
+                                    model = null;
+                                    if (subParts.Length == 2)
+                                    {
+                                        // find model
+                                        model = GetModel(subParts[0], subParts[1]);
+                                    }
+                                    else
+                                    {
+                                        // find model
+                                        model = GetModel(parts[1]);
+                                    }
+                                }
+
                                 if (model != null)
                                 {
                                     // add model match
