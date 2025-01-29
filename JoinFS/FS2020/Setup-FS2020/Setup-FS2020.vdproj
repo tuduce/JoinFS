@@ -74,6 +74,14 @@
             "PrerequisitesLocation" = "2:1"
             "Url" = "8:"
             "ComponentsUrl" = "8:"
+                "Items"
+                {
+                    "{EDC2488A-8267-493A-A98E-7D9C3B36CDF3}:.NETFramework,Version=v4.7.2"
+                    {
+                    "Name" = "8:Microsoft .NET Framework 4.7.2 (x86 and x64)"
+                    "ProductCode" = "8:.NETFramework,Version=v4.7.2"
+                    }
+                }
             }
         }
         "Release"
@@ -128,7 +136,7 @@
                 {
                 "Name" = "8:.NET Framework"
                 "Message" = "8:[VSDNETMSG]"
-                "FrameworkVersion" = "8:.NETFramework,Version=v4.7.2"
+                "FrameworkVersion" = "8:.NETFramework,Version=v4.8"
                 "AllowLaterVersions" = "11:FALSE"
                 "InstallUrl" = "8:http://go.microsoft.com/fwlink/?LinkId=863262"
                 }
@@ -264,7 +272,7 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:JoinFS-FS2020"
         "ProductCode" = "8:{55014122-499C-4E2E-B798-B8E4D7952CEB}"
-        "PackageCode" = "8:{E19A5C77-2875-4167-8C7D-E410D4C5FA93}"
+        "PackageCode" = "8:{BB8E939F-AC61-4C93-B37A-778B0F8A1EF4}"
         "UpgradeCode" = "8:{9226B045-1141-430D-BA84-94EA7E1BCD14}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"

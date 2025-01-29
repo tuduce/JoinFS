@@ -18,13 +18,17 @@ namespace JoinFS
         private void Label_Website_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
             //string sc = Program.Code("https://joinfs.net", true, 1234);
-            Main.LaunchEncoded(@";Yxym($AaYkBGYS/A2");
+            //string sc = Program.Code("https://github.com/tuduce/JoinFS/releases", true, 1234);
+            // send the users to the releases page of the github repo
+            Main.LaunchEncoded(@"bHYFj@rR4jj>U=%Fr9FjbsPCsnDXj[[vL+y?gldke");
         }
 
         private void Box_Powered_Click(object sender, EventArgs e)
         {
             //string sc = Program.Code("https://joinfs.net", true, 1234);
-            Main.LaunchEncoded(@";Yxym($AaYkBGYS/A2");
+            //string sc = Program.Code("https://github.com/tuduce/JoinFS/releases", true, 1234);
+            // send the users to the releases page of the github repo
+            Main.LaunchEncoded(@"bHYFj@rR4jj>U=%Fr9FjbsPCsnDXj[[vL+y?gldke");
         }
     }
 }
