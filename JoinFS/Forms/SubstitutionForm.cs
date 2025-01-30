@@ -180,7 +180,11 @@ namespace JoinFS
             }
 
             // add to list
+#if FS2024
             Text_Title.Text = title + " [+] " + variation;
+#else
+            Text_Title.Text = title;
+#endif
         }
 
 #if FS2024

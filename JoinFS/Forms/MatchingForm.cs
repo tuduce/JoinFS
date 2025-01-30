@@ -37,6 +37,9 @@ namespace JoinFS
 
             // change font
             DataGrid_Substitutions.DefaultCellStyle.Font = main.dataFont;
+
+            // show livery for MSFS2024 only
+            DataGrid_Substitutions.Columns[2].Visible = (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024");
         }
 
         /// <summary>
