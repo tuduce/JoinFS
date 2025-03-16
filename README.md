@@ -9,6 +9,8 @@ JoinFS is an advanced multiplayer client for flight simulators including Microso
 
 ## Changes
 * Microsoft Flight Simulator 2024 integration
+* Flexible configuration of the MSFS2020 add-ons
+* For more details please see the release notes
 
 ## Original README
 The original README can be found [here](ORIGINAL_README.md).
