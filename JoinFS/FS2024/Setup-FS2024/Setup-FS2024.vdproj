@@ -27,18 +27,18 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_451082875CCF81DA04542F12C5C96035"
+        "OwnerKey" = "8:_270C945304AB4FB7BF981934DF34BBB0"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_7F6BC87A8D334B3EB3E785AC0CC19501"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
-        "MsmKey" = "8:_C21E23E25D0914E25208B1BC5A86FFA7"
-        "OwnerKey" = "8:_270C945304AB4FB7BF981934DF34BBB0"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
         "MsmKey" = "8:_UNDEFINED"
         "OwnerKey" = "8:_270C945304AB4FB7BF981934DF34BBB0"
         "MsmSig" = "8:_UNDEFINED"
@@ -46,7 +46,7 @@
         "Entry"
         {
         "MsmKey" = "8:_UNDEFINED"
-        "OwnerKey" = "8:_C21E23E25D0914E25208B1BC5A86FFA7"
+        "OwnerKey" = "8:_451082875CCF81DA04542F12C5C96035"
         "MsmSig" = "8:_UNDEFINED"
         }
     }
@@ -164,34 +164,14 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_7F6BC87A8D334B3EB3E785AC0CC19501"
-            {
-            "SourcePath" = "8:..\\SimConnect.dll"
-            "TargetName" = "8:SimConnect.dll"
-            "Tag" = "8:"
-            "Folder" = "8:_1DA22E741B9C41A19DA82AE1F5E61061"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:FALSE"
-            "IsDependency" = "11:FALSE"
-            "IsolateTo" = "8:"
-            }
-            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_C21E23E25D0914E25208B1BC5A86FFA7"
+            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_451082875CCF81DA04542F12C5C96035"
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
             "AssemblyAsmDisplayName" = "8:Microsoft.FlightSimulator.SimConnect, Version=12.1.0.0, Culture=neutral, processorArchitecture=AMD64"
                 "ScatterAssemblies"
                 {
-                    "_C21E23E25D0914E25208B1BC5A86FFA7"
+                    "_451082875CCF81DA04542F12C5C96035"
                     {
                     "Name" = "8:Microsoft.FlightSimulator.SimConnect.dll"
                     "Attributes" = "3:512"
@@ -213,6 +193,26 @@
             "Register" = "3:1"
             "Exclude" = "11:FALSE"
             "IsDependency" = "11:TRUE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_7F6BC87A8D334B3EB3E785AC0CC19501"
+            {
+            "SourcePath" = "8:..\\SimConnect.dll"
+            "TargetName" = "8:SimConnect.dll"
+            "Tag" = "8:"
+            "Folder" = "8:_1DA22E741B9C41A19DA82AE1F5E61061"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
         }
@@ -271,15 +271,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:JoinFS-FS2024"
-        "ProductCode" = "8:{6021F659-E119-48D3-B440-F477A528C96E}"
-        "PackageCode" = "8:{53D36BA5-A37E-4274-A0FE-4F3352AA36F0}"
+        "ProductCode" = "8:{DCD54BA3-FEA0-460A-9BA5-3E408900D97F}"
+        "PackageCode" = "8:{3D38AD70-AF5C-46D3-B561-6C3BBDE7E07D}"
         "UpgradeCode" = "8:{5E0660E2-5CE4-46C1-97C3-3AFBB78A144C}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:3.2.25"
+        "ProductVersion" = "8:3.2.26"
         "Manufacturer" = "8:JoinFS"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -402,6 +402,20 @@
             "Transitive" = "11:FALSE"
             "Target" = "8:_270C945304AB4FB7BF981934DF34BBB0"
             "Folder" = "8:_C12DBCE8EA3740C68C2F413A03983A8E"
+            "WorkingFolder" = "8:_1DA22E741B9C41A19DA82AE1F5E61061"
+            "Icon" = "8:_29F4E1773E8D47CDB7F8235E6EF490A9"
+            "Feature" = "8:"
+            }
+            "{970C0BB2-C7D0-45D7-ABFA-7EC378858BC0}:_7EB658CF4B90421F82D4B08BB4828829"
+            {
+            "Name" = "8:JoinFS - FS2024"
+            "Arguments" = "8:"
+            "Description" = "8:"
+            "ShowCmd" = "3:1"
+            "IconIndex" = "3:0"
+            "Transitive" = "11:FALSE"
+            "Target" = "8:_270C945304AB4FB7BF981934DF34BBB0"
+            "Folder" = "8:_8BC1F7DAE4CE46E6B72D0F580DB23429"
             "WorkingFolder" = "8:_1DA22E741B9C41A19DA82AE1F5E61061"
             "Icon" = "8:_29F4E1773E8D47CDB7F8235E6EF490A9"
             "Feature" = "8:"

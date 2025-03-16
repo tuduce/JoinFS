@@ -5,6 +5,8 @@ using System.Text.RegularExpressions;
 using System.IO;
 using System.Globalization;
 using JoinFS.Properties;
+using System.Runtime.ExceptionServices;
+
 
 #if SIMCONNECT
 using Microsoft.FlightSimulator.SimConnect;
@@ -683,11 +685,16 @@ namespace JoinFS
             }
         }
 
+        [HandleProcessCorruptedStateExceptions]
         public void ReceiveMsg()
         {
             try
             {
                 sc.ReceiveMessage();
+            }
+            catch (AccessViolationException ex)
+            {
+                main.MonitorEvent("ERROR - Access violation " + ex.Message);
             }
             catch (COMException ex)
             {
