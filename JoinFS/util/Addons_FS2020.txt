@@ -1495,9 +1495,9 @@ SimWorks Van's RV-14[+]Van's RV-14A N714WH[+]SimWorks[+]RV-14A[+]N714WH[+]0[+]Si
 SimWorks Van's RV-14[+]Van's RV-14A Orange[+]SimWorks[+]RV-14A[+]Orange[+]0[+]SingleProp
 SimWorks Van's RV-14[+]Van's RV-14A Orange AI[+]SimWorks[+]RV-14A[+]Orange AI[+]0[+]SingleProp
 SimWorks Van's RV-14[+]Van's RV-14A Orange GNS530[+]SimWorks[+]RV-14A[+]Orange, GNS530[+]0[+]SingleProp
-Westland [+]Westland Scout Black Green Camo Livery[+]Microsoft / iniBuilds[+]Westland Scout[+]BlackGreenCamo [+]0[+]Rotorcraft
-Westland [+]Westland Scout Grey  Livery[+]Microsoft / iniBuilds[+]Westland Scout[+]Grey  [+]0[+]Rotorcraft
-Westland [+]Westland Scout Grey Green Camo Livery[+]Microsoft / iniBuilds[+]Westland Scout[+]GreyGreenCamo [+]0[+]Rotorcraft
-Westland [+]Westland Wasp Blue Livery[+]Microsoft / iniBuilds[+]Westland Wasp[+]Blue[+]0[+]Rotorcraft
-Westland [+]Westland Wasp Grey Camo Livery[+]Microsoft / iniBuilds[+]Westland Wasp[+]GreyCamo [+]0[+]Rotorcraft
-Westland [+]Westland Wasp Grey Livery[+]Microsoft / iniBuilds[+]Westland Wasp[+]Grey[+]0[+]Rotorcraft
+Westland Scout/Wasp[+]Westland Scout Black Green Camo Livery[+]Microsoft / iniBuilds[+]Westland Scout[+]BlackGreenCamo [+]0[+]Rotorcraft
+Westland Scout/Wasp[+]Westland Scout Grey  Livery[+]Microsoft / iniBuilds[+]Westland Scout[+]Grey  [+]0[+]Rotorcraft
+Westland Scout/Wasp[+]Westland Scout Grey Green Camo Livery[+]Microsoft / iniBuilds[+]Westland Scout[+]GreyGreenCamo [+]0[+]Rotorcraft
+Westland Scout/Wasp[+]Westland Wasp Blue Livery[+]Microsoft / iniBuilds[+]Westland Wasp[+]Blue[+]0[+]Rotorcraft
+Westland Scout/Wasp[+]Westland Wasp Grey Camo Livery[+]Microsoft / iniBuilds[+]Westland Wasp[+]GreyCamo [+]0[+]Rotorcraft
+Westland Scout/Wasp[+]Westland Wasp Grey Livery[+]Microsoft / iniBuilds[+]Westland Wasp[+]Grey[+]0[+]Rotorcraft
