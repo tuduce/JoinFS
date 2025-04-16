@@ -1439,6 +1439,10 @@ namespace JoinFS
                 Recorder,
             }
 
+            // Although rather the property of a node, than of an object,
+            // the value of the previous delay is stored here for access speed.
+            public float prevDelay = 0.0f;
+
             public Owner owner = Owner.Me;
             public LocalNode.Nuid ownerNuid;
             public uint netId = uint.MaxValue;
@@ -2183,9 +2187,21 @@ namespace JoinFS
                     }
                     else
                     {
+                        // Pass the network delay through a low-pass filter to smooth out the values
+                        // and avoid jittering.
+                        // Get the current delay and the previous delay
+                        // Previous delay is a property of a node, but assigning it to the object
+                        // makes for quicker access to the value. Ugly, but it here time matters.
+                        float prevDelay = obj.prevDelay;
+                        float delay = main.network.localNode.GetNodeRTT(obj.ownerNuid);
+                        float alpha = 0.8f;
+                        delay = alpha * delay + (1.0f - alpha) * prevDelay;
+                        obj.prevDelay = delay;
+
                         // calculate time deltas
                         double simDeltaTime = main.ElapsedTime - obj.simTime;
-                        double netDeltaTime = obj.netRealTime - obj.netStateTime + main.ElapsedTime - obj.netSimTime;
+                        // delay is measured round-trip, so divide by two
+                        double netDeltaTime = obj.netRealTime - obj.netStateTime + main.ElapsedTime - obj.netSimTime + 0.52*delay;
                         // limit extraploation to two seconds
                         simDeltaTime = Math.Min(2.0, Math.Max(-2.0, simDeltaTime));
                         netDeltaTime = Math.Min(2.0, Math.Max(-2.0, netDeltaTime));
