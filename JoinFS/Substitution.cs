@@ -1331,11 +1331,25 @@ namespace JoinFS
                     {
                         // read all models from file
                         string[] lines = File.ReadAllLines(filename);
+                        string[] separator = { "|" };
                         // for all lines
                         foreach (string line in lines)
                         {
+                            // ignore comments (comment lines begin with a #)
+                            if (line.StartsWith("#"))
+                            {
+                                // check if line contains the "new separator" command
+                                if (line.Contains("new separator"))
+                                {
+                                    separator = new string[] { "[+]" };
+                                }
+                                continue;
+                            }
+                            // ignore empty lines
+                            if (line.Trim().Length == 0) continue;
+
                             // split line
-                            string[] parts = line.Split('|');
+                            string[] parts = line.Split(separator, StringSplitOptions.None);
                             // check if model is banned
                             if (isModelBanned(parts[0]))
                             {
@@ -1417,13 +1431,15 @@ namespace JoinFS
 
                     // open models file
                     StreamWriter writer = new StreamWriter(filename);
+                    // write new separator command
+                    writer.WriteLine("# new separator - DO NOT DELETE THIS LINE");
                     // for all models
                     foreach (var model in models)
                     {
                         // get typerole name
                         string typeroleName = typeroleNames.ContainsKey(model.typerole) ? typeroleNames[model.typerole] : "SingleProp";
                         // write model
-                        writer.WriteLine(model.title + '|' + model.manufacturer + '|' + model.type + '|' + model.variation + '|' + model.index + '|' + typeroleName + '|' + model.smokeCount + '|' + model.folder);
+                        writer.WriteLine(model.title + "[+]" + model.manufacturer + "[+]" + model.type + "[+]" + model.variation + "[+]" + model.index + "[+]" + typeroleName + "[+]" + model.smokeCount + "[+]" + model.folder);
                     }
                     writer.Close();
 
@@ -1485,53 +1501,38 @@ namespace JoinFS
                         // open file
                         StreamReader reader = File.OpenText(filename);
                         string line;
+                        string[] separator = { "|" };
                         while ((line = reader.ReadLine()) != null)
                         {
+                            // ignore comments (comment lines begin with a #)
+                            if (line.StartsWith("#"))
+                            {
+                                // check if line contains the "new separator" command
+                                if (line.Contains("new separator"))
+                                {
+                                    separator = new string[] { "[+]" };
+                                }
+                                continue;
+                            }
+                            // ignore empty lines
+                            if (line.Trim().Length == 0) continue;
+
                             // parse line
                             string[] parts = line.Split('=');
                             // check for two parts
                             if (parts.Length == 2)
                             {
-                                // TODO: this was introduced with v3.2.24. After "enough" time has passed,
-                                // we can remove this check.
-                                //
-
                                 Model model = null;
-
-                                // check for old-style separator with the pipe symbol in parts[1]
-                                // checked if the pipe symbol is present in the second part
-                                if (parts[1].Contains("|"))
+                                string[] subParts = parts[1].Split(separator, StringSplitOptions.None);
+                                if (subParts.Length == 2)
                                 {
-                                    // we have the old-style separator
-                                    string[] subParts = parts[1].Split('|');
-                                    model = null;
-                                    if (subParts.Length == 2)
-                                    {
-                                        // find model
-                                        model = GetModel(subParts[0], subParts[1]);
-                                    }
-                                    else
-                                    {
-                                        // find model
-                                        model = GetModel(parts[1]);
-                                    }
+                                    // find model
+                                    model = GetModel(subParts[0], subParts[1]);
                                 }
                                 else
                                 {
-                                    // Get model and variation strings
-                                    string[] separator = { "[+]" };
-                                    string[] subParts = parts[1].Split(separator, StringSplitOptions.None);
-                                    model = null;
-                                    if (subParts.Length == 2)
-                                    {
-                                        // find model
-                                        model = GetModel(subParts[0], subParts[1]);
-                                    }
-                                    else
-                                    {
-                                        // find model
-                                        model = GetModel(parts[1]);
-                                    }
+                                    // find model
+                                    model = GetModel(parts[1]);
                                 }
 
                                 if (model != null)
@@ -1599,6 +1600,8 @@ namespace JoinFS
                     StreamWriter writer = new StreamWriter(filename);
                     if (writer != null)
                     {
+                        // write new separator command
+                        writer.WriteLine("# new separator - DO NOT DELETE THIS LINE");
                         // for each model match
                         foreach (var pair in matches)
                         {
