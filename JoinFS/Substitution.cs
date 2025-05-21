@@ -672,9 +672,9 @@ namespace JoinFS
                     // create list of folders
                     List<string> scanFolders = new List<string>();
 
-                    // MSF
-                    if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020" ||
-                        main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
+                    // we do this for MNSFS2020 only. MSFS2024 delievers the community
+                    // models via the simulator as well as the default models
+                    if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020")
                     {
                         // add folder to list
                         scanFolders.Add(simFolder);
