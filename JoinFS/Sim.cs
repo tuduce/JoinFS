@@ -2187,16 +2187,20 @@ namespace JoinFS
                     }
                     else
                     {
-                        // Pass the network delay through a low-pass filter to smooth out the values
-                        // and avoid jittering.
-                        // Get the current delay and the previous delay
-                        // Previous delay is a property of a node, but assigning it to the object
-                        // makes for quicker access to the value. Ugly, but it here time matters.
-                        float prevDelay = obj.prevDelay;
-                        float delay = main.network.localNode.GetNodeRTT(obj.ownerNuid);
-                        float alpha = 0.8f;
-                        delay = alpha * delay + (1.0f - alpha) * prevDelay;
-                        obj.prevDelay = delay;
+                        float delay = 0.0f;
+                        if (obj.owner == Obj.Owner.Network)
+                        {
+                            // Pass the network delay through a low-pass filter to smooth out the values
+                            // and avoid jittering.
+                            // Get the current delay and the previous delay
+                            // Previous delay is a property of a node, but assigning it to the object
+                            // makes for quicker access to the value. Ugly, but it here time matters.
+                            float prevDelay = obj.prevDelay;
+                            delay = main.network.localNode.GetNodeRTT(obj.ownerNuid);
+                            float alpha = 0.75f;
+                            delay = alpha * delay + (1.0f - alpha) * prevDelay;
+                            obj.prevDelay = delay;
+                        }
 
                         // calculate time deltas
                         double simDeltaTime = main.ElapsedTime - obj.simTime;
