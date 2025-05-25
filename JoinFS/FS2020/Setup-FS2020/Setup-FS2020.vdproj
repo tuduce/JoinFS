@@ -271,15 +271,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:JoinFS-FS2020"
-        "ProductCode" = "8:{EA850F45-B60F-4B04-9481-138BF353C2FC}"
-        "PackageCode" = "8:{77E70612-2237-4F40-9355-5FBEFA9AB7DF}"
+        "ProductCode" = "8:{E8293CD0-FB02-4A41-9C56-D183885E5462}"
+        "PackageCode" = "8:{CE2C5F1C-6625-4461-97C3-A6AD9403A4BB}"
         "UpgradeCode" = "8:{9226B045-1141-430D-BA84-94EA7E1BCD14}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:3.2.27"
+        "ProductVersion" = "8:3.2.28"
         "Manufacturer" = "8:JoinFS"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -849,7 +849,7 @@
             }
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_DF7B89A3B206482DB1859B7A1FAA4B4D"
             {
-            "SourcePath" = "8:..\\obj\\Release\\JoinFS-FS2020.exe"
+            "SourcePath" = "8:..\\obj\\Debug\\JoinFS-FS2020.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_E193D0B60C45425AB917418DBFE3C3FD"
