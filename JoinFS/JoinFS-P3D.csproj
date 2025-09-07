@@ -3,18 +3,17 @@
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
     <ProjectGuid>{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>JoinFS</RootNamespace>
-    <AssemblyName>JoinFS-P3DV4</AssemblyName>
+    <AssemblyName>JoinFS-P3D</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <IsWebBootstrapper>false</IsWebBootstrapper>
     <TargetFrameworkProfile />
-    <PublishUrl>
-    </PublishUrl>
+    <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
     <UpdateEnabled>true</UpdateEnabled>
@@ -24,9 +23,9 @@
     <UpdatePeriodically>false</UpdatePeriodically>
     <UpdateRequired>false</UpdateRequired>
     <MapFileExtensions>true</MapFileExtensions>
-    <SupportUrl>http://joinfs.net</SupportUrl>
+    <SupportUrl>https://github.com/tuduce/JoinFS</SupportUrl>
     <TargetCulture>en</TargetCulture>
-    <ProductName>JoinFS-P3DV4</ProductName>
+    <ProductName>JoinFS-P3D</ProductName>
     <PublisherName>Peter Memmott</PublisherName>
     <OpenBrowserOnPublish>false</OpenBrowserOnPublish>
     <ApplicationRevision>2</ApplicationRevision>
@@ -34,20 +33,6 @@
     <UseApplicationTrust>false</UseApplicationTrust>
     <PublishWizardCompleted>true</PublishWizardCompleted>
     <BootstrapperEnabled>true</BootstrapperEnabled>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <PlatformTarget>x86</PlatformTarget>
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>P3DV4\bin\Debug\</OutputPath>
-    <IntermediateOutputPath>P3DV4\obj\Debug\</IntermediateOutputPath>
-    <DefineConstants>TRACE;DEBUG;P3DV4;SIMCONNECT</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
     <ManifestCertificateThumbprint>7A136ABD081997B5940D90461946FC1009D2F188</ManifestCertificateThumbprint>
@@ -69,10 +54,10 @@
     <ApplicationIcon>Resources\App.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup>
-    <SignAssembly>true</SignAssembly>
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
   <PropertyGroup>
-    <AssemblyOriginatorKeyFile>joinfs.pfx</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>JoinFS-MSFS2024.pfx</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject>JoinFS.Program</StartupObject>
@@ -83,37 +68,35 @@
   <PropertyGroup>
     <TargetZone>Internet</TargetZone>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <OutputPath>P3DV4\bin\Release\</OutputPath>
-    <IntermediateOutputPath>P3DV4\obj\Release\</IntermediateOutputPath>
-    <DefineConstants>P3DV4;SIMCONNECT</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>none</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
   <PropertyGroup>
     <RunPostBuildEvent>Always</RunPostBuildEvent>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug FS2024|AnyCPU'">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\Debug FS2024\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;P3DV4,SIMCONNECT</DefineConstants>
+    <OutputPath>P3D\bin\x64\Debug\</OutputPath>
+    <DefineConstants>TRACE;DEBUG;P3D;SIMCONNECT</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DebugType>full</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
+    <PlatformTarget>x64</PlatformTarget>
     <LangVersion>7.3</LangVersion>
     <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>P3D\bin\x64\Release\</OutputPath>
+    <DefineConstants>P3D;SIMCONNECT</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Microsoft.FlightSimulator.SimConnect, Version=10.0.61259.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=x86">
+    <Reference Include="LockheedMartin.Prepar3D.SimConnect, Version=6.1.0.0, Culture=neutral, processorArchitecture=AMD64">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>FSX\Microsoft.FlightSimulator.SimConnect.dll</HintPath>
+      <HintPath>D:\Program Files\p3d-sdk\lib\SimConnect\managed\LockheedMartin.Prepar3D.SimConnect.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.configuration" />
@@ -1134,6 +1117,7 @@
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\strings.ru.resx" />
+    <None Include="JoinFS-MSFS2024.pfx" />
     <None Include="joinfs.pfx" />
     <None Include="Licence.rtf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -1192,10 +1176,10 @@
   </Target>
   -->
   <Target Name="AfterBuild">
-    <Exec Command="&quot;C:\Program Files (x86)\Microsoft SDKs\ClickOnce\SignTool\signtool.exe&quot; sign /f &quot;$(ProjectDir)joinfs.pfx&quot; /p WSAiwsdj9( &quot;$(TargetPath)&quot;" />
+    <Exec Command="&quot;C:\Program Files (x86)\Microsoft SDKs\ClickOnce\SignTool\signtool.exe&quot; sign /f &quot;$(ProjectDir)JoinFS-MSFS2024.pfx&quot; /p WSAiwsdj9( &quot;$(TargetPath)&quot;" />
   </Target>
   <PropertyGroup>
-    <PostBuildEvent>copy "$(ProjectDir)FSX\SimConnect.dll" "$(TargetDir)"</PostBuildEvent>
+    <PostBuildEvent>copy "$(ProjectDir)P3D\LockheedMartin.Prepar3D.SimConnect.dll" "$(TargetDir)"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <PreBuildEvent>

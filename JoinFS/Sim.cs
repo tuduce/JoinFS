@@ -9,7 +9,12 @@ using System.Runtime.ExceptionServices;
 
 
 #if SIMCONNECT
+#if P3D
+using LockheedMartin.Prepar3D.SimConnect;
+//using Microsoft.FlightSimulator.SimConnect;
+#else
 using Microsoft.FlightSimulator.SimConnect;
+#endif
 #endif
 
 namespace JoinFS
@@ -475,7 +480,7 @@ namespace JoinFS
             // initialise single waypoiny
             SIMCONNECT_DATA_WAYPOINT[] wp = new SIMCONNECT_DATA_WAYPOINT[1];
             wp[0].Flags = (uint)SIMCONNECT_WAYPOINT_FLAGS.SPEED_REQUESTED;
-#if !P3DV4
+#if !P3D
             wp[0].percentThrottle = 0;
 #endif
             wp[0].Latitude = 0;
@@ -528,7 +533,8 @@ namespace JoinFS
         {
             try
             {
-                if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020")
+                // ugly, I know
+                if (main.sim.GetSimulatorName() != "Microsoft Flight Simulator 2024")
                 {
                     sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.ALL);
                 }
@@ -655,7 +661,8 @@ namespace JoinFS
                 if (obj is Sim.Plane)
                 {
                     // create aircraft
-                    if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020")
+                    // ugly, I know
+                    if (main.sim.GetSimulatorName() != "Microsoft Flight Simulator 2024")
                     {
                         sc.AICreateNonATCAircraft(title, sim.MakeAtcId(obj as Sim.Aircraft), initPosition, Sim.Requests.CREATE_OBJECT);
                     }

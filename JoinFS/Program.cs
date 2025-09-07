@@ -894,8 +894,8 @@ namespace JoinFS
                 MonitorEvent("Starting JoinFS-FS2024 v" + version);
 #elif XPLANE
                 MonitorEvent("Starting JoinFS-XPLANE v" + version);
-#elif P3DV4
-                MonitorEvent("Starting JoinFS-P3DV4 v" + version);
+#elif P3D
+                MonitorEvent("Starting JoinFS-P3D v" + version);
 #elif FSX
                 MonitorEvent("Starting JoinFS-FSX v" + version);
 #elif SERVER
