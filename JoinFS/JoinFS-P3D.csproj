@@ -291,6 +291,8 @@
     </Compile>
     <Compile Include="Sim.cs" />
     <Compile Include="Timer.cs" />
+    <Compile Include="VariableMgr.Definition.cs" />
+    <Compile Include="VariableMgr.Set.cs" />
     <Compile Include="Variables.cs" />
     <Compile Include="Vector.cs" />
     <Compile Include="Whazzup.cs" />
