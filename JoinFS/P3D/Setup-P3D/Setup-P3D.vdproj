@@ -15,14 +15,20 @@
     {
         "Entry"
         {
-        "MsmKey" = "8:_159AD4ED068947A0AF96726487DCE520"
+        "MsmKey" = "8:_555A66EAC8B24FF8B995CF8D28302504"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
-        "MsmKey" = "8:_7452F2287A550F18BA0824A42CDB676E"
-        "OwnerKey" = "8:_159AD4ED068947A0AF96726487DCE520"
+        "MsmKey" = "8:_9F2ECD837AB74BEAB6BF070FB05649B8"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_C700BB9E330D175462C1AF51D5DBEA4A"
+        "OwnerKey" = "8:_555A66EAC8B24FF8B995CF8D28302504"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -34,13 +40,13 @@
         "Entry"
         {
         "MsmKey" = "8:_UNDEFINED"
-        "OwnerKey" = "8:_159AD4ED068947A0AF96726487DCE520"
+        "OwnerKey" = "8:_555A66EAC8B24FF8B995CF8D28302504"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
         "MsmKey" = "8:_UNDEFINED"
-        "OwnerKey" = "8:_7452F2287A550F18BA0824A42CDB676E"
+        "OwnerKey" = "8:_C700BB9E330D175462C1AF51D5DBEA4A"
         "MsmSig" = "8:_UNDEFINED"
         }
     }
@@ -107,6 +113,11 @@
                     "Name" = "8:Microsoft .NET Framework 4.7.2 (x86 and x64)"
                     "ProductCode" = "8:.NETFramework,Version=v4.7.2"
                     }
+                    "{EDC2488A-8267-493A-A98E-7D9C3B36CDF3}:SimConnect.Bootstrapper.Package"
+                    {
+                    "Name" = "8:SimConnect FSX-SP2"
+                    "ProductCode" = "8:SimConnect.Bootstrapper.Package"
+                    }
                 }
             }
         }
@@ -138,20 +149,40 @@
         }
         "File"
         {
-            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_7452F2287A550F18BA0824A42CDB676E"
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_9F2ECD837AB74BEAB6BF070FB05649B8"
+            {
+            "SourcePath" = "8:Dependencies\\SimConnect.msi"
+            "TargetName" = "8:SimConnect.msi"
+            "Tag" = "8:"
+            "Folder" = "8:_A358ACCF8667403BAC5610415F6A9F9A"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_C700BB9E330D175462C1AF51D5DBEA4A"
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:LockheedMartin.Prepar3D.SimConnect, Version=6.1.0.0, Culture=neutral, processorArchitecture=AMD64"
+            "AssemblyAsmDisplayName" = "8:Microsoft.FlightSimulator.SimConnect, Version=10.0.61259.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=x86"
                 "ScatterAssemblies"
                 {
-                    "_7452F2287A550F18BA0824A42CDB676E"
+                    "_C700BB9E330D175462C1AF51D5DBEA4A"
                     {
-                    "Name" = "8:LockheedMartin.Prepar3D.SimConnect.dll"
+                    "Name" = "8:Microsoft.FlightSimulator.SimConnect.dll"
                     "Attributes" = "3:512"
                     }
                 }
-            "SourcePath" = "8:LockheedMartin.Prepar3D.SimConnect.dll"
+            "SourcePath" = "8:Microsoft.FlightSimulator.SimConnect.dll"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_D2638F18061545B49A82B5504130ADFB"
@@ -227,6 +258,28 @@
             "Property" = "8:TARGETDIR"
                 "Folders"
                 {
+                    "{9EF0B969-E518-4E46-987F-47570745A589}:_A358ACCF8667403BAC5610415F6A9F9A"
+                    {
+                    "Name" = "8:Dependencies"
+                    "AlwaysCreate" = "11:FALSE"
+                    "Condition" = "8:"
+                    "Transitive" = "11:FALSE"
+                    "Property" = "8:_A2C945712B8141A291B8ACD6746BAA20"
+                        "Folders"
+                        {
+                        }
+                    }
+                }
+            }
+            "{1525181F-901A-416C-8A58-119130FE478E}:_F07A3D1F31EF46C3ABE3F88C338EB1B9"
+            {
+            "Name" = "8:#1921"
+            "AlwaysCreate" = "11:FALSE"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Property" = "8:StartMenuFolder"
+                "Folders"
+                {
                 }
             }
         }
@@ -246,7 +299,7 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:JoinFS-P3D"
         "ProductCode" = "8:{87DD2FA2-06CE-4230-8919-308114755759}"
-        "PackageCode" = "8:{ED02105F-ACE2-4E59-987C-67AA56A010F3}"
+        "PackageCode" = "8:{FC36A25A-35D0-4169-8EA9-C752D8AD62C9}"
         "UpgradeCode" = "8:{43E7E556-003F-4D19-B4A9-6C7A4D363A16}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
@@ -366,7 +419,7 @@
         }
         "Shortcut"
         {
-            "{970C0BB2-C7D0-45D7-ABFA-7EC378858BC0}:_9D478D37BD2042A783AD1D252C7E7D49"
+            "{970C0BB2-C7D0-45D7-ABFA-7EC378858BC0}:_83931182857141F59B74EBB6609A535C"
             {
             "Name" = "8:JoinFS - P3D"
             "Arguments" = "8:"
@@ -374,13 +427,27 @@
             "ShowCmd" = "3:1"
             "IconIndex" = "3:0"
             "Transitive" = "11:FALSE"
-            "Target" = "8:_159AD4ED068947A0AF96726487DCE520"
+            "Target" = "8:_555A66EAC8B24FF8B995CF8D28302504"
+            "Folder" = "8:_5713610ECA694DB3BDA59398F4B62DA5"
+            "WorkingFolder" = "8:_D2638F18061545B49A82B5504130ADFB"
+            "Icon" = "8:_FE1FDF44B6F04D27A96A83E23F3BE48D"
+            "Feature" = "8:"
+            }
+            "{970C0BB2-C7D0-45D7-ABFA-7EC378858BC0}:_C50309F571CD44BF9707584ED6756F51"
+            {
+            "Name" = "8:JoinFS - P3D"
+            "Arguments" = "8:"
+            "Description" = "8:"
+            "ShowCmd" = "3:1"
+            "IconIndex" = "3:0"
+            "Transitive" = "11:FALSE"
+            "Target" = "8:_555A66EAC8B24FF8B995CF8D28302504"
             "Folder" = "8:_4910DE8DE6C3409E989A2A6A28A6586D"
             "WorkingFolder" = "8:_D2638F18061545B49A82B5504130ADFB"
             "Icon" = "8:_FE1FDF44B6F04D27A96A83E23F3BE48D"
             "Feature" = "8:"
             }
-            "{970C0BB2-C7D0-45D7-ABFA-7EC378858BC0}:_A1CCE45D34B74D83BDF3110689EEEB42"
+            "{970C0BB2-C7D0-45D7-ABFA-7EC378858BC0}:_E036386584504CEDAA7BEA16B3F025D0"
             {
             "Name" = "8:JoinFS - P3D"
             "Arguments" = "8:"
@@ -388,8 +455,8 @@
             "ShowCmd" = "3:1"
             "IconIndex" = "3:0"
             "Transitive" = "11:FALSE"
-            "Target" = "8:_159AD4ED068947A0AF96726487DCE520"
-            "Folder" = "8:_5713610ECA694DB3BDA59398F4B62DA5"
+            "Target" = "8:_555A66EAC8B24FF8B995CF8D28302504"
+            "Folder" = "8:_F07A3D1F31EF46C3ABE3F88C338EB1B9"
             "WorkingFolder" = "8:_D2638F18061545B49A82B5504130ADFB"
             "Icon" = "8:_FE1FDF44B6F04D27A96A83E23F3BE48D"
             "Feature" = "8:"
@@ -793,9 +860,9 @@
         }
         "ProjectOutput"
         {
-            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_159AD4ED068947A0AF96726487DCE520"
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_555A66EAC8B24FF8B995CF8D28302504"
             {
-            "SourcePath" = "8:..\\..\\obj\\x64\\Release\\JoinFS-P3D.exe"
+            "SourcePath" = "8:..\\..\\obj\\x86\\Release\\JoinFS-P3D.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_D2638F18061545B49A82B5504130ADFB"
@@ -813,7 +880,7 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             "ProjectOutputGroupRegister" = "3:1"
-            "OutputConfiguration" = "8:Release|x64"
+            "OutputConfiguration" = "8:Release|x86"
             "OutputGroupCanonicalName" = "8:Built"
             "OutputProjectGuid" = "8:{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}"
             "ShowKeyOutput" = "11:TRUE"
@@ -821,7 +888,7 @@
                 {
                 }
             }
-            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_F46482DDE5F1462DA375E053A01D406B"
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_CC26EC587299491795732A930A53AE5A"
             {
             "SourcePath" = "8:"
             "TargetName" = "8:"
@@ -841,7 +908,7 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             "ProjectOutputGroupRegister" = "3:1"
-            "OutputConfiguration" = "8:Release|x64"
+            "OutputConfiguration" = "8:Release|x86"
             "OutputGroupCanonicalName" = "8:LocalizedResourceDlls"
             "OutputProjectGuid" = "8:{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}"
             "ShowKeyOutput" = "11:TRUE"
