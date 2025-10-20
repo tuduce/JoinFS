@@ -97,12 +97,12 @@
             this.Label_Active = new System.Windows.Forms.Label();
             this.Check_AutoRefresh = new System.Windows.Forms.CheckBox();
             this.GroupBox_Xplane = new System.Windows.Forms.GroupBox();
+            this.Check_TCAS = new System.Windows.Forms.CheckBox();
             this.Button_InstallCPP = new System.Windows.Forms.Button();
             this.Text_PluginAddress = new System.Windows.Forms.TextBox();
             this.Label_PluginAddress = new System.Windows.Forms.Label();
             this.Button_InstallPlugin = new System.Windows.Forms.Button();
             this.Button_Reset = new System.Windows.Forms.Button();
-            this.Check_TCAS = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.Track_Follow)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.Track_Circle)).BeginInit();
             this.GroupBox_Simulator.SuspendLayout();
@@ -595,6 +595,12 @@
             this.GroupBox_Xplane.Name = "GroupBox_Xplane";
             this.GroupBox_Xplane.TabStop = false;
             // 
+            // Check_TCAS
+            // 
+            resources.ApplyResources(this.Check_TCAS, "Check_TCAS");
+            this.Check_TCAS.Name = "Check_TCAS";
+            this.Check_TCAS.UseVisualStyleBackColor = true;
+            // 
             // Button_InstallCPP
             // 
             resources.ApplyResources(this.Button_InstallCPP, "Button_InstallCPP");
@@ -625,12 +631,6 @@
             this.Button_Reset.Name = "Button_Reset";
             this.Button_Reset.UseVisualStyleBackColor = true;
             this.Button_Reset.Click += new System.EventHandler(this.Button_Reset_Click);
-            // 
-            // Check_TCAS
-            // 
-            resources.ApplyResources(this.Check_TCAS, "Check_TCAS");
-            this.Check_TCAS.Name = "Check_TCAS";
-            this.Check_TCAS.UseVisualStyleBackColor = true;
             // 
             // SettingsForm
             // 
