@@ -982,13 +982,13 @@
     <value>MiddleRight</value>
   </data>
   <data name="Check_Tacpack.Location" type="System.Drawing.Point, System.Drawing">
-    <value>10, 82</value>
+    <value>9, 82</value>
   </data>
   <data name="Check_Tacpack.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>4, 3, 4, 3</value>
   </data>
   <data name="Check_Tacpack.Size" type="System.Drawing.Size, System.Drawing">
-    <value>175, 19</value>
+    <value>176, 19</value>
   </data>
   <data name="Check_Tacpack.TabIndex" type="System.Int32, mscorlib">
     <value>24</value>
@@ -1015,13 +1015,13 @@
     <value>MiddleRight</value>
   </data>
   <data name="Check_Whazzup.Location" type="System.Drawing.Point, System.Drawing">
-    <value>96, 100</value>
+    <value>97, 100</value>
   </data>
   <data name="Check_Whazzup.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>4, 3, 4, 3</value>
   </data>
   <data name="Check_Whazzup.Size" type="System.Drawing.Size, System.Drawing">
-    <value>89, 19</value>
+    <value>88, 19</value>
   </data>
   <data name="Check_Whazzup.TabIndex" type="System.Int32, mscorlib">
     <value>8</value>
@@ -1324,7 +1324,7 @@
     <value>4, 3, 4, 3</value>
   </data>
   <data name="Check_ATC.Size" type="System.Drawing.Size, System.Drawing">
-    <value>118, 19</value>
+    <value>119, 19</value>
   </data>
   <data name="Check_ATC.TabIndex" type="System.Int32, mscorlib">
     <value>0</value>
@@ -1468,7 +1468,7 @@
     <value>4, 0, 4, 0</value>
   </data>
   <data name="Label_HubEvent.Size" type="System.Drawing.Size, System.Drawing">
-    <value>64, 15</value>
+    <value>63, 15</value>
   </data>
   <data name="Label_HubEvent.TabIndex" type="System.Int32, mscorlib">
     <value>22</value>
@@ -1801,7 +1801,7 @@
     <value>4, 3, 4, 3</value>
   </data>
   <data name="Check_ToolTips.Size" type="System.Drawing.Size, System.Drawing">
-    <value>72, 19</value>
+    <value>74, 19</value>
   </data>
   <data name="Check_ToolTips.TabIndex" type="System.Int32, mscorlib">
     <value>36</value>
@@ -2167,7 +2167,7 @@
     <value>277, 61</value>
   </data>
   <data name="Check_TCAS.Size" type="System.Drawing.Size, System.Drawing">
-    <value>53, 19</value>
+    <value>54, 19</value>
   </data>
   <data name="Check_TCAS.TabIndex" type="System.Int32, mscorlib">
     <value>5</value>
