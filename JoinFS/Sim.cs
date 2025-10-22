@@ -263,8 +263,8 @@ namespace JoinFS
         public void RequestSimulatorModels()
         {
 #if FS2024
-            sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.ALL);
-            // sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.USER);
+            // sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.ALL);
+            sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.USER);
             //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT);
             //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER);
             //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.HOT_AIR_BALLOON);
@@ -542,10 +542,10 @@ namespace JoinFS
 #if FS2024
                 else if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
                 {
-                    sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.ALL);
-                    //sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT);
-                    //sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER);
-                    //sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.HOT_AIR_BALLOON);
+                    //sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.ALL);
+                    sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT);
+                    sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER);
+                    sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.HOT_AIR_BALLOON);
                 }
 #endif
             }
