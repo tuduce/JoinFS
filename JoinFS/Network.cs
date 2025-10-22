@@ -307,13 +307,18 @@ namespace JoinFS
                 // callback
                 seedhubsWebClient.DownloadStringCompleted += SeedhubsComplete;
                 // get seedhubs
-                //string sc = Program.Code("http://joinfs.net/seedhubs", true, 1234);
-                seedhubsWebClient.DownloadStringAsync(new Uri(Program.Code(@"wj)&09V)z'o-LJn\x6$>F|Wz8V", false, 1234)));
+                // string sc = Program.Code("http://joinfs.net/seedhubs", true, 1234);
+                // We don't know what the list was on joinfs.net, so we use the GitHub version.
+                // string sc = Program.Code("https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/seedhubs.txt", true, 1234);
+                // seedhubsWebClient.DownloadStringAsync(new Uri(Program.Code(@"wj)&09V)z'o-LJn\x6$>F|Wz8V", false, 1234)));
+                seedhubsWebClient.DownloadStringAsync(new Uri("https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/seedhubs.txt"));
 
                 // callback
                 banlistWebClient.DownloadStringCompleted += BanlistComplete;
                 // get ban list
                 //string sc = Program.Code("http://joinfs.net/banlist", true, 1234);
+                // We don't know what the list was on joinfs.net, so we use the GitHub version.
+                // TODO: Let it be for the moment, as we don't have a banlist yet.
                 banlistWebClient.DownloadStringAsync(new Uri(Program.Code(@"K^x9E`;gZ2&:s={%T53Pv[cWf", false, 1234)));
             }
             catch (Exception ex)
