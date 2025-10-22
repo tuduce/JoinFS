@@ -698,7 +698,8 @@ namespace JoinFS
                     {
                         // download SimConnect
                         //string sc = Program.Code("https://joinfs.net/SimConnect.msi", true, 1234);
-                        Main.LaunchEncoded(@")]ORHyb$9EKiU^m?s-@NY]e)""HH`[T*{%");
+                        // TODO: see if we can replace it with something useful
+                        //Main.LaunchEncoded(@")]ORHyb$9EKiU^m?s-@NY]e)""HH`[T*{%");
                     }
                 }
             }
@@ -1698,7 +1699,8 @@ namespace JoinFS
         private void Menu_Help_Manual_Click(object sender, EventArgs e)
         {
             //string sc = Program.Code("https://joinfs.net/manual.html", true, 1234);
-            Main.LaunchEncoded(@"X~*LL{E62y#fST""*I>y;Z[5{b1*w74");
+            // TODO: see if we can replace it with something useful
+            //Main.LaunchEncoded(@"X~*LL{E62y#fST""*I>y;Z[5{b1*w74");
         }
 
         private void Menu_Help_Licence_Click(object sender, EventArgs e)
@@ -1805,7 +1807,8 @@ namespace JoinFS
         private void Menu_Help_Radar_Click(object sender, EventArgs e)
         {
             //string sc = Program.Code("https://joinfs.net/forum/viewtopic.php?f=4&t=58", true, 1234);
-            Main.LaunchEncoded(@"!oR:5E5Tn(25)'b?Myq6Usewn7b^)fJHb2bi06]&l|f,.~W");
+            // TODO: see if we can replace it with something useful
+            // Main.LaunchEncoded(@"!oR:5E5Tn(25)'b?Myq6Usewn7b^)fJHb2bi06]&l|f,.~W");
         }
 
         private void MainForm_VisibleChanged(object sender, EventArgs e)
@@ -1819,7 +1822,8 @@ namespace JoinFS
         private void Menu_Help_Support_Click(object sender, EventArgs e)
         {
             //string sc = Program.Code("https://joinfs.net/forum", true, 1234);
-            Main.LaunchEncoded(@"iN{.mqs]O5*|#P(SZ!8R!#_#");
+            // TODO: see if we can replace it with something useful
+            // Main.LaunchEncoded(@"iN{.mqs]O5*|#P(SZ!8R!#_#");
         }
 
         private void Menu_File_ModelMatching_Click(object sender, EventArgs e)
