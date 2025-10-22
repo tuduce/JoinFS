@@ -78,7 +78,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DebugType>full</DebugType>
-    <PlatformTarget>x64</PlatformTarget>
+    <PlatformTarget>x86</PlatformTarget>
     <LangVersion>7.3</LangVersion>
     <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
@@ -93,10 +93,34 @@
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>P3D\bin\x86\Debug\</OutputPath>
+    <DefineConstants>TRACE;DEBUG;P3D;SIMCONNECT</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
+    <OutputPath>P3D\bin\x86\Release\</OutputPath>
+    <DefineConstants>P3D;SIMCONNECT</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <PlatformTarget>x86</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
   <ItemGroup>
-    <Reference Include="LockheedMartin.Prepar3D.SimConnect, Version=6.1.0.0, Culture=neutral, processorArchitecture=AMD64">
+    <Reference Include="Microsoft.FlightSimulator.SimConnect, Version=11.0.62651.3, Culture=neutral, PublicKeyToken=baf445ffb3a06b5c, processorArchitecture=AMD64">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>D:\Program Files\p3d-sdk\lib\SimConnect\managed\LockheedMartin.Prepar3D.SimConnect.dll</HintPath>
+      <HintPath>D:\Program Files\p3dv6\redist\Interface\FSX-SP2-XPACK\retail\lib\managed\Microsoft.FlightSimulator.SimConnect.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.configuration" />
@@ -291,6 +315,8 @@
     </Compile>
     <Compile Include="Sim.cs" />
     <Compile Include="Timer.cs" />
+    <Compile Include="VariableMgr.Definition.cs" />
+    <Compile Include="VariableMgr.Set.cs" />
     <Compile Include="Variables.cs" />
     <Compile Include="Vector.cs" />
     <Compile Include="Whazzup.cs" />
@@ -1179,7 +1205,7 @@
     <Exec Command="&quot;C:\Program Files (x86)\Microsoft SDKs\ClickOnce\SignTool\signtool.exe&quot; sign /f &quot;$(ProjectDir)JoinFS-MSFS2024.pfx&quot; /p WSAiwsdj9( &quot;$(TargetPath)&quot;" />
   </Target>
   <PropertyGroup>
-    <PostBuildEvent>copy "$(ProjectDir)P3D\LockheedMartin.Prepar3D.SimConnect.dll" "$(TargetDir)"</PostBuildEvent>
+    <PostBuildEvent>copy "$(ProjectDir)P3D\Microsoft.FlightSimulator.SimConnect.dll" "$(TargetDir)"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <PreBuildEvent>
