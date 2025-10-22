@@ -271,15 +271,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:JoinFS-FS2024"
-        "ProductCode" = "8:{514AA0D4-7953-41AC-89F0-7FD871D75992}"
-        "PackageCode" = "8:{964098A6-7A95-40C7-83B1-DC9F4CDD1599}"
+        "ProductCode" = "8:{36CF6771-911C-4716-9D80-317515809DF1}"
+        "PackageCode" = "8:{27D52858-2602-460B-8595-4AE1B4917BE2}"
         "UpgradeCode" = "8:{5E0660E2-5CE4-46C1-97C3-3AFBB78A144C}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:3.2.28"
+        "ProductVersion" = "8:3.2.29"
         "Manufacturer" = "8:JoinFS"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -821,7 +821,7 @@
         {
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_270C945304AB4FB7BF981934DF34BBB0"
             {
-            "SourcePath" = "8:"
+            "SourcePath" = "8:..\\..\\obj\\x64\\Release\\JoinFS-FS2024.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_1DA22E741B9C41A19DA82AE1F5E61061"
