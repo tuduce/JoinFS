@@ -32,6 +32,7 @@ c|Draco X|SingleProp
 c|Edge540|SingleProp
 e|ES30 Passengers|FourProp
 c|Extra 330|SingleProp
+e|F4F|Fighter
 e|FA18E SuperHornet|Fighter
 e|Flight Design CT|SingleProp
 e|FlyDoo Passengers|SingleProp

@@ -516,6 +516,18 @@ Douglas Aircraft Company & Walco[+]Douglas C-47 M5[+]Microsoft[+]Douglas C-47 [+
 Douglas Aircraft Company & Walco[+]Douglas C-47 M5 Lead[+]Microsoft[+]Douglas C-47 [+]M5 Lead[+]0[+]TwinProp
 Douglas Aircraft Company & Walco[+]Douglas C-47 USN159[+]Microsoft[+]Douglas C-47 [+]USN159[+]0[+]TwinProp
 Douglas Aircraft Company & Walco[+]Microsoft-CGA4 [+]Microsoft/AerpoplaneHeaven[+]CGA4 Glider[+]default[+]0[+]TwinProp
+F4F-4 Wildcat[+]F4F-4 Wildcat: Butch O'Hare[+]Got Friends[+]F4F-4 Wildcat[+]default[+]0[+]Fighter
+F4F-4 Wildcat[+]F4F-4 Wildcat: Hammerin' Hank[+]Got Friends[+]F4F-4 Wildcat[+]default[+]0[+]Fighter
+F4F-4 Wildcat[+]F4F-4 Wildcat: Donald E. Ruyon[+]Got Friends[+]F4F-4 Wildcat[+]default[+]0[+]Fighter
+F4F-4 Wildcat[+]F4F-4 Wildcat: Healy Foster[+]Got Friends[+]F4F-4 Wildcat[+]default[+]0[+]Fighter
+F4F-4 Wildcat[+]F4F-4 Wildcat: Cavanaugh Flight Museum[+]Got Friends[+]F4F-4 Wildcat[+]default[+]0[+]Fighter
+F4F-4 Wildcat[+]F4F-4 Wildcat: Operation Torch[+]Got Friends[+]F4F-4 Wildcat[+]default[+]0[+]Fighter
+F4F-4 Wildcat[+]F4F-4 Wildcat: Red Rippers[+]Got Friends[+]F4F-4 Wildcat[+]default[+]0[+]Fighter
+F4F-4 Wildcat[+]F4F-4 Wildcat: Fighting Squadron 72[+]Got Friends[+]F4F-4 Wildcat[+]default[+]0[+]Fighter
+F4F-4 Wildcat[+]F4F-4 Wildcat: Fleet Air Arm[+]Got Friends[+]F4F-4 Wildcat[+]default[+]0[+]Fighter
+F4F-4 Wildcat[+]F4F-4 Wildcat: Commemorative Air Force[+]Got Friends[+]F4F-4 Wildcat[+]default[+]0[+]Fighter
+F4F-4 Wildcat[+]F4F-4 Wildcat: French Navy[+]Got Friends[+]F4F-4 Wildcat[+]default[+]0[+]Fighter
+F4F-4 Wildcat[+]F4F-4 Wildcat: Wilder Wildcat[+]Got Friends[+]F4F-4 Wildcat[+]default[+]0[+]Fighter
 Fenix A320[+]Fenix A320 - Air Canada 'Jetz' C-FNVV (2023)[+]Fenix Simulations[+]A320[+]Air Canada 'Jetz' (C-FNVV)[+]0[+]Airliner
 Fenix A320[+]Fenix A320 - Air Canada 'New' C-FZQS (2019)[+]Fenix Simulations[+]A320[+]Air Canada 'New' (C-FZQS)[+]0[+]Airliner
 Fenix A320[+]FenixA320 Air Transat C-GCKU[+]Fenix Simulations[+]A320[+]Fenix A320 - Air Transat C-GCKU[+]0[+]Airliner
