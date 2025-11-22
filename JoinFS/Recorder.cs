@@ -570,6 +570,9 @@ namespace JoinFS
                 this.model = model;
                 this.typerole = typerole;
                 this.owner = owner;
+#if FS2024
+                this.livery = livery;
+#endif
 
                 // versions
                 readVersions = new Dictionary<short, Sim.ReadVersion>()
@@ -733,6 +736,9 @@ namespace JoinFS
                 this.plane = plane;
                 this.callsign = callsign;
                 this.nickname = nickname;
+#if FS2024
+                this.livery = livery;
+#endif
 
                 // versions
                 readVersions = new Dictionary<short, Sim.ReadVersion>()

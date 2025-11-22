@@ -17,3 +17,11 @@
 /JoinFS/FSX/bin
 /JoinFS/P3D/Setup-P3D/Dependencies
 /JoinFS/P3D/Setup-P3D/Release
+/JoinFS/P3D/Setup-P3D/Release/JoinFS-P3D.msi
+/JoinFS/P3D/Setup-P3D/Release/setup.exe
+/JoinFS/CONSOLE/bin/Release
+/JoinFS/CONSOLE/obj/Debug/net6.0
+/JoinFS/CONSOLE/obj/Release/net6.0
+/JoinFS/SERVER/obj
+/JoinFS-XP/JoinFS-XP64/x64/Release
+/JoinFS-XP/.vs
