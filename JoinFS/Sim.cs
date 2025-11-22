@@ -660,13 +660,22 @@ namespace JoinFS
                 title = title.Replace("–", "â€“");
 
                 // check for plane
-                if (obj is Sim.Plane)
+                if (obj is Sim.Plane || obj is Sim.Helicopter)
                 {
                     // create aircraft
                     // ugly, I know
                     if (main.sim.GetSimulatorName() != "Microsoft Flight Simulator 2024")
                     {
-                        sc.AICreateNonATCAircraft(title, sim.MakeAtcId(obj as Sim.Aircraft), initPosition, Sim.Requests.CREATE_OBJECT);
+                        // MSFS2020 can't hadle helicopter creation as aircraft, must create object
+                        if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020" && 
+                            obj is Sim.Helicopter)
+                        {
+                            sc.AICreateSimulatedObject(title, initPosition, Sim.Requests.CREATE_OBJECT);
+                        }
+                        else
+                        {
+                            sc.AICreateNonATCAircraft(title, sim.MakeAtcId(obj as Sim.Aircraft), initPosition, Sim.Requests.CREATE_OBJECT);
+                        }
                     }
 #if FS2024
                     else if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
@@ -4186,6 +4195,13 @@ namespace JoinFS
                                 {
                                     // get info
                                     ObjectGetInfo info = (ObjectGetInfo)data;
+
+                                    // Do not create object for "Asobo PassiveAircraft"
+                                    if (info.model.Contains("PassiveAircraft"))
+                                    {
+                                        break;
+                                    }
+
                                     // get nickname
                                     string callsign = info.callsign.TrimStart(' ', '\t').TrimEnd(' ', '\t');
                                     // remove any junk from type
@@ -4264,7 +4280,12 @@ namespace JoinFS
                                         // substitute callsign
                                         aircraft.flightPlan.callsign = main.substitution != null ? main.substitution.Callsign(aircraft.ownerModel, callsign) : callsign;
                                         // message
+#if FS2024
+                                        main.MonitorEvent("Listing aircraft '" + aircraft.flightPlan.callsign + "' User 'Me' - ID '" + obj.simId + "' - Model '" + obj.ownerModel + "' Livery '" + info.livery + "'");
+#else
                                         main.MonitorEvent("Listing aircraft '" + aircraft.flightPlan.callsign + "' User 'Me' - ID '" + obj.simId + "' - Model '" + obj.ownerModel + "'");
+#endif
+
                                     }
                                     else
                                     {
@@ -4617,10 +4638,10 @@ namespace JoinFS
         }
 #endif
 
-        /// <summary>
-        /// Simulator details
-        /// </summary>
-        string simulatorName = "";
+                                        /// <summary>
+                                        /// Simulator details
+                                        /// </summary>
+                                        string simulatorName = "";
         string simulatorVersion = "0";
 
         /// <summary>

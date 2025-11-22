@@ -245,7 +245,14 @@ namespace JoinFS
                 if (main.sim != null && main.sim.Connected)
                 {
                     // get model
+#if FS2024
+                    if (aircraft.ModelLivery.Length > 0)
+                        item.model = aircraft.ModelTitle + " (" + aircraft.ModelLivery + ")";
+                    else
+                        item.model = aircraft.ModelTitle;
+#else
                     item.model = aircraft.ModelTitle;
+#endif
                     // check for substitution
                     if (aircraft.subType == Substitution.Type.Substitute)
                     {

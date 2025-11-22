@@ -14,7 +14,7 @@
     <IsPublishable>True</IsPublishable>
     <SignAssembly>False</SignAssembly>
     <AssemblyOriginatorKeyFile>joinfs.pfx</AssemblyOriginatorKeyFile>
-    <Version>3.2.18</Version>
+    <Version>3.2.29</Version>
     <Authors></Authors>
     <Description>Multiplayer Across Flight Simulators</Description>
     <Copyright></Copyright>
