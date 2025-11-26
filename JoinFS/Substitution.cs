@@ -15,6 +15,8 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 using System.Security.Policy;
 using System.Windows.Forms.VisualStyles;
 using System.Net;
+using JoinFS.Helpers;
+using JoinFS.DataModel;
 
 namespace JoinFS
 {
@@ -55,6 +57,12 @@ namespace JoinFS
                 // add default model
                 defaultModels.Add(name.Key, Resources.strings.Default + " " + name.Value);
             }
+
+            enrichModelService = new EnrichModelService(main.storagePath + Path.DirectorySeparatorChar + "model-data.jsonl");
+            embeddingService = new EmbeddingService(
+                modelPath: "AIModel" + Path.DirectorySeparatorChar + "model.onnx",
+                vocabPath: "AIModel" + Path.DirectorySeparatorChar + "vocab.txt"
+            );
         }
 
         /// <summary>
@@ -163,6 +171,8 @@ namespace JoinFS
             public string folder;
             public int typerole;
             public int smokeCount;
+            public EnrichedAircraftData enrichedData = null;
+            public float[] embedding = null;
 
             public Model(string title, string manufacturer, string type, string variation, int index, string typerole, string smoke, string folder)
             {
@@ -184,6 +194,8 @@ namespace JoinFS
         /// List of valid models in the sim
         /// </summary>
         public List<Model> models = new List<Model>();
+        public EnrichModelService enrichModelService = null;
+        public EmbeddingService embeddingService = null;
 
         /// <summary>
         /// Does a model exist
@@ -1080,6 +1092,8 @@ namespace JoinFS
                     // check for models scanned
                     if (models.Count > 0)
                     {
+                        enrichModelService.EnrichModelsWithDetails(models);
+                        embeddingService.GenerateEmbeddingsFromModels(models);
                         main.MonitorEvent("Scan found " + models.Count + ((models.Count == 1) ? " model" : " models") + " in the community folder(s)");
                     }
                     else
@@ -1231,7 +1245,7 @@ namespace JoinFS
             }
 
 #endif // !SERVER
-                                return false;
+            return false;
         }
 
         /// <summary>
@@ -2535,6 +2549,7 @@ namespace JoinFS
             Substitute,
             Auto,
             Default,
+            AI
         }
 
         /// <summary>
@@ -2576,6 +2591,34 @@ namespace JoinFS
             {
                 // use the specified model
                 type = Type.Original;
+                return;
+            }
+
+            // automatic matching using the embedding logic
+            // 1. Make a model out of the title and livery
+            var tempModel = new Model(
+                title, // title
+                "", // manufacturer
+                "", // type
+#if FS2024
+                livery, // variation
+#else
+                "", // variation
+#endif
+                -1, // index
+                typeroleNames[typerole], // typerole
+                "", // smoke
+                "" // folder
+            );
+            // 2. Get the model enrichment data
+            enrichModelService.EnrichModel(tempModel);
+            // 3. Get the embedding
+            // 4. Compare against all known models (cosine similarity)
+            model = embeddingService.FindBestMatchingModel(tempModel, models, 0.2f);
+            if (model != null)
+            {
+                // use automatic match
+                type = Type.AI;
                 return;
             }
 
