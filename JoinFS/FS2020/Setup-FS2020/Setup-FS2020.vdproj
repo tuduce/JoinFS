@@ -849,7 +849,7 @@
             }
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_DF7B89A3B206482DB1859B7A1FAA4B4D"
             {
-            "SourcePath" = "8:..\\..\\obj\\x64\\Release\\JoinFS-FS2020.exe"
+            "SourcePath" = "8:..\\..\\obj\\x64\\Debug\\JoinFS-FS2020.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_E193D0B60C45425AB917418DBFE3C3FD"

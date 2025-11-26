@@ -6,6 +6,10 @@ using System.IO;
 using System.Globalization;
 using JoinFS.Properties;
 using System.Runtime.ExceptionServices;
+using System.Linq;
+using JoinFS.DataModel;
+using static JoinFS.Substitution;
+using System.Reflection;
 
 
 #if SIMCONNECT
@@ -4725,7 +4729,11 @@ namespace JoinFS
             // main.MonitorEvent("Read " + data.dwArraySize + " models from the simulator.");
             if (data.dwEntryNumber + 1 == data.dwOutOf)
             {
-                main.MonitorEvent("Read all models from the simulator.");
+                main.MonitorEvent("All models from the simulator ingested.");
+
+                main.substitution.enrichModelService.EnrichModelsWithDetails(main.substitution.models);
+                main.substitution.embeddingService.GenerateEmbeddingsFromModels(main.substitution.models);
+
                 requestModelListInProgress = false;
 
                 if (requestModelListIsVerbose)

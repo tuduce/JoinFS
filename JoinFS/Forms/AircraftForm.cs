@@ -269,6 +269,11 @@ namespace JoinFS
                         // mark model
                         item.model += " (D)";
                     }
+                    else if (aircraft.subType == Substitution.Type.AI)
+                    {
+                        // mark model
+                        item.model += " (AI)";
+                    }
                 }
                 else
                 {

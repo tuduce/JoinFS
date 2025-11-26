@@ -88,15 +88,26 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>FS2020\Microsoft.FlightSimulator.SimConnect.dll</HintPath>
     </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>packages\Newtonsoft.Json.13.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.configuration" />
     <Reference Include="System.Data" />
     <Reference Include="System.Deployment" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http, Version=4.1.1.3, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>packages\System.Net.Http.4.3.4\lib\net46\System.Net.Http.dll</HintPath>
+      <Private>True</Private>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DataModel\EnrichedAircraftData.cs" />
+    <Compile Include="DataModel\EnrichedModelResponse.cs" />
+    <Compile Include="DataModel\EnrichModelRequest.cs" />
     <Compile Include="Forms\AtcForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -231,6 +242,8 @@
     <Compile Include="Forms\VariablesForm.Designer.cs">
       <DependentUpon>VariablesForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="Helpers\EmbeddingService.cs" />
+    <Compile Include="Helpers\EnrichModelService.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="Refresher.cs" />
     <Compile Include="Stats.cs" />
@@ -1154,6 +1167,9 @@
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\strings.ru.resx" />
+    <None Include="AIModel\model.onnx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="joinfs.pfx" />
     <None Include="Licence.rtf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -1161,6 +1177,7 @@
     <None Include="lin.xpl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="packages.config" />
     <None Include="Properties\app.manifest">
       <SubType>Designer</SubType>
     </None>
@@ -1208,6 +1225,9 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="AIModel\vocab.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="App.ico" />
     <None Include="Resources\App.ico" />
     <None Include="Resources\joinfs64.png" />
