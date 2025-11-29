@@ -1,0 +1,600 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AcquiredWarning" xml:space="preserve">
+    <value>X-Plane 항공기에 대한 액세스 권한을 획득하지 못했습니다. 이는 일반적으로 다른 플러그인에 이미 액세스 권한이 부여되었기 때문입니다. JoinFS 액세스 권한을 부여하려면 다른 플러그인을 비활성화하십시오.</value>
+  </data>
+  <data name="AircraftWarning" xml:space="preserve">
+    <value>모든 항공기에 주입할 수 없습니다. X-Plane의 Flight Configuration 메뉴에 AI Aircraft를 더 추가해야 합니다.</value>
+  </data>
+  <data name="Airliner" xml:space="preserve">
+    <value>여객기</value>
+  </data>
+  <data name="AskSimConnect" xml:space="preserve">
+    <value>SimConnect는 Microsoft Flight Simulator, Prepar3D 및 FSX에 필요합니다. 다운로드하시겠습니까?</value>
+  </data>
+  <data name="AssignVariablesWarning" xml:space="preserve">
+    <value>변수를 할당하기 전에 먼저 시뮬레이터를 시작해야 합니다.</value>
+  </data>
+  <data name="AtcModeEnabled" xml:space="preserve">
+    <value>ATC 모드가 활성화되었습니다. 이를 통해 항공기는 레이더에서 볼 수 있지만 항공기의 원활한 이동에 부정적인 영향을 미칩니다.</value>
+  </data>
+  <data name="AtcWarning" xml:space="preserve">
+    <value>ATC 모드가 활성화되면 네트워크 항공기는 기본 레이더에서 볼 수 있습니다. 그러나 일부 항공기는 ATC 모드가 활성화되어 있는 동안 이상한 방식으로 작동할 수 있습니다.</value>
+  </data>
+  <data name="BecomeAPatron" xml:space="preserve">
+    <value>패트리온</value>
+  </data>
+  <data name="Bomber" xml:space="preserve">
+    <value>마리화나 담배</value>
+  </data>
+  <data name="CommsWelcome" xml:space="preserve">
+    <value>JoinFS 커뮤니케이션 시스템에 오신 것을 환영합니다. 이 영역은 수신 메시지, 허브 정보 및 이벤트 알림을 표시합니다. 왼쪽에서 수신 및 송신할 채널을 선택합니다. 색상을 변경하려면 마우스 오른쪽 버튼을 클릭합니다. 아래 상자에 메시지를 입력한 다음 '보내기'를 클릭하거나 Enter 키를 누릅니다. 명령에 '.help'를 입력합니다.</value>
+  </data>
+  <data name="CopyFlightPlan" xml:space="preserve">
+    <value>비행 계획 복사...</value>
+  </data>
+  <data name="Create" xml:space="preserve">
+    <value>만들다</value>
+  </data>
+  <data name="Default" xml:space="preserve">
+    <value>기본</value>
+  </data>
+  <data name="Donate" xml:space="preserve">
+    <value>기부</value>
+  </data>
+  <data name="DownloadNew" xml:space="preserve">
+    <value>JoinFS를 닫고 새 버전을 다운로드하시겠습니까?</value>
+  </data>
+  <data name="EditMatchingWarning" xml:space="preserve">
+    <value>대체 항목을 편집하기 전에 먼저 시뮬레이터를 시작해야 합니다.</value>
+  </data>
+  <data name="EditModelMasquerading" xml:space="preserve">
+    <value>모델 마스커레이딩 편집</value>
+  </data>
+  <data name="EditModelMatching" xml:space="preserve">
+    <value>모델 일치 편집</value>
+  </data>
+  <data name="EnterCockpit" xml:space="preserve">
+    <value>조종석에 입장</value>
+  </data>
+  <data name="Fighter" xml:space="preserve">
+    <value>전투기</value>
+  </data>
+  <data name="Follow" xml:space="preserve">
+    <value>따르다</value>
+  </data>
+  <data name="FoundPrefix" xml:space="preserve">
+    <value>설립하다</value>
+  </data>
+  <data name="FoundSuffix" xml:space="preserve">
+    <value>모델</value>
+  </data>
+  <data name="FourProp" xml:space="preserve">
+    <value>포프롭</value>
+  </data>
+  <data name="Glider" xml:space="preserve">
+    <value>글라이더</value>
+  </data>
+  <data name="Global" xml:space="preserve">
+    <value>글로벌</value>
+  </data>
+  <data name="InstallPlugin" xml:space="preserve">
+    <value>X-Plane용 플러그인을 설치하시겠습니까?</value>
+  </data>
+  <data name="InvalidEmail" xml:space="preserve">
+    <value>잘못된 이메일 또는 비밀번호</value>
+  </data>
+  <data name="InvalidHeight" xml:space="preserve">
+    <value>잘못된 높이 조정</value>
+  </data>
+  <data name="InvalidJoinAddress" xml:space="preserve">
+    <value>잘못된 가입 주소입니다. 주소록에서 선택하거나 설명서에 설명된 형식으로 주소를 사용하십시오.</value>
+  </data>
+  <data name="InvalidPortPrefix" xml:space="preserve">
+    <value>잘못된 포트 번호</value>
+  </data>
+  <data name="InvalidPortSuffix" xml:space="preserve">
+    <value>1-65535 범위에 있어야 합니다.</value>
+  </data>
+  <data name="InvalidSubstitution" xml:space="preserve">
+    <value>잘못된 대체</value>
+  </data>
+  <data name="Join" xml:space="preserve">
+    <value>가입하다</value>
+  </data>
+  <data name="Leave" xml:space="preserve">
+    <value>떠나다</value>
+  </data>
+  <data name="LocatePluginFolder" xml:space="preserve">
+    <value>X-Plane 플러그인 폴더를 찾을 수 없습니다</value>
+  </data>
+  <data name="MaxInstances" xml:space="preserve">
+    <value>JoinFS가 이미 이 시스템에서 실행 중입니다.</value>
+  </data>
+  <data name="ModelListEmpty" xml:space="preserve">
+    <value>이 시뮬레이터의 모델 목록이 비어 있습니다. 지금 모델을 스캔하시겠습니까?</value>
+  </data>
+  <data name="Network" xml:space="preserve">
+    <value>회로망</value>
+  </data>
+  <data name="NewVersion" xml:space="preserve">
+    <value>사용 가능한 새 버전이 있습니다. 설치하시겠습니까?</value>
+  </data>
+  <data name="NewVersionStatus" xml:space="preserve">
+    <value>새 버전 사용 가능</value>
+  </data>
+  <data name="NoPermissionCockpit" xml:space="preserve">
+    <value>항공기 소유자가 귀하의 입장을 허가하지 않았습니다.</value>
+  </data>
+  <data name="NoSubstituteModel" xml:space="preserve">
+    <value>대체 모델을 찾을 수 없습니다</value>
+  </data>
+  <data name="NotConnected" xml:space="preserve">
+    <value>연결되지 않음</value>
+  </data>
+  <data name="OldRecording" xml:space="preserve">
+    <value>이 녹음은 이전 버전이며 이 버전의 JoinFS에서 더 이상 지원되지 않습니다.</value>
+  </data>
+  <data name="Options_ActivityCircle" xml:space="preserve">
+    <value>항공기가 시뮬레이터에 주입될 최대 거리를 해리로 설정합니다.</value>
+  </data>
+  <data name="Options_Airport" xml:space="preserve">
+    <value>이 ATC가 제어하는 ​​공항을 지정합니다. 예: 'EGLL'.</value>
+  </data>
+  <data name="Options_Atc" xml:space="preserve">
+    <value>ATC 모드를 활성화합니다. 다른 사용자는 귀하를 ATC로 표시한 것을 볼 수 있습니다.</value>
+  </data>
+  <data name="Options_Create" xml:space="preserve">
+    <value>허브 모드가 활성화되지 않은 경우 새 세션 생성</value>
+  </data>
+  <data name="Options_Follow" xml:space="preserve">
+    <value>기체가 다른 물체 뒤에 위치할 거리를 미터 단위로 설정합니다. 항공기 목록의 다음 옵션에 적용됩니다.</value>
+  </data>
+  <data name="Options_Global" xml:space="preserve">
+    <value>즉시 글로벌 세션에 참여하십시오.</value>
+  </data>
+  <data name="Options_Join" xml:space="preserve">
+    <value>지정된 주소에서 세션에 참여</value>
+  </data>
+  <data name="Options_Minimize" xml:space="preserve">
+    <value>Windows 작업 표시줄에서 최소화된 JoinFS를 시작합니다. 조용한 모드.</value>
+  </data>
+  <data name="Options_Nickname" xml:space="preserve">
+    <value>별명을 고르세요. 다른 사람들은 항공기 및 사용자 목록에서 이를 볼 수 있습니다.</value>
+  </data>
+  <data name="Options_NoGui" xml:space="preserve">
+    <value>창이나 UI 없이 JoinFS를 백그라운드 프로세스로 실행합니다.</value>
+  </data>
+  <data name="Options_NoSim" xml:space="preserve">
+    <value>시작할 때 시뮬레이터에 연결하지 마십시오.</value>
+  </data>
+  <data name="Options_Play" xml:space="preserve">
+    <value>JoinFS 레코더 파일을 열고 현재 세션에서 녹음을 재생합니다. 다른 사용자는 '여러 개체 허용'을 활성화해야 합니다. 설명서를 참조하십시오.</value>
+  </data>
+  <data name="Options_Port" xml:space="preserve">
+    <value>다른 세션에 연결 지정된 IP 포트를 사용합니다. 기본 포트는 6112입니다.</value>
+  </data>
+  <data name="Options_Quit" xml:space="preserve">
+    <value>이 시스템에서 현재 실행 중인 JoinFS의 모든 인스턴스를 종료합니다.</value>
+  </data>
+  <data name="Options_Record" xml:space="preserve">
+    <value>즉시 녹음을 시작합니다.</value>
+  </data>
+  <data name="Options_Rejoin" xml:space="preserve">
+    <value>이전 세션에 참여합니다.</value>
+  </data>
+  <data name="Password" xml:space="preserve">
+    <value>비밀번호</value>
+  </data>
+  <data name="PluginInstalled" xml:space="preserve">
+    <value>X-Plane 플러그인이 성공적으로 설치되었습니다.</value>
+  </data>
+  <data name="RecorderEmpty" xml:space="preserve">
+    <value>녹음기가 비어 있습니다. 녹음을하기 위해 메뉴에서 | '기록 레코더'를 선택합니다.</value>
+  </data>
+  <data name="RecorderStr" xml:space="preserve">
+    <value>기록계</value>
+  </data>
+  <data name="RecordLogs" xml:space="preserve">
+    <value>보기 전에 로그를 파일에 기록하려면 확인란을 선택합니다.</value>
+  </data>
+  <data name="ResetSettings" xml:space="preserve">
+    <value>모든 설정을 기본 상태로 재설정하시겠습니까?</value>
+  </data>
+  <data name="Rotorcraft" xml:space="preserve">
+    <value>회전익기</value>
+  </data>
+  <data name="SaveCurrentRecording" xml:space="preserve">
+    <value>현재 녹음을 저장하시겠습니까?</value>
+  </data>
+  <data name="Scan2020" xml:space="preserve">
+    <value>Microsoft Flight Simulator 2020에서는 스캔이 지원되지 않습니다. 모델은 시뮬레이터에 나타날 때 자동으로 검색됩니다.</value>
+  </data>
+  <data name="ScanForModels" xml:space="preserve">
+    <value>모델 검색</value>
+  </data>
+  <data name="ScanWarning" xml:space="preserve">
+    <value>모델을 스캔하기 전에 먼저 시뮬레이터를 시작해야 합니다.</value>
+  </data>
+  <data name="ShareAncillarySuffix" xml:space="preserve">
+    <value>G</value>
+  </data>
+  <data name="ShareFlightSuffix" xml:space="preserve">
+    <value>에프</value>
+  </data>
+  <data name="ShareNavSuffix" xml:space="preserve">
+    <value>N</value>
+  </data>
+  <data name="Shortcuts_Allow" xml:space="preserve">
+    <value>선택한 사용자와 조종석 공유 허용</value>
+  </data>
+  <data name="Shortcuts_Controls" xml:space="preserve">
+    <value>선택한 사용자에게 제어권 넘기기</value>
+  </data>
+  <data name="Shortcuts_Enter" xml:space="preserve">
+    <value>선택된 항공기의 / 휴가 조종석을 입력</value>
+  </data>
+  <data name="Shortcuts_Follow" xml:space="preserve">
+    <value>선택한 항공기 팔로우</value>
+  </data>
+  <data name="Shortcuts_Network" xml:space="preserve">
+    <value>네트워크 상태 켜기/끄기 전환</value>
+  </data>
+  <data name="Shortcuts_Simulator" xml:space="preserve">
+    <value>시뮬레이터 상태 켜기/끄기 전환</value>
+  </data>
+  <data name="SingleProp" xml:space="preserve">
+    <value>싱글프롭</value>
+  </data>
+  <data name="Support" xml:space="preserve">
+    <value>지원하다</value>
+  </data>
+  <data name="Tip_Active" xml:space="preserve">
+    <value>JoinFS의 항목이 활성화될 때 사용할 색상을 선택하십시오.</value>
+  </data>
+  <data name="Tip_Airport" xml:space="preserve">
+    <value>귀하가 통제하는 공항의 ICAO 코드</value>
+  </data>
+  <data name="Tip_AlwaysOnTop" xml:space="preserve">
+    <value>JoinFS 창을 전경에 유지</value>
+  </data>
+  <data name="Tip_ATC" xml:space="preserve">
+    <value>공항이나 지역에서 ATC 서비스를 제공하고 있음을 다른 사람들에게 알리십시오.</value>
+  </data>
+  <data name="Tip_AutoRefresh" xml:space="preserve">
+    <value>30초마다 모든 JoinFS 창 새로 고침</value>
+  </data>
+  <data name="Tip_ButtonCreate" xml:space="preserve">
+    <value>새 세션을 만들려면 클릭하세요. 다른 사람들은 귀하의 '나' 주소를 사용하여 참여할 수 있습니다.</value>
+  </data>
+  <data name="Tip_CircleOfActivity" xml:space="preserve">
+    <value>항공기가 시뮬레이터에 주입될 최대 거리 설정</value>
+  </data>
+  <data name="Tip_CPP" xml:space="preserve">
+    <value>X-Plane 플러그인에 필요한 Microsoft C++ 모듈 설치</value>
+  </data>
+  <data name="Tip_Elevation" xml:space="preserve">
+    <value>다른 항공기를 자동으로 조정하여 풍경 공항 고도의 차이를 보상합니다.</value>
+  </data>
+  <data name="Tip_EndTime" xml:space="preserve">
+    <value>레코더에 저장된 녹음 길이</value>
+  </data>
+  <data name="Tip_Euroscope" xml:space="preserve">
+    <value>Euroscope에 표시하기 위해 현재 항공기 데이터로 'euroscope.txt' 파일 업데이트</value>
+  </data>
+  <data name="Tip_Follow" xml:space="preserve">
+    <value>기체가 다른 기체 뒤로 이동하려는 거리를 설정합니다. 보기|항공기, '팔로우' 옵션 참조</value>
+  </data>
+  <data name="Tip_Frequency" xml:space="preserve">
+    <value>제어하고 있는 무선 주파수</value>
+  </data>
+  <data name="Tip_GlobalButton" xml:space="preserve">
+    <value>글로벌 공개 세션에 참여하려면 클릭하십시오.</value>
+  </data>
+  <data name="Tip_GlobalJoin" xml:space="preserve">
+    <value>자동으로 글로벌 공공 세션에 가입 할 때 JoinFS 시작</value>
+  </data>
+  <data name="Tip_HubAbout" xml:space="preserve">
+    <value>모든 사람의 허브 목록에 표시될 이 허브에 대한 간단한 설명</value>
+  </data>
+  <data name="Tip_HubDomain" xml:space="preserve">
+    <value>선택적 도메인 이름 주소(예: 'myserver.com')</value>
+  </data>
+  <data name="Tip_HubEvent" xml:space="preserve">
+    <value>예정된 이벤트 또는 회의 날짜 및 시간에 대한 선택적 정보</value>
+  </data>
+  <data name="Tip_HubMode" xml:space="preserve">
+    <value>모든 사람의 허브 목록에 표시될 공개 세션을 만듭니다. 포트 포워딩이 필요합니다. 설명서를 참조하십시오.</value>
+  </data>
+  <data name="Tip_HubName" xml:space="preserve">
+    <value>모든 사람의 허브 목록에 표시될 이 허브의 공개 이름</value>
+  </data>
+  <data name="Tip_HubVoice" xml:space="preserve">
+    <value>이 허브와 관련된 음성 서버의 세부 사항. 예를 들어, "ts3.myserver.com"</value>
+  </data>
+  <data name="Tip_Inactive" xml:space="preserve">
+    <value>JoinFS에 뭔가가 비활성화 또는 실패 때 사용할 색상을 선택</value>
+  </data>
+  <data name="Tip_Join" xml:space="preserve">
+    <value>세션 주소를 입력하고 '가입'을 클릭합니다.</value>
+  </data>
+  <data name="Tip_JoinButton" xml:space="preserve">
+    <value>주어진 주소에서 세션에 참여하려면 클릭하십시오</value>
+  </data>
+  <data name="Tip_LabelColour" xml:space="preserve">
+    <value>시뮬레이터에서 주입된 항공기의 라벨 색상</value>
+  </data>
+  <data name="Tip_Level" xml:space="preserve">
+    <value>ATC 레벨이되는 당신이 제어된다</value>
+  </data>
+  <data name="Tip_LocalPort" xml:space="preserve">
+    <value>JoinFS가 사용할 UDP 네트워크 포트 지정 - 기본값은 6112입니다.</value>
+  </data>
+  <data name="Tip_Loop" xml:space="preserve">
+    <value>재생 중에 녹음 시작 부분으로 계속 반복합니다.</value>
+  </data>
+  <data name="Tip_LowBandwidth" xml:space="preserve">
+    <value>JoinFS에서 사용하는 네트워크 데이터 양 줄이기 - 성능에 영향을 줄 수 있음</value>
+  </data>
+  <data name="Tip_Me" xml:space="preserve">
+    <value>이것은 당신의 주소입니다. 다른 사람들은이 주소를 사용하면 가입 할 수 있습니다</value>
+  </data>
+  <data name="Tip_ModelScan" xml:space="preserve">
+    <value>JoinFS가 비행 시뮬레이터에 연결할 때마다 자동으로 모델 검색</value>
+  </data>
+  <data name="Tip_MultiObjects" xml:space="preserve">
+    <value>이 클라이언트가 세션의 다른 클라이언트로부터 둘 이상의 항공기를 수신하도록 허용합니다.</value>
+  </data>
+  <data name="Tip_NetworkButton" xml:space="preserve">
+    <value>주어진 주소에서 세션에 참여/나가기</value>
+  </data>
+  <data name="Tip_Nickname" xml:space="preserve">
+    <value>JoinFS에서 다른 사람들이 볼 수 있도록 개인 이름을 선택하십시오.</value>
+  </data>
+  <data name="Tip_Overdub" xml:space="preserve">
+    <value>선택한 기체의 기록을 시작하고 이미 레코더에 저장된 기존 기체에 추가합니다. 오버 더빙 중에는 기존 항공기도 시뮬레이터에서 재생됩니다.</value>
+  </data>
+  <data name="Tip_Password" xml:space="preserve">
+    <value>비밀번호로 세션 보호</value>
+  </data>
+  <data name="Tip_Play" xml:space="preserve">
+    <value>레코더에 저장된 기체를 재생/일시 중지합니다.</value>
+  </data>
+  <data name="Tip_Plugin" xml:space="preserve">
+    <value>X-Plane에 필요한 플러그인 설치</value>
+  </data>
+  <data name="Tip_PluginAddress" xml:space="preserve">
+    <value>X-Plane을 실행하는 컴퓨터의 IP 주소를 입력합니다. 동일한 시스템에 있는 경우 비워 둡니다.</value>
+  </data>
+  <data name="Tip_Position" xml:space="preserve">
+    <value>녹음의 현재 위치입니다. 막대를 끌어 녹음에서 앞뒤로 이동합니다.</value>
+  </data>
+  <data name="Tip_Record" xml:space="preserve">
+    <value>선택한 기체 기록 시작</value>
+  </data>
+  <data name="Tip_ShowAltitude" xml:space="preserve">
+    <value>항공기 레이블의 일부로 항공기 고도 표시</value>
+  </data>
+  <data name="Tip_ShowCallsign" xml:space="preserve">
+    <value>항공기 라벨의 일부로 항공기 콜사인을 표시합니다.</value>
+  </data>
+  <data name="Tip_ShowDistance" xml:space="preserve">
+    <value>항공기 라벨의 일부로 항공기 거리 표시</value>
+  </data>
+  <data name="Tip_ShowNickname" xml:space="preserve">
+    <value>항공기 라벨의 일부로 조종사의 닉네임을 표시</value>
+  </data>
+  <data name="Tip_ShowNicknames" xml:space="preserve">
+    <value>시뮬레이터에서 호출 부호 대신 별명 표시</value>
+  </data>
+  <data name="Tip_ShowSpeed" xml:space="preserve">
+    <value>항공기 레이블의 일부로 항공기 속도 표시</value>
+  </data>
+  <data name="Tip_SimulatorButton" xml:space="preserve">
+    <value>비행 시뮬레이터 연결/분리</value>
+  </data>
+  <data name="Tip_Status" xml:space="preserve">
+    <value>버전 | 지도 열기 | 총 허브 사용자, 세션 사용자 | 기여하다</value>
+  </data>
+  <data name="Tip_Stop" xml:space="preserve">
+    <value>기체 녹음/재생 중지</value>
+  </data>
+  <data name="Tip_TCAS" xml:space="preserve">
+    <value>지도 지원을 허용하려면 X-Plane에서 TCAS를 활성화하십시오. 항공기는 다른 플러그인을 방해할 수 있는 플러그인에 의해 획득됩니다.</value>
+  </data>
+  <data name="Tip_Time" xml:space="preserve">
+    <value>녹음/재생이 시작된 이후의 시간</value>
+  </data>
+  <data name="Tip_ToolTips" xml:space="preserve">
+    <value>마우스 포인터가 창 항목 위에 있을 때 도움말 표시</value>
+  </data>
+  <data name="Tip_VRS" xml:space="preserve">
+    <value>VRS TACPAC 객체 자동 브로드캐스트</value>
+  </data>
+  <data name="Tip_Waiting" xml:space="preserve">
+    <value>JoinFS의 무언가가 활성화되기를 기다리고 있을 때 사용할 색상을 선택하십시오.</value>
+  </data>
+  <data name="Tip_Whazzup" xml:space="preserve">
+    <value>자신의 온라인 지도에서 사용할 항공기 데이터로 'whazzup.txt' 파일을 업데이트하십시오.</value>
+  </data>
+  <data name="Tip_WhazzupAI" xml:space="preserve">
+    <value>'wazzup.txt' 파일에 모든 AI 항공기 포함</value>
+  </data>
+  <data name="Tip_WhazzupGlobal" xml:space="preserve">
+    <value>'wazzup.txt' 파일에 모든 공용 허브의 항공기 포함</value>
+  </data>
+  <data name="Tip_Xplane" xml:space="preserve">
+    <value>X-Plane 비행 시뮬레이터에 연결 활성화</value>
+  </data>
+  <data name="TwinProp" xml:space="preserve">
+    <value>트윈프롭</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>알려지지 않은</value>
+  </data>
+  <data name="UnsavedRecording" xml:space="preserve">
+    <value>저장되지 않은 녹음</value>
+  </data>
+  <data name="VerifyPassword" xml:space="preserve">
+    <value>비밀번호 확인</value>
+  </data>
+  <data name="Voice" xml:space="preserve">
+    <value>목소리</value>
+  </data>
+  <data name="Warning" xml:space="preserve">
+    <value>경고</value>
+  </data>
+  <data name="WeatherObservation" xml:space="preserve">
+    <value>네트워크의 항공기에서만 기상 관측을 얻을 수 있습니다.</value>
+  </data>
+  <data name="Tip_EarlyUpdate" xml:space="preserve">
+    <value>공식적으로 출시되기 전에 새 버전을 사용해 보려면 조기 알림을 받으십시오.</value>
+  </data>
+  <data name="AskImport" xml:space="preserve">
+    <value>v3.1.6에서 JoinFS 설정을 가져오시겠습니까?</value>
+  </data>
+  <data name="Coffee" xml:space="preserve">
+    <value>나에게 커피를 사다</value>
+  </data>
+  <data name="GenerateCslWarning" xml:space="preserve">
+    <value>CSL 개체를 생성하는 데 몇 분 정도 걸릴 수 있습니다. 완료되면 X-Plane을 다시 시작해야 할 수도 있습니다.</value>
+  </data>
+  <data name="Options_Help" xml:space="preserve">
+    <value>사용 세부 정보를 표시합니다.</value>
+  </data>
+  <data name="Options_InstallPlugin" xml:space="preserve">
+    <value>JoinFS용 X-Plane 플러그인을 설치합니다.</value>
+  </data>
+  <data name="Options_SimFolder" xml:space="preserve">
+    <value>시뮬레이터 루트 폴더를 설정합니다.</value>
+  </data>
+  <data name="Options_Background" xml:space="preserve">
+    <value>JoinFS-CONSOLE의 경우 키보드 입력 없이 백그라운드 작업으로 실행합니다.</value>
+  </data>
+  <data name="Option_GenerateCsl" xml:space="preserve">
+    <value>스캔하는 동안 설치된 X-Plane 항공기에 대한 CSL 개체를 생성합니다.</value>
+  </data>
+  <data name="Option_SkipCsl" xml:space="preserve">
+    <value>스캔 중에 이미 완료된 CSL 개체를 건너뜁니다.</value>
+  </data>
+  <data name="Download" xml:space="preserve">
+    <value>다운로드</value>
+  </data>
+</root>

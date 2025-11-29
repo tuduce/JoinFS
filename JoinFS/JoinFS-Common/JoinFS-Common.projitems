@@ -1,0 +1,88 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects Condition="'$(MSBuildVersion)' == '' Or '$(MSBuildVersion)' &lt; '16.0'">$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>76c788e8-e07f-411c-a053-e3ed2c276786</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>JoinFS_Common</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="$(MSBuildThisFileDirectory)Forms\" />
+    <Folder Include="$(MSBuildThisFileDirectory)Properties\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)AIModel\model.onnx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="$(MSBuildThisFileDirectory)Resources\Airports.dat" />
+    <None Include="$(MSBuildThisFileDirectory)Resources\App.ico" />
+    <None Include="$(MSBuildThisFileDirectory)Resources\joinfs64.png" />
+    <None Include="$(MSBuildThisFileDirectory)Resources\pause.png" />
+    <None Include="$(MSBuildThisFileDirectory)Resources\play.png" />
+    <None Include="$(MSBuildThisFileDirectory)Resources\record.png" />
+    <None Include="$(MSBuildThisFileDirectory)Resources\stop.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="$(MSBuildThisFileDirectory)AIModel\vocab.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="$(MSBuildThisFileDirectory)Vocabularies\base_cased.txt" />
+    <Content Include="$(MSBuildThisFileDirectory)Vocabularies\base_cased_german.txt" />
+    <Content Include="$(MSBuildThisFileDirectory)Vocabularies\base_cased_large.txt" />
+    <Content Include="$(MSBuildThisFileDirectory)Vocabularies\base_cased_multilingual.txt" />
+    <Content Include="$(MSBuildThisFileDirectory)Vocabularies\base_uncased.txt" />
+    <Content Include="$(MSBuildThisFileDirectory)Vocabularies\base_uncased_large.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)AddressBook.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DataModel\EnrichedAircraftData.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DataModel\EnrichedModelResponse.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DataModel\EnrichModelRequest.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Euroscope.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\EmbeddingService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\EnrichModelService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Log.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Monitor.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Network.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Node.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Notes.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Program.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Quaternion.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Recorder.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Refresher.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Resources\strings.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)Settings.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Sim.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Stats.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Substitution.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Timer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)VariableMgr.Definition.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)VariableMgr.Set.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Variables.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Vector.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Whazzup.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Resources\strings.de.resx">
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Resources\strings.es.resx" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Resources\strings.fr.resx" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Resources\strings.it.resx" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Resources\strings.ko.resx" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Resources\strings.nl.resx">
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Resources\strings.pt.resx" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Resources\strings.resx">
+      <LastGenOutput>strings.Designer.cs</LastGenOutput>
+      <Generator>ResXFileCodeGenerator</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Resources\strings.ru.resx" />
+  </ItemGroup>
+</Project>

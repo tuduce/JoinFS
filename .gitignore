@@ -1,4 +1,6 @@
 
+*.pfx
+*.p12
 /JoinFS/.vs
 /JoinFS/FS2020/bin
 /JoinFS/FS2020/obj
@@ -26,3 +28,13 @@
 /JoinFS-XP/JoinFS-XP64/x64/Release
 /JoinFS-XP/.vs
 /JoinFS/packages
+/JoinFS/JoinFS-FS2024/FS2024/bin/x64/Debug
+/JoinFS/JoinFS-FS2024/obj/x64/Debug
+/JoinFS/JoinFS-FS2020/FS2020/bin/x64/Debug
+/JoinFS/JoinFS-FS2020/obj/x64/Debug
+/JoinFS/JoinFS-FSX/FSX/bin/x64/Debug
+/JoinFS/JoinFS-FSX/obj/x64/Debug
+/JoinFS/JoinFS-P3D/obj/x64/Debug
+/JoinFS/JoinFS-P3D/P3D/bin/x64/Debug
+/JoinFS/JoinFS-P3D/obj/x86/Release
+/JoinFS/JoinFS-MSFS2024.pfx
