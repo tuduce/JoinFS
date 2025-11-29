@@ -59,10 +59,12 @@ namespace JoinFS
             }
 
             enrichModelService = new EnrichModelService(main.storagePath + Path.DirectorySeparatorChar + "model-data.jsonl");
+#if X64
             embeddingService = new EmbeddingService(
                 modelPath: "AIModel" + Path.DirectorySeparatorChar + "model.onnx",
                 vocabPath: "AIModel" + Path.DirectorySeparatorChar + "vocab.txt"
             );
+#endif
         }
 
         /// <summary>
@@ -195,7 +197,9 @@ namespace JoinFS
         /// </summary>
         public List<Model> models = new List<Model>();
         public EnrichModelService enrichModelService = null;
+#if X64
         public EmbeddingService embeddingService = null;
+#endif
 
         /// <summary>
         /// Does a model exist
@@ -1093,7 +1097,9 @@ namespace JoinFS
                     if (models.Count > 0)
                     {
                         enrichModelService.EnrichModelsWithDetails(models);
+#if X64
                         embeddingService.GenerateEmbeddingsFromModels(models);
+#endif
                         main.MonitorEvent("Scan found " + models.Count + ((models.Count == 1) ? " model" : " models") + " in the community folder(s)");
                     }
                     else
@@ -2614,6 +2620,7 @@ namespace JoinFS
             enrichModelService.EnrichModel(tempModel);
             // 3. Get the embedding
             // 4. Compare against all known models (cosine similarity)
+#if X64
             model = embeddingService.FindBestMatchingModel(tempModel, models, 0.2f);
             if (model != null)
             {
@@ -2621,6 +2628,7 @@ namespace JoinFS
                 type = Type.AI;
                 return;
             }
+#endif
 
             // for each prefix
             for (int length = title.Length; length >= 4; length--)
