@@ -1,0 +1,600 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Airliner" xml:space="preserve">
+    <value>AvionDeLigne</value>
+  </data>
+  <data name="AtcModeEnabled" xml:space="preserve">
+    <value>Le Mode ATC est actif. Cela autorise la visibilité d'un appareil sur le radar, mais a aussi un effet négatif sur la fluidité du mouvement d'un appareil</value>
+  </data>
+  <data name="AtcWarning" xml:space="preserve">
+    <value>Avec le mode ATC actif, les appareils du réseau seront visibles sur le radar par défaut. Cependant quelques appareils peuvent se comporter de maniére curieuse quand le mode ATC est activé.</value>
+  </data>
+  <data name="BecomeAPatron" xml:space="preserve">
+    <value>Patreon</value>
+  </data>
+  <data name="Bomber" xml:space="preserve">
+    <value>Bombardier</value>
+  </data>
+  <data name="CommsWelcome" xml:space="preserve">
+    <value>Bienvenue dans le système de communication JoinFS. Cette zone affiche les messages entrants, les informations du hub et les notifications d'événements. Sur la gauche, sélectionnez les canaux à recevoir et à transmettre. Cliquez avec le bouton droit pour changer les couleurs. Tapez un message dans la case ci-dessous puis cliquez sur «Envoyer» ou appuyez sur la touche Entrée. Tapez «.help» pour les commandes.</value>
+  </data>
+  <data name="Create" xml:space="preserve">
+    <value>Créer</value>
+  </data>
+  <data name="Default" xml:space="preserve">
+    <value>Défaut</value>
+  </data>
+  <data name="Donate" xml:space="preserve">
+    <value>Faire Un Don</value>
+  </data>
+  <data name="EditMatchingWarning" xml:space="preserve">
+    <value>Vous devez d'abord démarrer le simulateur avant d'éditer la correspondance des modéles.</value>
+  </data>
+  <data name="EditModelMasquerading" xml:space="preserve">
+    <value>Editer la masquage des modéles.</value>
+  </data>
+  <data name="EditModelMatching" xml:space="preserve">
+    <value>Editer la correspondance des modéles.</value>
+  </data>
+  <data name="EnterCockpit" xml:space="preserve">
+    <value>Entrer dans le Cockpit</value>
+  </data>
+  <data name="Fighter" xml:space="preserve">
+    <value>Combat</value>
+  </data>
+  <data name="Follow" xml:space="preserve">
+    <value>Suivre</value>
+  </data>
+  <data name="FoundPrefix" xml:space="preserve">
+    <value>Trouvé</value>
+  </data>
+  <data name="FoundSuffix" xml:space="preserve">
+    <value>modèle</value>
+  </data>
+  <data name="FourProp" xml:space="preserve">
+    <value>Quatre Prop</value>
+  </data>
+  <data name="Glider" xml:space="preserve">
+    <value>Planeur</value>
+  </data>
+  <data name="Global" xml:space="preserve">
+    <value>Global</value>
+  </data>
+  <data name="Join" xml:space="preserve">
+    <value>Rejoindre</value>
+  </data>
+  <data name="Leave" xml:space="preserve">
+    <value>Quitter</value>
+  </data>
+  <data name="ModelListEmpty" xml:space="preserve">
+    <value>La liste des modèles est vide pour ce simulateur. Souhaitez-vous rechercher des modèles maintenant?</value>
+  </data>
+  <data name="Network" xml:space="preserve">
+    <value>Réseau</value>
+  </data>
+  <data name="NewVersion" xml:space="preserve">
+    <value>Une nouvelle version est disponible. Souhaitez-vous l'installer?</value>
+  </data>
+  <data name="NotConnected" xml:space="preserve">
+    <value>Non connecté</value>
+  </data>
+  <data name="Password" xml:space="preserve">
+    <value>Passe</value>
+  </data>
+  <data name="RecorderEmpty" xml:space="preserve">
+    <value>L’enregistreur est vide. Choisir ‘Enregistrement/Enregistrer’ dans le menu pour créer un enregistrement</value>
+  </data>
+  <data name="RecorderStr" xml:space="preserve">
+    <value>Enregistrement</value>
+  </data>
+  <data name="Rotorcraft" xml:space="preserve">
+    <value>Hélicoptère</value>
+  </data>
+  <data name="SaveCurrentRecording" xml:space="preserve">
+    <value>Voulez-vous sauvegarder votre enregistrement actuel?</value>
+  </data>
+  <data name="Scan2020" xml:space="preserve">
+    <value>La numérisation n'est pas prise en charge avec Microsoft Flight Simulator 2020. Les modèles sont automatiquement découverts lorsqu'ils apparaissent dans le simulateur.</value>
+  </data>
+  <data name="ScanForModels" xml:space="preserve">
+    <value>Rechercher des modèles</value>
+  </data>
+  <data name="ScanWarning" xml:space="preserve">
+    <value>Vous devez d'abord démarrer le simulateur avant de rechercher des modéles.</value>
+  </data>
+  <data name="ShareAncillarySuffix" xml:space="preserve">
+    <value>T</value>
+  </data>
+  <data name="ShareFlightSuffix" xml:space="preserve">
+    <value>V</value>
+  </data>
+  <data name="ShareNavSuffix" xml:space="preserve">
+    <value>A</value>
+  </data>
+  <data name="Shortcuts_Allow" xml:space="preserve">
+    <value>Autoriser le cockpit partagé avec l'utilisateur sélectionné</value>
+  </data>
+  <data name="Shortcuts_Controls" xml:space="preserve">
+    <value>Remettre les commandes à l'utilisateur sélectionné</value>
+  </data>
+  <data name="Shortcuts_Enter" xml:space="preserve">
+    <value>Entrer / quitter le cockpit de l'avion sélectionné</value>
+  </data>
+  <data name="Shortcuts_Follow" xml:space="preserve">
+    <value>Suivez l'avion sélectionné</value>
+  </data>
+  <data name="Shortcuts_Network" xml:space="preserve">
+    <value>Activer / désactiver l'état du réseau</value>
+  </data>
+  <data name="Shortcuts_Simulator" xml:space="preserve">
+    <value>Activer / désactiver l'état du simulateur</value>
+  </data>
+  <data name="SingleProp" xml:space="preserve">
+    <value>Unique Prop</value>
+  </data>
+  <data name="Support" xml:space="preserve">
+    <value>Aider</value>
+  </data>
+  <data name="TwinProp" xml:space="preserve">
+    <value>Double Prop</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>Inconnu</value>
+  </data>
+  <data name="UnsavedRecording" xml:space="preserve">
+    <value>Enregistrement non sauvegardé</value>
+  </data>
+  <data name="Warning" xml:space="preserve">
+    <value>Attention</value>
+  </data>
+  <data name="WeatherObservation" xml:space="preserve">
+    <value>Vous ne pouvez obtenir des observations météorologiques qu'à partir d'un avion sur le réseau.</value>
+  </data>
+  <data name="Voice" xml:space="preserve">
+    <value>Voix</value>
+  </data>
+  <data name="CopyFlightPlan" xml:space="preserve">
+    <value>Copier le plan de vol...</value>
+  </data>
+  <data name="AskSimConnect" xml:space="preserve">
+    <value>SimConnect est requis pour Microsoft Flight Simulator, Prepar3D et FSX. Souhaitez-vous le télécharger?</value>
+  </data>
+  <data name="MaxInstances" xml:space="preserve">
+    <value>JoinFS est déjà en cours d'exécution sur ce système</value>
+  </data>
+  <data name="DownloadNew" xml:space="preserve">
+    <value>Voulez-vous fermer JoinFS et télécharger la nouvelle version?</value>
+  </data>
+  <data name="InvalidHeight" xml:space="preserve">
+    <value>Réglage de la hauteur non valide</value>
+  </data>
+  <data name="InvalidJoinAddress" xml:space="preserve">
+    <value>Adresse d'inscription non valide. Sélectionnez dans le carnet d'adresses ou utilisez une adresse dans un format décrit dans le manuel.</value>
+  </data>
+  <data name="InvalidPortPrefix" xml:space="preserve">
+    <value>Numéro de port non valide</value>
+  </data>
+  <data name="InvalidPortSuffix" xml:space="preserve">
+    <value>Doit être compris entre 1 et 65535</value>
+  </data>
+  <data name="InvalidSubstitution" xml:space="preserve">
+    <value>Substitution invalide</value>
+  </data>
+  <data name="LocatePluginFolder" xml:space="preserve">
+    <value>Impossible de localiser le dossier des plugins X-Plane</value>
+  </data>
+  <data name="NewVersionStatus" xml:space="preserve">
+    <value>Nouvelle version disponible</value>
+  </data>
+  <data name="NoPermissionCockpit" xml:space="preserve">
+    <value>Le propriétaire de l'avion ne vous a pas autorisé à entrer.</value>
+  </data>
+  <data name="NoSubstituteModel" xml:space="preserve">
+    <value>Impossible de trouver un modèle de remplacement</value>
+  </data>
+  <data name="OldRecording" xml:space="preserve">
+    <value>Cet enregistrement est une ancienne version et n'est plus pris en charge avec cette version de JoinFS</value>
+  </data>
+  <data name="Options_ActivityCircle" xml:space="preserve">
+    <value>Définit la distance maximale en miles nautiques à laquelle l'avion sera injecté dans le simulateur.</value>
+  </data>
+  <data name="Options_Airport" xml:space="preserve">
+    <value>Spécifie l'aéroport à partir duquel cet ATC contrôle. Par exemple, «EGLL».</value>
+  </data>
+  <data name="Options_Atc" xml:space="preserve">
+    <value>Activez le mode ATC. Les autres utilisateurs vous verront marqué comme ATC.</value>
+  </data>
+  <data name="Options_Create" xml:space="preserve">
+    <value>Créer une nouvelle session si le mode concentrateur n'est pas activé</value>
+  </data>
+  <data name="Options_Follow" xml:space="preserve">
+    <value>Définit la distance en mètres à laquelle votre avion sera positionné derrière un autre objet. S'applique à l'option de suivi dans la liste des avions.</value>
+  </data>
+  <data name="Options_Global" xml:space="preserve">
+    <value>Rejoignez immédiatement la session globale.</value>
+  </data>
+  <data name="Options_Join" xml:space="preserve">
+    <value>Rejoignez une session à l'adresse indiquée</value>
+  </data>
+  <data name="Options_Minimize" xml:space="preserve">
+    <value>Lancez JoinFS minimisé dans la barre des tâches Windows. Mode silencieux.</value>
+  </data>
+  <data name="Options_Nickname" xml:space="preserve">
+    <value>Choisissez un surnom. D'autres pourront le voir dans les avions et les listes d'utilisateurs.</value>
+  </data>
+  <data name="Options_NoSim" xml:space="preserve">
+    <value>Ne vous connectez pas au simulateur au lancement.</value>
+  </data>
+  <data name="Options_Play" xml:space="preserve">
+    <value>Ouvrez un fichier d'enregistreur JoinFS et lisez l'enregistrement dans la session en cours. Les autres utilisateurs devront activer «Autoriser plusieurs objets». Voir le manuel.</value>
+  </data>
+  <data name="Options_Port" xml:space="preserve">
+    <value>Utilisez le port IP spécifié pour les connexions à d'autres sessions. Le port par défaut est 6112.</value>
+  </data>
+  <data name="Options_Record" xml:space="preserve">
+    <value>Démarrez immédiatement l'enregistrement.</value>
+  </data>
+  <data name="RecordLogs" xml:space="preserve">
+    <value>Cochez la case pour enregistrer les journaux dans un fichier avant de les visualiser.</value>
+  </data>
+  <data name="Tip_Active" xml:space="preserve">
+    <value>Choisissez la couleur à utiliser lorsque quelque chose dans JoinFS est actif</value>
+  </data>
+  <data name="Tip_Airport" xml:space="preserve">
+    <value>Le code OACI de l'aéroport que vous contrôlez</value>
+  </data>
+  <data name="Tip_AlwaysOnTop" xml:space="preserve">
+    <value>Gardez les fenêtres JoinFS au premier plan</value>
+  </data>
+  <data name="Tip_ATC" xml:space="preserve">
+    <value>Faites savoir aux autres que vous fournissez une couverture ATC dans un aéroport ou une région</value>
+  </data>
+  <data name="Tip_AutoRefresh" xml:space="preserve">
+    <value>Actualisez toutes les fenêtres JoinFS toutes les 30 secondes</value>
+  </data>
+  <data name="Tip_ButtonCreate" xml:space="preserve">
+    <value>Cliquez pour créer une nouvelle session. D'autres peuvent rejoindre en utilisant votre adresse "Moi"</value>
+  </data>
+  <data name="Tip_CircleOfActivity" xml:space="preserve">
+    <value>Définissez la distance maximale à laquelle l'avion sera injecté dans le simulateur</value>
+  </data>
+  <data name="Tip_CPP" xml:space="preserve">
+    <value>Installez le module Microsoft C ++ requis pour le plugin X-Plane</value>
+  </data>
+  <data name="Tip_Elevation" xml:space="preserve">
+    <value>Ajustez automatiquement les autres avions pour compenser les différences d'élévation de l'aéroport du paysage</value>
+  </data>
+  <data name="Tip_EndTime" xml:space="preserve">
+    <value>Durée de l'enregistrement stocké dans l'enregistreur</value>
+  </data>
+  <data name="Tip_Euroscope" xml:space="preserve">
+    <value>Mettre à jour le fichier 'euroscope.txt' avec les données actuelles de l'aéronef à afficher dans l'Euroscope</value>
+  </data>
+  <data name="Tip_Follow" xml:space="preserve">
+    <value>Définissez la distance à laquelle vous voulez que votre avion soit déplacé derrière un autre avion. Voir Afficher | Avion, option «Suivre»</value>
+  </data>
+  <data name="Tip_Frequency" xml:space="preserve">
+    <value>La fréquence radio que vous contrôlez</value>
+  </data>
+  <data name="Tip_GlobalButton" xml:space="preserve">
+    <value>Cliquez pour rejoindre la session publique mondiale</value>
+  </data>
+  <data name="Tip_GlobalJoin" xml:space="preserve">
+    <value>Rejoignez automatiquement la session publique mondiale au démarrage de JoinFS</value>
+  </data>
+  <data name="Tip_HubAbout" xml:space="preserve">
+    <value>Une brève description de ce hub qui apparaîtra dans la liste des hubs de tout le monde</value>
+  </data>
+  <data name="Tip_HubDomain" xml:space="preserve">
+    <value>Adresse de nom de domaine facultative, par exemple "myserver.com"</value>
+  </data>
+  <data name="Tip_HubEvent" xml:space="preserve">
+    <value>Informations facultatives sur les événements à venir ou les dates et heures des réunions</value>
+  </data>
+  <data name="Tip_HubMode" xml:space="preserve">
+    <value>Créez une session publique qui apparaîtra dans la liste des hubs de tout le monde. Redirection de port requise. Voir manuel.</value>
+  </data>
+  <data name="Tip_HubName" xml:space="preserve">
+    <value>Le nom public de ce hub qui sera affiché dans la liste des hubs de tout le monde</value>
+  </data>
+  <data name="Tip_HubVoice" xml:space="preserve">
+    <value>Détails d'un serveur vocal associé à ce hub. Par exemple, "ts3.myserver.com"</value>
+  </data>
+  <data name="Tip_Inactive" xml:space="preserve">
+    <value>Choisissez la couleur à utiliser lorsque quelque chose dans JoinFS est inactif ou échoue</value>
+  </data>
+  <data name="Tip_Join" xml:space="preserve">
+    <value>Entrez l'adresse d'une session et cliquez sur 'Rejoindre'</value>
+  </data>
+  <data name="Tip_JoinButton" xml:space="preserve">
+    <value>Cliquez pour rejoindre la session à l'adresse indiquée</value>
+  </data>
+  <data name="Tip_LabelColour" xml:space="preserve">
+    <value>La couleur des étiquettes des avions injectés dans le simulateur</value>
+  </data>
+  <data name="Tip_Level" xml:space="preserve">
+    <value>Le niveau ATC auquel vous contrôlez</value>
+  </data>
+  <data name="Tip_LocalPort" xml:space="preserve">
+    <value>Spécifiez le port réseau UDP que JoinFS utilisera - la valeur par défaut est 6112</value>
+  </data>
+  <data name="Tip_LowBandwidth" xml:space="preserve">
+    <value>Réduire la quantité de données réseau utilisées par JoinFS - peut affecter les performances</value>
+  </data>
+  <data name="Tip_Me" xml:space="preserve">
+    <value>Ceci est votre adresse. D'autres peuvent vous rejoindre en utilisant cette adresse</value>
+  </data>
+  <data name="Tip_ModelScan" xml:space="preserve">
+    <value>Rechercher automatiquement les modèles à chaque fois que JoinFS se connecte au simulateur de vol</value>
+  </data>
+  <data name="Tip_NetworkButton" xml:space="preserve">
+    <value>Rejoindre / quitter la session à l'adresse indiquée</value>
+  </data>
+  <data name="Tip_Nickname" xml:space="preserve">
+    <value>Choisissez un nom personnel que les autres pourront voir dans JoinFS</value>
+  </data>
+  <data name="Tip_Overdub" xml:space="preserve">
+    <value>Commencez à enregistrer l'avion sélectionné et ajoutez-les à l'avion existant déjà stocké dans l'enregistreur. Les avions existants seront également lus dans le simulateur lors de l'overdub</value>
+  </data>
+  <data name="Tip_Password" xml:space="preserve">
+    <value>Protégez votre session avec un mot de passe</value>
+  </data>
+  <data name="Tip_Play" xml:space="preserve">
+    <value>Lecture / pause de l'avion stocké dans l'enregistreur</value>
+  </data>
+  <data name="Tip_Plugin" xml:space="preserve">
+    <value>Installez le plugin requis pour X-Plane</value>
+  </data>
+  <data name="Tip_PluginAddress" xml:space="preserve">
+    <value>Entrez l'adresse IP de la machine exécutant X-Plane. Laisser vide si sur la même machine</value>
+  </data>
+  <data name="Tip_Position" xml:space="preserve">
+    <value>Position actuelle dans l'enregistrement. Faites glisser la barre pour avancer et reculer dans l'enregistrement</value>
+  </data>
+  <data name="Tip_Record" xml:space="preserve">
+    <value>Commencer à enregistrer l'avion sélectionné</value>
+  </data>
+  <data name="Tip_ShowAltitude" xml:space="preserve">
+    <value>Afficher l'altitude de l'avion dans le cadre de l'étiquette de l'avion</value>
+  </data>
+  <data name="Tip_ShowCallsign" xml:space="preserve">
+    <value>Afficher l'indicatif de l'avion dans le cadre de l'étiquette de l'avion</value>
+  </data>
+  <data name="Tip_ShowDistance" xml:space="preserve">
+    <value>Afficher la distance de l'avion dans le cadre de l'étiquette de l'avion</value>
+  </data>
+  <data name="Tip_ShowNickname" xml:space="preserve">
+    <value>Afficher le surnom du pilote dans le cadre de l'étiquette de l'avion</value>
+  </data>
+  <data name="Tip_ShowNicknames" xml:space="preserve">
+    <value>Afficher les surnoms au lieu des indicatifs dans le simulateur</value>
+  </data>
+  <data name="Tip_ShowSpeed" xml:space="preserve">
+    <value>Afficher la vitesse de l'avion dans le cadre de l'étiquette de l'avion</value>
+  </data>
+  <data name="Tip_SimulatorButton" xml:space="preserve">
+    <value>Connecter / déconnecter le simulateur de vol</value>
+  </data>
+  <data name="Tip_Status" xml:space="preserve">
+    <value>version | ouvrir la carte | nombre total d'utilisateurs du hub, utilisateurs de session | contribuer</value>
+  </data>
+  <data name="Tip_Stop" xml:space="preserve">
+    <value>Arrêter l'enregistrement / la lecture de l'avion</value>
+  </data>
+  <data name="Tip_TCAS" xml:space="preserve">
+    <value>Activez TCAS dans X-Plane pour permettre la prise en charge de la carte. L'avion sera acquis par le plugin qui peut interférer avec d'autres plugins.</value>
+  </data>
+  <data name="Tip_Time" xml:space="preserve">
+    <value>Temps écoulé depuis le début de l'enregistrement / de la lecture</value>
+  </data>
+  <data name="Tip_ToolTips" xml:space="preserve">
+    <value>Afficher l'aide lorsque le pointeur de la souris se trouve sur les éléments de la fenêtre</value>
+  </data>
+  <data name="Tip_VRS" xml:space="preserve">
+    <value>Diffusion automatique des objets VRS TACPAC</value>
+  </data>
+  <data name="Tip_Waiting" xml:space="preserve">
+    <value>Choisissez la couleur à utiliser lorsque quelque chose dans JoinFS attend d'être actif</value>
+  </data>
+  <data name="Tip_Whazzup" xml:space="preserve">
+    <value>Mettez à jour le fichier 'whazzup.txt' avec les données de l'avion à utiliser dans vos propres cartes en ligne</value>
+  </data>
+  <data name="Tip_WhazzupAI" xml:space="preserve">
+    <value>Incluez tous les avions AI dans le fichier 'whazzup.txt'</value>
+  </data>
+  <data name="Tip_WhazzupGlobal" xml:space="preserve">
+    <value>Inclure les avions de tous les hubs publics dans le fichier 'whazzup.txt'</value>
+  </data>
+  <data name="Tip_Xplane" xml:space="preserve">
+    <value>Activer la connexion au simulateur de vol X-Plane</value>
+  </data>
+  <data name="PluginInstalled" xml:space="preserve">
+    <value>Le plugin X-Plane a été installé avec succès</value>
+  </data>
+  <data name="Options_NoGui" xml:space="preserve">
+    <value>Exécutez JoinFS en tant que processus d'arrière-plan sans aucune fenêtre ni interface utilisateur.</value>
+  </data>
+  <data name="Options_Quit" xml:space="preserve">
+    <value>Arrêtez toutes les instances de JoinFS en cours d'exécution sur cette machine.</value>
+  </data>
+  <data name="ResetSettings" xml:space="preserve">
+    <value>Réinitialiser tous les paramètres à leur état par défaut?</value>
+  </data>
+  <data name="InstallPlugin" xml:space="preserve">
+    <value>Voulez-vous installer le plugin pour X-Plane?</value>
+  </data>
+  <data name="Tip_MultiObjects" xml:space="preserve">
+    <value>Autorisez ce client à recevoir plus d'un avion de n'importe quel autre client dans une session.</value>
+  </data>
+  <data name="Options_Rejoin" xml:space="preserve">
+    <value>Rejoignez la session précédente.</value>
+  </data>
+  <data name="InvalidEmail" xml:space="preserve">
+    <value>email ou mot de passe invalide</value>
+  </data>
+  <data name="VerifyPassword" xml:space="preserve">
+    <value>vérifier le mot de passe</value>
+  </data>
+  <data name="AssignVariablesWarning" xml:space="preserve">
+    <value>Vous devez d'abord démarrer un simulateur avant d'affecter des variables.</value>
+  </data>
+  <data name="Tip_Loop" xml:space="preserve">
+    <value>Continuez à revenir au début de l'enregistrement pendant la lecture.</value>
+  </data>
+  <data name="AircraftWarning" xml:space="preserve">
+    <value>Impossible d'injecter tous les avions. Vous devriez ajouter plus d'avions IA au menu de configuration de vol dans X-Plane.</value>
+  </data>
+  <data name="AcquiredWarning" xml:space="preserve">
+    <value>Échec de l'acquisition de l'accès à l'avion X-Plane. C'est généralement parce qu'un autre plugin a déjà obtenu l'accès. Essayez de désactiver l'autre plugin pour donner l'accès à JoinFS.</value>
+  </data>
+  <data name="Tip_EarlyUpdate" xml:space="preserve">
+    <value>Recevez une notification rapide pour essayer une nouvelle version avant sa sortie officielle.</value>
+  </data>
+  <data name="AskImport" xml:space="preserve">
+    <value>Importer vos paramètres JoinFS depuis la v3.1.6 ?</value>
+  </data>
+  <data name="Coffee" xml:space="preserve">
+    <value>achète-moi un café</value>
+  </data>
+  <data name="GenerateCslWarning" xml:space="preserve">
+    <value>La génération d'objets CSL peut prendre plusieurs minutes. Vous devrez peut-être redémarrer X-Plane une fois terminé.</value>
+  </data>
+  <data name="Options_Help" xml:space="preserve">
+    <value>Afficher les détails d'utilisation.</value>
+  </data>
+  <data name="Options_InstallPlugin" xml:space="preserve">
+    <value>Installez le plug-in X-Plane pour JoinFS.</value>
+  </data>
+  <data name="Options_SimFolder" xml:space="preserve">
+    <value>Définit le dossier racine du simulateur.</value>
+  </data>
+  <data name="Options_Background" xml:space="preserve">
+    <value>Pour JoinFS-CONSOLE, exécutez-le en tâche de fond sans saisie au clavier.</value>
+  </data>
+  <data name="Option_GenerateCsl" xml:space="preserve">
+    <value>Générez des objets CSL pour les avions X-Plane installés lors d'un scan.</value>
+  </data>
+  <data name="Option_SkipCsl" xml:space="preserve">
+    <value>Ignorer les objets CSL déjà effectués lors d'une analyse.</value>
+  </data>
+  <data name="Download" xml:space="preserve">
+    <value>Télécharger</value>
+  </data>
+</root>

@@ -1,17 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.0.11222.15 d18.0
+VisualStudioVersion = 18.0.11222.15
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS-FS2020", "JoinFS-FS2020.csproj", "{E67B2033-4D3F-4F15-8C5C-B2D3910F8842}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS-FSX", "JoinFS-FSX.csproj", "{9E20D839-D2C7-46FC-B6DB-75759C3BAF6D}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS-XPLANE", "JoinFS-XPLANE.csproj", "{8755A336-E832-4F7C-92DF-975B80828E6D}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS-P3D", "JoinFS-P3D.csproj", "{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS-FS2024", "JoinFS-FS2024.csproj", "{ADB6858F-B575-496B-8EFF-3859E3F855BE}"
 EndProject
 Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "Setup-FS2024", "FS2024\Setup-FS2024\Setup-FS2024.vdproj", "{03D3B96A-2866-45ED-A8D5-5A226FB8D4A8}"
 EndProject
@@ -19,12 +11,41 @@ Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "Setup-FS2020", "FS2020\Setu
 EndProject
 Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "Setup-P3D", "P3D\Setup-P3D\Setup-P3D.vdproj", "{667B6356-AE06-0358-7CE4-A74377039523}"
 EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "JoinFS-Common", "JoinFS-Common\JoinFS-Common.shproj", "{76C788E8-E07F-411C-A053-E3ED2C276786}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS-FS2024", "JoinFS-FS2024\JoinFS-FS2024.csproj", "{ADB6858F-B575-496B-8EFF-3859E3F855BE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS-FS2020", "JoinFS-FS2020\JoinFS-FS2020.csproj", "{E67B2033-4D3F-4F15-8C5C-B2D3910F8842}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS-FSX", "JoinFS-FSX\JoinFS-FSX.csproj", "{9E20D839-D2C7-46FC-B6DB-75759C3BAF6D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "util", "util", "{53EDDD4B-423D-4522-AB4B-7212431F26D5}"
+	ProjectSection(SolutionItems) = preProject
+		util\generate-dev-certificate.ps1 = util\generate-dev-certificate.ps1
+		util\seedhubs.txt = util\seedhubs.txt
+		util\version.txt = util\version.txt
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS-P3D", "JoinFS-P3D\JoinFS-P3D.csproj", "{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8755A336-E832-4F7C-92DF-975B80828E6D}.Debug|x64.ActiveCfg = Debug|x64
+		{8755A336-E832-4F7C-92DF-975B80828E6D}.Release|x64.ActiveCfg = Release|x64
+		{03D3B96A-2866-45ED-A8D5-5A226FB8D4A8}.Debug|x64.ActiveCfg = Debug
+		{03D3B96A-2866-45ED-A8D5-5A226FB8D4A8}.Release|x64.ActiveCfg = Release
+		{633C5EEF-00A9-4B34-AE86-4EDBF24854EE}.Debug|x64.ActiveCfg = Debug
+		{633C5EEF-00A9-4B34-AE86-4EDBF24854EE}.Release|x64.ActiveCfg = Release
+		{667B6356-AE06-0358-7CE4-A74377039523}.Debug|x64.ActiveCfg = Debug
+		{667B6356-AE06-0358-7CE4-A74377039523}.Release|x64.ActiveCfg = Release
+		{ADB6858F-B575-496B-8EFF-3859E3F855BE}.Debug|x64.ActiveCfg = Debug|x64
+		{ADB6858F-B575-496B-8EFF-3859E3F855BE}.Debug|x64.Build.0 = Debug|x64
+		{ADB6858F-B575-496B-8EFF-3859E3F855BE}.Release|x64.ActiveCfg = Release|x64
+		{ADB6858F-B575-496B-8EFF-3859E3F855BE}.Release|x64.Build.0 = Release|x64
 		{E67B2033-4D3F-4F15-8C5C-B2D3910F8842}.Debug|x64.ActiveCfg = Debug|x64
 		{E67B2033-4D3F-4F15-8C5C-B2D3910F8842}.Debug|x64.Build.0 = Debug|x64
 		{E67B2033-4D3F-4F15-8C5C-B2D3910F8842}.Release|x64.ActiveCfg = Release|x64
@@ -33,27 +54,22 @@ Global
 		{9E20D839-D2C7-46FC-B6DB-75759C3BAF6D}.Debug|x64.Build.0 = Debug|x64
 		{9E20D839-D2C7-46FC-B6DB-75759C3BAF6D}.Release|x64.ActiveCfg = Release|x64
 		{9E20D839-D2C7-46FC-B6DB-75759C3BAF6D}.Release|x64.Build.0 = Release|x64
-		{8755A336-E832-4F7C-92DF-975B80828E6D}.Debug|x64.ActiveCfg = Debug|x64
-		{8755A336-E832-4F7C-92DF-975B80828E6D}.Release|x64.ActiveCfg = Release|x64
-		{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}.Debug|x64.ActiveCfg = Debug|x86
-		{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}.Debug|x64.Build.0 = Debug|x86
-		{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}.Release|x64.ActiveCfg = Release|x86
-		{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}.Release|x64.Build.0 = Release|x86
-		{ADB6858F-B575-496B-8EFF-3859E3F855BE}.Debug|x64.ActiveCfg = Debug|x64
-		{ADB6858F-B575-496B-8EFF-3859E3F855BE}.Debug|x64.Build.0 = Debug|x64
-		{ADB6858F-B575-496B-8EFF-3859E3F855BE}.Release|x64.ActiveCfg = Release|x64
-		{ADB6858F-B575-496B-8EFF-3859E3F855BE}.Release|x64.Build.0 = Release|x64
-		{03D3B96A-2866-45ED-A8D5-5A226FB8D4A8}.Debug|x64.ActiveCfg = Debug
-		{03D3B96A-2866-45ED-A8D5-5A226FB8D4A8}.Release|x64.ActiveCfg = Release
-		{633C5EEF-00A9-4B34-AE86-4EDBF24854EE}.Debug|x64.ActiveCfg = Debug
-		{633C5EEF-00A9-4B34-AE86-4EDBF24854EE}.Release|x64.ActiveCfg = Release
-		{667B6356-AE06-0358-7CE4-A74377039523}.Debug|x64.ActiveCfg = Debug
-		{667B6356-AE06-0358-7CE4-A74377039523}.Release|x64.ActiveCfg = Release
+		{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}.Debug|x64.ActiveCfg = Debug|x64
+		{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}.Debug|x64.Build.0 = Debug|x64
+		{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}.Release|x64.ActiveCfg = Release|x64
+		{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {84B3925E-4100-48C8-80BE-B214CC0421C8}
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		JoinFS-Common\JoinFS-Common.projitems*{5cfe1806-1c1a-4b9e-ad16-7a07018d7659}*SharedItemsImports = 4
+		JoinFS-Common\JoinFS-Common.projitems*{76c788e8-e07f-411c-a053-e3ed2c276786}*SharedItemsImports = 13
+		JoinFS-Common\JoinFS-Common.projitems*{9e20d839-d2c7-46fc-b6db-75759c3baf6d}*SharedItemsImports = 4
+		JoinFS-Common\JoinFS-Common.projitems*{adb6858f-b575-496b-8eff-3859e3f855be}*SharedItemsImports = 4
+		JoinFS-Common\JoinFS-Common.projitems*{e67b2033-4d3f-4f15-8c5c-b2d3910f8842}*SharedItemsImports = 4
 	EndGlobalSection
 EndGlobal

@@ -1,0 +1,817 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <assembly alias="System.Drawing" name="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
+  <data name="Button_OK.Location" type="System.Drawing.Point, System.Drawing">
+    <value>517, 498</value>
+  </data>
+  <data name="Check_LocalPort.Location" type="System.Drawing.Point, System.Drawing">
+    <value>58, 18</value>
+  </data>
+  <data name="Check_LocalPort.Size" type="System.Drawing.Size, System.Drawing">
+    <value>122, 19</value>
+  </data>
+  <data name="Check_LocalPort.Text" xml:space="preserve">
+    <value>Scegli porta locale</value>
+  </data>
+  <data name="Text_LocalPort.Location" type="System.Drawing.Point, System.Drawing">
+    <value>188, 13</value>
+  </data>
+  <data name="Button_Cancel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>611, 498</value>
+  </data>
+  <data name="Button_Cancel.Text" xml:space="preserve">
+    <value>Cancella</value>
+  </data>
+  <data name="Label_Follow.Location" type="System.Drawing.Point, System.Drawing">
+    <value>161, 99</value>
+  </data>
+  <data name="Check_LowBandwidth.Location" type="System.Drawing.Point, System.Drawing">
+    <value>86, 54</value>
+  </data>
+  <data name="Check_LowBandwidth.Size" type="System.Drawing.Size, System.Drawing">
+    <value>94, 19</value>
+  </data>
+  <data name="Check_LowBandwidth.Text" xml:space="preserve">
+    <value>Banda scarsa</value>
+  </data>
+  <data name="Label_Nickname.Size" type="System.Drawing.Size, System.Drawing">
+    <value>75, 15</value>
+  </data>
+  <data name="Label_Nickname.Text" xml:space="preserve">
+    <value>Soprannome</value>
+  </data>
+  <data name="Text_Nickname.Location" type="System.Drawing.Point, System.Drawing">
+    <value>93, 20</value>
+  </data>
+  <data name="Text_Nickname.Size" type="System.Drawing.Size, System.Drawing">
+    <value>203, 23</value>
+  </data>
+  <data name="Check_ShowNickname.Location" type="System.Drawing.Point, System.Drawing">
+    <value>228, 153</value>
+  </data>
+  <data name="Check_ShowNickname.Size" type="System.Drawing.Size, System.Drawing">
+    <value>94, 19</value>
+  </data>
+  <data name="Check_ShowNickname.Text" xml:space="preserve">
+    <value>Soprannome</value>
+  </data>
+  <data name="Label_Circle.Location" type="System.Drawing.Point, System.Drawing">
+    <value>117, 48</value>
+  </data>
+  <data name="Label_FollowText.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 99</value>
+  </data>
+  <data name="Label_FollowText.Size" type="System.Drawing.Size, System.Drawing">
+    <value>143, 15</value>
+  </data>
+  <data name="Label_FollowText.Text" xml:space="preserve">
+    <value>Distanza di inseguimento:</value>
+  </data>
+  <data name="Check_Connect.Location" type="System.Drawing.Point, System.Drawing">
+    <value>52, 153</value>
+  </data>
+  <data name="Check_Connect.Size" type="System.Drawing.Size, System.Drawing">
+    <value>118, 19</value>
+  </data>
+  <data name="Check_Connect.Text" xml:space="preserve">
+    <value>Connetti all'inizio</value>
+  </data>
+  <data name="Button_LabelColour.Text" xml:space="preserve">
+    <value>Etichetta...</value>
+  </data>
+  <data name="Check_ShowDistance.Location" type="System.Drawing.Point, System.Drawing">
+    <value>252, 189</value>
+  </data>
+  <data name="Check_ShowDistance.Size" type="System.Drawing.Size, System.Drawing">
+    <value>70, 19</value>
+  </data>
+  <data name="Check_ShowDistance.Text" xml:space="preserve">
+    <value>Distanza</value>
+  </data>
+  <data name="Check_ShowSpeed.Location" type="System.Drawing.Point, System.Drawing">
+    <value>255, 225</value>
+  </data>
+  <data name="Check_ShowSpeed.Size" type="System.Drawing.Size, System.Drawing">
+    <value>67, 19</value>
+  </data>
+  <data name="Check_ShowSpeed.Text" xml:space="preserve">
+    <value>Velocità</value>
+  </data>
+  <data name="Check_ShowAltitude.Location" type="System.Drawing.Point, System.Drawing">
+    <value>244, 207</value>
+  </data>
+  <data name="Check_ShowAltitude.Size" type="System.Drawing.Size, System.Drawing">
+    <value>78, 19</value>
+  </data>
+  <data name="Check_ShowAltitude.Text" xml:space="preserve">
+    <value>Altitudine</value>
+  </data>
+  <data name="Check_ShowCallsign.Location" type="System.Drawing.Point, System.Drawing">
+    <value>233, 171</value>
+  </data>
+  <data name="Check_ShowCallsign.Size" type="System.Drawing.Size, System.Drawing">
+    <value>89, 19</value>
+  </data>
+  <data name="Check_ShowCallsign.Text" xml:space="preserve">
+    <value>Nominativo</value>
+  </data>
+  <data name="Check_Scan.Location" type="System.Drawing.Point, System.Drawing">
+    <value>7, 171</value>
+  </data>
+  <data name="Check_Scan.Size" type="System.Drawing.Size, System.Drawing">
+    <value>163, 19</value>
+  </data>
+  <data name="Check_Scan.Text" xml:space="preserve">
+    <value>Scansione su connessione</value>
+  </data>
+  <data name="Check_Elevation.Location" type="System.Drawing.Point, System.Drawing">
+    <value>47, 189</value>
+  </data>
+  <data name="Check_Elevation.Size" type="System.Drawing.Size, System.Drawing">
+    <value>123, 19</value>
+  </data>
+  <data name="Check_Elevation.Text" xml:space="preserve">
+    <value>Correzione Altezza</value>
+  </data>
+  <data name="Label_CircleText.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 48</value>
+  </data>
+  <data name="Label_CircleText.Size" type="System.Drawing.Size, System.Drawing">
+    <value>99, 15</value>
+  </data>
+  <data name="Label_CircleText.Text" xml:space="preserve">
+    <value>Raggio di attività:</value>
+  </data>
+  <data name="GroupBox_Simulator.Location" type="System.Drawing.Point, System.Drawing">
+    <value>14, 178</value>
+  </data>
+  <data name="Label_Password.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 132</value>
+  </data>
+  <data name="Check_WhazzupAI.Location" type="System.Drawing.Point, System.Drawing">
+    <value>200, 108</value>
+  </data>
+  <data name="Check_WhazzupAI.Size" type="System.Drawing.Size, System.Drawing">
+    <value>97, 19</value>
+  </data>
+  <data name="Check_WhazzupAI.Text" xml:space="preserve">
+    <value>- includere AI</value>
+  </data>
+  <data name="Check_GlobalJoin.Location" type="System.Drawing.Point, System.Drawing">
+    <value>43, 36</value>
+  </data>
+  <data name="Check_GlobalJoin.Size" type="System.Drawing.Size, System.Drawing">
+    <value>137, 19</value>
+  </data>
+  <data name="Check_GlobalJoin.Text" xml:space="preserve">
+    <value>Unire Global all'inizio</value>
+  </data>
+  <data name="Check_WhazzupGlobal.Location" type="System.Drawing.Point, System.Drawing">
+    <value>140, 90</value>
+  </data>
+  <data name="Check_WhazzupGlobal.Size" type="System.Drawing.Size, System.Drawing">
+    <value>157, 19</value>
+  </data>
+  <data name="Check_WhazzupGlobal.Text" xml:space="preserve">
+    <value>- includere gli utenti hub</value>
+  </data>
+  <data name="Check_Tacpack.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 72</value>
+  </data>
+  <data name="Check_Tacpack.Size" type="System.Drawing.Size, System.Drawing">
+    <value>170, 19</value>
+  </data>
+  <data name="Check_Tacpack.Text" xml:space="preserve">
+    <value>Auto trasmetti VRS TacPack</value>
+  </data>
+  <data name="Check_Whazzup.Location" type="System.Drawing.Point, System.Drawing">
+    <value>43, 90</value>
+  </data>
+  <data name="Text_Password.Location" type="System.Drawing.Point, System.Drawing">
+    <value>75, 129</value>
+  </data>
+  <data name="groupBox2.Size" type="System.Drawing.Size, System.Drawing">
+    <value>340, 158</value>
+  </data>
+  <data name="groupBox2.Text" xml:space="preserve">
+    <value>Rete</value>
+  </data>
+  <data name="Label_Frequency.Location" type="System.Drawing.Point, System.Drawing">
+    <value>194, 79</value>
+  </data>
+  <data name="Label_Frequency.Size" type="System.Drawing.Size, System.Drawing">
+    <value>61, 15</value>
+  </data>
+  <data name="Label_Frequency.Text" xml:space="preserve">
+    <value>Frequenza</value>
+  </data>
+  <data name="Text_Frequency.Location" type="System.Drawing.Point, System.Drawing">
+    <value>263, 76</value>
+  </data>
+  <data name="Label_Level.Location" type="System.Drawing.Point, System.Drawing">
+    <value>214, 50</value>
+  </data>
+  <data name="Label_Level.Size" type="System.Drawing.Size, System.Drawing">
+    <value>41, 15</value>
+  </data>
+  <data name="Label_Level.Text" xml:space="preserve">
+    <value>Livello</value>
+  </data>
+  <data name="Combo_Level.Location" type="System.Drawing.Point, System.Drawing">
+    <value>263, 47</value>
+  </data>
+  <data name="Check_Euroscope.Location" type="System.Drawing.Point, System.Drawing">
+    <value>61, 41</value>
+  </data>
+  <data name="Text_Airport.Location" type="System.Drawing.Point, System.Drawing">
+    <value>263, 18</value>
+  </data>
+  <data name="Label_Airport.Location" type="System.Drawing.Point, System.Drawing">
+    <value>158, 21</value>
+  </data>
+  <data name="Label_Airport.Size" type="System.Drawing.Size, System.Drawing">
+    <value>101, 15</value>
+  </data>
+  <data name="Label_Airport.Text" xml:space="preserve">
+    <value>Codice Aeroporto</value>
+  </data>
+  <data name="Check_ATC.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 20</value>
+  </data>
+  <data name="Check_ATC.Size" type="System.Drawing.Size, System.Drawing">
+    <value>133, 19</value>
+  </data>
+  <data name="Check_ATC.Text" xml:space="preserve">
+    <value>Abilita modalità ATC</value>
+  </data>
+  <data name="GroupBox_ATC.Location" type="System.Drawing.Point, System.Drawing">
+    <value>14, 434</value>
+  </data>
+  <data name="GroupBox_ATC.Size" type="System.Drawing.Size, System.Drawing">
+    <value>340, 106</value>
+  </data>
+  <data name="Text_HubDomain.Location" type="System.Drawing.Point, System.Drawing">
+    <value>69, 40</value>
+  </data>
+  <data name="Text_HubDomain.Size" type="System.Drawing.Size, System.Drawing">
+    <value>263, 23</value>
+  </data>
+  <data name="Label_HubDomain.Location" type="System.Drawing.Point, System.Drawing">
+    <value>8, 43</value>
+  </data>
+  <data name="Label_HubDomain.Size" type="System.Drawing.Size, System.Drawing">
+    <value>53, 15</value>
+  </data>
+  <data name="Label_HubDomain.Text" xml:space="preserve">
+    <value>Dominio</value>
+  </data>
+  <data name="Text_HubEvent.Location" type="System.Drawing.Point, System.Drawing">
+    <value>120, 156</value>
+  </data>
+  <data name="Text_HubEvent.Size" type="System.Drawing.Size, System.Drawing">
+    <value>212, 23</value>
+  </data>
+  <data name="Label_HubEvent.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 159</value>
+  </data>
+  <data name="Label_HubEvent.Size" type="System.Drawing.Size, System.Drawing">
+    <value>102, 15</value>
+  </data>
+  <data name="Label_HubEvent.Text" xml:space="preserve">
+    <value>Evento successivo</value>
+  </data>
+  <data name="Text_HubVoIP.Location" type="System.Drawing.Point, System.Drawing">
+    <value>120, 127</value>
+  </data>
+  <data name="Text_HubVoIP.Size" type="System.Drawing.Size, System.Drawing">
+    <value>212, 23</value>
+  </data>
+  <data name="Text_HubAbout.Location" type="System.Drawing.Point, System.Drawing">
+    <value>69, 98</value>
+  </data>
+  <data name="Text_HubAbout.Size" type="System.Drawing.Size, System.Drawing">
+    <value>263, 23</value>
+  </data>
+  <data name="Label_HubAbout.Location" type="System.Drawing.Point, System.Drawing">
+    <value>27, 101</value>
+  </data>
+  <data name="Label_HubAbout.Size" type="System.Drawing.Size, System.Drawing">
+    <value>28, 15</value>
+  </data>
+  <data name="Label_HubAbout.Text" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="Label_HubVoIP.Location" type="System.Drawing.Point, System.Drawing">
+    <value>45, 130</value>
+  </data>
+  <data name="Label_HubVoIP.Size" type="System.Drawing.Size, System.Drawing">
+    <value>67, 15</value>
+  </data>
+  <data name="Label_HubVoIP.Text" xml:space="preserve">
+    <value>Server voce</value>
+  </data>
+  <data name="Label_HubName.Location" type="System.Drawing.Point, System.Drawing">
+    <value>15, 72</value>
+  </data>
+  <data name="Label_HubName.Size" type="System.Drawing.Size, System.Drawing">
+    <value>40, 15</value>
+  </data>
+  <data name="Label_HubName.Text" xml:space="preserve">
+    <value>Nome</value>
+  </data>
+  <data name="Text_HubName.Location" type="System.Drawing.Point, System.Drawing">
+    <value>69, 69</value>
+  </data>
+  <data name="Text_HubName.Size" type="System.Drawing.Size, System.Drawing">
+    <value>263, 23</value>
+  </data>
+  <data name="Check_Hub.Location" type="System.Drawing.Point, System.Drawing">
+    <value>46, 19</value>
+  </data>
+  <data name="Check_Hub.Size" type="System.Drawing.Size, System.Drawing">
+    <value>134, 19</value>
+  </data>
+  <data name="Check_Hub.Text" xml:space="preserve">
+    <value>Abilita modalità hub</value>
+  </data>
+  <data name="GroupBox_Hub.Location" type="System.Drawing.Point, System.Drawing">
+    <value>360, 178</value>
+  </data>
+  <data name="GroupBox_Hub.Size" type="System.Drawing.Size, System.Drawing">
+    <value>340, 190</value>
+  </data>
+  <data name="GroupBox_Hub.Text" xml:space="preserve">
+    <value>Modalità Hub (Pubblica)</value>
+  </data>
+  <data name="Check_AlwaysOnTop.Location" type="System.Drawing.Point, System.Drawing">
+    <value>30, 15</value>
+  </data>
+  <data name="Check_AlwaysOnTop.Size" type="System.Drawing.Size, System.Drawing">
+    <value>107, 19</value>
+  </data>
+  <data name="Check_AlwaysOnTop.Text" xml:space="preserve">
+    <value>sempre in cima</value>
+  </data>
+  <data name="Check_EarlyUpdate.Location" type="System.Drawing.Point, System.Drawing">
+    <value>156, 33</value>
+  </data>
+  <data name="Check_EarlyUpdate.Size" type="System.Drawing.Size, System.Drawing">
+    <value>166, 19</value>
+  </data>
+  <data name="Check_EarlyUpdate.Text" xml:space="preserve">
+    <value>Aggiornamento anticipato</value>
+  </data>
+  <data name="Check_ToolTips.Location" type="System.Drawing.Point, System.Drawing">
+    <value>68, 33</value>
+  </data>
+  <data name="Check_ToolTips.Size" type="System.Drawing.Size, System.Drawing">
+    <value>69, 19</value>
+  </data>
+  <data name="Check_ToolTips.Text" xml:space="preserve">
+    <value>Aiuto UI</value>
+  </data>
+  <data name="Label_Inactive.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 122</value>
+  </data>
+  <data name="Label_Inactive.Text" xml:space="preserve">
+    <value>Inattivo</value>
+  </data>
+  <data name="Label_Waiting.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 88</value>
+  </data>
+  <data name="Label_Waiting.Text" xml:space="preserve">
+    <value>Inatteso</value>
+  </data>
+  <data name="Button_InactiveText.Location" type="System.Drawing.Point, System.Drawing">
+    <value>217, 122</value>
+  </data>
+  <data name="Button_InactiveText.Text" xml:space="preserve">
+    <value>Testo...</value>
+  </data>
+  <data name="Button_WaitingText.Location" type="System.Drawing.Point, System.Drawing">
+    <value>217, 88</value>
+  </data>
+  <data name="Button_WaitingText.Text" xml:space="preserve">
+    <value>Testo...</value>
+  </data>
+  <data name="Button_ActiveText.Location" type="System.Drawing.Point, System.Drawing">
+    <value>217, 55</value>
+  </data>
+  <data name="Button_ActiveText.Text" xml:space="preserve">
+    <value>Testo...</value>
+  </data>
+  <data name="Button_InactiveBackground.Location" type="System.Drawing.Point, System.Drawing">
+    <value>110, 122</value>
+  </data>
+  <data name="Button_InactiveBackground.Text" xml:space="preserve">
+    <value>Sfondo...</value>
+  </data>
+  <data name="Button_WaitingBackground.Location" type="System.Drawing.Point, System.Drawing">
+    <value>110, 88</value>
+  </data>
+  <data name="Button_WaitingBackground.Text" xml:space="preserve">
+    <value>Sfondo...</value>
+  </data>
+  <data name="Button_ActiveBackground.Location" type="System.Drawing.Point, System.Drawing">
+    <value>110, 55</value>
+  </data>
+  <data name="Button_ActiveBackground.Text" xml:space="preserve">
+    <value>Sfondo...</value>
+  </data>
+  <data name="Label_Active.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 55</value>
+  </data>
+  <data name="Label_Active.Text" xml:space="preserve">
+    <value>Attivo</value>
+  </data>
+  <data name="Check_AutoRefresh.Location" type="System.Drawing.Point, System.Drawing">
+    <value>150, 15</value>
+  </data>
+  <data name="Check_AutoRefresh.Size" type="System.Drawing.Size, System.Drawing">
+    <value>172, 19</value>
+  </data>
+  <data name="Check_AutoRefresh.Text" xml:space="preserve">
+    <value>Aggiorna automaticamente</value>
+  </data>
+  <data name="groupBox5.Size" type="System.Drawing.Size, System.Drawing">
+    <value>340, 158</value>
+  </data>
+  <data name="groupBox5.Text" xml:space="preserve">
+    <value>UI</value>
+  </data>
+  <data name="Button_InstallCPP.Text" xml:space="preserve">
+    <value>Installa C++...</value>
+  </data>
+  <data name="Label_PluginAddress.Size" type="System.Drawing.Size, System.Drawing">
+    <value>64, 15</value>
+  </data>
+  <data name="Label_PluginAddress.Text" xml:space="preserve">
+    <value>IP Indirizzo</value>
+  </data>
+  <data name="Button_InstallPlugin.Text" xml:space="preserve">
+    <value>Installa il plugin...</value>
+  </data>
+  <data name="GroupBox_Xplane.Location" type="System.Drawing.Point, System.Drawing">
+    <value>360, 374</value>
+  </data>
+  <data name="GroupBox_Xplane.Size" type="System.Drawing.Size, System.Drawing">
+    <value>340, 96</value>
+  </data>
+  <data name="Button_Reset.Location" type="System.Drawing.Point, System.Drawing">
+    <value>402, 498</value>
+  </data>
+  <data name="Button_Reset.Text" xml:space="preserve">
+    <value>Ripristina</value>
+  </data>
+  <data name="$this.ClientSize" type="System.Drawing.Size, System.Drawing">
+    <value>713, 547</value>
+  </data>
+  <data name="$this.Icon" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+    <value>
+        AAABAAQAMDAAAAEAGACoHAAARgAAACAgAAABABgAqAwAAO4cAAAYGAAAAQAYAEgHAACWKQAAEBAAAAEA
+        GABoAwAA3jAAACgAAAAwAAAAYAAAAAEAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADtuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuofosIHXkm7tuYftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuofd
+        nnWgMDDKe1/tuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuofmrn+fLy+nPDjosIHtuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuofpsoKiNTOfLy/MfmHt
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuofZl3Hs
+        uIbtuoftuoftuofrt4WmOzefLy+qQjvqtIPtuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoe2WEnNgGPtuoftuoftuofrt4WnPTifLy+gMDDQhmbtuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuofKe2CkODXhpXrtuoftuofs
+        uIarRT2fLy+fLy+pQDrWkG3kqXztuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuof13sj23Mb23sj23sjz17v117rz07Tyzazxz7HxzqvxzKrv
+        w53uwpzrwJrWkm6gMDCsRT2+ZlK+ZlK8Yk+jNTOgMDCgMDCgMDCgMDCvSkG+ZlK+ZlK+ZlLDb1fRh2fq
+        tIPuu4juu4jtuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuof++/H9+Oz9+Or9
+        9eL88Nn67NP88+D66dX55tD138b34cj117f11LTvyqnWkG6gMDClOTWuSkCuSkCtRz6gMTCgMDCgMDCg
+        MDCgMDCnPTiuSkCuSkCuSkCzU0bCbVfmrH/uu4juu4jtuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuofvxp3uxJrtwJPuvY3tvIztu4rtvYzsuonuu4juu4juu4juu4juu4juu4jNgGOh
+        MjHZlXDuu4juu4jrt4WoQDqgMDCgMDCjNjPGdFvcm3Puu4juu4juu4juu4juu4juu4juu4juu4jtuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4i5XUzEcFjtuofuu4juu4jrtoWlOjagMDCgMDDLfGDuu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4jtuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4jOgmPrt4Xuu4juu4juu4jp
+        soKgMTCgMDCnPjjpsoLuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4jtuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4jnsIGgMDCgMDDFclruu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4jtuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuofuu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4jlq36gMDCmOjbmrX/u
+        u4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4jtuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4jdnXWgMDDGdVvtuofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4jtuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4jgonjJeV7rtYTuu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4jtuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4jtuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4jtuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuofuu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4jipnu9ZFHmrX/tuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4jfoXegMTC7YE7tuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4jkqn2iNDKhMjHhpXrtuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4jqtYSlOTagMDDAaVTtuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4jtuofGdFvosIHuu4juu4juu4js
+        t4amOjagMDCjNTPkqn3tuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftvY/uu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4i8Yk+7YU/tuYfuu4juu4jtuYenPjigMDCfLy/EcFjtuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoft1sLwza/vzq/uyqnuxaHxyaXwxaDuwpjux6LxzKnvxqHsv5Ptv5PuvpHtvpDu
+        v5PtvI3tvIztu4rtuojtu4rtu4juu4juu4juu4juu4jSiWigMDDSimnst4bst4bqtYSpQjugMDCfLy+h
+        MzK7YE7VkGzst4bst4bst4btuYbtuoftuoftuoftuoftuoftuof69PL89vT79vX69vP59PD59PD78+78
+        9O379O379O389ez87+P77uD77N788OL879/66tX76tP659H44Mn44s334cn238jz07f00bPvzK3Ti2ug
+        MDChMzKmOjamOjalOTagMDCgMDCfLy+fLy+fLy+jNTOmOjamOjamOjaqQju3WkrjqHztuoftuoftuoft
+        uof9+/f8+/f8/Pf8+/T8+/T7+PD9+vP89u747N347Nz78uP569z58eP57d336dL34cX23b312bf34MXz
+        1rj00rHwzKfyzqrwx53wxZ3rvpXYlHCgMDCzUkXJeV7JeV7GdVujNjSgMDCfLy+fLy+gMDC0VEfJeV7J
+        eV7JeV7NgWPcm3TsuIbtuoftuoftuoftuofsv5PtwZXuw5nvwZXuwJLrvI3tv5Ltu4rtuojtuojtu4rt
+        uojtuoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4juu4juu4juu4jGdFuoPjjmrH7uu4juu4js
+        uIanPDigMDCfLy+uSkDfoXfpsoLtuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuojtuojtuoftuojtuoftuoftuoftuoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4ju
+        u4juu4jtuoe1VkjVj2ztuofuu4juu4jqtIOlOTWgMDCgMDDXk27tuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuojtuoftuojtuoftuoftuoftuoftuoftuoft
+        uoftuofuu4juu4juu4juu4juu4juu4juu4juu4jtuofipXrtuofuu4juu4juu4jlq36iNDOgMDCvS0Hs
+        uIbtuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uojtuojtuoftuoftuoftuoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4jlq36iNDKgMDDSiWjtuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuojtuoftuoftuoftuoftuoftuoftuoftuoftuofuu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4jgo3ihMjGtRz7suIbtuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4juu4juu4juu4jtuoftuoft
+        uoftuoftuojtuoftuoftuofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ja
+        mHKiNDLVj2ztuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuofuu4juu4juu4ju
+        u4juuojuu4juu4juu4juu4jtuojtuojtuoftuoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4josIHhpXrtuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4juu4juu4juu4jtuojtuoftuojtuojtuoftuojt
+        uoftuofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4jtuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuofuu4juu4juu4jtu4jtu4juu4juu4ju
+        u4juu4jtuoftuoftuoftuojtuoftuojtuoftuofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4jtuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuojtuojtuojtuoftuoftuojuu4juuojuuojtuoftuoftuoftuoftuoftuoftuoftuofuu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4jtuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuojtuojtuoftuoftuoftu4juu4jtu4juu4jtuoftuoft
+        uoftuoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4jtuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuojtuojtu4jt
+        uoftuojuu4juu4juu4juu4jtuoftuoftuoftuoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4jtuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uoftuoftuoftuoftuofuu4juu4juu4jtuojtuojuu4juu4juu4juu4jtuoftuoftuoftuoftuoftuoft
+        uoftuofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4juu4jtuoft
+        uoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuofuuojtuoftuojuu4juu4ju
+        u4juu4jtuoftuoftuoftuoftuoftuoftuoftuofuu4juu4juu4juu4juu4juu4juu4juu4juu4juu4ju
+        u4juu4juu4juu4juu4juu4juu4jtuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoftuoft
+        uocAAAAAAABnOAAAAAAAAGc4AAAAAAAAZzgAAAAAAABnOAAAAAAAAGc4AAAAAAAAZzgAAAAAAABnOAAA
+        AAAAAGc4AAAAAAAAZzgAAAAAAABnOAAAAAAAAGc4AAAAAAAAZzgAAAAAAABnOAAAAAAAAGc4AAAAAAAA
+        ZzgAAAAAAABnOAAAAAAAAGc4AAAAAAAAZzgAAAAAAABnOAAAAAAAAGc4AAAAAAAAZzgAAAAAAABnOAAA
+        AAAAAGc4AAAAAAAAZzgAAAAAAABnOAAAAAAAAGc4AAAAAAAAZzgAAAAAAABnOAAAAAAAAGc4AAAAAAAA
+        ZzgAAAAAAABnOAAAAAAAAGc4AAAAAAAAZzgAAAAAAABnOAAAAAAAAGc4AAAAAAAAZzgAAAAAAABnOAAA
+        AAAAAGc4AAAAAAAAZzgAAAAAAABnOAAAAAAAAGc4AAAAAAAAZzgAAAAAAABnOAAAAAAAAGc4AAAAAAAA
+        ZzgAAAAAAABnOAAAAAAAAGc4AAAAAAAAZzgoAAAAIAAAAEAAAAABABgAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAA7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7LiG57CA7bmH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH6LKCwWxW3Z117bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH67aEt1tKt1pK6LGB7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH5Kp97LmG7bqH7LiGu2JP
+        pjw32ZZw7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqHzIBizYFj67eF7LmGvmdSny8vt1lK5q6A7LiF7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH8tGx89Gx8tCv8c2p8Mmj78eh78ae7sKY7b6U2pt3
+        qkM8yHhdzYBislFEny8voTMytlhJyXlezYJjz4Zl36J37LmG7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH+OjT9+XO9+HD9ty89t7B9di589Ox88+r8cmi3J57pz04v2dSwm5XrUg+oDAwoDEwsE1Cv2lT
+        w29YxXNa2JVw7LeG7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7r6O7b2M7buJ7buI7buJ7bqI
+        7ruI7ruI7ruIz4Rlx3Zc67aF7bmHvWRRoDAws1NG46d77LeF7ruI7ruI7ruI7ruI7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI36F37LmG7ruI7LeFuFtL
+        pTo215Nu7ruI7ruI7ruI7ruI7ruI7ruI7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI
+        7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI67aFt1lKtldI56+A7ruI7ruI7ruI7ruI7ruI7ruI
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI
+        7ruI7ruI6LGCvWVR25py7bqH7ruI7ruI7ruI7ruI7ruI7ruI7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7LiG5Kl87bmH7ruI7ruI7ruI
+        7ruI7ruI7ruI7ruI7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI
+        7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7LiG4aV667eF7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI
+        7ruI7ruI7ruI7ruI7ruI7ruI6bKCu2JP1Y9r7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI
+        7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI67aFuV1M
+        slFE5ax+7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI
+        7ruI7ruI7ruI7ruI7ruI7ruI7bqH3Jtz67aE7ruI7bmHvGNQpDc004xq7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7cOc7sGV7r+S7r+R7r6P7r6P7sCS7b2N7byL7byK7byL7buJ7bqI7bqI7buI7ruI7ruI0Yhn
+        wm5X6rSD7LmGvmdSny8vr0xB36F36rSD7LmG7LmG7bqH7bqH7bqH7bqH9ung9+jd9ebY9uXW9+PS9uTS
+        9+bV9+HL9t3F9t7F9t3C9tq79da39NS189Oz8s2r8Mij3J58pTo2uV1MvGNQq0Q9ny8vny8vrEY9ul5N
+        vWNQv2dS0otp6raE7bqH7bqH9+fV9+jX9+fU9uXQ9+XQ9d3E9dzB9dzB9d3D9Nq789Ou8s+o89Gt8cuk
+        78ad78SY7sCU2pp2rUg/z4Rl1I1rs1NGny8vojUyul9Oz4Vm1Y5r1pJt5at+7LmG7bqH7bqH7LuL7byM
+        7byL7LuK7buK7bqI7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7bqHy35h0olo7LmG7LmGvGNQ
+        ny8vu2FP6bOC7LmG7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7ruI7ruI7ruI7ruI7bqH6LGB7bqH7ruI67WEuFtLqD8625tz7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI
+        7ruI7ruI6bODtllJvGJP6bSD7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7rqI7rqI7ruI7ruI
+        7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI6LKCxHFZ4qZ77bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7rqI7rqI7ruI7ruI7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI
+        7ruI7ruI7ruI7ruI7ruI7ruI7bmH6rSE7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqI7bqI
+        7bqH7bqH7rqI7rqI7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqI7bqH7bqH7bqH7bqI7bqI7bqH7bqH7bqH7bqH
+        7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqI7bqI7bqH7bqI7ruI7ruI7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI
+        7ruI7ruI7ruI7ruI7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqI7ruI7ruI
+        7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoAAAAGAAAADAAAAABABgAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAA7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH67eF56+A7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH57CArEU967eF7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH57CB7bqH67eFoTMy04tp7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqHvGJQ6rSD7LiGpDg0rkk/5at97bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH+eva+erX9+LI9t/F9Ni889Gx78iku2BPr0tBtVZH
+        oDEwoDAwpTk2tlhJuFxL2JVw7ruI7bqH7bqH7bqH7bqH7bqH7bqH7bqH7sCR7byM7buJ7buJ7ruI7ruI
+        7ruIul9O6LGB7LiGozY0q0Q836F37ruI7ruI7ruI7ruI7bqH7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI
+        7ruI7ruI7ruI7ruI7ruI5at+7ruI67aEoDAw0Idn7ruI7ruI7ruI7ruI7ruI7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI56+Aq0M867eF7ruI7ruI7ruI7ruI7ruI7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI6rSE5Kl87ruI7ruI7ruI
+        7ruI7ruI7ruI7bqH7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI
+        7ruI7ruI7ruI7ruI7ruI67WE36F47bqH7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI
+        7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI57CBpz046rSD7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI
+        7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7bqH4qZ77ruI7LiGojQzzYBi7bqH7bqH7bqH7bqH
+        7bqH7bqH7sai7sOa7sGV7r+S7sKW7b6R7byN7byM7buK7bqI7buI7ruI7ruIul9N5q1/7LiGpDg0qEA6
+        2ply7LiG7LmG7bqH7bqH7bqH+/j1+/j0+vbx/PXv+fDk+/Dj+u7f+erW+OLH99/F9Ni78tGx78ikul9O
+        sE5CtlhJoDExny8vpTo2t1lKuV1M2JVw7bqH7bqH7L2N7b6P7LyL7buK7bqH7bqI7bqH7bqH7bqH7ruI
+        7ruI7ruI7bqHvmVR67eF7LiGozUzsU9D6LGB7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7ruI7ruI7ruI7bqH6rWE7ruI6bODoTIx1pFt7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI5ax+sU9D7LmG7bqH7bqH7bqH7bqH
+        7bqH7bqH7ruI7ruI7rqI7ruI7bqI7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI7LiG6rWE7bqH
+        7bqH7bqH7bqH7bqH7bqH7bqH7bqI7bqH7bqH7rqI7bqH7bqH7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI
+        7ruI7ruI7ruI7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqI7bqH7bqH7buI7bqH7bqH7bqH7bqH7bqH7ruI
+        7ruI7ruI7ruI7ruI7ruI7ruI7ruI7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqH7bqI7ruI7bqH7bqH
+        7bqH7bqH7bqH7ruI7ruI7ruI7ruI7ruI7ruI7ruI7ruI7bqH7bqH7bqH7bqH7bqH7bqH7bqHAAAAQQAA
+        AEEAAABBAAAAQQAAAEEAAABBAAAAQQAAAEEAAABBAAAAQQAAAEEAAABBAAAAQQAAAEEAAABBAAAAQQAA
+        AEEAAABBAAAAQQAAAEEAAABBAAAAQQAAAEEAAABBKAAAABAAAAAgAAAAAQAYAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAOy6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6
+        h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6
+        h+y6h9+id+myguy6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+q2hOy5htKLacd3XOy6
+        h+y6h+y6h+y6h+y6h+y6h+y6h+y6h+/FnO/Eme7BlO6/keClfcp9YMp8YKY6NtSOa92fdemzg+26h+y6
+        h+y6h+y6h+y6h/PSr/LNpPHLovDGm+KpgsZ0W8Z1W6U5Nc+FZtmWcOiwge26h+y6h+y6h+y6h+y6h+66
+        iO66iO66iO66iOq0g+26h9GIaMZ1W+66iO66iO66iO26h+y6h+y6h+y6h+y6h+66iO66iO66iO66iO66
+        iO66iN2edemygu66iO66iO66iO26h+y6h+y6h+y6h+y6h+66iO66iO66iO66iO66iO66iO66iO66iO66
+        iO66iNycdOauf+y6h+y6h+y6h+y6h+66iO66iO66iO66iO66iO66iO66iO66iOmygu25h9OMasNwWOy6
+        h+y6h+y6h+y6h/LVu/LStPLRsfLRsPLNqPLLpPHIn/DFm+Oqg8JuV8RyWaM2NMt+YdWPbOWtf+y6h/LS
+        sfLRrvHOqfHLpPDKo/DFmfDEmO7AkeCkfM+EZMx/Yqc9ONiUb+Gleeu2hOy6h+y6h+y6h+y6h+y6h+y6
+        h+26h+66iO66iOy4hu26h9GHZ8p8YOy6h+y6h+y6h+y6h+66iO66iO66iOy6h+y6h+26h+66iO66iO66
+        iO66iOGkeeq1hOy6h+y6h+y6h+y6h+26h+26h+26iOy6h+y6h+26h+66iO66iO66iO66iO66iO26h+y6
+        h+y6h+y6h+y6h+26h+26h+66iOy6h+y6h+26h+66iO66iO66iO66iO66iO26h+y6h+y6h+y6h+y6hwAA
+        rEEAAKxBAACsQQAArEEAAKxBAACsQQAArEEAAKxBAACsQQAArEEAAKxBAACsQQAArEEAAKxBAACsQQAA
+        rEE=
+</value>
+  </data>
+  <data name="$this.Text" xml:space="preserve">
+    <value>JoinFS: Settaggi</value>
+  </data>
+</root>
