@@ -5,8 +5,6 @@ VisualStudioVersion = 18.0.11222.15
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "Setup-FS2024", "FS2024\Setup-FS2024\Setup-FS2024.vdproj", "{03D3B96A-2866-45ED-A8D5-5A226FB8D4A8}"
 EndProject
-Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "Setup-FS2020", "FS2020\Setup-FS2020\Setup-FS2020.vdproj", "{633C5EEF-00A9-4B34-AE86-4EDBF24854EE}"
-EndProject
 Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "Setup-P3D", "P3D\Setup-P3D\Setup-P3D.vdproj", "{667B6356-AE06-0358-7CE4-A74377039523}"
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "JoinFS-Common", "JoinFS-Common\JoinFS-Common.shproj", "{76C788E8-E07F-411C-A053-E3ED2C276786}"
@@ -28,6 +26,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS-P3D", "JoinFS-P3D\Jo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS-XPLANE", "JoinFS-XPLANE\JoinFS-XPLANE.csproj", "{8755A336-E832-4F7C-92DF-975B80828E6D}"
 EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "Setup-FS2020", "JoinFS-FS2020\Installer\Setup-FS2020.vdproj", "{780E649F-580C-E4F2-4881-0EDBD88C74BF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -36,8 +36,6 @@ Global
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{03D3B96A-2866-45ED-A8D5-5A226FB8D4A8}.Debug|x64.ActiveCfg = Debug
 		{03D3B96A-2866-45ED-A8D5-5A226FB8D4A8}.Release|x64.ActiveCfg = Release
-		{633C5EEF-00A9-4B34-AE86-4EDBF24854EE}.Debug|x64.ActiveCfg = Debug
-		{633C5EEF-00A9-4B34-AE86-4EDBF24854EE}.Release|x64.ActiveCfg = Release
 		{667B6356-AE06-0358-7CE4-A74377039523}.Debug|x64.ActiveCfg = Debug
 		{667B6356-AE06-0358-7CE4-A74377039523}.Release|x64.ActiveCfg = Release
 		{ADB6858F-B575-496B-8EFF-3859E3F855BE}.Debug|x64.ActiveCfg = Debug|x64
@@ -60,6 +58,10 @@ Global
 		{8755A336-E832-4F7C-92DF-975B80828E6D}.Debug|x64.Build.0 = Debug|x64
 		{8755A336-E832-4F7C-92DF-975B80828E6D}.Release|x64.ActiveCfg = Release|x64
 		{8755A336-E832-4F7C-92DF-975B80828E6D}.Release|x64.Build.0 = Release|x64
+		{780E649F-580C-E4F2-4881-0EDBD88C74BF}.Debug|x64.ActiveCfg = Debug
+		{780E649F-580C-E4F2-4881-0EDBD88C74BF}.Debug|x64.Build.0 = Debug
+		{780E649F-580C-E4F2-4881-0EDBD88C74BF}.Release|x64.ActiveCfg = Release
+		{780E649F-580C-E4F2-4881-0EDBD88C74BF}.Release|x64.Build.0 = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
