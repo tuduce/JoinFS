@@ -1,0 +1,6 @@
+This is a shared project with all the common files for JoinFS.
+
+The properties and forms are included in the other projects as links.
+
+I know it's not the best way to share files between projects, but it's the only way I found that works with WinForms designer.
+Feel free to suggest a better way if you know one!
