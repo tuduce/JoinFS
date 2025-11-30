@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 #if !CONSOLE
 using System.Windows.Forms;
+using System.Windows.Forms.VisualStyles;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TextBox;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 #endif
 using System.IO;
 using System.Globalization;
@@ -10,10 +13,7 @@ using System.Net.NetworkInformation;
 using System.Drawing;
 using System.Net.Sockets;
 using static System.Net.Mime.MediaTypeNames;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TextBox;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 using System.Security.Policy;
-using System.Windows.Forms.VisualStyles;
 using System.Net;
 using JoinFS.Helpers;
 using JoinFS.DataModel;
