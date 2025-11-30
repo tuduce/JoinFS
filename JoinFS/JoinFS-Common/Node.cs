@@ -662,12 +662,12 @@ namespace JoinFS
                     {
                         // TODO: remove IP restriction
                         // check if the endPoint is the IP 192.168.1.115
-                        if (endPoint.Address.ToString() == "192.168.1.115")
-                        {
-                            // handle specific case for IP 192.168.1.115
-                            nodeError?.Invoke("No message to " + endPoint.ToString());
-                            return;
-                        }
+                        //if (endPoint.Address.ToString() == "192.168.1.115")
+                        //{
+                        //    // handle specific case for IP 192.168.1.115
+                        //    nodeError?.Invoke("No message to " + endPoint.ToString());
+                        //    return;
+                        //}
 
                         // send data
                         udpClient.Send(data, length, endPoint);
