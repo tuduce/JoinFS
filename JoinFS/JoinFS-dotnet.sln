@@ -1,70 +1,31 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.32126.317
+# Visual Studio Version 18
+VisualStudioVersion = 18.0.11222.15
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JoinFS-SERVER", "JoinFS-SERVER.csproj", "{B28D9064-8025-419A-BFBE-36128FA6728B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS-CONSOLE", "JoinFS-CONSOLE\JoinFS-CONSOLE.csproj", "{12521C23-A300-7372-3333-A4E4E4C25435}"
 EndProject
-Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "Setup-SERVER", "SERVER\Setup\Setup-SERVER.wixproj", "{8B97436D-55CC-4234-BD98-7E5291A43AAD}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JoinFS-CONSOLE", "JoinFS-CONSOLE.csproj", "{2EF9EA5C-D962-4B32-98A8-B41C79D9BA25}"
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "JoinFS-Common", "JoinFS-Common\JoinFS-Common.shproj", "{76C788E8-E07F-411C-A053-E3ED2C276786}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug CONSOLE|Any CPU = Debug CONSOLE|Any CPU
-		Debug CONSOLE|x86 = Debug CONSOLE|x86
-		Debug SERVER|Any CPU = Debug SERVER|Any CPU
-		Debug SERVER|x86 = Debug SERVER|x86
-		Release CONSOLE|Any CPU = Release CONSOLE|Any CPU
-		Release CONSOLE|x86 = Release CONSOLE|x86
-		Release SERVER|Any CPU = Release SERVER|Any CPU
-		Release SERVER|x86 = Release SERVER|x86
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{B28D9064-8025-419A-BFBE-36128FA6728B}.Debug CONSOLE|Any CPU.ActiveCfg = Debug|Any CPU
-		{B28D9064-8025-419A-BFBE-36128FA6728B}.Debug CONSOLE|x86.ActiveCfg = Debug|Any CPU
-		{B28D9064-8025-419A-BFBE-36128FA6728B}.Debug CONSOLE|x86.Build.0 = Debug|Any CPU
-		{B28D9064-8025-419A-BFBE-36128FA6728B}.Debug SERVER|Any CPU.ActiveCfg = Debug|Any CPU
-		{B28D9064-8025-419A-BFBE-36128FA6728B}.Debug SERVER|Any CPU.Build.0 = Debug|Any CPU
-		{B28D9064-8025-419A-BFBE-36128FA6728B}.Debug SERVER|x86.ActiveCfg = Debug|Any CPU
-		{B28D9064-8025-419A-BFBE-36128FA6728B}.Release CONSOLE|Any CPU.ActiveCfg = Release|Any CPU
-		{B28D9064-8025-419A-BFBE-36128FA6728B}.Release CONSOLE|x86.ActiveCfg = Release|Any CPU
-		{B28D9064-8025-419A-BFBE-36128FA6728B}.Release CONSOLE|x86.Build.0 = Release|Any CPU
-		{B28D9064-8025-419A-BFBE-36128FA6728B}.Release SERVER|Any CPU.ActiveCfg = Release|Any CPU
-		{B28D9064-8025-419A-BFBE-36128FA6728B}.Release SERVER|Any CPU.Build.0 = Release|Any CPU
-		{B28D9064-8025-419A-BFBE-36128FA6728B}.Release SERVER|x86.ActiveCfg = Release|Any CPU
-		{8B97436D-55CC-4234-BD98-7E5291A43AAD}.Debug CONSOLE|Any CPU.ActiveCfg = Debug|x86
-		{8B97436D-55CC-4234-BD98-7E5291A43AAD}.Debug CONSOLE|x86.ActiveCfg = Debug|x86
-		{8B97436D-55CC-4234-BD98-7E5291A43AAD}.Debug CONSOLE|x86.Build.0 = Debug|x86
-		{8B97436D-55CC-4234-BD98-7E5291A43AAD}.Debug SERVER|Any CPU.ActiveCfg = Debug|x86
-		{8B97436D-55CC-4234-BD98-7E5291A43AAD}.Debug SERVER|x86.ActiveCfg = Debug|x86
-		{8B97436D-55CC-4234-BD98-7E5291A43AAD}.Debug SERVER|x86.Build.0 = Debug|x86
-		{8B97436D-55CC-4234-BD98-7E5291A43AAD}.Release CONSOLE|Any CPU.ActiveCfg = Release|x86
-		{8B97436D-55CC-4234-BD98-7E5291A43AAD}.Release CONSOLE|x86.ActiveCfg = Release|x86
-		{8B97436D-55CC-4234-BD98-7E5291A43AAD}.Release CONSOLE|x86.Build.0 = Release|x86
-		{8B97436D-55CC-4234-BD98-7E5291A43AAD}.Release SERVER|Any CPU.ActiveCfg = Release|x86
-		{8B97436D-55CC-4234-BD98-7E5291A43AAD}.Release SERVER|Any CPU.Build.0 = Release|x86
-		{8B97436D-55CC-4234-BD98-7E5291A43AAD}.Release SERVER|x86.ActiveCfg = Release|x86
-		{8B97436D-55CC-4234-BD98-7E5291A43AAD}.Release SERVER|x86.Build.0 = Release|x86
-		{2EF9EA5C-D962-4B32-98A8-B41C79D9BA25}.Debug CONSOLE|Any CPU.ActiveCfg = Debug|Any CPU
-		{2EF9EA5C-D962-4B32-98A8-B41C79D9BA25}.Debug CONSOLE|Any CPU.Build.0 = Debug|Any CPU
-		{2EF9EA5C-D962-4B32-98A8-B41C79D9BA25}.Debug CONSOLE|x86.ActiveCfg = Debug|Any CPU
-		{2EF9EA5C-D962-4B32-98A8-B41C79D9BA25}.Debug CONSOLE|x86.Build.0 = Debug|Any CPU
-		{2EF9EA5C-D962-4B32-98A8-B41C79D9BA25}.Debug SERVER|Any CPU.ActiveCfg = Debug|Any CPU
-		{2EF9EA5C-D962-4B32-98A8-B41C79D9BA25}.Debug SERVER|x86.ActiveCfg = Debug|Any CPU
-		{2EF9EA5C-D962-4B32-98A8-B41C79D9BA25}.Debug SERVER|x86.Build.0 = Debug|Any CPU
-		{2EF9EA5C-D962-4B32-98A8-B41C79D9BA25}.Release CONSOLE|Any CPU.ActiveCfg = Release|Any CPU
-		{2EF9EA5C-D962-4B32-98A8-B41C79D9BA25}.Release CONSOLE|Any CPU.Build.0 = Release|Any CPU
-		{2EF9EA5C-D962-4B32-98A8-B41C79D9BA25}.Release CONSOLE|x86.ActiveCfg = Release|Any CPU
-		{2EF9EA5C-D962-4B32-98A8-B41C79D9BA25}.Release CONSOLE|x86.Build.0 = Release|Any CPU
-		{2EF9EA5C-D962-4B32-98A8-B41C79D9BA25}.Release SERVER|Any CPU.ActiveCfg = Release|Any CPU
-		{2EF9EA5C-D962-4B32-98A8-B41C79D9BA25}.Release SERVER|x86.ActiveCfg = Release|Any CPU
-		{2EF9EA5C-D962-4B32-98A8-B41C79D9BA25}.Release SERVER|x86.Build.0 = Release|Any CPU
+		{12521C23-A300-7372-3333-A4E4E4C25435}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{12521C23-A300-7372-3333-A4E4E4C25435}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12521C23-A300-7372-3333-A4E4E4C25435}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{12521C23-A300-7372-3333-A4E4E4C25435}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {7099191D-345D-4388-8B40-AAD7DEDC0796}
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		JoinFS-Common\JoinFS-Common.projitems*{12521c23-a300-7372-3333-a4e4e4c25435}*SharedItemsImports = 5
+		JoinFS-Common\JoinFS-Common.projitems*{76c788e8-e07f-411c-a053-e3ed2c276786}*SharedItemsImports = 13
 	EndGlobalSection
 EndGlobal
