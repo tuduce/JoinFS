@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension" xmlns:netfx="http://schemas.microsoft.com/wix/NetFxExtension">
+  <?define JoinFS_TargetDir=$(var.JoinFS-FSX.TargetDir)?>
+  <Product Id="*" Name="JoinFS - FSX" Language="1033" Version="!(bind.FileVersion.AppExe)" Manufacturer="Peter Memmott" UpgradeCode="EDB04848-E07B-4837-A787-C3B4E7E44DF0">
+    <Package InstallerVersion="405" Compressed="yes" InstallScope="perMachine" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of JoinFS is already installed." AllowSameVersionUpgrades="yes" />
+    <MediaTemplate EmbedCab="yes" />
+
+    <PropertyRef Id="NETFRAMEWORK20"/>
+
+    <UIRef Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <Icon Id="AppIcon" SourceFile="$(var.JoinFS-FSX.ProjectDir)App.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.JoinFS-FSX.TargetDir)Licence.rtf" />
+    <WixVariable Id="WixUIInfoIco" Value="$(var.JoinFS-FSX.ProjectDir)App.ico" />
+
+    <Condition Message=".NET Framework 2.0 required.">
+      <![CDATA[Installed OR NETFRAMEWORK20]]>
+    </Condition>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="JoinFS-FSX" >
+          <Directory Id="FRENCHFOLDER" Name="fr" />
+          <Directory Id="DUTCHFOLDER" Name="nl" />
+          <Directory Id="ITALIANFOLDER" Name="it" />
+          <Directory Id="GERMANFOLDER" Name="de" />
+          <Directory Id="RUSSIANFOLDER" Name="ru" />
+          <Directory Id="SPANISHFOLDER" Name="es" />
+          <Directory Id="KOREANFOLDER" Name="ko" />
+		  <Directory Id="PORTUGUESEFOLDER" Name="pt" />
+		</Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="JoinFS - FSX" />
+      </Directory>
+      <Directory Id="DesktopFolder" Name="Desktop">
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ApplicationMenuShortcuts" Guid="80109739-72E5-4206-82BE-D639155C7B5B">
+        <Shortcut Id="ApplicationStartMenuShortcut" Name="JoinFS - FSX" Description="Multiplayer across flight simulators" Target="[INSTALLFOLDER]JoinFS-FSX.exe" WorkingDirectory="INSTALLFOLDER"/>
+        <Shortcut Id="LicenceStartMenuShortcut" Name="Licence" Description="JoinFS Licence And Terms" Target="[INSTALLFOLDER]Licence.rtf" WorkingDirectory="INSTALLFOLDER"/>
+        <util:InternetShortcut Id="AboutShortcut" Name="About" Target="http://joinfs.net/"/>
+        <util:InternetShortcut Id="ManualShortcut" Name="Manual" Target="http://joinfs.net/manual.html"/>
+        <Shortcut Id="UninstallShortcut" Name="Uninstall" Description="Uninstalls JoinFS" Target="[SystemFolder]msiexec.exe" Arguments="/x [ProductCode]"/>
+        <RemoveFolder Id="RemoveApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall"/>
+        <RegistryValue Root="HKCU" Key="Software\Peter Memmott\JoinFS - FSX" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="DesktopFolder">
+      <Component Id="ApplicationDesktopShortcuts" Guid="E225925C-F659-4DAF-9F52-76BDD6F2F8E3">
+        <Shortcut Id="ApplicationDesktopShortcut" Name="JoinFS - FSX" Description="Multiplayer across flight simulators" Target="[INSTALLFOLDER]JoinFS-FSX.exe" WorkingDirectory="INSTALLFOLDER"/>
+        <RemoveFolder Id="RemoveDesktopFolder" Directory="DesktopFolder" On="uninstall"/>
+        <RegistryValue Root="HKCU" Key="Software\Peter Memmott\JoinFS - FSX" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="AppSimconnect" Guid="6DACAA4D-9739-424A-B0EE-93C5E025EE9B">
+        <File Id="AppSimconnect" Name="Microsoft.FlightSimulator.SimConnect.dll" Source="$(var.JoinFS_TargetDir)Microsoft.FlightSimulator.SimConnect.dll" KeyPath="yes" Assembly=".net" AssemblyApplication="AppExe" />
+      </Component>
+      <Component Id="AppSimconnectDll" Guid="5E50A99C-A939-474D-BFF5-D15900A3FC3D">
+        <File Id="AppSimconnectDll" Name="SimConnect.dll" Source="$(var.JoinFS_TargetDir)SimConnect.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="AppExe" Guid="777B7C07-0DA8-41E7-9A8E-7EC1F2E2F8DD">
+        <File Id="AppExe" Name="JoinFS-FSX.exe" Source="$(var.JoinFS_TargetDir)JoinFS-FSX.exe" KeyPath="yes" Checksum="yes" />
+      </Component>
+      <Component Id="AppConfig" Guid="5858592D-CFD9-4B08-BDCC-492F6AFF8433">
+        <File Id="AppConfig" Name="JoinFS-FSX.exe.config" Source="$(var.JoinFS_TargetDir)JoinFS-FSX.exe.config" KeyPath="yes" />
+      </Component>
+      <Component Id="AppLicence" Guid="AA48697B-0DD9-418B-B0A6-B22A658CB89C">
+        <File Id="AppLicence" Name="Licence.rtf" Source="$(var.JoinFS_TargetDir)Licence.rtf" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <DirectoryRef Id="FRENCHFOLDER">
+      <Component Id="FrenchResource" Guid="6D0AF271-91EB-4276-92BD-279CC744A05F">
+        <File Id="FrenchResource" Name="JoinFS-FSX.resources.dll" Source="$(var.JoinFS_TargetDir)fr\JoinFS-FSX.resources.dll" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="DUTCHFOLDER">
+      <Component Id="DutchResource" Guid="64CA5F9D-535F-41B5-B014-9E2C2058EA3B">
+        <File Id="DutchResource" Name="JoinFS-FSX.resources.dll" Source="$(var.JoinFS_TargetDir)nl\JoinFS-FSX.resources.dll" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="ITALIANFOLDER">
+      <Component Id="ItalianResource" Guid="D33B7365-F445-4576-B05D-D57A45A4E694">
+        <File Id="ItalianResource" Name="JoinFS-FSX.resources.dll" Source="$(var.JoinFS_TargetDir)it\JoinFS-FSX.resources.dll" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="GERMANFOLDER">
+      <Component Id="GermanResource" Guid="96804FB8-4B50-4401-BF30-CB4A8D502978">
+        <File Id="GermanResource" Name="JoinFS-FSX.resources.dll" Source="$(var.JoinFS_TargetDir)de\JoinFS-FSX.resources.dll" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="RUSSIANFOLDER">
+      <Component Id="RussianResource" Guid="76FA58AE-4678-4D5E-BF5D-3EF208815AA2">
+        <File Id="RussianResource" Name="JoinFS-FSX.resources.dll" Source="$(var.JoinFS_TargetDir)ru\JoinFS-FSX.resources.dll" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="SPANISHFOLDER">
+      <Component Id="SpanishResource" Guid="3E60E1CB-E626-47E1-AC2D-51222B4C6D27">
+        <File Id="SpanishResource" Name="JoinFS-FSX.resources.dll" Source="$(var.JoinFS_TargetDir)es\JoinFS-FSX.resources.dll" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="KOREANFOLDER">
+      <Component Id="KoreanResource" Guid="28478D62-2C35-48C8-9EBE-E77997D07BDE">
+        <File Id="KoreanResource" Name="JoinFS-FSX.resources.dll" Source="$(var.JoinFS_TargetDir)ko\JoinFS-FSX.resources.dll" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="PORTUGUESEFOLDER">
+	  <Component Id="PortugueseResource" Guid="DBE459F9-F9DB-4F96-8603-2612B35A44FC">
+	    <File Id="PortugueseResource" Name="JoinFS-FSX.resources.dll" Source="$(var.JoinFS_TargetDir)pt\JoinFS-FSX.resources.dll" KeyPath="yes" />
+	  </Component>
+	</DirectoryRef>
+
+	  <Feature Id="ProductFeature" Title="JoinFS - FSX" Description="Multiplayer across flight simulators" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="FrenchResource" />
+      <ComponentRef Id="DutchResource" />
+      <ComponentRef Id="ItalianResource" />
+      <ComponentRef Id="GermanResource" />
+      <ComponentRef Id="RussianResource" />
+      <ComponentRef Id="SpanishResource" />
+      <ComponentRef Id="KoreanResource" />
+  	  <ComponentRef Id="PortugueseResource" />
+	  <ComponentRef Id="ApplicationMenuShortcuts" />
+      <ComponentRef Id="ApplicationDesktopShortcuts" />
+    </Feature>
+
+  </Product>
+
+</Wix>
