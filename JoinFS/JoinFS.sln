@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.0.11222.15
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS-XPLANE", "JoinFS-XPLANE.csproj", "{8755A336-E832-4F7C-92DF-975B80828E6D}"
-EndProject
 Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "Setup-FS2024", "FS2024\Setup-FS2024\Setup-FS2024.vdproj", "{03D3B96A-2866-45ED-A8D5-5A226FB8D4A8}"
 EndProject
 Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "Setup-FS2020", "FS2020\Setup-FS2020\Setup-FS2020.vdproj", "{633C5EEF-00A9-4B34-AE86-4EDBF24854EE}"
@@ -28,14 +26,14 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "util", "util", "{53EDDD4B-4
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS-P3D", "JoinFS-P3D\JoinFS-P3D.csproj", "{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS-XPLANE", "JoinFS-XPLANE\JoinFS-XPLANE.csproj", "{8755A336-E832-4F7C-92DF-975B80828E6D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{8755A336-E832-4F7C-92DF-975B80828E6D}.Debug|x64.ActiveCfg = Debug|x64
-		{8755A336-E832-4F7C-92DF-975B80828E6D}.Release|x64.ActiveCfg = Release|x64
 		{03D3B96A-2866-45ED-A8D5-5A226FB8D4A8}.Debug|x64.ActiveCfg = Debug
 		{03D3B96A-2866-45ED-A8D5-5A226FB8D4A8}.Release|x64.ActiveCfg = Release
 		{633C5EEF-00A9-4B34-AE86-4EDBF24854EE}.Debug|x64.ActiveCfg = Debug
@@ -58,6 +56,10 @@ Global
 		{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}.Debug|x64.Build.0 = Debug|x64
 		{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}.Release|x64.ActiveCfg = Release|x64
 		{5CFE1806-1C1A-4B9E-AD16-7A07018D7659}.Release|x64.Build.0 = Release|x64
+		{8755A336-E832-4F7C-92DF-975B80828E6D}.Debug|x64.ActiveCfg = Debug|x64
+		{8755A336-E832-4F7C-92DF-975B80828E6D}.Debug|x64.Build.0 = Debug|x64
+		{8755A336-E832-4F7C-92DF-975B80828E6D}.Release|x64.ActiveCfg = Release|x64
+		{8755A336-E832-4F7C-92DF-975B80828E6D}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -68,6 +70,7 @@ Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		JoinFS-Common\JoinFS-Common.projitems*{5cfe1806-1c1a-4b9e-ad16-7a07018d7659}*SharedItemsImports = 4
 		JoinFS-Common\JoinFS-Common.projitems*{76c788e8-e07f-411c-a053-e3ed2c276786}*SharedItemsImports = 13
+		JoinFS-Common\JoinFS-Common.projitems*{8755a336-e832-4f7c-92df-975b80828e6d}*SharedItemsImports = 4
 		JoinFS-Common\JoinFS-Common.projitems*{9e20d839-d2c7-46fc-b6db-75759c3baf6d}*SharedItemsImports = 4
 		JoinFS-Common\JoinFS-Common.projitems*{adb6858f-b575-496b-8eff-3859e3f855be}*SharedItemsImports = 4
 		JoinFS-Common\JoinFS-Common.projitems*{e67b2033-4d3f-4f15-8c5c-b2d3910f8842}*SharedItemsImports = 4
