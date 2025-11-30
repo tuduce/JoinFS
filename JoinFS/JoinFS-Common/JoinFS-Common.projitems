@@ -16,6 +16,7 @@
     <None Include="$(MSBuildThisFileDirectory)AIModel\model.onnx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="$(MSBuildThisFileDirectory)README" />
     <None Include="$(MSBuildThisFileDirectory)Resources\Airports.dat" />
     <None Include="$(MSBuildThisFileDirectory)Resources\App.ico" />
     <None Include="$(MSBuildThisFileDirectory)Resources\joinfs64.png" />
