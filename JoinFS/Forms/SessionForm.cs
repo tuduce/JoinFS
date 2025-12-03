@@ -324,15 +324,15 @@ namespace JoinFS
 
                 if (main.network.shareFlightControls == nuid)
                 {
-                    share += Resources.strings.ShareFlightSuffix;
+                    share += Resources.Strings.ShareFlightSuffix;
                 }
                 if (main.network.shareAncillaryControls == nuid)
                 {
-                    share += Resources.strings.ShareAncillarySuffix;
+                    share += Resources.Strings.ShareAncillarySuffix;
                 }
                 if (main.network.shareNavControls == nuid)
                 {
-                    share += Resources.strings.ShareNavSuffix;
+                    share += Resources.Strings.ShareNavSuffix;
                 }
             }
 

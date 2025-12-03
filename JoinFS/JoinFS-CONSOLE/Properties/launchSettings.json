@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "JoinFS-CONSOLE": {
-      "commandName": "Project",
-      "commandLineArgs": "--nickname 'CriCri Hub' --hub --hubname 'CriCri Aviation Test' --nosim --port 6222"
-    }
-  }
-}

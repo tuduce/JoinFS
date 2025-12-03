@@ -27,11 +27,11 @@ namespace JoinFS
             if (verify)
             {
                 // change title
-                Text = Resources.strings.VerifyPassword;
+                Text = Resources.Strings.VerifyPassword;
                 // disable email
                 Text_Email.Enabled = false;
                 // verify label
-                Label_Verify.Text = Resources.strings.VerifyPassword;
+                Label_Verify.Text = Resources.Strings.VerifyPassword;
             }
             else
             {

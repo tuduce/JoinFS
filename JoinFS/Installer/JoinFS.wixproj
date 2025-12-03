@@ -1,0 +1,94 @@
+<Project Sdk="WixToolset.Sdk/6.0.2">
+  <PropertyGroup>
+    <OutputName>JoinFS-$(Configuration)</OutputName>
+    <OutputType>Package</OutputType>
+    <Configuration Condition=" '$(Configuration)' == '' ">FS2024</Configuration>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  
+  <!-- Set OutputType and Platform based on Configuration -->
+  <PropertyGroup Condition=" '$(Configuration)' == 'FS2024' OR '$(Configuration)' == 'FS2020' OR '$(Configuration)' == 'XPLANE' OR '$(Configuration)' == 'CONSOLE' ">
+    <OutputType>Package</OutputType>
+    <Platform>x64</Platform>
+  </PropertyGroup>
+  
+  <PropertyGroup Condition=" '$(Configuration)' == 'FSX' OR '$(Configuration)' == 'P3D' ">
+    <OutputType>Package</OutputType>
+    <Platform>x86</Platform>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="..\JoinFS.csproj">
+      <Configuration>$(Configuration)</Configuration>
+    </ProjectReference>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Compile Include="Product.wxs" />
+    <Compile Include="ShortcutsDlg.wxs" />
+    <Compile Include="$(IntermediateOutputPath)HarvestedFiles.wxs" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Content Include="License.rtf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
+  </ItemGroup>
+  
+  <Target Name="HarvestFiles" BeforeTargets="Compile" AfterTargets="ResolveProjectReferences">
+    <PropertyGroup>
+      <HarvestPath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\bin\$(Configuration)\net8.0-windows'))</HarvestPath>
+      <HarvestOutputFile>$(IntermediateOutputPath)HarvestedFiles.wxs</HarvestOutputFile>
+      <HarvestScriptPath>$(MSBuildProjectDirectory)\GenerateHarvestFile.ps1</HarvestScriptPath>
+    </PropertyGroup>
+    
+    <Message Text="Harvesting files from: $(HarvestPath)" Importance="high" />
+    <Message Text="Output file: $(HarvestOutputFile)" Importance="high" />
+    <Message Text="Building for Platform: $(Platform)" Importance="high" />
+    
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    
+    <Exec Command="powershell.exe -ExecutionPolicy Bypass -File &quot;$(HarvestScriptPath)&quot; -sourcePath &quot;$(HarvestPath)&quot; -outputFile &quot;$(HarvestOutputFile)&quot;"
+          Condition="Exists('$(HarvestPath)')"
+          WorkingDirectory="$(MSBuildProjectDirectory)" />
+    
+    <Warning Text="Harvest path does not exist: $(HarvestPath)" Condition="!Exists('$(HarvestPath)')" />
+  </Target>
+  
+  <!-- Create ZIP archive for CONSOLE configuration after MSI is built, then clean up MSI files -->
+  <Target Name="CreateZipArchiveForConsole" AfterTargets="Build" Condition=" '$(Configuration)' == 'CONSOLE' ">
+    <PropertyGroup>
+      <SourcePath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\bin\$(Configuration)\net8.0-windows'))</SourcePath>
+      <ZipFileName>JoinFS-CONSOLE.zip</ZipFileName>
+      <ZipOutputPath>$(MSBuildProjectDirectory)\$(OutputPath)$(ZipFileName)</ZipOutputPath>
+    </PropertyGroup>
+    
+    <Message Text="============================================" Importance="high" />
+    <Message Text="Creating ZIP archive for CONSOLE configuration" Importance="high" />
+    <Message Text="Source: $(SourcePath)" Importance="high" />
+    <Message Text="Output: $(ZipOutputPath)" Importance="high" />
+    <Message Text="============================================" Importance="high" />
+    
+    <Exec Command="powershell.exe -ExecutionPolicy Bypass -Command &quot;Compress-Archive -Path '$(SourcePath)\*' -DestinationPath '$(ZipOutputPath)' -Force&quot;"
+          Condition="Exists('$(SourcePath)')" />
+    
+    <Message Text="ZIP archive created: $(ZipOutputPath)" Importance="high" Condition="Exists('$(SourcePath)')" />
+    <Warning Text="Source path does not exist: $(SourcePath)" Condition="!Exists('$(SourcePath)')" />
+    
+    <!-- Remove MSI and related files for CONSOLE configuration -->
+    <ItemGroup>
+      <ConsoleFilesToDelete Include="$(MSBuildProjectDirectory)\$(OutputPath)*.msi" />
+      <ConsoleFilesToDelete Include="$(MSBuildProjectDirectory)\$(OutputPath)*.wixpdb" />
+      <ConsoleFilesToDelete Include="$(MSBuildProjectDirectory)\$(OutputPath)*.cab" />
+    </ItemGroup>
+    
+    <Delete Files="@(ConsoleFilesToDelete)" />
+    <Message Text="Removed MSI and related files for CONSOLE configuration" Importance="high" />
+  </Target>
+</Project>

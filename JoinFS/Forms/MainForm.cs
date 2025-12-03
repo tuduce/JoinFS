@@ -7,6 +7,8 @@ using System.Drawing;
 using System.IO;
 using System.Globalization;
 using JoinFS.Properties;
+using System.Net.Http;
+using System.Threading.Tasks;
 
 
 namespace JoinFS
@@ -143,35 +145,13 @@ namespace JoinFS
                 Tool_Update.Enabled = false;
                 Tool_Update.Text = "";
 #else
-                Tool_Update.Text = Resources.strings.Download;
+                Tool_Update.Text = Resources.Strings.Download;
 #endif
 
 
 #if !NO_UPDATE
-                try
-                {
-                    // callback
-                    versionWebClient.DownloadStringCompleted += LatestVersionComplete;
-
-                    // check for early update
-                    if (Settings.Default.EarlyUpdate)
-                    {
-                        //string sc = Program.Code("http://joinfs.net/version-test", true, 1234);
-                        //string sc = Program.Code("https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/version.txt", true, 1234);
-                        versionWebClient.DownloadStringAsync(new Uri(Program.Code(@"[BrjhWg|fQAE)kyjqzHi#<3KN=>1#$:@(=0D$Fu<rvi()CytxR*BCN'O{$yP~LEJD-*QV){YNNSz_%IOV1hyK)g", false, 1234)));
-                    }
-                    else
-                    {
-                        //string sc = Program.Code("http://joinfs.net/version", true, 1234);
-                        //string sc = Program.Code("https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/version.txt", true, 1234);
-                        versionWebClient.DownloadStringAsync(new Uri(Program.Code(@"[BrjhWg|fQAE)kyjqzHi#<3KN=>1#$:@(=0D$Fu<rvi()CytxR*BCN'O{$yP~LEJD-*QV){YNNSz_%IOV1hyK)g", false, 1234)));
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // monitor event
-                    main.MonitorEvent(ex.Message);
-                }
+                // Replaces WebClient usage
+                _ = FetchLatestVersionAsync();
 #endif
 
                 // load shortcuts
@@ -229,25 +209,40 @@ namespace JoinFS
         /// <summary>
         /// For checking version
         /// </summary>
-        WebClient versionWebClient = new WebClient();
+        // WebClient versionWebClient = new WebClient(); // obsolete
+        HttpClient versionHttpClient = new HttpClient();
         string latestVersion = null;
 
         /// <summary>
-        /// callback for latest version
+        /// Fetch latest version async (replaces WebClient)
         /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        void LatestVersionComplete(object sender, DownloadStringCompletedEventArgs e)
+        private async Task FetchLatestVersionAsync()
         {
-            // check for error
-            if (e.Cancelled || e.Error != null || e.Result == null || e.Result.Length == 0 || e.Result[0] == '<')
+            try
             {
-                latestVersion = "";
+                string url;
+                if (Settings.Default.EarlyUpdate)
+                {
+                    url = Program.Code(@"[BrjhWg|fQAE)kyjqzHi#<3KN=>1#$:@(=0D$Fu<rvi()CytxR*BCN'O{$yP~LEJD-*QV){YNNSz_%IOV1hyK)g", false, 1234);
+                }
+                else
+                {
+                    url = Program.Code(@"[BrjhWg|fQAE)kyjqzHi#<3KN=>1#$:@(=0D$Fu<rvi()CytxR*BCN'O{$yP~LEJD-*QV){YNNSz_%IOV1hyK)g", false, 1234);
+                }
+                var result = await versionHttpClient.GetStringAsync(url);
+                if (!string.IsNullOrEmpty(result) && result[0] != '<')
+                {
+                    latestVersion = result;
+                }
+                else
+                {
+                    latestVersion = "";
+                }
             }
-            else
+            catch (Exception ex)
             {
-                // get latest version
-                latestVersion = e.Result;
+                main.MonitorEvent(ex.Message);
+                latestVersion = "";
             }
         }
 
@@ -617,7 +612,7 @@ namespace JoinFS
                         // check if this version has been asked about
                         if (Settings.Default.AskVersion.Equals(latestVersion) == false)
                         {
-                            DialogResult result = MessageBox.Show(Resources.strings.NewVersion, Main.name + ": New Version", MessageBoxButtons.YesNo);
+                            DialogResult result = MessageBox.Show(Resources.Strings.NewVersion, Main.name + ": New Version", MessageBoxButtons.YesNo);
                             if (result == DialogResult.Yes)
                             {
                                 // check for early update
@@ -647,7 +642,7 @@ namespace JoinFS
                         // new version available
                         newVersion = true;
                         // update toolbar
-                        Tool_Update.Text = Resources.strings.NewVersionStatus;
+                        Tool_Update.Text = Resources.Strings.NewVersionStatus;
                         Tool_Update.LinkColor = Color.DodgerBlue;
 
                     }
@@ -655,9 +650,7 @@ namespace JoinFS
 
                 // reset latest version
                 latestVersion = null;
-                // close web client
-                versionWebClient.Dispose();
-                versionWebClient = null;
+                // No longer dispose or null versionWebClient (removed)
             }
 
             // refresh forms
@@ -694,7 +687,7 @@ namespace JoinFS
                     Settings.Default.AskSimConnect = true;
 
                     // ask
-                    if (MessageBox.Show(Resources.strings.AskSimConnect, Main.name, MessageBoxButtons.YesNo) == DialogResult.Yes)
+                    if (MessageBox.Show(Resources.Strings.AskSimConnect, Main.name, MessageBoxButtons.YesNo) == DialogResult.Yes)
                     {
                         // download SimConnect
                         //string sc = Program.Code("https://joinfs.net/SimConnect.msi", true, 1234);
@@ -764,7 +757,7 @@ namespace JoinFS
                 main.scheduleScanForModels = false;
 
                 // show message
-                DialogResult result = MessageBox.Show(Resources.strings.ModelListEmpty, Main.name + ": Models", MessageBoxButtons.YesNo);
+                DialogResult result = MessageBox.Show(Resources.Strings.ModelListEmpty, Main.name + ": Models", MessageBoxButtons.YesNo);
                 if (result == DialogResult.Yes)
                 {
                     // scan with UI
@@ -817,7 +810,7 @@ namespace JoinFS
                             if (main.network.localNode.GlobalSession)
                             {
                                 // global session
-                                joinText = Resources.strings.Global;
+                                joinText = Resources.Strings.Global;
                             }
                             else
                             {
@@ -1043,7 +1036,7 @@ namespace JoinFS
             if (unsaved)
             {
                 // ask to save recording
-                DialogResult result = MessageBox.Show(Resources.strings.SaveCurrentRecording, Main.name + ": " + Resources.strings.UnsavedRecording, MessageBoxButtons.YesNo);
+                DialogResult result = MessageBox.Show(Resources.Strings.SaveCurrentRecording, Main.name + ": " + Resources.Strings.UnsavedRecording, MessageBoxButtons.YesNo);
                 if (result == DialogResult.Yes)
                 {
                     lock (main.conch)
@@ -1105,14 +1098,14 @@ namespace JoinFS
                     IsBalloon = true,
                     AutomaticDelay = 2000
                 };
-                tip.SetToolTip(Button_Create, Resources.strings.Tip_ButtonCreate);
-                tip.SetToolTip(Text_MyIP, Resources.strings.Tip_Me);
-                tip.SetToolTip(Combo_Join, Resources.strings.Tip_Join);
-                tip.SetToolTip(Button_Join, Resources.strings.Tip_JoinButton);
-                tip.SetToolTip(Button_Global, Resources.strings.Tip_GlobalButton);
-                tip.SetToolTip(Button_Network, Resources.strings.Tip_NetworkButton);
-                tip.SetToolTip(Button_Simulator, Resources.strings.Tip_SimulatorButton);
-                tip.SetToolTip(StatusStrip_Main, Resources.strings.Tip_Status);
+                tip.SetToolTip(Button_Create, Resources.Strings.Tip_ButtonCreate);
+                tip.SetToolTip(Text_MyIP, Resources.Strings.Tip_Me);
+                tip.SetToolTip(Combo_Join, Resources.Strings.Tip_Join);
+                tip.SetToolTip(Button_Join, Resources.Strings.Tip_JoinButton);
+                tip.SetToolTip(Button_Global, Resources.Strings.Tip_GlobalButton);
+                tip.SetToolTip(Button_Network, Resources.Strings.Tip_NetworkButton);
+                tip.SetToolTip(Button_Simulator, Resources.Strings.Tip_SimulatorButton);
+                tip.SetToolTip(StatusStrip_Main, Resources.Strings.Tip_Status);
             }
 
             // refresh address book
@@ -1314,7 +1307,7 @@ namespace JoinFS
                             else
                             {
                                 // message
-                                main.ShowMessage(Resources.strings.InvalidEmail);
+                                main.ShowMessage(Resources.Strings.InvalidEmail);
                             }
                         }
                     }
@@ -1324,7 +1317,7 @@ namespace JoinFS
                         // leave existing network
                         main.network.ScheduleLeave();
                         // message
-                        main.ShowMessage(Resources.strings.InvalidEmail);
+                        main.ShowMessage(Resources.Strings.InvalidEmail);
                     }
                     // check for invalid password
                     else if (main.network.localNode.ActiveLoginResult == LocalNode.LoginResult.InvalidPassword)
@@ -1332,7 +1325,7 @@ namespace JoinFS
                         // leave existing network
                         main.network.ScheduleLeave();
                         // message
-                        main.ShowMessage(Resources.strings.InvalidEmail);
+                        main.ShowMessage(Resources.Strings.InvalidEmail);
                     }
                 }
 #endif
@@ -1341,7 +1334,7 @@ namespace JoinFS
                 bool joinEnabled = true;
                 bool comboEnabled = true;
                 bool globalEnabled = true;
-                string createText = Resources.strings.Create;
+                string createText = Resources.Strings.Create;
 
                 lock (main.conch)
                 {
@@ -1394,7 +1387,7 @@ namespace JoinFS
 
                 Color backColor = Settings.Default.ColourWaitingBackground;
                 Color foreColor = Settings.Default.ColourWaitingText;
-                string buttonText = Resources.strings.Network;
+                string buttonText = Resources.Strings.Network;
 
                 lock (main.conch)
                 {
@@ -1408,7 +1401,7 @@ namespace JoinFS
                             // check for password
                             if (main.network.localNode.Password)
                             {
-                                buttonText = Resources.strings.Password;
+                                buttonText = Resources.Strings.Password;
                             }
                             break;
 
@@ -1725,7 +1718,7 @@ namespace JoinFS
             if (newVersion)
             {
                 // confirm
-                DialogResult result = MessageBox.Show(Resources.strings.DownloadNew, Main.name + ": " + Resources.strings.NewVersionStatus, MessageBoxButtons.YesNo);
+                DialogResult result = MessageBox.Show(Resources.Strings.DownloadNew, Main.name + ": " + Resources.Strings.NewVersionStatus, MessageBoxButtons.YesNo);
                 if (result == DialogResult.Yes)
                 {
                     // check for early update
@@ -1832,7 +1825,7 @@ namespace JoinFS
 #if !XPLANE
             if (main.sim != null && main.sim.Connected == false)
             {
-                MessageBox.Show(Resources.strings.EditMatchingWarning, Main.name + ": " + Resources.strings.EditModelMatching);
+                MessageBox.Show(Resources.Strings.EditMatchingWarning, Main.name + ": " + Resources.Strings.EditModelMatching);
             }
 #endif
 
@@ -1917,7 +1910,7 @@ namespace JoinFS
             // check if no simulator connected
             if (main.sim != null && main.sim.Connected == false)
             {
-                MessageBox.Show(Resources.strings.AssignVariablesWarning, Main.name);
+                MessageBox.Show(Resources.Strings.AssignVariablesWarning, Main.name);
             }
             else
             {

@@ -423,7 +423,7 @@ namespace JoinFS
                 if (Settings.Default.AtcWarning == false)
                 {
                     // show warning
-                    MessageBox.Show(Resources.strings.AtcWarning, Main.name + ": " + Resources.strings.Warning);
+                    MessageBox.Show(Resources.Strings.AtcWarning, Main.name + ": " + Resources.Strings.Warning);
                     // now asked
                     Settings.Default.AtcWarning = true;
                 }
@@ -567,69 +567,69 @@ namespace JoinFS
                     IsBalloon = true,
                     AutomaticDelay = 1500
                 };
-                tip.SetToolTip(Check_AlwaysOnTop, Resources.strings.Tip_AlwaysOnTop);
-                tip.SetToolTip(Check_AutoRefresh, Resources.strings.Tip_AutoRefresh);
-                tip.SetToolTip(Check_EarlyUpdate, Resources.strings.Tip_EarlyUpdate);
-                tip.SetToolTip(Check_ToolTips, Resources.strings.Tip_ToolTips);
-                tip.SetToolTip(Label_Active, Resources.strings.Tip_Active);
-                tip.SetToolTip(Button_ActiveBackground, Resources.strings.Tip_Active);
-                tip.SetToolTip(Button_ActiveText, Resources.strings.Tip_Active);
-                tip.SetToolTip(Label_Waiting, Resources.strings.Tip_Waiting);
-                tip.SetToolTip(Button_WaitingBackground, Resources.strings.Tip_Waiting);
-                tip.SetToolTip(Button_WaitingText, Resources.strings.Tip_Waiting);
-                tip.SetToolTip(Label_Inactive, Resources.strings.Tip_Inactive);
-                tip.SetToolTip(Button_InactiveBackground, Resources.strings.Tip_Inactive);
-                tip.SetToolTip(Button_InactiveText, Resources.strings.Tip_Inactive);
-                tip.SetToolTip(Label_Nickname, Resources.strings.Tip_Nickname);
-                tip.SetToolTip(Text_Nickname, Resources.strings.Tip_Nickname);
-                tip.SetToolTip(Check_ShowNickname, Resources.strings.Tip_ShowNicknames);
-                tip.SetToolTip(Label_Circle, Resources.strings.Tip_CircleOfActivity);
-                tip.SetToolTip(Label_CircleText, Resources.strings.Tip_CircleOfActivity);
-                tip.SetToolTip(Track_Circle, Resources.strings.Tip_CircleOfActivity);
-                tip.SetToolTip(Label_Follow, Resources.strings.Tip_Follow);
-                tip.SetToolTip(Label_FollowText, Resources.strings.Tip_Follow);
-                tip.SetToolTip(Track_Follow, Resources.strings.Tip_Follow);
-                tip.SetToolTip(Check_Elevation, Resources.strings.Tip_Elevation);
-                tip.SetToolTip(Check_Scan, Resources.strings.Tip_ModelScan);
-                tip.SetToolTip(Check_ATC, Resources.strings.Tip_ATC);
-                tip.SetToolTip(Text_Airport, Resources.strings.Tip_Airport);
-                tip.SetToolTip(Label_Airport, Resources.strings.Tip_Airport);
-                tip.SetToolTip(Check_Euroscope, Resources.strings.Tip_Euroscope);
-                tip.SetToolTip(Combo_Level, Resources.strings.Tip_Level);
-                tip.SetToolTip(Label_Level, Resources.strings.Tip_Level);
-                tip.SetToolTip(Text_Frequency, Resources.strings.Tip_Frequency);
-                tip.SetToolTip(Label_Frequency, Resources.strings.Tip_Frequency);
-                tip.SetToolTip(Check_LocalPort, Resources.strings.Tip_LocalPort);
-                tip.SetToolTip(Text_LocalPort, Resources.strings.Tip_LocalPort);
-                tip.SetToolTip(Check_GlobalJoin, Resources.strings.Tip_GlobalJoin);
-                tip.SetToolTip(Check_LowBandwidth, Resources.strings.Tip_LowBandwidth);
-                tip.SetToolTip(Check_Tacpack, Resources.strings.Tip_VRS);
-                tip.SetToolTip(Label_Password, Resources.strings.Tip_Password);
-                tip.SetToolTip(Check_Whazzup, Resources.strings.Tip_Whazzup);
-                tip.SetToolTip(Check_WhazzupGlobal, Resources.strings.Tip_WhazzupGlobal);
-                tip.SetToolTip(Check_WhazzupAI, Resources.strings.Tip_WhazzupAI);
-                tip.SetToolTip(Check_Hub, Resources.strings.Tip_HubMode);
-                tip.SetToolTip(Label_HubDomain, Resources.strings.Tip_HubDomain);
-                tip.SetToolTip(Text_HubDomain, Resources.strings.Tip_HubDomain);
-                tip.SetToolTip(Label_HubName, Resources.strings.Tip_HubName);
-                tip.SetToolTip(Text_HubName, Resources.strings.Tip_HubName);
-                tip.SetToolTip(Label_HubAbout, Resources.strings.Tip_HubAbout);
-                tip.SetToolTip(Text_HubAbout, Resources.strings.Tip_HubAbout);
-                tip.SetToolTip(Label_HubVoIP, Resources.strings.Tip_HubVoice);
-                tip.SetToolTip(Text_HubVoIP, Resources.strings.Tip_HubVoice);
-                tip.SetToolTip(Label_HubEvent, Resources.strings.Tip_HubEvent);
-                tip.SetToolTip(Text_HubEvent, Resources.strings.Tip_HubEvent);
-                tip.SetToolTip(Button_InstallPlugin, Resources.strings.Tip_Plugin);
-                tip.SetToolTip(Button_InstallCPP, Resources.strings.Tip_CPP);
-                tip.SetToolTip(Label_PluginAddress, Resources.strings.Tip_PluginAddress);
-                tip.SetToolTip(Text_PluginAddress, Resources.strings.Tip_PluginAddress);
-                tip.SetToolTip(Text_PluginAddress, Resources.strings.Tip_PluginAddress);
-                tip.SetToolTip(Check_TCAS, Resources.strings.Tip_TCAS);
-                tip.SetToolTip(Check_ShowNickname, Resources.strings.Tip_ShowNickname);
-                tip.SetToolTip(Check_ShowCallsign, Resources.strings.Tip_ShowCallsign);
-                tip.SetToolTip(Check_ShowDistance, Resources.strings.Tip_ShowDistance);
-                tip.SetToolTip(Check_ShowAltitude, Resources.strings.Tip_ShowAltitude);
-                tip.SetToolTip(Check_ShowSpeed, Resources.strings.Tip_ShowSpeed);
+                tip.SetToolTip(Check_AlwaysOnTop, Resources.Strings.Tip_AlwaysOnTop);
+                tip.SetToolTip(Check_AutoRefresh, Resources.Strings.Tip_AutoRefresh);
+                tip.SetToolTip(Check_EarlyUpdate, Resources.Strings.Tip_EarlyUpdate);
+                tip.SetToolTip(Check_ToolTips, Resources.Strings.Tip_ToolTips);
+                tip.SetToolTip(Label_Active, Resources.Strings.Tip_Active);
+                tip.SetToolTip(Button_ActiveBackground, Resources.Strings.Tip_Active);
+                tip.SetToolTip(Button_ActiveText, Resources.Strings.Tip_Active);
+                tip.SetToolTip(Label_Waiting, Resources.Strings.Tip_Waiting);
+                tip.SetToolTip(Button_WaitingBackground, Resources.Strings.Tip_Waiting);
+                tip.SetToolTip(Button_WaitingText, Resources.Strings.Tip_Waiting);
+                tip.SetToolTip(Label_Inactive, Resources.Strings.Tip_Inactive);
+                tip.SetToolTip(Button_InactiveBackground, Resources.Strings.Tip_Inactive);
+                tip.SetToolTip(Button_InactiveText, Resources.Strings.Tip_Inactive);
+                tip.SetToolTip(Label_Nickname, Resources.Strings.Tip_Nickname);
+                tip.SetToolTip(Text_Nickname, Resources.Strings.Tip_Nickname);
+                tip.SetToolTip(Check_ShowNickname, Resources.Strings.Tip_ShowNicknames);
+                tip.SetToolTip(Label_Circle, Resources.Strings.Tip_CircleOfActivity);
+                tip.SetToolTip(Label_CircleText, Resources.Strings.Tip_CircleOfActivity);
+                tip.SetToolTip(Track_Circle, Resources.Strings.Tip_CircleOfActivity);
+                tip.SetToolTip(Label_Follow, Resources.Strings.Tip_Follow);
+                tip.SetToolTip(Label_FollowText, Resources.Strings.Tip_Follow);
+                tip.SetToolTip(Track_Follow, Resources.Strings.Tip_Follow);
+                tip.SetToolTip(Check_Elevation, Resources.Strings.Tip_Elevation);
+                tip.SetToolTip(Check_Scan, Resources.Strings.Tip_ModelScan);
+                tip.SetToolTip(Check_ATC, Resources.Strings.Tip_ATC);
+                tip.SetToolTip(Text_Airport, Resources.Strings.Tip_Airport);
+                tip.SetToolTip(Label_Airport, Resources.Strings.Tip_Airport);
+                tip.SetToolTip(Check_Euroscope, Resources.Strings.Tip_Euroscope);
+                tip.SetToolTip(Combo_Level, Resources.Strings.Tip_Level);
+                tip.SetToolTip(Label_Level, Resources.Strings.Tip_Level);
+                tip.SetToolTip(Text_Frequency, Resources.Strings.Tip_Frequency);
+                tip.SetToolTip(Label_Frequency, Resources.Strings.Tip_Frequency);
+                tip.SetToolTip(Check_LocalPort, Resources.Strings.Tip_LocalPort);
+                tip.SetToolTip(Text_LocalPort, Resources.Strings.Tip_LocalPort);
+                tip.SetToolTip(Check_GlobalJoin, Resources.Strings.Tip_GlobalJoin);
+                tip.SetToolTip(Check_LowBandwidth, Resources.Strings.Tip_LowBandwidth);
+                tip.SetToolTip(Check_Tacpack, Resources.Strings.Tip_VRS);
+                tip.SetToolTip(Label_Password, Resources.Strings.Tip_Password);
+                tip.SetToolTip(Check_Whazzup, Resources.Strings.Tip_Whazzup);
+                tip.SetToolTip(Check_WhazzupGlobal, Resources.Strings.Tip_WhazzupGlobal);
+                tip.SetToolTip(Check_WhazzupAI, Resources.Strings.Tip_WhazzupAI);
+                tip.SetToolTip(Check_Hub, Resources.Strings.Tip_HubMode);
+                tip.SetToolTip(Label_HubDomain, Resources.Strings.Tip_HubDomain);
+                tip.SetToolTip(Text_HubDomain, Resources.Strings.Tip_HubDomain);
+                tip.SetToolTip(Label_HubName, Resources.Strings.Tip_HubName);
+                tip.SetToolTip(Text_HubName, Resources.Strings.Tip_HubName);
+                tip.SetToolTip(Label_HubAbout, Resources.Strings.Tip_HubAbout);
+                tip.SetToolTip(Text_HubAbout, Resources.Strings.Tip_HubAbout);
+                tip.SetToolTip(Label_HubVoIP, Resources.Strings.Tip_HubVoice);
+                tip.SetToolTip(Text_HubVoIP, Resources.Strings.Tip_HubVoice);
+                tip.SetToolTip(Label_HubEvent, Resources.Strings.Tip_HubEvent);
+                tip.SetToolTip(Text_HubEvent, Resources.Strings.Tip_HubEvent);
+                tip.SetToolTip(Button_InstallPlugin, Resources.Strings.Tip_Plugin);
+                tip.SetToolTip(Button_InstallCPP, Resources.Strings.Tip_CPP);
+                tip.SetToolTip(Label_PluginAddress, Resources.Strings.Tip_PluginAddress);
+                tip.SetToolTip(Text_PluginAddress, Resources.Strings.Tip_PluginAddress);
+                tip.SetToolTip(Text_PluginAddress, Resources.Strings.Tip_PluginAddress);
+                tip.SetToolTip(Check_TCAS, Resources.Strings.Tip_TCAS);
+                tip.SetToolTip(Check_ShowNickname, Resources.Strings.Tip_ShowNickname);
+                tip.SetToolTip(Check_ShowCallsign, Resources.Strings.Tip_ShowCallsign);
+                tip.SetToolTip(Check_ShowDistance, Resources.Strings.Tip_ShowDistance);
+                tip.SetToolTip(Check_ShowAltitude, Resources.Strings.Tip_ShowAltitude);
+                tip.SetToolTip(Check_ShowSpeed, Resources.Strings.Tip_ShowSpeed);
             }
 
             RefreshWindow();
@@ -796,7 +796,7 @@ namespace JoinFS
         private void Button_Reset_Click(object sender, EventArgs e)
         {
             // Confirm
-            if (MessageBox.Show(Resources.strings.ResetSettings, Main.name, MessageBoxButtons.YesNo) == DialogResult.Yes)
+            if (MessageBox.Show(Resources.Strings.ResetSettings, Main.name, MessageBoxButtons.YesNo) == DialogResult.Yes)
             {
                 // keep last position GUID
                 Guid lastPosition = Settings.Default.LastPosition;
