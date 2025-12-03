@@ -24,3 +24,8 @@ To the maximum extent permitted by applicable law, in no event shall the author 
 You are solely responsible for all costs and expenses associated with rectification, repair or damage caused by such errors.
 
 You must assume the entire risk of using the SOFTWARE.
+
+> [!WARNING]
+> Test text
+
+aaa
