@@ -12,6 +12,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Installers", "Installers", 
 		JoinFS\Installer\Product.wxs = JoinFS\Installer\Product.wxs
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Utils", "Utils", "{E6679DD8-EA8B-4D28-BAEF-439AA331D0BB}"
+	ProjectSection(SolutionItems) = preProject
+		util\Addons_FS2020.txt = util\Addons_FS2020.txt
+		util\bannedModels.txt = util\bannedModels.txt
+		util\buildAll.ps1 = util\buildAll.ps1
+		util\generate-dev-certificate.ps1 = util\generate-dev-certificate.ps1
+		util\model2type.txt = util\model2type.txt
+		util\seedhubs.txt = util\seedhubs.txt
+		util\version.txt = util\version.txt
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		CONSOLE|x64 = CONSOLE|x64

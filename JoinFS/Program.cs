@@ -91,6 +91,7 @@ namespace JoinFS
         public bool settingsXplane = false;
         public bool settingsTcas = false;
         public bool settingsScan = false;
+        public bool settingsUseAIFeatures = false;
 #if XPLANE || CONSOLE
         public bool settingsGenerateCsl = false;
         public bool settingsSkipCsl = false;
@@ -429,6 +430,7 @@ namespace JoinFS
                 settingsXplane = Settings.Default.XPlane;
                 settingsTcas = Settings.Default.TCAS;
                 settingsScan = Settings.Default.ModelScanOnConnection;
+                settingsUseAIFeatures = Settings.Default.UseAIFeatures;
 #if XPLANE || CONSOLE
                 settingsGenerateCsl = Settings.Default.GenerateCsl;
                 settingsSkipCsl = Settings.Default.SkipCsl;

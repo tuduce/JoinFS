@@ -1,17 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
+  <!--
+    Microsoft ResX Schema
+
     Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
+
+    The primary goals of this format is to allow a simple XML format
+    that is mostly human readable. The generation and parsing of the
+    various data types are done through the TypeConverter classes
     associated with the data types.
-    
+
     Example:
-    
+
     ... ado.net/XML headers & schema ...
     <resheader name="resmimetype">text/microsoft-resx</resheader>
     <resheader name="version">2.0</resheader>
@@ -26,36 +26,36 @@
         <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
         <comment>This is a comment</comment>
     </data>
-                
-    There are any number of "resheader" rows that contain simple 
+
+    There are any number of "resheader" rows that contain simple
     name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
+
+    Each data row contains a name, and value. The row also contains a
+    type or mimetype. Type corresponds to a .NET class that support
+    text/value conversion through the TypeConverter architecture.
+    Classes that don't support this are serialized and stored with the
     mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
+
+    The mimetype is used for serialized objects, and tells the
+    ResXResourceReader how to depersist the object. This is currently not
     extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
+
+    Note - application/x-microsoft.net.object.binary.base64 is the format
+    that the ResXResourceWriter will generate, however the reader can
     read any of the formats listed below.
-    
+
     mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
             : and then encoded with base64 encoding.
-    
+
     mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
             : and then encoded with base64 encoding.
 
     mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
+    value   : The object must be serialized into a byte array
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
@@ -139,7 +139,7 @@
     <value>Button_OK</value>
   </data>
   <data name="&gt;&gt;Button_OK.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Button, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Button_OK.Parent" xml:space="preserve">
     <value>$this</value>
@@ -172,7 +172,7 @@
     <value>Check_LocalPort</value>
   </data>
   <data name="&gt;&gt;Check_LocalPort.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_LocalPort.Parent" xml:space="preserve">
     <value>groupBox2</value>
@@ -199,7 +199,7 @@
     <value>Text_LocalPort</value>
   </data>
   <data name="&gt;&gt;Text_LocalPort.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Text_LocalPort.Parent" xml:space="preserve">
     <value>groupBox2</value>
@@ -226,7 +226,7 @@
     <value>Button_Cancel</value>
   </data>
   <data name="&gt;&gt;Button_Cancel.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Button, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Button_Cancel.Parent" xml:space="preserve">
     <value>$this</value>
@@ -250,13 +250,13 @@
     <value>Track_Follow</value>
   </data>
   <data name="&gt;&gt;Track_Follow.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TrackBar, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.TrackBar, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Track_Follow.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Track_Follow.ZOrder" xml:space="preserve">
-    <value>17</value>
+    <value>18</value>
   </data>
   <data name="Label_Follow.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -280,13 +280,13 @@
     <value>Label_Follow</value>
   </data>
   <data name="&gt;&gt;Label_Follow.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_Follow.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Label_Follow.ZOrder" xml:space="preserve">
-    <value>11</value>
+    <value>12</value>
   </data>
   <data name="Check_LowBandwidth.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -313,7 +313,7 @@
     <value>Check_LowBandwidth</value>
   </data>
   <data name="&gt;&gt;Check_LowBandwidth.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_LowBandwidth.Parent" xml:space="preserve">
     <value>groupBox2</value>
@@ -343,13 +343,13 @@
     <value>Label_Nickname</value>
   </data>
   <data name="&gt;&gt;Label_Nickname.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_Nickname.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Label_Nickname.ZOrder" xml:space="preserve">
-    <value>14</value>
+    <value>15</value>
   </data>
   <data name="Text_Nickname.Location" type="System.Drawing.Point, System.Drawing">
     <value>82, 17</value>
@@ -370,13 +370,13 @@
     <value>Text_Nickname</value>
   </data>
   <data name="&gt;&gt;Text_Nickname.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Text_Nickname.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Text_Nickname.ZOrder" xml:space="preserve">
-    <value>13</value>
+    <value>14</value>
   </data>
   <data name="Check_ShowNickname.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -403,13 +403,13 @@
     <value>Check_ShowNickname</value>
   </data>
   <data name="&gt;&gt;Check_ShowNickname.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_ShowNickname.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Check_ShowNickname.ZOrder" xml:space="preserve">
-    <value>15</value>
+    <value>16</value>
   </data>
   <data name="Label_Circle.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -433,13 +433,13 @@
     <value>Label_Circle</value>
   </data>
   <data name="&gt;&gt;Label_Circle.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_Circle.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Label_Circle.ZOrder" xml:space="preserve">
-    <value>12</value>
+    <value>13</value>
   </data>
   <data name="Track_Circle.Location" type="System.Drawing.Point, System.Drawing">
     <value>5, 66</value>
@@ -457,13 +457,43 @@
     <value>Track_Circle</value>
   </data>
   <data name="&gt;&gt;Track_Circle.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TrackBar, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.TrackBar, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Track_Circle.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Track_Circle.ZOrder" xml:space="preserve">
-    <value>16</value>
+    <value>17</value>
+  </data>
+  <data name="Check_UseAIFeatures.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="Check_UseAIFeatures.CheckAlign" type="System.Drawing.ContentAlignment, System.Drawing">
+    <value>MiddleRight</value>
+  </data>
+  <data name="Check_UseAIFeatures.Location" type="System.Drawing.Point, System.Drawing">
+    <value>7, 191</value>
+  </data>
+  <data name="Check_UseAIFeatures.Size" type="System.Drawing.Size, System.Drawing">
+    <value>150, 19</value>
+  </data>
+  <data name="Check_UseAIFeatures.TabIndex" type="System.Int32, mscorlib">
+    <value>39</value>
+  </data>
+  <data name="Check_UseAIFeatures.Text" xml:space="preserve">
+    <value>Use AI Model Matching</value>
+  </data>
+  <data name="&gt;&gt;Check_UseAIFeatures.Name" xml:space="preserve">
+    <value>Check_UseAIFeatures</value>
+  </data>
+  <data name="&gt;&gt;Check_UseAIFeatures.Type" xml:space="preserve">
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;Check_UseAIFeatures.Parent" xml:space="preserve">
+    <value>GroupBox_Simulator</value>
+  </data>
+  <data name="&gt;&gt;Check_UseAIFeatures.ZOrder" xml:space="preserve">
+    <value>0</value>
   </data>
   <data name="Label_FollowText.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -487,13 +517,13 @@
     <value>Label_FollowText</value>
   </data>
   <data name="&gt;&gt;Label_FollowText.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_FollowText.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Label_FollowText.ZOrder" xml:space="preserve">
-    <value>0</value>
+    <value>1</value>
   </data>
   <data name="Check_Connect.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -520,16 +550,16 @@
     <value>Check_Connect</value>
   </data>
   <data name="&gt;&gt;Check_Connect.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_Connect.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Check_Connect.ZOrder" xml:space="preserve">
-    <value>1</value>
+    <value>2</value>
   </data>
   <data name="Button_LabelColour.Location" type="System.Drawing.Point, System.Drawing">
-    <value>82, 216</value>
+    <value>82, 233</value>
   </data>
   <data name="Button_LabelColour.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>4, 3, 4, 3</value>
@@ -547,19 +577,20 @@
     <value>Button_LabelColour</value>
   </data>
   <data name="&gt;&gt;Button_LabelColour.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Button, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Button_LabelColour.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Button_LabelColour.ZOrder" xml:space="preserve">
-    <value>2</value>
+    <value>3</value>
   </data>
+  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
   <data name="Label_LabelColour.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
     <value>NoControl</value>
   </data>
   <data name="Label_LabelColour.Location" type="System.Drawing.Point, System.Drawing">
-    <value>15, 216</value>
+    <value>15, 233</value>
   </data>
   <data name="Label_LabelColour.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>4, 0, 4, 0</value>
@@ -577,13 +608,13 @@
     <value>Label_LabelColour</value>
   </data>
   <data name="&gt;&gt;Label_LabelColour.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_LabelColour.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Label_LabelColour.ZOrder" xml:space="preserve">
-    <value>3</value>
+    <value>4</value>
   </data>
   <data name="Check_ShowDistance.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -610,13 +641,13 @@
     <value>Check_ShowDistance</value>
   </data>
   <data name="&gt;&gt;Check_ShowDistance.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_ShowDistance.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Check_ShowDistance.ZOrder" xml:space="preserve">
-    <value>4</value>
+    <value>5</value>
   </data>
   <data name="Check_ShowSpeed.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -643,13 +674,13 @@
     <value>Check_ShowSpeed</value>
   </data>
   <data name="&gt;&gt;Check_ShowSpeed.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_ShowSpeed.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Check_ShowSpeed.ZOrder" xml:space="preserve">
-    <value>5</value>
+    <value>6</value>
   </data>
   <data name="Check_ShowAltitude.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -676,13 +707,13 @@
     <value>Check_ShowAltitude</value>
   </data>
   <data name="&gt;&gt;Check_ShowAltitude.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_ShowAltitude.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Check_ShowAltitude.ZOrder" xml:space="preserve">
-    <value>6</value>
+    <value>7</value>
   </data>
   <data name="Check_ShowCallsign.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -709,13 +740,13 @@
     <value>Check_ShowCallsign</value>
   </data>
   <data name="&gt;&gt;Check_ShowCallsign.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_ShowCallsign.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Check_ShowCallsign.ZOrder" xml:space="preserve">
-    <value>7</value>
+    <value>8</value>
   </data>
   <data name="Check_Scan.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -742,13 +773,13 @@
     <value>Check_Scan</value>
   </data>
   <data name="&gt;&gt;Check_Scan.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_Scan.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Check_Scan.ZOrder" xml:space="preserve">
-    <value>8</value>
+    <value>9</value>
   </data>
   <data name="Check_Elevation.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -757,7 +788,7 @@
     <value>MiddleRight</value>
   </data>
   <data name="Check_Elevation.Location" type="System.Drawing.Point, System.Drawing">
-    <value>24, 191</value>
+    <value>24, 211</value>
   </data>
   <data name="Check_Elevation.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>4, 3, 4, 3</value>
@@ -775,13 +806,13 @@
     <value>Check_Elevation</value>
   </data>
   <data name="&gt;&gt;Check_Elevation.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_Elevation.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Check_Elevation.ZOrder" xml:space="preserve">
-    <value>9</value>
+    <value>10</value>
   </data>
   <data name="Label_CircleText.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -805,13 +836,13 @@
     <value>Label_CircleText</value>
   </data>
   <data name="&gt;&gt;Label_CircleText.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_CircleText.Parent" xml:space="preserve">
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;Label_CircleText.ZOrder" xml:space="preserve">
-    <value>10</value>
+    <value>11</value>
   </data>
   <data name="GroupBox_Simulator.Location" type="System.Drawing.Point, System.Drawing">
     <value>14, 186</value>
@@ -823,7 +854,7 @@
     <value>4, 3, 4, 3</value>
   </data>
   <data name="GroupBox_Simulator.Size" type="System.Drawing.Size, System.Drawing">
-    <value>340, 250</value>
+    <value>340, 276</value>
   </data>
   <data name="GroupBox_Simulator.TabIndex" type="System.Int32, mscorlib">
     <value>17</value>
@@ -835,7 +866,7 @@
     <value>GroupBox_Simulator</value>
   </data>
   <data name="&gt;&gt;GroupBox_Simulator.Type" xml:space="preserve">
-    <value>System.Windows.Forms.GroupBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.GroupBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;GroupBox_Simulator.Parent" xml:space="preserve">
     <value>$this</value>
@@ -865,7 +896,7 @@
     <value>Label_Password</value>
   </data>
   <data name="&gt;&gt;Label_Password.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_Password.Parent" xml:space="preserve">
     <value>groupBox2</value>
@@ -901,7 +932,7 @@
     <value>Check_WhazzupAI</value>
   </data>
   <data name="&gt;&gt;Check_WhazzupAI.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_WhazzupAI.Parent" xml:space="preserve">
     <value>groupBox2</value>
@@ -934,7 +965,7 @@
     <value>Check_GlobalJoin</value>
   </data>
   <data name="&gt;&gt;Check_GlobalJoin.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_GlobalJoin.Parent" xml:space="preserve">
     <value>groupBox2</value>
@@ -967,7 +998,7 @@
     <value>Check_WhazzupGlobal</value>
   </data>
   <data name="&gt;&gt;Check_WhazzupGlobal.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_WhazzupGlobal.Parent" xml:space="preserve">
     <value>groupBox2</value>
@@ -1000,7 +1031,7 @@
     <value>Check_Tacpack</value>
   </data>
   <data name="&gt;&gt;Check_Tacpack.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_Tacpack.Parent" xml:space="preserve">
     <value>groupBox2</value>
@@ -1033,7 +1064,7 @@
     <value>Check_Whazzup</value>
   </data>
   <data name="&gt;&gt;Check_Whazzup.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_Whazzup.Parent" xml:space="preserve">
     <value>groupBox2</value>
@@ -1060,7 +1091,7 @@
     <value>Text_Password</value>
   </data>
   <data name="&gt;&gt;Text_Password.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Text_Password.Parent" xml:space="preserve">
     <value>groupBox2</value>
@@ -1090,7 +1121,7 @@
     <value>groupBox2</value>
   </data>
   <data name="&gt;&gt;groupBox2.Type" xml:space="preserve">
-    <value>System.Windows.Forms.GroupBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.GroupBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;groupBox2.Parent" xml:space="preserve">
     <value>$this</value>
@@ -1120,7 +1151,7 @@
     <value>Label_Frequency</value>
   </data>
   <data name="&gt;&gt;Label_Frequency.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_Frequency.Parent" xml:space="preserve">
     <value>GroupBox_ATC</value>
@@ -1144,7 +1175,7 @@
     <value>Text_Frequency</value>
   </data>
   <data name="&gt;&gt;Text_Frequency.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Text_Frequency.Parent" xml:space="preserve">
     <value>GroupBox_ATC</value>
@@ -1174,7 +1205,7 @@
     <value>Label_Level</value>
   </data>
   <data name="&gt;&gt;Label_Level.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_Level.Parent" xml:space="preserve">
     <value>GroupBox_ATC</value>
@@ -1213,7 +1244,7 @@
     <value>Combo_Level</value>
   </data>
   <data name="&gt;&gt;Combo_Level.Type" xml:space="preserve">
-    <value>System.Windows.Forms.ComboBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.ComboBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Combo_Level.Parent" xml:space="preserve">
     <value>GroupBox_ATC</value>
@@ -1246,7 +1277,7 @@
     <value>Check_Euroscope</value>
   </data>
   <data name="&gt;&gt;Check_Euroscope.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_Euroscope.Parent" xml:space="preserve">
     <value>GroupBox_ATC</value>
@@ -1273,7 +1304,7 @@
     <value>Text_Airport</value>
   </data>
   <data name="&gt;&gt;Text_Airport.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Text_Airport.Parent" xml:space="preserve">
     <value>GroupBox_ATC</value>
@@ -1303,7 +1334,7 @@
     <value>Label_Airport</value>
   </data>
   <data name="&gt;&gt;Label_Airport.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_Airport.Parent" xml:space="preserve">
     <value>GroupBox_ATC</value>
@@ -1336,7 +1367,7 @@
     <value>Check_ATC</value>
   </data>
   <data name="&gt;&gt;Check_ATC.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_ATC.Parent" xml:space="preserve">
     <value>GroupBox_ATC</value>
@@ -1345,7 +1376,7 @@
     <value>7</value>
   </data>
   <data name="GroupBox_ATC.Location" type="System.Drawing.Point, System.Drawing">
-    <value>14, 442</value>
+    <value>14, 468</value>
   </data>
   <data name="GroupBox_ATC.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>4, 3, 4, 3</value>
@@ -1366,7 +1397,7 @@
     <value>GroupBox_ATC</value>
   </data>
   <data name="&gt;&gt;GroupBox_ATC.Type" xml:space="preserve">
-    <value>System.Windows.Forms.GroupBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.GroupBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;GroupBox_ATC.Parent" xml:space="preserve">
     <value>$this</value>
@@ -1393,7 +1424,7 @@
     <value>Text_HubDomain</value>
   </data>
   <data name="&gt;&gt;Text_HubDomain.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Text_HubDomain.Parent" xml:space="preserve">
     <value>GroupBox_Hub</value>
@@ -1423,7 +1454,7 @@
     <value>Label_HubDomain</value>
   </data>
   <data name="&gt;&gt;Label_HubDomain.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_HubDomain.Parent" xml:space="preserve">
     <value>GroupBox_Hub</value>
@@ -1450,7 +1481,7 @@
     <value>Text_HubEvent</value>
   </data>
   <data name="&gt;&gt;Text_HubEvent.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Text_HubEvent.Parent" xml:space="preserve">
     <value>GroupBox_Hub</value>
@@ -1480,7 +1511,7 @@
     <value>Label_HubEvent</value>
   </data>
   <data name="&gt;&gt;Label_HubEvent.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_HubEvent.Parent" xml:space="preserve">
     <value>GroupBox_Hub</value>
@@ -1507,7 +1538,7 @@
     <value>Text_HubVoIP</value>
   </data>
   <data name="&gt;&gt;Text_HubVoIP.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Text_HubVoIP.Parent" xml:space="preserve">
     <value>GroupBox_Hub</value>
@@ -1534,7 +1565,7 @@
     <value>Text_HubAbout</value>
   </data>
   <data name="&gt;&gt;Text_HubAbout.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Text_HubAbout.Parent" xml:space="preserve">
     <value>GroupBox_Hub</value>
@@ -1564,7 +1595,7 @@
     <value>Label_HubAbout</value>
   </data>
   <data name="&gt;&gt;Label_HubAbout.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_HubAbout.Parent" xml:space="preserve">
     <value>GroupBox_Hub</value>
@@ -1594,7 +1625,7 @@
     <value>Label_HubVoIP</value>
   </data>
   <data name="&gt;&gt;Label_HubVoIP.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_HubVoIP.Parent" xml:space="preserve">
     <value>GroupBox_Hub</value>
@@ -1624,7 +1655,7 @@
     <value>Label_HubName</value>
   </data>
   <data name="&gt;&gt;Label_HubName.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_HubName.Parent" xml:space="preserve">
     <value>GroupBox_Hub</value>
@@ -1651,7 +1682,7 @@
     <value>Text_HubName</value>
   </data>
   <data name="&gt;&gt;Text_HubName.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Text_HubName.Parent" xml:space="preserve">
     <value>GroupBox_Hub</value>
@@ -1672,19 +1703,19 @@
     <value>4, 3, 4, 3</value>
   </data>
   <data name="Check_Hub.Size" type="System.Drawing.Size, System.Drawing">
-    <value>121, 19</value>
+    <value>124, 19</value>
   </data>
   <data name="Check_Hub.TabIndex" type="System.Int32, mscorlib">
     <value>0</value>
   </data>
   <data name="Check_Hub.Text" xml:space="preserve">
-    <value>Enable Hub Mode</value>
+    <value>Enable Hub  Mode</value>
   </data>
   <data name="&gt;&gt;Check_Hub.Name" xml:space="preserve">
     <value>Check_Hub</value>
   </data>
   <data name="&gt;&gt;Check_Hub.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_Hub.Parent" xml:space="preserve">
     <value>GroupBox_Hub</value>
@@ -1714,7 +1745,7 @@
     <value>GroupBox_Hub</value>
   </data>
   <data name="&gt;&gt;GroupBox_Hub.Type" xml:space="preserve">
-    <value>System.Windows.Forms.GroupBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.GroupBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;GroupBox_Hub.Parent" xml:space="preserve">
     <value>$this</value>
@@ -1747,7 +1778,7 @@
     <value>Check_AlwaysOnTop</value>
   </data>
   <data name="&gt;&gt;Check_AlwaysOnTop.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_AlwaysOnTop.Parent" xml:space="preserve">
     <value>groupBox5</value>
@@ -1780,7 +1811,7 @@
     <value>Check_EarlyUpdate</value>
   </data>
   <data name="&gt;&gt;Check_EarlyUpdate.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_EarlyUpdate.Parent" xml:space="preserve">
     <value>groupBox5</value>
@@ -1813,7 +1844,7 @@
     <value>Check_ToolTips</value>
   </data>
   <data name="&gt;&gt;Check_ToolTips.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_ToolTips.Parent" xml:space="preserve">
     <value>groupBox5</value>
@@ -1846,7 +1877,7 @@
     <value>Label_Inactive</value>
   </data>
   <data name="&gt;&gt;Label_Inactive.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_Inactive.Parent" xml:space="preserve">
     <value>groupBox5</value>
@@ -1879,7 +1910,7 @@
     <value>Label_Waiting</value>
   </data>
   <data name="&gt;&gt;Label_Waiting.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_Waiting.Parent" xml:space="preserve">
     <value>groupBox5</value>
@@ -1909,7 +1940,7 @@
     <value>Button_InactiveText</value>
   </data>
   <data name="&gt;&gt;Button_InactiveText.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Button, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Button_InactiveText.Parent" xml:space="preserve">
     <value>groupBox5</value>
@@ -1939,7 +1970,7 @@
     <value>Button_WaitingText</value>
   </data>
   <data name="&gt;&gt;Button_WaitingText.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Button, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Button_WaitingText.Parent" xml:space="preserve">
     <value>groupBox5</value>
@@ -1969,7 +2000,7 @@
     <value>Button_ActiveText</value>
   </data>
   <data name="&gt;&gt;Button_ActiveText.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Button, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Button_ActiveText.Parent" xml:space="preserve">
     <value>groupBox5</value>
@@ -1999,7 +2030,7 @@
     <value>Button_InactiveBackground</value>
   </data>
   <data name="&gt;&gt;Button_InactiveBackground.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Button, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Button_InactiveBackground.Parent" xml:space="preserve">
     <value>groupBox5</value>
@@ -2029,7 +2060,7 @@
     <value>Button_WaitingBackground</value>
   </data>
   <data name="&gt;&gt;Button_WaitingBackground.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Button, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Button_WaitingBackground.Parent" xml:space="preserve">
     <value>groupBox5</value>
@@ -2056,7 +2087,7 @@
     <value>Button_ActiveBackground</value>
   </data>
   <data name="&gt;&gt;Button_ActiveBackground.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Button, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Button_ActiveBackground.Parent" xml:space="preserve">
     <value>groupBox5</value>
@@ -2086,7 +2117,7 @@
     <value>Label_Active</value>
   </data>
   <data name="&gt;&gt;Label_Active.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_Active.Parent" xml:space="preserve">
     <value>groupBox5</value>
@@ -2119,7 +2150,7 @@
     <value>Check_AutoRefresh</value>
   </data>
   <data name="&gt;&gt;Check_AutoRefresh.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_AutoRefresh.Parent" xml:space="preserve">
     <value>groupBox5</value>
@@ -2149,7 +2180,7 @@
     <value>groupBox5</value>
   </data>
   <data name="&gt;&gt;groupBox5.Type" xml:space="preserve">
-    <value>System.Windows.Forms.GroupBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.GroupBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;groupBox5.Parent" xml:space="preserve">
     <value>$this</value>
@@ -2179,7 +2210,7 @@
     <value>Check_TCAS</value>
   </data>
   <data name="&gt;&gt;Check_TCAS.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Check_TCAS.Parent" xml:space="preserve">
     <value>GroupBox_Xplane</value>
@@ -2209,7 +2240,7 @@
     <value>Button_InstallCPP</value>
   </data>
   <data name="&gt;&gt;Button_InstallCPP.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Button, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Button_InstallCPP.Parent" xml:space="preserve">
     <value>GroupBox_Xplane</value>
@@ -2233,7 +2264,7 @@
     <value>Text_PluginAddress</value>
   </data>
   <data name="&gt;&gt;Text_PluginAddress.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Text_PluginAddress.Parent" xml:space="preserve">
     <value>GroupBox_Xplane</value>
@@ -2263,7 +2294,7 @@
     <value>Label_PluginAddress</value>
   </data>
   <data name="&gt;&gt;Label_PluginAddress.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Label_PluginAddress.Parent" xml:space="preserve">
     <value>GroupBox_Xplane</value>
@@ -2290,7 +2321,7 @@
     <value>Button_InstallPlugin</value>
   </data>
   <data name="&gt;&gt;Button_InstallPlugin.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Button, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Button_InstallPlugin.Parent" xml:space="preserve">
     <value>GroupBox_Xplane</value>
@@ -2320,7 +2351,7 @@
     <value>GroupBox_Xplane</value>
   </data>
   <data name="&gt;&gt;GroupBox_Xplane.Type" xml:space="preserve">
-    <value>System.Windows.Forms.GroupBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.GroupBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;GroupBox_Xplane.Parent" xml:space="preserve">
     <value>$this</value>
@@ -2347,7 +2378,7 @@
     <value>Button_Reset</value>
   </data>
   <data name="&gt;&gt;Button_Reset.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Button, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;Button_Reset.Parent" xml:space="preserve">
     <value>$this</value>
@@ -2362,7 +2393,7 @@
     <value>7, 15</value>
   </data>
   <data name="$this.ClientSize" type="System.Drawing.Size, System.Drawing">
-    <value>713, 557</value>
+    <value>713, 587</value>
   </data>
   <data name="$this.Font" type="System.Drawing.Font, System.Drawing">
     <value>Segoe UI, 9pt</value>
@@ -2608,6 +2639,6 @@
     <value>SettingsForm</value>
   </data>
   <data name="&gt;&gt;$this.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Form, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Windows.Forms.Form, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
 </root>

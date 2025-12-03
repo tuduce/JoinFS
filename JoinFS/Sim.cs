@@ -4731,8 +4731,13 @@ namespace JoinFS
             {
                 main.MonitorEvent("All models from the simulator ingested.");
 
-                main.substitution.enrichModelService.EnrichModelsWithDetailsAsync(main.substitution.models).GetAwaiter().GetResult();
-                main.substitution.embeddingService.GenerateEmbeddingsFromModels(main.substitution.models);
+                if(main.settingsUseAIFeatures)
+                {                     
+                    main.MonitorEvent("Enriching models with AI features...");
+                    main.substitution.enrichModelService.EnrichModelsWithDetailsAsync(main.substitution.models).GetAwaiter().GetResult();
+                    main.MonitorEvent("Generating embeddings for models...");
+                    main.substitution.embeddingService.GenerateEmbeddingsFromModels(main.substitution.models);
+                }
 
                 requestModelListInProgress = false;
 
