@@ -1098,7 +1098,7 @@ namespace JoinFS
                     // check for models scanned
                     if (models.Count > 0)
                     {
-                        enrichModelService.EnrichModelsWithDetails(models);
+                        enrichModelService.EnrichModelsWithDetailsAsync(models).GetAwaiter().GetResult();
 #if X64
                         embeddingService.GenerateEmbeddingsFromModels(models);
 #endif
@@ -1977,7 +1977,7 @@ namespace JoinFS
                 if (File.Exists(typeClassifiersFile) == false)
                 {
                     // download the file from a web server
-                    string url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/model2type.txt";
+                    string url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/util/model2type.txt";
                     try
                     {
                         // download the file
@@ -2038,7 +2038,7 @@ namespace JoinFS
                 string AddonsFile = Path.Combine(main.storagePath, "Addons_FS2020.txt");
                 string AddonsFile_Web = Path.Combine(main.storagePath, "Addons_FS2020_Web.txt");
                 // Always download the AddOns file from a web server.
-                string url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/Addons_FS2020.txt";
+                string url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/util/Addons_FS2020.txt";
 
                 try
                 {
@@ -2095,7 +2095,7 @@ namespace JoinFS
                 if (File.Exists(banListFile) == false)
                 {
                     // download the file from a web server
-                    string url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/bannedModels.txt";
+                    string url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/util/bannedModels.txt";
                     try
                     {
                         // download the file
@@ -2203,7 +2203,6 @@ namespace JoinFS
                 LoadCallsigns();
 
                 // now we can save
-                // TODO: does it make sense to save just after loading?
                 main.ScheduleSubstitutionSave();
             }
         }

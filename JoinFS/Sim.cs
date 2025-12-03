@@ -684,9 +684,9 @@ namespace JoinFS
 #if FS2024
                     else if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
                     {
-                        // TODO: remove monitor output
+                        // remove monitor output
                         string tailNumber = sim.MakeAtcId(obj as Sim.Aircraft);
-                        main.MonitorEvent("Spawning " + title + " w/ livery " + livery + " tail no: " + tailNumber);
+                        // main.MonitorEvent("Spawning " + title + " w/ livery " + livery + " tail no: " + tailNumber);
                         sc.AICreateNonATCAircraft_EX1(title, livery, tailNumber, initPosition, Sim.Requests.CREATE_OBJECT);
                     }
 #endif
@@ -4731,7 +4731,7 @@ namespace JoinFS
             {
                 main.MonitorEvent("All models from the simulator ingested.");
 
-                main.substitution.enrichModelService.EnrichModelsWithDetails(main.substitution.models);
+                main.substitution.enrichModelService.EnrichModelsWithDetailsAsync(main.substitution.models).GetAwaiter().GetResult();
                 main.substitution.embeddingService.GenerateEmbeddingsFromModels(main.substitution.models);
 
                 requestModelListInProgress = false;
