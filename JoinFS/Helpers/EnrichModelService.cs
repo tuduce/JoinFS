@@ -121,7 +121,7 @@ namespace JoinFS.Helpers
         /// Enriches the given list of models with data from the API and assigns the enrichment to each model.
         /// </summary>
         /// <param name="models">A collection of Model objects to enrich.</param>
-        public void EnrichModelsWithDetails(IEnumerable<Model> models)
+        public async Task EnrichModelsWithDetailsAsync(IEnumerable<Model> models)
         {
             // Get unique, non-empty titles
             var uniqueTitles = models
@@ -131,7 +131,7 @@ namespace JoinFS.Helpers
                 .ToList();
 
             // Query and store details (synchronously for compatibility with existing usage)
-            QueryAndStoreModelDetailsAsync(uniqueTitles).Wait();
+            await QueryAndStoreModelDetailsAsync(uniqueTitles);
 
             // Assign enrichment to each model
             foreach (var model in models)
