@@ -9,6 +9,7 @@ namespace JoinFS
 {
     public partial class ScanForm_XPLANE : Form
     {
+#if XPLANE
         /// <summary>
         /// Main instance
         /// </summary>
@@ -220,5 +221,6 @@ namespace JoinFS
             // update option
             RefreshFolders();
         }
+#endif
     }
 }

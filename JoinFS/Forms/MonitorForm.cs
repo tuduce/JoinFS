@@ -282,7 +282,7 @@ namespace JoinFS
             if (exist1 == false && exist2 == false)
             {
                 // warning
-                main.ShowMessage(Resources.strings.RecordLogs);
+                main.ShowMessage(Resources.Strings.RecordLogs);
             }
         }
 

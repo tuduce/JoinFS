@@ -831,7 +831,7 @@ namespace JoinFS
                                 // check for non-network aircraft
                                 if (aircraft == null || aircraft.owner != Sim.Obj.Owner.Network)
                                 {
-                                    message = Resources.strings.WeatherObservation;
+                                    message = Resources.Strings.WeatherObservation;
                                 }
                                 else if (main.sim != null)
                                 {
@@ -1109,7 +1109,7 @@ namespace JoinFS
             Context_Aircraft_TrackBearing.Enabled = false;
             Context_Aircraft_CopyWeather.Enabled = false;
             Context_Aircraft_RemoveFromRecording.Enabled = false;
-            string cockpitText = Resources.strings.EnterCockpit;
+            string cockpitText = Resources.Strings.EnterCockpit;
 
             // get selected item
             Item item = GetSelectedItem();
@@ -1129,7 +1129,7 @@ namespace JoinFS
                 if (item != null)
                 {
                     // update follow text
-                    Context_Aircraft_Follow.Text = Resources.strings.Follow + " '" + item.callsign + "'";
+                    Context_Aircraft_Follow.Text = Resources.Strings.Follow + " '" + item.callsign + "'";
 
                     // get aircraft
                     Sim.Aircraft aircraft = GetAircraft(item);
@@ -1162,7 +1162,7 @@ namespace JoinFS
                             if (aircraft.owner == Sim.Obj.Owner.Network)
                             {
                                 // change to copy
-                                Context_Aircraft_FlightPlan.Text = Resources.strings.CopyFlightPlan;
+                                Context_Aircraft_FlightPlan.Text = Resources.Strings.CopyFlightPlan;
                             }
                             else
                             {
@@ -1343,7 +1343,7 @@ namespace JoinFS
                         if (aircraft.owner == Sim.Obj.Owner.Network && aircraft.CockpitShared == false)
                         {
                             // show message
-                            main.ShowMessage(Resources.strings.NoPermissionCockpit);
+                            main.ShowMessage(Resources.Strings.NoPermissionCockpit);
                         }
                         else if (aircraft.owner != Sim.Obj.Owner.Me)
                         {
@@ -1573,7 +1573,7 @@ namespace JoinFS
             // check if no simulator connected
             if (main.sim != null && main.sim.Connected == false)
             {
-                MessageBox.Show(Resources.strings.AssignVariablesWarning, Main.name);
+                MessageBox.Show(Resources.Strings.AssignVariablesWarning, Main.name);
             }
             else
             {

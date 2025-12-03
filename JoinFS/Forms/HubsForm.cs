@@ -241,7 +241,7 @@ namespace JoinFS
                     int atcCount = main.network.GetMainAtc(out string atcAirport, out int atcLevel);
 
                     // status
-                    string status = main.network.localNode.Password ? Resources.strings.Password : main.network.localNode.GlobalSession ? "Global" : "Online";
+                    string status = main.network.localNode.Password ? Resources.Strings.Password : main.network.localNode.GlobalSession ? "Global" : "Online";
 
                     // add row
                     Item item = new Item(main.settingsHubName, main.guid, main.network.localNode.GetLocalNuid(), status, true, "", null, main.network.localUserList.Count, aircraft, atcAirport, main.settingsHubEvent, main.settingsHubVoip, main.settingsHubAbout, false, false, Main.version);
@@ -264,7 +264,7 @@ namespace JoinFS
                                 string status = "-";
                                 if (hub.online)
                                 {
-                                    status = hub.password ? Resources.strings.Password : hub.globalSession ? "Global" : "Online";
+                                    status = hub.password ? Resources.Strings.Password : hub.globalSession ? "Global" : "Online";
                                 }
 
                                 // get address book state

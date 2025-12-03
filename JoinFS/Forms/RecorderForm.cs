@@ -191,14 +191,14 @@ namespace JoinFS
                     IsBalloon = true,
                     AutomaticDelay = 1500
                 };
-                tip.SetToolTip(Button_Record, Resources.strings.Tip_Record);
-                tip.SetToolTip(Button_Play, Resources.strings.Tip_Play);
-                tip.SetToolTip(Button_Stop, Resources.strings.Tip_Stop);
-                tip.SetToolTip(Button_Overdub, Resources.strings.Tip_Overdub);
-                tip.SetToolTip(Label_Time, Resources.strings.Tip_Time);
-                tip.SetToolTip(Label_EndTime, Resources.strings.Tip_EndTime);
-                tip.SetToolTip(Track_Position, Resources.strings.Tip_Position);
-                tip.SetToolTip(Check_Loop, Resources.strings.Tip_Loop);
+                tip.SetToolTip(Button_Record, Resources.Strings.Tip_Record);
+                tip.SetToolTip(Button_Play, Resources.Strings.Tip_Play);
+                tip.SetToolTip(Button_Stop, Resources.Strings.Tip_Stop);
+                tip.SetToolTip(Button_Overdub, Resources.Strings.Tip_Overdub);
+                tip.SetToolTip(Label_Time, Resources.Strings.Tip_Time);
+                tip.SetToolTip(Label_EndTime, Resources.Strings.Tip_EndTime);
+                tip.SetToolTip(Track_Position, Resources.Strings.Tip_Position);
+                tip.SetToolTip(Check_Loop, Resources.Strings.Tip_Loop);
             }
 
             // initialize loop button
@@ -332,7 +332,7 @@ namespace JoinFS
         {
             if (main.recorder.Active)
             {
-                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.name + ": " + Resources.strings.RecorderStr);
+                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.name + ": " + Resources.Strings.RecorderStr);
             }
             else
             {
@@ -366,7 +366,7 @@ namespace JoinFS
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show(ex.Message, Main.name + ": " + Resources.strings.RecorderStr);
+                        MessageBox.Show(ex.Message, Main.name + ": " + Resources.Strings.RecorderStr);
                         main.MonitorEvent(ex.Message);
                     }
                 }
@@ -378,11 +378,11 @@ namespace JoinFS
             // check if recorder is active
             if (main.recorder.Active)
             {
-                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.name + ": " + Resources.strings.RecorderStr);
+                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.name + ": " + Resources.Strings.RecorderStr);
             }
             else if (main.recorder.Empty)
             {
-                MessageBox.Show(Resources.strings.RecorderEmpty, Main.name + ": " + Resources.strings.RecorderStr);
+                MessageBox.Show(Resources.Strings.RecorderEmpty, Main.name + ": " + Resources.Strings.RecorderStr);
             }
             else
             {
@@ -394,7 +394,7 @@ namespace JoinFS
         {
             if (main.recorder.Active)
             {
-                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.name + ": " + Resources.strings.RecorderStr);
+                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.name + ": " + Resources.Strings.RecorderStr);
             }
             else
             {
@@ -428,7 +428,7 @@ namespace JoinFS
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show(ex.Message, Main.name + ": " + Resources.strings.RecorderStr);
+                        MessageBox.Show(ex.Message, Main.name + ": " + Resources.Strings.RecorderStr);
                         main.MonitorEvent(ex.Message);
                     }
                 }
@@ -441,7 +441,7 @@ namespace JoinFS
             {
                 if (main.recorder.Time <= 0.0)
                 {
-                    MessageBox.Show("Already at the start of the recording.", Main.name + ": " + Resources.strings.RecorderStr);
+                    MessageBox.Show("Already at the start of the recording.", Main.name + ": " + Resources.Strings.RecorderStr);
                 }
                 else
                 {
@@ -457,7 +457,7 @@ namespace JoinFS
             {
                 if (main.recorder.Time >= main.recorder.EndTime)
                 {
-                    MessageBox.Show("Already at the end of the recording.", Main.name + ": " + Resources.strings.RecorderStr);
+                    MessageBox.Show("Already at the end of the recording.", Main.name + ": " + Resources.Strings.RecorderStr);
                 }
                 else
                 {

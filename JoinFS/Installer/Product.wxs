@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+     
+  <?if $(var.Configuration) = FS2024 ?>
+    <?define BuildDir = "FS2024" ?>
+    <?define InstallFolder = "JoinFS\JoinFS-FS2024" ?>
+    <?define ProgramFilesDir = "ProgramFiles64Folder" ?>
+    <?define ExecutableName = "JoinFS-FS2024.exe" ?>
+    <?define UpgradeCodeGuid = "E1F2A3B4-C5D6-47E8-9F0A-1B2C3D4E5F60" ?>
+  <?elseif $(var.Configuration) = FS2020 ?>
+    <?define BuildDir = "FS2020" ?>
+    <?define InstallFolder = "JoinFS\JoinFS-FS2020" ?>
+    <?define ProgramFilesDir = "ProgramFiles64Folder" ?>
+    <?define ExecutableName = "JoinFS-FS2020.exe" ?>
+    <?define UpgradeCodeGuid = "E1F2A3B4-C5D6-47E8-9F0A-1B2C3D4E5F61" ?>
+  <?elseif $(var.Configuration) = FSX ?>
+    <?define BuildDir = "FSX" ?>
+    <?define InstallFolder = "JoinFS\JoinFS-FSX" ?>
+    <?define ProgramFilesDir = "ProgramFilesFolder" ?>
+    <?define ExecutableName = "JoinFS-FSX.exe" ?>
+    <?define UpgradeCodeGuid = "E1F2A3B4-C5D6-47E8-9F0A-1B2C3D4E5F62" ?>
+  <?elseif $(var.Configuration) = P3D ?>
+    <?define BuildDir = "P3D" ?>
+    <?define InstallFolder = "JoinFS\JoinFS-P3D" ?>
+    <?define ProgramFilesDir = "ProgramFilesFolder" ?>
+    <?define ExecutableName = "JoinFS-P3D.exe" ?>
+    <?define UpgradeCodeGuid = "E1F2A3B4-C5D6-47E8-9F0A-1B2C3D4E5F63" ?>
+  <?elseif $(var.Configuration) = XPLANE ?>
+    <?define BuildDir = "XPLANE" ?>
+    <?define InstallFolder = "JoinFS\JoinFS-XPLANE" ?>
+    <?define ProgramFilesDir = "ProgramFiles64Folder" ?>
+    <?define ExecutableName = "JoinFS-XPLANE.exe" ?>
+    <?define UpgradeCodeGuid = "E1F2A3B4-C5D6-47E8-9F0A-1B2C3D4E5F64" ?>
+  <?elseif $(var.Configuration) = CONSOLE ?>
+    <?define BuildDir = "CONSOLE" ?>
+    <?define InstallFolder = "JoinFS\JoinFS-CONSOLE" ?>
+    <?define ProgramFilesDir = "ProgramFiles64Folder" ?>
+    <?define ExecutableName = "JoinFS-CONSOLE.exe" ?>
+    <?define UpgradeCodeGuid = "E1F2A3B4-C5D6-47E8-9F0A-1B2C3D4E5F65" ?>
+  <?else?>
+    <?error Configuration must be FS2024, FS2020, FSX, P3D, XPLANE or CONSOLE ?>
+  <?endif?>
+  
+  <Package
+    Name="JoinFS-$(var.Configuration)"
+    Manufacturer="JoinFS Contributers"
+    Version="25.8.0"
+    UpgradeCode="$(var.UpgradeCodeGuid)"
+    InstallerVersion="500"
+    Compressed="yes">
+
+    <!-- Automatic upgrade: removes old version silently and installs new version -->
+    <MajorUpgrade 
+      DowngradeErrorMessage="A newer version of JoinFS-$(var.Configuration) is already installed. Please uninstall the newer version before installing this version."
+      Schedule="afterInstallInitialize"
+      AllowSameVersionUpgrades="no" />
+    
+    <MediaTemplate EmbedCab="yes" />
+    
+    <!-- Set the icon for Add/Remove Programs -->
+    <Icon Id="AppIcon.ico" SourceFile="..\Resources\App.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    
+    <!-- Enable UI for installation directory selection -->
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    
+    <!-- Properties for shortcuts - default to checked -->
+    <Property Id="INSTALLDESKTOPSHORTCUT" Value="1" />
+    <Property Id="INSTALLSTARTMENUSHORTCUT" Value="1" />
+    
+    <!-- Customize UI to add shortcuts dialog -->
+    <UI>
+      <!-- Override the InstallDirDlg Next button to go to ShortcutsDlg -->
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="ShortcutsDlg" Condition="WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID=&quot;1&quot;" />
+      
+      <!-- Configure ShortcutsDlg navigation -->
+      <Publish Dialog="ShortcutsDlg" Control="Back" Event="NewDialog" Value="InstallDirDlg" />
+      <Publish Dialog="ShortcutsDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" />
+      
+      <!-- Override VerifyReadyDlg Back button to go to ShortcutsDlg -->
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ShortcutsDlg" Order="1" />
+    </UI>
+
+    <StandardDirectory Id="$(var.ProgramFilesDir)">
+      <Directory Id="INSTALLFOLDER" Name="$(var.InstallFolder)" />
+    </StandardDirectory>
+    
+    <!-- Desktop shortcut directory -->
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="*" Condition="INSTALLDESKTOPSHORTCUT">
+        <Shortcut Id="DesktopShortcut"
+                  Name="JoinFS-$(var.Configuration)"
+                  Description="JoinFS Flight Sharing Application"
+                  Target="[INSTALLFOLDER]$(var.ExecutableName)"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon.ico" />
+        <RegistryValue Root="HKCU" Key="Software\JoinFS\$(var.Configuration)" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+    
+    <!-- Start Menu shortcut directory -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuDir" Name="JoinFS">
+        <Component Id="StartMenuShortcutComponent" Guid="*" Condition="INSTALLSTARTMENUSHORTCUT">
+          <Shortcut Id="StartMenuShortcut"
+                    Name="JoinFS-$(var.Configuration)"
+                    Description="JoinFS Flight Sharing Application"
+                    Target="[INSTALLFOLDER]$(var.ExecutableName)"
+                    WorkingDirectory="INSTALLFOLDER"
+                    Icon="AppIcon.ico" />
+          <RemoveFolder Id="RemoveProgramMenuDir" On="uninstall" />
+          <RegistryValue Root="HKCU" Key="Software\JoinFS\$(var.Configuration)" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="JoinFS" Level="1">
+      <ComponentGroupRef Id="AllBuildFiles" />
+      <ComponentRef Id="DesktopShortcutComponent" />
+      <ComponentRef Id="StartMenuShortcutComponent" />
+    </Feature>
+  </Package>
+</Wix>

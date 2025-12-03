@@ -80,44 +80,44 @@ namespace JoinFS
             }
 
 #if !NO_CREATE
-            DataGrid_Options.Rows.Add(@"--create", Resources.strings.Options_Create);
+            DataGrid_Options.Rows.Add(@"--create", Resources.Strings.Options_Create);
 #endif
-            DataGrid_Options.Rows.Add(@"--join <address>", Resources.strings.Options_Join);
-            DataGrid_Options.Rows.Add(@"--rejoin", Resources.strings.Options_Rejoin);
+            DataGrid_Options.Rows.Add(@"--join <address>", Resources.Strings.Options_Join);
+            DataGrid_Options.Rows.Add(@"--rejoin", Resources.Strings.Options_Rejoin);
 #if !NO_GLOBAL
-            DataGrid_Options.Rows.Add(@"--global", Resources.strings.Options_Global);
+            DataGrid_Options.Rows.Add(@"--global", Resources.Strings.Options_Global);
 #endif
-            DataGrid_Options.Rows.Add(@"--nickname ""<name>"" ", Resources.strings.Options_Nickname);
-            DataGrid_Options.Rows.Add(@"--port <port>", Resources.strings.Options_Port);
+            DataGrid_Options.Rows.Add(@"--nickname ""<name>"" ", Resources.Strings.Options_Nickname);
+            DataGrid_Options.Rows.Add(@"--port <port>", Resources.Strings.Options_Port);
 #if !NO_HUBS && !NO_CREATE
-            DataGrid_Options.Rows.Add(@"--hub", Resources.strings.Tip_HubMode);
-            DataGrid_Options.Rows.Add(@"--hubdomain ""<myserver.com>"" ", Resources.strings.Tip_HubDomain);
-            DataGrid_Options.Rows.Add(@"--hubname ""<name>"" ", Resources.strings.Tip_HubName);
-            DataGrid_Options.Rows.Add(@"--hubabout ""<text>"" ", Resources.strings.Tip_HubAbout);
-            DataGrid_Options.Rows.Add(@"--hubvoip ""<text>"" ", Resources.strings.Tip_HubVoice);
-            DataGrid_Options.Rows.Add(@"--hubevent ""<text>"" ", Resources.strings.Tip_HubEvent);
+            DataGrid_Options.Rows.Add(@"--hub", Resources.Strings.Tip_HubMode);
+            DataGrid_Options.Rows.Add(@"--hubdomain ""<myserver.com>"" ", Resources.Strings.Tip_HubDomain);
+            DataGrid_Options.Rows.Add(@"--hubname ""<name>"" ", Resources.Strings.Tip_HubName);
+            DataGrid_Options.Rows.Add(@"--hubabout ""<text>"" ", Resources.Strings.Tip_HubAbout);
+            DataGrid_Options.Rows.Add(@"--hubvoip ""<text>"" ", Resources.Strings.Tip_HubVoice);
+            DataGrid_Options.Rows.Add(@"--hubevent ""<text>"" ", Resources.Strings.Tip_HubEvent);
 #endif
-            DataGrid_Options.Rows.Add(@"--password", Resources.strings.Tip_Password);
-            DataGrid_Options.Rows.Add(@"--play ""<file.jfs>"" ", Resources.strings.Options_Play);
-            DataGrid_Options.Rows.Add(@"--record", Resources.strings.Options_Record);
-            DataGrid_Options.Rows.Add(@"--loop", Resources.strings.Tip_Loop);
-            DataGrid_Options.Rows.Add(@"--activitycircle <distance>", Resources.strings.Options_ActivityCircle);
-            DataGrid_Options.Rows.Add(@"--follow <distance>", Resources.strings.Options_Follow);
-            DataGrid_Options.Rows.Add(@"--atc", Resources.strings.Options_Atc);
-            DataGrid_Options.Rows.Add(@"--airport <code>", Resources.strings.Options_Airport);
-            DataGrid_Options.Rows.Add(@"--lowbandwidth", Resources.strings.Tip_LowBandwidth);
-            DataGrid_Options.Rows.Add(@"--whazzup", Resources.strings.Tip_Whazzup);
-            DataGrid_Options.Rows.Add(@"--whazzup-public", Resources.strings.Tip_WhazzupGlobal);
-            DataGrid_Options.Rows.Add(@"--minimize", Resources.strings.Options_Minimize);
-            DataGrid_Options.Rows.Add(@"--nosim", Resources.strings.Options_NoSim);
-            DataGrid_Options.Rows.Add(@"--nogui", Resources.strings.Options_NoGui);
-            DataGrid_Options.Rows.Add(@"--multiobjects", Resources.strings.Tip_MultiObjects);
-            DataGrid_Options.Rows.Add(@"--simfolder", Resources.strings.Options_SimFolder);
-            DataGrid_Options.Rows.Add(@"--xplane", Resources.strings.Tip_Xplane);
-            DataGrid_Options.Rows.Add(@"--installplugin", Resources.strings.Options_InstallPlugin);
-            DataGrid_Options.Rows.Add(@"--tcas", Resources.strings.Tip_TCAS);
-            DataGrid_Options.Rows.Add(@"--quit", Resources.strings.Options_Quit);
-            DataGrid_Options.Rows.Add(@"--help", Resources.strings.Options_Help);
+            DataGrid_Options.Rows.Add(@"--password", Resources.Strings.Tip_Password);
+            DataGrid_Options.Rows.Add(@"--play ""<file.jfs>"" ", Resources.Strings.Options_Play);
+            DataGrid_Options.Rows.Add(@"--record", Resources.Strings.Options_Record);
+            DataGrid_Options.Rows.Add(@"--loop", Resources.Strings.Tip_Loop);
+            DataGrid_Options.Rows.Add(@"--activitycircle <distance>", Resources.Strings.Options_ActivityCircle);
+            DataGrid_Options.Rows.Add(@"--follow <distance>", Resources.Strings.Options_Follow);
+            DataGrid_Options.Rows.Add(@"--atc", Resources.Strings.Options_Atc);
+            DataGrid_Options.Rows.Add(@"--airport <code>", Resources.Strings.Options_Airport);
+            DataGrid_Options.Rows.Add(@"--lowbandwidth", Resources.Strings.Tip_LowBandwidth);
+            DataGrid_Options.Rows.Add(@"--whazzup", Resources.Strings.Tip_Whazzup);
+            DataGrid_Options.Rows.Add(@"--whazzup-public", Resources.Strings.Tip_WhazzupGlobal);
+            DataGrid_Options.Rows.Add(@"--minimize", Resources.Strings.Options_Minimize);
+            DataGrid_Options.Rows.Add(@"--nosim", Resources.Strings.Options_NoSim);
+            DataGrid_Options.Rows.Add(@"--nogui", Resources.Strings.Options_NoGui);
+            DataGrid_Options.Rows.Add(@"--multiobjects", Resources.Strings.Tip_MultiObjects);
+            DataGrid_Options.Rows.Add(@"--simfolder", Resources.Strings.Options_SimFolder);
+            DataGrid_Options.Rows.Add(@"--xplane", Resources.Strings.Tip_Xplane);
+            DataGrid_Options.Rows.Add(@"--installplugin", Resources.Strings.Options_InstallPlugin);
+            DataGrid_Options.Rows.Add(@"--tcas", Resources.Strings.Tip_TCAS);
+            DataGrid_Options.Rows.Add(@"--quit", Resources.Strings.Options_Quit);
+            DataGrid_Options.Rows.Add(@"--help", Resources.Strings.Options_Help);
         }
 
         private void OptionsForm_FormClosing(object sender, FormClosingEventArgs e)

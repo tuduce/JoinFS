@@ -1,4 +1,5 @@
-﻿namespace JoinFS
+﻿#if XPLANE
+namespace JoinFS
 {
     partial class ScanForm_XPLANE
     {
@@ -191,3 +192,4 @@
         private System.Windows.Forms.CheckBox Check_Skip;
     }
 }
+#endif

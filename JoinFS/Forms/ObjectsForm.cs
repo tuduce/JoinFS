@@ -194,7 +194,7 @@ namespace JoinFS
                     return main.network.GetNodeName(obj.ownerNuid);
 
                 case Sim.Obj.Owner.Recorder:
-                    return Resources.strings.RecorderStr;
+                    return Resources.Strings.RecorderStr;
 
                 default:
                     return "";

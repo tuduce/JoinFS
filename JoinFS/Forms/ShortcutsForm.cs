@@ -110,27 +110,27 @@ namespace JoinFS
             rows[0].Cells[0].Style.BackColor = Settings.Default.ShortcutNetwork ? Settings.Default.ColourActiveBackground : Settings.Default.ColourWaitingBackground;
             rows[0].Cells[0].Style.ForeColor = Settings.Default.ShortcutNetwork ? Settings.Default.ColourActiveText : Settings.Default.ColourWaitingText;
             rows[0].Cells[0].Value = main.mainForm ?. networkShortcut.combination;
-            rows[0].Cells[1].Value = Resources.strings.Shortcuts_Network;
+            rows[0].Cells[1].Value = Resources.Strings.Shortcuts_Network;
             rows[1].Cells[0].Style.BackColor = Settings.Default.ShortcutSimulator ? Settings.Default.ColourActiveBackground : Settings.Default.ColourWaitingBackground;
             rows[1].Cells[0].Style.ForeColor = Settings.Default.ShortcutSimulator ? Settings.Default.ColourActiveText : Settings.Default.ColourWaitingText;
             rows[1].Cells[0].Value = main.mainForm ?. simulatorShortcut.combination;
-            rows[1].Cells[1].Value = Resources.strings.Shortcuts_Simulator;
+            rows[1].Cells[1].Value = Resources.Strings.Shortcuts_Simulator;
             rows[2].Cells[0].Style.BackColor = Settings.Default.ShortcutAllowShared ? Settings.Default.ColourActiveBackground : Settings.Default.ColourWaitingBackground;
             rows[2].Cells[0].Style.ForeColor = Settings.Default.ShortcutAllowShared ? Settings.Default.ColourActiveText : Settings.Default.ColourWaitingText;
             rows[2].Cells[0].Value = main.mainForm ?. allowSharedShortcut.combination;
-            rows[2].Cells[1].Value = Resources.strings.Shortcuts_Allow;
+            rows[2].Cells[1].Value = Resources.Strings.Shortcuts_Allow;
             rows[3].Cells[0].Style.BackColor = Settings.Default.ShortcutHandOver ? Settings.Default.ColourActiveBackground : Settings.Default.ColourWaitingBackground;
             rows[3].Cells[0].Style.ForeColor = Settings.Default.ShortcutHandOver ? Settings.Default.ColourActiveText : Settings.Default.ColourWaitingText;
             rows[3].Cells[0].Value = main.mainForm ?. handOverShortcut.combination;
-            rows[3].Cells[1].Value = Resources.strings.Shortcuts_Controls;
+            rows[3].Cells[1].Value = Resources.Strings.Shortcuts_Controls;
             rows[4].Cells[0].Style.BackColor = Settings.Default.ShortcutEnterCockpit ? Settings.Default.ColourActiveBackground : Settings.Default.ColourWaitingBackground;
             rows[4].Cells[0].Style.ForeColor = Settings.Default.ShortcutEnterCockpit ? Settings.Default.ColourActiveText : Settings.Default.ColourWaitingText;
             rows[4].Cells[0].Value = main.mainForm ?. enterShortcut.combination;
-            rows[4].Cells[1].Value = Resources.strings.Shortcuts_Enter;
+            rows[4].Cells[1].Value = Resources.Strings.Shortcuts_Enter;
             rows[5].Cells[0].Style.BackColor = Settings.Default.ShortcutFollow ? Settings.Default.ColourActiveBackground : Settings.Default.ColourWaitingBackground;
             rows[5].Cells[0].Style.ForeColor = Settings.Default.ShortcutFollow ? Settings.Default.ColourActiveText : Settings.Default.ColourWaitingText;
             rows[5].Cells[0].Value = main.mainForm ?. followShortcut.combination;
-            rows[5].Cells[1].Value = Resources.strings.Shortcuts_Follow;
+            rows[5].Cells[1].Value = Resources.Strings.Shortcuts_Follow;
 
             // clear existing cells
             DataGrid_Shortcuts.Rows.Clear();
