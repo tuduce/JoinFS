@@ -235,6 +235,9 @@ namespace JoinFS
             // update model scan
             main.settingsScan = Check_Scan.CheckState == CheckState.Checked;
             Settings.Default.ModelScanOnConnection = main.settingsScan;
+            // update use AI features
+            main.settingsUseAIFeatures = Check_UseAIFeatures.CheckState == CheckState.Checked;
+            Settings.Default.UseAIFeatures = main.settingsUseAIFeatures;
             // update elevation correction
             Settings.Default.ElevationCorrection = Check_Elevation.CheckState == CheckState.Checked;
 
@@ -497,6 +500,8 @@ namespace JoinFS
             Check_Connect.CheckState = Settings.Default.ConnectOnLaunch ? CheckState.Checked : CheckState.Unchecked;
             // get model scan
             Check_Scan.CheckState = Settings.Default.ModelScanOnConnection ? CheckState.Checked : CheckState.Unchecked;
+            // get AI state
+            Check_UseAIFeatures.CheckState = Settings.Default.UseAIFeatures ? CheckState.Checked : CheckState.Unchecked;
             // get elevation
             Check_Elevation.CheckState = Settings.Default.ElevationCorrection ? CheckState.Checked : CheckState.Unchecked;
             // get local port number

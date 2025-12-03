@@ -1098,10 +1098,13 @@ namespace JoinFS
                     // check for models scanned
                     if (models.Count > 0)
                     {
-                        enrichModelService.EnrichModelsWithDetailsAsync(models).GetAwaiter().GetResult();
+                        if(main.settingsUseAIFeatures)
+                        {
+                            enrichModelService.EnrichModelsWithDetailsAsync(models).GetAwaiter().GetResult();
 #if X64
-                        embeddingService.GenerateEmbeddingsFromModels(models);
+                            embeddingService.GenerateEmbeddingsFromModels(models);
 #endif
+                        }
                         main.MonitorEvent("Scan found " + models.Count + ((models.Count == 1) ? " model" : " models") + " in the community folder(s)");
                     }
                     else
@@ -2629,36 +2632,38 @@ namespace JoinFS
                 return;
             }
 
-            // automatic matching using the embedding logic
-            // 1. Make a model out of the title and livery
-            var tempModel = new Model(
-                title, // title
-                "", // manufacturer
-                "", // type
-#if FS2024
-                livery, // variation
-#else
-                "", // variation
-#endif
-                -1, // index
-                typeroleNames[typerole], // typerole
-                "", // smoke
-                "" // folder
-            );
-            // 2. Get the model enrichment data
-            enrichModelService.EnrichModel(tempModel);
-            // 3. Get the embedding
-            // 4. Compare against all known models (cosine similarity)
-#if X64
-            model = embeddingService.FindBestMatchingModel(tempModel, models, 0.2f);
-            if (model != null)
+            if (main.settingsUseAIFeatures)
             {
-                // use automatic match
-                type = Type.AI;
-                return;
-            }
+                // automatic matching using the embedding logic
+                // 1. Make a model out of the title and livery
+                var tempModel = new Model(
+                    title, // title
+                    "", // manufacturer
+                    "", // type
+#if FS2024
+                    livery, // variation
+#else
+                    "", // variation
 #endif
-
+                    -1, // index
+                    typeroleNames[typerole], // typerole
+                    "", // smoke
+                    "" // folder
+                );
+                // 2. Get the model enrichment data
+                enrichModelService.EnrichModel(tempModel);
+                // 3. Get the embedding
+                // 4. Compare against all known models (cosine similarity)
+#if X64
+                model = embeddingService.FindBestMatchingModel(tempModel, models, 0.2f);
+                if (model != null)
+                {
+                    // use automatic match
+                    type = Type.AI;
+                    return;
+                }
+#endif
+            }
             // for each prefix
             for (int length = title.Length; length >= 4; length--)
             {
