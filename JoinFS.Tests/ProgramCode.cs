@@ -15,17 +15,12 @@ namespace JoinFS.Tests
         /// </summary>
         private class SeededCryptoRandom
         {
-            private readonly byte[] keyState;
+            private readonly byte[] seed;
             private int counter;
 
             public SeededCryptoRandom(int key)
             {
-                // Create deterministic initial state from key using SHA256
-                byte[] keyBytes = BitConverter.GetBytes(key);
-                using (var sha256 = SHA256.Create())
-                {
-                    keyState = sha256.ComputeHash(keyBytes);
-                }
+                seed = BitConverter.GetBytes(key);
                 counter = 0;
             }
 
@@ -37,23 +32,14 @@ namespace JoinFS.Tests
                 if (maxValue <= 0)
                     throw new ArgumentOutOfRangeException(nameof(maxValue));
 
-                // Derive random bytes deterministically from key state and counter
-                byte[] input = new byte[keyState.Length + 4];
-                Buffer.BlockCopy(keyState, 0, input, 0, keyState.Length);
-                Buffer.BlockCopy(BitConverter.GetBytes(counter++), 0, input, keyState.Length, 4);
-
-                // Use HMACSHA256 for cryptographically strong deterministic generation
-                byte[] output;
-                using (var hmac = new HMACSHA256(keyState))
+                // Use HMACSHA256 to derive random value from seed and counter
+                using (var hmac = new HMACSHA256(seed))
                 {
-                    output = hmac.ComputeHash(input);
+                    byte[] counterBytes = BitConverter.GetBytes(counter++);
+                    byte[] hash = hmac.ComputeHash(counterBytes);
+                    uint randomValue = BitConverter.ToUInt32(hash, 0);
+                    return (int)(randomValue % (uint)maxValue);
                 }
-
-                // Convert first 4 bytes to int and ensure it's in the desired range
-                // Note: Using modulo introduces slight bias, but we maintain this approach
-                // for backward compatibility with the original implementation
-                uint randomValue = BitConverter.ToUInt32(output, 0);
-                return (int)(randomValue % (uint)maxValue);
             }
         }
 
