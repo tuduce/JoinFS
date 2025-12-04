@@ -22,7 +22,7 @@ namespace JoinFS.Tests
             {
                 // Create deterministic initial state from key using SHA256
                 byte[] keyBytes = BitConverter.GetBytes(key);
-                using (var sha256 = System.Security.Cryptography.SHA256.Create())
+                using (var sha256 = SHA256.Create())
                 {
                     keyState = sha256.ComputeHash(keyBytes);
                 }
@@ -44,12 +44,14 @@ namespace JoinFS.Tests
 
                 // Use HMACSHA256 for cryptographically strong deterministic generation
                 byte[] output;
-                using (var hmac = new System.Security.Cryptography.HMACSHA256(keyState))
+                using (var hmac = new HMACSHA256(keyState))
                 {
                     output = hmac.ComputeHash(input);
                 }
 
                 // Convert first 4 bytes to int and ensure it's in the desired range
+                // Note: Using modulo introduces slight bias, but we maintain this approach
+                // for backward compatibility with the original implementation
                 uint randomValue = BitConverter.ToUInt32(output, 0);
                 return (int)(randomValue % (uint)maxValue);
             }
