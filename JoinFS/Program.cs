@@ -12,6 +12,7 @@ using System.Net;
 using System.Configuration;
 using System.Globalization;
 using System.Reflection;
+using System.Security.Cryptography;
 using JoinFS.Properties;
 
 namespace JoinFS
@@ -1935,6 +1936,51 @@ namespace JoinFS
 
     static class Program
     {
+        /// <summary>
+        /// Cryptographically secure random number generator seeded with a key
+        /// </summary>
+        private class SeededCryptoRandom
+        {
+            private readonly byte[] keyState;
+            private int counter;
+
+            public SeededCryptoRandom(int key)
+            {
+                // Create deterministic initial state from key using SHA256
+                byte[] keyBytes = BitConverter.GetBytes(key);
+                using (var sha256 = System.Security.Cryptography.SHA256.Create())
+                {
+                    keyState = sha256.ComputeHash(keyBytes);
+                }
+                counter = 0;
+            }
+
+            /// <summary>
+            /// Generate a deterministic but cryptographically derived random number in range [0, maxValue)
+            /// </summary>
+            public int Next(int maxValue)
+            {
+                if (maxValue <= 0)
+                    throw new ArgumentOutOfRangeException(nameof(maxValue));
+
+                // Derive random bytes deterministically from key state and counter
+                byte[] input = new byte[keyState.Length + 4];
+                Buffer.BlockCopy(keyState, 0, input, 0, keyState.Length);
+                Buffer.BlockCopy(BitConverter.GetBytes(counter++), 0, input, keyState.Length, 4);
+
+                // Use HMACSHA256 for cryptographically strong deterministic generation
+                byte[] output;
+                using (var hmac = new System.Security.Cryptography.HMACSHA256(keyState))
+                {
+                    output = hmac.ComputeHash(input);
+                }
+
+                // Convert first 4 bytes to int and ensure it's in the desired range
+                uint randomValue = BitConverter.ToUInt32(output, 0);
+                return (int)(randomValue % (uint)maxValue);
+            }
+        }
+
         public static string Code(string s, bool bToCode, int nKey)
         {
             if (s == null)
@@ -1996,7 +2042,7 @@ namespace JoinFS
             int nInc = 0;
             int k;
             const int nPasses = 11;
-            Random rnd = new Random(nKey);
+            SeededCryptoRandom rnd = new SeededCryptoRandom(nKey);
             for (int j = 0; j < nPasses; ++j)
             {
                 k = (bToCode) ? j : nPasses - j - 1;
