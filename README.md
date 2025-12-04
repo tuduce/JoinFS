@@ -7,10 +7,19 @@ JoinFS is an advanced multiplayer client for flight simulators including Microso
 * Run the installer
 * Run the JoinFS utility
 
+## Building from source
+To build JoinFS from source, please follow these steps:
+* Clone this repository
+* Open a command/terminal window (cmd.exe in Windows)
+* Change directory into the repository folder
+* Build JoinFS with the command
+  ```
+  dotnet build .\JoinFS\JoinFS.cproj -c CONFIGURATION
+  ```
+  where CONFIGURATION is one of: FS2024, FS2020, FSX, P3D, XPLANE, CONSOLE
+
 ## Changes
-* Microsoft Flight Simulator 2024 integration
-* Flexible configuration of the MSFS2020 add-ons
-* For more details please see the release notes
+The [Releases](https://github.com/tuduce/JoinFS/releases) page will offer a description of the changes each release brings.
 
 ## Original README
 The original README can be found [here](ORIGINAL_README.md).
