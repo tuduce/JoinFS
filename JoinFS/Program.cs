@@ -12,6 +12,7 @@ using System.Net;
 using System.Configuration;
 using System.Globalization;
 using System.Reflection;
+using System.Security.Cryptography;
 using JoinFS.Properties;
 
 namespace JoinFS
@@ -1935,6 +1936,39 @@ namespace JoinFS
 
     static class Program
     {
+        /// <summary>
+        /// Cryptographically secure random number generator seeded with a key
+        /// </summary>
+        private class SeededCryptoRandom
+        {
+            private readonly byte[] seed;
+            private int counter;
+
+            public SeededCryptoRandom(int key)
+            {
+                seed = BitConverter.GetBytes(key);
+                counter = 0;
+            }
+
+            /// <summary>
+            /// Generate a deterministic but cryptographically derived random number in range [0, maxValue)
+            /// </summary>
+            public int Next(int maxValue)
+            {
+                if (maxValue <= 0)
+                    throw new ArgumentOutOfRangeException(nameof(maxValue));
+
+                // Use HMACSHA256 to derive random value from seed and counter
+                using (var hmac = new HMACSHA256(seed))
+                {
+                    byte[] counterBytes = BitConverter.GetBytes(counter++);
+                    byte[] hash = hmac.ComputeHash(counterBytes);
+                    uint randomValue = BitConverter.ToUInt32(hash, 0);
+                    return (int)(randomValue % (uint)maxValue);
+                }
+            }
+        }
+
         public static string Code(string s, bool bToCode, int nKey)
         {
             if (s == null)
@@ -1996,7 +2030,7 @@ namespace JoinFS
             int nInc = 0;
             int k;
             const int nPasses = 11;
-            Random rnd = new Random(nKey);
+            SeededCryptoRandom rnd = new SeededCryptoRandom(nKey);
             for (int j = 0; j < nPasses; ++j)
             {
                 k = (bToCode) ? j : nPasses - j - 1;
