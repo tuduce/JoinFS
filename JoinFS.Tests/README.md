@@ -49,6 +49,68 @@ The `Program.Code(...)` method is a bidirectional cipher that implements encodin
 9. **Key Value Tests**
    - Tests with various key values including edge cases (0, negative, max/min int)
 
+### EnrichModelService Class
+
+The `EnrichModelService` class handles enrichment of aircraft model data through API calls and local caching.
+
+#### Test Categories
+
+1. **Constructor Tests**
+   - Validates initialization with valid and invalid file paths
+   - Tests loading of existing data from JSONL files
+   - Handles malformed JSON lines gracefully
+   - Skips entries with null or empty titles
+
+2. **QueryAndStoreModelDetailsAsync Tests**
+   - Verifies API is not called for empty lists
+   - Skips already loaded models to avoid redundant API calls
+   - Correctly queries API for new models
+   - Batches large requests (20 models per batch)
+   - Saves enriched data to JSONL file
+   - Handles duplicate titles correctly
+
+3. **EnrichModelsWithDetailsAsync Tests**
+   - Enriches multiple models in a single operation
+   - Handles null models gracefully
+   - Handles empty or whitespace titles
+   - Uses distinct titles to minimize API calls
+
+4. **EnrichModel Tests**
+   - Synchronous enrichment of single models
+   - Null-safety for null models and empty titles
+   - Uses cached data when available
+
+### EmbeddingService Class (X64 only)
+
+The `EmbeddingService` class provides BERT-based text embeddings for semantic similarity calculations. These tests are only compiled and run on x64 platforms.
+
+#### Test Categories
+
+1. **Normalize Tests**
+   - Normalizes vectors to unit length
+   - Handles unit vectors correctly
+   - Gracefully handles zero vectors
+   - Verifies normalized vectors have magnitude 1.0
+
+2. **MeanPooling Tests**
+   - Calculates correct mean pooling over token embeddings
+   - Respects attention mask to skip padding tokens
+   - Handles cases with all valid tokens
+   - Handles single valid token cases
+
+3. **CosineSimilarity Tests**
+   - Returns 1.0 for identical vectors
+   - Returns 0.0 for orthogonal vectors
+   - Returns -1.0 for opposite vectors
+   - Handles scaled vectors correctly
+   - Validates that similarity is always in range [-1, 1]
+   - Throws exception for different length vectors
+
+4. **FindBestMatchingModel Tests**
+   - Returns null when no match exceeds threshold
+   - Correctly identifies the best matching model
+   - Skips models without embeddings
+
 ## Running Tests
 
 To run all tests:
@@ -69,14 +131,26 @@ dotnet test --collect:"XPlat Code Coverage"
 
 ## Test Results
 
-All 34 tests pass successfully, providing comprehensive coverage of the `Program.Code(...)` method's functionality including:
+All 53 tests pass successfully, providing comprehensive coverage of:
+- **ProgramCode**: 34 tests covering encoding/decoding functionality
+- **EnrichModelService**: 16 tests covering model enrichment with API integration
+- **EmbeddingService**: 3 test classes covering mathematical operations (x64 only)
+
+The test suite covers:
 - Normal operation
 - Edge cases
 - Error conditions
-- Round-trip encoding/decoding
-- Key sensitivity
-- Character range handling
+- Null safety
+- Round-trip operations
+- Mock HTTP client interactions
+- File I/O operations
 
 ## Implementation Note
 
-The test project includes a copy of the `Program.Code` method in `ProgramCode.cs` to avoid circular dependencies with the main Windows Forms application. This ensures the tests can run independently on any platform.
+The test project includes standalone copies of the classes being tested to avoid circular dependencies with the main Windows Forms application. This ensures the tests can run independently on any platform (including non-Windows CI/CD environments).
+
+## Platform Notes
+
+- Most tests run on all platforms (x86 and x64)
+- EmbeddingService tests only run on x64 due to ML.OnnxRuntime platform requirements
+- The test project uses conditional compilation (`#if X64`) to handle platform-specific code
