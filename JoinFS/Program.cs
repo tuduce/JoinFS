@@ -2136,7 +2136,7 @@ namespace JoinFS
                 // launch gui
                 Application.EnableVisualStyles();
 #if NET6_0_OR_GREATER
-                Application.SetHighDpiMode(HighDpiMode.SystemAware);
+                // Application.SetHighDpiMode(HighDpiMode.SystemAware);
 #endif
                 Application.SetCompatibleTextRenderingDefault(false);
                 main.OpenForms();
