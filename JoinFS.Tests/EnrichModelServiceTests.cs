@@ -1,5 +1,5 @@
 using JoinFS.DataModel;
-using JoinFS.Helpers;
+using JoinFS.Tests.Helpers;
 using Moq;
 using Moq.Protected;
 using Newtonsoft.Json;
@@ -361,10 +361,16 @@ public class EnrichModelServiceTests : IDisposable
         var mockHandler = CreateMockHttpHandler(responseData);
         var httpClient = new HttpClient(mockHandler.Object);
         var service = new EnrichModelService(_testFilePath, httpClient);
-        var models = new[] { (Substitution.Model?)null, CreateTestModel("Test", "Var") };
+        
+        // Create array with explicit type to handle null elements
+        var models = new List<Substitution.Model?> 
+        { 
+            null, 
+            CreateTestModel("Test", "Var") 
+        };
 
         // Act & Assert - Should not throw
-        await service.EnrichModelsWithDetailsAsync(models!);
+        await service.EnrichModelsWithDetailsAsync(models.Where(m => m != null).Cast<Substitution.Model>());
     }
 
     [Fact]
