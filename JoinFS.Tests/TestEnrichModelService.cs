@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 using System.Text;
 using static JoinFS.Tests.Substitution;
 
-namespace JoinFS.Helpers;
+namespace JoinFS.Tests.Helpers;
 
 /// <summary>
 /// Copy of EnrichModelService for testing purposes.
