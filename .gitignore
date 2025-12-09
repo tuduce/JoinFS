@@ -10,3 +10,5 @@
 /.vs
 /JoinFS/Installer/bin
 /JoinFS/Installer/obj
+/JoinFS.Tests/bin
+/JoinFS.Tests/obj
