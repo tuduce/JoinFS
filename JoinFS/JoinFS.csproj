@@ -1,12 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>JoinFS</RootNamespace>
     <AssemblyName>JoinFS-$(Configuration)</AssemblyName>
     <Configurations>FS2024-Debug;FS2024;FS2020-Debug;FS2020;FSX-Debug;FSX;P3D-Debug;P3D;XPLANE-Debug;XPLANE;CONSOLE-Debug;CONSOLE</Configurations>
-    <Platforms>x64;x86</Platforms>
+    <Platforms>x64;x86;ARM64</Platforms>
     <AssemblyVersion>25.8</AssemblyVersion>
     <FileVersion>25.8</FileVersion>
     <ApplicationIcon>Resources\App.ico</ApplicationIcon>
@@ -16,14 +13,20 @@
 
   <!-- FS2024-Debug custom configuration -->
   <PropertyGroup Condition=" '$(Configuration)' == 'FS2024-Debug' ">
-    <PlatformTarget>x64</PlatformTarget>
+	  <OutputType>WinExe</OutputType>
+	  <TargetFramework>net8.0-windows</TargetFramework>
+	  <UseWindowsForms>true</UseWindowsForms>
+	<PlatformTarget>x64</PlatformTarget>
     <DefineConstants>DEBUG;TRACE;FS2024;X64;SIMCONNECT</DefineConstants>
     <OutputPath>bin\FS2024-Debug\</OutputPath>
   </PropertyGroup>
 
   <!-- FS2024 Release configuration -->
   <PropertyGroup Condition=" '$(Configuration)' == 'FS2024' ">
-    <PlatformTarget>x64</PlatformTarget>
+	  <OutputType>WinExe</OutputType>
+	  <TargetFramework>net8.0-windows</TargetFramework>
+	  <UseWindowsForms>true</UseWindowsForms>
+	  <PlatformTarget>x64</PlatformTarget>
     <DefineConstants>TRACE;FS2024;X64;SIMCONNECT</DefineConstants>
     <Optimize>true</Optimize>
     <OutputPath>bin\FS2024\</OutputPath>
@@ -31,14 +34,19 @@
 
   <!-- FS2020-Debug custom configuration -->
   <PropertyGroup Condition=" '$(Configuration)' == 'FS2020-Debug' ">
-    <PlatformTarget>x64</PlatformTarget>
+	  <OutputType>WinExe</OutputType>
+	  <TargetFramework>net8.0-windows</TargetFramework>
+	  <UseWindowsForms>true</UseWindowsForms><PlatformTarget>x64</PlatformTarget>
     <DefineConstants>DEBUG;TRACE;FS2020;X64;SIMCONNECT</DefineConstants>
     <OutputPath>bin\FS2020-Debug\</OutputPath>
   </PropertyGroup>
 
   <!-- FS2020 Release configuration -->
   <PropertyGroup Condition=" '$(Configuration)' == 'FS2020' ">
-    <PlatformTarget>x64</PlatformTarget>
+	  <OutputType>WinExe</OutputType>
+	  <TargetFramework>net8.0-windows</TargetFramework>
+	  <UseWindowsForms>true</UseWindowsForms>
+	  <PlatformTarget>x64</PlatformTarget>
     <DefineConstants>TRACE;FS2020;X64;SIMCONNECT</DefineConstants>
     <Optimize>true</Optimize>
     <OutputPath>bin\FS2020\</OutputPath>
@@ -46,14 +54,20 @@
 
   <!-- FSX-Debug custom configuration -->
   <PropertyGroup Condition=" '$(Configuration)' == 'FSX-Debug' ">
-    <PlatformTarget>x86</PlatformTarget>
+	  <OutputType>WinExe</OutputType>
+	  <TargetFramework>net8.0-windows</TargetFramework>
+	  <UseWindowsForms>true</UseWindowsForms>
+	  <PlatformTarget>x86</PlatformTarget>
     <DefineConstants>DEBUG;TRACE;FSX;SIMCONNECT</DefineConstants>
     <OutputPath>bin\FSX-Debug\</OutputPath>
   </PropertyGroup>
 
   <!-- FSX Release configuration -->
   <PropertyGroup Condition=" '$(Configuration)' == 'FSX' ">
-    <PlatformTarget>x86</PlatformTarget>
+	  <OutputType>WinExe</OutputType>
+	  <TargetFramework>net8.0-windows</TargetFramework>
+	  <UseWindowsForms>true</UseWindowsForms>
+	  <PlatformTarget>x86</PlatformTarget>
     <DefineConstants>TRACE;FSX;SIMCONNECT</DefineConstants>
     <Optimize>true</Optimize>
     <OutputPath>bin\FSX\</OutputPath>
@@ -61,6 +75,9 @@
 
 	<!-- P3D-Debug custom configuration -->
 	<PropertyGroup Condition=" '$(Configuration)' == 'P3D-Debug' ">
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<UseWindowsForms>true</UseWindowsForms>
 		<PlatformTarget>x86</PlatformTarget>
 		<DefineConstants>DEBUG;TRACE;P3D;SIMCONNECT</DefineConstants>
 		<OutputPath>bin\P3D-Debug\</OutputPath>
@@ -68,6 +85,9 @@
 
 	<!-- P3D Release configuration -->
 	<PropertyGroup Condition=" '$(Configuration)' == 'P3D' ">
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<UseWindowsForms>true</UseWindowsForms>
 		<PlatformTarget>x86</PlatformTarget>
 		<DefineConstants>TRACE;P3D;SIMCONNECT</DefineConstants>
 		<Optimize>true</Optimize>
@@ -76,6 +96,9 @@
 
 	<!-- XPLANE-Debug custom configuration -->
 	<PropertyGroup Condition=" '$(Configuration)' == 'XPLANE-Debug' ">
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<UseWindowsForms>true</UseWindowsForms>
 		<PlatformTarget>x64</PlatformTarget>
 		<DefineConstants>DEBUG;TRACE;XPLANE;X64</DefineConstants>
 		<OutputPath>bin\XPLANE-Debug\</OutputPath>
@@ -83,6 +106,9 @@
 
 	<!-- XPLANE Release configuration -->
 	<PropertyGroup Condition=" '$(Configuration)' == 'XPLANE' ">
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<UseWindowsForms>true</UseWindowsForms>
 		<PlatformTarget>x64</PlatformTarget>
 		<DefineConstants>TRACE;XPLANE;X64</DefineConstants>
 		<Optimize>true</Optimize>
@@ -91,14 +117,22 @@
 
 	<!-- CONSOLE-Debug custom configuration -->
 	<PropertyGroup Condition=" '$(Configuration)' == 'CONSOLE-Debug' ">
-		<PlatformTarget>x64</PlatformTarget>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<UseWindowsForms>false</UseWindowsForms>
+		<PlatformTarget>ARM64</PlatformTarget>
 		<DefineConstants>DEBUG;TRACE;CONSOLE</DefineConstants>
 		<OutputPath>bin\CONSOLE-Debug\</OutputPath>
 	</PropertyGroup>
 
 	<!-- CONSOLE Release configuration -->
 	<PropertyGroup Condition=" '$(Configuration)' == 'CONSOLE' ">
-		<PlatformTarget>x64</PlatformTarget>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<UseWindowsForms>false</UseWindowsForms>
+		<PlatformTarget>ARM64</PlatformTarget>
+		<TargetFramework>net8.0</TargetFramework>
+		<UseWindowsForms>false</UseWindowsForms>
 		<DefineConstants>TRACE;CONSOLE</DefineConstants>
 		<Optimize>true</Optimize>
 		<OutputPath>bin\CONSOLE\</OutputPath>
@@ -160,9 +194,12 @@
 		</None>
 	</ItemGroup>
 
-	<!-- XPLANE references -->
+	<!-- CONSOLE references -->
 	<ItemGroup Condition=" '$(Configuration)' == 'CONSOLE-Debug' OR '$(Configuration)' == 'CONSOLE' ">
+		<PackageReference Include="System.Resources.Extensions" Version="8.0.0" />
+		<PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
 		<Compile Remove="Forms\**" />
+		<Compile Remove="Properties\Resources.*" />
 		<EmbeddedResource Remove="Forms\**" />
 		<None Remove="Forms\**" />
 		<None Include="libs\CONSOLE\Old-Readme.txt">
@@ -187,6 +224,10 @@
 
   <!-- Configure .resx files with custom tool -->
   <ItemGroup>
+    <EmbeddedResource Update="Properties\Airports.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Airports.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
     <EmbeddedResource Update="Properties\Resources-XPLANE.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources-XPLANE.Designer.cs</LastGenOutput>
@@ -219,6 +260,11 @@
     <None Remove="Installer\**" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Update="Properties\Airports.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Airports.resx</DependentUpon>
+    </Compile>
     <Compile Update="Properties\Resources-XPLANE.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>

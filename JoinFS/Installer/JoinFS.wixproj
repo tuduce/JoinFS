@@ -41,9 +41,16 @@
     <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
   </ItemGroup>
   
+  <!-- Set HarvestPath based on Configuration -->
+  <PropertyGroup Condition=" '$(Configuration)' == 'CONSOLE' ">
+    <HarvestPath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\bin\$(Configuration)\net8.0'))</HarvestPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' != 'CONSOLE' ">
+    <HarvestPath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\bin\$(Configuration)\net8.0-windows'))</HarvestPath>
+  </PropertyGroup>
+
   <Target Name="HarvestFiles" BeforeTargets="Compile" AfterTargets="ResolveProjectReferences">
     <PropertyGroup>
-      <HarvestPath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\bin\$(Configuration)\net8.0-windows'))</HarvestPath>
       <HarvestOutputFile>$(IntermediateOutputPath)HarvestedFiles.wxs</HarvestOutputFile>
       <HarvestScriptPath>$(MSBuildProjectDirectory)\GenerateHarvestFile.ps1</HarvestScriptPath>
     </PropertyGroup>
@@ -64,7 +71,7 @@
   <!-- Create ZIP archive for CONSOLE configuration after MSI is built, then clean up MSI files -->
   <Target Name="CreateZipArchiveForConsole" AfterTargets="Build" Condition=" '$(Configuration)' == 'CONSOLE' ">
     <PropertyGroup>
-      <SourcePath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\bin\$(Configuration)\net8.0-windows'))</SourcePath>
+      <SourcePath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\bin\$(Configuration)\net8.0'))</SourcePath>
       <ZipFileName>JoinFS-CONSOLE.zip</ZipFileName>
       <ZipOutputPath>$(MSBuildProjectDirectory)\$(OutputPath)$(ZipFileName)</ZipOutputPath>
     </PropertyGroup>

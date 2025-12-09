@@ -1330,7 +1330,7 @@ namespace JoinFS
             try
             {
                 // get resource
-                using (Stream data = new MemoryStream(Properties.Resources.Airports))
+                using (Stream data = new MemoryStream(Properties.Airports.AirportsData))
                 {
                     // open reader
                     BinaryReader reader = new BinaryReader(data);
