@@ -45,14 +45,6 @@ on:
         description: 'Version number for the release'
         required: true
         type: string
-#  push:
-#    tags:
-#      - 'v*'
-
-env:
-  Solution_Name: JoinFS.sln
-  Test_Project: JoinFS.Tests\JoinFS.Tests.csproj
-  App_Project: JoinFS\JoinFS.csproj
 
 jobs:
 
@@ -63,6 +55,11 @@ jobs:
         configuration: [FS2024, FS2020, FSX, P3D, XPLANE, CONSOLE]
 
     runs-on: windows-latest
+
+    env:
+      Solution_Name: JoinFS.sln
+      Test_Project: JoinFS.Tests\JoinFS.Tests.csproj
+      App_Project: JoinFS\JoinFS.csproj
 
     steps:
     - name: Checkout
@@ -86,15 +83,15 @@ jobs:
 
     # Execute all unit tests in the solution
     - name: Execute unit tests
-      run: dotnet test ${{ Test_Project }}
+      run: dotnet test ${{ env:Test_Project }}
 
     # Restore
     - name: Restore NuGet packages
-      run: dotnet restore ${{ Solution_Name }} /p:Configuration=${{ matrix.configuration }}
+      run: dotnet restore ${{ env:Solution_Name }} /p:Configuration=${{ matrix.configuration }}
 
     # Build WinForms application
     - name: Build App Variants
-      run: dotnet build ${{ App_Project }} -c ${{ matrix.configuration }} --no-restore
+      run: dotnet build ${{ env:App_Project }} -c ${{ matrix.configuration }} --no-restore
 
     # Build the installers
     - name: Build Installers
