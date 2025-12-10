@@ -48,4 +48,11 @@ jobs:
         run: |
           cd JoinFS\Installer\
           dotnet build JoinFS.wixproj -c ${{ matrix.configuration }}
-          
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: JoinFS-${{ matrix.configuration }}
+          path: JoinFS\Installer\bin\${{ matrix.configuration }}\*
+          retention-days: 2
+
