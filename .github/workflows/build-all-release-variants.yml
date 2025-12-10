@@ -83,9 +83,7 @@ jobs:
 
     # Restore
     - name: Restore NuGet packages
-      run: dotnet restore ${{Solution_Name}} /p:Configuration=$env:Configuration
-      env:
-        Configuration: ${{ matrix.configuration }}
+      run: dotnet restore ${{Solution_Name}} /p:Configuration=${{matrix.configuration}}
 
     # Build WinForms application
     - name: Build App Variants
