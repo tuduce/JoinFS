@@ -14,7 +14,7 @@ jobs:
     runs-on: windows-latests
 
     steps:
-      - run: echo ${{ matrix:configuration }}
+      - run: echo ${{ matrix.configuration }}
 
 
 
