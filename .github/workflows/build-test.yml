@@ -47,7 +47,7 @@ jobs:
         run: dotnet restore ${env:Solution_Name} /p:Configuration=${{ matrix.configuration }}
 
       - name: Build App Variants
-        run: dotnet build ${env:App_Project} -c ${{ matrix.configuration }} --no-restore
+        run: dotnet build ${env:App_Project} -c ${{ matrix.configuration }}
 
       - name: Build Installers
         run: |
