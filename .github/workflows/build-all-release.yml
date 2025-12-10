@@ -79,15 +79,15 @@ jobs:
 
     # Execute all unit tests in the solution
     - name: Execute unit tests
-      run: dotnet test ${{Test_Project}}
+      run: dotnet test ${{ Test_Project }}
 
     # Restore
     - name: Restore NuGet packages
-      run: dotnet restore ${{Solution_Name}} /p:Configuration=${{matrix.configuration}}
+      run: dotnet restore ${{ Solution_Name }} /p:Configuration=${{ matrix.configuration }}
 
     # Build WinForms application
     - name: Build App Variants
-      run: dotnet build ${{App_Project}} -c ${{ matrix.configuration }} --no-restore
+      run: dotnet build ${{ App_Project }} -c ${{ matrix.configuration }} --no-restore
 
     # Build the installers
     - name: Build Installers
