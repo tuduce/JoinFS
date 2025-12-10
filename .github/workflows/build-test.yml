@@ -11,7 +11,7 @@ jobs:
       matrix:
         configuration: [FS2024, FS2020]
 
-    runs-on: windows-latest
+    runs-on: [self-hosted, windows-latest]
 
     env:
       Solution_Name: JoinFS.sln
@@ -36,13 +36,13 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Execute unit tests
-        run: echo dotnet test ${env:Test_Project}
+        run: dotnet test ${env:Test_Project}
 
       - name: Restore NuGet packages
-        run: echo dotnet restore ${env:Solution_Name} /p:Configuration=${{ matrix.configuration }}
+        run: dotnet restore ${env:Solution_Name} /p:Configuration=${{ matrix.configuration }}
 
       - name: Build App Variants
-        run: echo dotnet build ${env:App_Project} -c ${{ matrix.configuration }} --no-restore
+        run: dotnet build ${env:App_Project} -c ${{ matrix.configuration }} --no-restore
 
 
 
