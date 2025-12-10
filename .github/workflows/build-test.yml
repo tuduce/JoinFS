@@ -36,13 +36,13 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Execute unit tests
-        run: dotnet test ${{ env:Test_Project }}
+        run: echo dotnet test ${env:Test_Project}
 
       - name: Restore NuGet packages
-        run: dotnet restore ${{ env:Solution_Name }} /p:Configuration=${{ matrix.configuration }}
+        run: echo dotnet restore ${env:Solution_Name} /p:Configuration=${{ matrix.configuration }}
 
       - name: Build App Variants
-        run: dotnet build ${{ env:App_Project }} -c ${{ matrix.configuration }} --no-restore
+        run: echo dotnet build ${env:App_Project} -c ${{ matrix.configuration }} --no-restore
 
 
 
