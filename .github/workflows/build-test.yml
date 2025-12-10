@@ -20,16 +20,17 @@ jobs:
       App_Project: JoinFS\JoinFS.csproj    # Replace with the Wap project directory relative to the solution, i.e. MyWpfApp.Package.
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+    
+    #- name: Checkout
+    #  uses: actions/checkout@v4
+    #  with:
+    #    fetch-depth: 0
 
     # Install the .NET Core workload
-    - name: Install .NET Core
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.0.x
+    #- name: Install .NET Core
+    #  uses: actions/setup-dotnet@v4
+    #  with:
+    #    dotnet-version: 8.0.x
 
     # Install WiX Toolset 6
     - name: Install WiX Toolset
@@ -78,9 +79,9 @@ jobs:
     #   run: Remove-Item -path $env:Wap_Project_Directory\GitHubActionsWorkflow.pfx
 
     # Upload the MSIX package: https://github.com/marketplace/actions/upload-a-build-artifact
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: MSI/ZIP Package
-        path: JoinFS\JoinFS\Installer\bin\${{ matrix.configuration }}\*
-        retention-days: 2
+    #- name: Upload build artifacts
+    #  uses: actions/upload-artifact@v4
+    #  with:
+    #    name: MSI/ZIP Package
+    #    path: JoinFS\JoinFS\Installer\bin\${{ matrix.configuration }}\*
+    #    retention-days: 2
