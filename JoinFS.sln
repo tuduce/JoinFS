@@ -26,6 +26,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Utils", "Utils", "{E6679DD8
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS.Tests", "JoinFS.Tests\JoinFS.Tests.csproj", "{6BFEC8A5-2FA0-4E77-AC0F-7B57D91D1882}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Readmes", "Readmes", "{21EC19FD-98C7-4AFB-AC2D-0739E18E2E55}"
+	ProjectSection(SolutionItems) = preProject
+		Readmes\README.md = Readmes\README.md
+		Readmes\Release-25.8.md = Readmes\Release-25.8.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		CONSOLE|ARM64 = CONSOLE|ARM64
