@@ -1,0 +1,86 @@
+name: Build JoinFS test
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  build:
+
+    strategy:
+      matrix:
+        configuration: [FS2024, FS2020, FSX, P3D, XPLANE, CONSOLE]
+
+    runs-on: windows-latest  # For a list of available runner types, refer to
+                             # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on
+
+    env:
+      Solution_Name: JoinFS.sln                                 # Replace with your solution name, i.e. MyWpfApp.sln.
+      Test_Project: JoinFS.Tests\JoinFS.Tests.csproj       # Replace with the path to your test project, i.e. MyWpfApp.Tests\MyWpfApp.Tests.csproj.
+      App_Project: JoinFS\JoinFS.csproj    # Replace with the Wap project directory relative to the solution, i.e. MyWpfApp.Package.
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # Install the .NET Core workload
+    - name: Install .NET Core
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    # Install WiX Toolset 6
+    - name: Install WiX Toolset
+      run: dotnet tool install --global wix --version 6.0.2
+
+    # Add  MSBuild to the PATH: https://github.com/microsoft/setup-msbuild
+    - name: Setup MSBuild.exe
+      uses: microsoft/setup-msbuild@v2
+
+    # Execute all unit tests in the solution
+    - name: Execute unit tests
+      run: dotnet test ${{Test_Project}}
+
+    # Restore
+    - name: Restore NuGet packages
+      run: dotnet restore ${{Solution_Name}} /p:Configuration=${{matrix.configuration}}
+
+    # Build WinForms application
+    - name: Build App Variants
+      run: dotnet build ${{App_Project}} -c ${{ matrix.configuration }} --no-restore
+
+    # Build the installers
+    - name: Build Installers
+      run: |
+        cd JoinFS\Installer\
+        dotnet build JoinFS.wixproj -c ${{ matrix.configuration }}
+
+    # Decode the base 64 encoded pfx and save the Signing_Certificate
+    # - name: Decode the pfx
+    #   run: |
+    #     $pfx_cert_byte = [System.Convert]::FromBase64String("${{ secrets.Base64_Encoded_Pfx }}")
+    #     $certificatePath = Join-Path -Path $env:Wap_Project_Directory -ChildPath GitHubActionsWorkflow.pfx
+    #     [IO.File]::WriteAllBytes("$certificatePath", $pfx_cert_byte)
+
+    # Create the app package by building and packaging the Windows Application Packaging project
+    # - name: Create the app package
+    #   run: msbuild $env:Wap_Project_Path /p:Configuration=$env:Configuration /p:UapAppxPackageBuildMode=$env:Appx_Package_Build_Mode /p:AppxBundle=$env:Appx_Bundle /p:PackageCertificateKeyFile=GitHubActionsWorkflow.pfx /p:PackageCertificatePassword=${{ secrets.Pfx_Key }}
+    #   env:
+    #     Appx_Bundle: Always
+    #     Appx_Bundle_Platforms: x86|x64
+    #     Appx_Package_Build_Mode: StoreUpload
+    #     Configuration: ${{ matrix.configuration }}
+
+    # Remove the pfx
+    # - name: Remove the pfx
+    #   run: Remove-Item -path $env:Wap_Project_Directory\GitHubActionsWorkflow.pfx
+
+    # Upload the MSIX package: https://github.com/marketplace/actions/upload-a-build-artifact
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: MSI/ZIP Package
+        path: JoinFS\JoinFS\Installer\bin\${{ matrix.configuration }}\*
+        retention-days: 2
