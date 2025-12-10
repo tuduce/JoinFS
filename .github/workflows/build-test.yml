@@ -11,7 +11,7 @@ jobs:
       matrix:
         configuration: [FS2024, FS2020]
 
-    runs-on: windows-latest
+    runs-on: self-hosted
 
     env:
       Solution_Name: JoinFS.sln
