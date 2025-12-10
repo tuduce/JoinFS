@@ -9,7 +9,7 @@ jobs:
 
     strategy:
       matrix:
-        configuration: [FS2024]
+        configuration: [FS2024, FS2020]
 
     runs-on: windows-latests
 
