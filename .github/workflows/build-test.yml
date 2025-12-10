@@ -2,6 +2,11 @@ name: Build JoinFS test
 
 on:
   workflow_dispatch:
+    inputs:
+      VERSION:
+        description: 'Version number for the release'
+        required: true
+        type: string
 
 jobs:
 
@@ -9,7 +14,7 @@ jobs:
 
     strategy:
       matrix:
-        configuration: [FS2024, FS2020]
+        configuration: [FS2024, FS2020, FSX, P3D, XPLANE, CONSOLE]
 
     runs-on: self-hosted
 
@@ -56,3 +61,58 @@ jobs:
           path: JoinFS\Installer\bin\${{ matrix.configuration }}\*
           retention-days: 2
 
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Set VERSION variable
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "VERSION=${{ github.event.inputs.VERSION }}" >> $GITHUB_ENV
+        else
+          # Extract version from tag (remove 'v' prefix)
+          echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+        fi
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+    
+    - name: Check for release notes
+      id: check_notes
+      run: |
+        if [ -f "Readmes/Release-${{ env.VERSION }}.md" ]; then
+          echo "notes_exist=true" >> $GITHUB_OUTPUT
+        else
+          echo "notes_exist=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Read release notes
+      id: read_notes
+      if: steps.check_notes.outputs.notes_exist == 'true'
+      run: |
+        echo "RELEASE_NOTES<<EOF" >> $GITHUB_ENV
+        cat Readmes/Release-${{ env.VERSION }}.md >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+    
+    - name: Create release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ env.VERSION }}
+        name: Release v${{ env.VERSION }}
+        body: ${{ steps.check_notes.outputs.notes_exist == 'true' && env.RELEASE_NOTES || format('Release version {0}', env.VERSION) }}
+        draft: false
+        prerelease: false
+        files: |
+          artifacts/**/*.msi
+          artifacts/**/*.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
