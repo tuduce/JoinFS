@@ -1,0 +1,151 @@
+c|737 Max|Airliner
+e|747-8i|Airliner
+e|747-8F|Airliner
+e|A10C Thunderbolt II|Fighter
+e|A310|Airliner
+c|A320neo|Airliner
+e|A321|Airliner
+c|A330-200|Airliner
+c|A330-300|Airliner
+e|A330-BelugaXL|Airliner
+e|A400M Cargo|Bomber
+c|AT802|SingleProp
+c|Aviat Pitts|SingleProp
+c|Beechcraft Bonanza|SingleProp
+e|Beechcraft King Air|TwinProp
+e|Bell 407|Rotorcraft
+c|C172SP G1000|SingleProp
+c|C208B|SingleProp
+e|C400 Corvalis|SingleProp
+e|Cabri G2 Passengers|Rotorcraft
+c|Cessna C152|SingleProp
+e|Cessna Citation CJ4|Fighter
+e|CGS Hawk Arrow II|SingleProp
+e|CL415 Firefighting|Bomber
+e|Curtiss JN-4 Jenny|SingleProp
+c|DA62|TwinProp
+e|DG LS8|Glider
+e|DG-1001-E Neo|Glider
+c|DHC-6-300 Twin Otter|TwinProp
+e|Diamond DA40NG|SingleProp
+c|Draco X|SingleProp
+c|Edge540|SingleProp
+e|ES30 Passengers|FourProp
+c|Extra 330|SingleProp
+e|F4F|Fighter
+e|FA18E SuperHornet|Fighter
+e|Flight Design CT|SingleProp
+e|FlyDoo Passengers|SingleProp
+e|Grumman Goose G21A|TwinProp
+c|H125|Rotorcraft
+e|Hercules H-4|FourProp
+e|HotAirBalloon Passengers|Glider
+e|Icon A5|SingleProp
+c|JMB Aviation VL3|SingleProp
+e|L-39 Albatros|Fighter
+e|MXS-R|SingleProp
+e|North American T-6 Texan Reno|Fighter
+c|NXCub|SingleProp
+c|Optica:|SingleProp
+e|P51 Mustang|SingleProp
+c|PC-12|SingleProp
+c|Pilatus PC-6|SingleProp
+e|Powrachute Sky Rascal|SingleProp
+c|R66 Turbine|Rotorcraft
+e|Robin CAP10|SingleProp
+e|Robin DR400|SingleProp
+e|S12-G: Passengers|Glider
+c|S-64F Skycrane|Rotorcraft
+e|Skyship600 Passenger|Rotorcraft
+e|Wright Flyer|TwinProp
+c|XCub|SingleProp
+c|Zlin Aviation Savage Cub|SingleProp
+e|Taurus M: Passengers|Glider
+e|Cirrus SR22T|SingleProp
+c|Zlin Shock Ultra|SingleProp
+c|Savage Norden:|SingleProp
+e|Virus SW Pipistrel|SingleProp
+c|PC-24|Airliner
+c|King Air C90|TwinProp
+c|H225|Rotorcraft
+c|CH-47D Chinook|Rotorcraft
+e|C-17A Globemaster III|Bomber
+e|787-10|Airliner
+e|Boeing 747 Supertanker|Bomber
+e|G-111 Albatross Passengers|TwinProp
+e|HU-16 Albatross Passengers|TwinProp
+c|Diamond DV20|SingleProp
+c|Diamond DA40TDI|SingleProp
+c|C408 SkyCourier|TwinProp
+c|404 Titan|TwinProp
+e|C188 Agtruck AerialApp|SingleProp
+c|C172SP Classic|SingleProp
+c|Cessna C152 Aerobat|SingleProp
+e|Beech Baron G58|TwinProp
+c|Antonov An-2|SingleProp
+e|EMB-110P|Airliner
+e|EMB-110P1|Airliner
+e|EMB-110P1F|TwinProp
+e|Nardi FN-333 Riviera|SingleProp
+e|Caproni-Vizzola C-22J|Fighter
+c|DHC-2 Beaver|SingleProp
+c|Douglas DC-3|Airliner
+e|Jetson One|Rotorcraft
+e|Joby|Rotorcraft
+c|Magni M24 Plus|Rotorcraft
+e|Archer Midnight|Rotorcraft
+c|Spirit of St.|SingleProp
+c|TBM 930|SingleProp
+c|VoloCity|Rotorcraft
+c|Volocity|Rotorcraft
+c|Vision Jet|Airliner
+e|Cessna Citation Longitude Passengers|Fighter
+c|Boeing 747-400 LCF|Airliner
+c|Saab 340|Airliner
+e|Dornier Seastar|TwinProp
+e|Westland Wasp|Rotorcraft
+e|Westland Scout|Rotorcraft
+c|Short SC.7 Skyvan|TwinProp
+e|Savoia-Marchetti S.55|TwinProp
+e|Savoia-Marchetti S.55X|TwinProp
+e|SAAB B17|Fighter
+e|Mitsubishi MU2-2B|TwinProp
+e|Latecoere 631|Bomber
+c|Junkers Ju 52|FourProp
+c|Junkers Ju52/3m|FourProp
+c|Junkers F13|SingleProp
+e|Gee Bee Z|SingleProp
+c|Gee Bee R2|SingleProp
+c|Ford-Trimotor|FourProp
+c|Fokker FVII|SingleProp
+e|Focke Wulf FW-200 Condor|FourProp
+e|Douglas C-47|TwinProp
+c|Dornier DoJ|TwinProp
+e|Dornier Do-31|Bomber
+e|Dornier Do X|FourProp
+e|DHC-4 Caribou|TwinProp
+e|Curtiss C46 Commando|TwinProp
+e|CG-4A Waco|Glider
+e|Cessna T207A Stationair 8 II|SingleProp
+e|Cessna C195 Businessliner|SingleProp
+e|Boeing Stratoliner|FourProp
+e|Boeing 707-320C|Airliner
+e|Bell 47J Ranger|Rotorcraft
+e|Bell 47J Ranger Floats|Rotorcraft
+c|Beechcraft V35B|SingleProp
+e|Beechcraft D18S|TwinProp
+e|Beechcraft D17S Staggerwing|SingleProp
+e|ATR 42-600|Airliner
+e|ATR 42-600S|Airliner
+e|ATR 72-600|Airliner
+e|ATR 72-600F|Airliner
+e|Antonov AN225|Airliner
+e|Aero Ae45|TwinProp
+e|Aero Ae145|TwinProp
+c|Edge 540|SingleProp
+c|Jetson One|Rotorcraft
+c|Boeing C-17|Bomber
+c|Seastar|SingleProp
+c|Joby|Rotorcraft
+c|340 |Airliner
+c|Midnight|Rotorcraft
