@@ -1102,7 +1102,7 @@ namespace JoinFS
                         {
                             enrichModelService.EnrichModelsWithDetailsAsync(models).GetAwaiter().GetResult();
 #if X64
-                            embeddingService.GenerateEmbeddingsFromModels(models);
+                            _ = embeddingService.GenerateEmbeddingsFromModelsAsync(models);
 #endif
                         }
                         main.MonitorEvent("Scan found " + models.Count + ((models.Count == 1) ? " model" : " models") + " in the community folder(s)");

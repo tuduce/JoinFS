@@ -1,10 +1,11 @@
 #if X64
+using FastBertTokenizer;
+using Microsoft.ML.OnnxRuntime;
+using Microsoft.ML.OnnxRuntime.Tensors;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.ML.OnnxRuntime;
-using Microsoft.ML.OnnxRuntime.Tensors;
-using FastBertTokenizer;
+using System.Threading.Tasks;
 using static JoinFS.Substitution;
 
 public class EmbeddingService : IDisposable
@@ -61,6 +62,11 @@ public class EmbeddingService : IDisposable
             // 6. Normalize
             return Normalize(embedding);
         }
+    }
+
+    public async Task GenerateEmbeddingsFromModelsAsync(IEnumerable<Model> models)
+    {
+        await Task.Run(() => GenerateEmbeddingsFromModels(models));
     }
 
     public void GenerateEmbeddingsFromModels(IEnumerable<Model> models)
