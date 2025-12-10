@@ -24,16 +24,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install .NET Core
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
+#      - name: Install .NET Core
+#        uses: actions/setup-dotnet@v4
+#        with:
+#          dotnet-version: 8.0.x
           
-      - name: Install WiX Toolset
-        run: dotnet tool install --global wix --version 6.0.2
+#      - name: Install WiX Toolset
+#        run: dotnet tool install --global wix --version 6.0.2
       
-      - name: Setup MSBuild.exe
-        uses: microsoft/setup-msbuild@v2
+#      - name: Setup MSBuild.exe
+#        uses: microsoft/setup-msbuild@v2
 
       - name: Execute unit tests
         run: dotnet test ${env:Test_Project}
