@@ -64,7 +64,6 @@ jobs:
       Solution_Name: JoinFS.sln
       Test_Project: JoinFS.Tests\JoinFS.Tests.csproj
       App_Project: JoinFS\JoinFS.csproj
-      VERSION: ${{ github.event.inputs.VERSION || github.ref_name }}
 
     steps:
     - name: Checkout
@@ -142,7 +141,6 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Set VERSION variable
-      id: set_version
       run: |
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           echo "VERSION=${{ github.event.inputs.VERSION }}" >> $GITHUB_ENV
@@ -155,9 +153,6 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         path: artifacts
-    
-    - name: Display structure of downloaded files
-      run: ls -R artifacts
     
     - name: Check for release notes
       id: check_notes
@@ -181,7 +176,7 @@ jobs:
       with:
         tag_name: v${{ env.VERSION }}
         name: Release v${{ env.VERSION }}
-        body: ${{ steps.check_notes.outputs.notes_exist == 'true' && env.RELEASE_NOTES || 'Release version ' }}${{ env.VERSION }}
+        body: ${{ steps.check_notes.outputs.notes_exist == 'true' && env.RELEASE_NOTES || format('Release version {0}', env.VERSION) }}
         draft: false
         prerelease: false
         files: |
