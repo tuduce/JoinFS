@@ -13,11 +13,6 @@ jobs:
 
     runs-on: windows-latests
 
-    env:
-      Solution_Name: JoinFS.sln                              
-      Test_Project: JoinFS.Tests\JoinFS.Tests.csproj
-      App_Project: JoinFS\JoinFS.csproj
-
     steps:
       - run: dotnet restore JoinFS.sln /p:Configuration=${{ matrix:configuration }}
 
