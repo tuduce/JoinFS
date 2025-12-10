@@ -31,6 +31,12 @@ jobs:
           
       - name: Install WiX Toolset
         run: dotnet tool install --global wix --version 6.0.2
+        
+      - name: Build Installers
+        run: |
+          cd JoinFS\Installer\
+          dotnet build JoinFS.wixproj -c ${{ matrix.configuration }}
+          
       
       - name: Setup MSBuild.exe
         uses: microsoft/setup-msbuild@v2
