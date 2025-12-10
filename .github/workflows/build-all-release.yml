@@ -40,6 +40,14 @@ name: Build JoinFS in all release variants
 
 on:
   workflow_dispatch:
+    inputs:
+      VERSION:
+        description: 'Version number for the release'
+        required: true
+        type: string
+  push:
+    tags:
+      - 'v*'
 
 jobs:
 
@@ -53,9 +61,10 @@ jobs:
                              # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on
 
     env:
-      Solution_Name: JoinFS.sln                                 # Replace with your solution name, i.e. MyWpfApp.sln.
-      Test_Project: JoinFS.Tests\JoinFS.Tests.csproj       # Replace with the path to your test project, i.e. MyWpfApp.Tests\MyWpfApp.Tests.csproj.
-      App_Project: JoinFS\JoinFS.csproj    # Replace with the Wap project directory relative to the solution, i.e. MyWpfApp.Package.
+      Solution_Name: JoinFS.sln
+      Test_Project: JoinFS.Tests\JoinFS.Tests.csproj
+      App_Project: JoinFS\JoinFS.csproj
+      VERSION: ${{ github.event.inputs.VERSION || github.ref_name }}
 
     steps:
     - name: Checkout
@@ -115,10 +124,68 @@ jobs:
     # - name: Remove the pfx
     #   run: Remove-Item -path $env:Wap_Project_Directory\GitHubActionsWorkflow.pfx
 
-    # Upload the MSIX package: https://github.com/marketplace/actions/upload-a-build-artifact
+    # Upload the MSI/ZIP package
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: MSI/ZIP Package
-        path: JoinFS\JoinFS\Installer\bin\${{ matrix.configuration }}\*
+        name: JoinFS-${{ matrix.configuration }}
+        path: JoinFS\Installer\bin\${{ matrix.configuration }}\*
         retention-days: 2
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Set VERSION variable
+      id: set_version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "VERSION=${{ github.event.inputs.VERSION }}" >> $GITHUB_ENV
+        else
+          # Extract version from tag (remove 'v' prefix)
+          echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+        fi
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+    
+    - name: Display structure of downloaded files
+      run: ls -R artifacts
+    
+    - name: Check for release notes
+      id: check_notes
+      run: |
+        if [ -f "Readmes/Release-${{ env.VERSION }}.md" ]; then
+          echo "notes_exist=true" >> $GITHUB_OUTPUT
+        else
+          echo "notes_exist=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Read release notes
+      id: read_notes
+      if: steps.check_notes.outputs.notes_exist == 'true'
+      run: |
+        echo "RELEASE_NOTES<<EOF" >> $GITHUB_ENV
+        cat Readmes/Release-${{ env.VERSION }}.md >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+    
+    - name: Create release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ env.VERSION }}
+        name: Release v${{ env.VERSION }}
+        body: ${{ steps.check_notes.outputs.notes_exist == 'true' && env.RELEASE_NOTES || 'Release version ' }}${{ env.VERSION }}
+        draft: false
+        prerelease: false
+        files: |
+          artifacts/**/*.msi
+          artifacts/**/*.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
