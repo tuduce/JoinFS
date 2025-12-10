@@ -38,7 +38,7 @@ Get-ChildItem -Path $sourcePath -Recurse -Directory | ForEach-Object {
 }
 
 # Sort directories by depth (shallowest first)
-$allDirs = $allDirs | Sort-Object { ($_ -split '\\').Count }, $_
+$allDirs = $allDirs | Sort-Object { ($_ -split '\\').Count }
 
 # Generate directory structure under INSTALLFOLDER
 $xml += @"

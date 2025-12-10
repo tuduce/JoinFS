@@ -7,6 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinFS", "JoinFS\JoinFS.csp
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Installers", "Installers", "{84FCEB74-B8B7-4AA4-A4C5-38CF13AEDC2D}"
 	ProjectSection(SolutionItems) = preProject
+		JoinFS\Installer\GenerateHarvestFile.ps1 = JoinFS\Installer\GenerateHarvestFile.ps1
 		JoinFS\Installer\Harvest.wxi = JoinFS\Installer\Harvest.wxi
 		JoinFS\Installer\JoinFS.wixproj = JoinFS\Installer\JoinFS.wixproj
 		JoinFS\Installer\Product.wxs = JoinFS\Installer\Product.wxs
