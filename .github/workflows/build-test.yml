@@ -9,7 +9,7 @@ jobs:
 
     strategy:
       matrix:
-        configuration: [FS2024, FS2020]
+        configuration: [FS2024]
 
     runs-on: windows-latests
 
@@ -33,7 +33,22 @@ jobs:
       - name: Install WiX Toolset
         run: dotnet tool install --global wix --version 6.0.2
       
-      - run: echo ${{ matrix.configuration }}
+      # Add  MSBuild to the PATH: https://github.com/microsoft/setup-msbuild
+      - name: Setup MSBuild.exe
+        uses: microsoft/setup-msbuild@v2
+
+      # Execute all unit tests in the solution
+      - name: Execute unit tests
+        run: dotnet test ${{ Test_Project }}
+
+      # Restore
+      - name: Restore NuGet packages
+        run: dotnet restore ${{ Solution_Name }} /p:Configuration=${{ matrix.configuration }}
+
+      # Build WinForms application
+      - name: Build App Variants
+        run: dotnet build ${{ App_Project }} -c ${{ matrix.configuration }} --no-restore
+
 
 
 
