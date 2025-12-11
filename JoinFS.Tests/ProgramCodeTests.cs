@@ -33,8 +33,8 @@ public class ProgramCodeTests
         string input = string.Empty;
         
         // Act
-        string encodedResult = ProgramCode.Code(input, true, TestKey);
-        string decodedResult = ProgramCode.Code(input, false, TestKey);
+        string? encodedResult = ProgramCode.Code(input, true, TestKey);
+        string? decodedResult = ProgramCode.Code(input, false, TestKey);
         
         // Assert
         Assert.Equal(string.Empty, encodedResult);
@@ -57,8 +57,8 @@ public class ProgramCodeTests
     public void Code_RoundTrip_RestoresOriginalString(string original)
     {
         // Act
-        string encoded = ProgramCode.Code(original, true, TestKey);
-        string decoded = ProgramCode.Code(encoded, false, TestKey);
+        string? encoded = ProgramCode.Code(original, true, TestKey);
+        string? decoded = ProgramCode.Code(encoded, false, TestKey);
         
         // Assert
         Assert.NotEqual(original, encoded); // Encoded should be different
@@ -77,8 +77,8 @@ public class ProgramCodeTests
         string original = sb.ToString();
         
         // Act
-        string encoded = ProgramCode.Code(original, true, TestKey);
-        string decoded = ProgramCode.Code(encoded, false, TestKey);
+        string? encoded = ProgramCode.Code(original, true, TestKey);
+        string? decoded = ProgramCode.Code(encoded, false, TestKey);
         
         // Assert
         Assert.NotEqual(original, encoded);
@@ -98,8 +98,8 @@ public class ProgramCodeTests
         int key2 = 5678;
         
         // Act
-        string encoded1 = ProgramCode.Code(input, true, key1);
-        string encoded2 = ProgramCode.Code(input, true, key2);
+        string? encoded1 = ProgramCode.Code(input, true, key1);
+        string? encoded2 = ProgramCode.Code(input, true, key2);
         
         // Assert
         Assert.NotEqual(encoded1, encoded2);
@@ -114,8 +114,8 @@ public class ProgramCodeTests
         int wrongKey = 5678;
         
         // Act
-        string encoded = ProgramCode.Code(input, true, encodeKey);
-        string decodedWithWrongKey = ProgramCode.Code(encoded, false, wrongKey);
+        string? encoded = ProgramCode.Code(input, true, encodeKey);
+        string? decodedWithWrongKey = ProgramCode.Code(encoded, false, wrongKey);
         
         // Assert
         Assert.NotEqual(input, decodedWithWrongKey);
@@ -129,8 +129,8 @@ public class ProgramCodeTests
         int key = 9999;
         
         // Act
-        string encoded = ProgramCode.Code(input, true, key);
-        string decoded = ProgramCode.Code(encoded, false, key);
+        string? encoded = ProgramCode.Code(input, true, key);
+        string? decoded = ProgramCode.Code(encoded, false, key);
         
         // Assert
         Assert.Equal(input, decoded);
@@ -149,8 +149,8 @@ public class ProgramCodeTests
     public void Code_WithBoundaryCharacters_RoundTripsCorrectly(string input)
     {
         // Act
-        string encoded = ProgramCode.Code(input, true, TestKey);
-        string decoded = ProgramCode.Code(encoded, false, TestKey);
+        string? encoded = ProgramCode.Code(input, true, TestKey);
+        string? decoded = ProgramCode.Code(encoded, false, TestKey);
         
         // Assert
         Assert.Equal(input, decoded);
@@ -163,8 +163,8 @@ public class ProgramCodeTests
         string input = "Hello!@#$%^&*()_+-=[]{}|;':\",./<>?`~World";
         
         // Act
-        string encoded = ProgramCode.Code(input, true, TestKey);
-        string decoded = ProgramCode.Code(encoded, false, TestKey);
+        string? encoded = ProgramCode.Code(input, true, TestKey);
+        string? decoded = ProgramCode.Code(encoded, false, TestKey);
         
         // Assert
         Assert.Equal(input, decoded);
@@ -181,7 +181,7 @@ public class ProgramCodeTests
         string input = "\t\n\r";
         
         // Act
-        string encoded = ProgramCode.Code(input, true, TestKey);
+        string? encoded = ProgramCode.Code(input, true, TestKey);
         
         // Assert
         Assert.Equal(string.Empty, encoded);
@@ -195,8 +195,8 @@ public class ProgramCodeTests
         string expectedTrimmed = "Hello World";
         
         // Act
-        string encoded = ProgramCode.Code(input, true, TestKey);
-        string decoded = ProgramCode.Code(encoded, false, TestKey);
+        string? encoded = ProgramCode.Code(input, true, TestKey);
+        string? decoded = ProgramCode.Code(encoded, false, TestKey);
         
         // Assert
         Assert.Equal(expectedTrimmed, decoded);
@@ -213,11 +213,11 @@ public class ProgramCodeTests
         string input = "This should be different";
         
         // Act
-        string encoded = ProgramCode.Code(input, true, TestKey);
+        string? encoded = ProgramCode.Code(input, true, TestKey);
         
         // Assert
         Assert.NotEqual(input, encoded);
-        Assert.NotEmpty(encoded);
+        Assert.NotEmpty(encoded!);
     }
     
     [Fact]
@@ -227,8 +227,8 @@ public class ProgramCodeTests
         string input = "Deterministic Test";
         
         // Act
-        string encoded1 = ProgramCode.Code(input, true, TestKey);
-        string encoded2 = ProgramCode.Code(input, true, TestKey);
+        string? encoded1 = ProgramCode.Code(input, true, TestKey);
+        string? encoded2 = ProgramCode.Code(input, true, TestKey);
         
         // Assert
         Assert.Equal(encoded1, encoded2);
@@ -241,12 +241,12 @@ public class ProgramCodeTests
         string input = "Test";
         
         // Act
-        string encoded = ProgramCode.Code(input, true, TestKey);
+        string? encoded = ProgramCode.Code(input, true, TestKey);
         
         // Assert
         // The encoded string should have the same length as the original
         // (assuming all characters are valid)
-        Assert.Equal(input.Length, encoded.Length);
+        Assert.Equal(input.Length, encoded?.Length);
     }
     
     #endregion
@@ -260,11 +260,11 @@ public class ProgramCodeTests
         string original = "Multiple Round Trip Test";
         
         // Act & Assert - Perform 5 round trips
-        string current = original;
+        string? current = original;
         for (int i = 0; i < 5; i++)
         {
-            string encoded = ProgramCode.Code(current, true, TestKey);
-            string decoded = ProgramCode.Code(encoded, false, TestKey);
+            string? encoded = ProgramCode.Code(current, true, TestKey);
+            string? decoded = ProgramCode.Code(encoded, false, TestKey);
             Assert.Equal(current, decoded);
             current = decoded;
         }
@@ -283,8 +283,8 @@ public class ProgramCodeTests
         string url = "https://joinfs.net/download/file.zip";
         
         // Act
-        string encoded = ProgramCode.Code(url, true, TestKey);
-        string decoded = ProgramCode.Code(encoded, false, TestKey);
+        string? encoded = ProgramCode.Code(url, true, TestKey);
+        string? decoded = ProgramCode.Code(encoded, false, TestKey);
         
         // Assert
         Assert.Equal(url, decoded);
@@ -297,8 +297,8 @@ public class ProgramCodeTests
         string path = "C:/Program Files/JoinFS/config.xml";
         
         // Act
-        string encoded = ProgramCode.Code(path, true, TestKey);
-        string decoded = ProgramCode.Code(encoded, false, TestKey);
+        string? encoded = ProgramCode.Code(path, true, TestKey);
+        string? decoded = ProgramCode.Code(encoded, false, TestKey);
         
         // Assert
         Assert.Equal(path, decoded);
@@ -311,8 +311,8 @@ public class ProgramCodeTests
         string longString = new string('A', 1000) + " test " + new string('Z', 1000);
         
         // Act
-        string encoded = ProgramCode.Code(longString, true, TestKey);
-        string decoded = ProgramCode.Code(encoded, false, TestKey);
+        string? encoded = ProgramCode.Code(longString, true, TestKey);
+        string? decoded = ProgramCode.Code(encoded, false, TestKey);
         
         // Assert
         Assert.Equal(longString, decoded);
@@ -334,8 +334,8 @@ public class ProgramCodeTests
         string input = "Key variation test";
         
         // Act
-        string encoded = ProgramCode.Code(input, true, key);
-        string decoded = ProgramCode.Code(encoded, false, key);
+        string? encoded = ProgramCode.Code(input, true, key);
+        string? decoded = ProgramCode.Code(encoded, false, key);
         
         // Assert
         Assert.Equal(input, decoded);

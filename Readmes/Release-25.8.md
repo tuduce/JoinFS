@@ -20,6 +20,9 @@ A new model matching algorithm was introduced to improve the accuracy of model m
 ## Bug Fixes
 - Replaced the random number generator with a cryptographically secure random number generator.
 
+## Limitations
+The `FSX` and `P3D` variants are built for the x86 (32bit) architecture. Since the Microsoft.ML package does not currently offer a x86 variant, the AI-enchanced model matching is not included for `FSX` or `P3D`.
+
 ## Known Issues
 > [!WARNING]
 > The FSX and XPLANE variants are built in a similar fashion like the original JoinFS. I do not have access to FSX to test. The XPLANE vaiant was tested briefly, since I only have the demo version of XPLANE. Please report any issues you find with these variants.

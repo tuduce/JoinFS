@@ -339,9 +339,9 @@ public class EnrichModelServiceTests : IDisposable
 
         // Assert
         Assert.NotNull(models[0].enrichedData);
-        Assert.Equal("Fighter", models[0].enrichedData.TypeRole);
+        Assert.Equal("Fighter", models[0].enrichedData?.TypeRole);
         Assert.NotNull(models[1].enrichedData);
-        Assert.Equal("Bomber", models[1].enrichedData.TypeRole);
+        Assert.Equal("Bomber", models[1].enrichedData?.TypeRole);
     }
 
     [Fact]
