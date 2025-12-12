@@ -260,6 +260,9 @@
     <None Remove="Installer\**" />
   </ItemGroup>
   <ItemGroup>
+    <None Remove="ul" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Update="Properties\Airports.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
