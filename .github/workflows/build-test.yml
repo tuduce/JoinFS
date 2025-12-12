@@ -1,4 +1,4 @@
-name: Build JoinFS test
+name: Build JoinFS
 
 on:
   workflow_dispatch:
