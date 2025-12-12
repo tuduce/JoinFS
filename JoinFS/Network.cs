@@ -85,7 +85,6 @@ namespace JoinFS
         /// For seedhubs
         /// </summary>
         private static readonly HttpClient httpClient = new HttpClient();
-        // WebClient seedhubsWebClient = new WebClient();
         string[] seedhubs = null;
         bool seedhubsFallback = false;
 
@@ -112,43 +111,8 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// callback for seedhubs
-        /// </summary>
-        // TODO: remove obsolete code after testing
-        //void SeedhubsComplete(object sender, DownloadStringCompletedEventArgs e)
-        //{
-        //    lock (main.conch)
-        //    {
-        //        // check for error
-        //        if (e.Cancelled || e.Error != null || e.Result == null || e.Result.Length == 0 || e.Result[0] == '<')
-        //        {
-        //            // check if fallback has been used
-        //            if (seedhubsFallback == false)
-        //            {
-        //                // try fallback
-        //                //string sc = Program.Code("https://drive.google.com/uc?export=download&id=0Byn9605PQfMecnhwdUtITi1yYlk", true, 1234);
-        //                seedhubsWebClient.DownloadStringAsync(new Uri(Program.Code(@"8`+,/k<n""DnCrS""iZcq>Y.FKdb52)UT4$S5.f%E8K?#L2h3%(]U|QPG)YKxO3JN(IIy`bh5+(2L", false, 1234)));
-        //                // fallback used
-        //                seedhubsFallback = true;
-        //            }
-        //            else
-        //            {
-        //                // no result
-        //                seedhubs = new string[] { "" };
-        //            }
-        //        }
-        //        else
-        //        {
-        //            // get seedhubs
-        //            seedhubs = e.Result.Split('\n');
-        //        }
-        //    }
-        //}
-
-        /// <summary>
         /// For external IP
         /// </summary>
-        // WebClient myipWebClient = new WebClient();
         string myip = null;
         bool myipFallback = false;
 
@@ -210,50 +174,8 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// callback for myIp
-        /// </summary>
-        // TODO: remove obsolete code after testing
-        //void MyipComplete(object sender, DownloadStringCompletedEventArgs e)
-        //{
-        //    lock (main.conch)
-        //    {
-        //        // check for error
-        //        if (e.Cancelled == false && e.Error == null && e.Result != null && e.Result.Length > 0 && e.Result[0] != '<')
-        //        {
-        //            // get my IP
-        //            string result = e.Result.TrimEnd('\n');
-        //            // check for valid IP
-        //            if (IPAddress.TryParse(result, out IPAddress address) && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-        //            {
-        //                // save IP
-        //                Settings.Default.MyIp = result;
-        //                // return myip
-        //                myip = result;
-        //                // complete
-        //                return;
-        //            }
-        //        }
-
-        //        // check if fallback has been used
-        //        if (myipFallback == false)
-        //        {
-        //            // try fallback
-        //            myipWebClient.DownloadStringAsync(new Uri("http://ipinfo.io/ip"));
-        //            // fallback used
-        //            myipFallback = true;
-        //        }
-        //        else
-        //        {
-        //            // use save IP
-        //            myip = Settings.Default.MyIp;
-        //        }
-        //    }
-        //}
-
-        /// <summary>
         /// For banlist
         /// </summary>
-        // WebClient banlistWebClient = new WebClient();
         string[] banlist = null;
         bool banlistFallback = false;
 
@@ -278,40 +200,6 @@ namespace JoinFS
                 }
             }
         }
-
-        /// <summary>
-        /// callback for banlist
-        /// </summary>
-        // TODO: remove obsolete code after testing
-        //void BanlistComplete(object sender, DownloadStringCompletedEventArgs e)
-        //{
-        //    lock (main.conch)
-        //    {
-        //        // check for error
-        //        if (e.Cancelled || e.Error != null || e.Result == null)
-        //        {
-        //            // check if fallback has been used
-        //            if (banlistFallback == false)
-        //            {
-        //                // try fallback
-        //                //string sc = Program.Code("https://drive.google.com/uc?export=download&id=1yhrHsv8s0_vnBhzyy7hgSv0Yw_31eJLu", true, 1234);
-        //                banlistWebClient.DownloadStringAsync(new Uri(Program.Code(@"a6]U'C6x%z+_`qm=HS|Y8zar(/o}aed-je#jv-)!>(y(9k2`WB!T8bAvz,&\I!4}|J)]`5L?s|;NK\$:", false, 1234)));
-        //                // fallback used
-        //                banlistFallback = true;
-        //            }
-        //            else
-        //            {
-        //                // no result
-        //                banlist = new string[] { "" };
-        //            }
-        //        }
-        //        else
-        //        {
-        //            // get banlist
-        //            banlist = e.Result.Split('\n');
-        //        }
-        //    }
-        //}
 
 #if EVAL
         /// <summary>
@@ -395,51 +283,15 @@ namespace JoinFS
             LoadHubList();
 #endif
 
-            try
-            {
-                // callback
-                // myipWebClient.DownloadStringCompleted += MyipComplete;
-                // get myip
-                // myipWebClient.DownloadStringAsync(new Uri("https://checkip.amazonaws.com/"));
-                _ = DownloadMyIpAsync();
-            }
-            catch (Exception ex)
-            {
-                // monitor event
-                main.MonitorEvent(ex.Message);
-            }
+            _ = DownloadMyIpAsync();
 
 #if !NO_HUBS
-            try
-            {
-                // callback
-                // TODO: remove obsolete code after testing
-                // TODO: put the urls into the configuration?
-                //seedhubsWebClient.DownloadStringCompleted += SeedhubsComplete;
-                // get seedhubs
-                // string sc = Program.Code("http://joinfs.net/seedhubs", true, 1234);
-                // We don't know what the list was on joinfs.net, so we use the GitHub version.
-                // string sc = Program.Code("https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/util/seedhubs.txt", true, 1234);
-                // seedhubsWebClient.DownloadStringAsync(new Uri(Program.Code(@"wj)&09V)z'o-LJn\x6$>F|Wz8V", false, 1234)));
-                //seedhubsWebClient.DownloadStringAsync(new Uri("https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/util/seedhubs.txt"));
-                string url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/util/seedhubs.txt";
-                _ = DownloadSeedhubsAsync(url);
+            string hubsUrl = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/util/seedhubs.txt";
+            _ = DownloadSeedhubsAsync(hubsUrl);
 
-                // callback
-                // banlistWebClient.DownloadStringCompleted += BanlistComplete;
-                // get ban list
-                //string sc = Program.Code("http://joinfs.net/banlist", true, 1234);
-                // We don't know what the list was on joinfs.net, so we use the GitHub version.
-                // TODO: Let it be for the moment, as we don't have a banlist yet.
-                // banlistWebClient.DownloadStringAsync(new Uri(Program.Code(@"K^x9E`;gZ2&:s={%T53Pv[cWf", false, 1234)));
-                url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/util/banlist.txt";
-                _ = DownloadBanlistAsync(url);
-            }
-            catch (Exception ex)
-            {
-                // monitor event
-                main.MonitorEvent(ex.Message);
-            }
+            string banUrl = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/util/banlist.txt";
+            _ = DownloadBanlistAsync(banUrl);
+            
 #endif
 
 #if !CONSOLE
