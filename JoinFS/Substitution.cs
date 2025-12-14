@@ -64,7 +64,8 @@ namespace JoinFS
 #if X64
             embeddingService = new EmbeddingService(
                 modelPath: "AIModel" + Path.DirectorySeparatorChar + "model.onnx",
-                vocabPath: "AIModel" + Path.DirectorySeparatorChar + "vocab.txt"
+                vocabPath: "AIModel" + Path.DirectorySeparatorChar + "vocab.txt",
+                main: main // Pass main for logging
             );
 #endif
         }
@@ -2655,7 +2656,7 @@ namespace JoinFS
                 // 3. Get the embedding
                 // 4. Compare against all known models (cosine similarity)
 #if X64
-                model = embeddingService.FindBestMatchingModel(tempModel, models, 0.2f);
+                model = embeddingService.FindBestMatchingModel(tempModel, models, 0.5f);
                 if (model != null)
                 {
                     // use automatic match
