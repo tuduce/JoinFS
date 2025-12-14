@@ -7,19 +7,21 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using static JoinFS.Substitution;
+using JoinFS; // Add this for Main reference
 
 public class EmbeddingService : IDisposable
 {
     private readonly InferenceSession _session;
     private readonly BertTokenizer _tokenizer;
+    private readonly Main _main; // Add reference to Main
 
-    public EmbeddingService(string modelPath, string vocabPath)
+    public EmbeddingService(string modelPath, string vocabPath, Main main = null)
     {
         // Load the ONNX model
         _session = new InferenceSession(modelPath);
         _tokenizer = new BertTokenizer();
         _tokenizer.LoadVocabularyAsync(vocabPath, true).GetAwaiter().GetResult();
-
+        _main = main; // Store Main reference
     }
 
     public float[] GenerateEmbedding(string text)
@@ -77,12 +79,12 @@ public class EmbeddingService : IDisposable
             string text = null;
             if (model.enrichedData != null)
             {
-                text =  $"title: {model.title} {model.variation}, " +
-                        $"role: {model.enrichedData.TypeRole}, " +
-                        $"wing position: {model.enrichedData.WingPosition}, " +
-                        $"number engines: {model.enrichedData.Engines}, " +
-                        $"engine type: {model.enrichedData.EngineType}, " +
-                        $"wake: {model.enrichedData.Wake}, " +
+                text =  $"title: {model.title} {model.variation}, \n" +
+                        $"[IMPORTANT] role: {model.enrichedData.TypeRole}, \n" +
+                        $"[IMPORTANT] wing position: {model.enrichedData.WingPosition}, \n" +
+                        $"[IMPORTANT] number engines: {model.enrichedData.Engines}, \n" +
+                        $"engine type: {model.enrichedData.EngineType}, \n" +
+                        $"wake: {model.enrichedData.Wake}, \n" +
                         $"military: {model.enrichedData.Military}".Trim();
 
             }
@@ -138,8 +140,15 @@ public class EmbeddingService : IDisposable
         if (matchModel.embedding == null)
             matchModel.embedding = GenerateEmbedding(
                 matchModel.enrichedData != null
-                    ? $"title: {matchModel.title} {matchModel.variation}, role: {matchModel.enrichedData.TypeRole}, wing position: {matchModel.enrichedData.WingPosition}, number engines: {matchModel.enrichedData.Engines}, engine type: {matchModel.enrichedData.EngineType}, wake: {matchModel.enrichedData.Wake}, military: {matchModel.enrichedData.Military}".Trim()
-                    : $"title: {matchModel.title} {matchModel.variation}, role: {matchModel.typerole}".Trim()
+                    ? $"title: {matchModel.title} {matchModel.variation}, \n" +
+                      $"[IMPORTANT] role: {matchModel.enrichedData.TypeRole}, \n" +
+                      $"[IMPORTANT] wing position: {matchModel.enrichedData.WingPosition}, \n" +
+                      $"[IMPORTANT] number engines: {matchModel.enrichedData.Engines}, \n" +
+                      $"engine type: {matchModel.enrichedData.EngineType}, \n" +
+                      $"wake: {matchModel.enrichedData.Wake}, \n" +
+                      $"military: {matchModel.enrichedData.Military}".Trim()
+                    : $"title: {matchModel.title} {matchModel.variation}, " +
+                      $"[IMPORTANT] role: {matchModel.typerole}".Trim()
             );
 
         Model bestModel = null;
@@ -156,6 +165,15 @@ public class EmbeddingService : IDisposable
                 bestScore = score;
                 bestModel = model;
             }
+        }
+
+        // Log the best score if Monitor is available
+        if (_main != null && _main.monitor != null)
+        {
+            string logMsg = bestModel != null
+                ? $"[EmbeddingService] Best match: '{bestModel.title}' (score: {bestScore:F4}) for '{matchModel.title}'"
+                : $"[EmbeddingService] No match found above threshold for '{matchModel.title}' (threshold: {threshold:F4})";
+            _main.MonitorEvent(logMsg);
         }
 
         return bestModel;

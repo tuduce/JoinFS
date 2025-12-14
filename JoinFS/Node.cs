@@ -2128,22 +2128,23 @@ namespace JoinFS
         /// <param name="port">Port</param>
         public bool Open(int port)
         {
-            // close
-            Close();
+            if (port < IPEndPoint.MinPort || port > IPEndPoint.MaxPort)
+                return false;
 
-            // update port
+            // Only close and reopen if the port is different or not open
+            if (udpClient != null && localNuid.port == (ushort)port)
+                return true;
+
+            Close();
             localNuid.port = (ushort)port;
 
-            // create UDP client
             try
             {
                 udpClient = new UdpClient(localNuid.port, AddressFamily.InterNetwork);
-                // check for windows
 #if NET6_0_OR_GREATER
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 #endif
                 {
-                    // reset socket
                     uint IOC_IN = 0x80000000;
                     uint IOC_VENDOR = 0x18000000;
                     uint SIO_UDP_CONNRESET = IOC_IN | IOC_VENDOR | 12;
@@ -2153,7 +2154,6 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                // error
                 nodeError?.Invoke(ex.Message + ": port=" + port);
                 return false;
             }
