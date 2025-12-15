@@ -1583,7 +1583,8 @@ namespace JoinFS
                 if (aircraft != null)
                 {
                     // show dialog for assigning variables
-                    new VariablesForm(main, aircraft.ownerModel).ShowDialog();
+                    // was ownermodel
+                    new VariablesForm(main, aircraft.ModelTitle).ShowDialog();
                 }
             }
         }

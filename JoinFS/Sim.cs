@@ -4079,6 +4079,22 @@ namespace JoinFS
         {
             switch (exception)
             {
+                case 5:
+                    main.MonitorEvent("ERROR - Simconnect version mismatch");
+                    break;
+
+                case 14:
+                    main.MonitorEvent("ERROR - Invalid METAR");
+                    break;
+
+                case 15:
+                    main.MonitorEvent("ERROR - Unable to get weather observation");
+                    break;
+
+                case 20:
+                    main.MonitorEvent("ERROR - SimConnect data error");
+                    break;
+
                 case 22:
                     // check for creating object
                     if (creatingObject != null)
@@ -4108,19 +4124,7 @@ namespace JoinFS
                         main.MonitorEvent("ERROR - Failed to create object");
                     }
                     break;
-
-                case 5:
-                    main.MonitorEvent("ERROR - Simconnect version mismatch");
-                    break;
-
-                case 14:
-                    main.MonitorEvent("ERROR - Invalid METAR");
-                    break;
-
-                case 15:
-                    main.MonitorEvent("ERROR - Unable to get weather observation");
-                    break;
-
+                    
                 default:
                     main.MonitorEvent("ERROR - Simconnect exception - " + exception);
                     break;
