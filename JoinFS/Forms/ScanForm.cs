@@ -16,17 +16,17 @@ namespace JoinFS
         /// <summary>
         /// List of folders to scan
         /// </summary>
-        public List<string> scanFolders = new List<string>();
+        public List<string> scanFolders = [];
 
         /// <summary>
         /// List of folders found
         /// </summary>
-        public List<string> folderList = new List<string>();
+        public List<string> folderList = [];
 
         /// <summary>
         /// List of addons
         /// </summary>
-        public List<string> addOns = new List<string>();
+        public List<string> addOns = [];
 
         /// <summary>
         /// Addons selected
@@ -66,7 +66,7 @@ namespace JoinFS
         public string[] GetFolders()
         {
             // create list of folders
-            List<string> result = new List<string>();
+            List<string> result = [];
             // for each folder
             foreach (var folder in folderList)
             {

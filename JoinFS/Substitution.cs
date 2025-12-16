@@ -36,12 +36,12 @@ namespace JoinFS
         string initialScanFolders = "";
         string initialAddOns = "";
         string initialAdditionals = "";
-        public static string[] AddonsFileContents = { "" };
+        public static string[] AddonsFileContents = [ "" ];
 
         /// <summary>
         /// Reference to the main form
         /// </summary>
-        Main main;
+        readonly Main main;
 
         /// <summary>
         /// Constructor
@@ -85,7 +85,7 @@ namespace JoinFS
         /// <summary>
         /// type roles names
         /// </summary>
-        public readonly Dictionary<int, string> typeroleNames = new Dictionary<int, string>()
+        public readonly Dictionary<int, string> typeroleNames = new()
         {
             { TypeRole_SingleProp,      Resources.Strings.SingleProp },
             { TypeRole_TwinProp,        Resources.Strings.TwinProp },
@@ -98,9 +98,9 @@ namespace JoinFS
         };
 
 #if FS2024
-        Dictionary<string, (string typeRoleName, string compareType)> typeroleClassifier = new Dictionary<string, (string typeRoleName, string compareType)>();
+        readonly Dictionary<string, (string typeRoleName, string compareType)> typeroleClassifier = [];
 #endif
-        List<string> modelBanList = new List<string>();
+        readonly List<string> modelBanList = [];
 
         /// <summary>
         /// Convert a string to a typerole
@@ -110,42 +110,44 @@ namespace JoinFS
         static int TyperoleFromString(string typerole)
         {
             // check for type role
-            if (typerole.IndexOf("Single") >= 0 && typerole.IndexOf("Prop") >= 0)
+            if (typerole.Contains("Single", StringComparison.CurrentCulture) && typerole.Contains("Prop", StringComparison.CurrentCulture))
             {
                 // Single Prop
                 return TypeRole_SingleProp;
             }
-            else if (typerole.IndexOf("Twin") >= 0 && typerole.IndexOf("Prop") >= 0)
+            else if (typerole.Contains("Twin", StringComparison.CurrentCulture) && typerole.Contains("Prop", StringComparison.CurrentCulture))
             {
                 // Twin Prop
                 return TypeRole_TwinProp;
             }
-            else if (typerole.IndexOf("Four") >= 0 && typerole.IndexOf("Prop") >= 0)
+            else if (typerole.Contains("Four", StringComparison.CurrentCulture) && typerole.Contains("Prop", StringComparison.CurrentCulture))
             {
-                // Twin Prop
+                // Four Prop
                 return TypeRole_FourProp;
             }
-            else if (typerole.IndexOf("Regional") >= 0 || typerole.IndexOf("Airliner") >= 0)
+            else if (typerole.Contains("Regional", StringComparison.CurrentCulture) || typerole.Contains("Airliner", StringComparison.CurrentCulture))
             {
                 // Airliner
                 return TypeRole_Airliner;
             }
-            else if (typerole.IndexOf("Rotorcraft") >= 0)
+            else if (typerole.Contains("Rotorcraft", StringComparison.CurrentCulture))
             {
                 // Rotorcraft
                 return TypeRole_Rotorcraft;
             }
-            else if (typerole.IndexOf("Glider") >= 0)
+            else if (typerole.Contains("Glider", StringComparison.CurrentCulture))
             {
                 // Glider
                 return TypeRole_Glider;
             }
-            else if (typerole.IndexOf("Fighter") >= 0 || typerole.IndexOf("Jet") >= 0)
+            else if (typerole.Contains("Fighter", StringComparison.CurrentCulture) || typerole.Contains("Jet", StringComparison.CurrentCulture))
             {
                 // Fighter
                 return TypeRole_Fighter;
             }
-            else if (typerole.IndexOf("Bomber") >= 0 || typerole.IndexOf("Airliner") >= 0 || typerole.IndexOf("Four Engine") >= 0)
+            else if (typerole.Contains("Bomber", StringComparison.CurrentCulture) || 
+                    typerole.Contains("Airliner", StringComparison.CurrentCulture) || 
+                    typerole.Contains("Four Engine", StringComparison.CurrentCulture))
             {
                 // Bomber
                 return TypeRole_Bomber;
@@ -160,7 +162,7 @@ namespace JoinFS
         /// <summary>
         /// type roles names
         /// </summary>
-        public readonly Dictionary<int, string> defaultModels = new Dictionary<int, string>();
+        public readonly Dictionary<int, string> defaultModels = [];
 
         /// <summary>
         /// A model entry
@@ -198,7 +200,7 @@ namespace JoinFS
         /// <summary>
         /// List of valid models in the sim
         /// </summary>
-        public List<Model> models = new List<Model>();
+        public List<Model> models = [];
         public EnrichModelService enrichModelService = null;
 #if X64
         public EmbeddingService embeddingService = null;
@@ -229,7 +231,7 @@ namespace JoinFS
         public Model GetModel(string title)
         {
 #if FS2024
-            string[] separator = { "[+]" };
+            string[] separator = [ "[+]" ];
             string[] parts = title.Split(separator, StringSplitOptions.None);
             if (parts.Length == 2)
             {
@@ -297,24 +299,24 @@ namespace JoinFS
         /// <summary>
         /// Model matches
         /// </summary>
-        public readonly Dictionary<string, Model> matches = new Dictionary<string, Model>();
+        public readonly Dictionary<string, Model> matches = [];
 
         /// <summary>
         /// Model masquerades
         /// </summary>
-        public readonly Dictionary<string, Model> masquerades = new Dictionary<string, Model>();
+        public readonly Dictionary<string, Model> masquerades = [];
 
         /// <summary>
         /// Model callsigns
         /// </summary>
-        public readonly Dictionary<string, string> callsigns = new Dictionary<string, string>();
+        public readonly Dictionary<string, string> callsigns = [];
 
         /// <summary>
         /// Trim white space and quote characters
         /// </summary>
         /// <param name="str"></param>
         /// <returns></returns>
-        string TrimComments(string str)
+        static string TrimComments(string str)
         {
             int index;
             // find comment
@@ -322,14 +324,14 @@ namespace JoinFS
             if (index >= 0)
             {
                 // remove comment
-                str = str.Substring(0, index);
+                str = str[..index];
             }
             // find comment
             index = str.IndexOf(@"//");
             if (index >= 0)
             {
                 // remove comment
-                str = str.Substring(0, index);
+                str = str[..index];
             }
             return str;
         }
@@ -339,7 +341,7 @@ namespace JoinFS
         /// </summary>
         /// <param name="str"></param>
         /// <returns></returns>
-        string Trim(string str)
+        static string Trim(string str)
         {
             // trim white space and quotes from beginning and end of string
             return TrimComments(str).TrimStart(' ', '\t', '=').TrimEnd(' ', '\t', '=');
@@ -350,7 +352,7 @@ namespace JoinFS
         /// </summary>
         /// <param name="str"></param>
         /// <returns></returns>
-        string TrimQuotes(string str)
+        static string TrimQuotes(string str)
         {
             // trim white space and quotes from beginning and end of string
             return TrimComments(str).TrimStart(' ', '"', '\t', '=').TrimEnd(' ', '"', '\t', '=');
@@ -377,7 +379,7 @@ namespace JoinFS
             if (scanBlock && scanTitle.Length > 0)
             {
                 // check for quotes
-                if (scanTitle.StartsWith("\""))
+                if (scanTitle.StartsWith('\"'))
                 {
                     // trim quotes
                     scanTitle = scanTitle.TrimStart('"').TrimEnd('"');
@@ -522,7 +524,7 @@ namespace JoinFS
         /// <param name="title">Name of the Model</param>
         public void SubmitModel(string title, string manufacturer, string type, string variation, int index, string typerole)
         {
-            if (isModelBanned(title))
+            if (IsModelBanned(title))
             {
                 return;
             }
@@ -543,7 +545,7 @@ namespace JoinFS
             main.ScheduleSubstitutionSave();
         }
 
-        bool isModelBanned(string model)
+        bool IsModelBanned(string model)
         {
             foreach (var ban in modelBanList)
             {
@@ -663,7 +665,7 @@ namespace JoinFS
                 else
                 {
                     // initialize list of scan folders
-                    List<string> subFolders = new List<string>();
+                    List<string> subFolders = [];
 
                     // check for initial scan folders
                     if (initialScanFolders.Length > 0)
@@ -689,7 +691,7 @@ namespace JoinFS
                     }
 
                     // create list of folders
-                    List<string> scanFolders = new List<string>();
+                    List<string> scanFolders = [];
 
                     // we do this for MNSFS2020 only. MSFS2024 delievers the community
                     // models via the simulator as well as the default models
@@ -732,7 +734,7 @@ namespace JoinFS
                     if (main.sim.GetSimulatorName().Contains("Prepar3D"))
                     {
                         // create path list
-                        List<string> simobjectsList = new List<string>();
+                        List<string> simobjectsList = [];
 
                         // search for all aircraft.cfg in SimObjects
                         SearchForFolders(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Prepar3D v4 Add-ons"), "Simobjects", simobjectsList, 0);
@@ -888,7 +890,7 @@ namespace JoinFS
                     }
 #else
                     // create path list
-                    List<string> pathList = new List<string>();
+                    List<string> pathList = [];
 
                     try
                     {
@@ -921,7 +923,7 @@ namespace JoinFS
                         scanFolder = Path.GetFileName(Path.GetDirectoryName(path));
 
                         // create reader
-                        StreamReader reader = new StreamReader(path);
+                        StreamReader reader = new(path);
 
                         // track the maximum smoke entry
                         int smokeCount = 0;
@@ -932,12 +934,12 @@ namespace JoinFS
                         while ((line = reader.ReadLine()) != null)
                         {
                             // check for block
-                            if (line.StartsWith("["))
+                            if (line.StartsWith('['))
                             {
                                 // submit the current scan
                                 SubmitScan();
                                 // check for model block
-                                if (line.Substring(1).StartsWith("fltsim", StringComparison.OrdinalIgnoreCase))
+                                if (line[1..].StartsWith("fltsim", StringComparison.OrdinalIgnoreCase))
                                 {
                                     // within model block
                                     scanBlock = true;
@@ -947,42 +949,42 @@ namespace JoinFS
                             if (line.StartsWith("title", StringComparison.OrdinalIgnoreCase))
                             {
                                 // get title string
-                                scanTitle = Trim(line.Substring(5));
+                                scanTitle = Trim(line[5..]);
                             }
                             else if (line.StartsWith("ui_typerole", StringComparison.OrdinalIgnoreCase))
                             {
                                 // get typerole string
-                                scanTyperole = TrimQuotes(line.Substring(11));
+                                scanTyperole = TrimQuotes(line[11..]);
                             }
                             else if (line.StartsWith("ui_manufacturer", StringComparison.OrdinalIgnoreCase))
                             {
                                 // get manufacturer string
-                                scanManufacturer = TrimQuotes(line.Substring(15));
+                                scanManufacturer = TrimQuotes(line[15..]);
                             }
                             else if (line.StartsWith("ui_type", StringComparison.OrdinalIgnoreCase))
                             {
                                 // get type string
-                                scanType = TrimQuotes(line.Substring(7));
+                                scanType = TrimQuotes(line[7..]);
                             }
                             else if (line.StartsWith("ui_variation", StringComparison.OrdinalIgnoreCase))
                             {
                                 // get variation string
-                                scanVariation = TrimQuotes(line.Substring(12));
+                                scanVariation = TrimQuotes(line[12..]);
                             }
                             else if (line.StartsWith("model", StringComparison.OrdinalIgnoreCase))
                             {
                                 // get model string
-                                scanModel = TrimQuotes(line.Substring(5));
+                                scanModel = TrimQuotes(line[5..]);
                             }
                             else if (line.StartsWith("texture", StringComparison.OrdinalIgnoreCase))
                             {
                                 // get texture string
-                                scanTexture = TrimQuotes(line.Substring(7));
+                                scanTexture = TrimQuotes(line[7..]);
                             }
                             else if (line.StartsWith("smoke.", StringComparison.OrdinalIgnoreCase))
                             {
                                 // get smoke line
-                                string[] parts = line.Substring(6).Split(' ', '=');
+                                string[] parts = line[6..].Split(' ', '=');
                                 if (parts.Length > 0)
                                 {
                                     // get smoke value
@@ -1022,7 +1024,7 @@ namespace JoinFS
                                     int AddOnnmodels = 0;
                                     foreach (string line in AddonsFileContents)
                                     {
-                                        string[] separator = { "[+]" };
+                                        string[] separator = [ "[+]" ];
                                         string[] parts = line.Split(separator, StringSplitOptions.None);
                                         //count addons and split lines
                                         lastaddon = parts[0];
@@ -1144,7 +1146,7 @@ namespace JoinFS
             if (main.sim != null && main.sim.Connected)
             {
                 // show dialog for choosing match model
-                ScanForm scanForm = new ScanForm(main, simFolder, initialScanFolders, initialAddOns, initialAdditionals);
+                ScanForm scanForm = new(main, simFolder, initialScanFolders, initialAddOns, initialAdditionals);
 #endif
 
                 // open dialog
@@ -1263,7 +1265,7 @@ namespace JoinFS
         /// <summary>
         /// List of model prefixes
         /// </summary>
-        Dictionary<string, string> prefixList = new Dictionary<string,string>();
+        readonly Dictionary<string, string> prefixList = [];
 
         /// <summary>
         /// Make a list of model prefix strings
@@ -1281,12 +1283,12 @@ namespace JoinFS
                 for (int length = 4; length <= model.title.Length; length++)
                 {
                     // make key
-                    string key = model.title.Substring(0, length);
+                    string key = model.title[..length];
                     // check if prefix not yet listed
                     if (prefixList.ContainsKey(key) == false)
                     {
                         // add prefix entry to list
-                        prefixList.Add(model.title.Substring(0, length), model.title);
+                        prefixList.Add(model.title[..length], model.title);
                     }
                 }
             }
@@ -1357,17 +1359,17 @@ namespace JoinFS
                     {
                         // read all models from file
                         string[] lines = File.ReadAllLines(filename);
-                        string[] separator = { "|" };
+                        string[] separator = [ "|" ];
                         // for all lines
                         foreach (string line in lines)
                         {
                             // ignore comments (comment lines begin with a #)
-                            if (line.StartsWith("#"))
+                            if (line.StartsWith('#'))
                             {
                                 // check if line contains the "new separator" command
                                 if (line.Contains("new separator"))
                                 {
-                                    separator = new string[] { "[+]" };
+                                    separator = ["[+]"];
                                 }
                                 continue;
                             }
@@ -1377,7 +1379,7 @@ namespace JoinFS
                             // split line
                             string[] parts = line.Split(separator, StringSplitOptions.None);
                             // check if model is banned
-                            if (isModelBanned(parts[0]))
+                            if (IsModelBanned(parts[0]))
                             {
                                 // skip banned model
                                 continue;
@@ -1456,14 +1458,14 @@ namespace JoinFS
                     string filename = MakeModelsFilename();
 
                     // open models file
-                    StreamWriter writer = new StreamWriter(filename);
+                    StreamWriter writer = new(filename);
                     // write new separator command
                     writer.WriteLine("# new separator - DO NOT DELETE THIS LINE");
                     // for all models
                     foreach (var model in models)
                     {
                         // get typerole name
-                        string typeroleName = typeroleNames.ContainsKey(model.typerole) ? typeroleNames[model.typerole] : "SingleProp";
+                        string typeroleName = typeroleNames.TryGetValue(model.typerole, out string value) ? value : "SingleProp";
                         // write model
                         writer.WriteLine(model.title + "[+]" + model.manufacturer + "[+]" + model.type + "[+]" + model.variation + "[+]" + model.index + "[+]" + typeroleName + "[+]" + model.smokeCount + "[+]" + model.folder);
                     }
@@ -1527,16 +1529,16 @@ namespace JoinFS
                         // open file
                         StreamReader reader = File.OpenText(filename);
                         string line;
-                        string[] separator = { "|" };
+                        string[] separator = [ "|" ];
                         while ((line = reader.ReadLine()) != null)
                         {
                             // ignore comments (comment lines begin with a #)
-                            if (line.StartsWith("#"))
+                            if (line.StartsWith('#'))
                             {
                                 // check if line contains the "new separator" command
                                 if (line.Contains("new separator"))
                                 {
-                                    separator = new string[] { "[+]" };
+                                    separator = ["[+]"];
                                 }
                                 continue;
                             }
@@ -1623,7 +1625,7 @@ namespace JoinFS
                     string filename = MakeMatchingFilename();
 
                     // open file
-                    StreamWriter writer = new StreamWriter(filename);
+                    StreamWriter writer = new(filename);
                     if (writer != null)
                     {
                         // write new separator command
@@ -1750,7 +1752,7 @@ namespace JoinFS
                     string filename = MakeMasqueradingFilename();
 
                     // open file
-                    StreamWriter writer = new StreamWriter(filename);
+                    StreamWriter writer = new(filename);
                     if (writer != null)
                     {
                         // for each masquerade
@@ -1866,7 +1868,7 @@ namespace JoinFS
                     string filename = MakeCallsignsFilename();
 
                     // open file
-                    StreamWriter writer = new StreamWriter(filename);
+                    StreamWriter writer = new(filename);
                     if (writer != null)
                     {
                         // for each callsign
@@ -1910,7 +1912,7 @@ namespace JoinFS
                     // folders file
                     string foldersFile = Path.Combine(main.storagePath, "folders - " + main.sim.GetSimulatorName() + ".txt");
                     // open models file
-                    StreamWriter writer = new StreamWriter(foldersFile);
+                    StreamWriter writer = new(foldersFile);
                     // write folders
                     writer.WriteLine(simFolder);
                     writer.WriteLine(initialScanFolders);
@@ -1944,7 +1946,7 @@ namespace JoinFS
                 if (File.Exists(foldersFile))
                 {
                     // open file
-                    StreamReader reader = new StreamReader(foldersFile);
+                    StreamReader reader = new(foldersFile);
                     // read folders
                     simFolder = reader.ReadLine();
                     initialScanFolders = reader.ReadLine();
@@ -1989,15 +1991,11 @@ namespace JoinFS
                         //{
                         //    client.DownloadFile(url, typeClassifiersFile);
                         //}
-                        using (HttpClient httpClient = new HttpClient())
-                        {
-                            var response = await httpClient.GetAsync(url);
-                            response.EnsureSuccessStatusCode();
-                            using (var fs = new FileStream(typeClassifiersFile, FileMode.Create, FileAccess.Write, FileShare.None))
-                            {
-                                await response.Content.CopyToAsync(fs);
-                            }
-                        }
+                        using HttpClient httpClient = new();
+                        var response = await httpClient.GetAsync(url);
+                        response.EnsureSuccessStatusCode();
+                        using var fs = new FileStream(typeClassifiersFile, FileMode.Create, FileAccess.Write, FileShare.None);
+                        await response.Content.CopyToAsync(fs);
                     }
                     catch (Exception ex)
                     {
@@ -2008,7 +2006,7 @@ namespace JoinFS
                 if (File.Exists(typeClassifiersFile))
                 {
                     // open file
-                    StreamReader reader = new StreamReader(typeClassifiersFile);
+                    StreamReader reader = new(typeClassifiersFile);
                     // read classifiers
                     string line;
                     while ((line = reader.ReadLine()) != null)
@@ -2108,15 +2106,11 @@ namespace JoinFS
                         //{
                         //    client.DownloadFile(url, banListFile);
                         //}
-                        using (HttpClient httpClient = new HttpClient())
-                        {
-                            var response = await httpClient.GetAsync(url);
-                            response.EnsureSuccessStatusCode();
-                            using (var fs = new FileStream(banListFile, FileMode.Create, FileAccess.Write, FileShare.None))
-                            {
-                                await response.Content.CopyToAsync(fs);
-                            }
-                        }
+                        using HttpClient httpClient = new();
+                        var response = await httpClient.GetAsync(url);
+                        response.EnsureSuccessStatusCode();
+                        using var fs = new FileStream(banListFile, FileMode.Create, FileAccess.Write, FileShare.None);
+                        await response.Content.CopyToAsync(fs);
                     }
                     catch (Exception ex)
                     {
@@ -2127,12 +2121,12 @@ namespace JoinFS
                 if (File.Exists(banListFile))
                 {
                     // open file
-                    StreamReader reader = new StreamReader(banListFile);
+                    StreamReader reader = new(banListFile);
                     // read ban list
                     string line;
                     while ((line = reader.ReadLine()) != null)
                     {
-                        if (line != "" && !line.StartsWith("#"))
+                        if (line != "" && !line.StartsWith('#'))
                         {
                             // add to ban list
                             modelBanList.Add(line);
@@ -2270,11 +2264,8 @@ namespace JoinFS
                             // find replace with model
                             Model model = models.Find(m => m.typerole.Equals(defaultModel.Key));
                             // check if typerole not found
-                            if (model == null)
-                            {
-                                // use first model
-                                model = models[0];
-                            }
+                            // use first model
+                            model ??= models[0];
 
                             // update model match
                             matches[defaultModel.Value] = model;
@@ -2382,7 +2373,7 @@ namespace JoinFS
                 {
                     // show dialog for choosing match model
 #if FS2024
-                    SubstitutionForm substitutionForm = new SubstitutionForm(main, modelTitle, modelVariation, typerole);
+                    SubstitutionForm substitutionForm = new(main, modelTitle, modelVariation, typerole);
 #else
                     SubstitutionForm substitutionForm = new SubstitutionForm(main, modelTitle, typerole);
 #endif
@@ -2433,7 +2424,7 @@ namespace JoinFS
             }
             else
             {
-                MessageBox.Show("The model list is empty. Use 'File|Scan For Models...' to generate a list.", Main.name + ": Model Matching");
+                MessageBox.Show("The model list is empty. Use 'File|Scan For Models...' to generate a list.", Main.Name + ": Model Matching");
             }
 #endif
                                 return false;
@@ -2459,7 +2450,7 @@ namespace JoinFS
                 {
                     // show dialog for choosing match model
 #if FS2024
-                    SubstitutionForm substitutionForm = new SubstitutionForm(main, modelTitle, modelVariation, typerole);
+                    SubstitutionForm substitutionForm = new(main, modelTitle, modelVariation, typerole);
 #else
                     SubstitutionForm substitutionForm = new SubstitutionForm(main, modelTitle, typerole);
 #endif
@@ -2506,7 +2497,7 @@ namespace JoinFS
             }
             else
             {
-                MessageBox.Show("The model list is empty. Use 'File|Scan For Models...' to generate a list.", Main.name + ": Model Masquerading");
+                MessageBox.Show("The model list is empty. Use 'File|Scan For Models...' to generate a list.", Main.Name + ": Model Masquerading");
             }
 #endif
                                 return false;
@@ -2527,7 +2518,7 @@ namespace JoinFS
                 try
                 {
                     // show dialog for changing callsign
-                    CallsignForm callsignForm = new CallsignForm(main, modelTitle, originalCallsign);
+                    CallsignForm callsignForm = new(main, modelTitle, originalCallsign);
                     switch (callsignForm.ShowDialog())
                     {
                         case System.Windows.Forms.DialogResult.OK:
@@ -2573,7 +2564,7 @@ namespace JoinFS
             }
             else
             {
-                MessageBox.Show("The model list is empty. Use 'File|Scan For Models...' to generate a list.", Main.name + ": Model Masquerading");
+                MessageBox.Show("The model list is empty. Use 'File|Scan For Models...' to generate a list.", Main.Name + ": Model Masquerading");
             }
 #endif
             return false;
@@ -2604,11 +2595,11 @@ namespace JoinFS
 #endif
         {
             // check for existing model match
-            if (matches.ContainsKey(title))
+            if (matches.TryGetValue(title, out Model value))
             {
                 // check for original model
 #if FS2024
-                model = GetModel(matches[title].title, matches[title].variation);
+                model = GetModel(value.title, value.variation);
 #else
                 model = GetModel(matches[title].title);
 #endif
@@ -2669,12 +2660,12 @@ namespace JoinFS
             for (int length = title.Length; length >= 4; length--)
             {
                 // make key
-                string key = title.Substring(0, length);
+                string key = title[ ..length];
                 // check if prefix exists
-                if (prefixList.ContainsKey(key))
+                if (prefixList.TryGetValue(key, out var prefix))
                 {
                     // check for original model
-                    model = GetModel(prefixList[key]);
+                    model = GetModel(prefix);
                     if (model != null)
                     {
                         // use automatic match
@@ -2685,15 +2676,13 @@ namespace JoinFS
             }
 
             // check for default typerole
-            if (defaultModels.ContainsKey(typerole))
+            if (defaultModels.TryGetValue(typerole, out string defaultModel))
             {
-                // get model key
-                string key = defaultModels[typerole];
                 // check for match
-                if (matches.ContainsKey(key))
+                if (matches.TryGetValue(defaultModel, out var match))
                 {
                     // check for original model
-                    model = GetModel(matches[key].title);
+                    model = GetModel(match.title);
                     if (model != null)
                     {
                         // use default model
@@ -2724,10 +2713,10 @@ namespace JoinFS
         public void Masquerade(string title, out Model masquerade, out Type type)
         {
             // check for existing model masquerade
-            if (masquerades.ContainsKey(title))
+            if (masquerades.TryGetValue(title, out Model value))
             {
                 // use matched model
-                masquerade = masquerades[title];
+                masquerade = value;
                 type = Type.Substitute;
             }
             else
@@ -2745,10 +2734,10 @@ namespace JoinFS
         public string Callsign(string modelTitle, string original)
         {
             // check for existing callsign
-            if (callsigns.ContainsKey(modelTitle))
+            if (callsigns.TryGetValue(modelTitle, out string value))
             {
                 // return modified callsign
-                return callsigns[modelTitle];
+                return value;
             }
             else
             {

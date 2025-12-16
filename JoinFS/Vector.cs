@@ -34,45 +34,45 @@ namespace JoinFS
         /// <summary>
         /// Clone
         /// </summary>
-        public Vector Clone() => new Vector(x, y, z);
+        public Vector Clone() => new(x, y, z);
 
         /// <summary>
         /// Add two vectors
         /// </summary>
-        public static Vector operator +(Vector a, Vector b) => new Vector(a.x + b.x, a.y + b.y, a.z + b.z);
+        public static Vector operator +(Vector a, Vector b) => new(a.x + b.x, a.y + b.y, a.z + b.z);
         /// <summary>
         /// Subtract two vectors
         /// </summary>
-        public static Vector operator -(Vector a, Vector b) => new Vector(a.x - b.x, a.y - b.y, a.z - b.z);
+        public static Vector operator -(Vector a, Vector b) => new(a.x - b.x, a.y - b.y, a.z - b.z);
         /// <summary>
         /// Multiply vector
         /// </summary>
-        public static Vector operator *(Vector a, Vector b) => new Vector(a.x * b.x, a.y * b.y, a.z * b.z);
+        public static Vector operator *(Vector a, Vector b) => new(a.x * b.x, a.y * b.y, a.z * b.z);
         /// <summary>
         /// Multiply scalar
         /// </summary>
-        public static Vector operator *(Vector v, double d) => new Vector(v.x * d, v.y * d, v.z * d);
+        public static Vector operator *(Vector v, double d) => new(v.x * d, v.y * d, v.z * d);
 
         /// <summary>
         /// Rotate vector around pitch angle
         /// </summary>
         /// <param name="pitch">Angle of pitch</param>
         /// <returns>Rotated vector</returns>
-        public Vector RotatePitch(double pitch) => new Vector(x, y * Math.Cos(pitch) - z * Math.Sin(pitch), y * Math.Sin(pitch) + z * Math.Cos(pitch));
+        public Vector RotatePitch(double pitch) => new(x, y * Math.Cos(pitch) - z * Math.Sin(pitch), y * Math.Sin(pitch) + z * Math.Cos(pitch));
 
         /// <summary>
         /// Rotate vector around bank angle
         /// </summary>
         /// <param name="bank">Angle of bank</param>
         /// <returns>Rotated vector</returns>
-        public Vector RotateBank(double bank) => new Vector(x * Math.Cos(bank) - y * Math.Sin(bank), x * Math.Sin(bank) + y * Math.Cos(bank), z);
+        public Vector RotateBank(double bank) => new(x * Math.Cos(bank) - y * Math.Sin(bank), x * Math.Sin(bank) + y * Math.Cos(bank), z);
 
         /// <summary>
         /// Rotate vector around heading angle
         /// </summary>
         /// <param name="heading">Angle of heading</param>
         /// <returns>Rotate vector</returns>
-        public Vector RotateHeading(double heading) => new Vector(x * Math.Cos(heading) + z * Math.Sin(heading), y, -x * Math.Sin(heading) + z * Math.Cos(heading));
+        public Vector RotateHeading(double heading) => new(x * Math.Cos(heading) + z * Math.Sin(heading), y, -x * Math.Sin(heading) + z * Math.Cos(heading));
 
         /// <summary>
         /// Rotate the vector by euler angles
@@ -85,7 +85,7 @@ namespace JoinFS
             double sp = Math.Sin(angles.x);
             double cb = Math.Cos(angles.z);
             double sb = Math.Sin(angles.z);
-            Vector v = new Vector(x * cb - y * sb, x * sb + y * cb, z);
+            Vector v = new(x * cb - y * sb, x * sb + y * cb, z);
             x = v.x;
             y = v.y * cp - v.z * sp;
             z = v.y * sp + v.z * cp;
@@ -106,7 +106,7 @@ namespace JoinFS
             double sp = Math.Sin(-angles.x);
             double cb = Math.Cos(-angles.z);
             double sb = Math.Sin(-angles.z);
-            Vector v = new Vector(x * ch + z * sh, y, -x * sh + z * ch);
+            Vector v = new(x * ch + z * sh, y, -x * sh + z * ch);
             x = v.x;
             y = v.y * cp - v.z * sp;
             z = v.y * sp + v.z * cp;
@@ -155,6 +155,6 @@ namespace JoinFS
         /// <summary>
         /// Difference between two sets of angles
         /// </summary>
-        public static Vector AnglesDelta(Vector a, Vector b) => new Vector(AngleDelta(a.x, b.x), AngleDelta(a.y, b.y), AngleDelta(a.z, b.z));
+        public static Vector AnglesDelta(Vector a, Vector b) => new(AngleDelta(a.x, b.x), AngleDelta(a.y, b.y), AngleDelta(a.z, b.z));
     }
 }

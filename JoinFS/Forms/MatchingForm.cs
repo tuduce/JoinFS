@@ -8,7 +8,7 @@ namespace JoinFS
 {
     public partial class MatchingForm : Form
     {
-        Main main;
+        readonly Main main;
 
         /// <summary>
         /// Offsets
@@ -75,7 +75,7 @@ namespace JoinFS
         /// <summary>
         /// list of items
         /// </summary>
-        List<Item> itemList = new List<Item>();
+        List<Item> itemList = [];
 
         /// <summary>
         /// Get the currently selected model
@@ -116,7 +116,7 @@ namespace JoinFS
         {
             // selected model
             string selectedModel = null;
-            string selectedLivery = null;
+            string selectedLivery;
             Substitution.Model selectedModelObject = null;
 
             // check for selection
@@ -152,7 +152,7 @@ namespace JoinFS
         /// <summary>
         /// Refresher
         /// </summary>
-        public Refresher refresher = new Refresher();
+        public Refresher refresher = new();
 
         /// <summary>
         /// Refresh form
@@ -192,7 +192,7 @@ namespace JoinFS
             lock (main.conch)
             {
                 // get models
-                keys = new List<string>(main.substitution.matches.Keys);
+                keys = [.. main.substitution.matches.Keys];
 
                 // sort keys
                 keys.Sort();
@@ -201,12 +201,12 @@ namespace JoinFS
                 foreach (var defaultModel in main.substitution.defaultModels)
                 {
                     // check for match
-                    if (main.substitution.matches.ContainsKey(defaultModel.Value))
+                    if (main.substitution.matches.TryGetValue(defaultModel.Value, out Substitution.Model value))
                     {
                         // add row
 #if FS2024
                         // TODO: something is not good at the livery substitution
-                        itemList.Add(new Item(defaultModel.Value, main.substitution.matches[defaultModel.Value].title, main.substitution.matches[defaultModel.Value].variation, main.substitution.matches[defaultModel.Value].variation));
+                        itemList.Add(new Item(defaultModel.Value, value.title, value.variation, value.variation));
 #else
                         itemList.Add(new Item(defaultModel.Value, main.substitution.matches[defaultModel.Value].title));
 #endif
@@ -277,7 +277,7 @@ namespace JoinFS
             else
             {
                 // window area
-                Rectangle rectangle = new Rectangle(location, size);
+                Rectangle rectangle = new(location, size);
                 // is window hidden
                 bool hidden = true;
                 // for each screen
@@ -384,7 +384,7 @@ namespace JoinFS
             if (model != null)
             {
                 // ask for confirmation
-                DialogResult result = MessageBox.Show("Permanently remove substitution for '" + model + "'?", Main.name + ": Model Matching", MessageBoxButtons.YesNo);
+                DialogResult result = MessageBox.Show("Permanently remove substitution for '" + model + "'?", Main.Name + ": Model Matching", MessageBoxButtons.YesNo);
                 if (result == DialogResult.Yes)
                 {
                     lock (main.conch)

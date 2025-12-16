@@ -8,7 +8,7 @@ namespace JoinFS
 {
     public partial class AircraftForm : Form
     {
-        Main main;
+        readonly Main main;
 
         /// <summary>
         /// Item in the list
@@ -70,7 +70,7 @@ namespace JoinFS
             }
         };
 
-        List<Item> itemList = new List<Item>();
+        List<Item> itemList = [];
 
         /// <summary>
         /// Offsets
@@ -87,7 +87,7 @@ namespace JoinFS
         /// <summary>
         /// Refresher
         /// </summary>
-        public Refresher refresher = new Refresher();
+        public Refresher refresher = new();
 
         /// <summary>
         /// Refresh form
@@ -205,7 +205,7 @@ namespace JoinFS
             if (aircraft.owner != Sim.Obj.Owner.Network || itemList.Exists(u => u.nuid.Equals(aircraft.ownerNuid) && u.netId == aircraft.netId) == false)
             {
                 // create item
-                Item item = new Item(guid, aircraft.ownerNuid, aircraft.netId, aircraft.simId);
+                Item item = new(guid, aircraft.ownerNuid, aircraft.netId, aircraft.simId);
                 itemList.Add(item);
 
                 // get user position
@@ -288,7 +288,7 @@ namespace JoinFS
                 // weather
                 item.weather = aircraft == main.sim ?. weatherAircraft;
                 // broadcast
-                item.broadcast = (main.sim != null) ? main.sim.IsBroadcast(aircraft) : false;
+                item.broadcast = (main.sim != null) && main.sim.IsBroadcast(aircraft);
                 // record
                 item.record = aircraft.record;
                 // created
@@ -375,8 +375,8 @@ namespace JoinFS
                 item.level = aircraft.flightPlan.altitude;
 
                 // convert frequencies
-                item.com1 = (item.com1.Length < 3) ? "" : item.com1.Substring(0, 3) + "." + item.com1.Substring(3);
-                item.com2 = (item.com2.Length < 3) ? "" : item.com2.Substring(0, 3) + "." + item.com2.Substring(3);
+                item.com1 = (item.com1.Length < 3) ? "" : string.Concat(item.com1.AsSpan()[..3], ".", item.com1.AsSpan(3));
+                item.com2 = (item.com2.Length < 3) ? "" : string.Concat(item.com2.AsSpan()[..3], ".", item.com2.AsSpan(3));
 
                 // wind
                 item.wind = aircraft.wind;
@@ -395,7 +395,7 @@ namespace JoinFS
             if (itemList.Exists(u => u.guid.Equals(user.guid)) == false)
             {
                 // create item
-                Item item = new Item(user.guid);
+                Item item = new(user.guid);
 
                 // get user position
                 Sim.Pos userPosition = main.sim ?. userAircraft ?. Position;
@@ -465,8 +465,8 @@ namespace JoinFS
                 item.level = user.flightPlan.altitude;
 
                 // convert frequencies
-                item.com1 = (item.com1.Length < 4) ? "" : "1" + item.com1.Substring(0, 2) + "." + item.com1.Substring(2, 2);
-                item.com2 = (item.com2.Length < 4) ? "" : "1" + item.com2.Substring(0, 2) + "." + item.com2.Substring(2, 2);
+                item.com1 = (item.com1.Length < 4) ? "" : string.Concat("1", item.com1.AsSpan(0, 2), ".", item.com1.AsSpan(2, 2));
+                item.com2 = (item.com2.Length < 4) ? "" : string.Concat("1", item.com2.AsSpan(0, 2), ".", item.com2.AsSpan(2, 2));
 
                 // add row
                 itemList.Add(item);
@@ -497,7 +497,7 @@ namespace JoinFS
         /// <summary>
         /// temporary user list
         /// </summary>
-        List<Network.HubUser> tempHubUserList = new List<Network.HubUser>();
+        List<Network.HubUser> tempHubUserList = [];
 
         /// <summary>
         /// Refresh window
@@ -756,7 +756,7 @@ namespace JoinFS
             else
             {
                 // window area
-                Rectangle rectangle = new Rectangle(location, size);
+                Rectangle rectangle = new(location, size);
                 // is window hidden
                 bool hidden = true;
                 // for each screen
@@ -895,7 +895,7 @@ namespace JoinFS
                                         if (aircraft != null)
                                         {
                                             // toggle record flag
-                                            aircraft.record = aircraft.record ? false : true;
+                                            aircraft.record = !aircraft.record;
                                         }
                                         // refresh
                                         refresh = true;
@@ -968,7 +968,7 @@ namespace JoinFS
                 if (doBroadcast)
                 {
                     // create broadcast form
-                    BroadcastForm broadcastForm = new BroadcastForm(main, model, false, broadcastObject, broadcastName, broadcastTacpack, broadcastEverything);
+                    BroadcastForm broadcastForm = new(main, model, false, broadcastObject, broadcastName, broadcastTacpack, broadcastEverything);
                     // show form
                     DialogResult result = broadcastForm.ShowDialog();
                     // check result
@@ -1012,7 +1012,7 @@ namespace JoinFS
                 if (message.Length > 0)
                 {
                     // show message
-                    MessageBox.Show(message, Main.name + ": Aircraft");
+                    MessageBox.Show(message, Main.Name + ": Aircraft");
                 }
             }
         }
@@ -1083,7 +1083,7 @@ namespace JoinFS
             if (selectedItem != null)
             {
                 // show message
-                DialogResult result = MessageBox.Show("Remove '" + selectedItem.callsign + "' from the recording?", Main.name + ": Recorder", MessageBoxButtons.YesNo);
+                DialogResult result = MessageBox.Show("Remove '" + selectedItem.callsign + "' from the recording?", Main.Name + ": Recorder", MessageBoxButtons.YesNo);
                 // check for confirmation
                 if (result == DialogResult.Yes)
                 {
@@ -1220,7 +1220,7 @@ namespace JoinFS
             Context_Aircraft_Ignored.CheckState = Settings.Default.IncludeIgnoredAircraft ? CheckState.Checked : CheckState.Unchecked;
 
             // check if tracking is on
-            Context_Aircraft_StopTracking.Enabled = main.sim != null ? (main.sim.trackHeadingObject != null || main.sim.trackBearingObject != null) : false;
+            Context_Aircraft_StopTracking.Enabled = main.sim != null && (main.sim.trackHeadingObject != null || main.sim.trackBearingObject != null);
 
 #if NO_HUBS
             Context_Aircraft_Hub.Visible = false;
@@ -1505,7 +1505,7 @@ namespace JoinFS
                     try
                     {
                         // create dialog for adjusting height
-                        HeightForm heightForm = new HeightForm(main, aircraft.subModel, adjustment);
+                        HeightForm heightForm = new(main, aircraft.subModel, adjustment);
                         // show dialog
                         switch (heightForm.ShowDialog())
                         {
@@ -1561,7 +1561,7 @@ namespace JoinFS
             if (aircraft != null)
             {
                 // toggle option
-                aircraft.showOnRadar = aircraft.showOnRadar ? false : true;
+                aircraft.showOnRadar = !aircraft.showOnRadar;
             }
 
             // refresh
@@ -1573,7 +1573,7 @@ namespace JoinFS
             // check if no simulator connected
             if (main.sim != null && main.sim.Connected == false)
             {
-                MessageBox.Show(Resources.Strings.AssignVariablesWarning, Main.name);
+                MessageBox.Show(Resources.Strings.AssignVariablesWarning, Main.Name);
             }
             else
             {

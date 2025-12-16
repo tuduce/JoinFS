@@ -35,7 +35,7 @@ namespace JoinFS
             }
         };
 
-        List<Item> itemList = new List<Item>();
+        List<Item> itemList = [];
 
         /// <summary>
         /// Offsets
@@ -123,12 +123,12 @@ namespace JoinFS
         /// <summary>
         /// temporary user list
         /// </summary>
-        List<Network.HubUser> tempHubUserList = new List<Network.HubUser>();
+        List<Network.HubUser> tempHubUserList = [];
 
         /// <summary>
         /// Refresher
         /// </summary>
-        public Refresher refresher = new Refresher();
+        public Refresher refresher = new();
 
         /// <summary>
         /// Refresh form
@@ -292,7 +292,7 @@ namespace JoinFS
             else
             {
                 // window area
-                Rectangle rectangle = new Rectangle(location, size);
+                Rectangle rectangle = new(location, size);
                 // is window hidden
                 bool hidden = true;
                 // for each screen

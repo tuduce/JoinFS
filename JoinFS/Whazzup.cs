@@ -141,12 +141,12 @@ namespace JoinFS
         /// <summary>
         /// List of guids
         /// </summary>
-        List<Guid> guidList = new List<Guid>();
+        List<Guid> guidList = [];
 
         /// <summary>
         /// List of clients
         /// </summary>
-        List<string> clientList = new List<string>();
+        List<string> clientList = [];
 
         /// <summary>
         /// Update Euroscope file
@@ -363,10 +363,7 @@ namespace JoinFS
             }
 
             // close writer
-            if (writer != null)
-            {
-                writer.Close();
-            }
+            writer?.Close();
 
             // get old whazzup path
             string oldPath = Path.Combine(main.storagePath, OUTPUT_FILE);

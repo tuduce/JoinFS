@@ -80,10 +80,10 @@ namespace JoinFS
         /// <summary>
         /// List of items
         /// </summary>
-        List<Item> itemList = new List<Item>();
+        List<Item> itemList = [];
 
         // send timer
-        System.Windows.Forms.Timer sendTimer = new System.Windows.Forms.Timer();
+        System.Windows.Forms.Timer sendTimer = new();
 
         /// <summary>
         /// Offsets
@@ -136,11 +136,11 @@ namespace JoinFS
             }
         }
 
-        List<Line> commandLines = new List<Line>();
+        List<Line> commandLines = [];
 
-        List<Line> removeLines = new List<Line>();
+        List<Line> removeLines = [];
 
-        List<Line> receiveLines = new List<Line>();
+        List<Line> receiveLines = [];
 
         /// <summary>
         /// Get the currently selected item
@@ -273,7 +273,7 @@ namespace JoinFS
             nuid = main.network.localNode.GetLocalNuid();
 
             // create new item
-            Item item = new Item(main.guid, nuid, new IPEndPoint(0, 0), main.settingsNickname, Main.version, main.sim != null ? main.sim.GetSimulatorName() : "", callsign, aircraftCount, objectCount, "", false, false, main.network.localNode.GetLocalNuid().port, connected, connected, true, 0.0f);
+            Item item = new(main.guid, nuid, new IPEndPoint(0, 0), main.settingsNickname, Main.Version, main.sim != null ? main.sim.GetSimulatorName() : "", callsign, aircraftCount, objectCount, "", false, false, main.network.localNode.GetLocalNuid().port, connected, connected, true, 0.0f);
             // add to list
             itemList.Add(item);
         }
@@ -360,7 +360,7 @@ namespace JoinFS
             latency = main.network.localNode.GetNodeRTT(nuid);
 
             // add item
-            Item item = new Item(guid, nuid, endPoint, nickname, version, simulator, callsign, aircraftCount, objectCount, share, save, ignore, port, receiveEstablished, sendEstablished, direct, latency);
+            Item item = new(guid, nuid, endPoint, nickname, version, simulator, callsign, aircraftCount, objectCount, share, save, ignore, port, receiveEstablished, sendEstablished, direct, latency);
             // add to list
             itemList.Add(item);
         }
@@ -368,12 +368,12 @@ namespace JoinFS
         /// <summary>
         /// temporary user list
         /// </summary>
-        List<Network.HubUser> tempHubUserList = new List<Network.HubUser>();
+        List<Network.HubUser> tempHubUserList = [];
 
         /// <summary>
         /// Refresher
         /// </summary>
-        public Refresher usersRefresher = new Refresher();
+        public Refresher usersRefresher = new();
 
         /// <summary>
         /// Refresh form
@@ -719,7 +719,7 @@ namespace JoinFS
             else
             {
                 // window area
-                Rectangle rectangle = new Rectangle(location, size);
+                Rectangle rectangle = new(location, size);
                 // is window hidden
                 bool hidden = true;
                 // for each screen
@@ -803,7 +803,7 @@ namespace JoinFS
                     switch (e.ColumnIndex)
                     {
                         case 4:
-                            MessageBox.Show("You can only ignore other connected users.", Main.name + ": Users");
+                            MessageBox.Show("You can only ignore other connected users.", Main.Name + ": Users");
                             break;
                     }
                 }
@@ -817,7 +817,7 @@ namespace JoinFS
                                 // check for me
                                 if (item.guid.Equals(main.guid))
                                 {
-                                    MessageBox.Show("You can not save yourself.", Main.name + ": Session");
+                                    MessageBox.Show("You can not save yourself.", Main.Name + ": Session");
                                 }
                                 else
                                 {
@@ -833,7 +833,7 @@ namespace JoinFS
                                     if (entry != null)
                                     {
                                         // confirm
-                                        DialogResult result = MessageBox.Show("Remove '" + entry.name + "' from the address book?", Main.name + ": Address Book", MessageBoxButtons.YesNo);
+                                        DialogResult result = MessageBox.Show("Remove '" + entry.name + "' from the address book?", Main.Name + ": Address Book", MessageBoxButtons.YesNo);
                                         if (result == DialogResult.Yes)
                                         {
                                             lock (main.conch)
@@ -893,7 +893,7 @@ namespace JoinFS
                                 // check for me
                                 if (item.guid.Equals(main.guid))
                                 {
-                                    MessageBox.Show("You can not ignore yourself.", Main.name + ": Session");
+                                    MessageBox.Show("You can not ignore yourself.", Main.Name + ": Session");
                                 }
                                 else
                                 {
@@ -976,7 +976,7 @@ namespace JoinFS
                 }
 
                 // create shared cockpit form
-                PermissionsForm permissionsForm = new PermissionsForm(main, cockpit, flight, ancillary, nav, multiple);
+                PermissionsForm permissionsForm = new(main, cockpit, flight, ancillary, nav, multiple);
                 // show form
                 DialogResult result = permissionsForm.ShowDialog();
                 // check result
@@ -1150,7 +1150,7 @@ namespace JoinFS
         private void Context_Chat_TextColour_Click(object sender, EventArgs e)
         {
             // open colour picker
-            ColorDialog dialog = new ColorDialog
+            ColorDialog dialog = new()
             {
                 AllowFullOpen = true,
                 AnyColor = true,
@@ -1173,7 +1173,7 @@ namespace JoinFS
         private void Context_Chat_BackgroundColour_Click(object sender, EventArgs e)
         {
             // open colour picker
-            ColorDialog dialog = new ColorDialog
+            ColorDialog dialog = new()
             {
                 AllowFullOpen = true,
                 AnyColor = true,

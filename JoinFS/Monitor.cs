@@ -19,7 +19,7 @@ namespace JoinFS
         /// <summary>
         /// displayed lines of text
         /// </summary>
-        public List<string> lines = new List<string>();
+        public List<string> lines = [];
 
         StreamWriter writer;
 
@@ -87,11 +87,8 @@ namespace JoinFS
         public void CloseLog()
         {
             // close log file
-            if (writer != null)
-            {
-                writer.Close();
-                writer = null;
-            }
+            writer?.Close();
+            writer = null;
         }
 
         /// <summary>
@@ -131,11 +128,8 @@ namespace JoinFS
                 // add line
                 lines.Add(repeatText);
                 // check for log file
-                if (writer != null)
-                {
-                    // save line to log file
-                    writer.WriteLine(repeatText);
-                }
+                // save line to log file
+                writer?.WriteLine(repeatText);
 #if CONSOLE
                 Console.WriteLine(repeatText);
 #endif
@@ -159,11 +153,8 @@ namespace JoinFS
                 // add line
                 lines.Add(line);
                 // check for log file
-                if (writer != null)
-                {
-                    // save line to log file
-                    writer.WriteLine(line);
-                }
+                // save line to log file
+                writer?.WriteLine(line);
 #if CONSOLE
                 Console.WriteLine(line);
 #endif

@@ -76,7 +76,7 @@ namespace JoinFS
             /// <summary>
             /// List of current euroscope entries
             /// </summary>
-            public List<string> lines = new List<string>();
+            public List<string> lines = [];
 
             /// <summary>
             /// Constructor
@@ -89,7 +89,7 @@ namespace JoinFS
         /// <summary>
         /// List of samples
         /// </summary>
-        List<Sample> sampleList = new List<Sample>();
+        List<Sample> sampleList = [];
 
         /// <summary>
         /// new ATC
@@ -111,12 +111,12 @@ namespace JoinFS
         /// <summary>
         /// List of ATC to add
         /// </summary>
-        List<Atc> addList = new List<Atc>();
+        List<Atc> addList = [];
 
         /// <summary>
         /// List of ATC to remove
         /// </summary>
-        List<Atc> removeList = new List<Atc>();
+        List<Atc> removeList = [];
 
         /// <summary>
         /// Update Euroscope file
@@ -126,11 +126,11 @@ namespace JoinFS
             try
             {
                 // open file
-                StreamWriter writer = new StreamWriter(Path.Combine(main.storagePath, OUTPUT_FILE), false);
+                StreamWriter writer = new(Path.Combine(main.storagePath, OUTPUT_FILE), false);
                 if (writer != null)
                 {
                     // create new sample
-                    Sample newSample = new Sample();
+                    Sample newSample = new();
 
                     // check for sim
                     if (main.sim != null)

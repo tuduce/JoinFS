@@ -45,16 +45,20 @@ namespace JoinFS
         /// <summary>
         /// Remote node
         /// </summary>
-        class Node
+        /// <remarks>
+        /// Node constructor
+        /// </remarks>
+        /// <param name="endPoint">Address of remote node</param>
+        class Node(IPEndPoint endPoint, bool receiveEstablished)
         {
             /// <summary>
             /// Actual address of the node
             /// </summary>
-            public IPEndPoint endPoint;
+            public IPEndPoint endPoint = endPoint;
             /// <summary>
             /// Route address of the node
             /// </summary>
-            public IPEndPoint routeEndPoint;
+            public IPEndPoint routeEndPoint = endPoint;
             /// <summary>
             /// Is there a direct connection to this node
             /// </summary>
@@ -63,11 +67,11 @@ namespace JoinFS
             /// Connection state of the node
             /// </summary>
             public bool sendEstablished;
-            public bool receiveEstablished;
+            public bool receiveEstablished = receiveEstablished;
             /// <summary>
             /// Node will expire at this time
             /// </summary>
-            DateTime expireTime;
+            DateTime expireTime = DateTime.UtcNow.AddSeconds(EXPIRE_TIME);
             /// <summary>
             /// Has this node expired
             /// </summary>
@@ -80,22 +84,6 @@ namespace JoinFS
             /// Round trip time for the node
             /// </summary>
             public float rtt;
-
-            /// <summary>
-            /// Node constructor
-            /// </summary>
-            /// <param name="endPoint">Address of remote node</param>
-            public Node(IPEndPoint endPoint, bool receiveEstablished)
-            {
-                // Address of remote node
-                this.endPoint = endPoint;
-                // Address of remote node
-                this.routeEndPoint = endPoint;
-                // set receive state
-                this.receiveEstablished = receiveEstablished;
-                // set expire time
-                expireTime = DateTime.UtcNow.AddSeconds(EXPIRE_TIME);
-            }
 
             /// <summary>
             /// Received message from the node
@@ -130,7 +118,7 @@ namespace JoinFS
         /// <summary>
         /// Nodes
         /// </summary>
-        Dictionary<Nuid, Node> nodes = new Dictionary<Nuid, Node>();
+        readonly Dictionary<Nuid, Node> nodes = [];
         public int NodeCount { get { return nodes.Count; } }
 
         /// <summary>
@@ -179,9 +167,9 @@ namespace JoinFS
         public bool GetNodeEndPoint(Nuid nuid, out IPEndPoint endPoint)
         {
             // check for node
-            if (nodes.ContainsKey(nuid))
+            if (nodes.TryGetValue(nuid, out Node value))
             {
-                endPoint = nodes[nuid].endPoint;
+                endPoint = value.endPoint;
                 return true;
             }
             else
@@ -202,9 +190,9 @@ namespace JoinFS
         public bool GetNodeRouteEndPoint(Nuid nuid, out IPEndPoint endPoint)
         {
             // check for node
-            if (nodes.ContainsKey(nuid))
+            if (nodes.TryGetValue(nuid, out Node value))
             {
-                endPoint = nodes[nuid].routeEndPoint;
+                endPoint = value.routeEndPoint;
                 return true;
             }
             else
@@ -248,10 +236,10 @@ namespace JoinFS
         public bool NodeReceiveEstablished(Nuid nuid)
         {
             // check for node
-            if (nodes.ContainsKey(nuid))
+            if (nodes.TryGetValue(nuid, out Node value))
             {
                 // return established
-                return nodes[nuid].receiveEstablished;
+                return value.receiveEstablished;
             }
             else
             {
@@ -268,10 +256,10 @@ namespace JoinFS
         public bool NodeSendEstablished(Nuid nuid)
         {
             // check for node
-            if (nodes.ContainsKey(nuid))
+            if (nodes.TryGetValue(nuid, out Node value))
             {
                 // return established
-                return nodes[nuid].sendEstablished;
+                return value.sendEstablished;
             }
             else
             {
@@ -288,10 +276,10 @@ namespace JoinFS
         public bool NodeDirect(Nuid nuid)
         {
             // check for node
-            if (nodes.ContainsKey(nuid))
+            if (nodes.TryGetValue(nuid, out Node value))
             {
                 // return direct flag
-                return nodes[nuid].Direct;
+                return value.Direct;
             }
             else
             {
@@ -308,10 +296,10 @@ namespace JoinFS
         public bool NodeLowBandwidth(Nuid nuid)
         {
             // check for node
-            if (nodes.ContainsKey(nuid))
+            if (nodes.TryGetValue(nuid, out Node value))
             {
                 // return flag
-                return nodes[nuid].lowBandwidth;
+                return value.lowBandwidth;
             }
             else
             {
@@ -328,10 +316,10 @@ namespace JoinFS
         public float GetNodeRTT(Nuid nuid)
         {
             // check for node
-            if (nodes.ContainsKey(nuid))
+            if (nodes.TryGetValue(nuid, out Node value))
             {
                 // return RTT
-                return nodes[nuid].rtt;
+                return value.rtt;
             }
             else
             {
@@ -426,7 +414,7 @@ namespace JoinFS
                     if (receive) firstContact = true;
 
                     // create new node
-                    Node newNode = new Node(MakeEndPoint(nuid, port), receive);
+                    Node newNode = new(MakeEndPoint(nuid, port), receive);
 
                     // check if nuid is already used
                     if (nodes.ContainsKey(nuid) && nodeError != null)
@@ -467,10 +455,10 @@ namespace JoinFS
         /// <summary>
         /// General purpose message buffer
         /// </summary>
-        MemoryStream sendBuffer;
-        BinaryWriter sendWriter;
-        MemoryStream receiveBuffer;
-        BinaryReader receiveReader;
+        readonly MemoryStream sendBuffer;
+        readonly BinaryWriter sendWriter;
+        readonly MemoryStream receiveBuffer;
+        readonly BinaryReader receiveReader;
 
         /// <summary>
         /// Message offsets
@@ -643,10 +631,10 @@ namespace JoinFS
                 {
                     IPEndPoint nodeEndPoint;
                     // get node endpoint
-                    if (sendRecipient.Valid() && nodes.ContainsKey(sendRecipient))
+                    if (sendRecipient.Valid() && nodes.TryGetValue(sendRecipient, out Node value))
                     {
                         // get endpoint
-                        nodeEndPoint = nodes[sendRecipient].routeEndPoint;
+                        nodeEndPoint = value.routeEndPoint;
                     }
                     else
                     {
@@ -699,10 +687,10 @@ namespace JoinFS
             // set recipient
             sendRecipient = nuid;
             // find node
-            if (nodes.ContainsKey(nuid))
+            if (nodes.TryGetValue(nuid, out Node value))
             {
                 // send to end point
-                Send(nodes[nuid].routeEndPoint);
+                Send(value.routeEndPoint);
             }
             else
             {
@@ -745,7 +733,7 @@ namespace JoinFS
         public ReceiveNotify receiveNotify;
 
         // list of banned IP addresses
-        List<IPAddress> banList = new List<IPAddress>();
+        readonly List<IPAddress> banList = [];
 
         /// <summary>
         /// Add to ban list
@@ -795,17 +783,17 @@ namespace JoinFS
                     byte guaranteedCount = receiveReader.ReadByte();
 
                     // extract sender nuid
-                    Nuid senderNuid = new LocalNode.Nuid(receiveReader);
+                    Nuid senderNuid = new(receiveReader);
                     // extract recipient nuid
-                    Nuid recipientNuid = new LocalNode.Nuid(receiveReader);
+                    Nuid recipientNuid = new(receiveReader);
 
                     // check for sender node
                     Node senderNode = null;
                     // check if sender is known
-                    if (nodes.ContainsKey(senderNuid))
+                    if (nodes.TryGetValue(senderNuid, out Node value))
                     {
                         // get node
-                        senderNode = nodes[senderNuid];
+                        senderNode = value;
                     }
 
                     // check if sending is established
@@ -831,7 +819,7 @@ namespace JoinFS
                         if (direct)
                         {
                             // check fowarding allowed and for recipient
-                            if (lowBandwidth == false && nodes.ContainsKey(recipientNuid) && nodes[recipientNuid].Direct && (routingNodes.Count < MAX_ROUTING_NODES || routingNodes.ContainsKey(senderNuid)))
+                            if (lowBandwidth == false && nodes.TryGetValue(recipientNuid, out Node value1) && value1.Direct && (routingNodes.Count < MAX_ROUTING_NODES || routingNodes.ContainsKey(senderNuid)))
                             {
                                 // set recipient
                                 sendRecipient = recipientNuid;
@@ -840,7 +828,7 @@ namespace JoinFS
                                 // set forward flag
                                 data[FLAGS_OFFSET] |= FLAG_FORWARD;
                                 // forward the message to the recipient
-                                Send(nodes[recipientNuid].endPoint, data, (int)receiveBuffer.Length);
+                                Send(value1.endPoint, data, (int)receiveBuffer.Length);
 
                                 // set routing node expiry
                                 routingNodes[senderNuid] = DateTime.Now.AddSeconds(5);
@@ -1087,7 +1075,7 @@ namespace JoinFS
                                                 for (int i = 0; i < count; i++)
                                                 {
                                                     // read nuid
-                                                    Nuid nuid = new Nuid(receiveReader);
+                                                    Nuid nuid = new(receiveReader);
                                                     ushort port = receiveReader.ReadUInt16();
                                                     // check that the ID is not for this node
                                                     if (nuid != localNuid)
@@ -1152,7 +1140,7 @@ namespace JoinFS
                                             if (remoteSuid == suid)
                                             {
                                                 // read nuid
-                                                Nuid nuid = new Nuid(receiveReader);
+                                                Nuid nuid = new(receiveReader);
                                                 ushort port = receiveReader.ReadUInt16();
                                                 // register node
                                                 RegisterNode(nuid, port, false, false);
@@ -1221,12 +1209,10 @@ namespace JoinFS
                                         if (Connected)
                                         {
                                             // check if target exists
-                                            if (nodes.ContainsKey(senderNuid))
+                                            if (nodes.TryGetValue(senderNuid, out Node node))
                                             {
                                                 // read time
                                                 long time = receiveReader.ReadInt64();
-                                                // get target
-                                                Node node = nodes[senderNuid];
                                                 // update RTT
                                                 node.rtt = (Stopwatch.GetTimestamp() - time) / (float)Stopwatch.Frequency;
                                                 // register the node
@@ -1324,7 +1310,7 @@ namespace JoinFS
                                                 for (int i = 0; i < readCount; i++)
                                                 {
                                                     // read nuid
-                                                    Nuid nuid = new Nuid(receiveReader);
+                                                    Nuid nuid = new(receiveReader);
                                                     // check for this node
                                                     if (nuid == localNuid)
                                                     {
@@ -1389,7 +1375,7 @@ namespace JoinFS
                                                 for (int i = 0; i < readCount; i++)
                                                 {
                                                     // read nuid
-                                                    Nuid nuid = new Nuid(receiveReader);
+                                                    Nuid nuid = new(receiveReader);
                                                     // check for node
                                                     if (nodes.ContainsKey(nuid))
                                                     {
@@ -1594,7 +1580,7 @@ namespace JoinFS
             while (IsOpen && udpClient.Available > 0)
             {
                 // remote node address
-                IPEndPoint endPoint = new IPEndPoint(IPAddress.Any, 0);
+                IPEndPoint endPoint = new(IPAddress.Any, 0);
                 try
                 {
                     byte[] messageData = udpClient.Receive(ref endPoint);
@@ -1665,7 +1651,7 @@ namespace JoinFS
             /// <summary>
             /// Message segments
             /// </summary>
-            public List<Segment> segmentList = new List<Segment>();
+            public List<Segment> segmentList = [];
 
             /// <summary>
             /// Unique guaranteed ID
@@ -1745,21 +1731,17 @@ namespace JoinFS
                     for (int index = 0; index < this.segmentList.Count; index++)
                     {
                         // create memory stream
-                        using (MemoryStream stream = new MemoryStream(this.segmentList[index].data))
-                        {
-                            // create writer for segment
-                            using (BinaryWriter writer = new BinaryWriter(stream))
-                            {
-                                // set index offset
-                                stream.Position = GUARANTEED_INDEX_OFFSET;
-                                // write index
-                                writer.Write((byte)index);
-                                // set count offset
-                                stream.Position = GUARANTEED_COUNT_OFFSET;
-                                // write count
-                                writer.Write((byte)this.segmentList.Count);
-                            }
-                        }
+                        using MemoryStream stream = new(this.segmentList[index].data);
+                        // create writer for segment
+                        using BinaryWriter writer = new(stream);
+                        // set index offset
+                        stream.Position = GUARANTEED_INDEX_OFFSET;
+                        // write index
+                        writer.Write((byte)index);
+                        // set count offset
+                        stream.Position = GUARANTEED_COUNT_OFFSET;
+                        // write count
+                        writer.Write((byte)this.segmentList.Count);
                     }
                 }
                 // set expire time
@@ -1770,12 +1752,12 @@ namespace JoinFS
         /// <summary>
         /// List of messages being sent by guaranteed method
         /// </summary>
-        List<GuaranteedMessageOut> guaranteedOutList = new List<GuaranteedMessageOut>();
+        readonly List<GuaranteedMessageOut> guaranteedOutList = [];
 
         /// <summary>
         /// List of messages to be removed
         /// </summary>
-        List<GuaranteedMessageOut> removeOutList = new List<GuaranteedMessageOut>();
+        readonly List<GuaranteedMessageOut> removeOutList = [];
 
         /// <summary>
         /// Information
@@ -1785,7 +1767,12 @@ namespace JoinFS
         /// <summary>
         /// Incoming guaranteed message
         /// </summary>
-        class GuaranteedIn
+        /// <remarks>
+        /// GuaranteedDone constructor
+        /// </remarks>
+        /// <param name="nuid">ID of node</param>
+        /// <param name="id">Guaranteed ID</param>
+        class GuaranteedIn(IPEndPoint nodeEndPoint, int id, int segmentCount)
         {
             /// <summary>
             /// Part of the message with its own header
@@ -1812,43 +1799,26 @@ namespace JoinFS
             /// <summary>
             /// Segments of the message
             /// </summary>
-            public Segment[] segments;
+            public Segment[] segments = new Segment[segmentCount];
 
             /// <summary>
             /// end point of sender
             /// </summary>
-            public IPEndPoint nodeEndPoint;
+            public IPEndPoint nodeEndPoint = nodeEndPoint;
             /// <summary>
             /// Guaranteed ID
             /// </summary>
-            public int id;
+            public int id = id;
 
             /// <summary>
             /// Time this will expire
             /// </summary>
-            readonly DateTime expireTime;
+            readonly DateTime expireTime = DateTime.UtcNow.AddSeconds(GUARANTEED_IN_EXPIRE_TIME);
 
             /// <summary>
             /// Has this expired
             /// </summary>
             public bool Expired { get { return DateTime.UtcNow > expireTime; } }
-
-            /// <summary>
-            /// GuaranteedDone constructor
-            /// </summary>
-            /// <param name="nuid">ID of node</param>
-            /// <param name="id">Guaranteed ID</param>
-            public GuaranteedIn(IPEndPoint nodeEndPoint, int id, int segmentCount)
-            {
-                // address
-                this.nodeEndPoint = nodeEndPoint;
-                // guaranteed ID
-                this.id = id;
-                // segments
-                this.segments = new Segment[segmentCount];
-                // set expire time
-                expireTime = DateTime.UtcNow.AddSeconds(GUARANTEED_IN_EXPIRE_TIME);
-            }
 
             /// <summary>
             /// All segments have been received
@@ -1891,12 +1861,12 @@ namespace JoinFS
         /// <summary>
         /// List of guaranteed already received
         /// </summary>
-        List<GuaranteedIn> guaranteedInList = new List<GuaranteedIn>();
+        readonly List<GuaranteedIn> guaranteedInList = [];
 
         /// <summary>
         /// Temporary list for removing expired done objects
         /// </summary>
-        List<GuaranteedIn> removeInList = new List<GuaranteedIn>();
+        readonly List<GuaranteedIn> removeInList = [];
 
         /// <summary>
         /// Information
@@ -1917,10 +1887,10 @@ namespace JoinFS
                     // get endpoint
                     IPEndPoint endPoint;
                     // check for node
-                    if (nodes.ContainsKey(message.nuid))
+                    if (nodes.TryGetValue(message.nuid, out Node value))
                     {
                         // use node endpoint
-                        endPoint = nodes[message.nuid].endPoint;
+                        endPoint = value.endPoint;
                     }
                     else
                     {
@@ -2002,7 +1972,7 @@ namespace JoinFS
 #endregion
 
         // create remove list
-        List<Nuid> removeList = new List<Nuid>();
+        readonly List<Nuid> removeList = [];
 
         /// <summary>
         /// Process the node
@@ -2148,7 +2118,7 @@ namespace JoinFS
                     uint IOC_IN = 0x80000000;
                     uint IOC_VENDOR = 0x18000000;
                     uint SIO_UDP_CONNRESET = IOC_IN | IOC_VENDOR | 12;
-                    udpClient.Client.IOControl((int)SIO_UDP_CONNRESET, new byte[] { Convert.ToByte(false) }, null);
+                    udpClient.Client.IOControl((int)SIO_UDP_CONNRESET, [Convert.ToByte(false)], null);
                 }
                 return true;
             }
@@ -2237,12 +2207,12 @@ namespace JoinFS
             return hash;
         }
 
-#endregion
+        #endregion
 
         /// <summary>
         /// Main interface
         /// </summary>
-        Main main;
+        readonly Main main;
 
         /// <summary>
         /// internal ID of the session
@@ -2280,7 +2250,7 @@ namespace JoinFS
             }
 
             // Write to stream
-            public void Write(BinaryWriter writer)
+            public readonly void Write(BinaryWriter writer)
             {
                 writer.Write(ip);
                 writer.Write(port);
@@ -2311,12 +2281,12 @@ namespace JoinFS
             /// Is nuid valid
             /// </summary>
             /// <returns></returns>
-            public bool Invalid()
+            public readonly bool Invalid()
             {
                 return ip == 0;
             }
 
-            public bool Valid()
+            public readonly bool Valid()
             {
                 return Invalid() == false;
             }
@@ -2325,14 +2295,9 @@ namespace JoinFS
             /// Convert to an end point
             /// </summary>
             /// <returns></returns>
-            public IPAddress ToAddress()
+            public readonly IPAddress ToAddress()
             {
-                byte[] bytes = new byte[4];
-                bytes[0] = (byte)(ip >> 24);
-                bytes[1] = (byte)(ip >> 16);
-                bytes[2] = (byte)(ip >> 8);
-                bytes[3] = (byte)ip;
-
+                byte[] bytes = [(byte)(ip >> 24), (byte)(ip >> 16), (byte)(ip >> 8), (byte)ip];
                 return new IPAddress(bytes);
             }
 
@@ -2340,7 +2305,7 @@ namespace JoinFS
             /// Convert to an end point
             /// </summary>
             /// <returns></returns>
-            public IPEndPoint ToEndPoint(ushort port)
+            public readonly IPEndPoint ToEndPoint(ushort port)
             {
                 return new IPEndPoint(ToAddress(), port);
             }
@@ -2348,7 +2313,7 @@ namespace JoinFS
             /// <summary>
             /// Convert nuid to a readable string
             /// </summary>
-            public override string ToString()
+            public override readonly string ToString()
             {
                 return Network.EncodeIP(ToEndPoint(port).ToString()) + "/" + local;
             }
@@ -2356,11 +2321,8 @@ namespace JoinFS
             /// <summary>
             ///  Comparisons
             /// </summary>
-            public override bool Equals(Object obj)
-            {
-                return obj is Nuid && this == (Nuid)obj;
-            }
-            public override int GetHashCode()
+            public override readonly bool Equals(Object obj) => obj is Nuid nuid && this == nuid;
+            public override readonly int GetHashCode()
             {
                 return ip.GetHashCode() ^ port.GetHashCode() ^ local.GetHashCode();
             }
@@ -2381,7 +2343,7 @@ namespace JoinFS
         /// <summary>
         /// ID of this node
         /// </summary>
-        Nuid localNuid = new Nuid();
+        Nuid localNuid = new();
 
         /// <summary>
         /// Node states
@@ -2396,7 +2358,7 @@ namespace JoinFS
         /// <summary>
         /// Local address
         /// </summary>
-        IPAddress localAddress = IPAddress.Loopback;
+        readonly IPAddress localAddress = IPAddress.Loopback;
 
         /// <summary>
         /// Accessible local address
@@ -2533,7 +2495,7 @@ namespace JoinFS
                     // global ID
                     suid = 1;
                     // no password
-                    passwordHash = 0;
+                    this.passwordHash = 0;
                 }
                 else
                 {
@@ -2766,12 +2728,12 @@ namespace JoinFS
         /// <summary>
         /// List of current routing nodes
         /// </summary>
-        Dictionary<Nuid, DateTime> routingNodes = new Dictionary<Nuid, DateTime>();
+        readonly Dictionary<Nuid, DateTime> routingNodes = [];
 
         /// <summary>
         /// Remove list
         /// </summary>
-        List<Nuid> removeRoutingList = new List<Nuid>();
+        readonly List<Nuid> removeRoutingList = [];
 
         /// <summary>
         /// Information
@@ -2857,11 +2819,8 @@ namespace JoinFS
                 foreach (var nuid in removeRoutingList)
                 {
                     // check if in list
-                    if (routingNodes.ContainsKey(nuid))
-                    {
-                        // remove node from routing
-                        routingNodes.Remove(nuid);
-                    }
+                    // remove node from routing
+                    routingNodes.Remove(nuid);
                 }
 
                 // clear list
@@ -2878,7 +2837,7 @@ namespace JoinFS
         /// </summary>
         class PasswordWatcher : FileSystemWatcher
         {
-            Main main;
+            readonly Main main;
 
             public PasswordWatcher(Main main) : base(main.documentsPath)
             {
@@ -2910,7 +2869,7 @@ namespace JoinFS
         /// </summary>
         class EmailWatcher : FileSystemWatcher
         {
-            Main main;
+            readonly Main main;
 
             /// <summary>
             /// Constructor
@@ -2965,7 +2924,7 @@ namespace JoinFS
         /// <summary>
         /// List of valid credentials
         /// </summary>
-        Dictionary<System.Net.Mail.MailAddress, uint> credentials = new Dictionary<System.Net.Mail.MailAddress, uint>();
+        readonly Dictionary<System.Net.Mail.MailAddress, uint> credentials = [];
 
         /// <summary>
         /// Generate hashed name
@@ -3019,7 +2978,7 @@ namespace JoinFS
                             try
                             {
                                 // get email address
-                                System.Net.Mail.MailAddress address = new System.Net.Mail.MailAddress(parts[0]);
+                                System.Net.Mail.MailAddress address = new(parts[0]);
 
                                 // check for three three part entry
                                 if (parts.Length == 2 && uint.TryParse(parts[1], NumberStyles.Number, CultureInfo.InvariantCulture, out uint hash))
@@ -3056,7 +3015,7 @@ namespace JoinFS
             finally
             {
                 // close file
-                if (reader != null) reader.Close();
+                reader?.Close();
             }
         }
 
@@ -3088,7 +3047,7 @@ namespace JoinFS
             finally
             {
                 // close file
-                if (writer != null) writer.Close();
+                writer?.Close();
             }
         }
 
@@ -3098,7 +3057,7 @@ namespace JoinFS
         void ValidateCredentials(string path)
         {
             // list of addresses to import
-            List<System.Net.Mail.MailAddress> importList = new List<System.Net.Mail.MailAddress>();
+            List<System.Net.Mail.MailAddress> importList = [];
 
             // reader
             StreamReader reader = null;
@@ -3141,7 +3100,7 @@ namespace JoinFS
                     }
 
                     // remove list
-                    List<System.Net.Mail.MailAddress> removeList = new List<System.Net.Mail.MailAddress>();
+                    List<System.Net.Mail.MailAddress> removeList = [];
 
                     // for all credentials
                     foreach (var entry in credentials)
@@ -3173,7 +3132,7 @@ namespace JoinFS
             finally
             {
                 // close file
-                if (reader != null) reader.Close();
+                reader?.Close();
             }
 
             try

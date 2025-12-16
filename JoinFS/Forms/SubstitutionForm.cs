@@ -60,7 +60,7 @@ namespace JoinFS
             // clear current list
             Combo_Type.Items.Clear();
 
-            List<string> typeList = new List<string>();
+            List<string> typeList = [];
 
             lock (main.conch)
             {
@@ -126,7 +126,7 @@ namespace JoinFS
             // clear current list
             Combo_Variation.Items.Clear();
 
-            List<string> list = new List<string>();
+            List<string> list = [];
 
             lock (main.conch)
             {

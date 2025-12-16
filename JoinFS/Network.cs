@@ -46,14 +46,14 @@ namespace JoinFS
         /// <summary>
         /// Timers
         /// </summary>
-        Timer sharedDataTimer = new Timer(5.0);
-        Timer onlineUserTimer = new Timer(60.0);
-        Timer addressBookTimer = new Timer(60.0);
-        Timer hubsTimer = new Timer(5.0);
-        Timer pendingHubsTimer = new Timer(1800.0);
-        Timer hubUserListTimer = new Timer(2.0);
-        Timer localUserListTimer = new Timer(10.0);
-        Timer internetAddressTimer = new Timer(10800.0);
+        readonly Timer sharedDataTimer = new(5.0);
+        readonly Timer onlineUserTimer = new(60.0);
+        readonly Timer addressBookTimer = new(60.0);
+        readonly Timer hubsTimer = new(5.0);
+        readonly Timer pendingHubsTimer = new(1800.0);
+        readonly Timer hubUserListTimer = new(2.0);
+        readonly Timer localUserListTimer = new(10.0);
+        readonly Timer internetAddressTimer = new(10800.0);
 
         /// <summary>
         /// Hub list has recently changed
@@ -68,13 +68,13 @@ namespace JoinFS
         /// <summary>
         /// Reference to the main form
         /// </summary>
-        Main main;
+        readonly Main main;
 
         /// <summary>
         /// Vuids
         /// </summary>
-        uint vuidSquawk;
-        uint vuidIfr;
+        readonly uint vuidSquawk;
+        readonly uint vuidIfr;
 
         /// <summary>
         /// Local node
@@ -84,7 +84,7 @@ namespace JoinFS
         /// <summary>
         /// For seedhubs
         /// </summary>
-        private static readonly HttpClient httpClient = new HttpClient();
+        private static readonly HttpClient httpClient = new();
         string[] seedhubs = null;
         bool seedhubsFallback = false;
 
@@ -105,7 +105,7 @@ namespace JoinFS
                 }
                 else
                 {
-                    seedhubs = new string[] { "" };
+                    seedhubs = [""];
                 }
             }
         }
@@ -196,7 +196,7 @@ namespace JoinFS
                 }
                 else
                 {
-                    banlist = new string[] { "" };
+                    banlist = [ "" ];
                 }
             }
         }
@@ -282,17 +282,16 @@ namespace JoinFS
             // load hub list
             LoadHubList();
 #endif
-
-            _ = DownloadMyIpAsync();
-
-#if !NO_HUBS
             string hubsUrl = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/util/seedhubs.txt";
-            _ = DownloadSeedhubsAsync(hubsUrl);
-
             string banUrl = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/util/banlist.txt";
-            _ = DownloadBanlistAsync(banUrl);
-            
+            var tasks = new List<Task> {
+                DownloadMyIpAsync(),
+#if !NO_HUBS
+                DownloadSeedhubsAsync(hubsUrl),
+                DownloadBanlistAsync(banUrl),
 #endif
+            };
+            Task.WhenAll(tasks).GetAwaiter().GetResult();
 
 #if !CONSOLE
             main.hubsForm ?. refresher.Schedule(5);
@@ -325,10 +324,10 @@ namespace JoinFS
                 if (scheduleJoinUser)
                 {
                     // check if end point is known
-                    if (onlineUsers.ContainsKey(scheduleJoinUuid))
+                    if (onlineUsers.TryGetValue(scheduleJoinUuid, out var user))
                     {
                         // join
-                        Join(MakeEndPoint(onlineUsers[scheduleJoinUuid]), 0);
+                        Join(MakeEndPoint(user), 0);
                         // reset
                         scheduleJoinUser = false;
                     }
@@ -592,10 +591,10 @@ namespace JoinFS
                         localNode.Send(entry.endPoint);
                     }
                     // check if user is unknown
-                    else if (onlineUsers.ContainsKey(entry.uuid))
+                    else if (onlineUsers.TryGetValue(entry.uuid, out var user))
                     {
                         // update end point
-                        entry.endPoint = MakeEndPoint(onlineUsers[entry.uuid]);
+                        entry.endPoint = MakeEndPoint(user);
                         // prepare message
                         WriteStatusRequestMessage(false);
                         // send status request to node
@@ -782,14 +781,14 @@ namespace JoinFS
                     if (main.settingsAtc && main.settingsAtcAirport.Length > 0)
                     {
                         // check if airport is listed
-                        if (main.airportList.ContainsKey(main.settingsAtcAirport))
+                        if (main.airportList.TryGetValue(main.settingsAtcAirport, out var airport))
                         {
                             // convert to radians
-                            double latitude = Math.Min(90.0, Math.Max(-90.0, main.airportList[main.settingsAtcAirport].latitude));
-                            double longitude = Math.Min(180.0, Math.Max(-180.0, main.airportList[main.settingsAtcAirport].longitude));
+                            double latitude = Math.Min(90.0, Math.Max(-90.0, airport.latitude));
+                            double longitude = Math.Min(180.0, Math.Max(-180.0, airport.longitude));
                             // get ATC level
                             int level = Settings.Default.AtcLevel;
-                            Sim.FlightPlan flightPlan = new Sim.FlightPlan
+                            Sim.FlightPlan flightPlan = new()
                             {
                                 callsign = Sim.MakeAtcCallsign(main.settingsAtcAirport, level),
                                 departure = main.settingsAtcAirport
@@ -801,7 +800,7 @@ namespace JoinFS
                     else if (aircraft != null && aircraft.Position != null)
                     {
                         int squawk = aircraft.variableSet != null ? aircraft.variableSet.GetInteger(vuidSquawk) : 0;
-                        bool ifr = aircraft.variableSet != null ? aircraft.variableSet.GetInteger(vuidIfr) != 0 : false;
+                        bool ifr = aircraft.variableSet != null && aircraft.variableSet.GetInteger(vuidIfr) != 0;
                         // write client entry for pilot
                         localUserList.Add(new HubUser(main.guid, false, main.settingsNickname, 0, aircraft.Position.geo.z * (180.0 / Math.PI), aircraft.Position.geo.x * (180.0 / Math.PI), aircraft.Position.geo.y, aircraft.netVelocity, aircraft.flightPlan, squawk, 0, 0, ifr, aircraft.Position.angles.y));
                     }
@@ -816,12 +815,12 @@ namespace JoinFS
                         if (node.Value.atc && node.Value.atcAirport.Length > 0)
                         {
                             // check if airport is listed
-                            if (main.airportList.ContainsKey(node.Value.atcAirport))
+                            if (main.airportList.TryGetValue(node.Value.atcAirport, out Main.Airport value))
                             {
                                 // convert to radians
-                                double latitude = Math.Min(90.0, Math.Max(-90.0, main.airportList[node.Value.atcAirport].latitude));
-                                double longitude = Math.Min(180.0, Math.Max(-180.0, main.airportList[node.Value.atcAirport].longitude));
-                                Sim.FlightPlan flightPlan = new Sim.FlightPlan
+                                double latitude = Math.Min(90.0, Math.Max(-90.0, value.latitude));
+                                double longitude = Math.Min(180.0, Math.Max(-180.0, value.longitude));
+                                Sim.FlightPlan flightPlan = new()
                                 {
                                     callsign = Sim.MakeAtcCallsign(node.Value.atcAirport, node.Value.atcLevel),
                                     departure = node.Value.atcAirport
@@ -833,7 +832,7 @@ namespace JoinFS
                         else if (aircraft != null && aircraft.Position != null)
                         {
                             int squawk = aircraft.variableSet != null ? aircraft.variableSet.GetInteger(vuidSquawk) : 0;
-                            bool ifr = aircraft.variableSet != null ? aircraft.variableSet.GetInteger(vuidIfr) != 0 : false;
+                            bool ifr = aircraft.variableSet != null && aircraft.variableSet.GetInteger(vuidIfr) != 0;
                             // write client entry for pilot
                             localUserList.Add(new HubUser(node.Value.guid, false, node.Value.nickname, 0, aircraft.Position.geo.z * (180.0 / Math.PI), aircraft.Position.geo.x * (180.0 / Math.PI), aircraft.Position.geo.y, aircraft.netVelocity, aircraft.flightPlan, squawk, 0, 0, ifr, aircraft.Position.angles.y));
                         }
@@ -1158,11 +1157,8 @@ namespace JoinFS
         {
 #if !NO_HUBS
             // check if not scheduled
-            if (submitHub == null)
-            {
-                // set schedule
-                submitHub = endPoint;
-            }
+            // set schedule
+            submitHub ??= endPoint;
 #endif
         }
 
@@ -1205,7 +1201,7 @@ namespace JoinFS
             try
             {
                 // open file
-                BinaryWriter writer = new BinaryWriter(File.Create(main.storagePath + Path.DirectorySeparatorChar + HUB_LIST_FILE));
+                BinaryWriter writer = new(File.Create(main.storagePath + Path.DirectorySeparatorChar + HUB_LIST_FILE));
                 if (writer != null)
                 {
                     // for each hub
@@ -1307,9 +1303,11 @@ namespace JoinFS
                             for (int i = 0; i < count; i++)
                             {
                                 // create new hub
-                                Hub hub = new Hub { };
-                                // read address
-                                hub.addressText = reader.ReadString();
+                                Hub hub = new() {
+                                    // read address
+                                    addressText = reader.ReadString()
+                                };
+                                
                                 if (version >= 10005)
                                 {
                                     // read nuid
@@ -1347,7 +1345,7 @@ namespace JoinFS
                                 // read global flag
                                 hub.globalSession = reader.ReadBoolean();
                                 // read password
-                                hub.password = version >= 10004 ? reader.ReadBoolean() : false;
+                                hub.password = version >= 10004 && reader.ReadBoolean();
 
                                 // check for old version
                                 if (version < 10003)
@@ -1395,15 +1393,12 @@ namespace JoinFS
                 finally
                 {
                     // check for file
-                    if (reader != null)
-                    {
-                        // close file
-                        reader.Close();
-                    }
+                    // close file
+                    reader?.Close();
                 }
 
                 // sleep for random time
-                Random random = new Random((int)DateTime.Now.Ticks);
+                Random random = new((int)DateTime.Now.Ticks);
                 Thread.Sleep(random.Next(10, 100));
             }
         }
@@ -1411,7 +1406,7 @@ namespace JoinFS
         /// <summary>
         /// Current end point that was joined
         /// </summary>
-        public IPEndPoint joinEndPoint = new IPEndPoint(0, 0);
+        public IPEndPoint joinEndPoint = new(0, 0);
 
         /// <summary>
         /// A scheduled join
@@ -2076,7 +2071,7 @@ namespace JoinFS
         /// <summary>
         /// Scheduled shared data message
         /// </summary>
-        LocalNode.Nuid scheduleSharedData = new LocalNode.Nuid();
+        LocalNode.Nuid scheduleSharedData = new();
 
         /// <summary>
         /// Schedule a shared data message
@@ -2148,7 +2143,7 @@ namespace JoinFS
             // add activity circle
             message.Write((byte)main.settingsActivityCircle);
             // add version
-            message.Write(Main.version);
+            message.Write(Main.Version);
             // add simulator
             message.Write(main.sim != null ? main.sim.GetSimulatorName() : Resources.Strings.NotConnected);
             // send to node
@@ -2191,7 +2186,7 @@ namespace JoinFS
             Guid guid = main.guid;
             message.Write(guid.ToByteArray());
             // add application version
-            message.Write(Main.version);
+            message.Write(Main.Version);
             // add node count
             message.Write((ushort)localUserList.Count);
             // get main ATC
@@ -2516,7 +2511,7 @@ namespace JoinFS
             // add message ID
             message.Write((short)MESSAGE_ID.UsageLog);
             // add version
-            message.Write(Main.version);
+            message.Write(Main.Version);
             // add guid
             Guid guid = main.guid;
             message.Write(guid.ToByteArray());
@@ -3085,7 +3080,7 @@ namespace JoinFS
 
                                     // read network time
                                     double netTime = reader.ReadDouble();
-                                    Sim.ObjectPositionVelocity positionVelocity = new Sim.ObjectPositionVelocity();
+                                    Sim.ObjectPositionVelocity positionVelocity = new();
                                     Sim.Read(dataVersion, reader, ref positionVelocity);
 
                                     // update position and velocity
@@ -3145,7 +3140,7 @@ namespace JoinFS
 
                                         // read network time
                                         double netTime = reader.ReadDouble();
-                                        Sim.AircraftPosition aircraftPosition = new Sim.AircraftPosition();
+                                        Sim.AircraftPosition aircraftPosition = new();
                                         Sim.Read(dataVersion, reader, ref aircraftPosition);
 
                                         // check for shared cockpit update
@@ -3332,10 +3327,8 @@ namespace JoinFS
                                     byte share = reader.ReadByte();
                                     main.sim ?. ShareCockpit(nuid, share);
                                     // check for node
-                                    if (nodeList.ContainsKey(nuid))
+                                    if (nodeList.TryGetValue(nuid, out Node node))
                                     {
-                                        // get node
-                                        Node node = nodeList[nuid];
                                         // set data version
                                         node.dataVersion = (ushort)dataVersion;
                                         // read nickname
@@ -3353,7 +3346,7 @@ namespace JoinFS
                                         // read flags
                                         byte flags = reader.ReadByte();
                                         // read hub mode
-                                        bool hub = (flags & 0x01) != 0 ? true : false;
+                                        bool hub = (flags & 0x01) != 0;
                                         // check if hub has changed
                                         if (node.hub == false && hub)
                                         {
@@ -3363,7 +3356,7 @@ namespace JoinFS
                                         // set hub
                                         node.hub = hub;
                                         // read hub mode
-                                        bool atc = (flags & 0x02) != 0 ? true : false;
+                                        bool atc = (flags & 0x02) != 0;
                                         // check if atc has changed
                                         if (node.atc && atc == false)
                                         {
@@ -3391,7 +3384,7 @@ namespace JoinFS
                                         // set simulator
                                         node.simulator = (dataVersion >= 10019) ? reader.ReadString() : "";
                                         // set simulator connected flag
-                                        node.simulatorConnected = (dataVersion < 10024 || (flags & 0x04) != 0) ? true : false;
+                                        node.simulatorConnected = (dataVersion < 10024 || (flags & 0x04) != 0);
                                     }
                                 }
                             }
@@ -3411,9 +3404,9 @@ namespace JoinFS
                                 if (localNode.Connected)
                                 {
                                     // get hub flag
-                                    bool hubEnabled = (reader.ReadByte() == 0) ? false : true;
+                                    bool hubEnabled = reader.ReadByte() != 0;
                                     // get hub request flag
-                                    bool hubListRequest = (reader.ReadByte() == 0) ? false : true;
+                                    bool hubListRequest = reader.ReadByte() != 0;
 
                                     // check for hub
                                     if (hubEnabled)
@@ -3468,7 +3461,7 @@ namespace JoinFS
                                 // update stat
                                 Stats.Status.Record(reader.BaseStream.Length);
                                 // read guid
-                                Guid guid = new Guid(reader.ReadBytes(16));
+                                Guid guid = new(reader.ReadBytes(16));
                                 // read application version
                                 string appVersion = reader.ReadString();
                                 // read node count
@@ -3509,8 +3502,8 @@ namespace JoinFS
                                     int activityCircle = reader.ReadInt32();
                                     // read flags
                                     byte flags = (dataVersion >= 10025) ? reader.ReadByte() : (byte)0;
-                                    bool globalSession = (flags & 0x02) != 0 ? true : false;
-                                    bool password = (flags & 0x04) != 0 ? true : false;
+                                    bool globalSession = (flags & 0x02) != 0;
+                                    bool password = (flags & 0x04) != 0;
 
                                     // check for unspecified address
                                     if (addressText.Length <= 0)
@@ -3519,12 +3512,8 @@ namespace JoinFS
                                         addressText = endPoint.ToString();
                                     }
 
-                                    // check if hub is in the pending list
-                                    if (pendingHubList.ContainsKey(endPoint))
-                                    {
-                                        // remove from pending list
-                                        pendingHubList.Remove(endPoint);
-                                    }
+                                    // remove from pending list
+                                    pendingHubList.Remove(endPoint);
 
                                     // check for maximum IPs and not this hub
                                     if (HubCount_IP(nuid) < MAX_IP_HUBS && nuid != localNode.GetLocalNuid())
@@ -3643,7 +3632,7 @@ namespace JoinFS
                                 for (int i = 0; i < count; i++)
                                 {
                                     // read nuid
-                                    LocalNode.Nuid hubNuid = new LocalNode.Nuid(reader);
+                                    LocalNode.Nuid hubNuid = new(reader);
                                     ushort hubPort = reader.ReadUInt16();
                                     // check if hub is already in list
                                     Hub hub = hubList.Find(h => h.nuid == hubNuid);
@@ -3710,7 +3699,7 @@ namespace JoinFS
                                     for (int index = 0; index < count; index++)
                                     {
                                         // read guid
-                                        Guid guid = new Guid(reader.ReadBytes(16));
+                                        Guid guid = new(reader.ReadBytes(16));
                                         // read user details
                                         byte flags = reader.ReadByte();
                                         bool atc = (flags & 0x01) != 0;
@@ -3782,7 +3771,7 @@ namespace JoinFS
                                 if (hub != null)
                                 {
                                     // read guid
-                                    Guid guid = new Guid(reader.ReadBytes(16));
+                                    Guid guid = new(reader.ReadBytes(16));
                                     // reject this user
                                     if (guid.Equals(main.guid) == false)
                                     {
@@ -3864,7 +3853,7 @@ namespace JoinFS
                                     for (int index = 0; index < count; index++)
                                     {
                                         // read guid
-                                        Guid guid = new Guid(reader.ReadBytes(16));
+                                        Guid guid = new(reader.ReadBytes(16));
                                         // read user details
                                         float latitude = reader.ReadSingle();
                                         float longitude = reader.ReadSingle();
@@ -3921,7 +3910,7 @@ namespace JoinFS
                                 while (endUser == 0)
                                 {
                                     // read guid
-                                    Guid guid = new Guid(reader.ReadBytes(16));
+                                    Guid guid = new(reader.ReadBytes(16));
                                     // read nickname
                                     string nickname = reader.ReadString();
                                     // read callsign
@@ -3992,7 +3981,7 @@ namespace JoinFS
                                 uint uuid = reader.ReadUInt32();
 
                                 // check if online user is known
-                                if (onlineUsers.ContainsKey(uuid))
+                                if (onlineUsers.TryGetValue(uuid, out OnlineUser value))
                                 {
                                     // prepare message
                                     BinaryWriter message = localNode.PrepareMessage(new LocalNode.Nuid(), true);
@@ -4003,13 +3992,12 @@ namespace JoinFS
                                     message.Write((short)MESSAGE_ID.UserNuid);
                                     // add uuid
                                     message.Write(uuid);
-                                    // add nuid
-                                    onlineUsers[uuid].nuid.Write(message);
+                                    value.nuid.Write(message);
                                     // add port
-                                    message.Write(onlineUsers[uuid].port);
+                                    message.Write(value.port);
                                     // send message
                                     localNode.Send(endPoint);
-                                    main.MonitorNetwork("UserNuidRequest '" + endPoint.ToString() + "' - '" + UuidToString(uuid) + "' - '" + onlineUsers[uuid].nuid.ToString() + ":" + onlineUsers[uuid].port + "'");
+                                    main.MonitorNetwork("UserNuidRequest '" + endPoint.ToString() + "' - '" + UuidToString(uuid) + "' - '" + value.nuid.ToString() + ":" + value.port + "'");
                                 }
                                 else
                                 {
@@ -4030,7 +4018,7 @@ namespace JoinFS
                                 // read uuid
                                 uint uuid = reader.ReadUInt32();
                                 // read end point
-                                LocalNode.Nuid userNuid = new LocalNode.Nuid(reader);
+                                LocalNode.Nuid userNuid = new(reader);
                                 // read port
                                 ushort port = reader.ReadUInt16();
 
@@ -4067,7 +4055,7 @@ namespace JoinFS
                                 // update stat
                                 Stats.FlightPlan.Record(reader.BaseStream.Length);
                                 // get owner nuid
-                                LocalNode.Nuid ownerNuid = new LocalNode.Nuid(reader);
+                                LocalNode.Nuid ownerNuid = new(reader);
                                 // get network ID
                                 uint netId = reader.ReadUInt32();
                                 // check for forced updated
@@ -4129,11 +4117,11 @@ namespace JoinFS
                                 if (localNode.Connected)
                                 {
                                     // get owner nuid
-                                    LocalNode.Nuid ownerNuid = new LocalNode.Nuid(reader);
+                                    LocalNode.Nuid ownerNuid = new(reader);
                                     // get network ID
                                     uint netId = reader.ReadUInt32();
                                     // read variables
-                                    Dictionary<uint, int> variables = new Dictionary<uint, int>();
+                                    Dictionary<uint, int> variables = [];
                                     Sim.Read(dataVersion, reader, variables);
 
                                     // check for shared cockpit update
@@ -4181,11 +4169,11 @@ namespace JoinFS
                                 if (localNode.Connected)
                                 {
                                     // get owner nuid
-                                    LocalNode.Nuid ownerNuid = new LocalNode.Nuid(reader);
+                                    LocalNode.Nuid ownerNuid = new(reader);
                                     // get network ID
                                     uint netId = reader.ReadUInt32();
                                     // read variables
-                                    Dictionary<uint, float> variables = new Dictionary<uint, float>();
+                                    Dictionary<uint, float> variables = [];
                                     Sim.Read(dataVersion, reader, variables);
 
                                     // check for shared cockpit update
@@ -4233,11 +4221,11 @@ namespace JoinFS
                                 if (localNode.Connected)
                                 {
                                     // get owner nuid
-                                    LocalNode.Nuid ownerNuid = new LocalNode.Nuid(reader);
+                                    LocalNode.Nuid ownerNuid = new(reader);
                                     // get network ID
                                     uint netId = reader.ReadUInt32();
                                     // read variables
-                                    Dictionary<uint, string> variables = new Dictionary<uint, string>();
+                                    Dictionary<uint, string> variables = [];
                                     Sim.Read(dataVersion, reader, variables);
 
                                     // check for shared cockpit update
@@ -4295,7 +4283,7 @@ namespace JoinFS
         /// <summary>
         /// List of DNS lookups
         /// </summary>
-        Dictionary<string, IPAddress> dnsLookups = new Dictionary<string,IPAddress>();
+        readonly Dictionary<string, IPAddress> dnsLookups = [];
 
         /// <summary>
         /// Time to reset DNS lookups
@@ -4310,12 +4298,12 @@ namespace JoinFS
         public bool DnsLookup(string addressText, out IPAddress address)
         {
             // check for existing lookup
-            if (dnsLookups.ContainsKey(addressText))
+            if (dnsLookups.TryGetValue(addressText, out IPAddress value))
             {
                 // get address
-                address = dnsLookups[addressText];
+                address = value;
                 // return result
-                return address.Equals(IPAddress.None) ? false : true;
+                return !address.Equals(IPAddress.None);
             }
             else
             {
@@ -4414,7 +4402,7 @@ namespace JoinFS
         /// <summary>
         /// List of nodes
         /// </summary>
-        public Dictionary<LocalNode.Nuid, Node> nodeList = new Dictionary<LocalNode.Nuid, Node>();
+        public Dictionary<LocalNode.Nuid, Node> nodeList = [];
 
         /// <summary>
         /// Get the node nickname
@@ -4430,10 +4418,10 @@ namespace JoinFS
             }
 
             // check for valid node
-            if (nodeList.ContainsKey(nuid))
+            if (nodeList.TryGetValue(nuid, out Node value))
             {
                 // return nickname
-                return nodeList[nuid].nickname;
+                return value.nickname;
             }
 
             // use IP address
@@ -4461,10 +4449,10 @@ namespace JoinFS
             }
 
             // check for valid node
-            if (nodeList.ContainsKey(nuid))
+            if (nodeList.TryGetValue(nuid, out Node value))
             {
                 // return guid
-                return nodeList[nuid].guid;
+                return value.guid;
             }
 
             // invalid
@@ -4506,10 +4494,10 @@ namespace JoinFS
             }
 
             // check for valid node
-            if (nodeList.ContainsKey(nuid))
+            if (nodeList.TryGetValue(nuid, out Node value))
             {
                 // return activity circle
-                return nodeList[nuid].activityCircle;
+                return value.activityCircle;
             }
 
             // invalid
@@ -4596,13 +4584,13 @@ namespace JoinFS
             }
 
             // check for valid node
-            if (nodeList.ContainsKey(nuid))
+            if (nodeList.TryGetValue(nuid, out Node value))
             {
                 // get airport and level
-                airport = nodeList[nuid].atcAirport;
-                level = nodeList[nuid].atcLevel;
+                airport = value.atcAirport;
+                level = value.atcLevel;
                 // return ATC flag
-                return nodeList[nuid].atc;
+                return value.atc;
             }
 
             // invalid
@@ -4619,14 +4607,14 @@ namespace JoinFS
             if (nuid.Invalid())
             {
                 // get this version
-                return Main.version;
+                return Main.Version;
             }
 
             // check for valid node
-            if (nodeList.ContainsKey(nuid))
+            if (nodeList.TryGetValue(nuid, out Node value))
             {
                 // return version
-                return nodeList[nuid].version;
+                return value.version;
             }
 
             // invalid
@@ -4671,10 +4659,10 @@ namespace JoinFS
             }
 
             // check for valid node
-            if (nodeList.ContainsKey(nuid))
+            if (nodeList.TryGetValue(nuid, out Node value))
             {
                 // return simulator
-                return nodeList[nuid].simulatorConnected;
+                return value.simulatorConnected;
             }
 
             // invalid
@@ -4699,9 +4687,9 @@ namespace JoinFS
         /// <summary>
         /// Share controls with other nodes
         /// </summary>
-        public LocalNode.Nuid shareFlightControls = new LocalNode.Nuid();
-        public LocalNode.Nuid shareAncillaryControls = new LocalNode.Nuid();
-        public LocalNode.Nuid shareNavControls = new LocalNode.Nuid();
+        public LocalNode.Nuid shareFlightControls = new();
+        public LocalNode.Nuid shareAncillaryControls = new();
+        public LocalNode.Nuid shareNavControls = new();
 
 #endregion
 
@@ -4768,15 +4756,15 @@ namespace JoinFS
         /// <summary>
         /// Local hub users
         /// </summary>
-        public readonly List<HubUser> localUserList = new List<HubUser>();
+        public readonly List<HubUser> localUserList = [];
 
         /// <summary>
         /// Remote Hub
         /// </summary>
         public class Hub
         {
-            public LocalNode.Nuid nuid = new LocalNode.Nuid();
-            public IPEndPoint endPoint = new IPEndPoint(0, 0);
+            public LocalNode.Nuid nuid = new();
+            public IPEndPoint endPoint = new(0, 0);
             public string addressText = "";
             public ushort port = DEFAULT_PORT;
             public DateTime dateTime;
@@ -4805,33 +4793,33 @@ namespace JoinFS
             /// <summary>
             /// Global hub users
             /// </summary>
-            public List<HubUser> userList = new List<HubUser>();
+            public List<HubUser> userList = [];
         }
 
         /// <summary>
         /// List of Hubs
         /// </summary>
-        public List<Hub> hubList = new List<Hub>();
+        public List<Hub> hubList = [];
 
         /// <summary>
         /// Temporary list of Hubs
         /// </summary>
-        public List<Hub> tempHubList = new List<Hub>();
+        public List<Hub> tempHubList = [];
 
         /// <summary>
         /// Temporary list of online users
         /// </summary>
-        public List<uint> tempOnlineUsers = new List<uint>();
+        public List<uint> tempOnlineUsers = [];
 
         /// <summary>
         /// Temporary list of end points
         /// </summary>
-        public List<IPEndPoint> tempEndPoints = new List<IPEndPoint>();
+        public List<IPEndPoint> tempEndPoints = [];
 
         /// <summary>
         /// List of Hubs waiting to be verified
         /// </summary>
-        Dictionary<IPEndPoint, float> pendingHubList = new Dictionary<IPEndPoint, float>();
+        readonly Dictionary<IPEndPoint, float> pendingHubList = [];
 
         /// <summary>
         /// Get the total number of hub users
@@ -4952,8 +4940,8 @@ namespace JoinFS
             if (parts.Length == 2 && parts[0].Length == 5 && parts[1].Length == 5)
             {
                 // check for ints
-                if (uint.TryParse(parts[0], NumberStyles.Number, CultureInfo.InvariantCulture, out uint n1)
-                    && uint.TryParse(parts[1], NumberStyles.Number, CultureInfo.InvariantCulture, out uint n2))
+                if (uint.TryParse(parts[0], NumberStyles.Number, CultureInfo.InvariantCulture, out uint _)
+                    && uint.TryParse(parts[1], NumberStyles.Number, CultureInfo.InvariantCulture, out uint _))
                 {
                     // uuid format
                     return true;
@@ -4996,7 +4984,7 @@ namespace JoinFS
         /// <summary>
         /// list of online users
         /// </summary>
-        Dictionary<uint, OnlineUser> onlineUsers = new Dictionary<uint, OnlineUser>();
+        readonly Dictionary<uint, OnlineUser> onlineUsers = [];
 
         /// <summary>
         /// Information
@@ -5010,10 +4998,10 @@ namespace JoinFS
         {
             OnlineUser user;
             // check for existing user
-            if (onlineUsers.ContainsKey(uuid))
+            if (onlineUsers.TryGetValue(uuid, out OnlineUser value))
             {
                 // get user
-                user = onlineUsers[uuid];
+                user = value;
             }
             else
             {
@@ -5032,7 +5020,7 @@ namespace JoinFS
         /// <summary>
         /// random numbers for hub index
         /// </summary>
-        Random randomHubIndex = new Random();
+        readonly Random randomHubIndex = new();
 
         /// <summary>
         /// Request the nuid of a user

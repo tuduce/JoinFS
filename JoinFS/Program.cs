@@ -28,12 +28,24 @@ namespace JoinFS
         /// <summary>
         /// Current version
         /// </summary>
-        public static string version = "0.0.0";
+        private static string version = "0.0.0";
+
+        // Version getter
+        public static string Version
+        {
+            get { return version; }
+        }
 
         /// <summary>
-        /// Current version
+        /// Current name
         /// </summary>
-        public static string name = "";
+        private static string name = "";
+
+        // Name getter
+        public static string Name
+        {
+            get { return name; }
+        }
 
         /// <summary>
         /// Storage path
@@ -110,7 +122,7 @@ namespace JoinFS
         /// <summary>
         /// Multithreading lock object
         /// </summary>
-        public object conch = new object();
+        public object conch = new();
 
         /// <summary>
         /// instance ID
@@ -120,7 +132,7 @@ namespace JoinFS
         /// <summary>
         /// Thread for updates
         /// </summary>
-        Thread workThread;
+        private readonly Thread _workThread;
         /// <summary>
         /// Finish work flag
         /// </summary>
@@ -131,11 +143,11 @@ namespace JoinFS
         public void Close()
         {
             // check for thread
-            if (workThread != null)
+            if (_workThread != null)
             {
                 // notify thread
                 workFinish = true;
-                workThread.Join(5000);
+                _workThread.Join(5000);
             }
 
             // close systems
@@ -155,7 +167,7 @@ namespace JoinFS
         }
 
         // record time at launch
-        Stopwatch stopwatch;
+        readonly Stopwatch stopwatch;
 
         // get time since launch
         public double ElapsedTime
@@ -180,234 +192,6 @@ namespace JoinFS
                 // construct three part version number
                 FileVersionInfo info = FileVersionInfo.GetVersionInfo(assembly.Location);
                 version = info.FileMajorPart.ToString() + '.' + info.FileMinorPart.ToString() + '.' + info.FileBuildPart.ToString();
-
-                // check for settings import
-                if (Settings.Default.AskImport != "3.1.6")
-                {
-                    DateTime latestTime = DateTime.MinValue;
-                    string oldFile = "";
-
-                    // get the old config under Simfuture
-                    string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Simfuture");
-                    // check for simfuture folder
-                    if (Directory.Exists(path))
-                    {
-                        string[] files = Directory.GetFiles(path, "user.config", SearchOption.AllDirectories);
-                        // find newest version
-                        foreach (var file in files)
-                        {
-                            DateTime t = File.GetLastWriteTime(file);
-                            if (t > latestTime)
-                            {
-                                latestTime = t;
-                                oldFile = file;
-                            }
-                        }
-
-#if !CONSOLE
-                        // get current user config
-                        Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.PerUserRoamingAndLocal);
-
-                        // check for valid files
-                        if (oldFile != "" && config != null && config.FilePath != "")
-                        {
-                            // ask to import
-                            DialogResult result = MessageBox.Show(Resources.Strings.AskImport, Main.name, MessageBoxButtons.YesNo);
-                            if (result == DialogResult.Yes)
-                            {
-                                // overwrite config file
-                                try
-                                {
-                                    File.Copy(oldFile, config.FilePath, true);
-                                }
-                                catch { }
-                                // reload the config
-                                Settings.Default.Reload();
-                            }
-                        }
-#endif
-                        // update the ask version
-                        Settings.Default.AskImport = "3.1.6";
-                        Settings.Default.Save();
-                    }
-                }
-
-                // migrate settings
-                if (Settings.Default.MigratedSettings == false)
-                {
-#if !CONSOLE
-                    Settings.Default.JoinAddress = OldSettings.ReadString("JoinAddress", Settings.Default.JoinAddress);
-                    Settings.Default.MyIp = OldSettings.ReadString("MyIp", Settings.Default.MyIp);
-                    Settings.Default.Password = OldSettings.ReadString("Password", Settings.Default.Password);
-                    Settings.Default.Nickname = OldSettings.ReadString("Nickname", Settings.Default.Nickname);
-                    Settings.Default.AtcAirport = OldSettings.ReadString("AtcAirport", Settings.Default.AtcAirport);
-                    Settings.Default.HubAddress = OldSettings.ReadString("HubAddress", Settings.Default.HubAddress);
-                    Settings.Default.HubName = OldSettings.ReadString("HubName", Settings.Default.HubName);
-                    Settings.Default.HubAbout = OldSettings.ReadString("HubAbout", Settings.Default.HubAbout);
-                    Settings.Default.HubVoIP = OldSettings.ReadString("HubVoIP", Settings.Default.HubVoIP);
-                    Settings.Default.HubEvent = OldSettings.ReadString("HubEvent", Settings.Default.HubEvent);
-                    Settings.Default.AskVersion = OldSettings.ReadString("AskVersion", Settings.Default.AskVersion);
-                    Settings.Default.RecordingFolder = OldSettings.ReadString("RecordingFolder", Settings.Default.RecordingFolder);
-                    Settings.Default.LastPosition = new Guid(OldSettings.ReadString("LastPosition", Settings.Default.LastPosition.ToString()));
-                    Settings.Default.XPlanePluginAddress = OldSettings.ReadString("XPlanePluginAddress", Settings.Default.XPlanePluginAddress);
-                    Settings.Default.AskSimConnect = OldSettings.ReadInt32("AskSimConnect", Settings.Default.AskSimConnect ? 1 : 0) == 1;
-                    Settings.Default.SortBookmarksColumn = OldSettings.ReadInt32("SortBookmarksColumn", Settings.Default.SortBookmarksColumn);
-                    Settings.Default.AutoRefresh = OldSettings.ReadInt32("AutoRefresh", Settings.Default.AutoRefresh ? 1 : 0) == 1;
-                    int x, y, w, h;
-                    x = OldSettings.ReadInt32("BookmarksFormX", Settings.Default.BookmarksFormLocation.X);
-                    y = OldSettings.ReadInt32("BookmarksFormY", Settings.Default.BookmarksFormLocation.Y);
-                    w = OldSettings.ReadInt32("BookmarksFormW", Settings.Default.BookmarksFormSize.Width);
-                    h = OldSettings.ReadInt32("BookmarksFormH", Settings.Default.BookmarksFormSize.Height);
-                    Settings.Default.BookmarksFormLocation = new Point(x, y);
-                    Settings.Default.BookmarksFormSize = new Size(w, h);
-                    x = OldSettings.ReadInt32("AircraftFormX", Settings.Default.AircraftFormLocation.X);
-                    y = OldSettings.ReadInt32("AircraftFormY", Settings.Default.AircraftFormLocation.Y);
-                    w = OldSettings.ReadInt32("AircraftFormW", Settings.Default.AircraftFormSize.Width);
-                    h = OldSettings.ReadInt32("AircraftFormH", Settings.Default.AircraftFormSize.Height);
-                    Settings.Default.AircraftFormLocation = new Point(x, y);
-                    Settings.Default.AircraftFormSize = new Size(w, h);
-                    x = OldSettings.ReadInt32("AddressBookFormX", Settings.Default.AddressBookFormLocation.X);
-                    y = OldSettings.ReadInt32("AddressBookFormY", Settings.Default.AddressBookFormLocation.Y);
-                    w = OldSettings.ReadInt32("AddressBookFormW", Settings.Default.AddressBookFormSize.Width);
-                    h = OldSettings.ReadInt32("AddressBookFormH", Settings.Default.AddressBookFormSize.Height);
-                    Settings.Default.AddressBookFormLocation = new Point(x, y);
-                    Settings.Default.AddressBookFormSize = new Size(w, h);
-                    x = OldSettings.ReadInt32("ShortcutsFormX", Settings.Default.ShortcutsFormLocation.X);
-                    y = OldSettings.ReadInt32("ShortcutsFormY", Settings.Default.ShortcutsFormLocation.Y);
-                    w = OldSettings.ReadInt32("ShortcutsFormW", Settings.Default.ShortcutsFormSize.Width);
-                    h = OldSettings.ReadInt32("ShortcutsFormH", Settings.Default.ShortcutsFormSize.Height);
-                    Settings.Default.ShortcutsFormLocation = new Point(x, y);
-                    Settings.Default.ShortcutsFormSize = new Size(w, h);
-                    x = OldSettings.ReadInt32("SessionFormX", Settings.Default.SessionFormLocation.X);
-                    y = OldSettings.ReadInt32("SessionFormY", Settings.Default.SessionFormLocation.Y);
-                    w = OldSettings.ReadInt32("SessionFormW", Settings.Default.SessionFormSize.Width);
-                    h = OldSettings.ReadInt32("SessionFormH", Settings.Default.SessionFormSize.Height);
-                    Settings.Default.SessionFormLocation = new Point(x, y);
-                    Settings.Default.SessionFormSize = new Size(w, h);
-                    x = OldSettings.ReadInt32("RecorderFormX", Settings.Default.RecorderFormLocation.X);
-                    y = OldSettings.ReadInt32("RecorderFormY", Settings.Default.RecorderFormLocation.Y);
-                    w = OldSettings.ReadInt32("RecorderFormW", Settings.Default.RecorderFormSize.Width);
-                    h = OldSettings.ReadInt32("RecorderFormH", Settings.Default.RecorderFormSize.Height);
-                    Settings.Default.RecorderFormLocation = new Point(x, y);
-                    Settings.Default.RecorderFormSize = new Size(w, h);
-                    x = OldSettings.ReadInt32("OptionsFormX", Settings.Default.OptionsFormLocation.X);
-                    y = OldSettings.ReadInt32("OptionsFormY", Settings.Default.OptionsFormLocation.Y);
-                    w = OldSettings.ReadInt32("OptionsFormW", Settings.Default.OptionsFormSize.Width);
-                    h = OldSettings.ReadInt32("OptionsFormH", Settings.Default.OptionsFormSize.Height);
-                    Settings.Default.OptionsFormLocation = new Point(x, y);
-                    Settings.Default.OptionsFormSize = new Size(w, h);
-                    x = OldSettings.ReadInt32("ObjectsFormX", Settings.Default.ObjectsFormLocation.X);
-                    y = OldSettings.ReadInt32("ObjectsFormY", Settings.Default.ObjectsFormLocation.Y);
-                    w = OldSettings.ReadInt32("ObjectsFormW", Settings.Default.ObjectsFormSize.Width);
-                    h = OldSettings.ReadInt32("ObjectsFormH", Settings.Default.ObjectsFormSize.Height);
-                    Settings.Default.ObjectsFormLocation = new Point(x, y);
-                    Settings.Default.ObjectsFormSize = new Size(w, h);
-                    x = OldSettings.ReadInt32("MonitorFormX", Settings.Default.MonitorFormLocation.X);
-                    y = OldSettings.ReadInt32("MonitorFormY", Settings.Default.MonitorFormLocation.Y);
-                    w = OldSettings.ReadInt32("MonitorFormW", Settings.Default.MonitorFormSize.Width);
-                    h = OldSettings.ReadInt32("MonitorFormH", Settings.Default.MonitorFormSize.Height);
-                    Settings.Default.MonitorFormLocation = new Point(x, y);
-                    Settings.Default.MonitorFormSize = new Size(w, h);
-                    x = OldSettings.ReadInt32("MatchingFormX", Settings.Default.MatchingFormLocation.X);
-                    y = OldSettings.ReadInt32("MatchingFormY", Settings.Default.MatchingFormLocation.Y);
-                    w = OldSettings.ReadInt32("MatchingFormW", Settings.Default.MatchingFormSize.Width);
-                    h = OldSettings.ReadInt32("MatchingFormH", Settings.Default.MatchingFormSize.Height);
-                    Settings.Default.MatchingFormLocation = new Point(x, y);
-                    Settings.Default.MatchingFormSize = new Size(w, h);
-                    x = OldSettings.ReadInt32("MainFormX", Settings.Default.MainFormLocation.X);
-                    y = OldSettings.ReadInt32("MainFormY", Settings.Default.MainFormLocation.Y);
-                    Settings.Default.MainFormLocation = new Point(x, y);
-                    x = OldSettings.ReadInt32("HubsFormX", Settings.Default.HubsFormLocation.X);
-                    y = OldSettings.ReadInt32("HubsFormY", Settings.Default.HubsFormLocation.Y);
-                    w = OldSettings.ReadInt32("HubsFormW", Settings.Default.HubsFormSize.Width);
-                    h = OldSettings.ReadInt32("HubsFormH", Settings.Default.HubsFormSize.Height);
-                    Settings.Default.HubsFormLocation = new Point(x, y);
-                    Settings.Default.HubsFormSize = new Size(w, h);
-                    x = OldSettings.ReadInt32("AtcFormX", Settings.Default.AtcFormLocation.X);
-                    y = OldSettings.ReadInt32("AtcFormY", Settings.Default.AtcFormLocation.Y);
-                    w = OldSettings.ReadInt32("AtcFormW", Settings.Default.AtcFormSize.Width);
-                    h = OldSettings.ReadInt32("AtcFormH", Settings.Default.AtcFormSize.Height);
-                    Settings.Default.AtcFormLocation = new Point(x, y);
-                    Settings.Default.AtcFormSize = new Size(w, h);
-                    Settings.Default.AlwaysOnTop = OldSettings.ReadInt32("AlwaysOnTop", Settings.Default.AlwaysOnTop ? 1 : 0) == 1;
-                    Settings.Default.IncludeIgnoredAircraft = OldSettings.ReadInt32("IncludeIgnoredAircraft", Settings.Default.IncludeIgnoredAircraft ? 1 : 0) == 1;
-                    Settings.Default.IncludeSimulatorAircraft = OldSettings.ReadInt32("IncludeSimulatorAircraft", Settings.Default.IncludeSimulatorAircraft ? 1 : 0) == 1;
-                    Settings.Default.IncludeGlobalAircraft = OldSettings.ReadInt32("IncludeGlobalAircraft", Settings.Default.IncludeGlobalAircraft ? 1 : 0) == 1;
-                    Settings.Default.SortAircraftColumn = OldSettings.ReadInt32("SortAircraftColumn", Settings.Default.SortAircraftColumn);
-                    Settings.Default.SortAtcColumn = OldSettings.ReadInt32("SortAtcColumn", Settings.Default.SortAtcColumn);
-                    Settings.Default.ListIgnoredHubs = OldSettings.ReadInt32("ListIgnoredHubs", Settings.Default.ListIgnoredHubs ? 1 : 0) == 1;
-                    Settings.Default.ListOfflineHubs = OldSettings.ReadInt32("ListOfflineHubs", Settings.Default.ListOfflineHubs ? 1 : 0) == 1;
-                    Settings.Default.SortHubsColumn = OldSettings.ReadInt32("SortHubsColumn", Settings.Default.SortHubsColumn);
-                    Settings.Default.ColourActiveBackground = Color.FromArgb(OldSettings.ReadInt32("ColourActiveBackground", Settings.Default.ColourActiveBackground.ToArgb()));
-                    Settings.Default.ColourActiveText = Color.FromArgb(OldSettings.ReadInt32("ColourActiveText", Settings.Default.ColourActiveText.ToArgb()));
-                    Settings.Default.ColourWaitingBackground = Color.FromArgb(OldSettings.ReadInt32("ColourWaitingBackground", Settings.Default.ColourWaitingBackground.ToArgb()));
-                    Settings.Default.ColourWaitingText = Color.FromArgb(OldSettings.ReadInt32("ColourWaitingText", Settings.Default.ColourWaitingText.ToArgb()));
-                    Settings.Default.ColourInactiveBackground = Color.FromArgb(OldSettings.ReadInt32("ColourInactiveBackground", Settings.Default.ColourInactiveBackground.ToArgb()));
-                    Settings.Default.ColourInactiveText = Color.FromArgb(OldSettings.ReadInt32("ColourInactiveText", Settings.Default.ColourInactiveText.ToArgb()));
-                    Settings.Default.ColourLabel = Color.FromArgb(OldSettings.ReadInt32("ColourLabel", Settings.Default.ColourLabel.ToArgb()));
-                    Settings.Default.ShortcutNetwork = OldSettings.ReadInt32("ShortcutNetwork", Settings.Default.ShortcutNetwork ? 1 : 0) == 1;
-                    Settings.Default.ShortcutSimulator = OldSettings.ReadInt32("ShortcutSimulator", Settings.Default.ShortcutSimulator ? 1 : 0) == 1;
-                    Settings.Default.ShortcutFollow = OldSettings.ReadInt32("ShortcutFollow", Settings.Default.ShortcutFollow ? 1 : 0) == 1;
-                    Settings.Default.ToolTips = OldSettings.ReadInt32("ToolTips", Settings.Default.ToolTips ? 1 : 0) == 1;
-                    Settings.Default.HubsFormOpen = OldSettings.ReadInt32("HubsFormOpen", Settings.Default.HubsFormOpen ? 1 : 0) == 1;
-                    Settings.Default.BookmarksFormOpen = OldSettings.ReadInt32("BookmarksFormOpen", Settings.Default.BookmarksFormOpen ? 1 : 0) == 1;
-                    Settings.Default.AircraftFormOpen = OldSettings.ReadInt32("AircraftFormOpen", Settings.Default.AircraftFormOpen ? 1 : 0) == 1;
-                    Settings.Default.AtcFormOpen = OldSettings.ReadInt32("AtcFormOpen", Settings.Default.AtcFormOpen ? 1 : 0) == 1;
-                    Settings.Default.ObjectsFormOpen = OldSettings.ReadInt32("ObjectsFormOpen", Settings.Default.ObjectsFormOpen ? 1 : 0) == 1;
-                    Settings.Default.RecorderFormOpen = OldSettings.ReadInt32("RecorderFormOpen", Settings.Default.RecorderFormOpen ? 1 : 0) == 1;
-                    Settings.Default.SessionFormOpen = OldSettings.ReadInt32("SessionFormOpen", Settings.Default.SessionFormOpen ? 1 : 0) == 1;
-                    Settings.Default.MonitorFormOpen = OldSettings.ReadInt32("MonitorFormOpen", Settings.Default.MonitorFormOpen ? 1 : 0) == 1;
-                    Settings.Default.MatchingFormOpen = OldSettings.ReadInt32("MatchingFormOpen", Settings.Default.MatchingFormOpen ? 1 : 0) == 1;
-                    Settings.Default.ShortcutsFormOpen = OldSettings.ReadInt32("ShortcutsFormOpen", Settings.Default.ShortcutsFormOpen ? 1 : 0) == 1;
-                    Settings.Default.OptionsFormOpen = OldSettings.ReadInt32("OptionsFormOpen", Settings.Default.OptionsFormOpen ? 1 : 0) == 1;
-                    Settings.Default.GroupObjects = OldSettings.ReadInt32("GroupObjects", Settings.Default.GroupObjects ? 1 : 0) == 1;
-                    Settings.Default.SortObjectsColumn = OldSettings.ReadInt32("SortObjectsColumn", Settings.Default.SortObjectsColumn);
-                    Settings.Default.CommsTextColour = Color.FromArgb(OldSettings.ReadInt32("CommsTextColour", Settings.Default.CommsTextColour.ToArgb()));
-                    Settings.Default.CommsBackColour = Color.FromArgb(OldSettings.ReadInt32("CommsBackColour", Settings.Default.CommsBackColour.ToArgb()));
-                    Settings.Default.SortUsersColumn = OldSettings.ReadInt32("SortUsersColumn", Settings.Default.SortUsersColumn);
-                    Settings.Default.SessionChat = OldSettings.ReadInt32("SessionChat", Settings.Default.SessionChat ? 1 : 0) == 1;
-                    Settings.Default.ShortcutEnterCockpit = OldSettings.ReadInt32("ShortcutEnterCockpit", Settings.Default.ShortcutEnterCockpit ? 1 : 0) == 1;
-                    Settings.Default.ShortcutNetworkKey = OldSettings.ReadString("ShortcutNetworkKey", Settings.Default.ShortcutNetworkKey);
-                    Settings.Default.ShortcutSimulatorKey = OldSettings.ReadString("ShortcutSimulatorKey", Settings.Default.ShortcutSimulatorKey);
-                    Settings.Default.ShortcutAllowSharedKey = OldSettings.ReadString("ShortcutAllowSharedKey", Settings.Default.ShortcutAllowSharedKey);
-                    Settings.Default.ShortcutHandOverKey = OldSettings.ReadString("ShortcutHandOverKey", Settings.Default.ShortcutHandOverKey);
-                    Settings.Default.ShortcutEnterKey = OldSettings.ReadString("ShortcutEnterKey", Settings.Default.ShortcutEnterKey);
-                    Settings.Default.ShortcutFollowKey = OldSettings.ReadString("ShortcutFollowKey", Settings.Default.ShortcutFollowKey);
-                    Settings.Default.BroadcastTacpack = OldSettings.ReadInt32("BroadcastTacpack", Settings.Default.BroadcastTacpack ? 1 : 0) == 1;
-                    Settings.Default.AutoBroadcast = OldSettings.ReadInt32("AutoBroadcast", Settings.Default.AutoBroadcast ? 1 : 0) == 1;
-                    Settings.Default.Euroscope = OldSettings.ReadInt32("Euroscope", Settings.Default.Euroscope ? 1 : 0) == 1;
-                    Settings.Default.AtcFrequency = OldSettings.ReadInt32("AtcFrequency", Settings.Default.AtcFrequency);
-                    Settings.Default.AtcLevel = OldSettings.ReadInt32("AtcLevel", Settings.Default.AtcLevel);
-                    Settings.Default.LowBandwidth = OldSettings.ReadInt32("LowBandwidth", Settings.Default.LowBandwidth ? 1 : 0) == 1;
-                    Settings.Default.AutoLog = OldSettings.ReadInt32("AutoLog", Settings.Default.AutoLog ? 1 : 0) == 1;
-                    Settings.Default.ShareCockpitEveryone = OldSettings.ReadInt32("ShareCockpitEveryone", Settings.Default.ShareCockpitEveryone ? 1 : 0) == 1;
-                    Settings.Default.MultipleObjectsEveryone = OldSettings.ReadInt32("MultipleObjectsEveryone", Settings.Default.MultipleObjectsEveryone ? 1 : 0) == 1;
-                    Settings.Default.LocalPortEnabled = OldSettings.ReadInt32("LocalPortEnabled", Settings.Default.LocalPortEnabled ? 1 : 0) == 1;
-                    Settings.Default.LocalPort = (ushort)OldSettings.ReadInt32("LocalPort", Settings.Default.LocalPort);
-                    Settings.Default.ConnectOnLaunch = OldSettings.ReadInt32("ConnectOnLaunch", Settings.Default.ConnectOnLaunch ? 1 : 0) == 1;
-                    Settings.Default.ActivityCircle = OldSettings.ReadInt32("ActivityCircle", Settings.Default.ActivityCircle);
-                    Settings.Default.Atc = OldSettings.ReadInt32("Atc", Settings.Default.Atc ? 1 : 0) == 1;
-                    Settings.Default.Hub = OldSettings.ReadInt32("Hub", Settings.Default.Hub ? 1 : 0) == 1;
-                    Settings.Default.Whazzup = OldSettings.ReadInt32("Whazzup", Settings.Default.Whazzup ? 1 : 0) == 1;
-                    Settings.Default.WhazzupGlobal = OldSettings.ReadInt32("WhazzupGlobal", Settings.Default.WhazzupGlobal ? 1 : 0) == 1;
-                    Settings.Default.Global = OldSettings.ReadInt32("Global", Settings.Default.Global ? 1 : 0) == 1;
-                    Settings.Default.ModelScanOnConnection = OldSettings.ReadInt32("ModelScanOnConnection", Settings.Default.ModelScanOnConnection ? 1 : 0) == 1;
-                    Settings.Default.ShowNicknames = OldSettings.ReadInt32("ShowNicknames", Settings.Default.ShowNicknames ? 1 : 0) == 1;
-                    Settings.Default.AtcWarning = OldSettings.ReadInt32("AtcWarning", Settings.Default.AtcWarning ? 1 : 0) == 1;
-                    Settings.Default.WhazzupAI = OldSettings.ReadInt32("WhazzupAI", Settings.Default.WhazzupAI ? 1 : 0) == 1;
-                    Settings.Default.ShowCallsign = OldSettings.ReadInt32("ShowCallsign", Settings.Default.ShowCallsign ? 1 : 0) == 1;
-                    Settings.Default.ShowDistance = OldSettings.ReadInt32("ShowDistance", Settings.Default.ShowDistance ? 1 : 0) == 1;
-                    Settings.Default.ShowAltitude = OldSettings.ReadInt32("ShowAltitude", Settings.Default.ShowAltitude ? 1 : 0) == 1;
-                    Settings.Default.ShowSpeed = OldSettings.ReadInt32("ShowSpeed", Settings.Default.ShowSpeed ? 1 : 0) == 1;
-                    Settings.Default.ElevationCorrection = OldSettings.ReadInt32("ElevationCorrection", Settings.Default.ElevationCorrection ? 1 : 0) == 1;
-                    Settings.Default.FollowDistance = OldSettings.ReadInt32("FollowDistance", Settings.Default.FollowDistance);
-                    Settings.Default.XPlane = OldSettings.ReadInt32("XPlane", Settings.Default.XPlane ? 1 : 0) == 1;
-#endif
-
-                    // finished migrating
-                    Settings.Default.MigratedSettings = true;
-                    Settings.Default.Save();
-                }
 
                 // get settings
                 settingsPortEnabled = Settings.Default.LocalPortEnabled;
@@ -466,7 +250,7 @@ namespace JoinFS
                     if (args[index].Length > 0 && args[index][0] == '-')
                     {
                         // handle -- type options as well
-                        string option = args[index].StartsWith("--") ? args[index].Substring(1) : args[index];
+                        string option = args[index].StartsWith("--") ? args[index][1..] : args[index];
                         // process option
                         switch (option)
                         {
@@ -638,7 +422,7 @@ namespace JoinFS
                                 if (index < args.Length)
                                 {
                                     // write airport
-                                    settingsAtcAirport = args[index].Substring(0, Math.Min(4, args[index].Length)).ToUpper();
+                                    settingsAtcAirport = args[index][..Math.Min(4, args[index].Length)].ToUpper();
                                 }
                                 break;
 
@@ -1011,11 +795,11 @@ namespace JoinFS
                     // try to open file
                     try
                     {
-                        StreamReader stream = new StreamReader(doPlay);
+                        StreamReader stream = new(doPlay);
                         if (stream != null)
                         {
                             // try to open file
-                            BinaryReader reader = new BinaryReader(stream.BaseStream);
+                            BinaryReader reader = new(stream.BaseStream);
                             if (reader != null)
                             {
                                 // read recording
@@ -1042,8 +826,8 @@ namespace JoinFS
                 MonitorEvent("Start complete");
 
                 // start work thread
-                workThread = new Thread(new ThreadStart(DoWork));
-                workThread.Start();
+                _workThread = new Thread(new ThreadStart(DoWork));
+                _workThread.Start();
             }
             catch (Exception ex)
             {
@@ -1053,20 +837,24 @@ namespace JoinFS
 
         public static void LaunchEncoded(string command)
         {
-            var p = new System.Diagnostics.Process();
-            p.StartInfo = new System.Diagnostics.ProcessStartInfo(Program.Code(command, false, 1234))
+            var p = new System.Diagnostics.Process
             {
-                UseShellExecute = true
+                StartInfo = new System.Diagnostics.ProcessStartInfo(Program.Code(command, false, 1234))
+                {
+                    UseShellExecute = true
+                }
             };
             p.Start();
         }
 
         public static void Launch(string command)
         {
-            var p = new System.Diagnostics.Process();
-            p.StartInfo = new System.Diagnostics.ProcessStartInfo(command)
+            var p = new System.Diagnostics.Process
             {
-                UseShellExecute = true
+                StartInfo = new System.Diagnostics.ProcessStartInfo(command)
+                {
+                    UseShellExecute = true
+                }
             };
             p.Start();
         }
@@ -1289,11 +1077,8 @@ namespace JoinFS
             // monitor event
             MonitorEvent(message);
             // check if not showing message
-            if (scheduleShowMessage == null)
-            {
-                // schedule message
-                scheduleShowMessage = message;
-            }
+            // schedule message
+            scheduleShowMessage ??= message;
         }
 
 #region Airport
@@ -1320,7 +1105,7 @@ namespace JoinFS
         /// <summary>
         /// List of airports
         /// </summary>
-        public Dictionary<string, Airport> airportList = new Dictionary<string, Airport>();
+        public Dictionary<string, Airport> airportList = [];
 
         /// <summary>
         /// Get details of airports
@@ -1331,26 +1116,26 @@ namespace JoinFS
             try
             {
                 // get resource
-                using (Stream data = new MemoryStream(Properties.Airports.AirportsData))
+                using Stream data = new MemoryStream(Properties.Airports.AirportsData);
+                // open reader
+                BinaryReader reader = new(data);
+                while (reader.PeekChar() != -1)
                 {
-                    // open reader
-                    BinaryReader reader = new BinaryReader(data);
-                    while (reader.PeekChar() != -1)
+                    // read code
+                    string code = reader.ReadString();
+                    // new airport
+                    Airport airport = new()
                     {
-                        // read code
-                        string code = reader.ReadString();
-                        // new airport
-                        Airport airport = new Airport { };
                         // read details
-                        airport.latitude = reader.ReadSingle();
-                        airport.longitude = reader.ReadSingle();
-                        airport.elevation = reader.ReadInt16();
-                        // check if airport entry exists
-                        if (airportList.ContainsKey(code) == false)
-                        {
-                            // add airport to list
-                            airportList.Add(code, airport);
-                        }
+                        latitude = reader.ReadSingle(),
+                        longitude = reader.ReadSingle(),
+                        elevation = reader.ReadInt16()
+                    };
+                    // check if airport entry exists
+                    if (airportList.ContainsKey(code) == false)
+                    {
+                        // add airport to list
+                        airportList.Add(code, airport);
                     }
                 }
             }
@@ -1369,7 +1154,7 @@ namespace JoinFS
         /// <summary>
         /// global font
         /// </summary>
-        public Font dataFont = new Font("Verdana", 9.0f);
+        public Font dataFont = new("Verdana", 9.0f);
 
         /// <summary>
         /// application icon
@@ -1428,7 +1213,7 @@ namespace JoinFS
                     scheduleAskPlugin = true;
 #endif
                     // install SimConnect
-                    //                    scheduleAskSimConnect = true;
+                    // scheduleAskSimConnect = true;
                 }
             }
 
@@ -1829,7 +1614,7 @@ namespace JoinFS
             string distance = "-";
             string heading = "-";
             string altitude = "-";
-            string speed = "-";
+            string speed;
             // check for user aircraft
             if (userPosition != null && aircraftPosition != null)
             {
@@ -1939,33 +1724,24 @@ namespace JoinFS
         /// <summary>
         /// Cryptographically secure random number generator seeded with a key
         /// </summary>
-        private class SeededCryptoRandom
+        private class SeededCryptoRandom(int key)
         {
-            private readonly byte[] seed;
-            private int counter;
-
-            public SeededCryptoRandom(int key)
-            {
-                seed = BitConverter.GetBytes(key);
-                counter = 0;
-            }
+            private readonly byte[] seed = BitConverter.GetBytes(key);
+            private int counter = 0;
 
             /// <summary>
             /// Generate a deterministic but cryptographically derived random number in range [0, maxValue)
             /// </summary>
             public int Next(int maxValue)
             {
-                if (maxValue <= 0)
-                    throw new ArgumentOutOfRangeException(nameof(maxValue));
+                ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxValue);
 
                 // Use HMACSHA256 to derive random value from seed and counter
-                using (var hmac = new HMACSHA256(seed))
-                {
-                    byte[] counterBytes = BitConverter.GetBytes(counter++);
-                    byte[] hash = hmac.ComputeHash(counterBytes);
-                    uint randomValue = BitConverter.ToUInt32(hash, 0);
-                    return (int)(randomValue % (uint)maxValue);
-                }
+                using var hmac = new HMACSHA256(seed);
+                byte[] counterBytes = BitConverter.GetBytes(counter++);
+                byte[] hash = hmac.ComputeHash(counterBytes);
+                uint randomValue = BitConverter.ToUInt32(hash, 0);
+                return (int)(randomValue % (uint)maxValue);
             }
         }
 
@@ -1987,7 +1763,7 @@ namespace JoinFS
             if (s.Length == 0)
                 return s;
 
-            StringBuilder sb = new StringBuilder(s);
+            StringBuilder sb = new(s);
 
             // find last valid char & trim ignored ones
             int nLast = sb.Length - 1;
@@ -2027,10 +1803,10 @@ namespace JoinFS
             }
 
             // mangle
-            int nInc = 0;
+            int nInc;
             int k;
             const int nPasses = 11;
-            SeededCryptoRandom rnd = new SeededCryptoRandom(nKey);
+            SeededCryptoRandom rnd = new(nKey);
             for (int j = 0; j < nPasses; ++j)
             {
                 k = (bToCode) ? j : nPasses - j - 1;
@@ -2104,7 +1880,7 @@ namespace JoinFS
         [STAThread]
         static void Main()
         {
-            Main main = new Main();
+            Main main = new();
 
             // check for gui
             if (main.settingsNoGui)

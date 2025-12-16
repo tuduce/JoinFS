@@ -165,47 +165,47 @@ namespace JoinFS
         /// <summary>
         /// Stats
         /// </summary>
-        public static Stat Join = new Stat();
-        public static Stat JoinReply = new Stat();
-        public static Stat JoinFail = new Stat();
-        public static Stat Login = new Stat();
-        public static Stat LoginFail = new Stat();
-        public static Stat Leave = new Stat();
-        public static Stat AddNode = new Stat();
-        public static Stat Pulse = new Stat();
-        public static Stat PulseResponse = new Stat();
-        public static Stat GuaranteedDone = new Stat();
-        public static Stat Pathfinder = new Stat();
-        public static Stat PathfinderResponse = new Stat();
+        public static Stat Join = new();
+        public static Stat JoinReply = new();
+        public static Stat JoinFail = new();
+        public static Stat Login = new();
+        public static Stat LoginFail = new();
+        public static Stat Leave = new();
+        public static Stat AddNode = new();
+        public static Stat Pulse = new();
+        public static Stat PulseResponse = new();
+        public static Stat GuaranteedDone = new();
+        public static Stat Pathfinder = new();
+        public static Stat PathfinderResponse = new();
 
-        public static Stat ObjectPosition = new Stat();
-        public static Stat AircraftPosition = new Stat();
-        public static Stat SimEvent = new Stat();
-        public static Stat WeatherRequest = new Stat();
-        public static Stat WeatherReply = new Stat();
-        public static Stat WeatherUpdate = new Stat();
-        public static Stat SharedData = new Stat();
-        public static Stat StatusRequest = new Stat();
-        public static Stat Status = new Stat();
-        public static Stat HubList = new Stat();
-        public static Stat RemoveObject = new Stat();
-        public static Stat UserListRequest = new Stat();
-        public static Stat UserList = new Stat();
-        public static Stat UserList2 = new Stat();
-        public static Stat UserPositionRequest = new Stat();
-        public static Stat UserPositions = new Stat();
-        public static Stat SessionCommsRequest = new Stat();
-        public static Stat Notes = new Stat();
-        public static Stat UserNuidRequest = new Stat();
-        public static Stat UserNuid = new Stat();
-        public static Stat Online = new Stat();
-        public static Stat FlightPlanRequest = new Stat();
-        public static Stat FlightPlan = new Stat();
-        public static Stat IntegerVariables = new Stat();
-        public static Stat FloatVariables = new Stat();
-        public static Stat String8Variables = new Stat();
+        public static Stat ObjectPosition = new();
+        public static Stat AircraftPosition = new();
+        public static Stat SimEvent = new();
+        public static Stat WeatherRequest = new();
+        public static Stat WeatherReply = new();
+        public static Stat WeatherUpdate = new();
+        public static Stat SharedData = new();
+        public static Stat StatusRequest = new();
+        public static Stat Status = new();
+        public static Stat HubList = new();
+        public static Stat RemoveObject = new();
+        public static Stat UserListRequest = new();
+        public static Stat UserList = new();
+        public static Stat UserList2 = new();
+        public static Stat UserPositionRequest = new();
+        public static Stat UserPositions = new();
+        public static Stat SessionCommsRequest = new();
+        public static Stat Notes = new();
+        public static Stat UserNuidRequest = new();
+        public static Stat UserNuid = new();
+        public static Stat Online = new();
+        public static Stat FlightPlanRequest = new();
+        public static Stat FlightPlan = new();
+        public static Stat IntegerVariables = new();
+        public static Stat FloatVariables = new();
+        public static Stat String8Variables = new();
 
-        public static Stat WrongVersion = new Stat();
-        public static Stat Total = new Stat();
+        public static Stat WrongVersion = new();
+        public static Stat Total = new();
     }
 }
