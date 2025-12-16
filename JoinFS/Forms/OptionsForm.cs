@@ -50,7 +50,7 @@ namespace JoinFS
             else
             {
                 // window area
-                Rectangle rectangle = new Rectangle(location, size);
+                Rectangle rectangle = new(location, size);
                 // is window hidden
                 bool hidden = true;
                 // for each screen

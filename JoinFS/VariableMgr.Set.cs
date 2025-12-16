@@ -22,28 +22,28 @@ namespace JoinFS
             /// <summary>
             /// List of simconnect requests
             /// </summary>
-            public Dictionary<uint, ScRequest> scRequests = new Dictionary<uint, ScRequest>();
-            Dictionary<ScRequest, uint> scRequestVuids = new Dictionary<ScRequest, uint>();
+            public Dictionary<uint, ScRequest> scRequests = [];
+            Dictionary<ScRequest, uint> scRequestVuids = [];
 
             /// <summary>
             /// List of integer variables
             /// </summary>
-            public Dictionary<uint, int> integers = new Dictionary<uint, int>();
+            public Dictionary<uint, int> integers = [];
 
             /// <summary>
             /// List of float variables
             /// </summary>
-            public Dictionary<uint, float> floats = new Dictionary<uint, float>();
+            public Dictionary<uint, float> floats = [];
 
             /// <summary>
             /// List of string8 variables
             /// </summary>
-            public Dictionary<uint, string> string8s = new Dictionary<uint, string>();
+            public Dictionary<uint, string> string8s = [];
 
             /// <summary>
             /// List of change times
             /// </summary>
-            public Dictionary<uint, double> startTimes = new Dictionary<uint, double>();
+            public Dictionary<uint, double> startTimes = [];
 
             /// <summary>
             /// Main instance
@@ -534,7 +534,7 @@ namespace JoinFS
                                             else if (definition.scName.Length > 0)
                                             {
                                                 // update simconnect
-                                                Sim.IntegerStruct data = new Sim.IntegerStruct
+                                                Sim.IntegerStruct data = new()
                                                 {
                                                     value = ConvertToSimConnect(definition.scUnits, value)
                                                 };
@@ -655,7 +655,7 @@ namespace JoinFS
                                                 else if (definition.scName.Length > 0)
                                                 {
                                                     // update simconnect variable
-                                                    Sim.FloatStruct data = new Sim.FloatStruct
+                                                    Sim.FloatStruct data = new()
                                                     {
                                                         value = value
                                                     };
@@ -740,7 +740,7 @@ namespace JoinFS
                                             if (definition.type == Definition.Type.STRING8 && definition.scName.Length > 0)
                                             {
                                                 // update simconnect
-                                                Sim.String8Struct data = new Sim.String8Struct
+                                                Sim.String8Struct data = new()
                                                 {
                                                     value = value
                                                 };

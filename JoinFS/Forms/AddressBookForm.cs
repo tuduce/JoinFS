@@ -79,7 +79,7 @@ namespace JoinFS
         /// <summary>
         /// Item list
         /// </summary>
-        List<Item> itemList = new List<Item>();
+        List<Item> itemList = [];
 
         /// <summary>
         /// Get the currently selected entry
@@ -118,7 +118,7 @@ namespace JoinFS
         /// <summary>
         /// Refresher
         /// </summary>
-        public Refresher refresher = new Refresher();
+        public Refresher refresher = new();
 
         /// <summary>
         /// Refresh form
@@ -152,7 +152,7 @@ namespace JoinFS
                 foreach (var entry in main.addressBook.entries)
                 {
                     // create item
-                    Item item = new Item(entry.name, entry.address, entry.online ? "Online" : "-", entry.online);
+                    Item item = new(entry.name, entry.address, entry.online ? "Online" : "-", entry.online);
                     // add to list
                     itemList.Add(item);
                 }
@@ -252,7 +252,7 @@ namespace JoinFS
             else
             {
                 // window area
-                Rectangle rectangle = new Rectangle(location, size);
+                Rectangle rectangle = new(location, size);
                 // is window hidden
                 bool hidden = true;
                 // for each screen
@@ -386,7 +386,7 @@ namespace JoinFS
         private void Context_Entry_Add_Click(object sender, EventArgs e)
         {
             // show entry form
-            AddressForm addressForm = new AddressForm(main, "", "");
+            AddressForm addressForm = new(main, "", "");
             // check result
             if (addressForm.ShowDialog() == DialogResult.OK && addressForm.CheckEntry())
             {
@@ -396,7 +396,7 @@ namespace JoinFS
                 lock (main.conch)
                 {
                     // create new entry
-                    AddressBook.AddressBookEntry entry = new AddressBook.AddressBookEntry
+                    AddressBook.AddressBookEntry entry = new()
                     {
                         name = addressForm.name,
                         address = addressForm.address
@@ -450,7 +450,7 @@ namespace JoinFS
                 if (failed)
                 {
                     // error
-                    MessageBox.Show("Already in the address book.", Main.name + ": Add Address Book Entry");
+                    MessageBox.Show("Already in the address book.", Main.Name + ": Add Address Book Entry");
                 }
 
                 // refresh
@@ -469,7 +469,7 @@ namespace JoinFS
             if (item != null)
             {
                 // show entry form
-                AddressForm addressForm = new AddressForm(main, item.name, item.address);
+                AddressForm addressForm = new(main, item.name, item.address);
                 // check result
                 if (addressForm.ShowDialog() == DialogResult.OK && addressForm.CheckEntry())
                 {
@@ -532,7 +532,7 @@ namespace JoinFS
                     if (failed)
                     {
                         // error
-                        MessageBox.Show("Already in the address book.", Main.name + ": Edit Address Book Entry");
+                        MessageBox.Show("Already in the address book.", Main.Name + ": Edit Address Book Entry");
                     }
                     // refresh
                     main.addressBookForm ?. refresher.Schedule();
@@ -551,7 +551,7 @@ namespace JoinFS
             if (item != null)
             {
                 // confirm
-                DialogResult result = MessageBox.Show("Remove '" + item.name + "' from the list?", Main.name + ": Address Book", MessageBoxButtons.YesNo);
+                DialogResult result = MessageBox.Show("Remove '" + item.name + "' from the list?", Main.Name + ": Address Book", MessageBoxButtons.YesNo);
                 if (result == DialogResult.Yes)
                 {
                     lock (main.conch)

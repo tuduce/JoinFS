@@ -51,7 +51,7 @@ namespace JoinFS
             else
             {
                 // window area
-                Rectangle rectangle = new Rectangle(location, size);
+                Rectangle rectangle = new(location, size);
                 // is window hidden
                 bool hidden = true;
                 // for each screen
@@ -265,7 +265,7 @@ namespace JoinFS
         private void Context_Shortcut_Change_Click(object sender, EventArgs e)
         {
             // show shortcut form
-            ShortcutForm shortcutForm = new ShortcutForm(main);
+            ShortcutForm shortcutForm = new(main);
             // check which shortcut is selected
             switch (GetSelectedRow())
             {

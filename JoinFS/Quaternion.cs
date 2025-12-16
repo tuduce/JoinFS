@@ -23,7 +23,7 @@ namespace JoinFS
         /// <summary>
         /// Clone
         /// </summary>
-        public Quaternion Clone() => new Quaternion(x, y, z, w);
+        public Quaternion Clone() => new(x, y, z, w);
 
         /// <summary>
         /// Normalise
@@ -54,12 +54,12 @@ namespace JoinFS
         /// <summary>
         /// Add quaternions
         /// </summary>
-        public static Quaternion operator +(Quaternion q0, Quaternion q1) => new Quaternion(q0.x + q1.x, q0.y + q1.y, q0.z + q1.z, q0.w + q1.w);
+        public static Quaternion operator +(Quaternion q0, Quaternion q1) => new(q0.x + q1.x, q0.y + q1.y, q0.z + q1.z, q0.w + q1.w);
 
         /// <summary>
         /// Scale quaternion
         /// </summary>
-        public static Quaternion operator *(Quaternion q, double scalar) => new Quaternion(q.x * scalar, q.y * scalar, q.z * scalar, q.w * scalar);
+        public static Quaternion operator *(Quaternion q, double scalar) => new(q.x * scalar, q.y * scalar, q.z * scalar, q.w * scalar);
 
         /// <summary>
         /// Convert quaternion to euler angles

@@ -323,7 +323,7 @@ namespace JoinFS
                 type = FrameType.IntegerVariables;
                 base.time = time;
                 // new variables
-                this.variables = new Dictionary<uint, int>();
+                this.variables = [];
                 // for each variable
                 foreach (var variable in variables)
                 {
@@ -343,7 +343,7 @@ namespace JoinFS
                     { 10022, Read1 },
                 };
                 // new variables
-                variables = new Dictionary<uint, int>();
+                variables = [];
             }
 
             /// <summary>
@@ -390,7 +390,7 @@ namespace JoinFS
                 type = FrameType.FloatVariables;
                 base.time = time;
                 // new variables
-                this.variables = new Dictionary<uint, float>();
+                this.variables = [];
                 // for each variable
                 foreach (var variable in variables)
                 {
@@ -410,7 +410,7 @@ namespace JoinFS
                     { 10022, Read1 },
                 };
                 // new variables
-                variables = new Dictionary<uint, float>();
+                variables = [];
             }
 
             /// <summary>
@@ -457,7 +457,7 @@ namespace JoinFS
                 type = FrameType.String8Variables;
                 base.time = time;
                 // new variables
-                this.variables = new Dictionary<uint, string>();
+                this.variables = [];
                 // for each variable
                 foreach (var variable in variables)
                 {
@@ -477,7 +477,7 @@ namespace JoinFS
                     { 10022, Read1 },
                 };
                 // new variables
-                variables = new Dictionary<uint, string>();
+                variables = [];
             }
 
             /// <summary>
@@ -531,7 +531,7 @@ namespace JoinFS
             /// <summary>
             /// List of frames
             /// </summary>
-            public List<Frame> frames = new List<Frame>();
+            public List<Frame> frames = [];
             public int frameIndex = 0;
             /// <summary>
             /// Object owner
@@ -656,7 +656,7 @@ namespace JoinFS
                 for (n = 0; n < count; n++)
                 {
                     // read generic frame
-                    Frame baseFrame = new Frame();
+                    Frame baseFrame = new();
                     baseFrame.Read(version, reader);
 
                     // check frame type
@@ -794,7 +794,7 @@ namespace JoinFS
                 for (n = 0; n < count; n++)
                 {
                     // read generic frame
-                    Frame baseFrame = new Frame();
+                    Frame baseFrame = new();
                     baseFrame.Read(version, reader);
 
                     // check frame type
@@ -842,7 +842,7 @@ namespace JoinFS
         /// <summary>
         /// List of recorded objects
         /// </summary>
-        List<Obj> objList = new List<Obj>();
+        List<Obj> objList = [];
 
         /// <summary>
         /// Is the recorder currently recording
@@ -862,7 +862,7 @@ namespace JoinFS
         /// <summary>
         /// Is the recorder empty
         /// </summary>
-        public bool Empty { get { return (objList.Count == 0) ? true : false; } }
+        public bool Empty { get { return (objList.Count == 0); } }
 
         /// <summary>
         /// Time that playing or recording started
@@ -1497,7 +1497,7 @@ namespace JoinFS
             for (int n = 0; n < count; n++)
             {
                 // create aircraft
-                Aircraft aircraft = new Aircraft();
+                Aircraft aircraft = new();
                 // read aircraft
                 aircraft.Read(version, reader);
 
@@ -1524,7 +1524,7 @@ namespace JoinFS
                 for (int n = 0; n < count; n++)
                 {
                     // create object
-                    Obj obj = new Obj();
+                    Obj obj = new();
                     // read obj
                     obj.Read(version, reader);
 

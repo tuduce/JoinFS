@@ -52,7 +52,7 @@ namespace JoinFS
         /// <summary>
         /// Refresher
         /// </summary>
-        public Refresher refresher = new Refresher();
+        public Refresher refresher = new();
 
         /// <summary>
         /// Refresh form
@@ -176,7 +176,7 @@ namespace JoinFS
             else
             {
                 // window area
-                Rectangle rectangle = new Rectangle(location, size);
+                Rectangle rectangle = new(location, size);
                 // is window hidden
                 bool hidden = true;
                 // for each screen
@@ -389,7 +389,7 @@ namespace JoinFS
         {
             lock (main.conch)
             {
-                main.monitor.network = Context_Monitor_Network.CheckState == CheckState.Checked ? false : true;
+                main.monitor.network = Context_Monitor_Network.CheckState != CheckState.Checked;
             }
         }
 
@@ -408,7 +408,7 @@ namespace JoinFS
         {
             lock (main.conch)
             {
-                main.monitor.variables = Context_Monitor_Variables.CheckState == CheckState.Checked ? false : true;
+                main.monitor.variables = Context_Monitor_Variables.CheckState != CheckState.Checked;
             }
         }
     }

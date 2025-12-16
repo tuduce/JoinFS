@@ -91,7 +91,7 @@ namespace JoinFS
             /// <summary>
             /// List of comms notes
             /// </summary>
-            public Dictionary<uint, CommsNote> commsList = new Dictionary<uint,CommsNote>();
+            public Dictionary<uint, CommsNote> commsList = [];
 
             /// <summary>
             /// constructor
@@ -109,7 +109,7 @@ namespace JoinFS
         /// <summary>
         /// List of user notes
         /// </summary>
-        public Dictionary<Guid, UserNotes> userNotesList = new Dictionary<Guid,UserNotes>();
+        public Dictionary<Guid, UserNotes> userNotesList = [];
 
         /// <summary>
         /// Constructor
@@ -125,9 +125,9 @@ namespace JoinFS
         }
 
         // notes to remove
-        List<uint> removeNoteList = new List<uint>();
+        List<uint> removeNoteList = [];
         // users to remove
-        List<Guid> removeUserList = new List<Guid>();
+        List<Guid> removeUserList = [];
 
         /// <summary>
         /// Process timer

@@ -36,11 +36,11 @@ namespace JoinFS
             /// <summary>
             /// List of guids
             /// </summary>
-            public Dictionary<Guid, bool> guidList = new Dictionary<Guid, bool>();
+            public Dictionary<Guid, bool> guidList = [];
             /// <summary>
             /// List of addresses
             /// </summary>
-            public Dictionary<IPAddress, bool> addressList = new Dictionary<IPAddress, bool>();
+            public Dictionary<IPAddress, bool> addressList = [];
 
             /// <summary>
             /// Clear node list
@@ -271,7 +271,7 @@ namespace JoinFS
             /// <summary>
             /// List of names
             /// </summary>
-            public Dictionary<string, bool> nameList = new Dictionary<string, bool>();
+            public Dictionary<string, bool> nameList = [];
 
             /// <summary>
             /// Clear name list
@@ -360,7 +360,7 @@ namespace JoinFS
         /// <summary>
         /// List of nodes to ignore
         /// </summary>
-        NodeList ignoreList = new NodeList();
+        NodeList ignoreList = new();
 
         /// <summary>
         /// Ignore a node
@@ -478,7 +478,7 @@ namespace JoinFS
         /// <summary>
         /// List of nodes to share cockpit
         /// </summary>
-        NodeList shareCockpitList = new NodeList();
+        NodeList shareCockpitList = new();
 
         /// <summary>
         /// Share cockpit with a node
@@ -519,7 +519,7 @@ namespace JoinFS
         /// <summary>
         /// List of names to ignore
         /// </summary>
-        NameList ignoreNameList = new NameList();
+        NameList ignoreNameList = new();
 
         /// <summary>
         /// Ignore name
@@ -565,7 +565,7 @@ namespace JoinFS
         /// <summary>
         /// List of names to broadcast
         /// </summary>
-        NameList broadcastNameList = new NameList();
+        NameList broadcastNameList = new();
 
         /// <summary>
         /// Broadcast name
@@ -609,7 +609,7 @@ namespace JoinFS
         /// <summary>
         /// List of nodes to allow multiple objects
         /// </summary>
-        NodeList multipleObjectsList = new NodeList();
+        NodeList multipleObjectsList = new();
 
         /// <summary>
         /// Allow multiple objects with a node
@@ -655,7 +655,7 @@ namespace JoinFS
             /// <summary>
             /// List of passwords
             /// </summary>
-            public Dictionary<IPEndPoint, uint> passwordList = new Dictionary<IPEndPoint, uint>();
+            public Dictionary<IPEndPoint, uint> passwordList = [];
 
             /// <summary>
             /// Clear password list
@@ -749,7 +749,7 @@ namespace JoinFS
         /// <summary>
         /// List of used passwords
         /// </summary>
-        PasswordList usedPasswords = new PasswordList();
+        PasswordList usedPasswords = new();
 
         /// <summary>
         /// Add password
@@ -890,15 +890,12 @@ namespace JoinFS
                 finally
                 {
                     // check for reader
-                    if (reader != null)
-                    {
-                        // close file
-                        reader.Close();
-                    }
+                    // close file
+                    reader?.Close();
                 }
 
                 // sleep for random time
-                Random random = new Random((int)DateTime.Now.Ticks);
+                Random random = new((int)DateTime.Now.Ticks);
                 Thread.Sleep(random.Next(10, 100));
             }
         }
@@ -911,7 +908,7 @@ namespace JoinFS
             try
             {
                 // open file
-                BinaryWriter writer = new BinaryWriter(File.Create(main.storagePath + Path.DirectorySeparatorChar + LOG_FILE));
+                BinaryWriter writer = new(File.Create(main.storagePath + Path.DirectorySeparatorChar + LOG_FILE));
                 if (writer != null)
                 {
                     // write ignore list

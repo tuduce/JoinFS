@@ -43,7 +43,7 @@ namespace JoinFS
             /// <summary>
             /// Endpoint of address
             /// </summary>
-            public IPEndPoint endPoint = new IPEndPoint(0, 0);
+            public IPEndPoint endPoint = new(0, 0);
 
             /// <summary>
             /// Node details
@@ -55,7 +55,7 @@ namespace JoinFS
         /// <summary>
         /// List of entries
         /// </summary>
-        public List<AddressBookEntry> entries = new List<AddressBookEntry>();
+        public List<AddressBookEntry> entries = [];
 
         /// <summary>
         /// Constructor
@@ -122,7 +122,7 @@ namespace JoinFS
                         if (success)
                         {
                             // new entry
-                            AddressBookEntry entry = new AddressBookEntry();
+                            AddressBookEntry entry = new();
                             // set name
                             entry.name = name;
                             // set address
@@ -168,7 +168,7 @@ namespace JoinFS
             try
             {
                 // open file
-                StreamWriter writer = new StreamWriter(Path.Combine(main.storagePath, ADDRESSBOOK2_FILE));
+                StreamWriter writer = new(Path.Combine(main.storagePath, ADDRESSBOOK2_FILE));
                 if (writer != null)
                 {
                     // for each entry

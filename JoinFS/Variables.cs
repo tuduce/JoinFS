@@ -55,22 +55,22 @@ namespace JoinFS
         /// <summary>
         /// List of variable definitions
         /// </summary>
-        public Dictionary<uint, VariableMgr.Definition> definitions = new Dictionary<uint, VariableMgr.Definition>();
+        public Dictionary<uint, VariableMgr.Definition> definitions = [];
 
         /// <summary>
         /// List of variable files
         /// </summary>
-        Dictionary<string, List<uint>> files = new Dictionary<string, List<uint>>();
+        Dictionary<string, List<uint>> files = [];
 
         /// <summary>
         /// List of alias vuids
         /// </summary>
-        Dictionary<uint, uint> aliasVuids = new Dictionary<uint, uint>();
+        Dictionary<uint, uint> aliasVuids = [];
 
         /// <summary>
         /// List of vuids from simconnect definitions
         /// </summary>
-        Dictionary<ScDefinition, uint> vuids = new Dictionary<ScDefinition, uint>();
+        Dictionary<ScDefinition, uint> vuids = [];
 
         /// <summary>
         /// Create unique variable ID from a string
@@ -225,7 +225,7 @@ namespace JoinFS
             finally
             {
                 // close writer
-                if (writer != null) writer.Close();
+                writer?.Close();
             }
 
             // get rotorcraft variables
@@ -302,7 +302,7 @@ namespace JoinFS
             finally
             {
                 // close writer
-                if (writer != null) writer.Close();
+                writer?.Close();
             }
 
             // get rotorcraft variables
@@ -337,7 +337,7 @@ namespace JoinFS
             finally
             {
                 // close writer
-                if (writer != null) writer.Close();
+                writer?.Close();
             }
 
             // get rotorcraft variables
@@ -392,7 +392,7 @@ namespace JoinFS
             finally
             {
                 // close writer
-                if (writer != null) writer.Close();
+                writer?.Close();
             }
 
             // get rotorcraft variables
@@ -485,7 +485,7 @@ namespace JoinFS
             finally
             {
                 // close writer
-                if (writer != null) writer.Close();
+                writer?.Close();
             }
 
             // get rotorcraft variables
@@ -516,7 +516,7 @@ namespace JoinFS
             finally
             {
                 // close writer
-                if (writer != null) writer.Close();
+                writer?.Close();
             }
 
             // get rotorcraft variables
@@ -561,7 +561,7 @@ namespace JoinFS
             finally
             {
                 // close writer
-                if (writer != null) writer.Close();
+                writer?.Close();
             }
 
             // get rotorcraft variables
@@ -634,7 +634,7 @@ namespace JoinFS
             finally
             {
                 // close writer
-                if (writer != null) writer.Close();
+                writer?.Close();
             }
         }
 
@@ -856,16 +856,13 @@ namespace JoinFS
                                     if (definitions.ContainsKey(newDefinition.maskVuid) == false)
                                     {
                                         // definition for the mask variable
-                                        Definition maskDefinition = new Definition(Definition.Type.INTEGER, "", 1.0f, 0, NextDefinition, scName, "mask");
+                                        Definition maskDefinition = new(Definition.Type.INTEGER, "", 1.0f, 0, NextDefinition, scName, "mask");
                                         // copy flags
                                         maskDefinition.injected = newDefinition.injected;
                                         maskDefinition.pilot = newDefinition.pilot;
                                         // check for simulator
-                                        if (main.sim != null)
-                                        {
-                                            // register sim variable
-                                            main.sim.RegisterIntegerVariable(maskDefinition);
-                                        }
+                                        // register sim variable
+                                        main.sim?.RegisterIntegerVariable(maskDefinition);
                                         // add definition
                                         definitions.Add(newDefinition.maskVuid, maskDefinition);
                                         // add vuid
@@ -875,7 +872,7 @@ namespace JoinFS
                                         if (files.ContainsKey(filename) == false)
                                         {
                                             // add empty list
-                                            files.Add(filename, new List<uint>());
+                                            files.Add(filename, []);
                                         }
                                         // add variable to this file
                                         files[filename].Add(newDefinition.maskVuid);
@@ -930,7 +927,7 @@ namespace JoinFS
                             if (files.ContainsKey(filename) == false)
                             {
                                 // add empty list
-                                files.Add(filename, new List<uint>());
+                                files.Add(filename, []);
                             }
                             // add variable to this file
                             files[filename].Add(vuid);
@@ -944,7 +941,7 @@ namespace JoinFS
                 finally
                 {
                     // close reader
-                    if (reader != null) reader.Close();
+                    reader?.Close();
                 }
             }
 
@@ -956,7 +953,7 @@ namespace JoinFS
             }
 
             // return empty list
-            return new List<uint>();
+            return [];
         }
     }
 }

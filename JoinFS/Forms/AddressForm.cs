@@ -38,27 +38,27 @@ namespace JoinFS
         public bool CheckEntry()
         {
             // create new book mark
-            AddressBook.AddressBookEntry entry = new AddressBook.AddressBookEntry();
+            AddressBook.AddressBookEntry entry = new();
 
             // check name
             if (name.Length != 0)
             {
                 if (name.Contains("="))
                 {
-                    MessageBox.Show("Names cannot contain an '=' character", Main.name + ": Address Book");
+                    MessageBox.Show("Names cannot contain an '=' character", Main.Name + ": Address Book");
                     return false;
                 }
             }
             else
             {
-                MessageBox.Show("An empty name is invalid", Main.name + ": Address Book");
+                MessageBox.Show("An empty name is invalid", Main.Name + ": Address Book");
                 return false;
             }
 
             // check address
             if (address.Length == 0)
             {
-                MessageBox.Show("An empty address is invalid.", Main.name + ": Address Book");
+                MessageBox.Show("An empty address is invalid.", Main.Name + ": Address Book");
                 return false;
             }
 

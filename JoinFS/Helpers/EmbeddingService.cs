@@ -137,8 +137,7 @@ public class EmbeddingService : IDisposable
 
     public Model FindBestMatchingModel(Model matchModel, IEnumerable<Model> models, float threshold)
     {
-        if (matchModel.embedding == null)
-            matchModel.embedding = GenerateEmbedding(
+        matchModel.embedding ??= GenerateEmbedding(
                 matchModel.enrichedData != null
                     ? $"title: {matchModel.title} {matchModel.variation}, \n" +
                       $"[IMPORTANT] role: {matchModel.enrichedData.TypeRole}, \n" +

@@ -27,7 +27,7 @@ using Microsoft.FlightSimulator.SimConnect;
 
 namespace JoinFS
 {
-    public class Sim
+    public partial class Sim
     {
 #region Constants
 
@@ -181,33 +181,30 @@ namespace JoinFS
         /// <returns></returns>
         public static string EventToString(Sim.Event simEvent)
         {
-            string eventStr;
-            switch (simEvent)
+            return simEvent switch
             {
-                case Sim.Event.OBJECT_ADDED: eventStr = "OBJECT_ADDED"; break;
-                case Sim.Event.OBJECT_REMOVED: eventStr = "OBJECT_REMOVED"; break;
-                case Sim.Event.FRAME: eventStr = "FRAME"; break;
-                case Sim.Event.PAUSE: eventStr = "PAUSE"; break;
-                case Sim.Event.RUDDER_SET: eventStr = "RUDDER_SET"; break;
-                case Sim.Event.ELEVATOR_SET: eventStr = "ELEVATOR_SET"; break;
-                case Sim.Event.AILERON_SET: eventStr = "AILERON_SET"; break;
-                case Sim.Event.SMOKE_ON: eventStr = "SMOKE_ON"; break;
-                case Sim.Event.SMOKE_OFF: eventStr = "SMOKE_OFF"; break;
-                case Sim.Event.EVENT_00011000: eventStr = "EVENT_00011000"; break;
-                case Sim.Event.EVENT_00011001: eventStr = "EVENT_00011001"; break;
-                case Sim.Event.EVENT_00011002: eventStr = "EVENT_00011002"; break;
-                case Sim.Event.EVENT_00011003: eventStr = "EVENT_00011003"; break;
-                case Sim.Event.EVENT_00011004: eventStr = "EVENT_00011004"; break;
-                case Sim.Event.EVENT_00011005: eventStr = "EVENT_00011005"; break;
-                case Sim.Event.EVENT_00011006: eventStr = "EVENT_00011006"; break;
-                case Sim.Event.EVENT_00011007: eventStr = "EVENT_00011007"; break;
-                case Sim.Event.EVENT_00011008: eventStr = "EVENT_00011008"; break;
-                case Sim.Event.EVENT_00011009: eventStr = "EVENT_00011009"; break;
-                case Sim.Event.EVENT_0001100A: eventStr = "EVENT_0001100A"; break;
-                default: eventStr = "UNKNOWN"; break;
-            }
-
-            return eventStr;
+                Sim.Event.OBJECT_ADDED => "OBJECT_ADDED",
+                Sim.Event.OBJECT_REMOVED => "OBJECT_REMOVED",
+                Sim.Event.FRAME => "FRAME",
+                Sim.Event.PAUSE => "PAUSE",
+                Sim.Event.RUDDER_SET => "RUDDER_SET",
+                Sim.Event.ELEVATOR_SET => "ELEVATOR_SET",
+                Sim.Event.AILERON_SET => "AILERON_SET",
+                Sim.Event.SMOKE_ON => "SMOKE_ON",
+                Sim.Event.SMOKE_OFF => "SMOKE_OFF",
+                Sim.Event.EVENT_00011000 => "EVENT_00011000",
+                Sim.Event.EVENT_00011001 => "EVENT_00011001",
+                Sim.Event.EVENT_00011002 => "EVENT_00011002",
+                Sim.Event.EVENT_00011003 => "EVENT_00011003",
+                Sim.Event.EVENT_00011004 => "EVENT_00011004",
+                Sim.Event.EVENT_00011005 => "EVENT_00011005",
+                Sim.Event.EVENT_00011006 => "EVENT_00011006",
+                Sim.Event.EVENT_00011007 => "EVENT_00011007",
+                Sim.Event.EVENT_00011008 => "EVENT_00011008",
+                Sim.Event.EVENT_00011009 => "EVENT_00011009",
+                Sim.Event.EVENT_0001100A => "EVENT_0001100A",
+                _ => "UNKNOWN",
+            };
         }
 
         /// <summary>
@@ -217,22 +214,19 @@ namespace JoinFS
         /// <returns></returns>
         public static string DefinitionToString(Sim.Definitions simDefinition)
         {
-            string definitionStr;
-            switch (simDefinition)
+            return simDefinition switch
             {
-                case Sim.Definitions.OBJECT_GET_INFO: definitionStr = "OBJECT_GET_INFO"; break;
-                case Sim.Definitions.OBJECT_POSITION_VELOCITY: definitionStr = "OBJECT_POSITION_VELOCITY"; break;
-                case Sim.Definitions.OBJECT_POSITION: definitionStr = "OBJECT_POSITION"; break;
-                case Sim.Definitions.OBJECT_VELOCITY: definitionStr = "OBJECT_VELOCITY"; break;
-                case Sim.Definitions.OBJECT_EULER: definitionStr = "OBJECT_EULER"; break;
-                case Sim.Definitions.AIRCRAFT_POSITION: definitionStr = "AIRCRAFT_POSITION"; break;
-                case Sim.Definitions.AIRCRAFT_GET_INFO: definitionStr = "AIRCRAFT_GET_INFO"; break;
-                case Sim.Definitions.AIRCRAFT_SET_ID: definitionStr = "AIRCRAFT_SET_ID"; break;
-                case Sim.Definitions.AIRCRAFT_WAYPOINTS: definitionStr = "AIRCRAFT_WAYPOINTS"; break;
-                default: definitionStr = "UNKNOWN"; break;
-            }
-
-            return definitionStr;
+                Sim.Definitions.OBJECT_GET_INFO => "OBJECT_GET_INFO",
+                Sim.Definitions.OBJECT_POSITION_VELOCITY => "OBJECT_POSITION_VELOCITY",
+                Sim.Definitions.OBJECT_POSITION => "OBJECT_POSITION",
+                Sim.Definitions.OBJECT_VELOCITY => "OBJECT_VELOCITY",
+                Sim.Definitions.OBJECT_EULER => "OBJECT_EULER",
+                Sim.Definitions.AIRCRAFT_POSITION => "AIRCRAFT_POSITION",
+                Sim.Definitions.AIRCRAFT_GET_INFO => "AIRCRAFT_GET_INFO",
+                Sim.Definitions.AIRCRAFT_SET_ID => "AIRCRAFT_SET_ID",
+                Sim.Definitions.AIRCRAFT_WAYPOINTS => "AIRCRAFT_WAYPOINTS",
+                _ => "UNKNOWN",
+            };
         }
 
         /// <summary>
@@ -293,28 +287,16 @@ namespace JoinFS
         /// Object position in simConnect
         /// </summary>
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
-        public struct ObjectPosition
+        public struct ObjectPosition(Sim.Pos pos)
         {
-            public double latitude;
-            public double longitude;
-            public double altitude;
-            public float pitch;
-            public float bank;
-            public float heading;
-            public float height;
-            public int ground;
-
-            public ObjectPosition(Pos pos)
-            {
-                latitude = pos.geo.z;
-                longitude = pos.geo.x;
-                altitude = pos.geo.y;
-                pitch = (float)pos.angles.x;
-                bank = (float)pos.angles.z;
-                heading = (float)pos.angles.y;
-                height = (float)pos.elevation;
-                ground = pos.ground;
-            }
+            public double latitude = pos.geo.z;
+            public double longitude = pos.geo.x;
+            public double altitude = pos.geo.y;
+            public float pitch = (float)pos.angles.x;
+            public float bank = (float)pos.angles.z;
+            public float heading = (float)pos.angles.y;
+            public float height = (float)pos.elevation;
+            public int ground = pos.ground;
         };
 
         /// <summary>
@@ -355,48 +337,28 @@ namespace JoinFS
         /// Object velocity in simConnect
         /// </summary>
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
-        public struct ObjectVelocity
+        public struct ObjectVelocity(Vector linear, Vector angular, Vector acc)
         {
-            public float velocityX;
-            public float velocityY;
-            public float velocityZ;
-            public float angularVelocityX;
-            public float angularVelocityY;
-            public float angularVelocityZ;
-            public float accelerationX;
-            public float accelerationY;
-            public float accelerationZ;
-
-            public ObjectVelocity(Vector linear, Vector angular, Vector acc)
-            {
-                velocityX = (float)linear.x;
-                velocityY = (float)linear.y;
-                velocityZ = (float)linear.z;
-                angularVelocityX = (float)angular.x;
-                angularVelocityY = (float)angular.y;
-                angularVelocityZ = (float)angular.z;
-                accelerationX = (float)acc.x;
-                accelerationY = (float)acc.y;
-                accelerationZ = (float)acc.z;
-            }
+            public float velocityX = (float)linear.x;
+            public float velocityY = (float)linear.y;
+            public float velocityZ = (float)linear.z;
+            public float angularVelocityX = (float)angular.x;
+            public float angularVelocityY = (float)angular.y;
+            public float angularVelocityZ = (float)angular.z;
+            public float accelerationX = (float)acc.x;
+            public float accelerationY = (float)acc.y;
+            public float accelerationZ = (float)acc.z;
         };
 
         /// <summary>
         /// Object orientation in simConnect
         /// </summary>
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
-        public struct ObjectEuler
+        public struct ObjectEuler(Vector angles)
         {
-            public float pitch;
-            public float heading;
-            public float bank;
-
-            public ObjectEuler(Vector angles)
-            {
-                pitch = (float)angles.x;
-                heading = (float)angles.y;
-                bank = (float)angles.z;
-            }
+            public float pitch = (float)angles.x;
+            public float heading = (float)angles.y;
+            public float bank = (float)angles.z;
         };
 
         /// <summary>
@@ -505,7 +467,7 @@ namespace JoinFS
             /// <summary>
             /// Clone
             /// </summary>
-            public Vel Clone() => new Vel(linear.Clone(), angular.Clone(), acc.Clone());
+            public Vel Clone() => new(linear.Clone(), angular.Clone(), acc.Clone());
 
             /// <summary>
             /// Extrapolate a velocity in time
@@ -584,7 +546,7 @@ namespace JoinFS
             /// <summary>
             /// Clone
             /// </summary>
-            public Pos Clone() => new Pos(geo.Clone(), angles.Clone(), elevation, ground);
+            public Pos Clone() => new(geo.Clone(), angles.Clone(), elevation, ground);
 
             /// <summary>
             /// Extrapolate a position using velocity and time
@@ -598,7 +560,7 @@ namespace JoinFS
                 double xRate = Vector.GeodesicDistance(geo.x, geo.z, geo.x + Vector.GEODESIC_EPSILON, geo.z);
                 double zRate = Vector.GeodesicDistance(geo.x, geo.z, geo.x, geo.z + Vector.GEODESIC_EPSILON);
                 // extrapolate position and velocity
-                Vector scalar = new Vector(1.0 / xRate * Vector.GEODESIC_EPSILON, 1.0, 1.0 / zRate * Vector.GEODESIC_EPSILON);
+                Vector scalar = new(1.0 / xRate * Vector.GEODESIC_EPSILON, 1.0, 1.0 / zRate * Vector.GEODESIC_EPSILON);
                 return new Pos(geo + (velocity.linear * time + velocity.acc * (time * time)) * scalar, angles + velocity.angular * time, elevation, ground);
             }
         }
@@ -645,11 +607,8 @@ namespace JoinFS
         {
 #if SIMCONNECT
             // check for simconnect
-            if (simconnect != null)
-            {
-                // register variable
-                simconnect.RegisterIntegerVariable(definition);
-            }
+            // register variable
+            simconnect?.RegisterIntegerVariable(definition);
 #endif
         }
 
@@ -663,11 +622,8 @@ namespace JoinFS
         {
 #if SIMCONNECT
             // check for simconnect
-            if (simconnect != null)
-            {
-                // register variable
-                simconnect.RegisterFloatVariable(definition);
-            }
+            // register variable
+            simconnect?.RegisterFloatVariable(definition);
 #endif
         }
 
@@ -681,11 +637,8 @@ namespace JoinFS
         {
 #if SIMCONNECT
             // check for simconnect
-            if (simconnect != null)
-            {
-                // register variable
-                simconnect.RegisterString8Variable(definition);
-            }
+            // register variable
+            simconnect?.RegisterString8Variable(definition);
 #endif
         }
 
@@ -696,11 +649,8 @@ namespace JoinFS
         {
 #if SIMCONNECT
             // check for simconnect
-            if (simconnect != null)
-            {
-                // register event
-                simconnect.RegisterVariableEvent(definition);
-            }
+            // register event
+            simconnect?.RegisterVariableEvent(definition);
 #endif
         }
 
@@ -783,9 +733,9 @@ namespace JoinFS
             public double simTime = 0.0;
             public bool NetValid { get { return netStateTime > 0.0; } }
             public bool SimValid { get { return simTime > 0.0; } }
-            public Pos simPosition = new Pos();
-            public Pos netPosition = new Pos();
-            public Vel netVelocity = new Vel();
+            public Pos simPosition = new();
+            public Pos netPosition = new();
+            public Vel netVelocity = new();
             public Vector oldEuler;
             public double distance = double.MaxValue;
             public bool paused = false;
@@ -868,16 +818,16 @@ namespace JoinFS
                 // set net ID (owner's sim ID)
                 this.netId = netId;
                 // set broadcast flag
-                this.broadcast = ownerNuid.Invalid() ? true : false;
+                this.broadcast = ownerNuid.Invalid();
                 // initialise record flag
-                this.record = ownerNuid.Invalid() ? false : true;
+                this.record = !ownerNuid.Invalid();
             }
         }
 
         /// <summary>
         /// List of objects
         /// </summary>
-        public List<Obj> objectList = new List<Obj>();
+        public List<Obj> objectList = [];
 
         /// <summary>
         /// Remove object from simulator
@@ -893,11 +843,8 @@ namespace JoinFS
                 xplane.RemoveAircraft(obj.simId);
 #elif SIMCONNECT
                 // check for simconnect
-                if (simconnect != null)
-                {
-                    // remove from simconnect
-                    simconnect.RemoveObject(obj.simId, Requests.REMOVE_OBJECT);
-                }
+                // remove from simconnect
+                simconnect?.RemoveObject(obj.simId, Requests.REMOVE_OBJECT);
 #endif
 
                 // check for aircraft
@@ -1145,11 +1092,8 @@ namespace JoinFS
         /// <param name="model"></param>
         public void ScheduleRemoveModel(string model)
         {
-            if (scheduleRemove == null)
-            {
-                // set schedule
-                scheduleRemove = model;
-            }
+            // set schedule
+            scheduleRemove ??= model;
         }
 
         /// <summary>
@@ -1171,7 +1115,7 @@ namespace JoinFS
         }
 
         // create remove object list
-        List<Obj> removeList = new List<Obj>();
+        readonly List<Obj> removeList = [];
 
         /// <summary>
         /// Remove all objects in the remove list
@@ -1192,7 +1136,7 @@ namespace JoinFS
         /// </summary>
         /// <param name="ownerGuid">Owner guid</param>
         /// <param name="netId">Network ID</param>
-        public void ResetObject(Obj obj)
+        public static void ResetObject(Obj obj)
         {
             // check for valid object
             if (obj != null)
@@ -1295,7 +1239,7 @@ namespace JoinFS
             if (Connected && obj.Created)
             {
                 // set position
-                ObjectPosition objectPosition = new ObjectPosition(position);
+                ObjectPosition objectPosition = new(position);
                 // update object
                 UpdateObject(obj, ref objectPosition);
             }
@@ -1313,7 +1257,7 @@ namespace JoinFS
             {
                 // update object position
                 UpdateObject(obj, position);
-                ObjectVelocity objectVelocity = new ObjectVelocity(velocity.linear.InvRotate(position.angles), velocity.angular, velocity.acc.InvRotate(position.angles));
+                ObjectVelocity objectVelocity = new(velocity.linear.InvRotate(position.angles), velocity.angular, velocity.acc.InvRotate(position.angles));
                 // update object
                 UpdateObject(obj, ref objectVelocity);
             }
@@ -1389,9 +1333,11 @@ namespace JoinFS
             if (obj == null)
             {
                 // create new object in list
-                obj = new Obj(ownerNuid, netId);
-                // set expire time
-                obj.expireTime = main.ElapsedTime + OBJECT_EXPIRE_TIME;
+                obj = new(ownerNuid, netId)
+                {
+                    // set expire time
+                    expireTime = main.ElapsedTime + OBJECT_EXPIRE_TIME
+                };
                 // model
 #if FS2024
                 UpdateObject(obj, model, livery, typerole);
@@ -1444,7 +1390,7 @@ namespace JoinFS
         public void PauseObject(LocalNode.Nuid ownerNuid, uint netId, bool pause)
         {
             // check for valid object
-            if (objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is Obj) is Obj obj)
+            if (objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is not null) is Obj obj)
             {
                 // update state
                 obj.paused = pause;
@@ -1459,7 +1405,7 @@ namespace JoinFS
         public void TouchObject(LocalNode.Nuid ownerNuid, uint netId)
         {
             // check for valid object
-            if (objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is Obj) is Obj obj)
+            if (objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is not null) is Obj obj)
             {
                 // set expire time
                 obj.expireTime = main.ElapsedTime + OBJECT_EXPIRE_TIME;
@@ -1559,7 +1505,7 @@ namespace JoinFS
                         else
                         {
                             // get world space relative position
-                            Vector deltaGeo = new Vector(distance * Math.Sin(bearing), netPosition.geo.y - simPosition.geo.y, distance * Math.Cos(bearing));
+                            Vector deltaGeo = new(distance * Math.Sin(bearing), netPosition.geo.y - simPosition.geo.y, distance * Math.Cos(bearing));
                             // get delta between current and network orientations
                             Vector deltaAngles = Vector.AnglesDelta(simPosition.angles, netPosition.angles);
 
@@ -1634,13 +1580,13 @@ namespace JoinFS
                 //}
 
                 // check for "VRS_"
-                if (model.Length >= 4 && model.Substring(0, 4).Equals("VRS_", StringComparison.OrdinalIgnoreCase))
+                if (model.Length >= 4 && model[..4].Equals("VRS_", StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
 
                 // check for "VACMI"
-                if (model.Length >= 5 && model.Substring(0, 5).Equals("VACMI", StringComparison.OrdinalIgnoreCase))
+                if (model.Length >= 5 && model[..5].Equals("VACMI", StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
@@ -1690,17 +1636,17 @@ namespace JoinFS
         }
 
         // user's main flight plan
-        public FlightPlan userFlightPlan = new FlightPlan();
+        public FlightPlan userFlightPlan = new();
 
         /// <summary>
         /// Aircraft
         /// </summary>
-        public abstract class Aircraft : Obj
+        public abstract partial class Aircraft : Obj
         {
             public bool user = false;
             public string originalCallsign = "";
             public byte flightPlanVersion = 0;
-            public FlightPlan flightPlan = new FlightPlan();
+            public FlightPlan flightPlan = new();
             public byte cockpitShare = 0;
             public string airport = "";
             public string metar = "";
@@ -1761,10 +1707,8 @@ namespace JoinFS
             {
                 // update metar
                 this.metar = metar;
-                // format of wind
-                Regex regex = new Regex(@"\d{5}KT");
                 // find wind in metar
-                Match match = regex.Match(metar);
+                Match match = MetarWindRegex().Match(metar);
                 // check if found
                 if (match.Success)
                 {
@@ -1773,10 +1717,8 @@ namespace JoinFS
                 }
                 else
                 {
-                    // format of wind
-                    regex = new Regex(@"\d{5}MPS");
                     // find wind in metar
-                    match = regex.Match(metar);
+                    match = MetarWindMpsRegex().Match(metar);
                     // check if found
                     if (match.Success)
                     {
@@ -1785,6 +1727,12 @@ namespace JoinFS
                     }
                 }
             }
+
+            [GeneratedRegex(@"\d{5}KT", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
+            private static partial Regex MetarWindRegex();
+
+            [GeneratedRegex(@"\d{5}MPS", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
+            private static partial Regex MetarWindMpsRegex();
 
             /// <summary>
             /// State of shared cockpit
@@ -1868,7 +1816,8 @@ namespace JoinFS
             /// </summary>
             /// <param name="simId">SimConnect ID</param>
             /// <param name="simInfo">SimConnect aircraft</param>
-            public Boat(uint simId, string callsign, string type, string model, bool isUser) : base(simId, model) { }
+            //// was public Boat(uint simId, string callsign, string type, string model, bool isUser) : base(simId, model) { }
+            public Boat(uint simId, string model) : base(simId, model) { }
 
             /// <summary>
             /// Constructor
@@ -1888,7 +1837,8 @@ namespace JoinFS
             /// </summary>
             /// <param name="simId">SimConnect ID</param>
             /// <param name="simInfo">SimConnect aircraft</param>
-            public Vehicle(uint simId, string callsign, string type, string model, bool isUser) : base(simId, model) { }
+            /// was public Vehicle(uint simId, string callsign, string type, string model, bool isUser) : base(simId, model) { }
+            public Vehicle(uint simId, string model) : base(simId, model) { }
 
             /// <summary>
             /// Constructor
@@ -1973,7 +1923,7 @@ namespace JoinFS
 #endif
         {
             // check for valid aircraft
-            if (!(objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId) is Aircraft aircraft))
+            if ((objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId) is not Aircraft aircraft))
             {
                 // create new aircraft
                 if (plane)
@@ -2285,11 +2235,8 @@ namespace JoinFS
         public void ScheduleFollow(Aircraft aircraft)
         {
             // check if not scheduled
-            if (followAircraft == null)
-            {
-                // set scheduled follow
-                followAircraft = aircraft;
-            }
+            // set scheduled follow
+            followAircraft ??= aircraft;
         }
 
         /// <summary>
@@ -2311,7 +2258,7 @@ namespace JoinFS
                 double distance = (double)Settings.Default.FollowDistance;
 
                 // set position
-                Pos newPosition = new Pos();
+                Pos newPosition = new();
                 newPosition.geo.x = position.geo.x - (distance * Math.Sin(position.angles.y)) / xRate * Vector.GEODESIC_EPSILON;
                 newPosition.geo.z = position.geo.z - (distance * Math.Cos(position.angles.y)) / zRate * Vector.GEODESIC_EPSILON;
                 newPosition.geo.y = position.geo.y;
@@ -2328,8 +2275,8 @@ namespace JoinFS
         /// State before entering another aircraft
         /// </summary>
         bool savedBroadcast;
-        Pos savedPosition = new Pos();
-        Vel savedVelocity = new Vel();
+        Pos savedPosition = new();
+        Vel savedVelocity = new();
 
         /// <summary>
         /// Currently entered aircraft
@@ -2348,11 +2295,8 @@ namespace JoinFS
         public void ScheduleEnterAircraft(Aircraft aircraft)
         {
             // check if not scheduled
-            if (enterAircraft == null)
-            {
-                // schedule
-                enterAircraft = aircraft;
-            }
+            // schedule
+            enterAircraft ??= aircraft;
         }
 
         /// <summary>
@@ -2502,11 +2446,8 @@ namespace JoinFS
         {
 #if SIMCONNECT
             // check for simconnect
-            if (simconnect != null)
-            {
-                // simconnect event
-                simconnect.DoEvent(simId, definition.scEvent, data);
-            }
+            // simconnect event
+            simconnect?.DoEvent(simId, definition.scEvent, data);
 #endif
         }
 
@@ -2583,12 +2524,8 @@ namespace JoinFS
         /// <param name="metar">METAR</param>
         public void SetWeatherObservation(string metar)
         {
-            // check if scheduled
-            if (scheduleMetar == null)
-            {
-                // schedule metar change
-                scheduleMetar = metar;
-            }
+            // schedule metar change
+            scheduleMetar ??= metar;
         }
 
         /// <summary>
@@ -2613,21 +2550,21 @@ namespace JoinFS
             }
         }
 
-#endregion
+        #endregion
 
-#region Requests
+        #region Requests
 
         /// <summary>
         /// Timers
         /// </summary>
-        Timer objectProcessTimer = new Timer(0.1);
-        Timer requestInfoTimer = new Timer(2.0);
-        Timer requestPositionTimer = new Timer(0.1);
-        Timer requestWeatherTimer = new Timer(60.0);
-        Timer requestLocalStateTimer = new Timer(20.0);
-        Timer trackingTimer = new Timer(1.0);
-        Timer variablesTimer = new Timer(1.0);
-        Timer flightPlanTimer = new Timer(5.0);
+        readonly Timer objectProcessTimer = new(0.1);
+        readonly Timer requestInfoTimer = new(2.0);
+        readonly Timer requestPositionTimer = new(0.1);
+        readonly Timer requestWeatherTimer = new(60.0);
+        readonly Timer requestLocalStateTimer = new(20.0);
+        readonly Timer trackingTimer = new(1.0);
+        readonly Timer variablesTimer = new(1.0);
+        readonly Timer flightPlanTimer = new(5.0);
 
         /// <summary>
         /// Request list of models and liverlies
@@ -2653,10 +2590,7 @@ namespace JoinFS
         {
 #if SIMCONNECT
             // check for FS connection
-            if (simconnect != null)
-            {
-                simconnect.RequestDataByType(Requests.OBJECT_INFO, Definitions.OBJECT_GET_INFO, 200000);
-            }
+            simconnect?.RequestDataByType(Requests.OBJECT_INFO, Definitions.OBJECT_GET_INFO, 200000);
 #endif
         }
 
@@ -2736,11 +2670,8 @@ namespace JoinFS
             if (objectList.Find(o => o.owner == Obj.Owner.Me) is Aircraft aircraft)
             {
                 // check for FS connection
-                if (simconnect != null)
-                {
-                    // request weather
-                    simconnect.WeatherRequest(Requests.WEATHER, aircraft.simPosition.geo.z * (180.0 / Math.PI), aircraft.simPosition.geo.x * (180.0 / Math.PI), aircraft.simPosition.geo.y * FEET_PER_METRE);
-                }
+                // request weather
+                simconnect?.WeatherRequest(Requests.WEATHER, aircraft.simPosition.geo.z * (180.0 / Math.PI), aircraft.simPosition.geo.x * (180.0 / Math.PI), aircraft.simPosition.geo.y * FEET_PER_METRE);
             }
 #endif
         }
@@ -2849,7 +2780,7 @@ namespace JoinFS
                     // message
                     main.MonitorEvent("Looking for simulator (" + (checkConnectionCount + 1) + "/" + CHECK_CONNECTION_ATTEMPTS + ")");
 
-                    Random rand = new Random((int)DateTime.Now.Ticks);
+                    Random rand = new((int)DateTime.Now.Ticks);
                     string name = "";
                     for (int i = 0; i < 10; i++)
                     {
@@ -2893,11 +2824,11 @@ namespace JoinFS
             }
         }
 
-#endregion
+        #endregion
 
-#region Intervals
+        #region Intervals
 
-        Timer updateIntervalsTimer = new Timer(5.0);
+        readonly Timer updateIntervalsTimer = new(5.0);
 
         /// <summary>
         /// Interval mask for a pair of objects
@@ -2921,7 +2852,7 @@ namespace JoinFS
         /// <summary>
         /// List of interval masks between pair of objects
         /// </summary>
-        List<IntervalMask> intervalMasks = new List<IntervalMask>();
+        readonly List<IntervalMask> intervalMasks = [];
 
         /// <summary>
         /// Get the interval mask for a pair of objects
@@ -2985,9 +2916,8 @@ namespace JoinFS
         /// <summary>
         /// Exception for reading data
         /// </summary>
-        public class ReadException : Exception
+        public class ReadException(string message) : Exception(message)
         {
-            public ReadException(string message) : base(message) { }
         }
 
         /// <summary>
@@ -2999,7 +2929,7 @@ namespace JoinFS
         public static void Read(short version, Dictionary<short, ReadVersion> versions, BinaryReader reader)
         {
             // get keys
-            List<short> keys = new List<short>(versions.Keys);
+            List<short> keys = [.. versions.Keys];
             // sort keys
             keys.Sort();
             // go backwards through the versions
@@ -3030,7 +2960,7 @@ namespace JoinFS
         public static void Read<T>(short version, Dictionary<short, ReadVersion<T>> versions, BinaryReader reader, ref T t)
         {
             // get keys
-            List<short> keys = new List<short>(versions.Keys);
+            List<short> keys = [.. versions.Keys];
             // sort keys
             keys.Sort();
             // go backwards through the versions
@@ -3110,7 +3040,7 @@ namespace JoinFS
         /// <summary>
         /// Version table for reading position and velocity
         /// </summary>
-        static readonly Dictionary<short, ReadVersion<ObjectPositionVelocity>> positionVelocityVersions = new Dictionary<short, ReadVersion<ObjectPositionVelocity>>()
+        static readonly Dictionary<short, ReadVersion<ObjectPositionVelocity>> positionVelocityVersions = new()
         {
             { 10022, ReadPositionVelocity1 },
         };
@@ -3203,7 +3133,7 @@ namespace JoinFS
         /// <summary>
         /// Version table for reading position and velocity
         /// </summary>
-        static readonly Dictionary<short, ReadVersion<AircraftPosition>> aircraftPositionVersions = new Dictionary<short, ReadVersion<AircraftPosition>>()
+        static readonly Dictionary<short, ReadVersion<AircraftPosition>> aircraftPositionVersions = new()
         {
             { 10022, ReadAircraftPosition1 },
         };
@@ -3519,8 +3449,10 @@ namespace JoinFS
                                     // check category
                                     switch (info.category)
                                     {
-                                        case "Boat": obj = new Boat(objectId, callsign, type, model, info.isUser != 0); break;
-                                        case "GroundVehicle": obj = new Vehicle(objectId, callsign, type, model, info.isUser != 0); break;
+                                        // case "Boat": obj = new Boat(objectId, callsign, type, model, info.isUser != 0); break;
+                                        case "Boat": obj = new Boat(objectId, model); break;
+                                        // case "GroundVehicle": obj = new Vehicle(objectId, callsign, type, model, info.isUser != 0); break;
+                                        case "GroundVehicle": obj = new Vehicle(objectId, model); break;
                                         case "Airplane":
                                             {
                                                 if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
@@ -3749,7 +3681,7 @@ namespace JoinFS
                         if (spaceIndex != -1 && metarData.Length > 1)
                         {
                             // set weather
-                            string metar = metarData.Substring(spaceIndex + 1);
+                            string metar = metarData[(spaceIndex + 1)..];
 
                             // for each object
                             foreach (var obj in objectList)
@@ -4138,7 +4070,7 @@ namespace JoinFS
         /// <summary>
         /// list of height adjustments
         /// </summary>
-        Dictionary<string, int> heightAdjustments = new Dictionary<string, int>();
+        readonly Dictionary<string, int> heightAdjustments = [];
 
         /// <summary>
         /// get the height adjustment for a model
@@ -4148,10 +4080,10 @@ namespace JoinFS
         public int GetHeightAdjustment(Substitution.Model model)
         {
             // find model
-            if (model != null && heightAdjustments.ContainsKey(model.longType))
+            if (model != null && heightAdjustments.TryGetValue(model.longType, out int value))
             {
                 // return adjustment in metres
-                return heightAdjustments[model.longType];
+                return value;
             }
 
             // no adjustment
@@ -4172,11 +4104,7 @@ namespace JoinFS
                 if (adjustment == 0)
                 {
                     // check for model
-                    if (heightAdjustments.ContainsKey(model.longType))
-                    {
-                        // remove adjustment
-                        heightAdjustments.Remove(model.longType);
-                    }
+                    heightAdjustments.Remove(model.longType);
                 }
                 else
                 {
@@ -4283,7 +4211,7 @@ namespace JoinFS
                     string filename = main.storagePath + Path.DirectorySeparatorChar + "heights - " + GetSimulatorName() + ".txt";
 
                     // open file
-                    StreamWriter writer = new StreamWriter(filename);
+                    StreamWriter writer = new(filename);
                     if (writer != null)
                     {
                         // for each adjustment
@@ -4316,12 +4244,12 @@ namespace JoinFS
 #region Variable Sets
 
         // get heading vuid
-        uint headingVuid = VariableMgr.CreateVuid("sim/cockpit/autopilot/heading_mag");
+        readonly uint headingVuid = VariableMgr.CreateVuid("sim/cockpit/autopilot/heading_mag");
 
         /// <summary>
         /// List of user defined variable sets for different models
         /// </summary>
-        public Dictionary<string, List<string>> modelVariables = new Dictionary<string, List<string>>();
+        public Dictionary<string, List<string>> modelVariables = [];
 
         /// <summary>
         /// Make the filename from the simulator name and version
@@ -4343,7 +4271,7 @@ namespace JoinFS
             if (modelVariables.ContainsKey(parts[0]) == false)
             {
                 // add new entry
-                modelVariables[parts[0]] = new List<string>();
+                modelVariables[parts[0]] = [];
                 // for each variable file
                 for (int index = 1; index < parts.Length; index++)
                 {
@@ -4375,7 +4303,7 @@ namespace JoinFS
                     foreach (string line in lines)
                     {
                         // split line
-                        string[] separator = { "[+]" };
+                        string[] separator = ["[+]"];
                         string[] parts = line.Split(separator, StringSplitOptions.None);
                         // check for parts
                         if (parts.Length > 1)
@@ -4384,7 +4312,7 @@ namespace JoinFS
                             if (modelVariables.ContainsKey(parts[0]) == false)
                             {
                                 // add new entry
-                                modelVariables[parts[0]] = new List<string>();
+                                modelVariables[parts[0]] = [];
                                 // for each variable file
                                 for (int index = 1; index < parts.Length; index++)
                                 {
@@ -4454,7 +4382,7 @@ namespace JoinFS
                 // monitor
                 main.ShowMessage(ex.Message);
                 // close writer
-                if (writer != null) writer.Close();
+                writer?.Close();
             }
         }
 
@@ -4464,10 +4392,8 @@ namespace JoinFS
         bool UsingDefaultVariables(string title)
         {
             // check for model variables
-            if (modelVariables.ContainsKey(title))
+            if (modelVariables.TryGetValue(title, out List<string> modelFiles))
             {
-                // get model files
-                List<string> modelFiles = modelVariables[title];
                 // get default files
                 List<string> defaultFiles = GetModelDefaultVariables(title);
                 // check if number of files is the same
@@ -4508,7 +4434,7 @@ namespace JoinFS
         public List<string> GetModelDefaultVariables(string title)
         {
             // create list
-            List<string> list = new List<string>();
+            List<string> list = [];
 
             // get model
             Substitution.Model model = main.substitution ?. GetModel(title);
@@ -4576,10 +4502,10 @@ namespace JoinFS
         public List<string> GetModelVariables(string title)
         {
             // check for existing variables
-            if (modelVariables.ContainsKey(title))
+            if (modelVariables.TryGetValue(title, out List<string> value))
             {
                 // return variable file list
-                return modelVariables[title];
+                return value;
             }
             else
             {
@@ -4594,7 +4520,7 @@ namespace JoinFS
         void CreateModelVariables(Obj obj)
         {
             // variable lists
-            List<string> files = new List<string>();
+            List<string> files = [];
             // check if sim is connected
             if (Connected)
             {
@@ -4624,13 +4550,16 @@ namespace JoinFS
         /// <summary>
         /// Reference to the main form
         /// </summary>
-        Main main;
+        readonly Main main;
 
 #if !CONSOLE
         [DllImport("winmm")]
+#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
         static extern int timeBeginPeriod(uint uPeriod);
+
         [DllImport("winmm")]
         static extern int timeEndPeriod(uint uPeriod);
+#pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
 #endif
 
         /// <summary>
@@ -4653,7 +4582,7 @@ namespace JoinFS
 #endif
 
 #if !CONSOLE
-            timeBeginPeriod(1);
+            int v = timeBeginPeriod(1);
 #endif
 
             // initialize timers
@@ -4673,7 +4602,7 @@ namespace JoinFS
         ~Sim()
         {
 #if !CONSOLE
-            timeEndPeriod(1);
+            int v = timeEndPeriod(1);
 #endif
         }
 
@@ -4687,7 +4616,7 @@ namespace JoinFS
             // get callsign depending on option
             string simCallsign = (Settings.Default.ShowNicknames && nickname.Length > 0) ? nickname : aircraft.flightPlan.callsign;
             // truncate string
-            return (simCallsign.Length > 10) ? simCallsign.Substring(0, 10) : simCallsign;
+            return (simCallsign.Length > 10) ? simCallsign[..10] : simCallsign;
         }
 
         /// <summary>
@@ -4701,7 +4630,7 @@ namespace JoinFS
             if (simconnect != null && aircraft.Created)
             {
                 // update aircraft ID
-                AircraftSetId setId = new AircraftSetId
+                AircraftSetId setId = new()
                 {
                     // truncate string
                     callsign = MakeAtcId(aircraft),
@@ -4756,7 +4685,7 @@ namespace JoinFS
             if (parts.Length > 0)
             {
                 // convert first part
-                if (int.TryParse(parts[0].Substring(1), NumberStyles.Number, CultureInfo.InvariantCulture, out int r0))
+                if (int.TryParse(parts[0][1..], NumberStyles.Number, CultureInfo.InvariantCulture, out int r0))
                 {
                     // add to result
                     result += r0 * 1000;
@@ -4817,7 +4746,7 @@ namespace JoinFS
         /// <summary>
         /// Timers
         /// </summary>
-        Timer checkConnectionTimer = new Timer(20.0);
+        readonly Timer checkConnectionTimer = new(20.0);
 
         /// <summary>
         /// Connection attempts
@@ -4902,12 +4831,8 @@ namespace JoinFS
             }
 
 #if SIMCONNECT
-            // check for simconnect
-            if (simconnect != null)
-            {
-                // process messages
-                simconnect.ReceiveMsg();
-            }
+            // process messages
+            simconnect?.ReceiveMsg();
 #endif
 
             // default user location
@@ -4936,11 +4861,11 @@ namespace JoinFS
                 // get airport code
                 string code = main.settingsAtcAirport;
                 // check if airport is listed
-                if (main.airportList.ContainsKey(code))
+                if (main.airportList.TryGetValue(code, out var airport))
                 {
                     // convert to radians
-                    userLatitude = Math.Min(90.0, Math.Max(-90.0, main.airportList[code].latitude)) * (Math.PI / 180.0);
-                    userLongitude = Math.Min(180.0, Math.Max(-180.0, main.airportList[code].longitude)) * (Math.PI / 180.0);
+                    userLatitude = Math.Min(90.0, Math.Max(-90.0, airport.latitude)) * (Math.PI / 180.0);
+                    userLongitude = Math.Min(180.0, Math.Max(-180.0, airport.longitude)) * (Math.PI / 180.0);
                 }
             }
 
@@ -5190,7 +5115,7 @@ namespace JoinFS
                             if (localObject.Injected == false && remoteObject.owner == Aircraft.Owner.Network && remoteObject is Aircraft && (remoteObject as Aircraft).user)
                             {
                                 // create new interval mask
-                                IntervalMask intervalMask = new IntervalMask
+                                IntervalMask intervalMask = new()
                                 {
                                     localObject = localObject,
                                     remoteObject = remoteObject

@@ -15,7 +15,7 @@ namespace JoinFS.Helpers
         // TODO: Move to configuration
         private const string ApiUrl = "https://joinfs.famtuduce.com/api/check-models";
         private readonly HttpClient _httpClient;
-        private readonly Dictionary<string, EnrichedAircraftData> _modelDetails = new Dictionary<string, EnrichedAircraftData>();
+        private readonly Dictionary<string, EnrichedAircraftData> _modelDetails = [];
         private readonly string _jsonlFilePath;
 
         public EnrichModelService(string jsonlFilePath, HttpClient httpClient = null)

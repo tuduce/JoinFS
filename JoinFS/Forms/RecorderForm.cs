@@ -8,7 +8,7 @@ namespace JoinFS
 {
     public partial class RecorderForm : Form
     {
-        Main main;
+        readonly Main main;
 
         /// <summary>
         /// Gap at either side of the trackbar
@@ -90,10 +90,10 @@ namespace JoinFS
             }
 
             // set recorder menu items
-            bool recordEnabled = main.recorder.Active ? false : true;
-            bool overdubEnabled = (main.recorder.recording || main.recorder.Empty) ? false : true;
-            bool playEnabled = (main.recorder.recording || main.recorder.Empty) ? false : true;
-            bool stopEnabled = main.recorder.Active ? true : false;
+            bool recordEnabled = !main.recorder.Active;
+            bool overdubEnabled = !main.recorder.recording && !main.recorder.Empty;
+            bool playEnabled = !main.recorder.recording && !main.recorder.Empty;
+            bool stopEnabled = main.recorder.Active;
 
             if (Button_Record.Enabled != recordEnabled)
             {
@@ -153,7 +153,7 @@ namespace JoinFS
             else
             {
                 // window area
-                Rectangle rectangle = new Rectangle(location, size);
+                Rectangle rectangle = new(location, size);
                 // is window hidden
                 bool hidden = true;
                 // for each screen
@@ -185,7 +185,7 @@ namespace JoinFS
             // check for tool tips
             if (Settings.Default.ToolTips)
             {
-                ToolTip tip = new ToolTip
+                ToolTip tip = new()
                 {
                     ShowAlways = true,
                     IsBalloon = true,
@@ -332,12 +332,12 @@ namespace JoinFS
         {
             if (main.recorder.Active)
             {
-                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.name + ": " + Resources.Strings.RecorderStr);
+                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.Name + ": " + Resources.Strings.RecorderStr);
             }
             else
             {
                 // open dialog to choose jfs file
-                OpenFileDialog dialog = new OpenFileDialog
+                OpenFileDialog dialog = new()
                 {
                     InitialDirectory = Settings.Default.RecordingFolder,
                     Filter = "JoinFS files (*.jfs)|*.jfs",
@@ -366,7 +366,7 @@ namespace JoinFS
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show(ex.Message, Main.name + ": " + Resources.Strings.RecorderStr);
+                        MessageBox.Show(ex.Message, Main.Name + ": " + Resources.Strings.RecorderStr);
                         main.MonitorEvent(ex.Message);
                     }
                 }
@@ -378,11 +378,11 @@ namespace JoinFS
             // check if recorder is active
             if (main.recorder.Active)
             {
-                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.name + ": " + Resources.Strings.RecorderStr);
+                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.Name + ": " + Resources.Strings.RecorderStr);
             }
             else if (main.recorder.Empty)
             {
-                MessageBox.Show(Resources.Strings.RecorderEmpty, Main.name + ": " + Resources.Strings.RecorderStr);
+                MessageBox.Show(Resources.Strings.RecorderEmpty, Main.Name + ": " + Resources.Strings.RecorderStr);
             }
             else
             {
@@ -394,12 +394,12 @@ namespace JoinFS
         {
             if (main.recorder.Active)
             {
-                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.name + ": " + Resources.Strings.RecorderStr);
+                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.Name + ": " + Resources.Strings.RecorderStr);
             }
             else
             {
                 // open dialog to choose jfs file
-                OpenFileDialog dialog = new OpenFileDialog
+                OpenFileDialog dialog = new()
                 {
                     InitialDirectory = Settings.Default.RecordingFolder,
                     Filter = "JoinFS files (*.jfs)|*.jfs",
@@ -428,7 +428,7 @@ namespace JoinFS
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show(ex.Message, Main.name + ": " + Resources.Strings.RecorderStr);
+                        MessageBox.Show(ex.Message, Main.Name + ": " + Resources.Strings.RecorderStr);
                         main.MonitorEvent(ex.Message);
                     }
                 }
@@ -441,7 +441,7 @@ namespace JoinFS
             {
                 if (main.recorder.Time <= 0.0)
                 {
-                    MessageBox.Show("Already at the start of the recording.", Main.name + ": " + Resources.Strings.RecorderStr);
+                    MessageBox.Show("Already at the start of the recording.", Main.Name + ": " + Resources.Strings.RecorderStr);
                 }
                 else
                 {
@@ -457,7 +457,7 @@ namespace JoinFS
             {
                 if (main.recorder.Time >= main.recorder.EndTime)
                 {
-                    MessageBox.Show("Already at the end of the recording.", Main.name + ": " + Resources.Strings.RecorderStr);
+                    MessageBox.Show("Already at the end of the recording.", Main.Name + ": " + Resources.Strings.RecorderStr);
                 }
                 else
                 {

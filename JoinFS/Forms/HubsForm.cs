@@ -14,7 +14,7 @@ namespace JoinFS
         /// <summary>
         /// Main form
         /// </summary>
-        Main main;
+        readonly Main main;
 
         /// <summary>
         /// Item
@@ -74,7 +74,7 @@ namespace JoinFS
         /// <summary>
         /// List of items
         /// </summary>
-        List<Item> itemList = new List<Item>();
+        List<Item> itemList = [];
 
         /// <summary>
         /// Offsets
@@ -183,7 +183,7 @@ namespace JoinFS
         /// <summary>
         /// Refresher
         /// </summary>
-        public Refresher refresher = new Refresher();
+        public Refresher refresher = new();
 
         /// <summary>
         /// Refresh form
@@ -244,7 +244,7 @@ namespace JoinFS
                     string status = main.network.localNode.Password ? Resources.Strings.Password : main.network.localNode.GlobalSession ? "Global" : "Online";
 
                     // add row
-                    Item item = new Item(main.settingsHubName, main.guid, main.network.localNode.GetLocalNuid(), status, true, "", null, main.network.localUserList.Count, aircraft, atcAirport, main.settingsHubEvent, main.settingsHubVoip, main.settingsHubAbout, false, false, Main.version);
+                    Item item = new(main.settingsHubName, main.guid, main.network.localNode.GetLocalNuid(), status, true, "", null, main.network.localUserList.Count, aircraft, atcAirport, main.settingsHubEvent, main.settingsHubVoip, main.settingsHubAbout, false, false, Main.Version);
                     itemList.Add(item);
                 }
 
@@ -273,7 +273,7 @@ namespace JoinFS
                                 bool ignore = main.log.IgnoreNode(ref hub.guid) || main.log.IgnoreNode(hub.endPoint.Address);
 
                                 // add row
-                                Item item = new Item(hub.name, hub.guid, hub.nuid, status, hub.online, hub.addressText, hub.endPoint, hub.users, hub.planes + hub.helicopters, hub.atcAirport, hub.nextEvent, hub.voip, hub.about, entry, ignore, hub.appVersion);
+                                Item item = new(hub.name, hub.guid, hub.nuid, status, hub.online, hub.addressText, hub.endPoint, hub.users, hub.planes + hub.helicopters, hub.atcAirport, hub.nextEvent, hub.voip, hub.about, entry, ignore, hub.appVersion);
                                 itemList.Add(item);
                             }
                         }
@@ -401,7 +401,7 @@ namespace JoinFS
             else
             {
                 // window area
-                Rectangle rectangle = new Rectangle(location, size);
+                Rectangle rectangle = new(location, size);
                 // is window hidden
                 bool hidden = true;
                 // for each screen
@@ -467,7 +467,7 @@ namespace JoinFS
                     switch (e.ColumnIndex)
                     {
                         case 4:
-                            MessageBox.Show("You can only ignore other connected users.", Main.name + ": Users");
+                            MessageBox.Show("You can only ignore other connected users.", Main.Name + ": Users");
                             break;
                     }
                 }
@@ -485,7 +485,7 @@ namespace JoinFS
                                 if (entry != null)
                                 {
                                     // confirm
-                                    DialogResult result = MessageBox.Show("Remove '" + entry.name + "' from address book?", Main.name + ": Address Book", MessageBoxButtons.YesNo);
+                                    DialogResult result = MessageBox.Show("Remove '" + entry.name + "' from address book?", Main.Name + ": Address Book", MessageBoxButtons.YesNo);
                                     if (result == DialogResult.Yes)
                                     {
                                         lock (main.conch)
@@ -543,7 +543,7 @@ namespace JoinFS
                             {
                                 if (item.endPoint == null)
                                 {
-                                    MessageBox.Show("You can not ignore this hub", Main.name + ": Hubs");
+                                    MessageBox.Show("You can not ignore this hub", Main.Name + ": Hubs");
                                 }
                                 else
                                 {
@@ -567,7 +567,7 @@ namespace JoinFS
                                     else
                                     {
                                         // confirm
-                                        DialogResult result = MessageBox.Show("Ignore '" + item.name + "'?", Main.name + ": Hubs", MessageBoxButtons.YesNo);
+                                        DialogResult result = MessageBox.Show("Ignore '" + item.name + "'?", Main.Name + ": Hubs", MessageBoxButtons.YesNo);
                                         if (result == DialogResult.Yes)
                                         {
                                             lock (main.conch)

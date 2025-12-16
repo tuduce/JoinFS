@@ -620,7 +620,7 @@ namespace JoinFS
         public void CreateObject(Sim.Obj obj)
         {
             // create sim position
-            SIMCONNECT_DATA_INITPOSITION initPosition = new SIMCONNECT_DATA_INITPOSITION
+            SIMCONNECT_DATA_INITPOSITION initPosition = new()
             {
                 Airspeed = 0,
                 Latitude = obj.netPosition.geo.z * (180.0 / Math.PI),

@@ -26,10 +26,10 @@ namespace JoinFS
         /// <summary>
         /// Timers
         /// </summary>
-        System.Windows.Forms.Timer shortcutsTimer = new System.Windows.Forms.Timer();
-        System.Windows.Forms.Timer refreshWindowsTimer = new System.Windows.Forms.Timer();
-        System.Windows.Forms.Timer refreshMainTimer = new System.Windows.Forms.Timer();
-        System.Windows.Forms.Timer refreshCommsTimer = new System.Windows.Forms.Timer();
+        System.Windows.Forms.Timer shortcutsTimer = new();
+        System.Windows.Forms.Timer refreshWindowsTimer = new();
+        System.Windows.Forms.Timer refreshMainTimer = new();
+        System.Windows.Forms.Timer refreshCommsTimer = new();
 
         /// <summary>
         /// Has the current recording been saved
@@ -108,13 +108,13 @@ namespace JoinFS
                 Combo_Join.Font = main.dataFont;
 
                 // change title
-                Text = Main.name;
+                Text = Main.Name;
                 // change icon
                 Icon = main.icon;
                 // remove JoinFS from title
                 Text = Text.Replace("JoinFS: ", "");
                 // check About menu option
-                Menu_Help_About.Text = Menu_Help_About.Text.Replace("JoinFS", Main.name + "...");
+                Menu_Help_About.Text = Menu_Help_About.Text.Replace("JoinFS", Main.Name + "...");
                 // set join address
                 Combo_Join.Text = Settings.Default.JoinAddress;
 
@@ -128,7 +128,7 @@ namespace JoinFS
                 Text_MyIP.Text = Network.UuidToString(main.uuid);
 #endif
 
-                Tool_Version.Text = Main.version;
+                Tool_Version.Text = Main.Version;
 
 #if NO_MAP
                 Tool_Map.Enabled = false;
@@ -210,7 +210,7 @@ namespace JoinFS
         /// For checking version
         /// </summary>
         // WebClient versionWebClient = new WebClient(); // obsolete
-        HttpClient versionHttpClient = new HttpClient();
+        HttpClient versionHttpClient = new();
         string latestVersion = null;
 
         /// <summary>
@@ -275,19 +275,19 @@ namespace JoinFS
         /// <summary>
         /// Shortcuts
         /// </summary>
-        public Shortcut networkShortcut = new Shortcut();
-        public Shortcut simulatorShortcut = new Shortcut();
-        public Shortcut allowSharedShortcut = new Shortcut();
-        public Shortcut handOverShortcut = new Shortcut();
-        public Shortcut enterShortcut = new Shortcut();
-        public Shortcut followShortcut = new Shortcut();
+        public Shortcut networkShortcut = new();
+        public Shortcut simulatorShortcut = new();
+        public Shortcut allowSharedShortcut = new();
+        public Shortcut handOverShortcut = new();
+        public Shortcut enterShortcut = new();
+        public Shortcut followShortcut = new();
 
         /// <summary>
         /// Check if a particular key is pressed
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        bool KeyPressed(int key)
+        static bool KeyPressed(int key)
         {
             return ((GetAsyncKeyState(key) >> 15) & 0x0001) == 0x0001;
         }
@@ -300,7 +300,7 @@ namespace JoinFS
         /// <param name="alt"></param>
         /// <param name="shortcut"></param>
         /// <returns></returns>
-        bool CombinationPressed(bool control, bool shift, bool alt, Shortcut shortcut)
+        static bool CombinationPressed(bool control, bool shift, bool alt, Shortcut shortcut)
         {
             // update key state
             bool before = shortcut.state;
@@ -315,7 +315,7 @@ namespace JoinFS
         /// <param name="name"></param>
         /// <param name="defaultKey"></param>
         /// <param name="shortcut"></param>
-        void LoadShortcut(string combination, Shortcut shortcut)
+        static void LoadShortcut(string combination, Shortcut shortcut)
         {
             // initialize shortcut
             shortcut.control = false;
@@ -472,22 +472,16 @@ namespace JoinFS
                 if (Settings.Default.ShortcutEnter && CombinationPressed(control, shift, alt, enterShortcut))
                 {
                     // check for aircraft form
-                    if (main.aircraftForm != null)
-                    {
-                        // enter/leave cockpit
-                        main.aircraftForm.Context_Aircraft_EnterCockpit_Click(null, EventArgs.Empty);
-                    }
+                    // enter/leave cockpit
+                    main.aircraftForm?.Context_Aircraft_EnterCockpit_Click(null, EventArgs.Empty);
                 }
 
                 // check if follow key pressed
                 if (Settings.Default.ShortcutFollow && CombinationPressed(control, shift, alt, followShortcut))
                 {
                     // check for aircraft form
-                    if (main.aircraftForm != null)
-                    {
-                        // follow aircraft
-                        main.aircraftForm.Context_Aircraft_Follow_Click(null, EventArgs.Empty);
-                    }
+                    // follow aircraft
+                    main.aircraftForm?.Context_Aircraft_Follow_Click(null, EventArgs.Empty);
                 }
 #endif
             }
@@ -520,48 +514,27 @@ namespace JoinFS
             }
 
             // refresh hub refresh button
-            if (main.hubsForm != null)
-            {
-                main.hubsForm.DoRefreshButton(refreshForce);
-            }
+            main.hubsForm?.DoRefreshButton(refreshForce);
 
             // refresh address book window
-            if (main.addressBookForm != null)
-            {
-                main.addressBookForm.DoRefreshButton(refreshForce);
-            }
+            main.addressBookForm?.DoRefreshButton(refreshForce);
 
 #if !SERVER
             // refresh aircraft window
-            if (main.aircraftForm != null)
-            {
-                main.aircraftForm.DoRefreshButton(refreshForce);
-            }
+            main.aircraftForm?.DoRefreshButton(refreshForce);
 
             // refresh objects window
-            if (main.objectsForm != null)
-            {
-                main.objectsForm.DoRefreshButton(refreshForce);
-            }
+            main.objectsForm?.DoRefreshButton(refreshForce);
 
             // refresh ATC window
-            if (main.atcForm != null)
-            {
-                main.atcForm.DoRefreshButton(refreshForce);
-            }
+            main.atcForm?.DoRefreshButton(refreshForce);
 #endif
 
             // refresh users window
-            if (main.sessionForm != null)
-            {
-                main.sessionForm.DoRefreshButton(refreshForce);
-            }
+            main.sessionForm?.DoRefreshButton(refreshForce);
 
             // refresh monitor window
-            if (main.monitorForm != null)
-            {
-                main.monitorForm.DoRefreshButton(refreshForce);
-            }
+            main.monitorForm?.DoRefreshButton(refreshForce);
 
             // reset force flag
             refreshForce = false;
@@ -593,7 +566,7 @@ namespace JoinFS
                 if (main.shutdown.Length > 0)
                 {
                     // show message
-                    MessageBox.Show(main.shutdown, Main.name);
+                    MessageBox.Show(main.shutdown, Main.Name);
                 }
 
                 // quit
@@ -605,14 +578,14 @@ namespace JoinFS
             {
                 if (latestVersion.Length > 0)
                 {
-                    Version latest = new Version(latestVersion);
-                    Version current = new Version(Main.version);
+                    Version latest = new(latestVersion);
+                    Version current = new(Main.Version);
                     if (current < latest)
                     {
                         // check if this version has been asked about
                         if (Settings.Default.AskVersion.Equals(latestVersion) == false)
                         {
-                            DialogResult result = MessageBox.Show(Resources.Strings.NewVersion, Main.name + ": New Version", MessageBoxButtons.YesNo);
+                            DialogResult result = MessageBox.Show(Resources.Strings.NewVersion, Main.Name + ": New Version", MessageBoxButtons.YesNo);
                             if (result == DialogResult.Yes)
                             {
                                 // check for early update
@@ -669,7 +642,7 @@ namespace JoinFS
             if (main.scheduleShowMessage != null)
             {
                 // show message
-                MessageBox.Show(main.scheduleShowMessage, Main.name);
+                MessageBox.Show(main.scheduleShowMessage, Main.Name);
                 // reset 
                 main.scheduleShowMessage = null;
             }
@@ -687,7 +660,7 @@ namespace JoinFS
                     Settings.Default.AskSimConnect = true;
 
                     // ask
-                    if (MessageBox.Show(Resources.Strings.AskSimConnect, Main.name, MessageBoxButtons.YesNo) == DialogResult.Yes)
+                    if (MessageBox.Show(Resources.Strings.AskSimConnect, Main.Name, MessageBoxButtons.YesNo) == DialogResult.Yes)
                     {
                         // download SimConnect
                         //string sc = Program.Code("https://joinfs.net/SimConnect.msi", true, 1234);
@@ -715,7 +688,7 @@ namespace JoinFS
                 // reset flag
                 main.scheduleNickname = false;
                 // request nickname
-                NicknameForm nicknameForm = new NicknameForm(main);
+                NicknameForm nicknameForm = new(main);
                 // obtain nickname
                 if (nicknameForm.ShowDialog() == DialogResult.OK)
                 {
@@ -757,7 +730,7 @@ namespace JoinFS
                 main.scheduleScanForModels = false;
 
                 // show message
-                DialogResult result = MessageBox.Show(Resources.Strings.ModelListEmpty, Main.name + ": Models", MessageBoxButtons.YesNo);
+                DialogResult result = MessageBox.Show(Resources.Strings.ModelListEmpty, Main.Name + ": Models", MessageBoxButtons.YesNo);
                 if (result == DialogResult.Yes)
                 {
                     // scan with UI
@@ -1003,7 +976,7 @@ namespace JoinFS
         {
             // get filename
             Stream stream;
-            SaveFileDialog dialog = new SaveFileDialog
+            SaveFileDialog dialog = new()
             {
                 InitialDirectory = Settings.Default.RecordingFolder,
                 Filter = "JoinFS files (*.jfs)|*.jfs",
@@ -1036,7 +1009,7 @@ namespace JoinFS
             if (unsaved)
             {
                 // ask to save recording
-                DialogResult result = MessageBox.Show(Resources.Strings.SaveCurrentRecording, Main.name + ": " + Resources.Strings.UnsavedRecording, MessageBoxButtons.YesNo);
+                DialogResult result = MessageBox.Show(Resources.Strings.SaveCurrentRecording, Main.Name + ": " + Resources.Strings.UnsavedRecording, MessageBoxButtons.YesNo);
                 if (result == DialogResult.Yes)
                 {
                     lock (main.conch)
@@ -1061,7 +1034,7 @@ namespace JoinFS
             else
             {
                 // window area
-                Rectangle rectangle = new Rectangle(location, Size);
+                Rectangle rectangle = new(location, Size);
                 // is window hidden
                 bool hidden = true;
                 // for each screen
@@ -1092,7 +1065,7 @@ namespace JoinFS
             // check for tool tips
             if (Settings.Default.ToolTips)
             {
-                ToolTip tip = new ToolTip
+                ToolTip tip = new()
                 {
                     ShowAlways = true,
                     IsBalloon = true,
@@ -1163,7 +1136,7 @@ namespace JoinFS
                         if (passwordHash == 0)
                         {
                             // request password
-                            PasswordForm passwordForm = new PasswordForm(main);
+                            PasswordForm passwordForm = new(main);
                             // obtain password
                             if (passwordForm.ShowDialog() == DialogResult.OK)
                             {
@@ -1232,11 +1205,11 @@ namespace JoinFS
                         finally
                         {
                             // close writer
-                            if (reader != null) reader.Close();
+                            reader?.Close();
                         }
 
                         // request login
-                        LoginForm loginForm = new LoginForm(main, email, password, false);
+                        LoginForm loginForm = new(main, email, password, false);
                         // obtain password
                         if (loginForm.ShowDialog() == DialogResult.OK)
                         {
@@ -1271,7 +1244,7 @@ namespace JoinFS
                             finally
                             {
                                 // close writer
-                                if (writer != null) writer.Close();
+                                writer?.Close();
                             }
 
                             lock (main.conch)
@@ -1288,7 +1261,7 @@ namespace JoinFS
                         main.network.ScheduleLeave();
 
                         // request login
-                        LoginForm loginForm = new LoginForm(main, main.network.ScheduleLoginEmail, "", true);
+                        LoginForm loginForm = new(main, main.network.ScheduleLoginEmail, "", true);
                         // obtain password
                         if (loginForm.ShowDialog() == DialogResult.OK)
                         {
@@ -1488,7 +1461,7 @@ namespace JoinFS
         public void RefreshComboList()
         {
             // names list
-            List<string> names = new List<string>();
+            List<string> names = [];
             lock (main.conch)
             {
                 // for each entry
@@ -1718,7 +1691,7 @@ namespace JoinFS
             if (newVersion)
             {
                 // confirm
-                DialogResult result = MessageBox.Show(Resources.Strings.DownloadNew, Main.name + ": " + Resources.Strings.NewVersionStatus, MessageBoxButtons.YesNo);
+                DialogResult result = MessageBox.Show(Resources.Strings.DownloadNew, Main.Name + ": " + Resources.Strings.NewVersionStatus, MessageBoxButtons.YesNo);
                 if (result == DialogResult.Yes)
                 {
                     // check for early update
@@ -1825,7 +1798,7 @@ namespace JoinFS
 #if !XPLANE
             if (main.sim != null && main.sim.Connected == false)
             {
-                MessageBox.Show(Resources.Strings.EditMatchingWarning, Main.name + ": " + Resources.Strings.EditModelMatching);
+                MessageBox.Show(Resources.Strings.EditMatchingWarning, Main.Name + ": " + Resources.Strings.EditModelMatching);
             }
 #endif
 
@@ -1910,7 +1883,7 @@ namespace JoinFS
             // check if no simulator connected
             if (main.sim != null && main.sim.Connected == false)
             {
-                MessageBox.Show(Resources.Strings.AssignVariablesWarning, Main.name);
+                MessageBox.Show(Resources.Strings.AssignVariablesWarning, Main.Name);
             }
             else
             {

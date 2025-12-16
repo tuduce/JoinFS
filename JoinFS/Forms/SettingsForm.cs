@@ -7,7 +7,7 @@ namespace JoinFS
 {
     public partial class SettingsForm : Form
     {
-        Main main;
+        readonly Main main;
 
         void RefreshWindow()
         {
@@ -286,7 +286,7 @@ namespace JoinFS
             Settings.Default.Atc = atcMode;
             // write airport
             string airport = Text_Airport.Text.TrimStart(' ').TrimEnd(' ');
-            main.settingsAtcAirport = airport.Substring(0, Math.Min(4, airport.Length)).ToUpper();
+            main.settingsAtcAirport = airport[..Math.Min(4, airport.Length)].ToUpper();
             Settings.Default.AtcAirport = main.settingsAtcAirport;
             // write level
             Settings.Default.AtcLevel = Combo_Level.SelectedIndex;
@@ -303,7 +303,7 @@ namespace JoinFS
             if (newHubMode && Text_HubName.Text.Length < 3)
             {
                 // error
-                MessageBox.Show("The hub name must be at least three characters long.", Main.name + ": Invalid Hub Name");
+                MessageBox.Show("The hub name must be at least three characters long.", Main.Name + ": Invalid Hub Name");
                 // don't close
                 DialogResult = DialogResult.None;
             }
@@ -426,7 +426,7 @@ namespace JoinFS
                 if (Settings.Default.AtcWarning == false)
                 {
                     // show warning
-                    MessageBox.Show(Resources.Strings.AtcWarning, Main.name + ": " + Resources.Strings.Warning);
+                    MessageBox.Show(Resources.Strings.AtcWarning, Main.Name + ": " + Resources.Strings.Warning);
                     // now asked
                     Settings.Default.AtcWarning = true;
                 }
@@ -464,7 +464,7 @@ namespace JoinFS
         {
             if (Check_AutoRefresh.Checked && Settings.Default.AutoRefresh == false)
             {
-                MessageBox.Show("With Auto Refresh enabled it may affect performance very slightly during the window refresh.", Main.name + ": Warning");
+                MessageBox.Show("With Auto Refresh enabled it may affect performance very slightly during the window refresh.", Main.Name + ": Warning");
             }
        }
 
@@ -566,7 +566,7 @@ namespace JoinFS
             // check for tool tips
             if (Settings.Default.ToolTips)
             {
-                ToolTip tip = new ToolTip
+                ToolTip tip = new()
                 {
                     ShowAlways = true,
                     IsBalloon = true,
@@ -650,7 +650,7 @@ namespace JoinFS
         private void Button_ActiveBackground_Click(object sender, EventArgs e)
         {
             // open colour picker
-            ColorDialog dialog = new ColorDialog
+            ColorDialog dialog = new()
             {
                 AllowFullOpen = true,
                 AnyColor = true,
@@ -671,7 +671,7 @@ namespace JoinFS
         private void Button_ActiveText_Click(object sender, EventArgs e)
         {
             // open colour picker
-            ColorDialog dialog = new ColorDialog
+            ColorDialog dialog = new()
             {
                 AllowFullOpen = true,
                 AnyColor = true,
@@ -692,7 +692,7 @@ namespace JoinFS
         private void Button_WaitingBackground_Click(object sender, EventArgs e)
         {
             // open colour picker
-            ColorDialog dialog = new ColorDialog
+            ColorDialog dialog = new()
             {
                 AllowFullOpen = true,
                 AnyColor = true,
@@ -713,7 +713,7 @@ namespace JoinFS
         private void Button_WaitingText_Click(object sender, EventArgs e)
         {
             // open colour picker
-            ColorDialog dialog = new ColorDialog
+            ColorDialog dialog = new()
             {
                 AllowFullOpen = true,
                 AnyColor = true,
@@ -734,7 +734,7 @@ namespace JoinFS
         private void Button_InactiveColour_Click(object sender, EventArgs e)
         {
             // open colour picker
-            ColorDialog dialog = new ColorDialog
+            ColorDialog dialog = new()
             {
                 AllowFullOpen = true,
                 AnyColor = true,
@@ -755,7 +755,7 @@ namespace JoinFS
         private void Button_InactiveText_Click(object sender, EventArgs e)
         {
             // open colour picker
-            ColorDialog dialog = new ColorDialog
+            ColorDialog dialog = new()
             {
                 AllowFullOpen = true,
                 AnyColor = true,
@@ -782,7 +782,7 @@ namespace JoinFS
         private void Button_LabelColour_Click(object sender, EventArgs e)
         {
             // open colour picker
-            ColorDialog dialog = new ColorDialog
+            ColorDialog dialog = new()
             {
                 AllowFullOpen = true,
                 AnyColor = true,
@@ -801,7 +801,7 @@ namespace JoinFS
         private void Button_Reset_Click(object sender, EventArgs e)
         {
             // Confirm
-            if (MessageBox.Show(Resources.Strings.ResetSettings, Main.name, MessageBoxButtons.YesNo) == DialogResult.Yes)
+            if (MessageBox.Show(Resources.Strings.ResetSettings, Main.Name, MessageBoxButtons.YesNo) == DialogResult.Yes)
             {
                 // keep last position GUID
                 Guid lastPosition = Settings.Default.LastPosition;

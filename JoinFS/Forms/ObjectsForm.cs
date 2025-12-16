@@ -9,7 +9,7 @@ namespace JoinFS
 {
     public partial class ObjectsForm : Form
     {
-        Main main;
+        readonly Main main;
 
         /// <summary>
         /// Item
@@ -63,44 +63,36 @@ namespace JoinFS
         /// <summary>
         /// List of items
         /// </summary>
-        List<Item> itemList = new List<Item>();
+        List<Item> itemList = [];
 
         /// <summary>
         /// Item
         /// </summary>
-        class Group
+        /// <remarks>
+        /// Constructor
+        /// </remarks>
+        /// <param name="ownerNuid">Owner</param>
+        /// <param name="model">Model</param>
+        class Group(Sim.Obj obj, string ownerName)
         {
             /// <summary>
             /// Single instance
             /// </summary>
-            public Sim.Obj obj;
+            public Sim.Obj obj = obj;
             /// <summary>
             /// Name of the owner
             /// </summary>
-            public string ownerName;
+            public string ownerName = ownerName;
             /// <summary>
             /// Number of instances
             /// </summary>
-            public int count;
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            /// <param name="ownerNuid">Owner</param>
-            /// <param name="model">Model</param>
-            public Group(Sim.Obj obj, string ownerName)
-            {
-                // initialize
-                this.obj = obj;
-                this.ownerName = ownerName;
-                count = 1;
-            }
+            public int count = 1;
         }
 
         /// <summary>
         /// List of groups
         /// </summary>
-        Dictionary<string, Group> groupList = new Dictionary<string, Group>();
+        Dictionary<string, Group> groupList = [];
 
         /// <summary>
         /// Offsets
@@ -182,23 +174,13 @@ namespace JoinFS
         string GetOwnerName(Sim.Obj obj)
         {
             // check owner
-            switch (obj.owner)
+            return obj.owner switch
             {
-                case Sim.Obj.Owner.Me:
-                case Sim.Obj.Owner.Sim:
-                    // get owner's nickname
-                    return main.settingsNickname;
-
-                case Sim.Obj.Owner.Network:
-                    // get owner nickname
-                    return main.network.GetNodeName(obj.ownerNuid);
-
-                case Sim.Obj.Owner.Recorder:
-                    return Resources.Strings.RecorderStr;
-
-                default:
-                    return "";
-            }
+                Sim.Obj.Owner.Me or Sim.Obj.Owner.Sim => main.settingsNickname,
+                Sim.Obj.Owner.Network => main.network.GetNodeName(obj.ownerNuid),
+                Sim.Obj.Owner.Recorder => Resources.Strings.RecorderStr,
+                _ => "",
+            };
         }
 
         void AddObject(Sim.Obj obj, string ownerName, int count)
@@ -270,7 +252,7 @@ namespace JoinFS
                     if (count == 1)
                     {
                         // get broadcast state
-                        broadcast = main.sim != null ? main.sim.IsBroadcast(obj) : false;
+                        broadcast = main.sim != null && main.sim.IsBroadcast(obj);
                     }
                     else
                     {
@@ -281,7 +263,7 @@ namespace JoinFS
 
                 // create item
 #if FS2024
-                Item item = new Item(obj.ownerNuid, obj.simId, ownerName, obj.owner, obj.ownerModel, obj.ownerLivery, subModel, obj.typerole, count, bearingText, distance, broadcast, ignoreNode, ignoreModel);
+                Item item = new(obj.ownerNuid, obj.simId, ownerName, obj.owner, obj.ownerModel, obj.ownerLivery, subModel, obj.typerole, count, bearingText, distance, broadcast, ignoreNode, ignoreModel);
 #else
                 Item item = new Item(obj.ownerNuid, obj.simId, ownerName, obj.owner, obj.ownerModel, subModel, obj.typerole, count, bearingText, distance, broadcast, ignoreNode, ignoreModel);
 #endif
@@ -293,7 +275,7 @@ namespace JoinFS
         /// <summary>
         /// Refresher
         /// </summary>
-        public Refresher refresher = new Refresher();
+        public Refresher refresher = new();
 
         /// <summary>
         /// Refresh form
@@ -342,10 +324,9 @@ namespace JoinFS
                                 string key = obj.ownerNuid.ToString() + " " + obj.ownerModel;
 
                                 // check for object
-                                if (groupList.ContainsKey(key))
+                                if (groupList.TryGetValue(key, out Group value))
                                 {
-                                    // increment count
-                                    groupList[key].count++;
+                                    value.count++;
                                 }
                                 else
                                 {
@@ -536,12 +517,12 @@ namespace JoinFS
                             // check for this node
                             if (item.owner == Sim.Obj.Owner.Network)
                             {
-                                MessageBox.Show("You can not broadcast objects that are already present on the network.", Main.name + ": Objects");
+                                MessageBox.Show("You can not broadcast objects that are already present on the network.", Main.Name + ": Objects");
                             }
                             else
                             {
                                 // create broadcast form
-                                BroadcastForm broadcastForm = new BroadcastForm(main, item.ownerModel, Settings.Default.GroupObjects, item.broadcast, main.log.BroadcastName(item.ownerModel), Settings.Default.BroadcastTacpack, Settings.Default.AutoBroadcast);
+                                BroadcastForm broadcastForm = new(main, item.ownerModel, Settings.Default.GroupObjects, item.broadcast, main.log.BroadcastName(item.ownerModel), Settings.Default.BroadcastTacpack, Settings.Default.AutoBroadcast);
                                 // show form
                                 DialogResult result = broadcastForm.ShowDialog();
                                 // check result
@@ -587,7 +568,7 @@ namespace JoinFS
                             // check for this node
                             if (item.owner != Sim.Obj.Owner.Network)
                             {
-                                MessageBox.Show("You can not ignore your own objects.", Main.name + ": Objects");
+                                MessageBox.Show("You can not ignore your own objects.", Main.Name + ": Objects");
                             }
                             else
                             {
@@ -615,7 +596,7 @@ namespace JoinFS
                             // check for this node
                             if (item.owner != Sim.Obj.Owner.Network)
                             {
-                                MessageBox.Show("You can not ignore your own objects.", Main.name + ": Objects");
+                                MessageBox.Show("You can not ignore your own objects.", Main.Name + ": Objects");
                             }
                             else
                             {
@@ -657,7 +638,7 @@ namespace JoinFS
             else
             {
                 // window area
-                Rectangle rectangle = new Rectangle(location, size);
+                Rectangle rectangle = new(location, size);
                 // is window hidden
                 bool hidden = true;
                 // for each screen

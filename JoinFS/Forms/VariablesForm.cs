@@ -17,7 +17,7 @@ namespace JoinFS
             // clear current list
             Combo_Type.Items.Clear();
 
-            List<string> typeList = new List<string>();
+            List<string> typeList = [];
 
             lock (main.conch)
             {
@@ -83,7 +83,7 @@ namespace JoinFS
             // clear current list
             Combo_Variation.Items.Clear();
 
-            List<string> list = new List<string>();
+            List<string> list = [];
 
             lock (main.conch)
             {
@@ -309,7 +309,7 @@ namespace JoinFS
             if (main.sim != null && main.sim.Connected && Text_Title.Text.Length > 0)
             {
                 // open dialog to choose jfs file
-                OpenFileDialog dialog = new OpenFileDialog
+                OpenFileDialog dialog = new()
                 {
                     InitialDirectory = Path.Combine(main.documentsPath, "Variables"),
                     Filter = "Text files (*.*)|*.*",

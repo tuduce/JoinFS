@@ -12,7 +12,7 @@ namespace JoinFS
             // change icon
             Icon = main.icon;
             // remove JoinFS from title and add name
-            Text = Text.Replace("JoinFS: ", "") + " " + Main.name;
+            Text = Text.Replace("JoinFS: ", "") + " " + Main.Name;
         }
 
         private void Label_Website_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)

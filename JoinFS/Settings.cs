@@ -12,8 +12,8 @@ namespace JoinFS
     /// <summary>Additional functions for stored settings.</summary>
     public static class OldSettings
     {
-        static Dictionary<string, int> intCache = new Dictionary<string, int>();
-        static Dictionary<string, string> stringCache = new Dictionary<string, string>();
+        static Dictionary<string, int> intCache = [];
+        static Dictionary<string, string> stringCache = [];
 
         static string st_sRegKey;
         static string RegKey()
