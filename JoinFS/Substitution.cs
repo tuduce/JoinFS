@@ -1075,7 +1075,10 @@ namespace JoinFS
                         {
 #if FS2024
                             // with no addons in the list, we must trigger the model matching and save manually
-                            main.ScheduleSubstitutionMatch();
+                            main.EnqueueCommand(() =>
+                            {
+                                main.substitution?.Match();
+                            });
                             // we must show the number of models as well
                             if (interactive)
                             {
@@ -1096,7 +1099,10 @@ namespace JoinFS
 #if !FS2024
                     // other sims than FS2024
                     // FS2024 has async loading of models
-                    main.ScheduleSubstitutionMatch();
+                    main.EnqueueCommand(() =>
+                    {
+                        main.substitution?.Match();
+                    });
 #endif
                     // check for models scanned
                     if (models.Count > 0)

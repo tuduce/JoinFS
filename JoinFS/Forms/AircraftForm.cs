@@ -1440,8 +1440,8 @@ namespace JoinFS
             {
                 // target aircraft
                 Sim.Aircraft targetAircraft;
-                string callsign;
-                string type;
+                //string callsign;
+                //string type;
 
                 // get selected aircraft
                 Sim.Aircraft aircraft = GetAircraft(item);
@@ -1450,15 +1450,15 @@ namespace JoinFS
                 {
                     // target the selected aircraft
                     targetAircraft = aircraft;
-                    callsign = item.callsign;
-                    type = item.type;
+                    //callsign = item.callsign;
+                    //type = item.type;
                 }
                 else
                 {
                     // target the user aircraft
                     targetAircraft = main.sim ?. userAircraft;
-                    callsign = targetAircraft.flightPlan.callsign;
-                    type = targetAircraft.flightPlan.icaoType;
+                    //callsign = targetAircraft.flightPlan.callsign;
+                    //type = targetAircraft.flightPlan.icaoType;
                 }
 
                 // check for valid target aircraft

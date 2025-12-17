@@ -57,13 +57,11 @@ namespace JoinFS.Helpers
                 return;
 
             // Write all unique model details to the file, one per line
-            using (var writer = new StreamWriter(_jsonlFilePath, false, Encoding.UTF8))
+            using var writer = new StreamWriter(_jsonlFilePath, false, Encoding.UTF8);
+            foreach (var data in _modelDetails.Values)
             {
-                foreach (var data in _modelDetails.Values)
-                {
-                    var line = JsonConvert.SerializeObject(data);
-                    writer.WriteLine(line);
-                }
+                var line = JsonConvert.SerializeObject(data);
+                writer.WriteLine(line);
             }
         }
 
@@ -77,23 +75,21 @@ namespace JoinFS.Helpers
             var batches = Batch(missingTitles, 20);
             foreach (var batch in batches)
             {
-                var request = new ModelCheckRequest { Models = batch.ToList() };
+                var request = new ModelCheckRequest { Models = [.. batch] };
                 var json = JsonConvert.SerializeObject(request);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                using (var response = await _httpClient.PostAsync(ApiUrl, content))
-                {
-                    response.EnsureSuccessStatusCode();
-                    var responseJson = await response.Content.ReadAsStringAsync();
-                    var result = JsonConvert.DeserializeObject<EnrichedModelResponse>(responseJson);
+                using var response = await _httpClient.PostAsync(ApiUrl, content);
+                response.EnsureSuccessStatusCode();
+                var responseJson = await response.Content.ReadAsStringAsync();
+                var result = JsonConvert.DeserializeObject<EnrichedModelResponse>(responseJson);
 
-                    if (result?.Data != null)
+                if (result?.Data != null)
+                {
+                    foreach (var data in result.Data)
                     {
-                        foreach (var data in result.Data)
-                        {
-                            if (!string.IsNullOrWhiteSpace(data.Title))
-                                _modelDetails[data.Title] = data;
-                        }
+                        if (!string.IsNullOrWhiteSpace(data.Title))
+                            _modelDetails[data.Title] = data;
                     }
                 }
             }
@@ -130,7 +126,6 @@ namespace JoinFS.Helpers
                 .Distinct()
                 .ToList();
 
-            // Query and store details (synchronously for compatibility with existing usage)
             await QueryAndStoreModelDetailsAsync(uniqueTitles);
 
             // Assign enrichment to each model
@@ -138,8 +133,7 @@ namespace JoinFS.Helpers
             {
                 if (model != null && model.title != null)
                 {
-                    EnrichedAircraftData enriched;
-                    if (_modelDetails.TryGetValue(model.title, out enriched))
+                    if (_modelDetails.TryGetValue(model.title, out var enriched))
                     {
                         model.enrichedData = enriched;
                     }
@@ -159,11 +153,10 @@ namespace JoinFS.Helpers
             // Query and store details for this model if not already present
             if (!_modelDetails.ContainsKey(model.title))
             {
-                QueryAndStoreModelDetailsAsync(new[] { model.title }).Wait();
+                QueryAndStoreModelDetailsAsync([model.title]).Wait();
             }
 
-            EnrichedAircraftData enriched;
-            if (_modelDetails.TryGetValue(model.title, out enriched))
+            if (_modelDetails.TryGetValue(model.title, out var enriched))
             {
                 model.enrichedData = enriched;
             }
