@@ -1,6 +1,10 @@
-﻿using Microsoft.FlightSimulator.SimConnect;
+﻿#if SIMCONNECT
+using Microsoft.FlightSimulator.SimConnect;
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using static JoinFS.Sim;
+#endif
 
 namespace JoinFS
 {
@@ -12,18 +16,20 @@ namespace JoinFS
     {    /// <summary>
          /// SimConnect interface
          /// </summary>
-        SimConnect sc;
+        readonly SimConnect sc;
+        private bool _isSimOpen = false;
+        private readonly List<Action> _pendingRequests = [];
         public bool Valid { get { return sc != null; } }
 
         /// <summary>
         /// Link to sim
         /// </summary>
-        Sim sim;
+        readonly Sim sim;
 
         /// <summary>
         /// Link to main form
         /// </summary>
-        Main main;
+        readonly Main main;
 
         /// <summary>
         /// Handle simconnect errors
@@ -240,19 +246,28 @@ namespace JoinFS
             }
         }
 
-        ~SimConnectInterface()
-        {
-        }
-
         public void RequestSimulatorModels()
         {
+            Action request = () =>
+            {
 #if FS2024
-            // sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.ALL);
-            sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.USER);
-            //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT);
-            //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER);
-            //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.HOT_AIR_BALLOON);
+                // sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.ALL);
+                sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.USER);
+                //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT);
+                //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER);
+                //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.HOT_AIR_BALLOON);
 #endif
+            };
+
+            if (_isSimOpen)
+            {
+                request(); // Execute immediately
+            }
+            else
+            {
+                _pendingRequests.Add(request); // Save for later
+                main.MonitorEvent("SimConnect not ready. Request queued.");
+            }
         }
 
         void RecvSimObjectData(SimConnect sender, SIMCONNECT_RECV_SIMOBJECT_DATA data)
@@ -297,6 +312,13 @@ namespace JoinFS
             sim.ProcessOpen(data.szApplicationName,
                          data.dwSimConnectVersionMajor, data.dwSimConnectVersionMinor, data.dwSimConnectBuildMajor, data.dwSimConnectBuildMinor,
                          data.dwApplicationVersionMajor, data.dwApplicationVersionMinor, data.dwApplicationBuildMajor, data.dwApplicationBuildMinor);
+            _isSimOpen = true;
+            // Execute all delayed actions
+            foreach (var action in _pendingRequests)
+            {
+                action();
+            }
+            _pendingRequests.Clear(); // Clear the queue
         }
 
         void RecvQuit(SimConnect sender, SIMCONNECT_RECV data)
@@ -516,64 +538,101 @@ namespace JoinFS
 
         public void RequestDataByType(Sim.Requests request, Sim.Definitions def, uint radius)
         {
-            try
+            Action lambdaCall = () =>
             {
-                // ugly, I know
-                if (main.sim.GetSimulatorName() != "Microsoft Flight Simulator 2024")
+                try
                 {
-                    sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.ALL);
-                }
+                    // ugly, I know
+                    if (main.sim.GetSimulatorName() != "Microsoft Flight Simulator 2024")
+                    {
+                        sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.ALL);
+                    }
 #if FS2024
-                else if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
-                {
-                    //sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.ALL);
-                    sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT);
-                    sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER);
-                    sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.HOT_AIR_BALLOON);
-                }
+                    else if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
+                    {
+                        //sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.ALL);
+                        sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT);
+                        sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER);
+                        sc.RequestDataOnSimObjectType(request, def, radius, SIMCONNECT_SIMOBJECT_TYPE.HOT_AIR_BALLOON);
+                    }
 #endif
-            }
-            catch (COMException ex)
+                }
+                catch (COMException ex)
+                {
+                    HandleException(ex);
+                }
+                catch (Exception ex)
+                {
+                    main.MonitorEvent("ERROR - " + ex.Message);
+                }
+            };
+            if (_isSimOpen)
             {
-                HandleException(ex);
+                lambdaCall(); // Execute immediately
             }
-            catch (Exception ex)
+            else
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                _pendingRequests.Add(lambdaCall); // Save for later
+                main.MonitorEvent("SimConnect not ready. Request queued.");
             }
         }
 
         public void RequestData(Sim.Requests request, Sim.Definitions def, uint simId)
         {
-            try
+            Action lambdaCall = () =>
             {
-                // request full aircraft position
-                sc.RequestDataOnSimObject(request, def, simId, SIMCONNECT_PERIOD.ONCE, SIMCONNECT_DATA_REQUEST_FLAG.DEFAULT, 0, 0, 1);
-            }
-            catch (COMException ex)
+                try
+                {
+                    // request full aircraft position
+                    sc.RequestDataOnSimObject(request, def, simId, SIMCONNECT_PERIOD.ONCE, SIMCONNECT_DATA_REQUEST_FLAG.DEFAULT, 0, 0, 1);
+                }
+                catch (COMException ex)
+                {
+                    HandleException(ex);
+                }
+                catch (Exception ex)
+                {
+                    main.MonitorEvent("ERROR - " + ex.Message);
+                }
+            };
+            if (_isSimOpen)
             {
-                HandleException(ex);
+                lambdaCall(); // Execute immediately
             }
-            catch (Exception ex)
+            else
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                _pendingRequests.Add(lambdaCall); // Save for later
+                main.MonitorEvent("SimConnect not ready. Request queued.");
             }
+            
         }
 
         public void RequestVariable(Enum scRequest, Enum scDefinition, uint simId)
         {
-            try
+            Action request = () =>
             {
-                // request updates
-                sc.RequestDataOnSimObject(scRequest, scDefinition, simId, SIMCONNECT_PERIOD.SECOND, SIMCONNECT_DATA_REQUEST_FLAG.CHANGED, 0, 1, 0);
+                try
+                {
+                    // request updates
+                    sc.RequestDataOnSimObject(scRequest, scDefinition, simId, SIMCONNECT_PERIOD.SECOND, SIMCONNECT_DATA_REQUEST_FLAG.CHANGED, 0, 1, 0);
+                }
+                catch (COMException ex)
+                {
+                    HandleException(ex);
+                }
+                catch (Exception ex)
+                {
+                    main.MonitorEvent("ERROR - " + ex.Message);
+                }
+            };
+            if (_isSimOpen)
+            {
+                request(); // Execute immediately
             }
-            catch (COMException ex)
+            else
             {
-                HandleException(ex);
-            }
-            catch (Exception ex)
-            {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                _pendingRequests.Add(request); // Save for later
+                main.MonitorEvent("SimConnect not ready. Request queued.");
             }
         }
 

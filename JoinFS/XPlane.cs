@@ -478,7 +478,7 @@ namespace JoinFS
         {
 #if XPLANE
             // ask to install X-Plane plugin
-            if (MessageBox.Show(Resources.Strings.InstallPlugin, Main.name, MessageBoxButtons.YesNo) == DialogResult.Yes)
+            if (MessageBox.Show(Resources.Strings.InstallPlugin, Main.Name, MessageBoxButtons.YesNo) == DialogResult.Yes)
             {
                 // close simulator
                 main.sim ?. Close();

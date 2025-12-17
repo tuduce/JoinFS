@@ -941,7 +941,7 @@ namespace JoinFS
 
                 lock (conch)
                 {
-                    sim ?. DoWork();
+                    sim?.DoWork();
                     network.DoWork();
                     recorder.DoWork();
                     euroscope.DoWork();

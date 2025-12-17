@@ -223,11 +223,11 @@ namespace JoinFS
                 string url;
                 if (Settings.Default.EarlyUpdate)
                 {
-                    url = Program.Code(@"[BrjhWg|fQAE)kyjqzHi#<3KN=>1#$:@(=0D$Fu<rvi()CytxR*BCN'O{$yP~LEJD-*QV){YNNSz_%IOV1hyK)g", false, 1234);
+                    url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/version.txt";
                 }
                 else
                 {
-                    url = Program.Code(@"[BrjhWg|fQAE)kyjqzHi#<3KN=>1#$:@(=0D$Fu<rvi()CytxR*BCN'O{$yP~LEJD-*QV){YNNSz_%IOV1hyK)g", false, 1234);
+                    url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/version.txt";
                 }
                 var result = await versionHttpClient.GetStringAsync(url);
                 if (!string.IsNullOrEmpty(result) && result[0] != '<')
@@ -595,7 +595,7 @@ namespace JoinFS
                                     //string sc = Program.Code("https://joinfs.net/development.html", true, 1234);
                                     //string sc = Program.Code("https://github.com/tuduce/JoinFS/releases", true, 1234);
                                     // send the users to the releases page of the github repo 
-                                    Main.LaunchEncoded(@"bHYFj@rR4jj>U=%Fr9FjbsPCsnDXj[[vL+y?gldke");
+                                    Main.Launch("https://github.com/tuduce/JoinFS/releases");
                                 }
                                 else
                                 {
@@ -603,7 +603,7 @@ namespace JoinFS
                                     //string sc = Program.Code("https://joinfs.net/install.html", true, 1234);
                                     //string sc = Program.Code("https://github.com/tuduce/JoinFS/releases", true, 1234);
                                     // send the users to the releases page of the github repo
-                                    Main.LaunchEncoded(@"bHYFj@rR4jj>U=%Fr9FjbsPCsnDXj[[vL+y?gldke");
+                                    Main.Launch("https://github.com/tuduce/JoinFS/releases");
                                 }
                                 // shutdown
                                 main.shutdown = "";
@@ -1666,13 +1666,13 @@ namespace JoinFS
         {
             //string sc = Program.Code("https://joinfs.net/manual.html", true, 1234);
             // TODO: see if we can replace it with something useful
-            //Main.LaunchEncoded(@"X~*LL{E62y#fST""*I>y;Z[5{b1*w74");
+            Main.Launch("https://github.com/tuduce/JoinFS/wiki");
         }
 
         private void Menu_Help_Licence_Click(object sender, EventArgs e)
         {
             //string sc = Program.Code(@".\Licence.rtf", true, 1234);
-            Main.LaunchEncoded("-c[3@^V6|$Pyt");
+            Main.Launch("https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/Licence.txt");
         }
 
         private void Menu_Help_About_Click(object sender, EventArgs e)
@@ -1700,14 +1700,14 @@ namespace JoinFS
                         //string sc = Program.Code("https://joinfs.net/development.html", true, 1234);
                         //string sc = Program.Code("https://github.com/tuduce/JoinFS/releases", true, 1234);
                         // send the users to the releases page of the github repo
-                        Main.LaunchEncoded(@"bHYFj@rR4jj>U=%Fr9FjbsPCsnDXj[[vL+y?gldke");
+                        Main.Launch("https://github.com/tuduce/JoinFS/releases");
                     }
                     else
                     {
                         //string sc = Program.Code("https://joinfs.net/install.html", true, 1234);
                         //string sc = Program.Code("https://github.com/tuduce/JoinFS/releases", true, 1234);
                         // send the users to the releases page of the github repo
-                        Main.LaunchEncoded(@"bHYFj@rR4jj>U=%Fr9FjbsPCsnDXj[[vL+y?gldke");
+                        Main.Launch("https://github.com/tuduce/JoinFS/releases");
                     }
                     // shutdown
                     main.shutdown = "";
@@ -1718,14 +1718,14 @@ namespace JoinFS
                 //string sc = Program.Code("https://joinfs.net/install.html", true, 1234);
                 //string sc = Program.Code("https://github.com/tuduce/JoinFS/releases", true, 1234);
                 // send the users to the releases page of the github repo
-                Main.LaunchEncoded(@"bHYFj@rR4jj>U=%Fr9FjbsPCsnDXj[[vL+y?gldke");
+                Main.Launch("https://github.com/tuduce/JoinFS/releases");
             }
         }
 
         private void Tool_Map_Click(object sender, EventArgs e)
         {
             //string sc = Program.Code(@"https://joinfsmap.dotdash.space", true, 1234);
-            Main.LaunchEncoded(@"v[AwH+#Ci&+4m>BVy,*$QHJ`1?k5OeH");
+            Main.Launch(@"https://joinfsmap.dotdash.space");
         }
 
         #endregion
@@ -1864,14 +1864,14 @@ namespace JoinFS
             try
             {
                 // string sc = Program.Code(@"c:\program files (x86)\simcomx\simcom x.exe", true, 1234);
-                if (File.Exists(Program.Code("\"[&Mq^0eGR )OkH= SQGvo3JS@H)Z>lK.IHqQ Ltn1O", false, 1234)))
+                if (File.Exists(@"c:\program files (x86)\simcomx\simcom x.exe"))
                 {
-                    Main.LaunchEncoded("\"[&Mq^0eGR )OkH= SQGvo3JS@H)Z>lK.IHqQ Ltn1O");
+                    Main.LaunchEncoded(@"c:\program files (x86)\simcomx\simcom x.exe");
                 }
                 else
                 {
                     //string sc = Program.Code(@"https://dotdash.space/scx/", true, 1234);
-                    Main.LaunchEncoded("wj)&|nVdn!t/ss4hd_@@FrT0q,");
+                    Main.Launch("https://dotdash.space/scx/");
                 }
             }
             catch { }
