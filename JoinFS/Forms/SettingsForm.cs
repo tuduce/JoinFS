@@ -775,8 +775,9 @@ namespace JoinFS
 
         private void Button_InstallCPP_Click(object sender, EventArgs e)
         {
-            //string sc = Program.Code("https://aka.ms/vs/17/release/VC_redist.x64.exe", true, 1234);
-            Main.LaunchEncoded("FzE<et)k*TJ7M&?UTo-T2Cz7Ire=y*IYYa=[K:mjmR(bhX");
+            // string sc = Program.Code("https://aka.ms/vs/17/release/VC_redist.x64.exe", true, 1234);
+            // why?
+            Main.Launch("https://aka.ms/vs/17/release/VC_redist.x64.exe");
         }
 
         private void Button_LabelColour_Click(object sender, EventArgs e)

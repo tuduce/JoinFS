@@ -868,11 +868,14 @@ namespace JoinFS
             }
 
             // update match
+            if (obj.Injected)
+            {
 #if FS2024
-            UpdateObject(obj, obj.ownerModel, obj.ownerLivery, obj.typerole);
+                UpdateObject(obj, obj.ownerModel, obj.ownerLivery, obj.typerole);
 #else
-            UpdateObject(obj, obj.ownerModel, obj.typerole);
+                UpdateObject(obj, obj.ownerModel, obj.typerole);
 #endif
+            }
         }
 
         /// <summary>
@@ -1074,8 +1077,12 @@ namespace JoinFS
             // for all objects
             foreach (Obj obj in objectList)
             {
-                // add object to remove list
-                removeList.Add(obj);
+                // only remove objects we injected
+                if (obj.Injected)
+                {
+                    // add object to remove list
+                    removeList.Add(obj);
+                }
             }
 
             DoRemove();
@@ -2590,7 +2597,7 @@ namespace JoinFS
         {
 #if SIMCONNECT
             // check for FS connection
-            simconnect?.RequestDataByType(Requests.OBJECT_INFO, Definitions.OBJECT_GET_INFO, 200000);
+            simconnect?.RequestDataByType(Requests.OBJECT_INFO, Definitions.OBJECT_GET_INFO, 10000);
 #endif
         }
 
@@ -3870,10 +3877,10 @@ namespace JoinFS
         }
 #endif
 
-                                        /// <summary>
-                                        /// Simulator details
-                                        /// </summary>
-                                        string simulatorName = "";
+        /// <summary>
+        /// Simulator details
+        /// </summary>
+        string simulatorName = "";
         string simulatorVersion = "0";
 
         /// <summary>
@@ -3964,7 +3971,9 @@ namespace JoinFS
                     main.EnqueueCommand(async () =>
                     {
                         await main.substitution.enrichModelService.EnrichModelsWithDetailsAsync(main.substitution.models);
+                        main.MonitorEvent("Model data enriched");
                         await main.substitution.embeddingService.GenerateEmbeddingsFromModelsAsync(main.substitution.models);
+                        main.MonitorEvent("Model data embedded");
                     });
                 }
 

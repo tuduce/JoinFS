@@ -1109,10 +1109,15 @@ namespace JoinFS
                     {
                         if(main.settingsUseAIFeatures)
                         {
-                            enrichModelService.EnrichModelsWithDetailsAsync(models).GetAwaiter().GetResult();
+                            main.EnqueueCommand(async () =>
+                            {
+                                await main.substitution.enrichModelService.EnrichModelsWithDetailsAsync(models);
+                                main.MonitorEvent("Model data enriched");
 #if X64
-                            _ = embeddingService.GenerateEmbeddingsFromModelsAsync(models);
+                                await main.substitution.embeddingService.GenerateEmbeddingsFromModelsAsync(models);
+                                main.MonitorEvent("Model data enriched");
 #endif
+                            });
                         }
                         main.MonitorEvent("Scan found " + models.Count + ((models.Count == 1) ? " model" : " models") + " in the community folder(s)");
                     }
@@ -1226,7 +1231,7 @@ namespace JoinFS
 
 #if XPLANE
                             // warning message
-                            if (Settings.Default.GenerateCsl == false || MessageBox.Show(Resources.Strings.GenerateCslWarning, Main.name, MessageBoxButtons.OKCancel) == DialogResult.OK)
+                            if (Settings.Default.GenerateCsl == false || MessageBox.Show(Resources.Strings.GenerateCslWarning, Main.Name, MessageBoxButtons.OKCancel) == DialogResult.OK)
 #else
                             if (true)
 #endif
