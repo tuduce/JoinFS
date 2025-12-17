@@ -3959,26 +3959,14 @@ namespace JoinFS
             {
                 main.MonitorEvent("All models from the simulator ingested.");
 
-                var stopwatchTotal = Stopwatch.StartNew();
-                double enrichmentTime = 0, embeddingTime = 0;
                 if (main.settingsUseAIFeatures)
-                {                     
-                    main.MonitorEvent("Enriching models with AI features...");
-                    var stopwatchEnrich = Stopwatch.StartNew();
-                    main.substitution.enrichModelService.EnrichModelsWithDetailsAsync(main.substitution.models).GetAwaiter().GetResult();
-                    stopwatchEnrich.Stop();
-                    enrichmentTime = stopwatchEnrich.Elapsed.TotalSeconds;
-                    main.MonitorEvent("Generating embeddings for models...");
-                    var stopwatchEmbed = Stopwatch.StartNew();
-                    _ = main.substitution.embeddingService.GenerateEmbeddingsFromModelsAsync(main.substitution.models);
-                    // main.substitution.embeddingService.GenerateEmbeddingsFromModels(main.substitution.models);
-                    stopwatchEmbed.Stop();
-                    embeddingTime = stopwatchEmbed.Elapsed.TotalSeconds;
+                {
+                    main.EnqueueCommand(async () =>
+                    {
+                        await main.substitution.enrichModelService.EnrichModelsWithDetailsAsync(main.substitution.models);
+                        await main.substitution.embeddingService.GenerateEmbeddingsFromModelsAsync(main.substitution.models);
+                    });
                 }
-                stopwatchTotal.Stop();
-                main.MonitorEvent($"AI enrichment took {enrichmentTime:F2} seconds.");
-                main.MonitorEvent($"AI embedding took {embeddingTime:F2} seconds.");
-                main.MonitorEvent($"AI enrichment and embedding total took {stopwatchTotal.Elapsed.TotalSeconds:F2} seconds.");
 
                 requestModelListInProgress = false;
 
@@ -3996,7 +3984,10 @@ namespace JoinFS
                     requestModelListIsVerbose = false;
                 }
                 // at the very end
-                main.ScheduleSubstitutionMatch();
+                main.EnqueueCommand(() =>
+                {
+                    main.substitution?.Match();
+                });
             }
         }
 #endif

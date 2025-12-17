@@ -14,6 +14,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Security.Cryptography;
 using JoinFS.Properties;
+using System.Collections.Concurrent;
 
 namespace JoinFS
 {
@@ -880,10 +881,10 @@ namespace JoinFS
         /// <summary>
         /// Schedule substitution load
         /// </summary>
-        public void ScheduleSubstitutionMatch()
-        {
-            scheduleSubstitutionMatch = true;
-        }
+        //public void ScheduleSubstitutionMatch()
+        //{
+        //    scheduleSubstitutionMatch = true;
+        //}
 
         /// <summary>
         /// Schedule substitution save
@@ -917,6 +918,14 @@ namespace JoinFS
             scheduleHeightAdjustmentSave = true;
         }
 
+        private readonly ConcurrentQueue<Action> _commandQueue = new();
+
+        // Call this helper method instead of setting 'schedule* = true'
+        public void EnqueueCommand(Action command)
+        {
+            _commandQueue.Enqueue(command);
+        }
+
         /// <summary>
         /// Work thread
         /// </summary>
@@ -939,11 +948,21 @@ namespace JoinFS
                     whazzup.DoWork();
                     notes.DoWork();
 
+                    // Process all pending commands
+                    while (_commandQueue.TryDequeue(out Action command))
+                    {
+                        try { command(); }
+                        catch (Exception ex) 
+                        {
+                            MonitorEvent("Error processing command: " + ex.Message);
+                        }
+                    }
+
                     // check for scheduled model match clear
                     if (scheduleSubstitutionClear)
                     {
                         // clear model matching
-                        substitution ?. Clear();
+                        substitution?.Clear();
                         // reset
                         scheduleSubstitutionClear = false;
                     }
@@ -952,7 +971,7 @@ namespace JoinFS
                     if (scheduleSubstitutionLoad)
                     {
                         // load model matching
-                        substitution ?. Load();
+                        substitution?.Load();
                         // reset
                         scheduleSubstitutionLoad = false;
                     }
