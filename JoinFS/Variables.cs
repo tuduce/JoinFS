@@ -89,7 +89,7 @@ namespace JoinFS
         uint LookupVuid(uint vuid)
         {
             // check for alias vuid
-            return aliasVuids.ContainsKey(vuid) ? aliasVuids[vuid] : vuid;
+            return aliasVuids.TryGetValue(vuid, out uint value) ? value : vuid;
         }
 
         /// <summary>
@@ -663,10 +663,10 @@ namespace JoinFS
         public List<uint> GetFromFile(string filename)
         {
             // check if file already loaded
-            if (files.ContainsKey(filename))
+            if (files.TryGetValue(filename, out List<uint> value))
             {
                 // return variables
-                return files[filename];
+                return value;
             }
 
             // get full path
@@ -856,10 +856,12 @@ namespace JoinFS
                                     if (definitions.ContainsKey(newDefinition.maskVuid) == false)
                                     {
                                         // definition for the mask variable
-                                        Definition maskDefinition = new(Definition.Type.INTEGER, "", 1.0f, 0, NextDefinition, scName, "mask");
-                                        // copy flags
-                                        maskDefinition.injected = newDefinition.injected;
-                                        maskDefinition.pilot = newDefinition.pilot;
+                                        Definition maskDefinition = new(Definition.Type.INTEGER, "", 1.0f, 0, NextDefinition, scName, "mask")
+                                        {
+                                            // copy flags
+                                            injected = newDefinition.injected,
+                                            pilot = newDefinition.pilot
+                                        };
                                         // check for simulator
                                         // register sim variable
                                         main.sim?.RegisterIntegerVariable(maskDefinition);
