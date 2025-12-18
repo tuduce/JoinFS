@@ -23,7 +23,7 @@ namespace JoinFS
             /// List of simconnect requests
             /// </summary>
             public Dictionary<uint, ScRequest> scRequests = [];
-            Dictionary<ScRequest, uint> scRequestVuids = [];
+            readonly Dictionary<ScRequest, uint> scRequestVuids = [];
 
             /// <summary>
             /// List of integer variables
@@ -48,12 +48,12 @@ namespace JoinFS
             /// <summary>
             /// Main instance
             /// </summary>
-            Main main;
+            readonly Main main;
 
             /// <summary>
             /// Variables manager
             /// </summary>
-            VariableMgr variableMgr;
+            readonly VariableMgr variableMgr;
 
             /// <summary>
             /// Simulator Id
@@ -155,7 +155,7 @@ namespace JoinFS
             public int GetInteger(uint vuid)
             {
                 // return value
-                return integers.ContainsKey(vuid) ? integers[vuid] : 0;
+                return integers.TryGetValue(vuid, out int value) ? value : 0;
             }
 
             /// <summary>
@@ -164,7 +164,7 @@ namespace JoinFS
             public float GetFloat(uint vuid)
             {
                 // return value
-                return floats.ContainsKey(vuid) ? floats[vuid] : 0.0f;
+                return floats.TryGetValue(vuid, out float value) ? value : 0.0f;
             }
 
             /// <summary>
@@ -173,7 +173,7 @@ namespace JoinFS
             public string GetString8(uint vuid)
             {
                 // return value
-                return string8s.ContainsKey(vuid) ? string8s[vuid] : "";
+                return string8s.TryGetValue(vuid, out string value) ? value : "";
             }
 
             /// <summary>
@@ -188,10 +188,8 @@ namespace JoinFS
                 foreach (var vuid in vuids)
                 {
                     // check for definition
-                    if (variableMgr.definitions.ContainsKey(vuid))
+                    if (variableMgr.definitions.TryGetValue(vuid, out Definition definition))
                     {
-                        // get definition
-                        Definition definition = variableMgr.definitions[vuid];
 
                         // initialize start time
                         startTimes[vuid] = 0.0;
@@ -252,15 +250,11 @@ namespace JoinFS
             public void DetectSimconnect(ScRequest scRequest, object data)
             {
                 // check for request
-                if (scRequestVuids.ContainsKey(scRequest))
+                if (scRequestVuids.TryGetValue(scRequest, out uint vuid))
                 {
-                    // get vuid
-                    uint vuid = scRequestVuids[scRequest];
                     // check for variable
-                    if (variableMgr.definitions.ContainsKey(vuid))
+                    if (variableMgr.definitions.TryGetValue(vuid, out Definition definition))
                     {
-                        // get definition
-                        Definition definition = variableMgr.definitions[vuid];
                         switch (definition.type)
                         {
                             case Definition.Type.INTEGER:
@@ -326,10 +320,8 @@ namespace JoinFS
             public void DetectInteger(uint vuid, int value, bool xplane)
             {
                 // check for definition
-                if (variableMgr.definitions.ContainsKey(vuid))
+                if (variableMgr.definitions.TryGetValue(vuid, out Definition definition))
                 {
-                    // get definition
-                    Definition definition = variableMgr.definitions[vuid];
                     // check type
                     if (definition.type == Definition.Type.INTEGER)
                     {
@@ -395,10 +387,8 @@ namespace JoinFS
             public void DetectFloat(uint vuid, float value, bool xplane)
             {
                 // check for definition
-                if (variableMgr.definitions.ContainsKey(vuid))
+                if (variableMgr.definitions.TryGetValue(vuid, out Definition definition))
                 {
-                    // get definition
-                    Definition definition = variableMgr.definitions[vuid];
                     // check type
                     if (definition.type == Definition.Type.FLOAT)
                     {
@@ -436,10 +426,8 @@ namespace JoinFS
             public void DetectString8(uint vuid, string value)
             {
                 // check for definition
-                if (variableMgr.definitions.ContainsKey(vuid))
+                if (variableMgr.definitions.TryGetValue(vuid, out Definition definition))
                 {
-                    // get definition
-                    Definition definition = variableMgr.definitions[vuid];
                     // check type
                     if (definition.type == Definition.Type.STRING8)
                     {
@@ -480,10 +468,8 @@ namespace JoinFS
                     // get actual vuid
                     vuid = variableMgr.LookupVuid(vuid);
                     // check for valid variable
-                    if (variableMgr.definitions.ContainsKey(vuid))
+                    if (variableMgr.definitions.TryGetValue(vuid, out Definition definition))
                     {
-                        // get definition
-                        Definition definition = variableMgr.definitions[vuid];
 
                         // reject any shared cockpit updates intended for pilot only
                         if (UserAircraft && (definition.pilot == false || main.sim.userAircraft.remoteFlightControl) || injected && definition.injected)
@@ -609,10 +595,8 @@ namespace JoinFS
                         // get value
                         float value = variable.Value;
                         // check for valid variable
-                        if (variableMgr.definitions.ContainsKey(vuid))
+                        if (variableMgr.definitions.TryGetValue(vuid, out Definition definition))
                         {
-                            // get definition
-                            Definition definition = variableMgr.definitions[vuid];
 
                             // reject any shared cockpit updates intended for pilot only
                             if (UserAircraft && (definition.pilot == false || main.sim.userAircraft.remoteFlightControl) || injected && definition.injected)
@@ -709,10 +693,8 @@ namespace JoinFS
                         // get value
                         string value = variable.Value;
                         // check for valid variable
-                        if (variableMgr.definitions.ContainsKey(vuid))
+                        if (variableMgr.definitions.TryGetValue(vuid, out Definition definition))
                         {
-                            // get definition
-                            Definition definition = variableMgr.definitions[vuid];
 
                             // reject any shared cockpit updates intended for pilot only
                             if (UserAircraft && (definition.pilot == false || main.sim.userAircraft.remoteFlightControl) || injected && definition.injected)
