@@ -9,11 +9,6 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 
 namespace JoinFS.Tests;
 
-/// <summary>
-/// Tests for the EmbeddingService class which handles BERT-based text embeddings.
-/// These tests focus on the mathematical operations and logic that don't require model files.
-/// Note: These tests are only compiled for X64 platforms.
-/// </summary>
 public class EmbeddingServiceTests
 {
     #region Normalize Tests
@@ -89,14 +84,11 @@ public class EmbeddingServiceTests
         // Arrange
         int sequenceLength = 3;
         int hiddenSize = 2;
-        var data = new float[1, sequenceLength, hiddenSize];
-        
+        var tensor = new DenseTensor<float>(new[] { 1, sequenceLength, hiddenSize });
         // Fill with test data
-        data[0, 0, 0] = 1.0f; data[0, 0, 1] = 2.0f;  // Token 1
-        data[0, 1, 0] = 3.0f; data[0, 1, 1] = 4.0f;  // Token 2
-        data[0, 2, 0] = 5.0f; data[0, 2, 1] = 6.0f;  // Token 3 (padding)
-        
-        var tensor = new DenseTensor<float>(data, new[] { 1, sequenceLength, hiddenSize });
+        tensor[0, 0, 0] = 1.0f; tensor[0, 0, 1] = 2.0f;  // Token 1
+        tensor[0, 1, 0] = 3.0f; tensor[0, 1, 1] = 4.0f;  // Token 2
+        tensor[0, 2, 0] = 5.0f; tensor[0, 2, 1] = 6.0f;  // Token 3 (padding)
         var mask = new long[] { 1, 1, 0 }; // First two tokens are valid
 
         // Act
@@ -114,12 +106,9 @@ public class EmbeddingServiceTests
         // Arrange
         int sequenceLength = 2;
         int hiddenSize = 3;
-        var data = new float[1, sequenceLength, hiddenSize];
-        
-        data[0, 0, 0] = 2.0f; data[0, 0, 1] = 4.0f; data[0, 0, 2] = 6.0f;
-        data[0, 1, 0] = 8.0f; data[0, 1, 1] = 10.0f; data[0, 1, 2] = 12.0f;
-        
-        var tensor = new DenseTensor<float>(data, new[] { 1, sequenceLength, hiddenSize });
+        var tensor = new DenseTensor<float>(new[] { 1, sequenceLength, hiddenSize });
+        tensor[0, 0, 0] = 2.0f; tensor[0, 0, 1] = 4.0f; tensor[0, 0, 2] = 6.0f;
+        tensor[0, 1, 0] = 8.0f; tensor[0, 1, 1] = 10.0f; tensor[0, 1, 2] = 12.0f;
         var mask = new long[] { 1, 1 }; // All tokens valid
 
         // Act
@@ -138,13 +127,10 @@ public class EmbeddingServiceTests
         // Arrange
         int sequenceLength = 3;
         int hiddenSize = 2;
-        var data = new float[1, sequenceLength, hiddenSize];
-        
-        data[0, 0, 0] = 10.0f; data[0, 0, 1] = 20.0f;
-        data[0, 1, 0] = 30.0f; data[0, 1, 1] = 40.0f;
-        data[0, 2, 0] = 50.0f; data[0, 2, 1] = 60.0f;
-        
-        var tensor = new DenseTensor<float>(data, new[] { 1, sequenceLength, hiddenSize });
+        var tensor = new DenseTensor<float>(new[] { 1, sequenceLength, hiddenSize });
+        tensor[0, 0, 0] = 10.0f; tensor[0, 0, 1] = 20.0f;
+        tensor[0, 1, 0] = 30.0f; tensor[0, 1, 1] = 40.0f;
+        tensor[0, 2, 0] = 50.0f; tensor[0, 2, 1] = 60.0f;
         var mask = new long[] { 0, 1, 0 }; // Only middle token valid
 
         // Act

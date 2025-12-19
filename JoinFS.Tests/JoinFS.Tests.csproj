@@ -6,7 +6,7 @@
 	<Configurations>FS2024-Debug;FS2024;FS2020-Debug;FS2020;FSX-Debug;FSX;P3D-Debug;P3D;XPLANE-Debug;XPLANE;CONSOLE-Debug;CONSOLE</Configurations>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
-    <Platforms>x64;x86</Platforms>
+    <Platforms>AnyCPU;x64;x86</Platforms>
   </PropertyGroup>
 
   <!-- X64 configuration - enables embedding service tests -->
