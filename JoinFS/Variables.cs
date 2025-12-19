@@ -95,7 +95,7 @@ namespace JoinFS
         /// <summary>
         /// Main instance
         /// </summary>
-        Main main;
+        readonly Main main;
 
         /// <summary>
         /// Variables path
@@ -168,10 +168,10 @@ namespace JoinFS
                 writer.WriteLine("INTEGER|sim/cockpit/radios/nav1_stdby_freq_hz|NAV STANDBY FREQUENCY:1|frequency bcd16|NAV1_STBY_SET");
                 writer.WriteLine("INTEGER|sim/cockpit/radios/nav2_stdby_freq_hz|NAV STANDBY FREQUENCY:2|frequency bcd16|NAV2_STBY_SET");
                 writer.WriteLine("INTEGER|sim/cockpit/radios/adf1_freq_hz|ADF ACTIVE FREQUENCY:1|frequency adf bcd32|ADF_COMPLETE_SET");
-                //                    writer.WriteLine("INTEGER|sim/cockpit/radios/adf2_freq_hz|ADF ACTIVE FREQUENCY:2|frequency adf bcd32");
-                writer.WriteLine("INTEGER||AI TRAFFIC ISIFR|bool");
-                writer.WriteLine("STRING8||AI TRAFFIC FROMAIRPORT|");
-                writer.WriteLine("STRING8||AI TRAFFIC TOAIRPORT|");
+                // writer.WriteLine("INTEGER|sim/cockpit/radios/adf2_freq_hz|ADF ACTIVE FREQUENCY:2|frequency adf bcd32");
+                // writer.WriteLine("INTEGER||AI TRAFFIC ISIFR|bool");
+                // writer.WriteLine("STRING8||AI TRAFFIC FROMAIRPORT|");
+                // writer.WriteLine("STRING8||AI TRAFFIC TOAIRPORT|");
                 writer.WriteLine("INTEGER|sim/cockpit/autopilot/autopilot_mode|AUTOPILOT MASTER|bool");
                 writer.WriteLine("INTEGER||AUTOPILOT HEADING LOCK|bool|AP_PANEL_HEADING_HOLD");
                 writer.WriteLine("INTEGER|sim/cockpit/autopilot/heading_mag|AUTOPILOT HEADING LOCK DIR|degrees|HEADING_BUG_SET");
@@ -191,9 +191,12 @@ namespace JoinFS
                 //writer.WriteLine("INTEGER|sim/flightmodel/position/vh_ind_fpm|VERTICAL SPEED|feet per second");
                 //writer.WriteLine("INTEGER|sim/flightmodel/misc/turnrate_roll|TURN INDICATOR RATE|radians per second");
                 //writer.WriteLine("INTEGER|sim/flightmodel/misc/slip|TURN COORDINATOR BALL|position");
+                // ELEVATOR TRIM PCT EX1
                 writer.WriteLine("FLOAT|sim/flightmodel2/controls/elevator_trim|ELEVATOR TRIM PCT|position|ELEVATOR_TRIM_SET*16383|INJECTED");
-                writer.WriteLine("FLOAT|sim/flightmodel2/controls/aileron_trim|AILERON TRIM PCT|position|AILERON_TRIM_SET*16383|INJECTED");
-                writer.WriteLine("FLOAT|sim/flightmodel2/controls/rudder_trim|RUDDER TRIM PCT|position|RUDDER_TRIM_SET*16383|INJECTED");
+                // event AILERON_TRIM_SET_EX1 is *16383
+                // event AILERON_TRIM_SET is *100
+                writer.WriteLine("FLOAT|sim/flightmodel2/controls/aileron_trim|AILERON TRIM PCT|position|AILERON_TRIM_SET*100|INJECTED");
+                writer.WriteLine("FLOAT|sim/flightmodel2/controls/rudder_trim|RUDDER TRIM PCT|position|RUDDER_TRIM_SET*100|INJECTED");
                 writer.WriteLine("INTEGER||SMOKE ENABLE|bool||INJECTED");
                 writer.WriteLine("FLOAT||FUEL TANK CENTER QUANTITY|gallons|");
                 writer.WriteLine("FLOAT||FUEL TANK CENTER2 QUANTITY|gallons|");
@@ -660,6 +663,8 @@ namespace JoinFS
         /// Load variables
         /// </summary>
         /// <param name="filename"></param>
+        /// Each variable line is:
+        ///     Type | DataRef[:index][*drScalar] | SimVarName[:index] | Units | EventName[*eventScalar] | Option1 | Option2
         public List<uint> GetFromFile(string filename)
         {
             // check if file already loaded
