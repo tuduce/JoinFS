@@ -23,8 +23,8 @@ namespace JoinFS.Tests
         public void CreateVuid_DifferentInputs_UsuallyDifferent()
         {
             // Arrange
-            string a = "com active frequency:1";
-            string b = "com active frequency:2";
+            string a = "AaAa";
+            string b = "rAA";
 
             // Act
             uint vuidA = JoinFS.VariableMgr.CreateVuid(a);
