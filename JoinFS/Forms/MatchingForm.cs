@@ -205,7 +205,6 @@ namespace JoinFS
                     {
                         // add row
 #if FS2024
-                        // TODO: something is not good at the livery substitution
                         itemList.Add(new Item(defaultModel.Value, value.title, value.variation, value.variation));
 #else
                         itemList.Add(new Item(defaultModel.Value, main.substitution.matches[defaultModel.Value].title));
@@ -221,7 +220,6 @@ namespace JoinFS
                     {
                         // add row
 #if FS2024
-                        // TODO: something is not good at the livery substitution
                         itemList.Add(new Item(key, main.substitution.matches[key].title, main.substitution.matches[key].variation, main.substitution.matches[key].variation));
 #else
                         itemList.Add(new Item(key, main.substitution.matches[key].title));
@@ -363,7 +361,6 @@ namespace JoinFS
             {
                 // edit model match
 #if FS2024
-                // TODO: livery matching is not yet correct. solve it!
                 string livery = main.substitution.matches[model].variation;
 
                 if (main.substitution.EditMatch(model, livery, main.substitution.GetTypeRole(model)))

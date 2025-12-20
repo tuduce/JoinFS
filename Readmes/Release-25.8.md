@@ -19,6 +19,7 @@ A new model matching algorithm was introduced to improve the accuracy of model m
 
 ## Bug Fixes
 - Replaced the random number generator with a cryptographically secure random number generator.
+- Fixed an issue where in MSFS2024 shared cockpit the entered aircraft would bank sharply to the right.
 
 ## Limitations
 The `FSX` and `P3D` variants are built for the x86 (32bit) architecture. Since the Microsoft.ML package does not currently offer a x86 variant, the AI-enchanced model matching is not included for `FSX` or `P3D`.

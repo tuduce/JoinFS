@@ -1,2 +1,0 @@
-# as of 12/28/2024, MSFS2024 lists the Fokker FVII COMMON model but can't create a plane
-Fokker FVII COMMON
