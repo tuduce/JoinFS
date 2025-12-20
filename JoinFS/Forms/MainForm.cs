@@ -1665,7 +1665,6 @@ namespace JoinFS
         private void Menu_Help_Manual_Click(object sender, EventArgs e)
         {
             //string sc = Program.Code("https://joinfs.net/manual.html", true, 1234);
-            // TODO: see if we can replace it with something useful
             Main.Launch("https://github.com/tuduce/JoinFS/wiki");
         }
 
@@ -1788,8 +1787,7 @@ namespace JoinFS
         private void Menu_Help_Support_Click(object sender, EventArgs e)
         {
             //string sc = Program.Code("https://joinfs.net/forum", true, 1234);
-            // TODO: see if we can replace it with something useful
-            // Main.LaunchEncoded(@"iN{.mqs]O5*|#P(SZ!8R!#_#");
+            Main.Launch("https://github.com/tuduce/JoinFS/wiki");
         }
 
         private void Menu_File_ModelMatching_Click(object sender, EventArgs e)

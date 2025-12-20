@@ -648,7 +648,7 @@ namespace JoinFS
                 {
                     try
                     {
-                        // TODO: remove IP restriction
+                        // Used for local testing
                         // check if the endPoint is the IP 192.168.1.115
                         //if (endPoint.Address.ToString() == "192.168.1.115")
                         //{
@@ -1906,7 +1906,7 @@ namespace JoinFS
                         {
                             try
                             {
-                                // TODO: remove IP restriction
+                                // Used for local testing
                                 // check if the endPoint is the IP 192.168.1.115
                                 //if (endPoint.Address.ToString() == "192.168.1.115")
                                 //{

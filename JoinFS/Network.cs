@@ -282,8 +282,8 @@ namespace JoinFS
             // load hub list
             LoadHubList();
 #endif
-            string hubsUrl = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/util/seedhubs.txt";
-            string banUrl = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/util/banlist.txt";
+            string hubsUrl = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/seedhubs.txt";
+            string banUrl = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/banlist.txt";
             var tasks = new List<Task> {
                 DownloadMyIpAsync(),
 #if !NO_HUBS
@@ -400,11 +400,7 @@ namespace JoinFS
                 {
                     try
                     {
-                        // get myip
-                        // TODO: delete obsolete code after testing
-                        //myipWebClient = new WebClient();
-                        //myipWebClient.DownloadStringCompleted += MyipComplete;
-                        //myipWebClient.DownloadStringAsync(new Uri("https://checkip.amazonaws.com/"));
+                        // get myip. fire and forget
                         _ = DownloadMyIpAsync();
                     }
                     catch (Exception ex)
@@ -435,10 +431,6 @@ namespace JoinFS
                 }
                 // reset myip
                 myip = null;
-                // close web client
-                // TODO: remove obsolete code after testing
-                //myipWebClient.Dispose();
-                //myipWebClient = null;
             }
 
             // check if seedhubs is available
@@ -460,10 +452,6 @@ namespace JoinFS
                 }
                 // reset seedhubs
                 seedhubs = null;
-                // close web client
-                // TODO: remove obsolete code after testing
-                //seedhubsWebClient.Dispose();
-                //seedhubsWebClient = null;
             }
 
             // check if banlist is available
@@ -481,10 +469,6 @@ namespace JoinFS
                 }
                 // reset banlist
                 banlist = null;
-                // close web client
-                // TODO: remove obsolete code after testing
-                //banlistWebClient.Dispose();
-                //banlistWebClient = null;
             }
         }
 
