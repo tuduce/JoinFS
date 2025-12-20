@@ -30,10 +30,35 @@ The `FSX` and `P3D` variants are built for the x86 (32bit) architecture. Since t
 > If you want to help with testing or development of these variants, please contact me.
 
 ## Installation
-Download the appropriate installer for your flight simulator:
-- FS2024: JoinFS-FS2024.msi
-- FS2020: JoinFS-FS2020.msi
-- FSX: JoinFS-FSX.msi
-- P3D: JoinFS-P3D.msi
-- XPLANE: JoinFS-XPLANE.msi
-- CONSOLE: JoinFS-CONSOLE.zip (for headless/console mode)
+
+Please follow the instructions for your simulator.
+
+### MSFS2024 or MSFS2020
+
+Please make sure that you have the .NET 8.0 runtime installed. You can download it from the [.NET download page](https://dotnet.microsoft.com/en-us/download/dotnet/8.0).
+
+Download the installer corresponding to your simulator version (`JoinFS-FS2024.msi` or `JoinFS-FS2020.msi`). If upgrading from a `3.2.x` version, please uninstall the previous version before installing the new one.
+
+### FSX or P3D
+
+Please make sure that you have the .NET 8.0 runtime installed. You can download it from the [.NET download page](https://dotnet.microsoft.com/en-us/download/dotnet/8.0).
+
+Download the installer corresponding to your simulator version (`JoinFS-FSX.msi` or `JoinFS-P3D.msi`). If upgrading from a `3.2.x` version, please uninstall the previous version before installing the new one.
+
+Please make sure that you have the SimConnect SDK installed for your simulator version.
+
+### XPLANE
+
+Please make sure that you have the .NET 8.0 runtime installed. You can download it from the [.NET download page](https://dotnet.microsoft.com/en-us/download/dotnet/8.0).
+
+Download the installer corresponding to your simulator version (`JoinFS-XPLANE.msi`). If upgrading from a `3.2.x` version, please uninstall the previous version before installing the new one.
+
+If you are installing JoinFS for the first time, start JoinFS before starting XPLANE. From JoinFS install the plugin into XPLANE using the "Install XPLANE Plugin" button in the settings dialog.
+
+### CONSOLE
+
+The `CONSOLE` variant is compiled for `ARM64` architectures, intended for long-running hubs on Raspberry Pi or similar devices.
+
+Please make sure that you have the .NET 8.0 runtime installed. You can download it from the [.NET download page](https://dotnet.microsoft.com/en-us/download/dotnet/8.0).
+
+Download the ZIP file (`JoinFS-CONSOLE.zip`) and extract it to a folder of your choice. Follow the instructions in the `Old-Readme.txt` file.
