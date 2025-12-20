@@ -41,7 +41,7 @@ jobs:
 #        uses: microsoft/setup-msbuild@v2
 
       - name: Execute unit tests
-        run: dotnet test ${env:Test_Project}
+        run: dotnet test ${env:Test_Project} -c FS2024-Debug /p:Platform=x64
 
       - name: Restore NuGet packages
         run: dotnet restore ${env:Solution_Name} /p:Configuration=${{ matrix.configuration }}
