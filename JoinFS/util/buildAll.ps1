@@ -1,4 +1,4 @@
-cd ..\JoinFS\
+# cd ..\
 
 $configs = @('FS2024', 'FS2020', 'FSX', 'P3D', 'XPLANE', 'CONSOLE')
 
