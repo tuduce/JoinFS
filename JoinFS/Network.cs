@@ -95,8 +95,9 @@ namespace JoinFS
                 var response = await httpClient.GetStringAsync(url);
                 seedhubs = response.Split('\n');
             }
-            catch
+            catch (Exception ex)
             {
+                main?.MonitorEvent($"Error downloading seedhubs from {url}: {ex.Message}");
                 if (!seedhubsFallback)
                 {
                     seedhubsFallback = true;
@@ -139,8 +140,9 @@ namespace JoinFS
                     myip = Settings.Default.MyIp;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                main?.MonitorEvent($"Error downloading IP address: {ex.Message}");
                 if (!myipFallback)
                 {
                     myipFallback = true;
@@ -167,8 +169,9 @@ namespace JoinFS
                 }
                 myip = Settings.Default.MyIp;
             }
-            catch
+            catch (Exception ex)
             {
+                main?.MonitorEvent($"Error downloading IP address from {url}: {ex.Message}");
                 myip = Settings.Default.MyIp;
             }
         }

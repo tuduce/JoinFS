@@ -1,5 +1,6 @@
 ﻿using JoinFS.DataModel;
 using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,11 +18,13 @@ namespace JoinFS.Helpers
         private readonly HttpClient _httpClient;
         private readonly Dictionary<string, EnrichedAircraftData> _modelDetails = [];
         private readonly string _jsonlFilePath;
+        private readonly Main _main;
 
-        public EnrichModelService(string jsonlFilePath, HttpClient httpClient = null)
+        public EnrichModelService(string jsonlFilePath, HttpClient httpClient = null, Main main = null)
         {
             _jsonlFilePath = jsonlFilePath;
             _httpClient = httpClient ?? new HttpClient();
+            _main = main;
             LoadFromJsonlFile();
         }
 
@@ -75,22 +78,37 @@ namespace JoinFS.Helpers
             var batches = Batch(missingTitles, 20);
             foreach (var batch in batches)
             {
-                var request = new ModelCheckRequest { Models = [.. batch] };
-                var json = JsonConvert.SerializeObject(request);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                using var response = await _httpClient.PostAsync(ApiUrl, content);
-                response.EnsureSuccessStatusCode();
-                var responseJson = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<EnrichedModelResponse>(responseJson);
-
-                if (result?.Data != null)
+                try
                 {
-                    foreach (var data in result.Data)
+                    var request = new ModelCheckRequest { Models = [.. batch] };
+                    var json = JsonConvert.SerializeObject(request);
+                    var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                    using var response = await _httpClient.PostAsync(ApiUrl, content);
+                    response.EnsureSuccessStatusCode();
+                    var responseJson = await response.Content.ReadAsStringAsync();
+                    var result = JsonConvert.DeserializeObject<EnrichedModelResponse>(responseJson);
+
+                    if (result?.Data != null)
                     {
-                        if (!string.IsNullOrWhiteSpace(data.Title))
-                            _modelDetails[data.Title] = data;
+                        foreach (var data in result.Data)
+                        {
+                            if (!string.IsNullOrWhiteSpace(data.Title))
+                                _modelDetails[data.Title] = data;
+                        }
                     }
+                }
+                catch (HttpRequestException ex)
+                {
+                    _main?.MonitorEvent($"Error enriching model data: {ex.Message}");
+                }
+                catch (TaskCanceledException ex)
+                {
+                    _main?.MonitorEvent($"Request timeout enriching model data: {ex.Message}");
+                }
+                catch (Exception ex)
+                {
+                    _main?.MonitorEvent($"Unexpected error enriching model data: {ex.Message}");
                 }
             }
 
