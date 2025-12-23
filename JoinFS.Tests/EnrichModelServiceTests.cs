@@ -511,4 +511,99 @@ public class EnrichModelServiceTests : IDisposable
     }
 
     #endregion
+
+    #region HttpClient Exception Handling Tests
+
+    [Fact]
+    public async Task QueryAndStoreModelDetailsAsync_WithHttpRequestException_DoesNotThrow()
+    {
+        // Arrange
+        var mockHandler = new Mock<HttpMessageHandler>();
+        mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ThrowsAsync(new HttpRequestException("Network error"));
+
+        var httpClient = new HttpClient(mockHandler.Object);
+        var service = new EnrichModelService(_testFilePath, httpClient);
+
+        // Act & Assert - Should not throw, should handle gracefully
+        await service.QueryAndStoreModelDetailsAsync(new[] { "TestModel" });
+    }
+
+    [Fact]
+    public async Task QueryAndStoreModelDetailsAsync_WithTaskCanceledException_DoesNotThrow()
+    {
+        // Arrange
+        var mockHandler = new Mock<HttpMessageHandler>();
+        mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ThrowsAsync(new TaskCanceledException("Request timeout"));
+
+        var httpClient = new HttpClient(mockHandler.Object);
+        var service = new EnrichModelService(_testFilePath, httpClient);
+
+        // Act & Assert - Should not throw, should handle gracefully
+        await service.QueryAndStoreModelDetailsAsync(new[] { "TestModel" });
+    }
+
+    [Fact]
+    public async Task QueryAndStoreModelDetailsAsync_With500Error_DoesNotThrow()
+    {
+        // Arrange
+        var mockHandler = new Mock<HttpMessageHandler>();
+        mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.InternalServerError,
+                Content = new StringContent("Server error")
+            });
+
+        var httpClient = new HttpClient(mockHandler.Object);
+        var service = new EnrichModelService(_testFilePath, httpClient);
+
+        // Act & Assert - Should not throw, should handle gracefully
+        await service.QueryAndStoreModelDetailsAsync(new[] { "TestModel" });
+    }
+
+    [Fact]
+    public async Task EnrichModelsWithDetailsAsync_WithHttpException_DoesNotThrow()
+    {
+        // Arrange
+        var mockHandler = new Mock<HttpMessageHandler>();
+        mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ThrowsAsync(new HttpRequestException("Network error"));
+
+        var httpClient = new HttpClient(mockHandler.Object);
+        var service = new EnrichModelService(_testFilePath, httpClient);
+
+        var models = new[]
+        {
+            CreateTestModel("Model1", "Variation1"),
+            CreateTestModel("Model2", "Variation2")
+        };
+
+        // Act & Assert - Should not throw, models should remain without enrichment
+        await service.EnrichModelsWithDetailsAsync(models);
+        Assert.All(models, m => Assert.Null(m.enrichedData));
+    }
+
+    #endregion
 }

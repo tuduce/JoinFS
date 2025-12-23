@@ -60,7 +60,7 @@ namespace JoinFS
                 defaultModels.Add(name.Key, Resources.Strings.Default + " " + name.Value);
             }
 
-            enrichModelService = new EnrichModelService(main.storagePath + Path.DirectorySeparatorChar + "model-data.jsonl");
+            enrichModelService = new EnrichModelService(main.storagePath + Path.DirectorySeparatorChar + "model-data.jsonl", null, main);
 #if X64
             embeddingService = new EmbeddingService(
                 modelPath: "AIModel" + Path.DirectorySeparatorChar + "model.onnx",
