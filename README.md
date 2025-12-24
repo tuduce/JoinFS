@@ -1,3 +1,13 @@
+> [!IMPORTANT]
+> The X-Plane variant of joinfs is no longer joinfs-ing, and we need help to get it back on track.
+>
+> We’re looking for a developer with experience using the X-Plane SDK who’s willing to donate a bit of time to investigate, debug, and help restore functionality. Even small contributions (testing, insights, or pointers) would make a big difference.
+> 
+> If you care about keeping the X-Plane community connected and thriving, your help would be greatly appreciated.
+> Please comment on [issue #53](https://github.com/tuduce/JoinFS/issues/53), open a PR, or reach out if you’re interested in collaborating.
+> 
+> Thank you!
+
 This fork continues the development of the great [JoinFS](https://joinfs.net/) utility.
 
 JoinFS is an advanced multiplayer client for flight simulators including Microsoft Flight Simulator 2020, FSX, X-Plane and Prepar3D. Allows players to fly together across different simulators.
