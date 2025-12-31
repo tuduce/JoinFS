@@ -29,26 +29,30 @@ namespace JoinFS.Helpers
         }
 
         public IReadOnlyDictionary<string, EnrichedAircraftData> ModelDetails => _modelDetails;
+        private readonly object _fileLock = new();
 
         private void LoadFromJsonlFile()
         {
             if (!string.IsNullOrWhiteSpace(_jsonlFilePath) && File.Exists(_jsonlFilePath))
             {
-                foreach (var line in File.ReadLines(_jsonlFilePath))
+                lock (_fileLock)
                 {
-                    if (string.IsNullOrWhiteSpace(line))
-                        continue;
-                    try
+                    foreach (var line in File.ReadLines(_jsonlFilePath))
                     {
-                        var data = JsonConvert.DeserializeObject<EnrichedAircraftData>(line);
-                        if (data != null && !string.IsNullOrWhiteSpace(data.Title))
+                        if (string.IsNullOrWhiteSpace(line))
+                            continue;
+                        try
                         {
-                            _modelDetails[data.Title] = data;
+                            var data = JsonConvert.DeserializeObject<EnrichedAircraftData>(line);
+                            if (data != null && !string.IsNullOrWhiteSpace(data.Title))
+                            {
+                                _modelDetails[data.Title] = data;
+                            }
                         }
-                    }
-                    catch
-                    {
-                        // TODO: Optionally log or handle malformed lines
+                        catch
+                        {
+                            // TODO: Optionally log or handle malformed lines
+                        }
                     }
                 }
             }
@@ -59,12 +63,23 @@ namespace JoinFS.Helpers
             if (string.IsNullOrWhiteSpace(_jsonlFilePath))
                 return;
 
-            // Write all unique model details to the file, one per line
-            using var writer = new StreamWriter(_jsonlFilePath, false, Encoding.UTF8);
-            foreach (var data in _modelDetails.Values)
+            var tempPath = _jsonlFilePath + ".tmp";
+            lock (_fileLock)
             {
-                var line = JsonConvert.SerializeObject(data);
-                writer.WriteLine(line);
+                // Write to a temp file first
+                using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    // Write all unique model details to the file, one per line
+                    using var writer = new StreamWriter(fs, Encoding.UTF8);
+                    foreach (var data in _modelDetails.Values)
+                    {
+                        var line = JsonConvert.SerializeObject(data);
+                        writer.WriteLine(line);
+                    }
+                }
+                // Atomically replace
+                File.Copy(tempPath, _jsonlFilePath, overwrite: true);
+                File.Delete(tempPath);
             }
         }
 
