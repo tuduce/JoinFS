@@ -107,7 +107,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ env.VERSION }}
-        name: Release v${{ env.VERSION }}
+        name: JoinFS v${{ env.VERSION }}
         body: ${{ steps.check_notes.outputs.notes_exist == 'true' && env.RELEASE_NOTES || format('Release version {0}', env.VERSION) }}
         draft: false
         prerelease: false
