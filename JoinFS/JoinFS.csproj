@@ -4,8 +4,8 @@
     <AssemblyName>JoinFS-$(Configuration)</AssemblyName>
     <Configurations>FS2024-Debug;FS2024;FS2020-Debug;FS2020;FSX-Debug;FSX;P3D-Debug;P3D;XPLANE-Debug;XPLANE;CONSOLE-Debug;CONSOLE</Configurations>
     <Platforms>x64;x86;ARM64</Platforms>
-    <AssemblyVersion>25.8</AssemblyVersion>
-    <FileVersion>25.8</FileVersion>
+    <AssemblyVersion>25.9</AssemblyVersion>
+    <FileVersion>25.9</FileVersion>
     <ApplicationIcon>Resources\App.ico</ApplicationIcon>
     <StartupObject>JoinFS.Program</StartupObject>
     <DisableImplicitFrameworkReferences>false</DisableImplicitFrameworkReferences>
@@ -191,6 +191,10 @@
 		<None Include="libs\XPLANE\win.xpl">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<Link>win.xpl</Link>
+		</None>
+		<None Include="libs\XPLANE\lin.xpl">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<Link>lin.xpl</Link>
 		</None>
 	</ItemGroup>
 
