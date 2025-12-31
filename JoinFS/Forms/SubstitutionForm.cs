@@ -244,7 +244,7 @@ namespace JoinFS
             }
         }
 
-        private void SubstitutionForm_Load(object sender, EventArgs e)
+        private async void SubstitutionForm_Load(object sender, EventArgs e)
         {
             // populate type
             UpdateType("");
@@ -258,14 +258,16 @@ namespace JoinFS
 
             // get match
             Substitution.Model model;
-            lock (main.conch)
-            {
+            Substitution.Type type;
+
+            //lock (main.conch)
+            //{
 #if FS2024
-                main.substitution.Match(replace, variation, typerole, out model, out Substitution.Type type);
+                (model, type) = await main.substitution.Match(replace, variation, typerole);
 #else
-                main.substitution.Match(replace, typerole, out model, out Substitution.Type type);
+                (model, type) = await main.substitution.Match(replace, typerole);
 #endif
-            }
+            //}
 
             // check if model exists
             if (model != null)

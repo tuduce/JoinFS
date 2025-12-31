@@ -1171,9 +1171,9 @@ namespace JoinFS
         /// </summary>
         /// <param name="model"></param>
 #if FS2024
-        public void UpdateObject(Obj obj, string model, string livery, int typerole)
+        public async void UpdateObject(Obj obj, string model, string livery, int typerole)
 #else
-        public void UpdateObject(Obj obj, string model, int typerole)
+        public async void UpdateObject(Obj obj, string model, int typerole)
 #endif
         {
             obj.typerole = typerole;
@@ -1182,10 +1182,10 @@ namespace JoinFS
 #if FS2024
             obj.ownerLivery = livery;
             // model match
-            main.substitution?.Match(obj.ownerModel, obj.ownerLivery, obj.typerole, out obj.subModel, out obj.subType);
+            (obj.subModel, obj.subType) = await main.substitution?.Match(obj.ownerModel, obj.ownerLivery, obj.typerole);
 #else
             // model match
-            main.substitution ?. Match(obj.ownerModel, obj.typerole, out obj.subModel, out obj.subType);
+            (obj.subModel, obj.subType) = await main.substitution ?. Match(obj.ownerModel, obj.typerole);
 #endif
             // reset failed flag
             obj.failed = false;

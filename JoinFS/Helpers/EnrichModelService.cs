@@ -84,9 +84,9 @@ namespace JoinFS.Helpers
                     var json = JsonConvert.SerializeObject(request);
                     var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                    using var response = await _httpClient.PostAsync(ApiUrl, content);
+                    using var response = await _httpClient.PostAsync(ApiUrl, content); //.ConfigureAwait(false);
                     response.EnsureSuccessStatusCode();
-                    var responseJson = await response.Content.ReadAsStringAsync();
+                    var responseJson = await response.Content.ReadAsStringAsync(); //.ConfigureAwait(false);
                     var result = JsonConvert.DeserializeObject<EnrichedModelResponse>(responseJson);
 
                     if (result?.Data != null)
@@ -144,7 +144,7 @@ namespace JoinFS.Helpers
                 .Distinct()
                 .ToList();
 
-            await QueryAndStoreModelDetailsAsync(uniqueTitles);
+            await QueryAndStoreModelDetailsAsync(uniqueTitles).ConfigureAwait(false);
 
             // Assign enrichment to each model
             foreach (var model in models)
@@ -163,7 +163,7 @@ namespace JoinFS.Helpers
         /// Enriches a single model with data from the API and assigns the enrichment to the model.
         /// </summary>
         /// <param name="model">A Model object to enrich.</param>
-        public void EnrichModel(Model model)
+        public async Task EnrichModel(Model model)
         {
             if (model == null || string.IsNullOrWhiteSpace(model.title))
                 return;
@@ -171,7 +171,7 @@ namespace JoinFS.Helpers
             // Query and store details for this model if not already present
             if (!_modelDetails.ContainsKey(model.title))
             {
-                QueryAndStoreModelDetailsAsync([model.title]).Wait();
+                await QueryAndStoreModelDetailsAsync([model.title]);
             }
 
             if (_modelDetails.TryGetValue(model.title, out var enriched))
