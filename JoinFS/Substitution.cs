@@ -2654,11 +2654,11 @@ namespace JoinFS
                     "", // smoke
                     "" // folder
                 );
+#if X64
                 // 2. Get the model enrichment data
                 await enrichModelService.EnrichModel(tempModel);
                 // 3. Get the embedding
                 // 4. Compare against all known models (cosine similarity)
-#if X64
                 model = embeddingService.FindBestMatchingModel(tempModel, models, 0.5f);
                 if (model != null)
                 {
