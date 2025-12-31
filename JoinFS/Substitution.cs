@@ -2597,12 +2597,15 @@ namespace JoinFS
         /// <param name="model">Model to check</param>
         /// <returns>Matched model</returns>
 #if FS2024
-        public void Match(string title, string livery, int typerole, out Model model, out Type type)
+        public async Task<(Model model, Type type)> Match(string title, string livery, int typerole)
         // in MSFS2024 aircraft livery is the model variation
 #else
-        public void Match(string title, int typerole, out Model model, out Type type)
+        public async Task<(Model model, Type type)> Match(string title, int typerole)
 #endif
         {
+            Model model;
+            Type type;
+
             // check for existing model match
             if (matches.TryGetValue(title, out Model value))
             {
@@ -2616,7 +2619,7 @@ namespace JoinFS
                 {
                     // use matched model
                     type = Type.Substitute;
-                    return;
+                    return (model, type);
                 }
             }
 
@@ -2630,7 +2633,7 @@ namespace JoinFS
             {
                 // use the specified model
                 type = Type.Original;
-                return;
+                return (model, type);
             }
 
             if (main.settingsUseAIFeatures)
@@ -2652,7 +2655,7 @@ namespace JoinFS
                     "" // folder
                 );
                 // 2. Get the model enrichment data
-                enrichModelService.EnrichModel(tempModel);
+                await enrichModelService.EnrichModel(tempModel);
                 // 3. Get the embedding
                 // 4. Compare against all known models (cosine similarity)
 #if X64
@@ -2661,7 +2664,7 @@ namespace JoinFS
                 {
                     // use automatic match
                     type = Type.AI;
-                    return;
+                    return (model, type);
                 }
 #endif
             }
@@ -2679,7 +2682,7 @@ namespace JoinFS
                     {
                         // use automatic match
                         type = Type.Auto;
-                        return;
+                        return (model, type);
                     }
                 }
             }
@@ -2696,7 +2699,7 @@ namespace JoinFS
                     {
                         // use default model
                         type = Type.Default;
-                        return;
+                        return (model, type);
                     }
                 }
             }
@@ -2707,12 +2710,13 @@ namespace JoinFS
                 // use first model
                 model = models[0];
                 type = Type.Default;
-                return;
+                return (model, type);
             }
 
             // use last resort
             model = null;
             type = Type.Default;
+            return (model, type);
         }
 
         /// <summary>
