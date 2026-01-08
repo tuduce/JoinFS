@@ -1,3 +1,5 @@
+### The JoinFS site is online. Please visit [https://joinfs.net](https://joinfs.net) for all the information about the project.
+
 > [!IMPORTANT]
 > The X-Plane variant of joinfs is no longer joinfs-ing, and we need help to get it back on track.
 >
