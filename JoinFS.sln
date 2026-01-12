@@ -31,6 +31,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Readmes", "Readmes", "{21EC
 		Readmes\README.md = Readmes\README.md
 		Readmes\Release-25.8.md = Readmes\Release-25.8.md
 		Readmes\Release-25.9.md = Readmes\Release-25.9.md
+		Readmes\Release-26.1.md = Readmes\Release-26.1.md
 	EndProjectSection
 EndProject
 Global
