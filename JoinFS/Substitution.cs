@@ -472,6 +472,36 @@ namespace JoinFS
                 }
 #else
                 Model model = GetModel(scanTitle);
+                
+                // check if the typerole is "MSFS2020" for FS2020 builds
+                // MSFS2020 aircraft may have this generic value that needs classification
+                if (scanTyperole == "MSFS2020")
+                {
+                    bool found = false;
+                    // search Addons_FS2020.txt content for correct typerole
+                    foreach (string line in AddonsFileContents)
+                    {
+                        if (string.IsNullOrEmpty(line)) continue;
+                        string[] separator = [ "[+]" ];
+                        string[] parts = line.Split(separator, StringSplitOptions.None);
+                        // check if this line matches the scanned title
+                        if (parts.Length > 1 && parts[1] == scanTitle)
+                        {
+                            // found matching entry, use its typerole (parts[6])
+                            if (parts.Length > 6)
+                            {
+                                scanTyperole = parts[6];
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!found)
+                    {
+                        // default to SingleProp if not found in Addons file
+                        scanTyperole = "SingleProp";
+                    }
+                }
 #endif
 
 
