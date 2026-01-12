@@ -474,7 +474,6 @@ namespace JoinFS
                 Model model = GetModel(scanTitle);
 #endif
 
-
                 if (model != null)
                 {
                     // update the model details
@@ -483,8 +482,10 @@ namespace JoinFS
                     model.longType = scanManufacturer + " " + scanType;
                     model.variation = scanVariation;
                     model.index = scanIndex;
-                    // don't update typerole. The first classification was most probably correct
-                    // model.typerole = TyperoleFromString(scanTyperole);
+                    // don't update typerole for MSFS2024. The first classification was most probably correct
+#if !FS2024
+                    model.typerole = TyperoleFromString(scanTyperole);
+#endif
                     model.folder = scanFolder;
                 }
                 else
