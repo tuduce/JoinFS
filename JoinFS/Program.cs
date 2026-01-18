@@ -974,6 +974,12 @@ namespace JoinFS
                         substitution?.Load();
                         // reset
                         scheduleSubstitutionLoad = false;
+                        // Load() calls Scan() when settingsScan is true, and Scan() calls Match()
+                        // If Scan() was not called, we need to call Match() to load matching data from file
+                        if (!settingsScan)
+                        {
+                            scheduleSubstitutionMatch = true;
+                        }
                     }
 
                     // check for scheduled model match
