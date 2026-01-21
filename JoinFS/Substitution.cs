@@ -686,7 +686,32 @@ namespace JoinFS
                     else
                     {
 #if XPLANE || CONSOLE
-                        subFolders.Add("");
+                        // enumerate all subdirectories in the Aircraft folder
+                        try
+                        {
+                            string aircraftPath = Path.Combine(simFolder, "Aircraft");
+                            if (Directory.Exists(aircraftPath))
+                            {
+                                string[] directories = Directory.GetDirectories(aircraftPath);
+                                foreach (string directory in directories)
+                                {
+                                    // add folder name (not full path)
+                                    subFolders.Add(Path.GetFileName(directory));
+                                }
+                            }
+                            
+                            // if no directories found, fall back to scanning root Aircraft folder
+                            if (subFolders.Count == 0)
+                            {
+                                subFolders.Add("");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // log error and fall back to root Aircraft folder
+                            main.MonitorEvent("Failed to enumerate Aircraft directories: " + ex.Message);
+                            subFolders.Add("");
+                        }
 #else
                         // add default scan folder
                         subFolders.Add("Airplanes");
