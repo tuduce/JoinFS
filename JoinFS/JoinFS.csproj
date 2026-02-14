@@ -130,7 +130,7 @@
 		<OutputType>Exe</OutputType>
 		<TargetFramework>net8.0</TargetFramework>
 		<UseWindowsForms>false</UseWindowsForms>
-		<PlatformTarget>ARM64</PlatformTarget>
+		<PlatformTarget>x64</PlatformTarget>
 		<TargetFramework>net8.0</TargetFramework>
 		<UseWindowsForms>false</UseWindowsForms>
 		<DefineConstants>TRACE;CONSOLE</DefineConstants>
