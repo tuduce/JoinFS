@@ -5,6 +5,7 @@ This release does not introduce new features.
 ## Bug Fixes
 - Fixed an issue where deplect rapidly in shared cockpit.
 - Fixed an issue where engine 2 would not shut down for network (or recorded) airplanes.
+- Fixed the architecture of the CONSOLE variant. It should have been x64 since the last version.
 
 ## Limitations
 The `FSX` and `P3D` variants are built for the x86 (32bit) architecture. Since the Microsoft.ML package does not currently offer a x86 variant, the AI-enchanced model matching is not included for `FSX` or `P3D`.
