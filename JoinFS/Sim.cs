@@ -1627,8 +1627,8 @@ namespace JoinFS
         /// </summary>
         public class FlightPlan
         {
-            public const int MAX_ROUTE = 128;
-            public const int MAX_REMARKS = 128;
+            public const int MAX_ROUTE = 512;
+            public const int MAX_REMARKS = 512;
 
             public string callsign = "";
             public string icaoType = "";
