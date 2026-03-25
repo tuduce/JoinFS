@@ -29,47 +29,57 @@
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(AboutForm));
-            this.Label_About = new System.Windows.Forms.Label();
-            this.Button_OK = new System.Windows.Forms.Button();
-            this.pictureBox1 = new System.Windows.Forms.PictureBox();
-            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
-            this.SuspendLayout();
+            Label_About = new System.Windows.Forms.Label();
+            Button_OK = new System.Windows.Forms.Button();
+            pictureBox1 = new System.Windows.Forms.PictureBox();
+            aboutLink = new System.Windows.Forms.LinkLabel();
+            ((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
+            SuspendLayout();
             // 
             // Label_About
             // 
-            resources.ApplyResources(this.Label_About, "Label_About");
-            this.Label_About.Name = "Label_About";
+            resources.ApplyResources(Label_About, "Label_About");
+            Label_About.Name = "Label_About";
             // 
             // Button_OK
             // 
-            this.Button_OK.DialogResult = System.Windows.Forms.DialogResult.OK;
-            resources.ApplyResources(this.Button_OK, "Button_OK");
-            this.Button_OK.Name = "Button_OK";
-            this.Button_OK.UseVisualStyleBackColor = true;
+            Button_OK.DialogResult = System.Windows.Forms.DialogResult.OK;
+            resources.ApplyResources(Button_OK, "Button_OK");
+            Button_OK.Name = "Button_OK";
+            Button_OK.UseVisualStyleBackColor = true;
             // 
             // pictureBox1
             // 
-            this.pictureBox1.Image = global::JoinFS.Properties.Resources.joinfs64;
-            resources.ApplyResources(this.pictureBox1, "pictureBox1");
-            this.pictureBox1.Name = "pictureBox1";
-            this.pictureBox1.TabStop = false;
+            pictureBox1.Image = Properties.Resources.joinfs64;
+            resources.ApplyResources(pictureBox1, "pictureBox1");
+            pictureBox1.Name = "pictureBox1";
+            pictureBox1.TabStop = false;
+            // 
+            // aboutLink
+            // 
+            resources.ApplyResources(aboutLink, "aboutLink");
+            aboutLink.Name = "aboutLink";
+            aboutLink.TabStop = true;
+            aboutLink.LinkClicked += aboutLink_LinkClicked;
             // 
             // AboutForm
             // 
-            this.AcceptButton = this.Button_OK;
+            AcceptButton = Button_OK;
             resources.ApplyResources(this, "$this");
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.CancelButton = this.Button_OK;
-            this.Controls.Add(this.pictureBox1);
-            this.Controls.Add(this.Button_OK);
-            this.Controls.Add(this.Label_About);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.Name = "AboutForm";
-            this.ShowInTaskbar = false;
-            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
-            this.ResumeLayout(false);
+            AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            CancelButton = Button_OK;
+            Controls.Add(aboutLink);
+            Controls.Add(pictureBox1);
+            Controls.Add(Button_OK);
+            Controls.Add(Label_About);
+            FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            Name = "AboutForm";
+            ShowInTaskbar = false;
+            ((System.ComponentModel.ISupportInitialize)pictureBox1).EndInit();
+            ResumeLayout(false);
+            PerformLayout();
 
         }
 
@@ -78,5 +88,6 @@
         private System.Windows.Forms.Label Label_About;
         private System.Windows.Forms.Button Button_OK;
         private System.Windows.Forms.PictureBox pictureBox1;
+        private System.Windows.Forms.LinkLabel aboutLink;
     }
 }
