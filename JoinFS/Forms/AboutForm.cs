@@ -32,5 +32,12 @@ namespace JoinFS
             // send the users to the releases page of the github repo
             Main.Launch(url);
         }
+
+        private void aboutLink_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            aboutLink.LinkVisited = true;
+            string url = "https://joinfs.net";
+            Main.Launch(url);
+        }
     }
 }
