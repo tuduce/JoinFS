@@ -11,6 +11,7 @@ e|A330-BelugaXL|Airliner
 e|A400M Cargo|Bomber
 c|AT802|SingleProp
 c|Aviat Pitts|SingleProp
+e|Baron 58|TwinProp
 c|Beechcraft Bonanza|SingleProp
 e|Beechcraft King Air|TwinProp
 e|Bell 407|Rotorcraft

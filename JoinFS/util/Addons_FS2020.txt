@@ -280,6 +280,24 @@ Bell Helicopter 47J[+]Bell 47J Ranger White Blue[+]Microsoft[+]Bell 47 J-2 Skids
 Bell Helicopter 47J[+]Bell 47J Ranger White Livery[+]Microsoft[+]Bell 47 J-2 Skids[+]White[+]0[+]Rotorcraft
 Bell Helicopter 47J[+]Bell 47J Ranger Xbox Aviators Club Livery[+]Microsoft[+]Bell 47 J-2 Skids[+]XboxAviators[+]0[+]Rotorcraft
 Bell Helicopter 47J[+]Bell 47J Ranger Yellow[+]Microsoft[+]Bell 47 J-2 Skids[+]Yellow[+]0[+]Rotorcraft
+Black Square 58 Professional[+]Black Square 58 Professional N972HJ[+]Black Square[+]B58 Professional[+]N972HJ[+]0[+]TwinProp
+Black Square 58 Professional[+]Black Square 58 Professional N585RS[+]Black Square[+]B58 Professional[+]N585RS[+]0[+]TwinProp
+Black Square 58 Professional[+]Black Square 58 Professional N513LW[+]Black Square[+]B58 Professional[+]N513LW[+]0[+]TwinProp
+Black Square 58 Professional[+]Black Square 58 Professional N515MR[+]Black Square[+]B58 Professional[+]N515MR[+]0[+]TwinProp
+Black Square 58 Professional[+]Black Square 58 Professional N7733K[+]Black Square[+]B58 Professional[+]N7733K[+]0[+]TwinProp
+Black Square 58 Professional[+]Black Square 58 Professional C-GVGI[+]Black Square[+]B58 Professional[+]C-GVGI[+]0[+]TwinProp
+Black Square 58P Professional[+]Black Square 58P Professional N513LW[+]Black Square[+]B58 Professional[+]N513LW[+]0[+]TwinProp
+Black Square 58P Professional[+]Black Square 58P Professional N515MR[+]Black Square[+]B58 Professional[+]N515MR[+]0[+]TwinProp
+Black Square 58P Professional[+]Black Square 58P Professional N585RS[+]Black Square[+]B58 Professional[+]N585RS[+]0[+]TwinProp
+Black Square 58P Professional[+]Black Square 58P Professional N972HJ[+]Black Square[+]B58 Professional[+]N972HJ[+]0[+]TwinProp
+Black Square 58P Professional[+]Black Square 58P Professional N7733K[+]Black Square[+]B58 Professional[+]N7733K[+]0[+]TwinProp
+Black Square 58P Professional[+]Black Square 58P Professional C-GVGI[+]Black Square[+]B58 Professional[+]C-GVGI[+]0[+]TwinProp
+Black Square 58TC Professional[+]Black Square 58TC Professional N972HJ[+]Black Square[+]B58 Professional[+]N972HJ[+]0[+]TwinProp
+Black Square 58TC Professional[+]Black Square 58TC Professional N585RS[+]Black Square[+]B58 Professional[+]N585RS[+]0[+]TwinProp
+Black Square 58TC Professional[+]Black Square 58TC Professional N513LW[+]Black Square[+]B58 Professional[+]N513LW[+]0[+]TwinProp
+Black Square 58TC Professional[+]Black Square 58TC Professional N515MR[+]Black Square[+]B58 Professional[+]N515MR[+]0[+]TwinProp
+Black Square 58TC Professional[+]Black Square 58TC Professional N7733K[+]Black Square[+]B58 Professional[+]N7733K[+]0[+]TwinProp
+Black Square 58TC Professional[+]Black Square 58TC Professional C-GVGI[+]Black Square[+]B58 Professional[+]C-GVGI[+]0[+]TwinProp
 Black Square B60 Duke[+]Black Square B60 Duke N28HD[+]Black Square[+]B60 Duke[+]N28HD[+]0[+]TwinProp
 Black Square B60 Duke[+]Black Square B60 Duke N43DH[+]Black Square[+]B60 Duke[+]N43DH[+]0[+]TwinProp
 Black Square B60 Duke[+]Black Square B60 Duke White (70s)[+]Black Square[+]B60 Duke[+]White (70s)[+]0[+]TwinProp
