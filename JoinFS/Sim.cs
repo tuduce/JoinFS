@@ -2566,11 +2566,11 @@ namespace JoinFS
         /// </summary>
         readonly Timer objectProcessTimer = new(0.1);
         readonly Timer requestInfoTimer = new(2.0);
-        readonly Timer requestPositionTimer = new(0.1);
+        readonly Timer requestPositionTimer = new(0.05);
         readonly Timer requestWeatherTimer = new(60.0);
         readonly Timer requestLocalStateTimer = new(20.0);
         readonly Timer trackingTimer = new(1.0);
-        readonly Timer variablesTimer = new(1.0);
+        readonly Timer variablesTimer = new(0.2);
         readonly Timer flightPlanTimer = new(5.0);
 
         /// <summary>
