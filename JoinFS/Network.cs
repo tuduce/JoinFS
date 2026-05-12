@@ -94,6 +94,7 @@ namespace JoinFS
             {
                 var response = await httpClient.GetStringAsync(url);
                 seedhubs = response.Split('\n');
+                main?.MonitorEvent($"Seedhubs download complete from {url}");
             }
             catch (Exception ex)
             {
