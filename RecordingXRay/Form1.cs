@@ -10,8 +10,72 @@ public partial class Form1 : Form
     public Form1()
     {
         InitializeComponent();
+        ApplyModernLook();
         UpdateSummary(null);
         detailsTextBox.Text = $"Open a JoinFS recording file to inspect its content.{Environment.NewLine}Variable lookup entries loaded: {variableLookup.Count}.";
+    }
+
+    private void ApplyModernLook()
+    {
+        Color background = Color.FromArgb(15, 23, 42);
+        Color surface = Color.FromArgb(30, 41, 59);
+        Color panel = Color.FromArgb(51, 65, 85);
+        Color text = Color.FromArgb(226, 232, 240);
+        Color muted = Color.FromArgb(148, 163, 184);
+        Color accent = Color.FromArgb(59, 130, 246);
+
+        BackColor = background;
+        ForeColor = text;
+        Font = new Font("Segoe UI", 9.5F, FontStyle.Regular, GraphicsUnit.Point);
+
+        openButton.FlatStyle = FlatStyle.Flat;
+        openButton.FlatAppearance.BorderSize = 0;
+        openButton.BackColor = accent;
+        openButton.ForeColor = Color.White;
+        openButton.Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold, GraphicsUnit.Point);
+
+        fileTextBox.BorderStyle = BorderStyle.FixedSingle;
+        fileTextBox.BackColor = panel;
+        fileTextBox.ForeColor = text;
+
+        summaryPanel.BackColor = surface;
+        summaryPanel.CellBorderStyle = TableLayoutPanelCellBorderStyle.None;
+        summaryPanel.Padding = new Padding(6, 2, 6, 2);
+        summaryPanel.ColumnStyles.Clear();
+        for (int i = 0; i < 10; i++)
+        {
+            summaryPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10f));
+        }
+
+        Label[] captions = [versionCaptionLabel, aircraftCaptionLabel, objectCaptionLabel, frameCaptionLabel, durationCaptionLabel];
+        foreach (Label caption in captions)
+        {
+            caption.ForeColor = muted;
+            caption.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+        }
+
+        Label[] values = [versionValueLabel, aircraftValueLabel, objectValueLabel, frameValueLabel, durationValueLabel];
+        foreach (Label value in values)
+        {
+            value.ForeColor = text;
+            value.Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold, GraphicsUnit.Point);
+        }
+
+        splitContainer.BackColor = background;
+        splitContainer.BorderStyle = BorderStyle.FixedSingle;
+        splitContainer.Panel1.BackColor = surface;
+        splitContainer.Panel2.BackColor = surface;
+
+        framesTreeView.BorderStyle = BorderStyle.None;
+        framesTreeView.BackColor = surface;
+        framesTreeView.ForeColor = text;
+        framesTreeView.LineColor = panel;
+        framesTreeView.ShowLines = false;
+
+        detailsTextBox.BorderStyle = BorderStyle.None;
+        detailsTextBox.BackColor = surface;
+        detailsTextBox.ForeColor = text;
+        detailsTextBox.Font = new Font("Cascadia Mono", 9.5F, FontStyle.Regular, GraphicsUnit.Point);
     }
 
     private void OpenButton_Click(object? sender, EventArgs e)
