@@ -1,6 +1,7 @@
 ## New Features
 
-Increased the rate at which the position (20Hz) and the variables (5Hz) are sent over the network or recorded.
+- Increased the rate at which the position (20Hz) and the variables (5Hz) are sent over the network or recorded.
+- Added logging around the recorder functionality to help with debugging issues related to recording and replaying flights.
 
 ## Bug Fixes
 
