@@ -870,6 +870,60 @@ namespace JoinFS
         double startTime;
 
         /// <summary>
+        /// Frame type counts recorded during current recording session
+        /// </summary>
+        readonly Dictionary<FrameType, int> recordFrameCounts = [];
+        int recordSimErrorCount = 0;
+        string recordFirstSimError = "";
+
+        void IncrementRecordFrameCount(FrameType type)
+        {
+            if (recordFrameCounts.ContainsKey(type))
+            {
+                recordFrameCounts[type]++;
+            }
+            else
+            {
+                recordFrameCounts[type] = 1;
+            }
+        }
+
+        void LogRecordFrameCounts()
+        {
+            if (recordFrameCounts.Count == 0)
+            {
+                main.MonitorEvent("Recorder: no frames were captured in this recording session.");
+                return;
+            }
+
+            StringBuilder summary = new();
+            foreach (var count in recordFrameCounts)
+            {
+                if (summary.Length > 0)
+                {
+                    summary.Append(", ");
+                }
+                summary.Append(count.Key);
+                summary.Append('=');
+                summary.Append(count.Value);
+            }
+
+            main.MonitorEvent("Recorder: captured frames -> " + summary + ".");
+        }
+
+        public void NotifySimulatorError(string error)
+        {
+            if (recording)
+            {
+                recordSimErrorCount++;
+                if (recordFirstSimError.Length == 0)
+                {
+                    recordFirstSimError = error;
+                }
+            }
+        }
+
+        /// <summary>
         /// Current time since start
         /// </summary>
         public double Time { get { return paused ? pauseTime : (Active ? main.ElapsedTime - startTime : 0.0); } }
@@ -925,6 +979,7 @@ namespace JoinFS
 
                 // add position velocity frame
                 obj.frames.Add(new ObjectPositionFrame(objTime + obj.timeOffset, ref positionVelocity));
+                IncrementRecordFrameCount(FrameType.ObjectPosition);
             }
         }
 
@@ -950,6 +1005,7 @@ namespace JoinFS
 
                 // add position velocity frame
                 obj.frames.Add(new AircraftPositionFrame(objTime + obj.timeOffset, ref aircraftPosition));
+                IncrementRecordFrameCount(FrameType.AircraftPosition);
             }
         }
 
@@ -963,6 +1019,7 @@ namespace JoinFS
             {
                 // add event
                 obj.frames.Add(new SimEventFrame(Time, eventId, data));
+                IncrementRecordFrameCount(FrameType.SimEvent);
             }
         }
 
@@ -976,6 +1033,7 @@ namespace JoinFS
             {
                 // add event
                 obj.frames.Add(new IntegerVariablesFrame(Time, variables));
+                IncrementRecordFrameCount(FrameType.IntegerVariables);
             }
         }
 
@@ -989,6 +1047,7 @@ namespace JoinFS
             {
                 // add event
                 obj.frames.Add(new FloatVariablesFrame(Time, variables));
+                IncrementRecordFrameCount(FrameType.FloatVariables);
             }
         }
 
@@ -1002,6 +1061,7 @@ namespace JoinFS
             {
                 // add event
                 obj.frames.Add(new String8VariablesFrame(Time, variables));
+                IncrementRecordFrameCount(FrameType.String8Variables);
             }
         }
 
@@ -1018,6 +1078,9 @@ namespace JoinFS
                 {
                     // clear aircraft
                     objList.Clear();
+                    recordFrameCounts.Clear();
+                    recordSimErrorCount = 0;
+                    recordFirstSimError = "";
                 }
 
                 // for each object in the sim
@@ -1058,6 +1121,18 @@ namespace JoinFS
                     // set start time
                     startTime = main.ElapsedTime;
                 }
+
+                // summary
+                int aircraftCount = 0;
+                foreach (var obj in objList)
+                {
+                    if (obj is Aircraft)
+                    {
+                        aircraftCount++;
+                    }
+                }
+                main.MonitorEvent("Recorder: start recording " + objList.Count + " objects (" + aircraftCount + " aircraft). SimConnected=" + main.sim.Connected + ", NetworkConnected=" + main.network.localNode.Connected + ".");
+
                 // now recording
                 recording = true;
             }
@@ -1102,6 +1177,20 @@ namespace JoinFS
             // check state
             if (main.sim != null && recording)
             {
+                LogRecordFrameCounts();
+
+                int positionCount = recordFrameCounts.GetValueOrDefault(FrameType.ObjectPosition) + recordFrameCounts.GetValueOrDefault(FrameType.AircraftPosition);
+                int variableCount = recordFrameCounts.GetValueOrDefault(FrameType.IntegerVariables) + recordFrameCounts.GetValueOrDefault(FrameType.FloatVariables) + recordFrameCounts.GetValueOrDefault(FrameType.String8Variables);
+                if (positionCount == 0 && variableCount > 0)
+                {
+                    main.MonitorEvent("Recorder: warning - captured variable frames but no position frames. SimConnected=" + main.sim.Connected + ", NetworkConnected=" + main.network.localNode.Connected + ".");
+                }
+
+                if (recordSimErrorCount > 0)
+                {
+                    main.MonitorEvent("Recorder: warning - " + recordSimErrorCount + " simulator error(s) occurred during recording. First error: " + recordFirstSimError);
+                }
+
                 // for each object in the sim
                 foreach (var simObject in main.sim.objectList)
                 {
@@ -1484,6 +1573,11 @@ namespace JoinFS
         /// <param name="reader"></param>
         public void Read1(short version, BinaryReader reader)
         {
+            // loaded counters
+            int loadedAircraft = 0;
+            int loadedObjects = 0;
+            int loadedFrames = 0;
+
             // check for append
             if (append == false)
             {
@@ -1501,6 +1595,42 @@ namespace JoinFS
                 // read aircraft
                 aircraft.Read(version, reader);
 
+                // frame stats
+                Dictionary<FrameType, int> frameCounts = [];
+                foreach (var frame in aircraft.frames)
+                {
+                    if (frameCounts.ContainsKey(frame.type))
+                    {
+                        frameCounts[frame.type]++;
+                    }
+                    else
+                    {
+                        frameCounts[frame.type] = 1;
+                    }
+                }
+
+                int aircraftPositionCount = frameCounts.GetValueOrDefault(FrameType.AircraftPosition);
+                int objectPositionCount = frameCounts.GetValueOrDefault(FrameType.ObjectPosition);
+
+                StringBuilder frameSummary = new();
+                foreach (var frameCount in frameCounts)
+                {
+                    if (frameSummary.Length > 0)
+                    {
+                        frameSummary.Append(", ");
+                    }
+                    frameSummary.Append(frameCount.Key);
+                    frameSummary.Append('=');
+                    frameSummary.Append(frameCount.Value);
+                }
+
+                main.MonitorEvent("Recorder: aircraft '" + aircraft.callsign + "' frames=" + aircraft.frames.Count + " (" + frameSummary + ").");
+
+                if (aircraftPositionCount == 0 && objectPositionCount == 0)
+                {
+                    main.MonitorEvent("Recorder: warning - aircraft '" + aircraft.callsign + "' has no ObjectPosition/AircraftPosition frames.");
+                }
+
                 // check for append
                 if (append)
                 {
@@ -1514,6 +1644,8 @@ namespace JoinFS
 
                 // add to list
                 objList.Add(aircraft);
+                loadedAircraft++;
+                loadedFrames += aircraft.frames.Count;
             }
 
             if (reader.PeekChar() != -1)
@@ -1542,8 +1674,13 @@ namespace JoinFS
 
                     // add to list
                     objList.Add(obj);
+                    loadedObjects++;
+                    loadedFrames += obj.frames.Count;
                 }
             }
+
+            // log load summary
+            main.MonitorEvent("Recorder: loaded " + loadedAircraft + " aircraft, " + loadedObjects + " objects, " + loadedFrames + " frames" + (append ? " (append)" : "") + ".");
         }
 
         /// <summary>
@@ -1559,6 +1696,8 @@ namespace JoinFS
         {
             // get version
             short version = reader.ReadInt16();
+            // log version
+            main.MonitorEvent("Recorder: reading recording stream (version " + version + (append ? ", append mode" : "") + ").");
             // check version
             if (version < 10022)
             {
@@ -1579,6 +1718,7 @@ namespace JoinFS
             // enable append
             append = true;
             appendTime = EndTime;
+            main.MonitorEvent("Recorder: appending recording from " + appendTime.ToString("0.00") + "s.");
             // read data
             Read(reader);
             // finish append

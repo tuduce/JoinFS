@@ -348,6 +348,8 @@ namespace JoinFS
                 {
                     try
                     {
+                        main.MonitorEvent("Recorder: opening recording file '" + dialog.FileName + "'.");
+
                         // open file
                         Stream stream = null;
                         if ((stream = dialog.OpenFile()) != null)
@@ -410,6 +412,8 @@ namespace JoinFS
                 {
                     try
                     {
+                        main.MonitorEvent("Recorder: appending recording file '" + dialog.FileName + "'.");
+
                         // open file
                         Stream stream = null;
                         if ((stream = dialog.OpenFile()) != null)
