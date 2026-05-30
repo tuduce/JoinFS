@@ -43,6 +43,7 @@ namespace JoinFS
                     break;
                 case 0xC00000B0:
                     main.MonitorEvent("Lost connection to simulator");
+                    main.recorder?.NotifySimulatorError("Lost connection to simulator");
                     lock (main.conch)
                     {
                         // close simconnect
@@ -51,6 +52,7 @@ namespace JoinFS
                     break;
                 default:
                     main.MonitorEvent("SIMCONNECT ERROR - " + ex.Message);
+                    main.recorder?.NotifySimulatorError("SIMCONNECT ERROR - " + ex.Message);
                     break;
             }
         }
