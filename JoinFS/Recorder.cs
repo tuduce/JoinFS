@@ -549,6 +549,8 @@ namespace JoinFS
             /// Is the time offset valid
             /// </summary>
             public bool timeOffsetValid = false;
+            public Vector playbackAngles = new();
+            public bool playbackAnglesValid = false;
 
             /// <summary>
             /// Next ID
@@ -604,6 +606,7 @@ namespace JoinFS
             {
                 // start at beginning
                 frameIndex = 0;
+                playbackAnglesValid = false;
                 // start playing
                 playing = true;
             }
@@ -615,6 +618,7 @@ namespace JoinFS
             {
                 // stop playing
                 playing = false;
+                playbackAnglesValid = false;
                 // sort frames
                 frames.Sort(delegate(Frame f1, Frame f2) { return f1.time.CompareTo(f2.time); });
             }
@@ -1380,6 +1384,175 @@ namespace JoinFS
             }
         }
 
+        static bool IsPositionFrame(Frame frame) => frame.type == FrameType.ObjectPosition || frame.type == FrameType.AircraftPosition;
+
+        static float Lerp(float a, float b, double t) => (float)(a + (b - a) * t);
+        static double Lerp(double a, double b, double t) => a + (b - a) * t;
+        static double Blend(Frame from, Frame to, double time)
+        {
+            double dt = to.time - from.time;
+            return dt > 0.000001 ? Math.Clamp((time - from.time) / dt, 0.0, 1.0) : 0.0;
+        }
+
+        static Vector SlerpEuler(float pitch0, float heading0, float bank0, float pitch1, float heading1, float bank1, double t)
+        {
+            Quaternion from = Quaternion.FromEuler(new Vector(pitch0, heading0, bank0));
+            Quaternion to = Quaternion.FromEuler(new Vector(pitch1, heading1, bank1));
+            Quaternion blended = Quaternion.Slerp(from, to, t);
+            blended.Normalize();
+            return blended.ToEuler();
+        }
+
+        Vector InterpolateAngles(Obj obj, float pitch0, float heading0, float bank0, float pitch1, float heading1, float bank1, double t)
+        {
+            bool nearGimbal = Math.Abs(Math.Abs(pitch0) - Math.PI * 0.5) < 0.08 || Math.Abs(Math.Abs(pitch1) - Math.PI * 0.5) < 0.08;
+
+            Vector angles = nearGimbal
+                ? new Vector
+                (
+                    pitch0 + Vector.AngleDelta(pitch0, pitch1) * t,
+                    heading0 + Vector.AngleDelta(heading0, heading1) * t,
+                    bank0 + Vector.AngleDelta(bank0, bank1) * t
+                )
+                : SlerpEuler(pitch0, heading0, bank0, pitch1, heading1, bank1, t);
+
+            if (obj.playbackAnglesValid)
+            {
+                angles.x = obj.playbackAngles.x + Vector.AngleDelta(obj.playbackAngles.x, angles.x);
+                angles.y = obj.playbackAngles.y + Vector.AngleDelta(obj.playbackAngles.y, angles.y);
+                angles.z = obj.playbackAngles.z + Vector.AngleDelta(obj.playbackAngles.z, angles.z);
+            }
+
+            obj.playbackAngles = angles;
+            obj.playbackAnglesValid = true;
+
+            return angles;
+        }
+
+        static Sim.ObjectPositionVelocity Interpolate(ObjectPositionFrame from, ObjectPositionFrame to, double t, Vector angles)
+        {
+            Sim.ObjectPositionVelocity a = from.data;
+            Sim.ObjectPositionVelocity b = to.data;
+
+            return new Sim.ObjectPositionVelocity
+            {
+                latitude = Lerp(a.latitude, b.latitude, t),
+                longitude = Lerp(a.longitude, b.longitude, t),
+                altitude = Lerp(a.altitude, b.altitude, t),
+                pitch = (float)angles.x,
+                heading = (float)angles.y,
+                bank = (float)angles.z,
+                velocityX = Lerp(a.velocityX, b.velocityX, t),
+                velocityY = Lerp(a.velocityY, b.velocityY, t),
+                velocityZ = Lerp(a.velocityZ, b.velocityZ, t),
+                angularVelocityX = Lerp(a.angularVelocityX, b.angularVelocityX, t),
+                angularVelocityY = Lerp(a.angularVelocityY, b.angularVelocityY, t),
+                angularVelocityZ = Lerp(a.angularVelocityZ, b.angularVelocityZ, t),
+                accelerationX = Lerp(a.accelerationX, b.accelerationX, t),
+                accelerationY = Lerp(a.accelerationY, b.accelerationY, t),
+                accelerationZ = Lerp(a.accelerationZ, b.accelerationZ, t),
+                height = Lerp(a.height, b.height, t),
+                ground = t < 0.5 ? a.ground : b.ground
+            };
+        }
+
+        static Sim.AircraftPosition Interpolate(AircraftPositionFrame from, AircraftPositionFrame to, double t, Vector angles)
+        {
+            Sim.AircraftPosition a = from.data;
+            Sim.AircraftPosition b = to.data;
+
+            return new Sim.AircraftPosition
+            {
+                latitude = Lerp(a.latitude, b.latitude, t),
+                longitude = Lerp(a.longitude, b.longitude, t),
+                altitude = Lerp(a.altitude, b.altitude, t),
+                pitch = (float)angles.x,
+                heading = (float)angles.y,
+                bank = (float)angles.z,
+                velocityX = Lerp(a.velocityX, b.velocityX, t),
+                velocityY = Lerp(a.velocityY, b.velocityY, t),
+                velocityZ = Lerp(a.velocityZ, b.velocityZ, t),
+                angularVelocityX = Lerp(a.angularVelocityX, b.angularVelocityX, t),
+                angularVelocityY = Lerp(a.angularVelocityY, b.angularVelocityY, t),
+                angularVelocityZ = Lerp(a.angularVelocityZ, b.angularVelocityZ, t),
+                accelerationX = Lerp(a.accelerationX, b.accelerationX, t),
+                accelerationY = Lerp(a.accelerationY, b.accelerationY, t),
+                accelerationZ = Lerp(a.accelerationZ, b.accelerationZ, t),
+                rudder = Lerp(a.rudder, b.rudder, t),
+                elevator = Lerp(a.elevator, b.elevator, t),
+                aileron = Lerp(a.aileron, b.aileron, t),
+                brakeLeft = Lerp(a.brakeLeft, b.brakeLeft, t),
+                brakeRight = Lerp(a.brakeRight, b.brakeRight, t),
+                elevation = Lerp(a.elevation, b.elevation, t),
+                ground = t < 0.5 ? a.ground : b.ground
+            };
+        }
+
+        void UpdateInterpolatedPosition(Obj obj, double time)
+        {
+            Frame previous = null;
+            Frame next = null;
+
+            for (int i = Math.Min(obj.frameIndex - 1, obj.frames.Count - 1); i >= 0; i--)
+            {
+                if (IsPositionFrame(obj.frames[i]))
+                {
+                    previous = obj.frames[i];
+                    break;
+                }
+            }
+
+            for (int i = Math.Max(obj.frameIndex, 0); i < obj.frames.Count; i++)
+            {
+                if (IsPositionFrame(obj.frames[i]))
+                {
+                    next = obj.frames[i];
+                    break;
+                }
+            }
+
+            if (previous == null && next == null)
+            {
+                return;
+            }
+
+            previous ??= next;
+            next ??= previous;
+
+            if (obj is Aircraft aircraft)
+            {
+                AircraftPositionFrame from = previous as AircraftPositionFrame;
+                AircraftPositionFrame to = next as AircraftPositionFrame;
+                if (from != null && to != null)
+                {
+                    double t = Blend(from, to, time);
+                    Vector angles = InterpolateAngles(obj, from.data.pitch, from.data.heading, from.data.bank, to.data.pitch, to.data.heading, to.data.bank, t);
+                    Sim.AircraftPosition data = Interpolate(from, to, t, angles);
+#if FS2024
+                    main.sim?.UpdateAircraft(new LocalNode.Nuid(), obj.id, false, aircraft.plane, aircraft.callsign, aircraft.nickname, aircraft.model, aircraft.livery, aircraft.typerole, time, ref data);
+#else
+                    main.sim?.UpdateAircraft(new LocalNode.Nuid(), obj.id, false, aircraft.plane, aircraft.callsign, aircraft.nickname, aircraft.model, aircraft.typerole, time, ref data);
+#endif
+                }
+            }
+            else
+            {
+                ObjectPositionFrame from = previous as ObjectPositionFrame;
+                ObjectPositionFrame to = next as ObjectPositionFrame;
+                if (from != null && to != null)
+                {
+                    double t = Blend(from, to, time);
+                    Vector angles = InterpolateAngles(obj, from.data.pitch, from.data.heading, from.data.bank, to.data.pitch, to.data.heading, to.data.bank, t);
+                    Sim.ObjectPositionVelocity data = Interpolate(from, to, t, angles);
+#if FS2024
+                    main.sim?.UpdateObject(new LocalNode.Nuid(), obj.id, obj.model, obj.livery, obj.typerole, time, ref data);
+#else
+                    main.sim?.UpdateObject(new LocalNode.Nuid(), obj.id, obj.model, obj.typerole, time, ref data);
+#endif
+                }
+            }
+        }
+
         /// <summary>
         /// Do work
         /// </summary>
@@ -1400,38 +1573,24 @@ namespace JoinFS
                             // touch object
                             main.sim ?. TouchObject(new LocalNode.Nuid(), obj.id);
                         }
-                        // check if position velocity index is valid
-                        else if (obj.frameIndex < obj.frames.Count)
+                        else
                         {
-                            // get frame
-                            Frame frame = obj.frames[obj.frameIndex];
-                            // check if time has passed the current frame
-                            if (Time > frame.time)
+                            // process all due frames at current playback time
+                            while (obj.frameIndex < obj.frames.Count)
                             {
+                                // get frame
+                                Frame frame = obj.frames[obj.frameIndex];
+                                // wait for frame time
+                                if (Time <= frame.time)
+                                {
+                                    break;
+                                }
+
                                 // check frame type
                                 switch (frame.type)
                                 {
                                     case FrameType.ObjectPosition:
-                                        {
-                                            // update position
-#if FS2024
-                                            main.sim ?. UpdateObject(new LocalNode.Nuid(), obj.id, obj.model, obj.livery, obj.typerole, frame.time, ref (frame as ObjectPositionFrame).data);
-#else
-                                            main.sim ?. UpdateObject(new LocalNode.Nuid(), obj.id, obj.model, obj.typerole, frame.time, ref (frame as ObjectPositionFrame).data);
-#endif
-                                        }
-                                        break;
                                     case FrameType.AircraftPosition:
-                                        {
-                                            // aircraft
-                                            Aircraft aircraft = obj as Aircraft;
-                                            // position
-#if FS2024
-                                            main.sim ?. UpdateAircraft(new LocalNode.Nuid(), obj.id, false, aircraft.plane, aircraft.callsign, aircraft.nickname, aircraft.model, aircraft.livery, aircraft.typerole, frame.time, ref (frame as AircraftPositionFrame).data);
-#else
-                                            main.sim ?. UpdateAircraft(new LocalNode.Nuid(), obj.id, false, aircraft.plane, aircraft.callsign, aircraft.nickname, aircraft.model, aircraft.typerole, frame.time, ref (frame as AircraftPositionFrame).data);
-#endif
-                                        }
                                         break;
                                     case FrameType.SimEvent:
                                         main.sim ?. UpdateAircraft(new LocalNode.Nuid(), obj.id, (frame as SimEventFrame).eventId, (frame as SimEventFrame).data, true);
@@ -1449,13 +1608,18 @@ namespace JoinFS
                                 // next frame
                                 obj.frameIndex++;
                             }
-                        }
-                        else
-                        {
-                            // stop aircraft
-                            obj.StopPlaying();
-                            // remove recorded object from sim
-                            main.sim ?. RemoveObject(new LocalNode.Nuid(), obj.id);
+
+                            // continuously update interpolated position
+                            UpdateInterpolatedPosition(obj, Time);
+
+                            // end object playback when all frames are consumed
+                            if (obj.frameIndex >= obj.frames.Count)
+                            {
+                                // stop aircraft
+                                obj.StopPlaying();
+                                // remove recorded object from sim
+                                main.sim ?. RemoveObject(new LocalNode.Nuid(), obj.id);
+                            }
                         }
                     }
                 }
