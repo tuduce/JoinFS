@@ -1406,8 +1406,9 @@ namespace JoinFS
         Vector InterpolateAngles(Obj obj, float pitch0, float heading0, float bank0, float pitch1, float heading1, float bank1, double t)
         {
             bool nearGimbal = Math.Abs(Math.Abs(pitch0) - Math.PI * 0.5) < 0.08 || Math.Abs(Math.Abs(pitch1) - Math.PI * 0.5) < 0.08;
+            bool wrappedAxis = Math.Abs(pitch1 - pitch0) > Math.PI || Math.Abs(heading1 - heading0) > Math.PI || Math.Abs(bank1 - bank0) > Math.PI;
 
-            Vector angles = nearGimbal
+            Vector angles = (nearGimbal || wrappedAxis)
                 ? new Vector
                 (
                     pitch0 + Vector.AngleDelta(pitch0, pitch1) * t,
