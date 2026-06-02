@@ -4748,6 +4748,12 @@ namespace JoinFS
         /// </summary>
         readonly Timer checkConnectionTimer = new(20.0);
 
+        // track previous connected state so we can detect transitions
+        bool previousConnected = false;
+
+        // whether we've already attempted auto-network-join for the current simulator connection
+        bool autoNetworkJoinAttempted = false;
+
         /// <summary>
         /// Connection attempts
         /// </summary>
@@ -5250,6 +5256,37 @@ namespace JoinFS
 
             // increment count
             workCount++;
+
+            // detect connection state transitions to trigger auto network join
+            bool connectedNow = Connected;
+            if (!previousConnected && connectedNow)
+            {
+                // we just connected
+                autoNetworkJoinAttempted = false;
+            }
+
+            if (connectedNow && !autoNetworkJoinAttempted)
+            {
+                // only attempt once per connection
+                autoNetworkJoinAttempted = true;
+
+                // if user requested Connect on Launch, try to join the selected hub/address
+                try
+                {
+                    if (main.settingsConnectOnLaunch)
+                    {
+                        // Use the persisted join address (reflects the selected dropdown entry). If empty, do nothing.
+                        string joinText = Settings.Default.JoinAddress;
+                        if (!string.IsNullOrWhiteSpace(joinText))
+                        {
+                            main.EnqueueCommand(() => main.Join(joinText.TrimStart(' ').TrimEnd(' ')));
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            previousConnected = connectedNow;
         }
 
 #endregion
