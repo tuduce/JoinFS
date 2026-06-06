@@ -45,3 +45,8 @@ To the maximum extent permitted by applicable law, in no event shall the author 
 You are solely responsible for all costs and expenses associated with rectification, repair or damage caused by such errors.
 
 You must assume the entire risk of using the SOFTWARE.
+
+# run console
+```
+dotnet .\JoinFS\bin\CONSOLE\net8.0\JoinFS-CONSOLE.dll --create --hub --hubname "FSC e.V. Test" --nosim --nogui --background --whazzup-public --websocket --websocketport 8765 --comswebhookuri http://localhost/tsapi/usertochannel 
+```

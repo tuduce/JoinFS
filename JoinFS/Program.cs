@@ -113,6 +113,13 @@ namespace JoinFS
 
 #if CONSOLE
         public bool settingsBackground = false;
+        public string settingsComsWebhookUri = "";
+        public string settingsComsWebhookMethod = "PUT";
+        public bool settingsWebSocket = false;
+        public int settingsWebSocketPort = 8765;
+        public bool settingsWebSocketLog = false;
+        WebhookService webhookService;
+        WebSocketServer webSocketServer;
 #endif
 
         /// <summary>
@@ -162,7 +169,9 @@ namespace JoinFS
                 MonitorEvent("Closed UDP port " + network.localNode.GetLocalNuid().port);
             }
             sim ?. Close();
-
+#if CONSOLE
+            webSocketServer?.Close();
+#endif
             // save settings
             Settings.Default.Save();
         }
@@ -528,6 +537,29 @@ namespace JoinFS
                                 settingsBackground = true;
                                 break;
 
+                            case "-comswebhookuri":
+                                index++;
+                                if (index < args.Length) settingsComsWebhookUri = args[index];
+                                break;
+
+                            case "-comswebhookmethod":
+                                index++;
+                                if (index < args.Length) settingsComsWebhookMethod = args[index].ToUpper();
+                                break;
+
+                            case "-websocket":
+                                settingsWebSocket = true;
+                                break;
+
+                            case "-websocketport":
+                                index++;
+                                if (index < args.Length && int.TryParse(args[index], out int wsPort)) settingsWebSocketPort = wsPort;
+                                break;
+
+                            case "-websocketlog":
+                                settingsWebSocketLog = true;
+                                break;
+
                             case "-help":
                                 Console.WriteLine(name + " (" + version + ")");
                                 Console.WriteLine("");
@@ -570,6 +602,11 @@ namespace JoinFS
                                 Console.WriteLine("  --tcas                 " + Resources.Strings.Tip_TCAS);
                                 Console.WriteLine("  --quit                 " + Resources.Strings.Options_Quit);
                                 Console.WriteLine("  --help                 " + Resources.Strings.Options_Help);
+                                Console.WriteLine("  --comswebhookuri <uri> Send COM1/COM2 changes as webhook POST/PUT/PATCH/GET to this URI");
+                                Console.WriteLine("  --comswebhookmethod    HTTP method for COM webhook (POST|PUT|PATCH|GET, default PUT)");
+                                Console.WriteLine("  --websocket            Enable WebSocket server broadcasting aircraft data");
+                                Console.WriteLine("  --websocketport <port> WebSocket server port (default 8765)");
+                                Console.WriteLine("  --websocketlog         Log WebSocket events and webhook calls (default false)");
                                 Console.WriteLine("");
                                 Console.WriteLine("Interactive key commands:");
                                 Console.WriteLine("");
@@ -829,6 +866,10 @@ namespace JoinFS
                 // start work thread
                 _workThread = new Thread(new ThreadStart(DoWork));
                 _workThread.Start();
+#if CONSOLE
+                webhookService = settingsComsWebhookUri.Length > 0 ? new WebhookService(this) : null;
+                webSocketServer = settingsWebSocket ? new WebSocketServer(this) : null;
+#endif
             }
             catch (Exception ex)
             {
@@ -947,6 +988,10 @@ namespace JoinFS
                     euroscope.DoWork();
                     whazzup.DoWork();
                     notes.DoWork();
+#if CONSOLE
+                    webhookService?.DoWork();
+                    webSocketServer?.DoWork();
+#endif
 
                     // Process all pending commands
                     while (_commandQueue.TryDequeue(out Action command))

@@ -48,6 +48,11 @@ Usage: dotnet JoinFS-CONSOLE.dll [options]
   --tcas                 Enable TCAS in X-Plane to allow map support. Aircraft will be acquired by the plugin which may interfere with other plugins.
   --quit                 Terminate all instances of JoinFS currently running on this machine.
   --help                 Show usage details.
+  --comswebhookuri <uri> Send a webhook when COM1 or COM2 changes on any connected aircraft. The payload is a JSON object {"comsupdate":[{"callsign":"...","nickname":"...","com1":"...","com2":"..."}]}.
+  --comswebhookmethod    HTTP method used for the COM webhook (POST|PUT|PATCH|GET). Default is PUT.
+  --websocket            Enable the WebSocket server. Clients can subscribe to real-time aircraft data updates at ws://<host>:<port>/ws/
+  --websocketport <port> Port for the WebSocket server (default 8765). Change this to avoid conflicts with other services on the same host.
+  --websocketlog         Log WebSocket client connect/disconnect events and webhook calls to the monitor log. Disabled by default.
 
 Interactive key commands:
 
