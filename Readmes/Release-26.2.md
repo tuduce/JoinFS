@@ -3,6 +3,10 @@
 - Increased the rate at which the position (20Hz) and the variables (5Hz) are sent over the network or recorded.
 - Added logging around the recorder functionality to help with debugging issues related to recording and replaying flights.
 
+## Sunset Features
+
+- The "AI-enhanced model matching" feature is no longer available.
+
 ## Bug Fixes
 
 - Fixed jittering of recorded flights when replaying them.
