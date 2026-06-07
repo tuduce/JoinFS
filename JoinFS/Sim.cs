@@ -3883,7 +3883,7 @@ namespace JoinFS
         public string GetSimulatorName()
         {
 #if XPLANE || CONSOLE
-            return main.settingsXplane ? "X-Plane" : Resources.Strings.NotConnected;
+            return (Connected && main.settingsXplane) ? "X-Plane" : Resources.Strings.NotConnected;
 #else
             return (Connected && simulatorName != "") ? simulatorName : Resources.Strings.NotConnected;
 #endif
