@@ -5,7 +5,7 @@
 
 ## Bug Fixes
 
-
+- Fixed jittering of recorded flights when replaying them.
 
 ## Limitations
 The `FSX` and `P3D` variants are built for the x86 (32bit) architecture. Since the Microsoft.ML package does not currently offer a x86 variant, the AI-enchanced model matching is not included for `FSX` or `P3D`.
