@@ -3966,16 +3966,17 @@ namespace JoinFS
             {
                 main.MonitorEvent("All models from the simulator ingested.");
 
-                if (main.settingsUseAIFeatures)
-                {
-                    main.EnqueueCommand(async () =>
-                    {
-                        await main.substitution.enrichModelService.EnrichModelsWithDetailsAsync(main.substitution.models);
-                        main.MonitorEvent("Model data enriched");
-                        await main.substitution.embeddingService.GenerateEmbeddingsFromModelsAsync(main.substitution.models);
-                        main.MonitorEvent("Model data embedded");
-                    });
-                }
+                // TODO: cleanup code
+                //if (main.settingsUseAIFeatures)
+                //{
+                //    main.EnqueueCommand(async () =>
+                //    {
+                //        await main.substitution.enrichModelService.EnrichModelsWithDetailsAsync(main.substitution.models);
+                //        main.MonitorEvent("Model data enriched");
+                //        await main.substitution.embeddingService.GenerateEmbeddingsFromModelsAsync(main.substitution.models);
+                //        main.MonitorEvent("Model data embedded");
+                //    });
+                //}
 
                 requestModelListInProgress = false;
 
