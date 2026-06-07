@@ -2,21 +2,10 @@
 using System.Collections.Generic;
 #if !CONSOLE
 using System.Windows.Forms;
-using System.Windows.Forms.VisualStyles;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TextBox;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 #endif
 using System.IO;
 using System.Globalization;
 using JoinFS.Properties;
-using System.Net.NetworkInformation;
-using System.Drawing;
-using System.Net.Sockets;
-using static System.Net.Mime.MediaTypeNames;
-using System.Security.Policy;
-using System.Net;
-using JoinFS.Helpers;
-using JoinFS.DataModel;
 using System.Net.Http;
 using System.Threading.Tasks;
 
@@ -182,7 +171,8 @@ namespace JoinFS
             public string folder;
             public int typerole;
             public int smokeCount;
-            public EnrichedAircraftData enrichedData = null;
+            // TODO: cleanup code
+            // public EnrichedAircraftData enrichedData = null;
             public float[] embedding = null;
 
             public Model(string title, string manufacturer, string type, string variation, int index, string typerole, string smoke, string folder)

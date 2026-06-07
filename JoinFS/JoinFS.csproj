@@ -216,15 +216,7 @@
     <Compile Remove="Properties\Settings1.Designer.cs" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="FastBertTokenizer" Version="1.0.28" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-  </ItemGroup>
-
   <!-- Exclude Microsoft.ML.OnnxRuntime for x86 builds -->
-  <ItemGroup Condition=" '$(PlatformTarget)' != 'x86' ">
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.23.2" />
-  </ItemGroup>
 
   <!-- Configure .resx files with custom tool -->
   <ItemGroup>
@@ -253,11 +245,6 @@
   </ItemGroup>
 
   <!-- Copy AIModel folder to output directory -->
-  <ItemGroup>
-    <Content Include="AIModel\**\*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
   <ItemGroup>
     <Compile Remove="Installer\**" />
     <EmbeddedResource Remove="Installer\**" />
