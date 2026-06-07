@@ -5,13 +5,6 @@ using System.Text.RegularExpressions;
 using System.IO;
 using System.Globalization;
 using JoinFS.Properties;
-// using System.Runtime.ExceptionServices;
-using System.Linq;
-using JoinFS.DataModel;
-using static JoinFS.Substitution;
-using System.Reflection;
-using System.Diagnostics;
-using System.Threading.Tasks;
 
 
 
