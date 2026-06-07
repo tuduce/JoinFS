@@ -186,6 +186,8 @@ namespace JoinFS
         {
             try
             {
+                UpgradeSettingsIfRequired();
+
                 // get product name and file version
                 Assembly assembly = Assembly.GetExecutingAssembly();
                 // get name
@@ -833,6 +835,16 @@ namespace JoinFS
             catch (Exception ex)
             {
                 shutdown = "ERROR - " + ex.Message;
+            }
+        }
+
+        static void UpgradeSettingsIfRequired()
+        {
+            if (Settings.Default.MigratedSettings == false)
+            {
+                Settings.Default.Upgrade();
+                Settings.Default.MigratedSettings = true;
+                Settings.Default.Save();
             }
         }
 
