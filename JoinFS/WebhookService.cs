@@ -87,6 +87,9 @@ namespace JoinFS
             {
                 try
                 {
+                    if (log)
+                        main.monitor.Write($"Webhook {method} {uri}\n{json}");
+
                     var content = new StringContent(json, Encoding.UTF8, "application/json");
                     HttpResponseMessage response = method switch
                     {

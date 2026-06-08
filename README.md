@@ -50,3 +50,138 @@ You must assume the entire risk of using the SOFTWARE.
 ```
 dotnet .\JoinFS\bin\CONSOLE\net8.0\JoinFS-CONSOLE.dll --create --hub --hubname "FSC e.V. Test" --nosim --nogui --background --whazzup-public --websocket --websocketport 8765 --comswebhookuri http://localhost/tsapi/usertochannel 
 ```
+
+## WebSocket Server
+
+The CONSOLE build includes an integrated WebSocket server that broadcasts live aircraft state to any connected client whenever something changes.
+
+### CLI parameters
+
+| Parameter | Default | Description |
+|---|---|---|
+| `--websocket` | *(disabled)* | Enable the WebSocket server |
+| `--websocketport <port>` | `8765` | Port to listen on |
+| `--websocketlog` | *(disabled)* | Log connection events, sent messages, and webhook calls to the monitor |
+
+Connect to `ws://<host>:<port>/ws/`. The server tries to bind on all interfaces; if that requires elevated permissions on Windows, it falls back to `localhost` only. To allow remote access without running as admin:
+
+```
+netsh http add urlacl url=http://+:8765/ws/ user=Everyone
+```
+
+### Message format — `aircraft_update`
+
+Sent whenever one or more aircraft change state (position, frequencies, lights, engines, etc.). Also sent once on first appearance. Sources are locally-connected sim aircraft and, when `--whazzup-public` is active, global hub users.
+
+```json
+{
+  "type": "aircraft_update",
+  "aircraft": [
+    {
+      "callsign": "DAL123",
+      "nickname": "PlayerName",
+      "guid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+      "latitude": 51.476852,
+      "longitude": -0.461111,
+      "altitude": 35000,
+      "speed": 450.3,
+      "heading": 270,
+      "com1": "121.500",
+      "com2": "119.100",
+      "squawk": "2000",
+      "icaoType": "B738",
+      "from": "EGLL",
+      "to": "KJFK",
+      "rules": "IFR",
+      "route": "BCN UL9 ...",
+      "remarks": "",
+      "gear": 0,
+      "flaps": 0.000,
+      "lights": {
+        "nav": 1,
+        "beacon": 1,
+        "landing": 0,
+        "taxi": 0,
+        "strobe": 1
+      },
+      "engines": {
+        "eng1Running": true,
+        "eng2Running": true,
+        "eng3Running": false,
+        "eng4Running": false
+      },
+      "rotorRpm": 0.0
+    }
+  ]
+}
+```
+
+#### Field reference
+
+| Field | Type | Unit / notes |
+|---|---|---|
+| `callsign` | string | ATC callsign from flight plan |
+| `nickname` | string | JoinFS display name of the pilot |
+| `guid` | string | Stable UUID identifying this pilot session |
+| `latitude` | number | Degrees, 6 decimal places |
+| `longitude` | number | Degrees, 6 decimal places |
+| `altitude` | number | Feet MSL, rounded to the nearest foot |
+| `speed` | number | Knots (ground speed), 1 decimal place |
+| `heading` | integer | Degrees magnetic, 0–359 |
+| `com1` / `com2` | string | Active COM frequency, e.g. `"121.500"` |
+| `squawk` | string | Transponder code, e.g. `"2000"` |
+| `icaoType` | string | ICAO aircraft type designator, e.g. `"B738"` |
+| `from` / `to` | string | Departure / destination ICAO |
+| `rules` | string | `"IFR"` or `"VFR"` |
+| `route` / `remarks` | string | Flight plan route and remarks |
+| `gear` | integer | `1` = down/locked, `0` = up |
+| `flaps` | number | Left trailing-edge flaps, 0.0–1.0 |
+| `lights.nav` | integer | `1` = on, `0` = off |
+| `lights.beacon` | integer | `1` = on, `0` = off |
+| `lights.landing` | integer | `1` = on, `0` = off |
+| `lights.taxi` | integer | `1` = on, `0` = off |
+| `lights.strobe` | integer | `1` = on, `0` = off |
+| `engines.eng1Running`–`eng4Running` | boolean | Whether each engine is running |
+| `rotorRpm` | number | Rotor RPM (helicopters), 1 decimal place |
+
+---
+
+## COM Frequency Webhook
+
+The CONSOLE build can call an HTTP endpoint whenever a pilot changes their active COM1 or COM2 frequency. This is useful for integrating with TeamSpeak bots, Discord bots, or any other kind of radio-switching automation.
+
+### CLI parameters
+
+| Parameter | Default | Description |
+|---|---|---|
+| `--comswebhookuri <uri>` | *(disabled)* | URI to call on COM frequency changes (enables the webhook) |
+| `--comswebhookmethod <method>` | `PUT` | HTTP method: `POST`, `PUT`, `PATCH`, or `GET` |
+| `--websocketlog` | *(disabled)* | Log the outgoing request body and HTTP response code |
+
+### Payload format
+
+The body is sent as `application/json`. Multiple aircraft whose frequencies changed in the same polling cycle are batched into a single request.
+
+```json
+{
+  "comsupdate": [
+    {
+      "callsign": "DAL123",
+      "nickname": "PlayerName",
+      "com1": "121.500",
+      "com2": "119.100"
+    }
+  ]
+}
+```
+
+#### Field reference
+
+| Field | Type | Description |
+|---|---|---|
+| `callsign` | string | ATC callsign from flight plan |
+| `nickname` | string | JoinFS display name of the pilot |
+| `com1` | string | New active COM1 frequency, e.g. `"121.500"` |
+| `com2` | string | New active COM2 frequency, e.g. `"119.100"` |
+
+The webhook fires only on actual frequency **changes** — the first-seen state for each aircraft is recorded silently and no initial call is made.
