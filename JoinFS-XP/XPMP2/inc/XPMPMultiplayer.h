@@ -12,7 +12,7 @@
 ///             XPMP2 is a library allowing an X-Plane plugin to have
 ///             planes rendered in X-Plane's 3D world based on OBJ8
 ///             CSL models, which need to be installed separately.
-///             The plugin shall subclass XPMP2::Aircraft:: and override
+///             The plugin shall subclass XPMP2::Aircraft and override
 ///             the abstract virtual function XPMP2::Aircraft::UpdatePosition()
 ///             to provide updated position and attitude information.
 ///             XPMP2 takes care of reading and initializaing CSL models,
@@ -23,6 +23,9 @@
 /// @see        For more developer's information see
 ///             https://twinfan.github.io/XPMP2/
 ///
+/// @see        Sample and "How to" available, see
+///             https://twinfan.github.io/XPMP2/HowTo.html
+///
 /// @see        For TCAS Override approach see
 ///             https://developer.x-plane.com/article/overriding-tcas-and-providing-traffic-information/
 ///
@@ -32,10 +35,15 @@
 /// @see        For a list of ICAO airline/operator codes see
 ///             https://en.wikipedia.org/wiki/List_of_airline_codes
 ///
+/// @note       If built with `INCLUDE_FMOD_SOUND=1` then
+///             Audio Engine is FMOD Core API by Firelight Technologies Pty Ltd.
+///             Understand FMOD [licensing](https://www.fmod.com/licensing) and
+///             [attribution requirements](https://www.fmod.com/attribution) first!
+///
 /// @author     Ben Supnik and Chris Serio
 /// @copyright  Copyright (c) 2004, Ben Supnik and Chris Serio.
 /// @author     Birger Hoppe
-/// @copyright  (c) 2020 Birger Hoppe
+/// @copyright  (c) 2020-2026 Birger Hoppe
 /// @copyright  Permission is hereby granted, free of charge, to any person obtaining a
 ///             copy of this software and associated documentation files (the "Software"),
 ///             to deal in the Software without restriction, including without limitation
@@ -56,7 +64,15 @@
 #define _XPLMMultiplayer_h_
 
 #include <string>
+#include <cmath>
 #include "XPLMDefs.h"
+#include "XPMPExport.h"
+
+// Suppress warnings on member attributes needing to have dll-interface
+#if _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4251 4275)
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -76,7 +92,7 @@ namespace XPMP2 { class Aircraft; }
 ///        (class XPCAircraft and direct use of callback functions.)
 /// @note  There is no notion of aircraft velocity or acceleration; you will be queried for
 ///        your position every rendering frame.  Higher level APIs can use velocity and acceleration.
-struct XPMPPlanePosition_t {
+struct XPMP2_EXPORT XPMPPlanePosition_t {
     long    size            = sizeof(XPMPPlanePosition_t);  ///< size of structure
     double  lat             = 0.0;                      ///< current position of aircraft (latitude)
     double  lon             = 0.0;                      ///< current position of aircraft (longitude)
@@ -95,7 +111,7 @@ struct XPMPPlanePosition_t {
 
 /// @brief Light flash patterns
 /// @note Unused in XPMP2
-/// @note Not changed to proper enum type as it is used in bitfields in xpmp_LightStatus,
+/// @note Now changed to proper enum type as it is used in bitfields in XPMP2::xpmp_LightStatus,
 ///       which causes misleading, non-suppressable warnings in gcc:\n
 ///       https://gcc.gnu.org/bugzilla/show_bug.cgi?id=51242
 enum {
@@ -116,7 +132,7 @@ typedef unsigned int XPMPLightsPattern;     ///< Light flash pattern (unused in 
 /// @brief Defines, which lights of the aircraft are on
 /// @note  This structure is only used with deprecated concepts
 ///        (class XPCAircraft and direct use of callback functions.)
-union xpmp_LightStatus {
+union XPMP2_EXPORT xpmp_LightStatus {
     unsigned int lightFlags = 0x150000;     ///< this defaults to taxi | beacon | nav lights on
     struct {
         unsigned int timeOffset : 16;       ///< time offset to avoid lights across planes blink in sync (unused in XPMP2)
@@ -144,7 +160,7 @@ union xpmp_LightStatus {
 /// @details    This data structure will contain information about the external physical configuration of the plane,
 ///             things you would notice if you are seeing it from outside.  This includes flap position, gear position,
 ///             etc.
-struct XPMPPlaneSurfaces_t {
+struct XPMP2_EXPORT XPMPPlaneSurfaces_t {
     long                  size = sizeof(XPMPPlaneSurfaces_t);   ///< structure size
     float                 gearPosition      = 0.0f;             ///< gear position [0..1]
     float                 flapRatio         = 0.0f;             ///< flap extension ratio [0..1]
@@ -174,29 +190,36 @@ struct XPMPPlaneSurfaces_t {
 
 
 /// @brief These enumerations define the way the transponder of a given plane is operating.
-/// @note Only information used by XPMP2 is `"mode != xpmpTransponderMode_Standby"`,
-///       in which case the plane is considered for TCAS display.
+/// @note XPMP2 considers plane for TCAS display if `"mode > xpmpTransponderMode_Standby".
+///       The actual value is forwarded to X-Plane as SSR Mode,
+///       which influence the way the aircraft shows up in TCAS display (XP >= 12.4.0);
+///       values defined by dataRef `sim/cockpit2/tcas/targets/ssr_mode`:
+///       "Transponder mode: off=0, stdby=1, on (mode A)=2, alt (mode C)=3, test=4, GND (mode S)=5, ta_only (mode S)=6, ta/ra=7"
 enum XPMPTransponderMode {
+    xpmpTransponderMode_Off = 0,        ///< transponder is off         not currently sending -> aircraft not visible on TCAS
     xpmpTransponderMode_Standby,        ///< transponder is in standby, not currently sending -> aircraft not visible on TCAS
-    xpmpTransponderMode_Mode3A,         ///< transponder is on
-    xpmpTransponderMode_ModeC,          ///< transponder is on
-    xpmpTransponderMode_ModeC_Low,      ///< transponder is on
-    xpmpTransponderMode_ModeC_Ident     ///< transponder is on
+    xpmpTransponderMode_ModeA,          ///< transponder is on, Mode A
+    xpmpTransponderMode_ModeC,          ///< transponder is on, Mode C (Alt)
+    xpmpTransponderMode_Test,           ///< transponder is on, Test
+    xpmpTransponderMode_ModeS_Gnd,      ///< transponder is on, Mode S (Gnd)
+    xpmpTransponderMode_ModeS_TAOnly,   ///< transponder is on, Mode S (TA-Only)
+    xpmpTransponderMode_ModeS_TARA,     ///< transponder is on, Mode S (TA/RA)
 };
 
 
 /// @brief defines information about an aircraft visible to radar.
-struct XPMPPlaneRadar_t {
+struct XPMP2_EXPORT XPMPPlaneRadar_t {
     long                    size = sizeof(XPMPPlaneRadar_t);    ///< structure size
     long                    code = 0;                           ///< current radar code, published via dataRef `sim/cockpit2/tcas/targets/modeC_code`
     XPMPTransponderMode     mode = xpmpTransponderMode_ModeC;   ///< current radar mode, if _not_ `xpmpTransponderMode_Standby` then is plane considered for TCAS display
+    const char*             GetModeStr() const;                 ///< returns the current transponder mode as human-readable text
 };
 
 
 /// @brief   Textual information of planes to be passed on
 ///          via shared dataRefs to other plugins.
 /// @details The texts are not used within XPMP2 in any way, just passed on to dataRefs
-struct XPMPInfoTexts_t {
+struct XPMP2_EXPORT XPMPInfoTexts_t {
     long size = sizeof(XPMPInfoTexts_t);///< structure size
     char tailNum[10]       = {0};       ///< registration, tail number
     char icaoAcType[5]     = {0};       ///< ICAO aircraft type designator, 3-4 chars
@@ -252,19 +275,33 @@ constexpr XPMPPlaneID MAX_MODE_S_ID = 0x00FFFFFF;
 * MARK: INITIALIZATION
 ************************************************************************************/
 
-// Config section is defined for legacy reasons only
+/// @name Configuration Sections
+///        Config section is defined for legacy reasons only
+/// @{
 #define XPMP_CFG_SEC_MODELS          "models"               ///< Config section "models"
 #define XPMP_CFG_SEC_PLANES          "planes"               ///< Config section "planes"
+#define XPMP_CFG_SEC_SOUND           "sound"                ///< Config section "sound"
 #define XPMP_CFG_SEC_DEBUG           "debug"                ///< Config section "debug"
+/// @}
 
-// Config key definitions
+/// @name Configuration Items
+///       Configuration Items are unique in itself even without considering the configuration section
+/// @{
 #define XPMP_CFG_ITM_REPLDATAREFS    "replace_datarefs"     ///< Config key: Replace dataRefs in OBJ8 files upon load, creating new OBJ8 files for XPMP2 (defaults to OFF!)
 #define XPMP_CFG_ITM_REPLTEXTURE     "replace_texture"      ///< Config key: Replace textures in OBJ8 files upon load if needed (specified on the OBJ8 line in xsb_aircraft.txt), creating new OBJ8 files
 #define XPMP_CFG_ITM_CLAMPALL        "clamp_all_to_ground"  ///< Config key: Ensure no plane sinks below ground, no matter of XPMP2::Aircraft::bClampToGround
 #define XPMP_CFG_ITM_HANDLE_DUP_ID   "handle_dup_id"        ///< Config key: Boolean: If XPMP2::Aircraft::modeS_id already exists then assign a new unique one, overwrites XPMP2::Aircraft::modeS_id
 #define XPMP_CFG_ITM_SUPPORT_REMOTE  "support_remote"       ///< Config key: Support remote connections? `<0` force off, `0` default: on if in a networked or multiplayer setup, `>0` force on
+#define XPMP_CFG_ITM_CONTR_MIN_ALT   "contrail_min_alt"     ///< Config key: Minimum altitude in feet for automatic contrail generation
+#define XPMP_CFG_ITM_CONTR_MAX_ALT   "contrail_max_alt"     ///< Config key: Maximum altitude in feet for automatic contrail generation, set both min and max altitude to `0` to switch off automatic contrails
+#define XPMP_CFG_ITM_CONTR_LIFE      "contrail_life_time"   ///< Config key: Default maximum lifetime of contrail puffs in seconds, determines contrail length
+#define XPMP_CFG_ITM_CONTR_MULTI     "contrail_multiple"    ///< Config key: Boolean: Shall multiple contrails be auto-created (one per engine), or just one (to safe FPS)?
+#define XPMP_CFG_ITM_ACTIVATE_SOUND  "activate_sound"       ///< Config key: Activate Sound upon initial startup? (No effect later)
+#define XPMP_CFG_ITM_FMOD_INSTANCE   "force_fmod_instance"  ///< Config key: Never use XP's FMOD instance, always create our own
+#define XPMP_CFG_ITM_MUTE_ON_PAUSE   "mute_on_pause"        ///< Config key: Mute all sound temporarily while X-Plane is in a paused state?
 #define XPMP_CFG_ITM_LOGLEVEL        "log_level"            ///< Config key: General level of logging into `Log.txt` (0 = Debug, 1 = Info, 2 = Warning, 3 = Error, 4 = Fatal)
-#define XPMP_CFG_ITM_MODELMATCHING   "model_matching"       ///< Config key: Write information on model matching into `Log.txt`
+#define XPMP_CFG_ITM_MODELMATCHING   "model_matching"       ///< Config key: Write information on model matching and sound selection into `Log.txt`
+/// @}
 
 /// @brief Definition for the type of configuration callback function
 /// @details The plugin using XPMP2 can provide such a callback function via XPMPMultiplayerInit().
@@ -277,8 +314,15 @@ constexpr XPMPPlaneID MAX_MODE_S_ID = 0x00FFFFFF;
 /// `planes  | clamp_all_to_ground | int  |    1    | Ensure no plane sinks below ground, no matter of XPMP2::Aircraft::bClampToGround`\n
 /// `planes  | handle_dup_id       | int  |    0    | Boolean: If XPMP2::Aircraft::modeS_id already exists then assign a new unique one, overwrites XPMP2::Aircraft::modeS_id`\n
 /// `planes  | support_remote      | int  |    0    | 3-state integer: Support remote connections? <0 force off, 0 default: on if in a networked or multiplayer setup, >0 force on`\n
+/// `planes  | contrail_min_alt    | int  |  25000  | Minimum altitude in feet for automatic contrail generation`\n
+/// `planes  | contrail_max_alt    | int  |  45000  | Maximum altitude in feet for automatic contrail generation, set both min and max altitude to 0 to switch off automatic contrails`\n
+/// `planes  | contrail_life_time  | int  |   25    | Default maximum lifetime of contrail puffs in seconds, determines contrail length`\n
+/// `planes  | contrail_multiple   | int  |    0    | Boolean: Shall multiple contrails be auto-created (one per engine), or just one (to safe FPS)?`\n
+/// `sound   | activate_sound      | int  |    1    | Activate Sound upon initial startup? (No effect later)`\n
+/// `sound   | force_fmod_instance | int  |    0    | Never use XP's FMOD instance, always create our own`\n
+/// `sound   | mute_on_pause       | int  |    1    | Mute all sound temporarily while X-Plane is in a paused state?`\n
 /// `debug   | log_level           | int  |    2    | General level of logging into Log.txt (0 = Debug, 1 = Info, 2 = Warning, 3 = Error, 4 = Fatal)`\n
-/// `debug   | model_matching      | int  |    0    | Write information on model matching into Log.txt`\n
+/// `debug   | model_matching      | int  |    0    | Write information on model matching and sound selection into Log.txt`\n
 /// @note There is no immediate requirement to check the value of `_section` in your implementation.
 ///       `_key` by itself is unique. Compare it with any of the `XPMP_CFG_ITM_*` values and return your value.
 /// @param _section Configuration section, ie. group of values, any of the `XPMP_CFG_SEC_...` values
@@ -287,18 +331,21 @@ constexpr XPMPPlaneID MAX_MODE_S_ID = 0x00FFFFFF;
 /// @return Your callback shall return your config value for config item `_key`
 typedef int (*XPMPIntPrefsFuncTy)(const char* _section, const char* _key, int _default);
 
+/// @name Initialization
+/// @{
+
 /// @brief Deprecated legacy initialization of XPMP2.
 /// @note Parameters changed compared to libxplanemp!
 /// @details Effectively calls, in this order,
 ///          XPMPMultiplayerInit() and XPMPLoadCSLPackage().
 /// @see XPMPMultiplayerInit() and XPMPLoadCSLPackage() for details on the parameters.
 [[deprecated("Use XPMPMultiplayerInit and XPMPLoadCSLPackages")]]
-const char *    XPMPMultiplayerInitLegacyData(const char* inCSLFolder,
-                                              const char* inPluginName,
-                                              const char* resourceDir,
-                                              XPMPIntPrefsFuncTy inIntPrefsFunc   = nullptr,
-                                              const char* inDefaultICAO           = nullptr,
-                                              const char* inPluginLogAcronym      = nullptr);
+XPMP2_EXPORT const char* XPMPMultiplayerInitLegacyData(const char* inCSLFolder,
+                                                       const char* inPluginName,
+                                                       const char* resourceDir,
+                                                       XPMPIntPrefsFuncTy inIntPrefsFunc   = nullptr,
+                                                       const char* inDefaultICAO           = nullptr,
+                                                       const char* inPluginLogAcronym      = nullptr);
 
 /// @brief Initializes the XPMP2 library. This shall be your first call to the library.
 /// @note Parameters changed compared to libxplanemp!
@@ -308,11 +355,11 @@ const char *    XPMPMultiplayerInitLegacyData(const char* inCSLFolder,
 /// @param inDefaultICAO (optional) A fallback aircraft type if no type can be deduced otherwise for an aircraft.
 /// @param inPluginLogAcronym (optional) A short text to be used in log output. If not given then `inPluginName` is used also for this purpose.
 /// @return Empty string in case of success, otherwise a human-readable error message.
-const char *    XPMPMultiplayerInit(const char* inPluginName,
-                                    const char* resourceDir,
-                                    XPMPIntPrefsFuncTy inIntPrefsFunc   = nullptr,
-                                    const char* inDefaultICAO           = nullptr,
-                                    const char* inPluginLogAcronym      = nullptr);
+XPMP2_EXPORT const char* XPMPMultiplayerInit(const char* inPluginName,
+                                             const char* resourceDir,
+                                             XPMPIntPrefsFuncTy inIntPrefsFunc   = nullptr,
+                                             const char* inDefaultICAO           = nullptr,
+                                             const char* inPluginLogAcronym      = nullptr);
 
 /// @brief Overrides the plugin's name to be used in Log output
 /// @details The same as providing a plugin name with XPMPMultiplayerInit().
@@ -320,27 +367,135 @@ const char *    XPMPMultiplayerInit(const char* inPluginName,
 /// @note    Replaces the compile-time macro `XPMP_CLIENT_LONGNAME` needed in `libxplanemp`.
 /// @param inPluginName Your plugin's name, used as map layer name, and as folder name under `Aircraft`
 /// @param inPluginLogAcronym (optional) A short text to be used in log output. If not given then `inPluginName` is used also for this purpse.
-void XPMPSetPluginName (const char* inPluginName,
-                        const char* inPluginLogAcronym      = nullptr);
+XPMP2_EXPORT void XPMPSetPluginName (const char* inPluginName,
+                                     const char* inPluginLogAcronym      = nullptr);
 
 
 /// @brief Clean up the multiplayer library
 /// @details This shall be your last call to XPMP2.
 ///          Call this latest from XPluginStop for proper and controlled
 ///          cleanup of resources used by XPMP2.
-void XPMPMultiplayerCleanup();
+XPMP2_EXPORT void XPMPMultiplayerCleanup();
 
+
+/// @brief Are automatic Contrails enabled?
+/// @details Configured in a consistent way to automatically show contrails? (Max Altitude > Min Altitude)
+///          If off, use XPMP2::Aircraft::ContrailTrigger() or XPMP2::Aircraft::ContrailRequest().
+XPMP2_EXPORT bool XPMPContrailsAutoEnabled ();
+
+/// @brief Are Contrails available?
+/// @details Could return `false` e.g. if `Resources/Contrail/Contrail.obj`
+///          could not be found or loaded.
+XPMP2_EXPORT bool XPMPContrailsAvailable ();
 
 /// @brief Used to set the light textures for old OBJ7 models.
 /// @note  Unsupported with XPMP2, will always return "OBJ7 format is no longer supported"
-[[deprecated("Unsupported feature, will alsways return 'OBJ7 format is no longer supported'")]]
+[[deprecated("Unsupported feature, will always return 'OBJ7 format is no longer supported'")]]
 const char * XPMPMultiplayerOBJ7SupportEnable(const char * inTexturePath);
 
+/// @}
+
+/************************************************************************************
+* MARK: Sound
+************************************************************************************/
+
+/// @name Sound
+/// @{
+
+/// @brief Enable/Disable Sound
+/// @details Enable or disable sound support.
+///          The default on startup is controlled by the configuration item
+///          `sound / activate_sound`, which in turn defaults to `1`.
+/// @returns Is sound now available? (Could still be `false` even in case
+///          of activation if there was a problem during sound initialization
+///          or if it was too early too link into XP's sound system)
+XPMP2_EXPORT bool XPMPSoundEnable (bool bEnable = true);
+
+/// @brief Is Sound enabled?
+XPMP2_EXPORT bool XPMPSoundIsEnabled ();
+
+/// @brief Set Master Volume
+/// @param fVol Volume level. 0 = silent, 1 = full. Negative level inverts the signal. Values larger than 1 amplify the signal.
+XPMP2_EXPORT void XPMPSoundSetMasterVolume (float fVol = 1.0f);
+
+/// @brief Mute all sounds (temporarily)
+/// @param bMute Mute (`true`) or unmute (`false`)?
+XPMP2_EXPORT void XPMPSoundMute (bool bMute);
+
+/// @brief Add a sound that can later be referenced from an XPMP2::Aircraft
+/// @details XPMP2 loads a number of default sounds from what X-Plane ships.
+///          This function allows to add your own. It will try to load the
+///          sound immediately.
+/// @param sName A descriptive name, used as a key to refer to this sound later
+/// @param filePath Path to the sound file; a relative path is relative to `resourceDir` as set by XPMPMultiplayerInit()
+/// @param bLoop Is this sound to be played in a loop?
+/// @param coneDir [opt] Which direction relative to plane's heading does the cone point to? (180 would be typical for jet engines)
+/// @param conePitch [opt] Which pitch does the cone point to (up/down)? (0 would be typical, ie. level with the plane)
+/// @param coneInAngle [opt] Inside cone angle. This is the angle spread within which the sound is unattenuated.
+/// @param coneOutAngle [opt] Outside cone angle. This is the angle spread outside of which the sound is attenuated to its `coneOutVol`.
+/// @param coneOutVol [opt] Cone outside volume.
+/// @return Empty string in case of success, otherwise a human-readable error message.
+XPMP2_EXPORT const char* XPMPSoundAdd (const char* sName,
+                                       const char* filePath,
+                                       bool bLoop,
+                                       float coneDir = NAN,     float conePitch = NAN,
+                                       float coneInAngle = NAN, float coneOutAngle = NAN,
+                                       float coneOutVol = NAN);
+
+/// @brief Enumerate all sounds, including the internal ones
+/// @param prevName `nullptr` or empty string to start from beginning, last returned name to continue with next sound
+/// @param[out] ppFilePath (optional) Receives pointer to file path
+/// @returns Next sound's name.
+/// @note String pointers can change any frame. If you want to use the strings
+///       longer than immediately, make yourself a string copy.
+XPMP2_EXPORT const char* XPMPSoundEnumerate (const char* prevName, const char** ppFilePath = nullptr);
+
+/// @brief List all possible audio devices if using separate FMOD instance
+/// @param i 0-based index of the device name to fetch
+/// @param[out] devName Name of the audio device
+/// @returns if `i` was valid and `devName` is filled; call with increasing `i` until `false` is returned
+XPMP2_EXPORT bool XPMPSoundGetAudioDeviceName(int i, std::string& devName);
+
+/// @brief Set the sound output device if using a separate FMOD instance
+/// @param deviceName The name of the device to use as output, obtain via XPMPSoundGetAudioDevices()
+/// @returns if device name was found
+XPMP2_EXPORT bool XPMPSoundSetAudioDeviceName(const std::string& deviceName);
+
+/// @brief Set the sound output device if using a separate FMOD instance
+/// @param i The device to use as output, see XPMPSoundGetAudioDevices()
+/// @returns if `i` was in range
+XPMP2_EXPORT bool XPMPSoundSetAudioDevice(int i);
+
+/// @brief Returns the index and name of the active audio device
+/// @param[out] pDevName (Optional) A pointer to a `std::string` that receives the audio device's name
+/// @returns the index of the active audio device
+XPMP2_EXPORT int XPMPSoundGetActiveAudioDevice (std::string* pDevName = nullptr);
+
+/// @}
+
+/// @name Sound Macros
+/// @{
+
+// Standard sounds loaded by XPMP2 from XP's `Resource/sounds` folders
+#define XP_SOUND_ELECTRIC       "Electric"
+#define XP_SOUND_HIBYPASSJET    "HiBypassJet"
+#define XP_SOUND_LOBYPASSJET    "LoBypassJet"
+#define XP_SOUND_TURBOPROP      "Turboprop"
+#define XP_SOUND_PROP_AIRPLANE  "PropAirplane"
+#define XP_SOUND_PROP_HELI      "PropHeli"
+#define XP_SOUND_REVERSE_THRUST "ReverseThrust"
+#define XP_SOUND_ROLL_RUNWAY    "RollRunway"
+#define XP_SOUND_FLAP           "Flap"
+#define XP_SOUND_GEAR           "Gear"
+
+/// @}
 
 /************************************************************************************
 * MARK: AI / Multiplayer plane control
 ************************************************************************************/
 
+/// @name AI / Multiplayer plane control
+/// @{
 
 /// @brief Tries to grab control of TCAS targets (formerly known as AI/multiplayer) from X-Plane
 /// @details Only one plugin can have TCAS targets control at any one time.
@@ -362,24 +517,29 @@ const char * XPMPMultiplayerOBJ7SupportEnable(const char * inTexturePath);
 ///      for more details about the callback.
 /// @return  Empty string on success, human-readable error message otherwise,
 ///          includes name of plugin currently having TCAS tagrets control
-const char *    XPMPMultiplayerEnable(void (*_callback)(void*)  = nullptr,
-                                      void*  _refCon            = nullptr);
+XPMP2_EXPORT const char* XPMPMultiplayerEnable(void (*_callback)(void*)  = nullptr,
+                                               void*  _refCon            = nullptr);
 
 
 /// @brief Release TCAS targets control.
 /// @details Afterwards, XPMP2's aircraft will no longer appear on TCAS or
 ///          on 3rd-party plugins relying on TCAS targets dataRefs.\n
 ///          Is called during XPMPMultiplayerCleanup() automatically.
-void XPMPMultiplayerDisable();
+XPMP2_EXPORT void XPMPMultiplayerDisable();
 
 
 /// @brief Has XPMP2 control of TCAS targets?
 /// @see XPMPMultiplayerEnable()
-bool XPMPHasControlOfAIAircraft();
+XPMP2_EXPORT bool XPMPHasControlOfAIAircraft();
+
+/// @}
 
 /************************************************************************************
 * MARK: CSL Package Handling
 ************************************************************************************/
+
+/// @name CSL Package Handling
+/// @{
 
 /// @brief Loads CSL packages from the given folder, searching up to 5 folder levels deep.
 /// @details This function mainly searches the given folder for packages.
@@ -399,16 +559,16 @@ bool XPMPHasControlOfAIAircraft();
 ///          Actual loading of objects is done later and asynchronously only
 ///          when needed during aircraft creation.
 /// @param inCSLFolder Root folder to start the search.
-const char *    XPMPLoadCSLPackage(const char * inCSLFolder);
+XPMP2_EXPORT const char *    XPMPLoadCSLPackage(const char * inCSLFolder);
 
 
 /// @brief Legacy function only provided for backwards compatibility. Does not actually do anything.
 [[deprecated("No longer needed, does not do anything.")]]
-void            XPMPLoadPlanesIfNecessary();
+void XPMPLoadPlanesIfNecessary();
 
 
 /// @brief Returns the number of loaded CSL models
-int XPMPGetNumberOfInstalledModels();
+XPMP2_EXPORT int XPMPGetNumberOfInstalledModels();
 
 
 /// @brief Fetch information about a CSL model identified by an index
@@ -425,7 +585,7 @@ int XPMPGetNumberOfInstalledModels();
 /// @param[out] outAirline Receives pointer to ICAO airline code. Optional, can be `nullptr`.
 /// @param[out] outLivery Receives pointer to special livery string. Optional, can be `nullptr`.
 [[deprecated("Unsafe, use XPMPGetModelInfo2() instead.")]]
-void XPMPGetModelInfo(int inIndex, const char **outModelName, const char **outIcao, const char **outAirline, const char **outLivery);
+XPMP2_EXPORT void XPMPGetModelInfo(int inIndex, const char **outModelName, const char **outIcao, const char **outAirline, const char **outLivery);
 
 /// @brief Fetch information about a CSL model identified by an index
 /// @note Index numbers may change if more models are loaded, don't rely on them.
@@ -435,7 +595,7 @@ void XPMPGetModelInfo(int inIndex, const char **outModelName, const char **outIc
 /// @param[out] outIcao Receives ICAO aircraft designator
 /// @param[out] outAirline Receives ICAO airline code
 /// @param[out] outLivery Receives special livery string
-void XPMPGetModelInfo2(int inIndex, std::string& outModelName,  std::string& outIcao, std::string& outAirline, std::string& outLivery);
+XPMP2_EXPORT void XPMPGetModelInfo2(int inIndex, std::string& outModelName,  std::string& outIcao, std::string& outAirline, std::string& outLivery);
 
 
 /// @brief Tests model match quality based on the given parameters.
@@ -443,13 +603,13 @@ void XPMPGetModelInfo2(int inIndex, std::string& outModelName,  std::string& out
 /// @param inAirline ICAO airline code, optional, can be `nullptr`
 /// @param inLivery Special livery text, optional, can be `nullptr`
 /// @return Match quality, the lower the better
-int         XPMPModelMatchQuality(const char *              inICAO,
-                                  const char *              inAirline,
-                                  const char *              inLivery);
+XPMP2_EXPORT int XPMPModelMatchQuality(const char *              inICAO,
+                                       const char *              inAirline,
+                                       const char *              inLivery);
 
 
 /// @brief Is `inICAO` a valid ICAO aircraft type designator?
-bool            XPMPIsICAOValid(const char *                inICAO);
+XPMP2_EXPORT bool XPMPIsICAOValid(const char *                inICAO);
 
 /// @brief Add a user-defined dataRef to the list of dataRefs supported by every plane.
 /// @details All planes created by XPMP2 define the same set of dataRefs.
@@ -468,7 +628,9 @@ bool            XPMPIsICAOValid(const char *                inICAO);
 ///       Returns `0` if called from a worker thread.
 /// @note User-defined dataRefs are _not_ transfered to the XPMP2 Remote Client
 ///       for display on network-connected X-Plane instances.
-size_t XPMPAddModelDataRef (const std::string& dataRef);
+XPMP2_EXPORT size_t XPMPAddModelDataRef (const std::string& dataRef);
+
+/// @}
 
 /************************************************************************************
  * MARK: PLANE CREATION API
@@ -491,6 +653,8 @@ typedef XPMPPlaneCallbackResult (* XPMPPlaneData_f)(XPMPPlaneID         inPlane,
                                                     void *              ioData,
                                                     void *              inRefcon);
 
+/// @name Plane Creation API
+/// @{
 
 /// @brief Creates a new plane
 /// @deprecated Subclass XPMP2::Aircraft instead
@@ -503,12 +667,12 @@ typedef XPMPPlaneCallbackResult (* XPMPPlaneData_f)(XPMPPlaneID         inPlane,
 /// @param inRefcon A refcon value passed back to you in all calls to the `inDataFunc`
 /// @param inModeS_id (optional) Unique identification of the plane [0x01..0xFFFFFF], e.g. the 24bit mode S transponder code. XPMP2 assigns an arbitrary unique number of not given
 [[deprecated("Subclass XPMP2::Aircraft instead")]]
-XPMPPlaneID XPMPCreatePlane(const char *            inICAOCode,
-                            const char *            inAirline,
-                            const char *            inLivery,
-                            XPMPPlaneData_f         inDataFunc,
-                            void *                  inRefcon,
-                            XPMPPlaneID             inModeS_id = 0);
+XPMP2_EXPORT XPMPPlaneID XPMPCreatePlane(const char *            inICAOCode,
+                                         const char *            inAirline,
+                                         const char *            inLivery,
+                                         XPMPPlaneData_f         inDataFunc,
+                                         void *                  inRefcon,
+                                         XPMPPlaneID             inModeS_id = 0);
 
 /// @brief Creates a new plane, providing a specific CSL model name
 /// @deprecated Subclass XPMP2::Aircraft instead
@@ -520,22 +684,22 @@ XPMPPlaneID XPMPCreatePlane(const char *            inICAOCode,
 /// @param inRefcon A refcon value passed back to you in all calls to the `inDataFunc`
 /// @param inModeS_id (optional) Unique identification of the plane [0x01..0xFFFFFF], e.g. the 24bit mode S transponder code. XPMP2 assigns an arbitrary unique number of not given
 [[deprecated("Subclass XPMP2::Aircraft instead")]]
-XPMPPlaneID XPMPCreatePlaneWithModelName(const char *           inModelName,
-                                         const char *           inICAOCode,
-                                         const char *           inAirline,
-                                         const char *           inLivery,
-                                         XPMPPlaneData_f        inDataFunc,
-                                         void *                 inRefcon,
-                                         XPMPPlaneID            inModeS_id = 0);
+XPMP2_EXPORT XPMPPlaneID XPMPCreatePlaneWithModelName(const char *           inModelName,
+                                                      const char *           inICAOCode,
+                                                      const char *           inAirline,
+                                                      const char *           inLivery,
+                                                      XPMPPlaneData_f        inDataFunc,
+                                                      void *                 inRefcon,
+                                                      XPMPPlaneID            inModeS_id = 0);
 
 /// @brief [Deprecated] Removes a plane previously created with XPMPCreatePlane()
 /// @deprecated Delete subclassed XPMP2::Aircraft object instead.
 [[deprecated("Delete subclassed XPMP2::Aircraft object instead")]]
-void            XPMPDestroyPlane(XPMPPlaneID _id);
+XPMP2_EXPORT void            XPMPDestroyPlane(XPMPPlaneID _id);
 
 
 /// @brief Show/Hide the aircraft temporarily without destroying the object
-void            XPMPSetPlaneVisibility(XPMPPlaneID _id, bool _bVisible);
+XPMP2_EXPORT void            XPMPSetPlaneVisibility(XPMPPlaneID _id, bool _bVisible);
 
 
 /// @brief  Perform model matching again and change the CSL model to the resulting match
@@ -546,10 +710,10 @@ void            XPMPSetPlaneVisibility(XPMPPlaneID _id, bool _bVisible);
 /// @param inAirline ICAO airline code, like 'BAW', 'DLH', can be an empty string
 /// @param inLivery Special livery designator, can be an empty string
 /// @return Match quality, the lower the better / -1 if `inPlaneID` is invalid
-int     XPMPChangePlaneModel(XPMPPlaneID            inPlaneID,
-                             const char *           inICAOCode,
-                             const char *           inAirline,
-                             const char *           inLivery);
+XPMP2_EXPORT int     XPMPChangePlaneModel(XPMPPlaneID            inPlaneID,
+                                          const char *           inICAOCode,
+                                          const char *           inAirline,
+                                          const char *           inLivery);
 
 
 /// @brief Return the name of the model, with which the given plane is rendered
@@ -563,9 +727,9 @@ int     XPMPChangePlaneModel(XPMPPlaneID            inPlaneID,
 /// @return Length of the model name to return
 ///         (not counting the terminating zero, independend of the passed-in buffer).
 ///         -1 if `inPlaneID` is invalid
-int     XPMPGetPlaneModelName(XPMPPlaneID             inPlaneID,
-                              char *                  outTxtBuf,
-                              int                     outTxtBufSize);
+XPMP2_EXPORT int     XPMPGetPlaneModelName(XPMPPlaneID             inPlaneID,
+                                           char *                  outTxtBuf,
+                                           int                     outTxtBufSize);
 
 
 /// @brief Returns ICAO aircraft type designator and livery of the given plane
@@ -574,9 +738,9 @@ int     XPMPGetPlaneModelName(XPMPPlaneID             inPlaneID,
 ///             PMP2::Aircraft::acIcaoType and
 ///             XPMP2::Aircraft::acLivery directly.
 [[deprecated("Unsafe pointer operations")]]
-void            XPMPGetPlaneICAOAndLivery(XPMPPlaneID               inPlane,
-                                          char *                    outICAOCode,    // Can be NULL
-                                          char *                    outLivery);     // Can be NULL
+void XPMPGetPlaneICAOAndLivery(XPMPPlaneID               inPlane,
+                               char *                    outICAOCode,    // Can be NULL
+                               char *                    outLivery);     // Can be NULL
 
 
 /// @brief  Unsupported, don't use.
@@ -593,26 +757,28 @@ XPMPPlaneCallbackResult XPMPGetPlaneData(XPMPPlaneID                    inPlane,
 
 
 /// Returns the match quality of the currently used model, or `-1` if `inPlane` is invalid
-int         XPMPGetPlaneModelQuality(XPMPPlaneID                inPlane);
+XPMP2_EXPORT int         XPMPGetPlaneModelQuality(XPMPPlaneID                inPlane);
 
 
 /// Returns the number of planes in existence.
-long        XPMPCountPlanes(void);
+XPMP2_EXPORT long        XPMPCountPlanes(void);
 
 
 /// Returns the plane ID of the Nth plane.
-XPMPPlaneID XPMPGetNthPlane(long                    index);
+XPMP2_EXPORT XPMPPlaneID XPMPGetNthPlane(long                    index);
 
 
 /// Returns the underlying aircraft object, or `nullptr` if `_id` is invalid
-XPMP2::Aircraft* XPMPGetAircraft (XPMPPlaneID _id);
+XPMP2_EXPORT XPMP2::Aircraft* XPMPGetAircraft (XPMPPlaneID _id);
 
 
 /// @brief Define default aircraft and ground vehicle ICAO types
 /// @param _acIcaoType Default ICAO aircraft type designator, used when matching returns nothing
 /// @param _carIcaoType Type used to identify ground vehicels (internally defaults to "ZZZC") 
-void    XPMPSetDefaultPlaneICAO(const char* _acIcaoType,
-                                const char* _carIcaoType = nullptr);
+XPMP2_EXPORT void    XPMPSetDefaultPlaneICAO(const char* _acIcaoType,
+                                             const char* _carIcaoType = nullptr);
+
+/// @}
 
 /************************************************************************************
  * MARK: PLANE OBSERVATION API
@@ -636,21 +802,25 @@ typedef void (*XPMPPlaneNotifier_f)(XPMPPlaneID            inPlaneID,
                                     XPMPPlaneNotification  inNotification,
                                     void *                 inRefcon);
 
+/// @name Plane Observation API
+/// @{
 
 /// @brief Registers a callback, which is called when one of the
 ///        events defined in ::XPMPPlaneNotification happens
 /// @param inFunc Pointer to your callback function
 /// @param inRefcon A refcon passed through to your callback
-void            XPMPRegisterPlaneNotifierFunc(XPMPPlaneNotifier_f       inFunc,
-                                              void *                    inRefcon);
+XPMP2_EXPORT void XPMPRegisterPlaneNotifierFunc(XPMPPlaneNotifier_f       inFunc,
+                                                void *                    inRefcon);
 
 
 /// @brief Unregisters a notification callback. Both function pointer and refcon
 ///        must match what was registered.
 /// @param inFunc Pointer to your callback function
 /// @param inRefcon A refcon passed through to your callback
-void            XPMPUnregisterPlaneNotifierFunc(XPMPPlaneNotifier_f     inFunc,
-                                                void *                  inRefcon);
+XPMP2_EXPORT void XPMPUnregisterPlaneNotifierFunc(XPMPPlaneNotifier_f     inFunc,
+                                                  void *                  inRefcon);
+
+/// @}
 
 /************************************************************************************
  * MARK: PLANE RENDERING API (unsued in XPMP2)
@@ -664,38 +834,40 @@ typedef void (* XPMPRenderPlanes_f)(
                                     int                         inIsBlend,
                                     void *                      inRef);
 
+/// @name Plane Rendering API
+/// @{
 
 /// @brief The original libxplanemp allowed to override rendering; no longer supported
 /// @deprecated Unsupported in XPMP2. The function is available to stay compile-time compatible,
 ///             but it does nothing.
 [[deprecated("Unsupported, doesn't do anything")]]
-void        XPMPSetPlaneRenderer(XPMPRenderPlanes_f         inRenderer,
-                                 void *                         inRef);
+void XPMPSetPlaneRenderer(XPMPRenderPlanes_f         inRenderer,
+                          void *                         inRef);
 
 
 /// @brief Legacy debug-support function, no longer supported
 /// @deprecated No longer supported as rendering is done by X-Plane's instancing
 [[deprecated("Unsupported, doesn't do anything")]]
-void        XPMPDumpOneCycle(void);
+void XPMPDumpOneCycle(void);
 
 
 /// Enable or disable drawing of labels with the aircraft
-void XPMPEnableAircraftLabels (bool _enable = true);
+XPMP2_EXPORT void XPMPEnableAircraftLabels (bool _enable = true);
 
 
 /// @brief Disable drawing of labels with the aircraft
 /// @details Effectively calls XPMPEnableAircraftLabels()
-void XPMPDisableAircraftLabels();
+XPMP2_EXPORT void XPMPDisableAircraftLabels();
 
 
 /// Returns if labels are currently configured to be drawn
-bool XPMPDrawingAircraftLabels();
+XPMP2_EXPORT bool XPMPDrawingAircraftLabels();
 
 
 /// Configure maximum label distance and if labels shall be cut off at reported visibility
 /// @param _dist_nm Maximum label distance in nm, default is 3, minimum is 1
 /// @param _bCutOffAtVisibility Shall labels not be drawn further away than XP's reported visibility?
-void XPMPSetAircraftLabelDist (float _dist_nm, bool _bCutOffAtVisibility = true);
+XPMP2_EXPORT void XPMPSetAircraftLabelDist (float _dist_nm, bool _bCutOffAtVisibility = true);
 
 //
 // MARK: MAP
@@ -707,11 +879,16 @@ void XPMPSetAircraftLabelDist (float _dist_nm, bool _bCutOffAtVisibility = true)
 /// @param _bLabels If map is enabled, shall also labels be drawn?
 /// @details XPMP2 creates a separate Map Layer named after the plugin for this purposes.
 ///          By default, the map functionality is enabled including label writing.
-void XPMPEnableMap (bool _bEnable, bool _bLabels = true);
+XPMP2_EXPORT void XPMPEnableMap (bool _bEnable, bool _bLabels = true);
+
+/// @}
 
 #ifdef __cplusplus
 }
 #endif
 
+#if _MSC_VER
+#pragma warning(pop)
+#endif
 
 #endif
