@@ -5,13 +5,6 @@ using System.Text.RegularExpressions;
 using System.IO;
 using System.Globalization;
 using JoinFS.Properties;
-// using System.Runtime.ExceptionServices;
-using System.Linq;
-using JoinFS.DataModel;
-using static JoinFS.Substitution;
-using System.Reflection;
-using System.Diagnostics;
-using System.Threading.Tasks;
 
 
 
@@ -3890,7 +3883,7 @@ namespace JoinFS
         public string GetSimulatorName()
         {
 #if XPLANE || CONSOLE
-            return main.settingsXplane ? "X-Plane" : Resources.Strings.NotConnected;
+            return (Connected && main.settingsXplane) ? "X-Plane" : Resources.Strings.NotConnected;
 #else
             return (Connected && simulatorName != "") ? simulatorName : Resources.Strings.NotConnected;
 #endif
@@ -3966,16 +3959,17 @@ namespace JoinFS
             {
                 main.MonitorEvent("All models from the simulator ingested.");
 
-                if (main.settingsUseAIFeatures)
-                {
-                    main.EnqueueCommand(async () =>
-                    {
-                        await main.substitution.enrichModelService.EnrichModelsWithDetailsAsync(main.substitution.models);
-                        main.MonitorEvent("Model data enriched");
-                        await main.substitution.embeddingService.GenerateEmbeddingsFromModelsAsync(main.substitution.models);
-                        main.MonitorEvent("Model data embedded");
-                    });
-                }
+                // TODO: cleanup code
+                //if (main.settingsUseAIFeatures)
+                //{
+                //    main.EnqueueCommand(async () =>
+                //    {
+                //        await main.substitution.enrichModelService.EnrichModelsWithDetailsAsync(main.substitution.models);
+                //        main.MonitorEvent("Model data enriched");
+                //        await main.substitution.embeddingService.GenerateEmbeddingsFromModelsAsync(main.substitution.models);
+                //        main.MonitorEvent("Model data embedded");
+                //    });
+                //}
 
                 requestModelListInProgress = false;
 
@@ -4748,6 +4742,12 @@ namespace JoinFS
         /// </summary>
         readonly Timer checkConnectionTimer = new(20.0);
 
+        // track previous connected state so we can detect transitions
+        bool previousConnected = false;
+
+        // whether we've already attempted auto-network-join for the current simulator connection
+        bool autoNetworkJoinAttempted = false;
+
         /// <summary>
         /// Connection attempts
         /// </summary>
@@ -5250,6 +5250,37 @@ namespace JoinFS
 
             // increment count
             workCount++;
+
+            // detect connection state transitions to trigger auto network join
+            bool connectedNow = Connected;
+            if (!previousConnected && connectedNow)
+            {
+                // we just connected
+                autoNetworkJoinAttempted = false;
+            }
+
+            if (connectedNow && !autoNetworkJoinAttempted)
+            {
+                // only attempt once per connection
+                autoNetworkJoinAttempted = true;
+
+                // if user requested Connect on Launch, try to join the selected hub/address
+                try
+                {
+                    if (main.settingsConnectOnLaunch)
+                    {
+                        // Use the persisted join address (reflects the selected dropdown entry). If empty, do nothing.
+                        string joinText = Settings.Default.JoinAddress;
+                        if (!string.IsNullOrWhiteSpace(joinText))
+                        {
+                            main.EnqueueCommand(() => main.Join(joinText.TrimStart(' ').TrimEnd(' ')));
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            previousConnected = connectedNow;
         }
 
 #endregion

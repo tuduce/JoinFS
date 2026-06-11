@@ -4,8 +4,8 @@
     <AssemblyName>JoinFS-$(Configuration)</AssemblyName>
     <Configurations>FS2024-Debug;FS2024;FS2020-Debug;FS2020;FSX-Debug;FSX;P3D-Debug;P3D;XPLANE-Debug;XPLANE;CONSOLE-Debug;CONSOLE</Configurations>
     <Platforms>x64;x86;ARM64</Platforms>
-    <AssemblyVersion>26.1</AssemblyVersion>
-    <FileVersion>26.1</FileVersion>
+    <AssemblyVersion>26.2</AssemblyVersion>
+    <FileVersion>26.2</FileVersion>
     <ApplicationIcon>Resources\App.ico</ApplicationIcon>
     <StartupObject>JoinFS.Program</StartupObject>
     <DisableImplicitFrameworkReferences>false</DisableImplicitFrameworkReferences>
@@ -216,15 +216,7 @@
     <Compile Remove="Properties\Settings1.Designer.cs" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="FastBertTokenizer" Version="1.0.28" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-  </ItemGroup>
-
   <!-- Exclude Microsoft.ML.OnnxRuntime for x86 builds -->
-  <ItemGroup Condition=" '$(PlatformTarget)' != 'x86' ">
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.23.2" />
-  </ItemGroup>
 
   <!-- Configure .resx files with custom tool -->
   <ItemGroup>
@@ -253,11 +245,6 @@
   </ItemGroup>
 
   <!-- Copy AIModel folder to output directory -->
-  <ItemGroup>
-    <Content Include="AIModel\**\*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
   <ItemGroup>
     <Compile Remove="Installer\**" />
     <EmbeddedResource Remove="Installer\**" />
