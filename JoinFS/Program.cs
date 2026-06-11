@@ -111,6 +111,8 @@ namespace JoinFS
         public bool settingsSkipCsl = false;
 #endif
 
+        public string settingsLocalAddress = "";
+
 #if CONSOLE
         public bool settingsBackground = false;
         public string settingsComsWebhookUri = "";
@@ -324,6 +326,16 @@ namespace JoinFS
                             case "-hub":
                                 // enable hub mode
                                 settingsHub = true;
+                                break;
+
+                            case "-localaddress":
+                                // next parameter
+                                index++;
+                                // check for parameter
+                                if (index < args.Length)
+                                {
+                                    settingsLocalAddress = args[index];
+                                }
                                 break;
 
                             case "-hubdomain":
@@ -571,6 +583,7 @@ namespace JoinFS
                                 Console.WriteLine("  --global               " + Resources.Strings.Options_Global);
                                 Console.WriteLine("  --nickname <name>      " + Resources.Strings.Options_Nickname);
                                 Console.WriteLine("  --port                 " + Resources.Strings.Options_Port);
+                                Console.WriteLine("  --localaddress <ip>    Override local network address (use host LAN IP when running in Docker)");
                                 Console.WriteLine("  --hub                  " + Resources.Strings.Tip_HubMode);
                                 Console.WriteLine("  --hubdomain <domain>   " + Resources.Strings.Tip_HubDomain);
                                 Console.WriteLine("  --hubname <name>       " + Resources.Strings.Tip_HubName);
