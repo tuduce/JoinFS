@@ -2366,6 +2366,11 @@ namespace JoinFS
         public IPAddress LocalAddress
         {
             get { return localAddress; }
+            set
+            {
+                localAddress = value;
+                localNuid.local = localAddress.GetAddressBytes()[3];
+            }
         }
 
         /// <summary>
