@@ -1,0 +1,11 @@
+.git
+.github
+**/.vs
+**/obj
+**/bin
+JoinFS.Tests/
+RecordingXRay/
+JoinFS/Installer/
+*.user
+*.suo
+*.md
