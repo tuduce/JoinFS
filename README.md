@@ -51,6 +51,104 @@ You must assume the entire risk of using the SOFTWARE.
 dotnet .\JoinFS\bin\CONSOLE\net8.0\JoinFS-CONSOLE.dll --create --hub --hubname "FSC e.V. Test" --nosim --nogui --background --whazzup-public --websocket --websocketport 8765 --comswebhookuri http://localhost/tsapi/usertochannel 
 ```
 
+## Docker
+
+The CONSOLE build is published automatically to Docker Hub as [`tuduce/joinfs-console`](https://hub.docker.com/r/tuduce/joinfs-console) on every push to `main` (`:latest`) and on every version tag (`:1.2.3`).
+
+The image is based on **Alpine Linux** with the .NET 8 runtime — no simulator, no GUI, no UI translations. Roughly 100–120 MB.
+
+### Quick start
+
+```bash
+docker run -d \
+  -p 6112:6112/udp \
+  -p 8765:8765 \
+  tuduce/joinfs-console:latest \
+  --hub \
+  --hubname "My Hub" \
+  --hubdomain "myhub.example.com" \
+  --nosim --nogui --background \
+  --whazzup \
+  --websocket --websocketport 8765 \
+  --localaddress 192.168.1.10
+```
+
+### CLI parameters
+
+All parameters described in the [WebSocket Server](#websocket-server) and [COM Frequency Webhook](#com-frequency-webhook) sections below apply. Additional hub/network parameters:
+
+| Parameter | Description |
+|---|---|
+| `--hub` | Run as a hub (server) instead of a client |
+| `--hubname <name>` | Public name for the hub |
+| `--hubdomain <domain>` | Public hostname or IP clients use to connect |
+| `--hubport <port>` | UDP port the hub listens on (default `6112`) |
+| `--nosim` | Run without a flight simulator connection |
+| `--nogui` | Run without the desktop GUI |
+| `--background` | Suppress console output |
+| `--port <port>` | Local UDP port (default `6112`) |
+| `--localaddress <ip>` | **Required in Docker.** Set to the Docker host's LAN IP. Without this, clients on the same network as the host are routed via the container's internal bridge address and the handshake fails after 30 s. |
+
+### Docker networking note
+
+Inside a Docker bridge network the container's local address resolves to an internal IP (e.g. `172.17.0.2`). JoinFS uses this address to route traffic to clients that share the same public IP as the hub. Passing `--localaddress` overrides it with the host's real LAN IP:
+
+```bash
+# Find your host's LAN IP on Linux:
+JOINFS_LOCAL_ADDRESS=$(ip route get 1 | awk '{print $7; exit}')
+```
+
+### Compose stack example
+
+Drop JoinFS into an existing `compose.yaml` alongside TeamSpeak 3. All credentials go in a `.env` file (which should be in your `.gitignore`).
+
+**`.env`**
+```
+JOINFS_HUB_DOMAIN=myhub.example.com
+JOINFS_HUB_NAME=My Hub
+JOINFS_LOCAL_ADDRESS=192.168.1.10
+```
+
+**`compose.yaml`**
+```yaml
+services:
+  joinfs:
+    image: tuduce/joinfs-console:latest
+    env_file: .env
+    command:
+      - --hub
+      - --hubdomain
+      - "${JOINFS_HUB_DOMAIN}"
+      - --hubname
+      - "${JOINFS_HUB_NAME}"
+      - --nosim
+      - --nogui
+      - --background
+      - --whazzup
+      - --websocket
+      - --websocketport
+      - "8765"
+      - --localaddress
+      - "${JOINFS_LOCAL_ADDRESS}"
+    environment:
+      JOINFS_LOCAL_ADDRESS: ${JOINFS_LOCAL_ADDRESS}
+    ports:
+      - "6112:6112/udp"
+      - "8765:8765"
+    restart: unless-stopped
+```
+
+To also push COM frequency changes to a TeamSpeak query API running in the same stack, add:
+
+```yaml
+      - --comswebhookuri
+      - "http://tsapi:8081/usertochannel"
+      - --comswebhookmethod
+      - PUT
+```
+
+---
+
 ## WebSocket Server
 
 The CONSOLE build includes an integrated WebSocket server that broadcasts live aircraft state to any connected client whenever something changes.
