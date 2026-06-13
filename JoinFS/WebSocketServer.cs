@@ -189,7 +189,7 @@ namespace JoinFS
 
             snap.speed = Math.Sqrt(
                 aircraft.netVelocity.linear.x * aircraft.netVelocity.linear.x +
-                aircraft.netVelocity.linear.z * aircraft.netVelocity.linear.z) * 1.9438444925;
+                aircraft.netVelocity.linear.z * aircraft.netVelocity.linear.z) * 1.9438444925; // calculated m/s * 1.9438444925 = knots 
 
             snap.icaoType = aircraft.flightPlan.icaoType;
             snap.from     = aircraft.flightPlan.departure;
