@@ -1543,7 +1543,7 @@ namespace JoinFS
                             {
                                 objectReferences[objName] = new AcfObjectData();
                             }
-                            objectReferences[objName].file = words[words.Length - 1];
+                            objectReferences[objName].file = string.Join(" ", words, 2, words.Length - 2);
                         }
                         else if (line.Contains("att_phi_ref"))
                         {
