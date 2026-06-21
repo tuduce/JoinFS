@@ -45,7 +45,7 @@
   <Package
     Name="JoinFS-$(var.Configuration)"
     Manufacturer="JoinFS Contributors"
-    Version="26.2.0"
+    Version="26.3.0"
     UpgradeCode="$(var.UpgradeCodeGuid)"
     InstallerVersion="500"
     Compressed="yes">
