@@ -26,7 +26,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -104,8 +104,7 @@
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(TargetPath)" "D:\sandbox\XPlane\win.xpl"
-copy "$(TargetPath)" "D:\sandbox\XPlane\win.xpl"</Command>
+      <Command>copy "$(TargetPath)" "C:\Users\crist\Documents\sandbox\JoinFS\JoinFS\libs\XPLANE\win.xpl"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
