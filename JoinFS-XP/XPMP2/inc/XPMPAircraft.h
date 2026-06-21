@@ -1,8 +1,37 @@
 /// @file       XPMPAircraft.h
 /// @brief      XPMP2::Aircraft represent an aircraft as managed by XPMP2
 /// @details    New implementations should derive directly from XPMP2::Aircraft.
+///
+/// @details    This is one of two main header files for using XPMP2.
+///             (The other is `XPMPMultiplayer.h`).
+///             XPMP2 is a library allowing an X-Plane plugin to have
+///             planes rendered in X-Plane's 3D world based on OBJ8
+///             CSL models, which need to be installed separately.
+///             The plugin shall subclass XPMP2::Aircraft and override
+///             the abstract virtual function XPMP2::Aircraft::UpdatePosition()
+///             to provide updated position and attitude information.
+///             XPMP2 takes care of reading and initializaing CSL models,
+///             instanciating and updating the aircraft objects in X-Plane,
+///             display in a map layer, provisioning information via X-Plane's
+///             TCAS targets and AI/multiplayer (and more) dataRefs.
+///
+/// @see        For more developer's information see
+///             https://twinfan.github.io/XPMP2/
+///
+/// @see        Sample and "How to" available, see
+///             https://twinfan.github.io/XPMP2/HowTo.html
+///
+/// @see        For TCAS Override approach see
+///             https://developer.x-plane.com/article/overriding-tcas-and-providing-traffic-information/
+///
+/// @see        For a definition of ICAO aircraft type designators see
+///             https://www.icao.int/publications/DOC8643/Pages/Search.aspx
+///
+/// @see        For a list of ICAO airline/operator codes see
+///             https://en.wikipedia.org/wiki/List_of_airline_codes
+///
 /// @author     Birger Hoppe
-/// @copyright  (c) 2020 Birger Hoppe
+/// @copyright  (c) 2020-2026 Birger Hoppe
 /// @copyright  Permission is hereby granted, free of charge, to any person obtaining a
 ///             copy of this software and associated documentation files (the "Software"),
 ///             to deal in the Software without restriction, including without limitation
@@ -28,10 +57,17 @@
 #include "XPLMMap.h"
 
 #include <cstdint>
+#include <cmath>
 #include <stdexcept>
 #include <string>
 #include <vector>
 #include <list>
+
+// Suppress warnings on member attributes needing to have dll-interface
+#if _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4251 4275)
+#endif
 
 //
 // MARK: XPMP2 New Definitions
@@ -39,7 +75,7 @@
 
 namespace XPMP2 {
 
-class CSLModel;
+class CSLModel;                                 ///< Defined by XPMP2 internally
 
 /// Convert revolutions-per-minute (RPM) to radians per second (rad/s) by multiplying with PI/30
 constexpr float RPM_to_RADs = 0.10471975511966f;
@@ -47,6 +83,13 @@ constexpr float RPM_to_RADs = 0.10471975511966f;
 constexpr double M_per_FT   = 0.3048;   // meter per 1 foot
 /// Convert nautical miles to meters
 constexpr int M_per_NM      = 1852;     // meter per one nautical mile
+/// Convert m/s to knots
+constexpr double KT_per_M_per_S = 1.94384;  // 1m/s = 1.94384kt
+/// Convert m/s to feet/min (for vertical speeds)
+constexpr double FT_p_MIN_per_M_p_S = 196.85039370079;
+/// @brief standard gravitational acceleration [m/s²]
+/// @see https://en.wikipedia.org/wiki/Gravity_of_Earth
+constexpr float G_EARTH     = 9.80665f;
 
 /// The dataRefs provided by XPMP2 to the CSL models
 enum DR_VALS : std::uint8_t {
@@ -107,7 +150,7 @@ enum DR_VALS : std::uint8_t {
 ///          as it contains many technical implementation details.
 ///          This structure contains some of the CSLModel information in a public
 ///          definition, returned by XPMP2::Aircraft::GetModelInfo().
-struct CSLModelInfo_t {
+struct XPMP2_EXPORT CSLModelInfo_t {
     /// id, just an arbitrary label read from `xsb_aircraft.txt::OBJ8_AIRCRAFT`
     std::string         cslId;
     /// name, formed by last part of path plus id
@@ -140,8 +183,8 @@ struct CSLModelInfo_t {
 
 /// @brief Actual representation of all aircraft in XPMP2.
 /// @note In modern implementations, this class shall be subclassed by your plugin's code.
-class Aircraft {
-
+class XPMP2_EXPORT Aircraft {
+    
 public:
     
 protected:
@@ -164,6 +207,12 @@ public:
     ///          GetVertOfs() for accurate placement on the ground
     XPLMDrawInfo_t drawInfo;
     
+    /// Cartesian velocity in m/s per axis, updated at least once per second
+    float               v_x = 0.0f, v_y = 0.0f, v_z = 0.0f;
+
+    /// Is the aircraft on the ground?
+    bool        bOnGrnd = false;
+
     /// @brief actual dataRef values to be provided to the CSL model
     /// @details XPMP2 provides a minimum set of dataRefs and also getter/setter
     ///          member functions, see below. This is the one place where
@@ -175,7 +224,8 @@ public:
     
     /// aircraft label shown in the 3D world next to the plane
     std::string label;
-    float       colLabel[4]  = {1.0f,1.0f,0.0f,1.0f};    ///< label base color (RGB)
+    float       colLabel[4]  = {1.0f,1.0f,0.0f,1.0f};   ///< label base color (RGB)
+    bool        bDrawLabel   = true;                    ///< Shall this aircraft's label be drawn?
     
     /// How much of the vertical offset shall be applied? (This allows phasing out the vertical offset in higher altitudes.) [0..1]
     float       vertOfsRatio = 1.0f;
@@ -186,7 +236,7 @@ public:
     ///          If you know better, then overwrite.\n
     ///          If you don't want XPMP2 to correct for gear deflection, set `0.0`.
     float       gearDeflectRatio = 0.5f;
-
+    
     /// @brief Shall this plane be clamped to ground (ie. never sink below ground)?
     /// @note This involves Y-Testing, which is a bit expensive, see [SDK](https://developer.x-plane.com/sdk/XPLMScenery).
     ///       If you know your plane is not close to the ground,
@@ -201,8 +251,34 @@ public:
     int         aiPrio      = 1;
     
     /// @brief Current radar status
-    /// @note Only the condition `mode != Standby` is of interest to XPMP2 for considering the aircraft for TCAS display
+    /// @details Forwarded to X-Plane in dataRefs `sim/cockpit2/tcas/targets/modeC_code` and `.../ssr_mode`.
+    ///          Influences if and how planes show up in X-Plane's TCAS implementation,
+    ///          and if -by proxy- they are visible to 3rd party plugins.
     XPMPPlaneRadar_t acRadar;
+    
+    /// Contrail: list of objects for contrail generation
+    std::list<XPLMInstanceRef> listContrail;
+    unsigned contrailNum = 0;               ///< number of contrails requested
+    unsigned contrailDist_m = 5;            ///< distance between several contrails and to the aircraft's centerline, in meter
+    unsigned contrailLifeTime = 25;         ///< this aircraft's contrail's life time
+    
+    /// @brief Wake dataRef support
+    /// @see https://developer.x-plane.com/article/plugin-traffic-wake-turbulence/
+    /// @details If values aren't set during aircraft creation, ie. remain at `NAN`, then defaults will be applied
+    ///         based on the aircraft's wake turbulence category,
+    ///         looked up from the Doc8643 list via ICAO aircraft type designator.
+    struct wakeTy {
+        float wingSpan_m = NAN;             ///< wing span of the aircraft creating wake turbulence
+        float wingArea_m2 = NAN;            ///< wing area (total area of both wings combined) of the aircraft creating wake turbulence
+        float mass_kg = NAN;                ///< actual mass of the aircraft creating the wake
+        
+        void clear() { *this = wakeTy(); }  ///< clear all values to defaults
+        bool needsDefaults() const;         ///< any value left at `NAN`, ie. requires setting from Doc8643 WTC defaults?
+        /// based on Doc8643 WTC fill with defaults
+        void applyDefaults(const std::string& _wtc, bool _bOverwriteAllFields = true);
+        /// Copies values only for non-NAN fields
+        void fillUpFrom(const wakeTy& o);
+    } wake;                                 ///< wake-support data
     
     /// Informational texts passed on via multiplayer shared dataRefs
     XPMPInfoTexts_t acInfoTexts;
@@ -211,6 +287,7 @@ protected:
     bool bValid                 = true;     ///< is this object valid? (Will be reset in case of exceptions)
     bool bVisible               = true;     ///< Shall this plane be drawn at the moment and be visible to TCAS/interfaces?
     bool bRender                = true;     ///< Shall the CSL model be drawn in 3D world? (if !bRender && bVivile then still visible on TCAS/interfaces, Remote Client uses this for local senders' planes to take over TCAS but not drawing)
+    bool bWriteTCASDataRefs     = false;    ///< Time to write the less often updated TCAS target dataRefs?
     
     XPMP2::CSLModel*    pCSLMdl = nullptr;  ///< the CSL model in use
     int                 matchQuality = -1;  ///< quality of the match with the CSL model
@@ -218,20 +295,27 @@ protected:
     
     // this is data from about a second ago to calculate cartesian velocities
     float               prev_x = 0.0f, prev_y = 0.0f, prev_z = 0.0f;
-    float               prev_ts = 0.0f;     ///< last update of `prev_x/y/z` in XP's network time
+    float               prev_ts = 0.0f;     ///< last update of `prev_x/y/z` in seconds CPU time since plugin start
+    float               gs_kn = 0.0f;       /// ground speed in [kn] based on above v_x/z
+    
+    /// Reverse-engineered lat/lon/alt, updated only once per second
+    double lat1s = NAN, lon1s = NAN, alt1s_ft = NAN;
+    
+    /// Set by SetOnGrnd() with the timestamp when to reset SetTouchDown()
+    float               tsResetTouchDown = NAN;
     
     /// X-Plane instance handles for all objects making up the model
     std::list<XPLMInstanceRef> listInst;
     /// Which `sim/cockpit2/tcas/targets`-index does this plane occupy? [1..63], `-1` if none
     int                 tcasTargetIdx = -1;
-
+    
     /// Timestamp of last update of camera dist/bearing
     float               camTimLstUpd = 0.0f;
     /// Distance to camera in meters (updated internally regularly)
     float               camDist = 0.0f;
     /// Bearing from camera in degrees (updated internally regularly)
     float               camBearing = 0.0f;
-
+    
     /// Y Probe for terrain testing, needed in ground clamping
     XPLMProbeRef        hProbe = nullptr;
     
@@ -242,9 +326,49 @@ protected:
     float               mapY = 0.0f;        ///< temporary: map coordinates (NAN = not to be drawn)
     std::string         mapLabel;           ///< label for map drawing
     
+    // *** Sound support ***
+public:
+    /// Types of sound supported directly by XPMP2
+    enum SoundEventsTy {
+        SND_ENG = 0,                        ///< Engine sound (continuously while engine running), bases on GetThrustRatio()
+        SND_REVERSE_THRUST,                 ///< Engine sound while reverse thrust (continuously while reversers deployed), bases on GetThrustReversRatio()
+        SND_TIRE,                           ///< Tires rolling on the ground (continuously while rolling on ground), bases on GetTireRotRpm()
+        SND_GEAR,                           ///< Gear extending/retracting (once per event), bases on GetGearRatio()
+        SND_FLAPS,                          ///< Flaps extending/retracting (once per event), bases on GetFlapRatio()
+        SND_NUM_EVENTS                      ///< Number of events (always last in `enum`)
+    };
+    /// List of sound channel ids, also beyond sounds created for SoundEventsTy
+    typedef std::list<uint64_t> ChnListTy;
+    
+    /// Operational values per sound channel, that is triggered by a standard sound event
+    struct SndChTy {
+        bool bAuto = true;                  ///< Shall this sound event be handled automatically? (Set to false in your constructor or in Aircraft::SoundSetup() if you want to control that event type yourself)
+        uint64_t chnId = 0;                 ///< id of channel playing the sound currently
+        float lastDRVal = NAN;              ///< last observed dataRef value to see if sound is to be triggered
+        float volAdj = 1.0f;                ///< Volume adjustment, fed from Aircraft::SoundGetName()
+    };
+
+    /// @brief Minimum distance in [m] to play sound in full volume, the larger the 'louder' the aircraft
+    /// @details Initialized based on engine type and numbers, overwrite in your constructor if you want to control "size" of aircraft in terms of its sound volume
+    int sndMinDist = 50;
+    
+protected:
+    /// Operational values per sound channel, that is triggered by a standard sound event
+    SndChTy aSndCh[SND_NUM_EVENTS];
+    /// Is sound for this aircraft currently muted?
+    bool                bChnMuted = false;
+    /// List of channels produced via calls to SoundPlay()
+    ChnListTy           chnList;
+    /// Counts how often we skipped expensive computations
+    int                 skipCounter = 0;
+    
 private:
     bool bDestroyInst           = false;    ///< Instance to be destroyed in next flight loop callback?
 public:
+    
+    /// @name Construction
+    /// @{
+    
     /// @brief Constructor creates a new aircraft object, which will be managed and displayed
     /// @exception XPMP2::XPMP2Error Mode S id invalid or duplicate, no model found during model matching
     /// @param _icaoType ICAO aircraft type designator, like 'A320', 'B738', 'C172'
@@ -266,7 +390,7 @@ public:
     Aircraft (const Aircraft&) = delete;
     /// Aircraft must not be copied as they reference non-copyable resources like XP instances
     Aircraft& operator=(const Aircraft&) = delete;
-
+    
     /// @brief Creates a plane, only a valid operation if object was created using the default constructor
     /// @exception Tried on already defined object; XPMP2::XPMP2Error Mode S id invalid or duplicate, no model found during model matching
     /// @param _icaoType ICAO aircraft type designator, like 'A320', 'B738', 'C172'
@@ -281,15 +405,20 @@ public:
                  XPMPPlaneID _modeS_id = 0,
                  const std::string& _cslId = "",
                  CSLModel* _pCSLModel = nullptr);
+    /// @}
+    /// @name Information
+    /// @{
 
     /// return the XPMP2 plane id
     XPMPPlaneID GetModeS_ID () const { return modeS_id; }
-    /// Is this object a ground vehicle?
-    bool        IsGroundVehicle() const;
     /// @brief Is this object "related" to the given ICAO code? (named in the same line in related.txt)
     /// @param _icaoType ICAO aircraft type designator, to which `*this` is compared
     /// @details For example, `IsRelatedTo("GLID")` returns if `*this` is a glider
     bool        IsRelatedTo (const std::string& _icaoType) const;
+    /// Is this object a ground vehicle? (related to `glob.carIcaoType`)
+    bool        IsGroundVehicle() const;
+    /// Is this object a glider?
+    bool        IsGlider() const { return IsRelatedTo("GLID"); }
     /// @brief return the current TCAS target index (into `sim/cockpit2/tcas/targets`), 1-based, `-1` if not used
     int         GetTcasTargetIdx () const { return tcasTargetIdx; }
     /// Is this plane currently also being tracked as a TCAS target, ie. will appear on TCAS?
@@ -297,14 +426,19 @@ public:
     /// Is this plane currently also being tracked by X-Plane's classic AI/multiplayer?
     bool        IsCurrentlyShownAsAI () const;
     /// Is this plane to be drawn on TCAS? (It will if transponder is not switched off)
-    bool        ShowAsAIPlane () const { return IsVisible() && acRadar.mode != xpmpTransponderMode_Standby; }
+    bool        ShowAsAIPlane () const { return IsVisible() && acRadar.mode > xpmpTransponderMode_Standby && GetModeS_ID() > 0; }
     /// Reset TCAS target slot index to `-1`
     void        ResetTcasTargetIdx () { tcasTargetIdx = -1; }
-
+    
     /// @brief Return a value for dataRef .../tcas/target/flight_id
     /// @returns The first non-empty string out of: flight number, registration, departure/arrival airports
     virtual std::string GetFlightId() const;
     
+    /// @}
+    /// @name Model Matching
+    /// @see  https://twinfan.github.io/XPMP2/Matching.html
+    /// @{
+
     /// @brief (Potentially) changes the plane's model after doing a new match attempt
     /// @param _icaoType ICAO aircraft type designator, like 'A320', 'B738', 'C172'
     /// @param _icaoAirline ICAO airline code, like 'BAW', 'DLH', can be an empty string
@@ -317,13 +451,14 @@ public:
     /// @brief Finds a match again, using the existing parameters, eg. after more models have been loaded
     /// @return match quality, the lower the better
     int ReMatchModel () { return ChangeModel(acIcaoType,acIcaoAirline,acLivery); }
-
+    
     /// @brief Assigns the given model
     /// @param _cslId Search for this id (package/short)
     /// @param _pCSLModel (optional) If given use this model and don't search
     /// @return Successfuly found and assigned a model?
     bool AssignModel (const std::string& _cslId,
                       CSLModel* _pCSLModel = nullptr);
+    
     /// return a pointer to the CSL model in use (Note: The CSLModel structure is not public.)
     XPMP2::CSLModel* GetModel () const { return pCSLMdl; }
     /// return the name of the CSL model in use
@@ -332,14 +467,19 @@ public:
     CSLModelInfo_t GetModelInfo() const { return pCSLMdl ? CSLModelInfo_t(*pCSLMdl) : CSLModelInfo_t();  }
     /// quality of the match with the CSL model
     int         GetMatchQuality () const { return matchQuality; }
+
+    /// @}
+    /// @name Visualization
+    /// @{
+
     /// Vertical offset, ie. the value that needs to be added to `drawInfo.y` to make the aircraft appear on the ground
     float       GetVertOfs () const;
-
+    
     /// Is the a/c object valid?
     bool IsValid() const { return bValid; }
     /// Mark the plane invalid, e.g. after exceptions occured on the data
     virtual void SetInvalid();
-
+    
     /// Make the plane (in)visible
     virtual void SetVisible (bool _bVisible);
     /// Is the plane visible?
@@ -352,6 +492,11 @@ public:
     
     /// Are instances created for this aircraft?
     bool IsInstanciated () const { return !listInst.empty(); }
+    
+    /// Define if this aircraft's label is to be drawn (provided label drawing is enabled globally)
+    void SetDrawLabel (bool _b) { bDrawLabel = _b; }
+    /// Shall this aircraft's label be drawn?
+    bool ShallDrawLabel () const { return bDrawLabel; }
     
     /// Distance to camera [m]
     float GetCameraDist () const { return camDist; }
@@ -368,13 +513,30 @@ public:
     /// @param _flCounter A monotonically increasing counter, bumped once per flight loop dispatch from the sim.
     virtual void UpdatePosition (float _elapsedSinceLastCall, int _flCounter) = 0;
     
-    // --- Getters and Setters for the values in `drawInfo` ---
+    /// Is the aircraft on the ground?
+    bool IsOnGrnd () const { return bOnGrnd; }
+    /// @brief Set if the aircraft is on the ground
+    /// @param on_grnd Is the aircraft on the ground?
+    /// @param setTouchDownTime [opt] If not `NAN` activates SetTouchDown(), and automatically resets it after the given time in seconds
+    void SetOnGrnd (bool on_grnd, float setTouchDownTime = NAN);
+    
+    /// @}
+    /// @name Getters and Setters for the values in Aircraft::drawInfo
+    /// @{
 
     /// @brief Converts world coordinates to local coordinates, writes to Aircraft::drawInfo
     /// @note Alternatively, the calling plugin can set local coordinates in Aircraft::drawInfo directly
     /// @param lat Latitude in degress -90..90
     /// @param lon Longitude in degrees -180..180
     /// @param alt_ft Altitude in feet above MSL
+    /// @param on_grnd Is the aircraft on the ground?
+    /// @param setTouchDownTime [opt] If not `NAN` activates SetTouchDown(), and automatically resets it after the given time in seconds
+    void SetLocation (double lat, double lon, double alt_ft, bool on_grnd, float setTouchDownTime = NAN) {
+        SetLocation(lat, lon, alt_ft);
+        SetOnGrnd(on_grnd, setTouchDownTime);
+    }
+
+    /// Legacy version of above version of SetLocatiion(), here without setting ground flag
     void SetLocation (double lat, double lon, double alt_ft);
     
     /// @brief Converts aircraft's local coordinates to lat/lon values
@@ -393,7 +555,13 @@ public:
     float GetRoll () const               { return drawInfo.roll; }                      ///< roll [degree]
     void  SetRoll (float _deg)           { drawInfo.roll = _deg; }                      ///< roll [degree]
 
-    // --- Getters and Setters for the values in the `v` array ---
+    float GetGS_kn() const               { return gs_kn; }                              ///< Rough estimate of a ground speed based on `v_x/z`
+    
+    /// @}
+    /// @name Getters and Setters for the values in the Aircraft::v array
+    /// @see  https://twinfan.github.io/XPMP2/CSLdataRefs.html
+    /// @{
+
     float GetGearRatio () const          { return v[V_CONTROLS_GEAR_RATIO]; }           ///< Gear deploy ratio
     void  SetGearRatio (float _f)        { v[V_CONTROLS_GEAR_RATIO] = _f;   }           ///< Gear deploy ratio
     float GetNoseWheelAngle () const     { return v[V_CONTROLS_NWS_RATIO]; }            ///< Nose Wheel angle in degrees
@@ -475,7 +643,62 @@ public:
     bool  GetTouchDown () const          { return v[V_MISC_TOUCH_DOWN] > 0.5f; }                ///< Moment of touch down
     void  SetTouchDown (bool _b)         { v[V_MISC_TOUCH_DOWN] = float(_b);   }                ///< Moment of touch down
 
-    // The following is implemented in Map.cpp:
+    /// @}
+    /// @name Wake support as per X-Plane 12
+    /// @see  https://twinfan.github.io/XPMP2/Wake.html
+    /// @see  https://developer.x-plane.com/2022/02/wake-turbulence/
+    /// @see  https://developer.x-plane.com/article/plugin-traffic-wake-turbulence/
+    /// @{
+                                                                                                
+    /// @brief Fill in default wake turbulence support data based on Doc8643 wake turbulence category
+    /// @param _bOverwriteAllFields If `false` only overwrites `NAN` values in `wakeTy`
+    void WakeApplyDefaults(bool _bOverwriteAllFields = true);
+
+    float GetWingSpan () const          { return wake.wingSpan_m; }     ///< Wing span [m]
+    void SetWingSpan (float _m)         { wake.wingSpan_m = _m; }       ///< Wing span [m]
+
+    float GetWingArea() const           { return wake.wingArea_m2; }    ///< Wing area [m²]
+    void SetWingArea (float _m2)        { wake.wingArea_m2 = _m2; }     ///< Wing area [m²]
+
+    int GetWakeCat() const;                                             ///< Category between 0=light and 3=Super, derived from WTC
+
+    float GetMass() const               { return wake.mass_kg; }        ///< Mass [kg]
+    void SetMass(float _kg)             { wake.mass_kg = _kg; }         ///< Mass [kg]
+
+    // Overridables:
+    virtual float GetAoA() const        { return GetPitch(); }          ///< Angle of Attach, returns pitch (but you can override in your class)
+    virtual float GetLift() const       { return GetMass() * G_EARTH; } ///< Lift produced. You _should_ override to blend in/out for take-off/landing, but XPMP2 has no dynamic info of your plane, not even an on-the-ground flag
+
+    /// @}
+    /// @name Contrails
+    /// @note Implemented in Contrail.cpp
+    /// @{
+
+    /// @brief Trigger standard contrails as per plane type
+    /// @details Bases on Doc8643 data. Contrails will be created for Jets only.
+    ///          No contrails for non-jet aircraft.
+    ///          Contrails will be created as per global configuration (multi? life time),
+    ///          see `XPMP_CFG_ITM_CONTR_*` config items.
+    ///          If you want more control use ContrailRequest().
+    /// @returns Number of created contrails
+    unsigned ContrailTrigger ();
+    
+    /// @brief Request Contrails
+    /// @details They are not actually created here, that happens later in the flight loop
+    /// @param num Number of contrails. Keep performance impact in mind, 1 might be sufficient.
+    ///            Passing `0` will cause the contrails to be removed.
+    /// @param dist_m If more than one contrail is created, this is the spacing between them and the aircraft's centerline in meters. `0` means no change: use current value of `contrailDist_m`, which in turn is initialized to `5`
+    /// @param lifeTime is the time to live in seconds for each contrail puff, indirectly determining its length; `0` means no change: use current value of `contrailLifeTime`, which in turn is initialized from global configuration item `XPMP_CFG_ITM_CONTR_LIFE`
+    void ContrailRequest (unsigned num, unsigned dist_m = 0, unsigned lifeTime = 0);
+
+    /// Remove all contrail objects
+    void ContrailRemove ();
+    
+    /// @}
+    /// @name Map Support
+    /// @note Implemented in Map.cpp
+    /// @{
+
     /// Determine which map icon to use for this aircraft
     void MapFindIcon ();
     /// Prepare map coordinates
@@ -485,14 +708,64 @@ public:
     void MapDrawIcon (XPLMMapLayerID inLayer, float acSize);
     /// Actually draw the map label
     void MapDrawLabel (XPLMMapLayerID inLayer, float yOfs);
+    
+    /// @}
+    /// @name Sound Support
+    /// @note Implemented in Sound.cpp
+    /// @{
+
+    /// @brief Play a sound; a looping sound plays until explicitely stopped
+    /// @param sndName One of the sounds available or registered with XPMP2, see XPMPSoundAdd() and XPMPSoundEnumerate()
+    /// @param vol [opt] Volume level. 0 = silent, 1 = full. Negative level inverts the signal. Values larger than 1 amplify the signal.
+    /// @returns an internal id for the sound channel, or `0` if unsuccessful
+    uint64_t SoundPlay (const std::string& sndName, float vol = 1.0f);
+    
+    /// @brief Stop a continuously playing sound
+    /// @param chnId The channel's id returned by SoundPlay()
+    void SoundStop (uint64_t chnId);
+    
+    /// @brief Sets the sound's volume (after applying master volume and Sound File's adjustments)
+    /// @param chnId The channel's id returned by SoundPlay()
+    /// @param vol Volume level. 0 = silent, 1 = full. Negative level inverts the signal. Values larger than 1 amplify the signal.
+    void SoundVolume (uint64_t chnId, float vol);
+    
+    /// @brief Mute/Unmute all sounds of the airplane temporarily
+    void SoundMuteAll (bool bMute);
+    /// @brief Are all sounds currently muted?
+    bool SoundIsMuted() const { return bChnMuted; }
+    
+    /// @brief Returns the name of the sound to play per event
+    /// @details This standard implementation determines the engine sound via
+    ///          aircraft classification and returns constant
+    ///          names for the other sound types.
+    /// @note Override in derived class if you want to assign (some) sounds yourself
+    /// @param sndEvent The type of sound event, like engine or gear
+    /// @param[out] volAdj Volume adjustment factor, allows to make sound louder (>1.0) or quiter, defaults to 1.0
+    /// @returns Name of the sound to play, empty string if no sound shall play
+    virtual std::string SoundGetName (SoundEventsTy sndEvent, float& volAdj) const;
 
 protected:
+
+    /// @}
+
     /// Internal: Flight loop callback function controlling update and movement of all planes
     static float FlightLoopCB (float, float, int, void*);
+
+    /// @name Internal Control Functions
+    /// @{
+
     /// Internal: This puts the instance into XP's sky and makes it move
     void DoMove ();
+    /// Internal: Processes once every second only stuff that doesn't require being computed every flight loop
+    void DoEverySecondUpdates (float now, float secSinceBase);
+    /// Internal: Create/move contrails, implemented in Contrail.cpp
+    void ContrailMove ();
+    /// Internal: (Re)Assess if contrails are to be created
+    void ContrailAutoUpdate ();
     /// Internal: Update the plane's distance/bearing from the camera location
     void UpdateDistBearingCamera (const XPLMCameraPosition_t& posCam);
+    /// Internal: Update cartesian velocities (about every second)
+    void UpdateVelocities (float d_t);
     /// Clamp to ground: Make sure the plane is not below ground, corrects Aircraft::drawInfo if needed.
     void ClampToGround ();
     /// Create the instances required to represent the plane, return if successful
@@ -507,21 +780,40 @@ protected:
     // The following functions are implemented in AIMultiplayer.cpp:
     /// Define the TCAS target index in use
     virtual void SetTcasTargetIdx (int _idx) { tcasTargetIdx = _idx; }
+
+    /// @}
+
     // These functions perform the TCAS target / multiplayer data updates
     friend void AIMultiUpdate ();
     friend size_t AIUpdateTCASTargets ();
     friend size_t AIUpdateMultiplayerDataRefs ();
+    
+    /// @name Sound Support (internal)
+    /// @note Implemented in Sound.cpp
+    /// @{
+
+    /// Sound-related initializations, called by Create() and ChangeModel()
+    virtual void SoundSetup ();
+    /// Update sound, like position and volume, called once per frame
+    virtual void SoundUpdate ();
+    /// Remove all sound, e.g. during destruction
+    virtual void SoundRemoveAll ();
+    
+    /// @}
 };
 
 /// Find aircraft by its plane ID, can return nullptr
-Aircraft* AcFindByID (XPMPPlaneID _id);
+XPMP2_EXPORT Aircraft* AcFindByID (XPMPPlaneID _id);
+
+/// (Re)Define default wake turbulence values per WTC
+XPMP2_EXPORT bool AcSetDefaultWakeData(const std::string& _wtc, const Aircraft::wakeTy& _wake);
 
 //
 // MARK: XPMP2 Exception class
 //
 
 /// XPMP2 Exception class, e.g. thrown if there are no CSL models or duplicate modeS_ids when creating an Aircraft
-class XPMP2Error : public std::logic_error {
+class XPMP2_EXPORT XPMP2Error : public std::logic_error {
 protected:
     std::string fileName;           ///< filename of the line of code where exception occurred
     int ln;                         ///< line number of the line of code where exception occurred
@@ -545,5 +837,9 @@ public:
 
 
 }   // namespace XPMP2
+
+#if _MSC_VER
+#pragma warning(pop)
+#endif
 
 #endif

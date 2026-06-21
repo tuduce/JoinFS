@@ -1,14 +1,17 @@
 XPMP 2 and XPMP2 Remote Client
 =========
 
+[![Build all Platforms](https://github.com/TwinFan/XPMP2/actions/workflows/build.yml/badge.svg)](https://github.com/TwinFan/XPMP2/actions/workflows/build.yml)
+
 The original X-Plane Multiplay Library is the work of many fantastic people,
 with Ben Supnik, Chris Serio, and Chris Collins appearing in recent files and documentation.
 But the origins date back to 2004, and very likely many more were involved. Thanks to all of them!
 
 This complete re-implementation honours all the basic concepts (so I hope)
-but makes use of 2 modern X-Plane 11 concepts:
-- [instancing](https://developer.x-plane.com/sdk/XPLMInstance/), and
-- [TCAS Override](https://developer.x-plane.com/article/overriding-tcas-and-providing-traffic-information/)
+but makes use of now 3 modern X-Plane 11 concepts:
+- [instancing](https://developer.x-plane.com/sdk/XPLMInstance/),
+- [TCAS Override](https://developer.x-plane.com/article/overriding-tcas-and-providing-traffic-information/), and
+- [Wake Turbulence](https://developer.x-plane.com/2022/02/wake-turbulence/)
 
 Thus, it ports the idea of the library also into the times of Vulkan and Metal
 when the drawing mechanisms used by the original library no longer work.
@@ -18,10 +21,7 @@ of the library outdated...it is basically replaced by one line of code calling
 `XPLMInstanceSetPosition`.
 
 Concepts like the syntax of the `xsb_aircraft.txt` file or certainly the idea of an
-multi-pass matching to find a good model are retained, though re-implemented (read: can have new bugs).
-
-Added is support for synchronizing planes across the network with the remote
-machines running the included [**XPMP2 Remote Client**](#XPMP2-Remote-Client-Synchronizing-Planes-across-the-Network).
+multi-pass matching to find a good model are retained, though re-implemented.
 
 XPMP2 does no longer call any OpenGL function and hence does not require
 to be linked to an OpenGL library. The included XPMP2 Remote Client and
@@ -48,27 +48,24 @@ Future development can certainly extend functionality while trying hard
 to stay backward compatible.
 
 The XPMP2 library has been successfully tested with
-- X-Plane 11.50 RC3 under OpenGL, Vulkan, and Metal,
-- the enclosed [XPMP2 Remote Client](#XPMP2-Remote-Client-Synchronizing-Planes-across-the-Network),
-- the enclosed sample plugin,
-- [LiveTraffic v2.20](https://forums.x-plane.org/index.php?/files/file/49749-livetraffic/)
-- [X-Pilot 1.3](http://xpilot-project.org/)
+- X-Plane 11.5x under OpenGL, Vulkan, and Metal,
+- X-Plane 12,
+- the [XPMP2 Remote Client](#XPMP2-Remote-Client-Synchronizing-Planes-across-the-Network),
+- the [`XPMP2-Sample` plugin](https://github.com/TwinFan/XPMP2-Remote),
+- [LiveTraffic](https://forums.x-plane.org/index.php?/files/file/49749-livetraffic/)
+- [X-Pilot](http://xpilot-project.org/)
+- X-Plane version of [IVAO Altitude](https://www.ivao.aero/softdev/beta/altitudebeta.asp)
 - on Mac OS,
 - Windows, and
-- Linux (Ubuntu 18.04 and similar).
-
-Apparently, also the X-Plane version of the
-[IVAO Altitude](https://www.ivao.aero/softdev/beta/altitudebeta.asp)
-client seems to be built upon XPMP2.
+- Linux (Ubuntu 20.04 and similar).
 
 ## Requirements ##
 
 - XPMP2 implements [instancing](https://developer.x-plane.com/sdk/XPLMInstance/),
   so it **requires X-Plane 11.10** or later
 - CSL models in **OBJ8 format** (ie. older OBJ7 models are no longer supported)
-- Coversion of CSL model packages with
-  [CSL2XSB.py](https://github.com/TwinFan/CSL2XSB/releases) is strongly recommended
-  to unlock more model features, though not stricly required.
+- Potentially an FMOD license if built with FMOD sound support, see 
+  [Sound Support](#sound-support)
 
 ## Documentation: See [GitHub pages](https://twinfan.github.io/XPMP2/) ##
 
@@ -78,9 +75,12 @@ and more is available in the
 
 ### Sample Plugin ###
 
-This package comes with a sample plugin in the `XPMP2-Sample` folder. It is a complete
-plugin including build projects and CMake setup. It displays 3 aircraft flying circles
-in front of the user's plane. Each of the 3 aircraft is using a different technology:
+The separate
+[_Public Template_ repository `XPMP2-Sample`](https://github.com/TwinFan/XPMP2-Sample)
+provides a complete
+plugin including build projects and CMake setup and can be the basis for your plugin project.
+It displays 3 aircraft flying circles in front of the user's plane.
+Each of the 3 aircraft is using a different technology:
 the now recommended way of subclassing `XPMP2::Aircraft`, the legacy way
 of subclassing `XPCAircraft` (as used by LiveTraffic v1.x), and by calling
 standard C functions.
@@ -121,6 +121,44 @@ Beyond the standard set of information by X-Plane's family of dataRefs,
 XPMP2 also supports a set of shared dataRefs for providing
 textual aircraft and flight information,
 [details here](https://twinfan.github.io/XPMP2/SharedDataRefs.html).
+
+### Wake Turbulence ###
+
+X-Plane 12 started to
+[support wake turbulence](https://developer.x-plane.com/2022/02/wake-turbulence/)
+also for TCAS targets. As a trade-off between complexity (knowing exact
+wing dimensions and weight/lift of any plane) and results (strength of the wake)
+XPMP2 applies defaults to the aircraft dimensions based on the
+Wake Turbulence Category (WTC) listed in the `Doc8643` data.
+
+A plugin using XPMP2 can opt to provide its own values for even more
+precice results.
+
+Find [more details here](https://twinfan.github.io/XPMP2/Wake.html).
+
+### Sound Support ###
+
+All displayed aircraft can produce sound in the 3D world for
+engine, reversers, taxiing, gear and flap movement.
+
+There are 2 options:
+- As of X-Plane 12.04, XPMP2 can use X-Plane's new
+  [Sound API](https://developer.x-plane.com/sdk/XPLMSound/) and hence
+  integrate sounds with X-Plane's own FMOD instance; this does not
+  need linking and licensing your plugin with FMOD, but is restricted
+  to rather simple forms of `.WAV` sound file formats.
+- When building with FMOD support directly, then XPMP2's Audio Engine is
+  FMOD Core API by Firelight Technologies Pty Ltd.
+  Understand FMOD [licensing](https://www.fmod.com/licensing) and
+  [attribution requirements](https://www.fmod.com/attribution) first,
+  as they will apply to _your_ plugin if using XPMP2 with sound support.
+
+Because of the FMOD licensing requirements, XPMP2 by default is built
+without FMOD library support, but always supports X-Plane 12's
+internal Sound API out of the box.
+
+See the [Sound Support documentation](https://twinfan.github.io/XPMP2/Sound.html)
+for details how to enable sound support and how to include it into your plugin.
 
 ### Map Layer ###
 
