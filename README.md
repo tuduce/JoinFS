@@ -19,6 +19,10 @@ JoinFS is an advanced multiplayer client for flight simulators including Microso
 * Run the installer
 * Run the JoinFS utility
 
+OR
+### If you want to run it as unattended Hub on Docker
+the docker image is worth a look: https://hub.docker.com/r/joinfs/joinfs-console
+
 ## Building from source
 To build JoinFS from source, please follow these steps:
 * Clone this repository
@@ -45,3 +49,4 @@ To the maximum extent permitted by applicable law, in no event shall the author 
 You are solely responsible for all costs and expenses associated with rectification, repair or damage caused by such errors.
 
 You must assume the entire risk of using the SOFTWARE.
+

@@ -266,6 +266,12 @@ namespace JoinFS
                 receiveNotify = ReceiveMsg
             };
 
+            // override local address when running in Docker or behind NAT
+            if (IPAddress.TryParse(main.settingsLocalAddress, out IPAddress localAddress) && localAddress.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+            {
+                localNode.LocalAddress = localAddress;
+            }
+
             // check for valid IP
             if (IPAddress.TryParse(Settings.Default.MyIp, out IPAddress address) && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
             {
