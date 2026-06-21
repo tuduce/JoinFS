@@ -896,9 +896,51 @@ namespace JoinFS
         {
             if (Settings.Default.MigratedSettings == false)
             {
-                Settings.Default.Upgrade();
-                Settings.Default.MigratedSettings = true;
-                Settings.Default.Save();
+                // Prevent multiple instances from upgrading settings at the same time.
+                System.Threading.Mutex mutex = new(false, "JoinFS_SettingsUpgrade_Mutex");
+                bool acquired = false;
+                try
+                { 
+                    try
+                    {
+                        acquired = mutex.WaitOne(5000);
+                    }
+                    catch (AbandonedMutexException)
+                    {
+                        // another process terminated while holding the mutex, we can continue
+                        acquired = true;
+                    }
+
+                    try
+                    {
+                        // Try to upgrade settings. Only mark as migrated if Upgrade() succeeds.
+                        Settings.Default.Upgrade();
+                        Settings.Default.MigratedSettings = true;
+                        Settings.Default.Save();
+                    }
+                    catch (System.Configuration.ConfigurationErrorsException ex)
+                    {
+                        // Log and continue with defaults; do not let this abort startup.
+                        System.Diagnostics.Trace.WriteLine("Settings upgrade failed: " + ex);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Catch-all to avoid crashing the application during startup.
+                        System.Diagnostics.Trace.WriteLine("Settings upgrade unexpected error: " + ex);
+                    }
+                }
+                finally
+                {
+                    try
+                    {
+                        if (acquired && mutex != null)
+                        {
+                            mutex.ReleaseMutex();
+                        }
+                    }
+                    catch { }
+                    try { mutex?.Dispose(); } catch { }
+                }
             }
         }
 
