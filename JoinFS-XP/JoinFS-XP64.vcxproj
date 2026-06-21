@@ -104,8 +104,8 @@
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(TargetPath)" "F:\Steam\steamapps\common\X-Plane 11\Resources\plugins\JoinFS\64\win.xpl"
-copy "$(TargetPath)" "D:\Dev\Projects\JoinFS\win.xpl"</Command>
+      <Command>copy "$(TargetPath)" "D:\sandbox\XPlane\win.xpl"
+copy "$(TargetPath)" "D:\sandbox\XPlane\win.xpl"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

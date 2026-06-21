@@ -8,6 +8,7 @@ using System.Windows.Forms;
 #endif
 using System.Globalization;
 using JoinFS.Properties;
+using System.Runtime.CompilerServices;
 
 namespace JoinFS
 {
@@ -1391,6 +1392,30 @@ namespace JoinFS
             return result;
         }
 
+        // This record is used to store object data from the ACF file
+        private record AcfObjectData
+        {
+            public uint flags;
+            public bool hidden;
+            public string file;
+            public double phi;
+            public double psi;
+            public double theta;
+            public double objX;
+            public double objY;
+            public double objZ;
+        }
+
+        private string GetObjectRefFromAclLine(string line)
+        {
+            // the line is like P _obja/0/_obj_flags 24
+            string[] parts = line.Split('/');
+            // check for enough parts
+            if (parts.Length < 2) return null;
+            return parts[1];
+        }
+
+
         /// <summary>
         /// Generate CSL for an X-Plane aircraft
         /// </summary>
@@ -1448,7 +1473,9 @@ namespace JoinFS
                 // create reader
                 acfReader = new StreamReader(acfFile);
                 string line = "";
-                double cogY = 0.0, cogZ = 0.0;
+                double cogY = 0.0, cogZ = 0.0, minY = 0.0;
+
+                Dictionary<string, AcfObjectData> objectReferences = new Dictionary<string, AcfObjectData>();
 
                 // for each line the file
                 while ((line = acfReader.ReadLine()) != null)
@@ -1472,25 +1499,6 @@ namespace JoinFS
                             double.TryParse(words[words.Length - 1], NumberStyles.Number, CultureInfo.InvariantCulture, out cogZ);
                             cogZ *= Sim.METRES_PER_FOOT;
                         }
-                    }
-                }
-
-                // reset to start of file
-                acfReader.BaseStream.Seek(0, SeekOrigin.Begin);
-                // object data
-                bool inObj = false;
-                uint flags = 0;
-                bool hidden = false;
-                string objFile = "";
-                double phi = 0.0f, psi = 0.0f, theta = 0.0f, objX = 0.0f, objY = 0.0f, objZ = 0.0f;
-                // for each line the file
-                while ((line = acfReader.ReadLine()) != null)
-                {
-                    // get words
-                    string[] words = line.Split(whiteSpaces, StringSplitOptions.RemoveEmptyEntries);
-                    // check for last word
-                    if (words.Length >= 1)
-                    {
                         // check for ICAO
                         if (line.Contains("_ICAO"))
                         {
@@ -1502,151 +1510,226 @@ namespace JoinFS
                         // check for object
                         else if (line.Contains("_obj_flags"))
                         {
+                            uint flags;
                             // get flags
                             uint.TryParse(words[words.Length - 1], NumberStyles.Number, CultureInfo.InvariantCulture, out flags);
-                            // now in object
-                            inObj = true;
-                            // reset hidden
-                            hidden = false;
+
+                            // the line is like P _obja/0/_obj_flags 24
+                            string objName = GetObjectRefFromAclLine(line);
+                            // add object reference or update if already exists
+                            if (!objectReferences.ContainsKey(objName))
+                            {
+                                objectReferences[objName] = new AcfObjectData();
+                            }
+                            objectReferences[objName].flags = flags;
                         }
                         else if (line.Contains("hide_dataref"))
                         {
-                            // object is hidden
-                            hidden = true;
+                            // the line is like P _obja/0/_obj_flags 24
+                            string objName = GetObjectRefFromAclLine(line);
+                            // add object reference or update if already exists
+                            if (!objectReferences.ContainsKey(objName))
+                            {
+                                objectReferences[objName] = new AcfObjectData();
+                            }
+                            objectReferences[objName].hidden = true;
                         }
                         else if (line.Contains("att_file_stl"))
                         {
-                            // get object file name
-                            objFile = words[words.Length - 1];
+                            // example: P _obja/0/_v10_att_file_stl SR22_exterior.obj
+                            string objName = GetObjectRefFromAclLine(line);
+                            // add object reference or update if already exists
+                            if (!objectReferences.ContainsKey(objName))
+                            {
+                                objectReferences[objName] = new AcfObjectData();
+                            }
+                            objectReferences[objName].file = string.Join(" ", words, 2, words.Length - 2);
                         }
                         else if (line.Contains("att_phi_ref"))
                         {
-                            double.TryParse(words[words.Length - 1], NumberStyles.Number, CultureInfo.InvariantCulture, out phi);
+                            double.TryParse(words[words.Length - 1], NumberStyles.Number, CultureInfo.InvariantCulture, out double phi);
+                            string objName = GetObjectRefFromAclLine(line);
+                            // add object reference or update if already exists
+                            if (!objectReferences.ContainsKey(objName))
+                            {
+                                objectReferences[objName] = new AcfObjectData();
+                            }
+                            objectReferences[objName].phi = phi;
                         }
                         else if (line.Contains("att_psi_ref"))
                         {
-                            double.TryParse(words[words.Length - 1], NumberStyles.Number, CultureInfo.InvariantCulture, out psi);
+                            double.TryParse(words[words.Length - 1], NumberStyles.Number, CultureInfo.InvariantCulture, out double psi);
+                            string objName = GetObjectRefFromAclLine(line);
+                            // add object reference or update if already exists
+                            if (!objectReferences.ContainsKey(objName))
+                            {
+                                objectReferences[objName] = new AcfObjectData();
+                            }
+                            objectReferences[objName].psi = psi;
                         }
                         else if (line.Contains("att_the_ref"))
                         {
-                            double.TryParse(words[words.Length - 1], NumberStyles.Number, CultureInfo.InvariantCulture, out theta);
+                            double.TryParse(words[words.Length - 1], NumberStyles.Number, CultureInfo.InvariantCulture, out double theta);
+                            string objName = GetObjectRefFromAclLine(line);
+                            // add object reference or update if already exists
+                            if (!objectReferences.ContainsKey(objName))
+                            {
+                                objectReferences[objName] = new AcfObjectData();
+                            }
+                            objectReferences[objName].theta = theta;
                         }
                         else if (line.Contains("att_x_acf_prt_ref"))
                         {
-                            double.TryParse(words[words.Length - 1], NumberStyles.Number, CultureInfo.InvariantCulture, out objX);
+                            double.TryParse(words[words.Length - 1], NumberStyles.Number, CultureInfo.InvariantCulture, out double objX);
                             objX *= Sim.METRES_PER_FOOT;
+                            string objName = GetObjectRefFromAclLine(line);
+                            // add object reference or update if already exists
+                            if (!objectReferences.ContainsKey(objName))
+                            {
+                                objectReferences[objName] = new AcfObjectData();
+                            }
+                            objectReferences[objName].objX = objX;
                         }
                         else if (line.Contains("att_y_acf_prt_ref"))
                         {
-                            double.TryParse(words[words.Length - 1], NumberStyles.Number, CultureInfo.InvariantCulture, out objY);
+                            double.TryParse(words[words.Length - 1], NumberStyles.Number, CultureInfo.InvariantCulture, out double objY);
                             objY *= Sim.METRES_PER_FOOT;
+                            string objName = GetObjectRefFromAclLine(line);
+                            // add object reference or update if already exists
+                            if (!objectReferences.ContainsKey(objName))
+                            {
+                                objectReferences[objName] = new AcfObjectData();
+                            }
+                            objectReferences[objName].objY = objY;
                         }
                         else if (line.Contains("att_z_acf_prt_ref"))
                         {
-                            double.TryParse(words[words.Length - 1], NumberStyles.Number, CultureInfo.InvariantCulture, out objZ);
+                            double.TryParse(words[words.Length - 1], NumberStyles.Number, CultureInfo.InvariantCulture, out double objZ);
                             objZ *= Sim.METRES_PER_FOOT;
-                            // interpret flags
-                            bool inside = (flags & 0x4) != 0;
-                            bool exterior = (flags & 0x10) != 0;
-                            bool broken = (flags & 0x200) != 0;
-                            // check if inside object and object is valid
-                            if (inObj && objFile.StartsWith("..") == false && broken == false && (exterior || inside == false) && (hidden == false || objFile.IndexOf("pilot", StringComparison.OrdinalIgnoreCase) >= 0 || objFile.IndexOf("gear", StringComparison.OrdinalIgnoreCase) >= 0))
+                            string objName = GetObjectRefFromAclLine(line);
+                            // add object reference or update if already exists
+                            if (!objectReferences.ContainsKey(objName))
                             {
-                                // object file
-                                string objectPath = Path.Combine(simFolder, subFolder, "objects", objFile);
-                                // inject file
-                                string injectPath = Path.Combine(packageFolder, validLivery, objFile);
-                                // check for object file and not already injected
-                                if (File.Exists(objectPath) && (main.settingsSkipCsl == false || File.Exists(injectPath) == false))
-                                {
-                                    // create reader
-                                    objReader = new StreamReader(objectPath);
-                                    // get inject folder
-                                    string injectFolder = Path.GetDirectoryName(injectPath);
-                                    // create inject folder
-                                    if (Directory.Exists(injectFolder) == false) Directory.CreateDirectory(injectFolder);
-                                    // open new object file
-                                    objWriter = new StreamWriter(Path.Combine(packageFolder, injectPath));
-
-                                    // read line
-                                    while ((line = objReader.ReadLine()) != null)
-                                    {
-                                        // get words
-                                        words = line.Split(whiteSpaces, StringSplitOptions.RemoveEmptyEntries);
-                                        // check for valid line
-                                        if (words.Length >= 2)
-                                        {
-                                            // get command
-                                            string command = words[0].ToUpper();
-
-                                            // check for vertex
-                                            if (command == "VT" && words.Length >= 4)
-                                            {
-                                                // read position
-                                                double.TryParse(words[1], NumberStyles.Number, CultureInfo.InvariantCulture, out double x);
-                                                double.TryParse(words[2], NumberStyles.Number, CultureInfo.InvariantCulture, out double y);
-                                                double.TryParse(words[3], NumberStyles.Number, CultureInfo.InvariantCulture, out double z);
-
-                                                // modify position
-                                                x += objX;
-                                                y += objY - cogY;
-                                                z += objZ - cogZ;
-                                                // write new position
-                                                objWriter.Write("VT\t" + x.ToString("F8", CultureInfo.InvariantCulture) + "\t" + y.ToString("F8", CultureInfo.InvariantCulture) + "\t" + z.ToString("F8", CultureInfo.InvariantCulture));
-                                                // copy remaining line
-                                                for (int i = 4; i < words.Length; i++) objWriter.Write("\t" + words[i]);
-                                                // end of line
-                                                objWriter.WriteLine();
-                                            }
-                                            // check for texture
-                                            else if (command.Equals("TEXTURE") || command.Equals("TEXTURE_LIT") || command.Equals("TEXTURE_NORMAL"))
-                                            {
-                                                // texture filenames
-                                                string texturePNG = Path.Combine(Path.GetDirectoryName(objectPath), words[1]);
-                                                string liveryPNG = texturePNG.Replace(@"\objects", Path.Combine(@"\liveries", livery, "objects")).Replace(@"/objects", Path.Combine(@"/liveries", livery, "objects"));
-                                                string textureDDS = texturePNG.Replace(".png", ".dds");
-                                                string liveryDDS = liveryPNG.Replace(".png", ".dds");
-
-                                                // get file name
-                                                string textureFile = Path.GetFileName(words[1]);
-                                                // copy texture
-                                                if (File.Exists(liveryDDS)) File.Copy(liveryDDS, Path.Combine(injectFolder, textureFile), true);
-                                                else if (File.Exists(liveryPNG)) File.Copy(liveryPNG, Path.Combine(injectFolder, textureFile), true);
-                                                else if (File.Exists(textureDDS)) File.Copy(textureDDS, Path.Combine(injectFolder, textureFile), true);
-                                                else if (File.Exists(texturePNG)) File.Copy(texturePNG, Path.Combine(injectFolder, textureFile), true);
-
-                                                // copy line
-                                                objWriter.WriteLine(command + " " + textureFile);
-                                            }
-                                            else
-                                            {
-                                                // copy line
-                                                objWriter.WriteLine(line);
-                                            }
-                                        }
-                                        else
-                                        {
-                                            // copy line
-                                            objWriter.WriteLine(line);
-                                        }
-                                    }
-
-                                    // close files
-                                    objReader.Close();
-                                    objWriter.Close();
-                                }
-
-                                // write object information
-                                xsbWriter.WriteLine("OBJ8 SOLID YES " + validType + @"/" + validLivery + @"/" + objFile);
-                                // increment count
-                                objCount++;
+                                objectReferences[objName] = new AcfObjectData();
                             }
-                            // no longer in object
-                            inObj = false;
+                            objectReferences[objName].objZ = objZ;
                         }
                     }
                 }
 
+                // go through all detected objects
+                foreach (var objRef in objectReferences)
+                {
+                    string objName = objRef.Key;
+                    AcfObjectData data = objRef.Value;
+
+                    // interpret flags
+                    bool inside = (data.flags & 0x4) != 0;
+                    bool exterior = (data.flags & 0x10) != 0;
+                    bool broken = (data.flags & 0x200) != 0;
+
+                    // check if inside object and object is valid
+                    if (!data.file.StartsWith("..") &&
+                        !broken &&
+                        (exterior || !inside) &&
+                        (!data.hidden || data.file.IndexOf("pilot", StringComparison.OrdinalIgnoreCase) >= 0 || data.file.IndexOf("gear", StringComparison.OrdinalIgnoreCase) >= 0))
+                    {
+                        // object file
+                        string objectPath = Path.Combine(simFolder, subFolder, "objects", data.file);
+                        // inject file
+                        string injectPath = Path.Combine(packageFolder, validLivery, data.file);
+                        // check for object file and not already injected
+                        if (File.Exists(objectPath) && (main.settingsSkipCsl == false || File.Exists(injectPath) == false))
+                        {
+                            // create reader
+                            objReader = new StreamReader(objectPath);
+                            // get inject folder
+                            string injectFolder = Path.GetDirectoryName(injectPath);
+                            // create inject folder
+                            if (Directory.Exists(injectFolder) == false) Directory.CreateDirectory(injectFolder);
+                            // open new object file
+                            objWriter = new StreamWriter(Path.Combine(packageFolder, injectPath));
+
+                            // read line
+                            while ((line = objReader.ReadLine()) != null)
+                            {
+                                string[] words;
+                                // get words
+                                words = line.Split(whiteSpaces, StringSplitOptions.RemoveEmptyEntries);
+                                // check for valid line
+                                if (words.Length >= 2)
+                                {
+                                    // get command
+                                    string command = words[0].ToUpper();
+
+                                    // check for vertex
+                                    if (command == "VT" && words.Length >= 4)
+                                    {
+                                        // read position
+                                        double.TryParse(words[1], NumberStyles.Number, CultureInfo.InvariantCulture, out double x);
+                                        double.TryParse(words[2], NumberStyles.Number, CultureInfo.InvariantCulture, out double y);
+                                        double.TryParse(words[3], NumberStyles.Number, CultureInfo.InvariantCulture, out double z);
+
+                                        // modify position
+                                        //x += objX;
+                                        //y += objY - cogY;
+                                        //z += objZ - cogZ;
+                                        if (y < minY) minY = y;
+                                        // write new position
+                                        objWriter.Write("VT\t" + x.ToString("F8", CultureInfo.InvariantCulture) + "\t" + y.ToString("F8", CultureInfo.InvariantCulture) + "\t" + z.ToString("F8", CultureInfo.InvariantCulture));
+                                        // copy remaining line
+                                        for (int i = 4; i < words.Length; i++) objWriter.Write("\t" + words[i]);
+                                        // end of line
+                                        objWriter.WriteLine();
+                                    }
+                                    // check for texture
+                                    else if (command.Equals("TEXTURE") || command.Equals("TEXTURE_LIT") || command.Equals("TEXTURE_NORMAL"))
+                                    {
+                                        // texture filenames
+                                        string texturePNG = Path.Combine(Path.GetDirectoryName(objectPath), words[1]);
+                                        string liveryPNG = texturePNG.Replace(@"\objects", Path.Combine(@"\liveries", livery, "objects")).Replace(@"/objects", Path.Combine(@"/liveries", livery, "objects"));
+                                        string textureDDS = texturePNG.Replace(".png", ".dds");
+                                        string liveryDDS = liveryPNG.Replace(".png", ".dds");
+
+                                        // get file name
+                                        string textureFile = Path.GetFileName(words[1]);
+                                        // copy texture
+                                        if (File.Exists(liveryDDS)) File.Copy(liveryDDS, Path.Combine(injectFolder, textureFile), true);
+                                        else if (File.Exists(liveryPNG)) File.Copy(liveryPNG, Path.Combine(injectFolder, textureFile), true);
+                                        else if (File.Exists(textureDDS)) File.Copy(textureDDS, Path.Combine(injectFolder, textureFile), true);
+                                        else if (File.Exists(texturePNG)) File.Copy(texturePNG, Path.Combine(injectFolder, textureFile), true);
+
+                                        // copy line
+                                        objWriter.WriteLine(command + " " + textureFile);
+                                    }
+                                    else
+                                    {
+                                        // copy line
+                                        objWriter.WriteLine(line);
+                                    }
+                                }
+                                else
+                                {
+                                    // copy line
+                                    objWriter.WriteLine(line);
+                                }
+                            }
+
+                            // close files
+                            objReader.Close();
+                            objWriter.Close();
+                            //File.Copy(objectPath, Path.Combine(packageFolder, injectPath), true);
+                        }
+
+                        // write object information
+                        xsbWriter.WriteLine("OBJ8 SOLID YES " + validType + @"/" + validLivery + @"/" + data.file);
+                        // increment count
+                        objCount++;
+                    }
+                }
+
+                // write VERT_OFFSET 
+                //xsbWriter.WriteLine("VERT_OFFSET " + -1*(cogY-minY));
                 // write refence names
                 xsbWriter.WriteLine("LIVERY " + icaoType + " " + variation);
             }
