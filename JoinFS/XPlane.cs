@@ -1683,7 +1683,11 @@ namespace JoinFS
                                         objWriter.WriteLine();
                                     }
                                     // check for texture
-                                    else if (command.Equals("TEXTURE") || command.Equals("TEXTURE_LIT") || command.Equals("TEXTURE_NORMAL"))
+                                    else if (command.Equals("TEXTURE") || 
+                                             command.Equals("TEXTURE_LIT") || 
+                                             command.Equals("TEXTURE_NORMAL") ||
+                                             command.Equals("THERMAL_TEXTURE") ||
+                                             command.Equals("WIPER_TEXTURE"))
                                     {
                                         // texture filenames
                                         string texturePNG = Path.Combine(Path.GetDirectoryName(objectPath), words[1]);
