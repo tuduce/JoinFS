@@ -202,6 +202,7 @@
 	<ItemGroup Condition=" '$(Configuration)' == 'CONSOLE-Debug' OR '$(Configuration)' == 'CONSOLE' ">
 		<PackageReference Include="System.Resources.Extensions" Version="8.0.0" />
 		<PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<Compile Remove="Forms\**" />
 		<Compile Remove="Properties\Resources.*" />
 		<EmbeddedResource Remove="Forms\**" />

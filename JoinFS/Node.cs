@@ -2358,7 +2358,7 @@ namespace JoinFS
         /// <summary>
         /// Local address
         /// </summary>
-        readonly IPAddress localAddress = IPAddress.Loopback;
+        IPAddress localAddress = IPAddress.Loopback;
 
         /// <summary>
         /// Accessible local address
