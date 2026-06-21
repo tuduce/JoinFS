@@ -1,6 +1,7 @@
 ## New Features
 
 - Upgraded the XPLANE SDK against which the XPLANE plugin is built to version 4.3.0.
+- Added webhook for frequency changes and websocket-server for client updates to the CONSOLE variant (contribution by @joeherwig, thank you!).
 
 ## Bug Fixes
 
