@@ -159,12 +159,12 @@ namespace JoinFS
                 writer.WriteLine("INTEGER|sim/cockpit2/radios/actuators/audio_selection_com1|COM TRANSMIT:1|bool|COM1_TRANSMIT_SELECT");
                 writer.WriteLine("INTEGER|sim/cockpit2/radios/actuators/audio_selection_com2|COM TRANSMIT:2|bool|COM2_TRANSMIT_SELECT");
                 writer.WriteLine("INTEGER|sim/cockpit/radios/transponder_code|TRANSPONDER CODE:1|bco16|XPNDR_SET");
-                writer.WriteLine("FLOAT|sim/cockpit2/radios/actuators/com1_frequency_hz_833*0.01f|COM ACTIVE FREQUENCY:1|MHz|COM_RADIO_SET");
-                writer.WriteLine("FLOAT|sim/cockpit/radios/com2_freq_hz|COM ACTIVE FREQUENCY:2|MHz|COM2_RADIO_SET");
+                writer.WriteLine("FLOAT|sim/cockpit2/radios/actuators/com1_frequency_hz_833*1000|COM ACTIVE FREQUENCY:1|MHz|COM_RADIO_SET");
+                writer.WriteLine("FLOAT|sim/cockpit2/radios/actuators/com2_frequency_hz_833*1000|COM ACTIVE FREQUENCY:2|MHz|COM2_RADIO_SET");
                 writer.WriteLine("FLOAT|sim/cockpit/radios/nav1_freq_hz|NAV ACTIVE FREQUENCY:1|MHz|NAV1_RADIO_SET");
                 writer.WriteLine("FLOAT|sim/cockpit/radios/nav2_freq_hz|NAV ACTIVE FREQUENCY:2|MHz|NAV2_RADIO_SET");
-                writer.WriteLine("FLOAT|sim/cockpit/radios/com1_stdby_freq_hz|COM STANDBY FREQUENCY:1|MHz|COM_STBY_RADIO_SET");
-                writer.WriteLine("FLOAT|sim/cockpit/radios/com2_stdby_freq_hz|COM STANDBY FREQUENCY:2|MHz|COM2_STBY_RADIO_SET");
+                writer.WriteLine("FLOAT|sim/cockpit2/radios/actuators/com1_standby_frequency_hz_833*1000|COM STANDBY FREQUENCY:1|MHz|COM_STBY_RADIO_SET");
+                writer.WriteLine("FLOAT|sim/cockpit2/radios/actuators/com2_standby_frequency_hz_833*1000|COM STANDBY FREQUENCY:2|MHz|COM2_STBY_RADIO_SET");
                 writer.WriteLine("FLOAT|sim/cockpit/radios/nav1_stdby_freq_hz|NAV STANDBY FREQUENCY:1|MHz|NAV1_STBY_SET");
                 writer.WriteLine("FLOAT|sim/cockpit/radios/nav2_stdby_freq_hz|NAV STANDBY FREQUENCY:2|MHz|NAV2_STBY_SET");
                 writer.WriteLine("INTEGER|sim/cockpit/radios/adf1_freq_hz|ADF ACTIVE FREQUENCY:1|frequency adf bcd32|ADF_COMPLETE_SET");
