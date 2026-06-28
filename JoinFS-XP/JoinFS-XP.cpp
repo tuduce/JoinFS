@@ -751,7 +751,7 @@ static void InitUserAircraft(UserAircraft& aircraft)
     aircraft.dr_avionics = GetDataRef("sim/cockpit2/switches/avionics_power_on");
 	aircraft.dr_obs1 = GetDataRef("sim/cockpit/radios/nav1_obs_degm");
 	aircraft.dr_obs2 = GetDataRef("sim/cockpit/radios/nav2_obs_degm");
-	aircraft.dr_com1Active = GetDataRef("sim/cockpit/radios/com1_freq_hz");
+	aircraft.dr_com1Active = GetDataRef("sim/cockpit2/radios/actuators/com1_frequency_hz_833");
 	aircraft.dr_com2Active = GetDataRef("sim/cockpit/radios/com2_freq_hz");
     aircraft.dr_nav1Active = GetDataRef("sim/cockpit/radios/nav1_freq_hz");
     aircraft.dr_nav2Active = GetDataRef("sim/cockpit/radios/nav2_freq_hz");
