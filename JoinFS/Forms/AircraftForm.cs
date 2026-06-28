@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Drawing;
 using JoinFS.Properties;
+using System.Linq;
 
 namespace JoinFS
 {
@@ -349,8 +350,19 @@ namespace JoinFS
                 if (aircraft.variableSet != null)
                 {
                     // COM frequencies
-                    item.com1 = aircraft.variableSet.GetInteger(vuidCom1).ToString();
-                    item.com2 = aircraft.variableSet.GetInteger(vuidCom2).ToString();
+                    // Try Float first, if not available then try Integer
+                    var com1Value = aircraft.variableSet.GetFloat(vuidCom1);
+                    if (com1Value == 0)
+                    {
+                        com1Value = aircraft.variableSet.GetInteger(vuidCom1) / 100f;
+                    }
+                    item.com1 = com1Value.ToString("F3");
+                    var com2Value = aircraft.variableSet.GetFloat(vuidCom2);
+                    if (com2Value == 0)
+                    {  
+                        com2Value = aircraft.variableSet.GetInteger(vuidCom2) / 100f; 
+                    }
+                    item.com2 = com2Value.ToString("F3");
                     // squawk
                     item.squawk = aircraft.variableSet.GetInteger(vuidSquawk).ToString();
                     // rules
@@ -373,10 +385,6 @@ namespace JoinFS
                 item.alt = aircraft.flightPlan.alternate;
                 item.cruise = aircraft.flightPlan.speed;
                 item.level = aircraft.flightPlan.altitude;
-
-                // convert frequencies
-                item.com1 = (item.com1.Length < 3) ? "" : string.Concat(item.com1.AsSpan()[..3], ".", item.com1.AsSpan(3));
-                item.com2 = (item.com2.Length < 3) ? "" : string.Concat(item.com2.AsSpan()[..3], ".", item.com2.AsSpan(3));
 
                 // wind
                 item.wind = aircraft.wind;
