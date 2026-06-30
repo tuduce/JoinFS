@@ -24,4 +24,5 @@ EXPOSE 6112
 WORKDIR /JoinFS-CONSOLE
 COPY --from=build /app/publish .
 RUN mv JoinFS-CONSOLE JoinFS
+RUN apk upgrade --no-cache
 ENTRYPOINT ["dotnet", "JoinFS-CONSOLE.dll"]
