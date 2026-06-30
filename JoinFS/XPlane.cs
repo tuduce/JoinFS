@@ -1617,6 +1617,25 @@ namespace JoinFS
                     }
                 }
 
+                // objects source folder
+                string objectsFolder = Path.Combine(simFolder, subFolder, "objects");
+                // inject base folder
+                string injectBaseFolder = Path.Combine(packageFolder, validLivery);
+
+                // copy all files from the objects folder
+                if (Directory.Exists(objectsFolder))
+                {
+                    foreach (string srcFile in Directory.GetFiles(objectsFolder, "*", SearchOption.AllDirectories))
+                    {
+                        string relativePath = srcFile.Substring(objectsFolder.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        string destFile = Path.Combine(injectBaseFolder, relativePath);
+                        string destDir = Path.GetDirectoryName(destFile);
+                        if (Directory.Exists(destDir) == false) Directory.CreateDirectory(destDir);
+                        if (main.settingsSkipCsl == false || File.Exists(destFile) == false)
+                            File.Copy(srcFile, destFile, true);
+                    }
+                }
+
                 // go through all detected objects
                 foreach (var objRef in objectReferences)
                 {
@@ -1724,11 +1743,23 @@ namespace JoinFS
                             objWriter.Close();
                             //File.Copy(objectPath, Path.Combine(packageFolder, injectPath), true);
                         }
+                    }
+                }
 
-                        // write object information
-                        xsbWriter.WriteLine("OBJ8 SOLID YES " + validType + @"/" + validLivery + @"/" + data.file);
-                        // increment count
-                        objCount++;
+                // write xsb entries
+                if (Directory.Exists(objectsFolder))
+                {
+                    foreach (string srcFile in Directory.GetFiles(objectsFolder, "*.obj", SearchOption.AllDirectories))
+                    {
+                        string fileName = Path.GetFileName(srcFile);
+                        if (fileName.IndexOf("pilot", StringComparison.OrdinalIgnoreCase) < 0 &&
+                            fileName.IndexOf("glass", StringComparison.OrdinalIgnoreCase) < 0 &&
+                            fileName.IndexOf("gear", StringComparison.OrdinalIgnoreCase) < 0)
+                        {
+                            string relativePath = srcFile.Substring(objectsFolder.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                            xsbWriter.WriteLine("OBJ8 SOLID YES " + validType + @"/" + validLivery + @"/" + relativePath);
+                            objCount++;
+                        }
                     }
                 }
 
