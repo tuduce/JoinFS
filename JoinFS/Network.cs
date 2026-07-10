@@ -1684,6 +1684,9 @@ namespace JoinFS
 #if FS2024
             message.Write(simObject.ownerLivery);
 #endif
+            // ICAO type/airline - unconditional, ICAO data matters for FS2020 too
+            message.Write(simObject is Sim.Aircraft aircraftObj ? aircraftObj.flightPlan.icaoType : "");
+            message.Write(simObject is Sim.Aircraft aircraftObj2 ? aircraftObj2.flightPlan.icaoAirline : "");
         }
 
 
@@ -1718,6 +1721,9 @@ namespace JoinFS
 #if FS2024
             message.Write(aircraft.ownerLivery);
 #endif
+            // ICAO type/airline - unconditional, ICAO data matters for FS2020 too
+            message.Write(aircraft.flightPlan.icaoType);
+            message.Write(aircraft.flightPlan.icaoAirline);
         }
 
         /// <summary>
@@ -3080,9 +3086,13 @@ namespace JoinFS
                                     // update position and velocity
 #if FS2024
                                     string variation = (reader.PeekChar() != -1) ? reader.ReadString() : "";
-                                    Sim.Obj simObject = main.sim?.UpdateObject(nuid, netId, model, variation, typerole, netTime, ref positionVelocity);
+#endif
+                                    string icaoType = (reader.PeekChar() != -1) ? reader.ReadString() : "";
+                                    string icaoAirline = (reader.PeekChar() != -1) ? reader.ReadString() : "";
+#if FS2024
+                                    Sim.Obj simObject = main.sim?.UpdateObject(nuid, netId, model, variation, icaoType, icaoAirline, typerole, netTime, ref positionVelocity);
 #else
-                                    Sim.Obj simObject = main.sim ?. UpdateObject(nuid, netId, model, typerole, netTime, ref positionVelocity);
+                                    Sim.Obj simObject = main.sim ?. UpdateObject(nuid, netId, model, icaoType, icaoAirline, typerole, netTime, ref positionVelocity);
 #endif
 
                                     // check for object
@@ -3154,9 +3164,13 @@ namespace JoinFS
                                             // update position and velocity
 #if FS2024
                                             string variation = (reader.PeekChar() != -1) ? reader.ReadString() : "";
-                                            Sim.Aircraft aircraft = main.sim?.UpdateAircraft(nuid, netId, user, plane, callsign, nickname, model, variation, typerole, netTime, ref aircraftPosition);
+#endif
+                                            string icaoType = (reader.PeekChar() != -1) ? reader.ReadString() : "";
+                                            string icaoAirline = (reader.PeekChar() != -1) ? reader.ReadString() : "";
+#if FS2024
+                                            Sim.Aircraft aircraft = main.sim?.UpdateAircraft(nuid, netId, user, plane, callsign, nickname, model, variation, icaoType, icaoAirline, typerole, netTime, ref aircraftPosition);
 #else
-                                            Sim.Aircraft aircraft = main.sim ?. UpdateAircraft(nuid, netId, user, plane, callsign, nickname, model, typerole, netTime, ref aircraftPosition);
+                                            Sim.Aircraft aircraft = main.sim ?. UpdateAircraft(nuid, netId, user, plane, callsign, nickname, model, icaoType, icaoAirline, typerole, netTime, ref aircraftPosition);
 #endif
                                             // check for aircraft
                                             if (aircraft != null)

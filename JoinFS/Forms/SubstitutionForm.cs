@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Windows.Forms;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace JoinFS
 {
@@ -13,6 +14,8 @@ namespace JoinFS
 #endif
         string replace;
         int typerole;
+
+        readonly System.Windows.Forms.Timer filterTimer = new() { Interval = 200 };
 
         public string GetReplaceModel()
         {
@@ -57,10 +60,7 @@ namespace JoinFS
             // get filter words
             string[] words = filter.Split(' ');
 
-            // clear current list
-            Combo_Type.Items.Clear();
-
-            List<string> typeList = [];
+            SortedSet<string> typeSet = new(StringComparer.OrdinalIgnoreCase);
 
             lock (main.conch)
             {
@@ -104,29 +104,21 @@ namespace JoinFS
                     // check to add model
                     if (add)
                     {
-                        typeList.Add(model.type);
+                        typeSet.Add(model.type);
                     }
                 }
             }
 
-            // for each model
-            foreach (var type in typeList)
-            {
-                // check if not already listed
-                if (Combo_Type.Items.Contains(type) == false)
-                {
-                    // add to list
-                    Combo_Type.Items.Add(type);
-                }
-            }
+            // clear current list and batch-populate the new one
+            Combo_Type.BeginUpdate();
+            Combo_Type.Items.Clear();
+            Combo_Type.Items.AddRange(typeSet.ToArray());
+            Combo_Type.EndUpdate();
         }
 
         public void UpdateVariation()
         {
-            // clear current list
-            Combo_Variation.Items.Clear();
-
-            List<string> list = [];
+            SortedSet<string> variationSet = new(StringComparer.OrdinalIgnoreCase);
 
             lock (main.conch)
             {
@@ -136,25 +128,16 @@ namespace JoinFS
                     // check variation
                     if (model.type.Equals(Combo_Type.Text))
                     {
-                        // check if not already listed
-                        if (Combo_Variation.Items.Contains(model.variation) == false)
-                        {
-                            list.Add(model.variation);
-                        }
+                        variationSet.Add(model.variation);
                     }
                 }
             }
 
-            // for each model
-            foreach (var variation in list)
-            {
-                // check if not already listed
-                if (Combo_Variation.Items.Contains(variation) == false)
-                {
-                    // add to list
-                    Combo_Variation.Items.Add(variation);
-                }
-            }
+            // clear current list and batch-populate the new one
+            Combo_Variation.BeginUpdate();
+            Combo_Variation.Items.Clear();
+            Combo_Variation.Items.AddRange(variationSet.ToArray());
+            Combo_Variation.EndUpdate();
         }
 
         public void UpdateTitle()
@@ -214,6 +197,22 @@ namespace JoinFS
             Combo_Type.Font = main.dataFont;
             Combo_Variation.Font = main.dataFont;
             Text_Title.Font = main.dataFont;
+
+            // debounce the filter so typing doesn't trigger a full model-list scan on every keystroke
+            filterTimer.Tick += FilterTimer_Tick;
+        }
+
+        void FilterTimer_Tick(object sender, EventArgs e)
+        {
+            filterTimer.Stop();
+
+            // update type list
+            UpdateType(Text_Filter.Text);
+            if (Combo_Type.Items.Count > 0)
+            {
+                // select first in list
+                Combo_Type.SelectedIndex = 0;
+            }
         }
 
         private void Combo_Type_SelectedValueChanged(object sender, EventArgs e)
@@ -235,13 +234,9 @@ namespace JoinFS
 
         private void Text_Filter_TextChanged(object sender, EventArgs e)
         {
-            // update type list
-            UpdateType(Text_Filter.Text);
-            if (Combo_Type.Items.Count > 0)
-            {
-                // select first in list
-                Combo_Type.SelectedIndex = 0;
-            }
+            // reset the debounce timer on every keystroke - UpdateType() only runs once typing pauses
+            filterTimer.Stop();
+            filterTimer.Start();
         }
 
         private async void SubstitutionForm_Load(object sender, EventArgs e)
@@ -262,10 +257,12 @@ namespace JoinFS
 
             //lock (main.conch)
             //{
+            // no live remote ICAO data available for this manual-override preview - falls through
+            // to the same prefix/default tiers as before ICAO-based matching existed
 #if FS2024
-                (model, type) = await main.substitution.Match(replace, variation, typerole);
+                (model, type) = await main.substitution.Match(replace, variation, "", "", typerole);
 #else
-                (model, type) = await main.substitution.Match(replace, typerole);
+                (model, type) = await main.substitution.Match(replace, "", "", typerole);
 #endif
             //}
 

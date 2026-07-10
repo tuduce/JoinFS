@@ -86,7 +86,16 @@ namespace JoinFS.Resources {
                 return ResourceManager.GetString("Airliner", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Airship.
+        /// </summary>
+        internal static string Airship {
+            get {
+                return ResourceManager.GetString("Airship", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Import your JoinFS settings from v3.1.6?.
         /// </summary>
@@ -140,7 +149,16 @@ namespace JoinFS.Resources {
                 return ResourceManager.GetString("BecomeAPatron", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Balloon.
+        /// </summary>
+        internal static string Balloon {
+            get {
+                return ResourceManager.GetString("Balloon", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Bomber.
         /// </summary>

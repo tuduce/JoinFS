@@ -74,6 +74,8 @@ namespace JoinFS
         public const int TypeRole_Fighter       = 6;
         public const int TypeRole_Bomber        = 7;
         public const int TypeRole_FourProp      = 8;
+        public const int TypeRole_Airship       = 9;
+        public const int TypeRole_Balloon       = 10;
 
         /// <summary>
         /// type roles names
@@ -88,6 +90,8 @@ namespace JoinFS
             { TypeRole_Fighter,         Resources.Strings.Fighter },
             { TypeRole_Bomber,          Resources.Strings.Bomber },
             { TypeRole_FourProp,        Resources.Strings.FourProp },
+            { TypeRole_Airship,         Resources.Strings.Airship },
+            { TypeRole_Balloon,         Resources.Strings.Balloon },
         };
 
 #if FS2024
@@ -133,6 +137,16 @@ namespace JoinFS
                 // Glider
                 return TypeRole_Glider;
             }
+            else if (typerole.Contains("Balloon", StringComparison.CurrentCulture) || typerole.Contains("Zeppelin", StringComparison.CurrentCulture))
+            {
+                // Balloon
+                return TypeRole_Balloon;
+            }
+            else if (typerole.Contains("Airship", StringComparison.CurrentCulture) || typerole.Contains("Blimp", StringComparison.CurrentCulture))
+            {
+                // Airship
+                return TypeRole_Airship;
+            }
             else if (typerole.Contains("Fighter", StringComparison.CurrentCulture) || typerole.Contains("Jet", StringComparison.CurrentCulture))
             {
                 // Fighter
@@ -150,6 +164,60 @@ namespace JoinFS
                 // default to SingleProp
                 return TypeRole_SingleProp;
             }
+        }
+
+        /// <summary>
+        /// Derive a typerole from an ICAO type designator and its Doc8643 classification code.
+        /// Returns 0 when no reliable classification can be made (caller should keep any existing typerole).
+        /// </summary>
+        static int TyperoleFromIcao(string icaoType, string classCode, string wtc)
+        {
+            // full official ICAO special-designator set, checked first since it bypasses the (possibly stale) bundled Doc8643 rows
+            switch (icaoType)
+            {
+                case "SHIP": return TypeRole_Airship;
+                case "BALL": return TypeRole_Balloon;
+                case "GLID":
+                case "GLIM": return TypeRole_Glider;
+                case "GYRO":
+                case "UHEL": return TypeRole_Rotorcraft;
+                case "ULAC": return TypeRole_SingleProp;
+                    // PARA, FFLO, VFHC, ZZZZ and anything else fall through - no clean existing typerole fits
+            }
+
+            // classification code driven typerole, e.g. "H2T", "L2P", "L2J"
+            if (classCode.Length != 3)
+            {
+                return 0;
+            }
+
+            char platform = classCode[0];
+            char engineType = classCode[2];
+
+            if (platform is 'H' or 'G')
+            {
+                // helicopter or gyrocopter
+                return TypeRole_Rotorcraft;
+            }
+            else if (classCode is "L1P" or "S1P" or "A1P")
+            {
+                return TypeRole_SingleProp;
+            }
+            else if (classCode is "L2P" or "S2P" or "A2P")
+            {
+                return TypeRole_TwinProp;
+            }
+            else if (classCode is "L4P" or "L4T")
+            {
+                return TypeRole_FourProp;
+            }
+            else if (platform == 'L' && engineType == 'J' && wtc is "M" or "H" or "J")
+            {
+                return TypeRole_Airliner;
+            }
+
+            // no reliable classification (includes Fighter/Bomber, which Doc8643 codes can't distinguish)
+            return 0;
         }
 
         /// <summary>
@@ -175,7 +243,29 @@ namespace JoinFS
             // public EnrichedAircraftData enrichedData = null;
             public float[] embedding = null;
 
-            public Model(string title, string manufacturer, string type, string variation, int index, string typerole, string smoke, string folder)
+            /// <summary>
+            /// ICAO Doc8643 type designator, e.g. "EC45"/"A20N"
+            /// </summary>
+            public string icaoType = "";
+            /// <summary>
+            /// ICAO Doc8643 classification code, e.g. "H2T" - always re-derived from icaoType, never persisted directly
+            /// </summary>
+            public string classCode = "";
+            /// <summary>
+            /// Wake turbulence category, e.g. "L"
+            /// </summary>
+            public string wtc = "";
+            /// <summary>
+            /// ICAO airline operator code, e.g. "AEE" - often empty for non-airline aircraft
+            /// </summary>
+            public string icaoAirline = "";
+            /// <summary>
+            /// True when icaoType came from FS2024's best-effort title guess rather than an exact/live read
+            /// </summary>
+            public bool icaoGuessed = false;
+
+            public Model(string title, string manufacturer, string type, string variation, int index, string typerole, string smoke, string folder,
+                string icaoType = "", string wtc = "", string icaoAirline = "")
             {
                 this.title = title;
                 this.manufacturer = manufacturer;
@@ -188,6 +278,36 @@ namespace JoinFS
                 // convert smoke count
                 this.smokeCount = 0;
                 int.TryParse(smoke, NumberStyles.Number, CultureInfo.InvariantCulture, out this.smokeCount);
+                this.icaoType = icaoType;
+                this.wtc = wtc;
+                this.icaoAirline = icaoAirline;
+            }
+
+            /// <summary>
+            /// Recompute classCode/wtc and, when available, a more reliable typerole from the ICAO type designator.
+            /// Never overrides a Fighter/Bomber classification already made from the title (Doc8643 codes don't
+            /// distinguish military variants).
+            /// </summary>
+            public void RefreshIcaoDerived(Dictionary<string, (string classCode, string wtc)> doc8643Lookup)
+            {
+                classCode = "";
+                if (icaoType.Length > 0 && doc8643Lookup.TryGetValue(icaoType, out var entry))
+                {
+                    classCode = entry.classCode;
+                    if (wtc.Length == 0)
+                    {
+                        wtc = entry.wtc;
+                    }
+                }
+
+                if (typerole != TypeRole_Fighter && typerole != TypeRole_Bomber)
+                {
+                    int derived = TyperoleFromIcao(icaoType, classCode, wtc);
+                    if (derived > 0)
+                    {
+                        typerole = derived;
+                    }
+                }
             }
         }
 
@@ -195,6 +315,173 @@ namespace JoinFS
         /// List of valid models in the sim
         /// </summary>
         public List<Model> models = [];
+
+        /// <summary>
+        /// ICAO Doc8643 reference data: icaoType -> (classCode, wtc), first entry for a designator wins
+        /// </summary>
+        static readonly Dictionary<string, (string classCode, string wtc)> doc8643Lookup = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// All rows from the bundled Doc8643 dataset, used for FS2024's title-based ICAO type guessing
+        /// </summary>
+        static readonly List<(string manufacturer, string modelName, string icaoType, string classCode, string wtc)> doc8643Rows = [];
+
+        /// <summary>
+        /// Load the bundled ICAO Doc8643 reference dataset (process-lifetime, loaded once)
+        /// </summary>
+        void LoadDoc8643Index()
+        {
+            // already loaded
+            if (doc8643Lookup.Count > 0) return;
+
+            try
+            {
+                using var stream = new MemoryStream(Properties.Resources_XPLANE.XPMP2_Doc8643);
+                using var reader = new StreamReader(stream);
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    string[] parts = line.Split('\t');
+                    if (parts.Length != 5) continue;
+
+                    string manufacturer = parts[0];
+                    string modelName = parts[1];
+                    string icaoType = parts[2];
+                    string classCode = parts[3];
+                    string wtc = parts[4];
+
+                    if (icaoType.Length == 0 || icaoType == "ZZZZ") continue;
+
+                    doc8643Rows.Add((manufacturer, modelName, icaoType, classCode, wtc));
+                    if (doc8643Lookup.ContainsKey(icaoType) == false)
+                    {
+                        // first-wins; confirmed rows sharing a designator agree in practice
+                        doc8643Lookup.Add(icaoType, (classCode, wtc));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                main.MonitorEvent("Error parsing Doc8643 dataset: " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Indexes over models keyed by ICAO type, exact classification code, and loose platform+engine-type category
+        /// </summary>
+        readonly Dictionary<string, List<Model>> icaoIndex = new(StringComparer.OrdinalIgnoreCase);
+        readonly Dictionary<string, List<Model>> classCodeIndex = new(StringComparer.OrdinalIgnoreCase);
+        readonly Dictionary<string, List<Model>> categoryIndex = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Set when a model's ICAO tag has been learned live and the ICAO indexes need rebuilding
+        /// before the next Match()
+        /// </summary>
+        bool icaoIndexDirty = false;
+
+        /// <summary>
+        /// Rebuild the ICAO-based lookup indexes from the current model list
+        /// </summary>
+        public void MakeIcaoIndex()
+        {
+            icaoIndex.Clear();
+            classCodeIndex.Clear();
+            categoryIndex.Clear();
+
+            foreach (var model in models)
+            {
+                if (model.icaoType.Length == 0) continue;
+
+                if (icaoIndex.TryGetValue(model.icaoType, out var icaoList) == false)
+                {
+                    icaoList = [];
+                    icaoIndex.Add(model.icaoType, icaoList);
+                }
+                icaoList.Add(model);
+
+                if (model.classCode.Length == 3)
+                {
+                    if (classCodeIndex.TryGetValue(model.classCode, out var classList) == false)
+                    {
+                        classList = [];
+                        classCodeIndex.Add(model.classCode, classList);
+                    }
+                    classList.Add(model);
+
+                    string looseKey = model.classCode[0] + "*" + model.classCode[2];
+                    if (categoryIndex.TryGetValue(looseKey, out var categoryList) == false)
+                    {
+                        categoryList = [];
+                        categoryIndex.Add(looseKey, categoryList);
+                    }
+                    categoryList.Add(model);
+                }
+            }
+
+            icaoIndexDirty = false;
+        }
+
+#if FS2024
+        /// <summary>
+        /// Best-effort guess of a model's ICAO type designator from its title, by substring-matching
+        /// against Doc8643 model names. Used only as a fallback when SimConnect's model enumeration
+        /// (title + livery only) gives us no other way to tag a model before it has ever been flown.
+        /// Prefers the longest matching model name to reduce false positives.
+        /// </summary>
+        static string GuessIcaoTypeFromTitle(string title)
+        {
+            (string icaoType, int matchLength) best = ("", 0);
+            string haystack = title.Replace("-", "").Replace(" ", "");
+
+            foreach (var row in doc8643Rows)
+            {
+                string needle = row.modelName.Replace("-", "").Replace(" ", "");
+                if (needle.Length >= 3 && needle.Length > best.matchLength &&
+                    haystack.Contains(needle, StringComparison.OrdinalIgnoreCase))
+                {
+                    best = (row.icaoType, needle.Length);
+                }
+            }
+
+            return best.icaoType;
+        }
+
+        /// <summary>
+        /// Learn a model's ICAO type and airline live from SimConnect, the moment it is actually
+        /// instantiated in the sim (the user's own aircraft or any locally-drawn AI/multiplayer object).
+        /// This is the only way to tag special-designator aircraft (paraplanes, gliders, balloons, ...)
+        /// whose Doc8643 rows are generic placeholders with no real product name to guess from.
+        /// </summary>
+        public void LearnIcaoFromLiveObject(string title, string variation, string icaoType, string icaoAirline)
+        {
+            Model model = GetModel(title, variation);
+            if (model == null) return;
+
+            bool changed = false;
+
+            if (icaoType.Length > 0 && model.icaoType != icaoType)
+            {
+                model.icaoType = icaoType;
+                // now confirmed from live SimConnect data, not a text guess
+                model.icaoGuessed = false;
+                model.RefreshIcaoDerived(doc8643Lookup);
+                changed = true;
+            }
+
+            if (icaoAirline.Length > 0 && model.icaoAirline != icaoAirline)
+            {
+                model.icaoAirline = icaoAirline;
+                changed = true;
+            }
+
+            if (changed)
+            {
+                // avoid rebuilding the full index on every single object spawn - Match() rebuilds lazily
+                icaoIndexDirty = true;
+                main.ScheduleSubstitutionSave();
+            }
+        }
+#endif
 
         // TODO: cleanup code
         //        public EnrichModelService enrichModelService = null;
@@ -365,6 +652,7 @@ namespace JoinFS
         string scanFolder = "";
         string scanModel = "";
         string scanTexture = "";
+        string scanIcaoAirline = "";
 
         /// <summary>
         /// Submit the current scanned names
@@ -463,6 +751,9 @@ namespace JoinFS
                         scanTyperole = "SingleProp";
                     }
                 }
+
+                // best-effort ICAO type guess from the title, only when not already known - see GuessIcaoTypeFromTitle()
+                string guessedIcaoType = (model == null || model.icaoType.Length == 0) ? GuessIcaoTypeFromTitle(scanTitle) : "";
 #else
                 Model model = GetModel(scanTitle);
 #endif
@@ -480,11 +771,29 @@ namespace JoinFS
                     model.typerole = TyperoleFromString(scanTyperole);
 #endif
                     model.folder = scanFolder;
+                    model.icaoAirline = scanIcaoAirline;
+#if FS2024
+                    if (model.icaoType.Length == 0 && guessedIcaoType.Length > 0)
+                    {
+                        model.icaoType = guessedIcaoType;
+                        model.icaoGuessed = true;
+                        model.RefreshIcaoDerived(doc8643Lookup);
+                    }
+#endif
                 }
                 else
                 {
                     // add the model
-                    models.Add(new Model(scanTitle, scanManufacturer, scanType, scanVariation, scanIndex, scanTyperole, "0", scanFolder));
+                    Model newModel = new(scanTitle, scanManufacturer, scanType, scanVariation, scanIndex, scanTyperole, "0", scanFolder, "", "", scanIcaoAirline);
+#if FS2024
+                    if (guessedIcaoType.Length > 0)
+                    {
+                        newModel.icaoType = guessedIcaoType;
+                        newModel.icaoGuessed = true;
+                        newModel.RefreshIcaoDerived(doc8643Lookup);
+                    }
+#endif
+                    models.Add(newModel);
                 }
             }
 
@@ -499,6 +808,7 @@ namespace JoinFS
             scanModel = "";
             scanTexture = "";
             scanFolder = "";
+            scanIcaoAirline = "";
         }
 
 
@@ -926,6 +1236,11 @@ namespace JoinFS
                         int smokeCount = 0;
                         int startIndex = models.Count;
 
+                        // [GENERAL] section values - apply once per file to every model found in it
+                        string generalIcaoType = "";
+                        string generalWtc = "";
+                        string generalCategory = "";
+
                         // for each line the file
                         string line;
                         while ((line = reader.ReadLine()) != null)
@@ -978,6 +1293,29 @@ namespace JoinFS
                                 // get texture string
                                 scanTexture = TrimQuotes(line[7..]);
                             }
+                            else if (line.StartsWith("icao_type_designator", StringComparison.OrdinalIgnoreCase))
+                            {
+                                // get ICAO type designator, e.g. "EC45"
+                                generalIcaoType = TrimQuotes(line[20..]);
+                            }
+                            else if (line.StartsWith("icao_WTC", StringComparison.OrdinalIgnoreCase))
+                            {
+                                // get wake turbulence category, e.g. "L" or "L/M"
+                                generalWtc = TrimQuotes(line[8..]);
+                                // normalize compound values like "L/M" to a single leading letter
+                                int slashIndex = generalWtc.IndexOf('/');
+                                if (slashIndex >= 0) generalWtc = generalWtc[..slashIndex];
+                            }
+                            else if (line.StartsWith("icao_airline", StringComparison.OrdinalIgnoreCase))
+                            {
+                                // get ICAO airline operator code - per-livery, e.g. "AEE"
+                                scanIcaoAirline = TrimQuotes(line[12..]);
+                            }
+                            else if (line.StartsWith("category", StringComparison.OrdinalIgnoreCase))
+                            {
+                                // get [GENERAL] category, e.g. "Airplane"/"Helicopter"/"Boat"/"GroundVehicle"
+                                generalCategory = TrimQuotes(line[8..]);
+                            }
                             else if (line.StartsWith("smoke.", StringComparison.OrdinalIgnoreCase))
                             {
                                 // get smoke line
@@ -1000,13 +1338,34 @@ namespace JoinFS
                         // submit the current scan
                         SubmitScan();
 
-                        // for each new model
-                        for (int index = startIndex; index < models.Count; index++)
+                        // exclude boats and ground vehicles from the models found in this file - keep permissive
+                        // for "Airplane"/"Helicopter"/empty (many legitimate aircraft.cfg files omit category)
+                        if (generalCategory.Equals("Boat", StringComparison.OrdinalIgnoreCase) || generalCategory.Equals("GroundVehicle", StringComparison.OrdinalIgnoreCase))
                         {
-                            // set smoke count
-                            models[index].smokeCount = smokeCount;
+                            if (models.Count > startIndex)
+                            {
+                                models.RemoveRange(startIndex, models.Count - startIndex);
+                            }
+                        }
+                        else
+                        {
+                            // for each new model
+                            for (int index = startIndex; index < models.Count; index++)
+                            {
+                                // set smoke count
+                                models[index].smokeCount = smokeCount;
+                                if (generalIcaoType.Length > 0)
+                                {
+                                    models[index].icaoType = generalIcaoType;
+                                    if (generalWtc.Length > 0) models[index].wtc = generalWtc;
+                                    models[index].RefreshIcaoDerived(doc8643Lookup);
+                                }
+                            }
                         }
                     }
+
+                    // rebuild ICAO indexes now that models[] has been populated by the scan
+                    MakeIcaoIndex();
 
                     if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020")
                     {
@@ -1421,11 +1780,17 @@ namespace JoinFS
                                     // add model
                                     models.Add(new Model(parts[0], parts[1], parts[2], parts[3], 0, parts[4], parts[5], parts[6]));
                                 }
-                                else if (parts.Length == 8)
+                                else if (parts.Length >= 8)
                                 {
                                     int.TryParse(parts[4], NumberStyles.Number, CultureInfo.InvariantCulture, out int index);
+                                    // read new ICAO fields when present, tolerating files saved by an older build
+                                    string icaoType = parts.Length > 8 ? parts[8] : "";
+                                    string wtc = parts.Length > 9 ? parts[9] : "";
+                                    string icaoAirline = parts.Length > 10 ? parts[10] : "";
                                     // add model
-                                    models.Add(new Model(parts[0], parts[1], parts[2], parts[3], index, parts[5], parts[6], parts[7]));
+                                    Model model = new(parts[0], parts[1], parts[2], parts[3], index, parts[5], parts[6], parts[7], icaoType, wtc, icaoAirline);
+                                    model.RefreshIcaoDerived(doc8643Lookup);
+                                    models.Add(model);
                                 }
                             }
                         }
@@ -1439,8 +1804,10 @@ namespace JoinFS
                     main.ShowMessage(ex.Message);
                 }
 
-                // make prefix list      
+                // make prefix list
                 MakePrefixList();
+                // make ICAO indexes
+                MakeIcaoIndex();
             }
             else
             {
@@ -1476,7 +1843,7 @@ namespace JoinFS
                         // get typerole name
                         string typeroleName = typeroleNames.TryGetValue(model.typerole, out string value) ? value : "SingleProp";
                         // write model
-                        writer.WriteLine(model.title + "[+]" + model.manufacturer + "[+]" + model.type + "[+]" + model.variation + "[+]" + model.index + "[+]" + typeroleName + "[+]" + model.smokeCount + "[+]" + model.folder);
+                        writer.WriteLine(model.title + "[+]" + model.manufacturer + "[+]" + model.type + "[+]" + model.variation + "[+]" + model.index + "[+]" + typeroleName + "[+]" + model.smokeCount + "[+]" + model.folder + "[+]" + model.icaoType + "[+]" + model.wtc + "[+]" + model.icaoAirline);
                     }
                     writer.Close();
 
@@ -1490,6 +1857,8 @@ namespace JoinFS
 
                 // make prefix list
                 MakePrefixList();
+                // make ICAO indexes
+                MakeIcaoIndex();
             }
             else
             {
@@ -2158,6 +2527,8 @@ namespace JoinFS
             {
                 // load folders
                 LoadFolders();
+                // load ICAO Doc8643 reference data (needed by LoadModels() to derive classCode/typerole)
+                LoadDoc8643Index();
                 // load models from file
                 LoadModels();
 
@@ -2583,7 +2954,39 @@ namespace JoinFS
             Substitute,
             Auto,
             Default,
-            AI
+            AI,
+            /// <summary>Same ICAO type designator - livery chosen by operator preference or first available</summary>
+            Icao,
+            /// <summary>Same Doc8643 category/classCode - livery chosen the same way</summary>
+            Category
+        }
+
+        /// <summary>
+        /// Prefer a same-operator livery among candidates sharing an ICAO type or category: an exact
+        /// icao_airline match first, then plain text overlap between livery names, else the first
+        /// available candidate (scan order). Not color/visual matching - that data doesn't exist.
+        /// </summary>
+        static Model PreferByOperator(List<Model> candidates, string remoteIcaoAirline, string remoteLivery)
+        {
+            if (remoteIcaoAirline.Length > 0)
+            {
+                Model exact = candidates.Find(m => m.icaoAirline.Length > 0 && m.icaoAirline.Equals(remoteIcaoAirline, StringComparison.OrdinalIgnoreCase));
+                if (exact != null) return exact;
+            }
+
+            if (remoteLivery.Length > 0)
+            {
+                string[] remoteWords = remoteLivery.Split([' ', '-', '_'], StringSplitOptions.RemoveEmptyEntries);
+                foreach (var word in remoteWords)
+                {
+                    if (word.Length < 4) continue;
+                    Model candidate = candidates.Find(m => m.variation.Contains(word, StringComparison.OrdinalIgnoreCase));
+                    if (candidate != null) return candidate;
+                }
+            }
+
+            // no operator/textual match found - fall back to first available
+            return candidates[0];
         }
 
         /// <summary>
@@ -2592,14 +2995,20 @@ namespace JoinFS
         /// <param name="model">Model to check</param>
         /// <returns>Matched model</returns>
 #if FS2024
-        public async Task<(Model model, Type type)> Match(string title, string livery, int typerole)
+        public async Task<(Model model, Type type)> Match(string title, string livery, string icaoType, string icaoAirline, int typerole)
         // in MSFS2024 aircraft livery is the model variation
 #else
-        public async Task<(Model model, Type type)> Match(string title, int typerole)
+        public async Task<(Model model, Type type)> Match(string title, string icaoType, string icaoAirline, int typerole)
 #endif
         {
             Model model;
             Type type;
+
+            // rebuild ICAO indexes lazily if a live-learned tag changed them since the last rebuild
+            if (icaoIndexDirty)
+            {
+                MakeIcaoIndex();
+            }
 
             // check for existing model match
             if (matches.TryGetValue(title, out Model value))
@@ -2629,6 +3038,43 @@ namespace JoinFS
                 // use the specified model
                 type = Type.Original;
                 return (model, type);
+            }
+
+            // ICAO-type-based matching - only when the remote reported a type and it isn't already handled above
+            if (icaoType.Length > 0)
+            {
+#if FS2024
+                string remoteLivery = livery;
+#else
+                string remoteLivery = "";
+#endif
+
+                // same ICAO type - prefer same operator, else first available
+                if (icaoIndex.TryGetValue(icaoType, out var icaoCandidates) && icaoCandidates.Count > 0)
+                {
+                    model = PreferByOperator(icaoCandidates, icaoAirline, remoteLivery);
+                    type = Type.Icao;
+                    return (model, type);
+                }
+
+                // same category - exact classCode, then loose platform+engine-type; same operator preference within each
+                if (doc8643Lookup.TryGetValue(icaoType, out var remoteEntry) && remoteEntry.classCode?.Length > 0)
+                {
+                    if (classCodeIndex.TryGetValue(remoteEntry.classCode, out var classCandidates) && classCandidates.Count > 0)
+                    {
+                        model = PreferByOperator(classCandidates, icaoAirline, remoteLivery);
+                        type = Type.Category;
+                        return (model, type);
+                    }
+
+                    string looseKey = remoteEntry.classCode.Length == 3 ? remoteEntry.classCode[0] + "*" + remoteEntry.classCode[2] : "";
+                    if (looseKey.Length > 0 && categoryIndex.TryGetValue(looseKey, out var looseCandidates) && looseCandidates.Count > 0)
+                    {
+                        model = PreferByOperator(looseCandidates, icaoAirline, remoteLivery);
+                        type = Type.Category;
+                        return (model, type);
+                    }
+                }
             }
 
 // TODO: cleanup code

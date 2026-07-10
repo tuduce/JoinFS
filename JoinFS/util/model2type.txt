@@ -40,7 +40,7 @@ e|FlyDoo Passengers|SingleProp
 e|Grumman Goose G21A|TwinProp
 c|H125|Rotorcraft
 e|Hercules H-4|FourProp
-e|HotAirBalloon Passengers|Glider
+e|HotAirBalloon Passengers|Balloon
 e|Icon A5|SingleProp
 c|JMB Aviation VL3|SingleProp
 e|L-39 Albatros|Fighter

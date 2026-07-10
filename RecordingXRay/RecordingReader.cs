@@ -32,6 +32,8 @@ public class RecordedObject
     public string Model { get; set; } = string.Empty;
     public int TypeRole { get; set; }
     public string Livery { get; set; } = string.Empty;
+    public string IcaoType { get; set; } = string.Empty;
+    public string IcaoAirline { get; set; } = string.Empty;
     public List<RecordedFrame> Frames { get; } = [];
 }
 
@@ -173,6 +175,12 @@ public static class RecordingReader
             aircraft.Livery = reader.ReadString();
         }
 
+        if (version >= 21005)
+        {
+            aircraft.IcaoType = reader.ReadString();
+            aircraft.IcaoAirline = reader.ReadString();
+        }
+
         return aircraft;
     }
 
@@ -193,6 +201,12 @@ public static class RecordingReader
         if (version >= 21004)
         {
             obj.Livery = reader.ReadString();
+        }
+
+        if (version >= 21005)
+        {
+            obj.IcaoType = reader.ReadString();
+            obj.IcaoAirline = reader.ReadString();
         }
 
         return obj;

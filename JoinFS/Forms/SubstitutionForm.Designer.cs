@@ -17,6 +17,10 @@
             {
                 components.Dispose();
             }
+            if (disposing)
+            {
+                filterTimer.Dispose();
+            }
             base.Dispose(disposing);
         }
 

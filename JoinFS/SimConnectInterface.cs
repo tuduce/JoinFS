@@ -81,6 +81,7 @@ namespace JoinFS
                 sc.AddToDataDefinition(Sim.Definitions.OBJECT_GET_INFO, "IS USER SIM", null, SIMCONNECT_DATATYPE.INT32, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 #if FS2024
                 sc.AddToDataDefinition(Sim.Definitions.OBJECT_GET_INFO, "LIVERY NAME", null, SIMCONNECT_DATATYPE.STRING256, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+                sc.AddToDataDefinition(Sim.Definitions.OBJECT_GET_INFO, "ATC AIRLINE", null, SIMCONNECT_DATATYPE.STRING64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 #endif
 
                 // define a position velocity variables structure
@@ -253,11 +254,11 @@ namespace JoinFS
             Action request = () =>
             {
 #if FS2024
-                // sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.ALL);
-                sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.USER);
-                //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT);
-                //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER);
-                //sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AND_LIVERIES, SIMCONNECT_SIMOBJECT_TYPE.HOT_AIR_BALLOON);
+                // aircraft only - deliberately omits BOAT/GROUND so boats and ground vehicles never
+                // enter the substitution/mapping list. Each SimObject category needs its own call.
+                sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_AIRCRAFT, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT);
+                sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_HELICOPTER, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER);
+                sc.EnumerateSimObjectsAndLiveries(Sim.Requests.GET_MODELS_BALLOON, SIMCONNECT_SIMOBJECT_TYPE.HOT_AIR_BALLOON);
 #endif
             };
 

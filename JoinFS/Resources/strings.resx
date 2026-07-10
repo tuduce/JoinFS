@@ -120,6 +120,9 @@
   <data name="Airliner" xml:space="preserve">
     <value>Airliner</value>
   </data>
+  <data name="Airship" xml:space="preserve">
+    <value>Airship</value>
+  </data>
   <data name="AtcModeEnabled" xml:space="preserve">
     <value>ATC Mode is enabled. This allows aircraft to be visible on radar, but has an adverse effect on the smooth movement of aircraft.</value>
   </data>
@@ -128,6 +131,9 @@
   </data>
   <data name="BecomeAPatron" xml:space="preserve">
     <value>Patreon</value>
+  </data>
+  <data name="Balloon" xml:space="preserve">
+    <value>Balloon</value>
   </data>
   <data name="Bomber" xml:space="preserve">
     <value>Bomber</value>
