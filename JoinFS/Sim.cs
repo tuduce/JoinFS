@@ -247,6 +247,8 @@ namespace JoinFS
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
             public String model;
             public int isUser;
+            public int engineType;
+            public int numEngines;
 #if FS2024
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
             public String livery;
@@ -720,6 +722,7 @@ namespace JoinFS
             public string ownerIcaoAirline = "";
             public Substitution.Model subModel = null;
             public Substitution.Type subType = Substitution.Type.Original;
+            public Substitution.MatchTrace subTrace = null;
             public int typerole = Substitution.TypeRole_SingleProp;
             public VariableMgr.Set variableSet = null;
             public double variableStartTime;
@@ -1183,10 +1186,10 @@ namespace JoinFS
 #if FS2024
             obj.ownerLivery = livery;
             // model match
-            (obj.subModel, obj.subType) = await main.substitution?.Match(obj.ownerModel, obj.ownerLivery, obj.ownerIcaoType, obj.ownerIcaoAirline, obj.typerole);
+            (obj.subModel, obj.subType, obj.subTrace) = await main.substitution?.Match(obj.ownerModel, obj.ownerLivery, obj.ownerIcaoType, obj.ownerIcaoAirline, obj.typerole, (obj as Aircraft)?.flightPlan.callsign ?? "");
 #else
             // model match
-            (obj.subModel, obj.subType) = await main.substitution ?. Match(obj.ownerModel, obj.ownerIcaoType, obj.ownerIcaoAirline, obj.typerole);
+            (obj.subModel, obj.subType, obj.subTrace) = await main.substitution ?. Match(obj.ownerModel, obj.ownerIcaoType, obj.ownerIcaoAirline, obj.typerole, (obj as Aircraft)?.flightPlan.callsign ?? "");
 #endif
             // reset failed flag
             obj.failed = false;
@@ -3299,7 +3302,7 @@ namespace JoinFS
 //                    default: obj = new Obj(msg.simId, msg.model); break;
                 }
                 // substitution
-                main.substitution ?. Masquerade(model, out obj.subModel, out obj.subType);
+                main.substitution ?. Masquerade(model, out obj.subModel, out obj.subType, out obj.subTrace);
                 // set type role
                 if (main.substitution != null) obj.typerole = main.substitution.GetTypeRole(obj.ownerModel);
                 // set expire time
@@ -3346,7 +3349,7 @@ namespace JoinFS
                 {
                     // update model
                     obj.ownerModel = model;
-                    main.substitution ?. Masquerade(model, out obj.subModel, out obj.subType);
+                    main.substitution ?. Masquerade(model, out obj.subModel, out obj.subType, out obj.subTrace);
                 }
 
                 // check for aircraft
@@ -3458,16 +3461,22 @@ namespace JoinFS
                                     type = type.Replace("TTATCCOM.AC_MODEL_", "");
                                     type = type.Replace("TT:ATCCOM.AC_MODEL ", "");
                                     type = type.Replace("TT:ATCCOM.AC_MODEL_", "");
+                                    type = type.Replace("ATCCOM.AC_MODEL ", "");
+                                    type = type.Replace("ATCCOM.AC_MODEL_", "");
                                     type = type.Replace("$$:", "");
                                     type = type.Replace(".0.text", "");
                                     string model = info.model;
                                     // convert the long hyphen
                                     model = model.Replace("â€“", "–");
 
+                                    // learn this model's real ICAO type/airline/classCode from SimConnect now that
+                                    // it's actually instantiated - closes the gap for aircraft a title guess can't
+                                    // tag, and for add-ons whose reported type doesn't match any Doc8643 designator
+                                    Substitution.DeriveLiveClassCode(info.category, info.engineType, info.numEngines, out string liveClassCode, out string liveWtc);
 #if FS2024
-                                    // learn this model's real ICAO type/airline from SimConnect now that it's
-                                    // actually instantiated - closes the gap for aircraft a title guess can't tag
-                                    main.substitution?.LearnIcaoFromLiveObject(model, info.livery, type, info.airline);
+                                    string resolvedIcaoAirline = main.substitution?.LearnIcaoFromLiveObject(model, info.livery, type, info.airline, liveClassCode, liveWtc) ?? "";
+#else
+                                    string resolvedIcaoAirline = main.substitution?.LearnIcaoFromLiveObject(model, "", type, "", liveClassCode, liveWtc) ?? "";
 #endif
 
                                     // check category
@@ -3511,8 +3520,13 @@ namespace JoinFS
                                     }
                                     // set type role
                                     if (main.substitution != null) obj.typerole = main.substitution.GetTypeRole(obj.ownerModel);
+                                    // carry the live-resolved ICAO type/airline onto the object itself, not just the
+                                    // installed model's metadata - this is what Match()/the Recorder actually read,
+                                    // and previously stayed blank forever for locally-discovered objects otherwise
+                                    obj.ownerIcaoType = type;
+                                    obj.ownerIcaoAirline = resolvedIcaoAirline;
                                     // substitute model
-                                    main.substitution ?. Masquerade(obj.ownerModel, out obj.subModel, out obj.subType);
+                                    main.substitution ?. Masquerade(obj.ownerModel, out obj.subModel, out obj.subType, out obj.subTrace);
                                     // set expire time
                                     obj.expireTime = main.ElapsedTime + OBJECT_EXPIRE_TIME;
                                     // create variables

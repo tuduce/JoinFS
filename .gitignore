@@ -8,6 +8,7 @@
 /JoinFS-XP/.vs
 /JoinFS-XP/JoinFS-XP64/x64/Debug
 /.vs
+.claude
 /JoinFS/Installer/bin
 /JoinFS/Installer/obj
 /JoinFS.Tests/bin

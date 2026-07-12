@@ -38,6 +38,7 @@ namespace JoinFS
             {
                 Substitution.MatchAttribute.Title => "Title",
                 Substitution.MatchAttribute.Livery => "Livery / Variation",
+                Substitution.MatchAttribute.Registration => "Registration",
                 Substitution.MatchAttribute.IcaoType => "ICAO Type",
                 Substitution.MatchAttribute.IcaoAirline => "ICAO Airline",
                 Substitution.MatchAttribute.ClassCode => "Class Code",
@@ -108,7 +109,12 @@ namespace JoinFS
             }
 
             // tier-by-tier trace
-            Text_Trace.Text = string.Join(Environment.NewLine, trace.steps);
+            List<string> steps = new(trace.steps);
+            if (aircraft.subModel != null && aircraft.subModel.classCodeConfirmed)
+            {
+                steps.Add("Note: the matched model's Class Code/WTC/Typerole were confirmed directly from live simulator data (category/engine type/engine count) the last time it was flown locally, rather than looked up from the bundled Doc8643 reference by ICAO type.");
+            }
+            Text_Trace.Text = string.Join(Environment.NewLine, steps);
 
             // footer
             Label_Footer.Text = ModelSourceDescription();
@@ -158,6 +164,10 @@ namespace JoinFS
                 {
                     sb.AppendLine($"{step}. {line}");
                     step++;
+                }
+                if (aircraft.subModel != null && aircraft.subModel.classCodeConfirmed)
+                {
+                    sb.AppendLine($"{step}. Note: the matched model's Class Code/WTC/Typerole were confirmed directly from live simulator data (category/engine type/engine count) the last time it was flown locally, rather than looked up from the bundled Doc8643 reference by ICAO type.");
                 }
             }
             sb.AppendLine();

@@ -127,6 +127,9 @@
   <data name="XPMP2_Doc8643" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\XPMP2_Doc8643.dat;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
+  <data name="ICAO_Airlines" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\ICAO_Airlines.dat;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
   <data name="XPMP2_MapIcons" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\XPMP2_MapIcons.dat;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>

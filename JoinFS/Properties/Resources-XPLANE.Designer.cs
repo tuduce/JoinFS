@@ -89,6 +89,16 @@ namespace JoinFS.Properties {
                 return ((byte[])(obj));
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] ICAO_Airlines {
+            get {
+                object obj = ResourceManager.GetObject("ICAO_Airlines", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].

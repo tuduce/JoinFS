@@ -51,6 +51,7 @@
             this.ColIgnore = new System.Windows.Forms.DataGridViewCheckBoxColumn();
             this.Context_Aircraft = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.Context_Aircraft_Substitute = new System.Windows.Forms.ToolStripMenuItem();
+            this.Context_Aircraft_ExplainMatch = new System.Windows.Forms.ToolStripMenuItem();
             this.Context_Aircraft_Callsign = new System.Windows.Forms.ToolStripMenuItem();
             this.Context_Aircraft_FlightPlan = new System.Windows.Forms.ToolStripMenuItem();
             this.Context_Aircraft_EditFlightPlan = new System.Windows.Forms.ToolStripMenuItem();
@@ -223,6 +224,7 @@
             resources.ApplyResources(this.Context_Aircraft, "Context_Aircraft");
             this.Context_Aircraft.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.Context_Aircraft_Substitute,
+            this.Context_Aircraft_ExplainMatch,
             this.Context_Aircraft_Callsign,
             this.Context_Aircraft_FlightPlan,
             this.Context_Aircraft_EditFlightPlan,
@@ -248,7 +250,13 @@
             resources.ApplyResources(this.Context_Aircraft_Substitute, "Context_Aircraft_Substitute");
             this.Context_Aircraft_Substitute.Name = "Context_Aircraft_Substitute";
             this.Context_Aircraft_Substitute.Click += new System.EventHandler(this.Context_Aircraft_Substitute_Click);
-            // 
+            //
+            // Context_Aircraft_ExplainMatch
+            //
+            resources.ApplyResources(this.Context_Aircraft_ExplainMatch, "Context_Aircraft_ExplainMatch");
+            this.Context_Aircraft_ExplainMatch.Name = "Context_Aircraft_ExplainMatch";
+            this.Context_Aircraft_ExplainMatch.Click += new System.EventHandler(this.Context_Aircraft_ExplainMatch_Click);
+            //
             // Context_Aircraft_Callsign
             // 
             resources.ApplyResources(this.Context_Aircraft_Callsign, "Context_Aircraft_Callsign");
@@ -452,6 +460,7 @@
         private System.Windows.Forms.ToolStripMenuItem Context_Aircraft_TrackHeading;
         private System.Windows.Forms.ToolStripMenuItem Context_Aircraft_TrackBearing;
         private System.Windows.Forms.ToolStripMenuItem Context_Aircraft_StopTracking;
+        private System.Windows.Forms.ToolStripMenuItem Context_Aircraft_ExplainMatch;
         private System.Windows.Forms.ToolStripMenuItem Context_Aircraft_Callsign;
         private System.Windows.Forms.ToolStripMenuItem Context_Aircraft_FlightPlan;
         private System.Windows.Forms.Label Label_FlightPlan1;

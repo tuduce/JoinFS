@@ -144,6 +144,9 @@
   <data name="Context_Aircraft_Substitute.Size" type="System.Drawing.Size, System.Drawing">
     <value>226, 22</value>
   </data>
+  <data name="Context_Aircraft_ExplainMatch.Size" type="System.Drawing.Size, System.Drawing">
+    <value>226, 22</value>
+  </data>
   <data name="ColBroadcast.Width" type="System.Int32, mscorlib">
     <value>65</value>
   </data>
@@ -250,6 +253,9 @@
     <value>Context_Aircraft_FlightPlan</value>
   </data>
   <data name="&gt;&gt;Context_Aircraft_AdjustHeight.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;Context_Aircraft_ExplainMatch.Type" xml:space="preserve">
     <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;$this.Type" xml:space="preserve">
@@ -390,6 +396,9 @@
   <data name="Context_Aircraft_AdjustHeight.Text" xml:space="preserve">
     <value>Adjust Height...</value>
   </data>
+  <data name="Context_Aircraft_ExplainMatch.Text" xml:space="preserve">
+    <value>Explain Match...</value>
+  </data>
   <data name="Label_FlightPlan2.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
     <value>NoControl</value>
   </data>
@@ -485,6 +494,9 @@
   </data>
   <data name="&gt;&gt;Context_Aircraft_AdjustHeight.Name" xml:space="preserve">
     <value>Context_Aircraft_AdjustHeight</value>
+  </data>
+  <data name="&gt;&gt;Context_Aircraft_ExplainMatch.Name" xml:space="preserve">
+    <value>Context_Aircraft_ExplainMatch</value>
   </data>
   <data name="label1.TabIndex" type="System.Int32, mscorlib">
     <value>11</value>

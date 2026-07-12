@@ -1107,6 +1107,7 @@ namespace JoinFS
         {
             // disable all options
             Context_Aircraft_Substitute.Enabled = false;
+            Context_Aircraft_ExplainMatch.Enabled = false;
             Context_Aircraft_Callsign.Enabled = false;
             Context_Aircraft_FlightPlan.Enabled = false;
             Context_Aircraft_Variables.Enabled = false;
@@ -1149,6 +1150,8 @@ namespace JoinFS
                         {
                             // allow substitution
                             Context_Aircraft_Substitute.Enabled = true;
+                            // allow explaining how the current model match was chosen
+                            Context_Aircraft_ExplainMatch.Enabled = aircraft.subModel != null && aircraft.subTrace != null;
                             // enable flight plan
                             Context_Aircraft_FlightPlan.Enabled = true;
                             // enable variables
@@ -1285,6 +1288,23 @@ namespace JoinFS
                     main.substitution ?. EditMasquerade(model, typerole);
 #endif
                 }
+            }
+        }
+
+        private void Context_Aircraft_ExplainMatch_Click(object sender, EventArgs e)
+        {
+            Sim.Aircraft aircraft;
+
+            lock (main.conch)
+            {
+                // get aircraft
+                aircraft = GetAircraft(GetSelectedItem());
+            }
+
+            // check for a computed match to explain
+            if (aircraft != null && aircraft.subTrace != null)
+            {
+                new MatchExplainForm(main, aircraft).ShowDialog();
             }
         }
 

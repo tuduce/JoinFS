@@ -221,6 +221,45 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Best-effort Doc8643-style classCode (e.g. "L2J", "H1T") derived directly from live SimConnect
+        /// data - CATEGORY, ENGINE TYPE and NUMBER OF ENGINES - for an aircraft that has actually been
+        /// instantiated locally. Unlike the bundled Doc8643-by-icaoType lookup (originally sourced for
+        /// X-Plane's CSL matching), this doesn't depend on icaoType being a recognized/correct designator,
+        /// so it also correctly classifies add-ons that report a bogus or non-standard ATC MODEL string.
+        /// Leaves classCode/wtc empty when the category/engine data can't be classified reliably.
+        /// </summary>
+        public static void DeriveLiveClassCode(string category, int engineType, int numEngines, out string classCode, out string wtc)
+        {
+            classCode = "";
+            wtc = "";
+
+            char platform;
+            if (category == "Airplane") platform = 'L';
+            else if (category == "Helicopter") platform = 'H';
+            else return; // boats/ground vehicles/other categories aren't Doc8643-classified
+
+            // SimConnect "ENGINE TYPE": 0=Piston, 1=Jet, 2=None, 3=Helo(turbine), 4=Unsupported, 5=Turboprop
+            char engine = engineType switch
+            {
+                0 => 'P',
+                1 => 'J',
+                3 => 'T',
+                5 => 'T',
+                _ => '\0'
+            };
+            if (engine == '\0' || numEngines < 1 || numEngines > 9) return;
+
+            classCode = "" + platform + numEngines + engine;
+
+            // a jet landplane is at least "Medium" wake turbulence in practice - enough to satisfy
+            // TyperoleFromIcao's Airliner gate without a live weight-based WTC source
+            if (platform == 'L' && engine == 'J')
+            {
+                wtc = "M";
+            }
+        }
+
+        /// <summary>
         /// type roles names
         /// </summary>
         public readonly Dictionary<int, string> defaultModels = [];
@@ -248,7 +287,8 @@ namespace JoinFS
             /// </summary>
             public string icaoType = "";
             /// <summary>
-            /// ICAO Doc8643 classification code, e.g. "H2T" - always re-derived from icaoType, never persisted directly
+            /// ICAO Doc8643 classification code, e.g. "H2T" - re-derived from icaoType via the bundled
+            /// Doc8643 lookup, unless classCodeConfirmed is set (see below)
             /// </summary>
             public string classCode = "";
             /// <summary>
@@ -263,9 +303,16 @@ namespace JoinFS
             /// True when icaoType came from FS2024's best-effort title guess rather than an exact/live read
             /// </summary>
             public bool icaoGuessed = false;
+            /// <summary>
+            /// True when classCode was derived directly from live SimConnect data (category/engine type/engine
+            /// count - see DeriveLiveClassCode), which doesn't depend on icaoType being a recognized Doc8643
+            /// designator. Once set, RefreshIcaoDerived leaves classCode/wtc alone instead of re-deriving them
+            /// from the (possibly stale or X-Plane-only-relevant) bundled Doc8643-by-icaoType lookup.
+            /// </summary>
+            public bool classCodeConfirmed = false;
 
             public Model(string title, string manufacturer, string type, string variation, int index, string typerole, string smoke, string folder,
-                string icaoType = "", string wtc = "", string icaoAirline = "")
+                string icaoType = "", string wtc = "", string icaoAirline = "", string classCode = "", bool classCodeConfirmed = false)
             {
                 this.title = title;
                 this.manufacturer = manufacturer;
@@ -281,22 +328,27 @@ namespace JoinFS
                 this.icaoType = icaoType;
                 this.wtc = wtc;
                 this.icaoAirline = icaoAirline;
+                this.classCode = classCode;
+                this.classCodeConfirmed = classCodeConfirmed;
             }
 
             /// <summary>
             /// Recompute classCode/wtc and, when available, a more reliable typerole from the ICAO type designator.
             /// Never overrides a Fighter/Bomber classification already made from the title (Doc8643 codes don't
-            /// distinguish military variants).
+            /// distinguish military variants). Skips classCode/wtc entirely when classCodeConfirmed is set.
             /// </summary>
             public void RefreshIcaoDerived(Dictionary<string, (string classCode, string wtc)> doc8643Lookup)
             {
-                classCode = "";
-                if (icaoType.Length > 0 && doc8643Lookup.TryGetValue(icaoType, out var entry))
+                if (classCodeConfirmed == false)
                 {
-                    classCode = entry.classCode;
-                    if (wtc.Length == 0)
+                    classCode = "";
+                    if (icaoType.Length > 0 && doc8643Lookup.TryGetValue(icaoType, out var entry))
                     {
-                        wtc = entry.wtc;
+                        classCode = entry.classCode;
+                        if (wtc.Length == 0)
+                        {
+                            wtc = entry.wtc;
+                        }
                     }
                 }
 
@@ -367,6 +419,75 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// ICAO airline operator code -> airline name, e.g. "CFG" -> "condor" (bundled from opennav.com)
+        /// </summary>
+        static readonly Dictionary<string, string> icaoAirlineNames = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Load the bundled ICAO airline code reference dataset (process-lifetime, loaded once)
+        /// </summary>
+        void LoadIcaoAirlineIndex()
+        {
+            // already loaded
+            if (icaoAirlineNames.Count > 0) return;
+
+            try
+            {
+                using var stream = new MemoryStream(Properties.Resources_XPLANE.ICAO_Airlines);
+                using var reader = new StreamReader(stream);
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    string[] parts = line.Split('\t');
+                    if (parts.Length != 3) continue;
+
+                    string code = parts[0];
+                    string name = parts[2];
+
+                    if (code.Length != 3 || name.Length == 0) continue;
+
+                    if (icaoAirlineNames.ContainsKey(code) == false)
+                    {
+                        // first-wins (alphabetically-first code for a shared name is usually the primary operator)
+                        icaoAirlineNames.Add(code, name);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                main.MonitorEvent("Error parsing ICAO airline dataset: " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// True when code is a real, recognized ICAO airline operator code - used to reject bogus/non-standard
+        /// values some add-ons report via SimConnect's ATC AIRLINE (e.g. a flight-number-style string).
+        /// </summary>
+        static bool IsKnownIcaoAirline(string code) => code.Length == 3 && icaoAirlineNames.ContainsKey(code);
+
+        /// <summary>
+        /// Best-effort guess of an ICAO airline code from livery/title text, by matching the longest known
+        /// airline name that appears in the text. Used only when a live ATC AIRLINE value doesn't look like
+        /// a real ICAO code, e.g. "FSC739" reported for a Condor-liveried aircraft instead of "CFG".
+        /// </summary>
+        static string GuessIcaoAirlineFromText(string text)
+        {
+            string haystack = text.ToLowerInvariant();
+            (string code, int matchLength) best = ("", 0);
+
+            foreach (var pair in icaoAirlineNames)
+            {
+                string needle = pair.Value.ToLowerInvariant();
+                if (needle.Length >= 4 && needle.Length > best.matchLength && haystack.Contains(needle))
+                {
+                    best = (pair.Key, needle.Length);
+                }
+            }
+
+            return best.code;
+        }
+
+        /// <summary>
         /// Indexes over models keyed by ICAO type, exact classification code, and loose platform+engine-type category
         /// </summary>
         readonly Dictionary<string, List<Model>> icaoIndex = new(StringComparer.OrdinalIgnoreCase);
@@ -430,9 +551,29 @@ namespace JoinFS
         /// </summary>
         static string GuessIcaoTypeFromTitle(string title)
         {
-            (string icaoType, int matchLength) best = ("", 0);
             string haystack = title.Replace("-", "").Replace(" ", "");
 
+            // Prefer a direct match against a real ICAO type designator itself (e.g. "A321", "B738").
+            // These are unambiguous and far less prone to false positives than the manufacturer's full
+            // model name below, which can coincidentally collide with an unrelated word elsewhere in a
+            // livery/operator title (e.g. the airline "Condor" colliding with the homebuilt "Druine/
+            // Rollason Condor", D6CR/SingleProp, when the real aircraft is an Airbus A321).
+            (string icaoType, int matchLength) bestIcao = ("", 0);
+            foreach (var icaoType in doc8643Lookup.Keys)
+            {
+                if (icaoType.Length >= 3 && icaoType.Length > bestIcao.matchLength &&
+                    haystack.Contains(icaoType, StringComparison.OrdinalIgnoreCase))
+                {
+                    bestIcao = (icaoType, icaoType.Length);
+                }
+            }
+            if (bestIcao.icaoType.Length > 0)
+            {
+                return bestIcao.icaoType;
+            }
+
+            // Fall back to matching a full manufacturer model name, only when no designator matched.
+            (string icaoType, int matchLength) best = ("", 0);
             foreach (var row in doc8643Rows)
             {
                 string needle = row.modelName.Replace("-", "").Replace(" ", "");
@@ -445,17 +586,24 @@ namespace JoinFS
 
             return best.icaoType;
         }
+#endif
 
         /// <summary>
-        /// Learn a model's ICAO type and airline live from SimConnect, the moment it is actually
+        /// Learn a model's ICAO type/airline/classCode live from SimConnect, the moment it is actually
         /// instantiated in the sim (the user's own aircraft or any locally-drawn AI/multiplayer object).
         /// This is the only way to tag special-designator aircraft (paraplanes, gliders, balloons, ...)
-        /// whose Doc8643 rows are generic placeholders with no real product name to guess from.
+        /// whose Doc8643 rows are generic placeholders with no real product name to guess from, and the
+        /// only way to correctly classify an aircraft whose reported ATC MODEL/type doesn't match any
+        /// Doc8643 designator at all (e.g. an add-on shipping a non-standard type string).
         /// </summary>
-        public void LearnIcaoFromLiveObject(string title, string variation, string icaoType, string icaoAirline)
+        public string LearnIcaoFromLiveObject(string title, string variation, string icaoType, string icaoAirline, string classCode, string wtc)
         {
+#if FS2024
             Model model = GetModel(title, variation);
-            if (model == null) return;
+#else
+            Model model = GetModel(title);
+#endif
+            if (model == null) return "";
 
             bool changed = false;
 
@@ -464,24 +612,39 @@ namespace JoinFS
                 model.icaoType = icaoType;
                 // now confirmed from live SimConnect data, not a text guess
                 model.icaoGuessed = false;
-                model.RefreshIcaoDerived(doc8643Lookup);
                 changed = true;
             }
 
-            if (icaoAirline.Length > 0 && model.icaoAirline != icaoAirline)
+            // A live ATC AIRLINE value is only trustworthy when it's a real, recognized ICAO code - some
+            // add-ons report a flight-number/virtual-callsign-style string instead (e.g. "FSC739"). When
+            // that happens, fall back to matching a known airline name against the livery/title text.
+            string resolvedAirline = IsKnownIcaoAirline(icaoAirline) ? icaoAirline : GuessIcaoAirlineFromText(variation + " " + title);
+            if (resolvedAirline.Length > 0 && model.icaoAirline != resolvedAirline)
             {
-                model.icaoAirline = icaoAirline;
+                model.icaoAirline = resolvedAirline;
+                changed = true;
+            }
+
+            // Live-derived classification (from actual category/engine simvars) is more reliable than the
+            // bundled Doc8643-by-icaoType guess, and doesn't depend on icaoType being a recognized designator.
+            if (classCode.Length > 0 && (model.classCodeConfirmed == false || model.classCode != classCode))
+            {
+                model.classCode = classCode;
+                model.classCodeConfirmed = true;
+                if (wtc.Length > 0) model.wtc = wtc;
                 changed = true;
             }
 
             if (changed)
             {
+                model.RefreshIcaoDerived(doc8643Lookup);
                 // avoid rebuilding the full index on every single object spawn - Match() rebuilds lazily
                 icaoIndexDirty = true;
                 main.ScheduleSubstitutionSave();
             }
+
+            return resolvedAirline;
         }
-#endif
 
         // TODO: cleanup code
         //        public EnrichModelService enrichModelService = null;
@@ -1666,7 +1829,7 @@ namespace JoinFS
         /// Make the filename from the simulator name and version
         /// </summary>
         /// <returns></returns>
-        string MakeModelsFilename()
+        public string MakeModelsFilename()
         {
             return main.storagePath + Path.DirectorySeparatorChar + "models - " + (main.sim != null ? main.sim.GetSimulatorName() : "null") + ".txt";
         }
@@ -1675,7 +1838,7 @@ namespace JoinFS
         /// Make the filename from the simulator name and version
         /// </summary>
         /// <returns></returns>
-        string MakeMatchingFilename()
+        public string MakeMatchingFilename()
         {
             return main.storagePath + Path.DirectorySeparatorChar + "matching - " + (main.sim != null ? main.sim.GetSimulatorName() : "null") + ".txt";
         }
@@ -1684,7 +1847,7 @@ namespace JoinFS
         /// Make the filename from the simulator name and version
         /// </summary>
         /// <returns></returns>
-        string MakeMasqueradingFilename()
+        public string MakeMasqueradingFilename()
         {
             return main.storagePath + Path.DirectorySeparatorChar + "masquerading - " + (main.sim != null ? main.sim.GetSimulatorName() : "null") + ".txt";
         }
@@ -1787,8 +1950,10 @@ namespace JoinFS
                                     string icaoType = parts.Length > 8 ? parts[8] : "";
                                     string wtc = parts.Length > 9 ? parts[9] : "";
                                     string icaoAirline = parts.Length > 10 ? parts[10] : "";
+                                    string classCode = parts.Length > 11 ? parts[11] : "";
+                                    bool classCodeConfirmed = parts.Length > 12 && bool.TryParse(parts[12], out bool confirmed) && confirmed;
                                     // add model
-                                    Model model = new(parts[0], parts[1], parts[2], parts[3], index, parts[5], parts[6], parts[7], icaoType, wtc, icaoAirline);
+                                    Model model = new(parts[0], parts[1], parts[2], parts[3], index, parts[5], parts[6], parts[7], icaoType, wtc, icaoAirline, classCode, classCodeConfirmed);
                                     model.RefreshIcaoDerived(doc8643Lookup);
                                     models.Add(model);
                                 }
@@ -1843,7 +2008,7 @@ namespace JoinFS
                         // get typerole name
                         string typeroleName = typeroleNames.TryGetValue(model.typerole, out string value) ? value : "SingleProp";
                         // write model
-                        writer.WriteLine(model.title + "[+]" + model.manufacturer + "[+]" + model.type + "[+]" + model.variation + "[+]" + model.index + "[+]" + typeroleName + "[+]" + model.smokeCount + "[+]" + model.folder + "[+]" + model.icaoType + "[+]" + model.wtc + "[+]" + model.icaoAirline);
+                        writer.WriteLine(model.title + "[+]" + model.manufacturer + "[+]" + model.type + "[+]" + model.variation + "[+]" + model.index + "[+]" + typeroleName + "[+]" + model.smokeCount + "[+]" + model.folder + "[+]" + model.icaoType + "[+]" + model.wtc + "[+]" + model.icaoAirline + "[+]" + (model.classCodeConfirmed ? model.classCode : "") + "[+]" + model.classCodeConfirmed);
                     }
                     writer.Close();
 
@@ -2529,6 +2694,8 @@ namespace JoinFS
                 LoadFolders();
                 // load ICAO Doc8643 reference data (needed by LoadModels() to derive classCode/typerole)
                 LoadDoc8643Index();
+                // load ICAO airline code reference data (used to validate/correct live ATC AIRLINE values)
+                LoadIcaoAirlineIndex();
                 // load models from file
                 LoadModels();
 
@@ -2962,16 +3129,68 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Attribute compared between the remote aircraft's request and the matched model, for diagnostics/UI display
+        /// </summary>
+        public enum MatchAttribute
+        {
+            Title,
+            Livery,
+            Registration,
+            IcaoType,
+            IcaoAirline,
+            ClassCode,
+            Wtc,
+            Typerole,
+            Folder
+        }
+
+        /// <summary>
+        /// Step-by-step account of how Match() arrived at its result, for diagnostics/UI display (Explain Match).
+        /// Plain data only - no logic - so it can be serialized directly for export.
+        /// </summary>
+        public class MatchTrace
+        {
+            public class AttributeComparison
+            {
+                public MatchAttribute attribute;
+                public string requested = "";
+                public string matched = "";
+                /// <summary>True when this attribute is what actually drove the winning tier's decision</summary>
+                public bool decisive = false;
+            }
+
+            /// <summary>Requested-vs-matched value for every MatchAttribute, in enum declaration order</summary>
+            public List<AttributeComparison> attributes = [];
+            /// <summary>Ordered, human-readable account of what each tier tried and found</summary>
+            public List<string> steps = [];
+        }
+
+        /// <summary>
+        /// Which rule inside PreferByOperator actually chose the candidate
+        /// </summary>
+        enum PreferReason
+        {
+            ExactOperator,
+            LiveryWordOverlap,
+            FirstAvailable
+        }
+
+        /// <summary>
         /// Prefer a same-operator livery among candidates sharing an ICAO type or category: an exact
         /// icao_airline match first, then plain text overlap between livery names, else the first
         /// available candidate (scan order). Not color/visual matching - that data doesn't exist.
         /// </summary>
-        static Model PreferByOperator(List<Model> candidates, string remoteIcaoAirline, string remoteLivery)
+        static Model PreferByOperator(List<Model> candidates, string remoteIcaoAirline, string remoteLivery, out PreferReason reason, out string reasonDetail)
         {
             if (remoteIcaoAirline.Length > 0)
             {
                 Model exact = candidates.Find(m => m.icaoAirline.Length > 0 && m.icaoAirline.Equals(remoteIcaoAirline, StringComparison.OrdinalIgnoreCase));
-                if (exact != null) return exact;
+                if (exact != null)
+                {
+                    reason = PreferReason.ExactOperator;
+                    reasonDetail = remoteIcaoAirline;
+                    return exact;
+                }
             }
 
             if (remoteLivery.Length > 0)
@@ -2981,12 +3200,33 @@ namespace JoinFS
                 {
                     if (word.Length < 4) continue;
                     Model candidate = candidates.Find(m => m.variation.Contains(word, StringComparison.OrdinalIgnoreCase));
-                    if (candidate != null) return candidate;
+                    if (candidate != null)
+                    {
+                        reason = PreferReason.LiveryWordOverlap;
+                        reasonDetail = word;
+                        return candidate;
+                    }
                 }
             }
 
             // no operator/textual match found - fall back to first available
+            reason = PreferReason.FirstAvailable;
+            reasonDetail = "";
             return candidates[0];
+        }
+
+        /// <summary>
+        /// Human-readable explanation of why PreferByOperator picked its candidate, for Explain Match
+        /// </summary>
+        static string PreferReasonText(PreferReason reason, string reasonDetail, Model chosen)
+        {
+            return reason switch
+            {
+                PreferReason.ExactOperator => $"Picked '{chosen.title}' / '{chosen.variation}' because its ICAO airline code exactly matches the requested operator '{reasonDetail}'.",
+                PreferReason.LiveryWordOverlap => $"Picked '{chosen.title}' / '{chosen.variation}' because its livery name contains the word '{reasonDetail}', which also appears in the requested livery name.",
+                PreferReason.FirstAvailable => $"No operator or livery-name match among the candidates; picked '{chosen.title}' / '{chosen.variation}' as the first one found during scanning.",
+                _ => ""
+            };
         }
 
         /// <summary>
@@ -2995,14 +3235,55 @@ namespace JoinFS
         /// <param name="model">Model to check</param>
         /// <returns>Matched model</returns>
 #if FS2024
-        public async Task<(Model model, Type type)> Match(string title, string livery, string icaoType, string icaoAirline, int typerole)
+        public async Task<(Model model, Type type, MatchTrace trace)> Match(string title, string livery, string icaoType, string icaoAirline, int typerole, string registration = "")
         // in MSFS2024 aircraft livery is the model variation
 #else
-        public async Task<(Model model, Type type)> Match(string title, string icaoType, string icaoAirline, int typerole)
+        public async Task<(Model model, Type type, MatchTrace trace)> Match(string title, string icaoType, string icaoAirline, int typerole, string registration = "")
 #endif
         {
             Model model;
             Type type;
+            MatchTrace trace = new();
+
+            // build the requested-vs-matched attribute comparison for Explain Match, marking which attribute(s) decided the outcome
+            void Finalize(Model matched, params MatchAttribute[] decisiveAttrs)
+            {
+                string remoteClassCode = "", remoteWtc = "";
+                if (icaoType.Length > 0 && doc8643Lookup.TryGetValue(icaoType, out var entry))
+                {
+                    remoteClassCode = entry.classCode;
+                    remoteWtc = entry.wtc;
+                }
+                string requestedTyperoleName = typeroleNames.TryGetValue(typerole, out var tn) ? tn : typerole.ToString();
+                string matchedTyperoleName = matched != null && typeroleNames.TryGetValue(matched.typerole, out var mtn) ? mtn : "";
+
+                void Add(MatchAttribute attr, string requested, string matchedValue)
+                {
+                    trace.attributes.Add(new MatchTrace.AttributeComparison
+                    {
+                        attribute = attr,
+                        requested = requested,
+                        matched = matchedValue,
+                        decisive = Array.IndexOf(decisiveAttrs, attr) >= 0
+                    });
+                }
+
+                Add(MatchAttribute.Title, title, matched?.title ?? "");
+#if FS2024
+                Add(MatchAttribute.Livery, livery, matched?.variation ?? "");
+#else
+                Add(MatchAttribute.Livery, "", matched?.variation ?? "");
+#endif
+                // sourced from SimConnect's "ATC ID" (tail number) via the aircraft's flight plan - installed
+                // models have no registration of their own, so the Matched side is always blank here
+                Add(MatchAttribute.Registration, registration, "");
+                Add(MatchAttribute.IcaoType, icaoType, matched?.icaoType ?? "");
+                Add(MatchAttribute.IcaoAirline, icaoAirline, matched?.icaoAirline ?? "");
+                Add(MatchAttribute.ClassCode, remoteClassCode, matched?.classCode ?? "");
+                Add(MatchAttribute.Wtc, remoteWtc, matched?.wtc ?? "");
+                Add(MatchAttribute.Typerole, requestedTyperoleName, matchedTyperoleName);
+                Add(MatchAttribute.Folder, "", matched?.folder ?? "");
+            }
 
             // rebuild ICAO indexes lazily if a live-learned tag changed them since the last rebuild
             if (icaoIndexDirty)
@@ -3023,8 +3304,22 @@ namespace JoinFS
                 {
                     // use matched model
                     type = Type.Substitute;
-                    return (model, type);
+                    trace.steps.Add($"Substitute: found a user-defined override for title '{title}' -> '{model.title}' (Settings ▸ Model Matching), and the target model is currently installed.");
+#if FS2024
+                    Finalize(model, MatchAttribute.Title, MatchAttribute.Livery);
+#else
+                    Finalize(model, MatchAttribute.Title);
+#endif
+                    return (model, type, trace);
                 }
+                else
+                {
+                    trace.steps.Add($"Substitute: a user-defined override exists for title '{title}' -> '{value.title}', but that target model is not currently installed/scanned. Falling through to the next matching tier.");
+                }
+            }
+            else
+            {
+                trace.steps.Add("Substitute: no user-defined override configured for this title.");
             }
 
             // check for original model
@@ -3037,7 +3332,31 @@ namespace JoinFS
             {
                 // use the specified model
                 type = Type.Original;
-                return (model, type);
+#if FS2024
+                trace.steps.Add($"Original: an installed model exactly matches the requested title '{title}' and livery '{livery}'.");
+                Finalize(model, MatchAttribute.Title, MatchAttribute.Livery);
+#else
+                trace.steps.Add($"Original: an installed model exactly matches the requested title '{title}'.");
+                Finalize(model, MatchAttribute.Title);
+#endif
+                return (model, type, trace);
+            }
+            else
+            {
+#if FS2024
+                // surface other installed liveries for this base title, if any - helps spot "right title, wrong livery name"
+                var siblingLiveries = models.FindAll(m => m.title.Equals(title, StringComparison.Ordinal));
+                if (siblingLiveries.Count > 0)
+                {
+                    trace.steps.Add($"Original: title '{title}' is installed, but not with livery/variation '{livery}'. Installed liveries for this title: {string.Join(", ", siblingLiveries.ConvertAll(m => "'" + m.variation + "'"))}.");
+                }
+                else
+                {
+                    trace.steps.Add($"Original: no installed model has title '{title}'.");
+                }
+#else
+                trace.steps.Add($"Original: no installed model has title '{title}'.");
+#endif
             }
 
             // ICAO-type-based matching - only when the remote reported a type and it isn't already handled above
@@ -3052,9 +3371,16 @@ namespace JoinFS
                 // same ICAO type - prefer same operator, else first available
                 if (icaoIndex.TryGetValue(icaoType, out var icaoCandidates) && icaoCandidates.Count > 0)
                 {
-                    model = PreferByOperator(icaoCandidates, icaoAirline, remoteLivery);
+                    model = PreferByOperator(icaoCandidates, icaoAirline, remoteLivery, out var preferReason, out var preferDetail);
                     type = Type.Icao;
-                    return (model, type);
+                    trace.steps.Add($"Icao: {icaoCandidates.Count} installed model(s) share ICAO type designator '{icaoType}'. {PreferReasonText(preferReason, preferDetail, model)}");
+                    Finalize(model, preferReason switch
+                    {
+                        PreferReason.ExactOperator => [MatchAttribute.IcaoType, MatchAttribute.IcaoAirline],
+                        PreferReason.LiveryWordOverlap => [MatchAttribute.IcaoType, MatchAttribute.Livery],
+                        _ => new[] { MatchAttribute.IcaoType }
+                    });
+                    return (model, type, trace);
                 }
 
                 // same category - exact classCode, then loose platform+engine-type; same operator preference within each
@@ -3062,19 +3388,39 @@ namespace JoinFS
                 {
                     if (classCodeIndex.TryGetValue(remoteEntry.classCode, out var classCandidates) && classCandidates.Count > 0)
                     {
-                        model = PreferByOperator(classCandidates, icaoAirline, remoteLivery);
+                        model = PreferByOperator(classCandidates, icaoAirline, remoteLivery, out var preferReason, out var preferDetail);
                         type = Type.Category;
-                        return (model, type);
+                        trace.steps.Add($"Category: no exact ICAO type match, but {classCandidates.Count} installed model(s) share Doc8643 class code '{remoteEntry.classCode}'. {PreferReasonText(preferReason, preferDetail, model)}");
+                        List<MatchAttribute> decisive = [MatchAttribute.ClassCode];
+                        if (preferReason == PreferReason.ExactOperator) decisive.Add(MatchAttribute.IcaoAirline);
+                        else if (preferReason == PreferReason.LiveryWordOverlap) decisive.Add(MatchAttribute.Livery);
+                        Finalize(model, [.. decisive]);
+                        return (model, type, trace);
                     }
 
                     string looseKey = remoteEntry.classCode.Length == 3 ? remoteEntry.classCode[0] + "*" + remoteEntry.classCode[2] : "";
                     if (looseKey.Length > 0 && categoryIndex.TryGetValue(looseKey, out var looseCandidates) && looseCandidates.Count > 0)
                     {
-                        model = PreferByOperator(looseCandidates, icaoAirline, remoteLivery);
+                        model = PreferByOperator(looseCandidates, icaoAirline, remoteLivery, out var preferReason, out var preferDetail);
                         type = Type.Category;
-                        return (model, type);
+                        trace.steps.Add($"Category: no exact class code match, but {looseCandidates.Count} installed model(s) share the same platform+engine-type category ('{looseKey}'). {PreferReasonText(preferReason, preferDetail, model)}");
+                        List<MatchAttribute> decisive = [MatchAttribute.ClassCode];
+                        if (preferReason == PreferReason.ExactOperator) decisive.Add(MatchAttribute.IcaoAirline);
+                        else if (preferReason == PreferReason.LiveryWordOverlap) decisive.Add(MatchAttribute.Livery);
+                        Finalize(model, [.. decisive]);
+                        return (model, type, trace);
                     }
+
+                    trace.steps.Add($"Category: remote's Doc8643 class code '{remoteEntry.classCode}' has no installed candidates (exact or loose category).");
                 }
+                else
+                {
+                    trace.steps.Add($"Icao/Category: ICAO type '{icaoType}' has no installed candidates and isn't in the bundled Doc8643 reference data, so no category fallback is possible either.");
+                }
+            }
+            else
+            {
+                trace.steps.Add("Icao/Category: the remote aircraft did not report an ICAO type designator, so these tiers are skipped. (Recordings made before ICAO data capture was added will always hit this.)");
             }
 
 // TODO: cleanup code
@@ -3124,12 +3470,23 @@ namespace JoinFS
                     {
                         // use automatic match
                         type = Type.Auto;
-                        return (model, type);
+                        trace.steps.Add($"Auto: no exact/ICAO/category match found. The first {length} character(s) of the requested title ('{key}') match the start of installed title '{prefix}'.");
+                        Finalize(model, MatchAttribute.Title);
+                        return (model, type, trace);
                     }
                 }
             }
+            if (title.Length < 4)
+            {
+                trace.steps.Add("Auto: requested title is shorter than the 4-character minimum prefix length, so no substring match was attempted.");
+            }
+            else
+            {
+                trace.steps.Add($"Auto: no installed title shares a leading substring (4+ characters) with requested title '{title}'.");
+            }
 
             // check for default typerole
+            string requestedTyperoleName = typeroleNames.TryGetValue(typerole, out var requestedTyperoleNameValue) ? requestedTyperoleNameValue : typerole.ToString();
             if (defaultModels.TryGetValue(typerole, out string defaultModel))
             {
                 // check for match
@@ -3141,9 +3498,23 @@ namespace JoinFS
                     {
                         // use default model
                         type = Type.Default;
-                        return (model, type);
+                        trace.steps.Add($"Default: using the configured default model for typerole '{requestedTyperoleName}' -> '{model.title}'.");
+                        Finalize(model, MatchAttribute.Typerole);
+                        return (model, type, trace);
+                    }
+                    else
+                    {
+                        trace.steps.Add($"Default: a default model is configured for typerole '{requestedTyperoleName}' ('{match.title}'), but that model is not currently installed/scanned.");
                     }
                 }
+                else
+                {
+                    trace.steps.Add($"Default: typerole '{requestedTyperoleName}' has a default model name configured ('{defaultModel}') but no matching override entry was found for it.");
+                }
+            }
+            else
+            {
+                trace.steps.Add($"Default: no default model is configured for typerole '{requestedTyperoleName}'.");
             }
 
             // check for any models
@@ -3152,33 +3523,43 @@ namespace JoinFS
                 // use first model
                 model = models[0];
                 type = Type.Default;
-                return (model, type);
+                trace.steps.Add($"Last resort: falling back to the first installed model in the scan list ('{model.title}') out of {models.Count} installed model(s) - nothing else matched.");
+                Finalize(model);
+                return (model, type, trace);
             }
 
             // use last resort
             model = null;
             type = Type.Default;
-            return (model, type);
+            trace.steps.Add("Last resort: no models are installed/scanned at all. Nothing can be rendered until a model scan finds at least one installed aircraft.");
+            Finalize(model);
+            return (model, type, trace);
         }
 
         /// <summary>
         /// Masquerade a model
         /// </summary>
         /// <param name="model">Model to check</param>
-        public void Masquerade(string title, out Model masquerade, out Type type)
+        public void Masquerade(string title, out Model masquerade, out Type type, out MatchTrace trace)
         {
+            trace = new MatchTrace();
+
             // check for existing model masquerade
             if (masquerades.TryGetValue(title, out Model value))
             {
                 // use matched model
                 masquerade = value;
                 type = Type.Substitute;
+                trace.steps.Add($"Substitute: explicit masquerade override for title '{title}' -> '{value.title}' (not a computed Match() result).");
+                trace.attributes.Add(new MatchTrace.AttributeComparison { attribute = MatchAttribute.Title, requested = title, matched = value.title, decisive = true });
             }
             else
             {
                 // use the original
                 masquerade = null;
                 type = Type.Original;
+                trace.steps.Add($"Original: no masquerade override configured for title '{title}'; the aircraft's own model is used as-is.");
+                trace.attributes.Add(new MatchTrace.AttributeComparison { attribute = MatchAttribute.Title, requested = title, matched = title, decisive = true });
             }
         }
 
