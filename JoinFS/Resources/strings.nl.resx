@@ -597,4 +597,148 @@
   <data name="Download" xml:space="preserve">
     <value>Downloaden</value>
   </data>
+  <data name="MatchAttr_Title" xml:space="preserve">
+    <value>Titel</value>
+  </data>
+  <data name="MatchAttr_Livery" xml:space="preserve">
+    <value>Livrei / Variant</value>
+  </data>
+  <data name="MatchAttr_Registration" xml:space="preserve">
+    <value>Registratie</value>
+  </data>
+  <data name="MatchAttr_IcaoType" xml:space="preserve">
+    <value>ICAO-type</value>
+  </data>
+  <data name="MatchAttr_IcaoAirline" xml:space="preserve">
+    <value>ICAO-luchtvaartmaatschappij</value>
+  </data>
+  <data name="MatchAttr_ClassCode" xml:space="preserve">
+    <value>Klassecode</value>
+  </data>
+  <data name="MatchAttr_Wtc" xml:space="preserve">
+    <value>WTC</value>
+  </data>
+  <data name="MatchAttr_Typerole" xml:space="preserve">
+    <value>Typerol</value>
+  </data>
+  <data name="MatchAttr_Folder" xml:space="preserve">
+    <value>Map</value>
+  </data>
+  <data name="MatchExplain_NoMatchYet" xml:space="preserve">
+    <value>Er is nog geen match berekend voor dit vliegtuig.</value>
+  </data>
+  <data name="MatchExplain_ResultPrefix" xml:space="preserve">
+    <value>Resultaat: {0}</value>
+  </data>
+  <data name="MatchExplain_ResultMatchSuffix" xml:space="preserve">
+    <value> match -&gt; '{0}'</value>
+  </data>
+  <data name="MatchExplain_ResultNoModel" xml:space="preserve">
+    <value> - er kon geen model worden gekozen (niets geïnstalleerd/gescand).</value>
+  </data>
+  <data name="MatchExplain_IcaoGuessedWarning" xml:space="preserve">
+    <value>Opmerking: het ICAO-type van het gekoppelde model is door JoinFS afgeleid uit de titeltekst, niet bevestigd via live simulatorgegevens of het echte configuratiebestand - dit signaal wordt lager gewaardeerd bij de score. Controleer of dit klopt als de match er verkeerd uitziet.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_IcaoModelFallback" xml:space="preserve">
+    <value>Opmerking: het configuratiebestand van dit model geeft icao_type_designator='{0}' op, wat geen erkend ICAO-type is - JoinFS heeft in plaats daarvan het veld icao_model gebruikt, dat correct een echt type ('{1}') aangeeft.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_IcaoModelOnly" xml:space="preserve">
+    <value>Opmerking: het configuratiebestand van dit model geeft geen icao_type_designator op - JoinFS heeft in plaats daarvan het veld icao_model gebruikt, dat correct een echt type ('{0}') aangeeft.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuessBlank" xml:space="preserve">
+    <value>Opmerking: het configuratiebestand van dit model geeft geen icao_type_designator op - JoinFS heeft in plaats daarvan '{0}' afgeleid uit de titeltekst van het model. Controleer of dit klopt als de match er verkeerd uitziet.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuessCorroboratedBlank" xml:space="preserve">
+    <value>Opmerking: het configuratiebestand van dit model geeft geen icao_type_designator op - JoinFS heeft in plaats daarvan '{0}' afgeleid uit de titeltekst van het model, bevestigd door de klassecode/zogturbulentiecategorie die uit hetzelfde configuratiebestand is afgeleid.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuess" xml:space="preserve">
+    <value>Opmerking: het configuratiebestand van dit model geeft icao_type_designator='{0}' op, wat geen erkend ICAO-type is - JoinFS heeft in plaats daarvan '{1}' afgeleid uit de titeltekst van het model. Controleer of dit klopt als de match er verkeerd uitziet.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuessCorroborated" xml:space="preserve">
+    <value>Opmerking: het configuratiebestand van dit model geeft icao_type_designator='{0}' op, wat geen erkend ICAO-type is - JoinFS heeft in plaats daarvan '{1}' afgeleid uit de titeltekst van het model, bevestigd door de klassecode/zog­turbulentiecategorie die uit hetzelfde configuratiebestand is afgeleid.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_Unresolved" xml:space="preserve">
+    <value>Opmerking: het configuratiebestand van dit model geeft icao_type_designator='{0}' op, wat geen erkend ICAO-type is, en JoinFS kon ook geen betere overeenkomst vinden op basis van de titel of klassecode - de waarde wordt gerapporteerd zoals opgegeven.</value>
+  </data>
+  <data name="MatchExplain_ClassCodeConfirmedNote" xml:space="preserve">
+    <value>Opmerking: klassecode/WTC/typerol van het gekoppelde model zijn de laatste keer dat lokaal is gevlogen rechtstreeks bevestigd via live simulatorgegevens of het echte configuratiebestand, in plaats van opgezocht via het ICAO-type in de meegeleverde Doc8643-referentie.</value>
+  </data>
+  <data name="MatchExplain_OtherCandidatesHeader" xml:space="preserve">
+    <value>Andere overwogen kandidaten (top {0} op score):</value>
+  </data>
+  <data name="MatchExplain_BanExclusionNote" xml:space="preserve">
+    <value> {0} niet-vliegbare model(len) (decorobjecten, statische livreien, enz.) zijn tijdens de laatste scan uitgesloten via de verbodslijst.</value>
+  </data>
+  <data name="MatchExplain_ModelSource_FS2024" xml:space="preserve">
+    <value>Modelbron (deze build): live opsomming van vliegtuigen/livreien via SimConnect, opgevraagd via Bestand ▸ Zoek modellen ▸ Scannen (of automatisch bij verbinden als "Scannen bij opstarten" is ingeschakeld).</value>
+  </data>
+  <data name="MatchExplain_ModelSource_XPlane" xml:space="preserve">
+    <value>Modelbron (deze build): X-Plane CSL-definities gelezen uit xsb_aircraft.txt tijdens een mapscan (Bestand ▸ Zoek modellen ▸ Scannen).</value>
+  </data>
+  <data name="MatchExplain_ModelSource_Other" xml:space="preserve">
+    <value>Modelbron (deze build): mapscan van aircraft.cfg/sim.cfg onder de vliegtuigmappen van de simulator (Bestand ▸ Zoek modellen ▸ Scannen).</value>
+  </data>
+  <data name="MatchExplain_NoModelsFile" xml:space="preserve">
+    <value>Er is nog geen bekend-modellenbestand gevonden. Voer eerst Bestand ▸ Zoek modellen ▸ Scannen uit.</value>
+  </data>
+  <data name="MatchExplain_CouldNotOpen" xml:space="preserve">
+    <value>Kan '{0}' niet openen: {1}</value>
+  </data>
+  <data name="MatchExplain_CouldNotCreateBundle" xml:space="preserve">
+    <value>Kan debugbundel niet maken: {0}</value>
+  </data>
+  <data name="MatchExplain_TraceHeader" xml:space="preserve">
+    <value>Matchstappen (in de volgorde waarin ze zijn geprobeerd):</value>
+  </data>
+  <data name="MatchExplain_OpenModelsListButton" xml:space="preserve">
+    <value>Bekende modellenlijst openen</value>
+  </data>
+  <data name="MatchExplain_CopyButton" xml:space="preserve">
+    <value>Kopiëren naar klembord</value>
+  </data>
+  <data name="MatchExplain_ExportBundleButton" xml:space="preserve">
+    <value>Debugbundel exporteren...</value>
+  </data>
+  <data name="MatchExplain_CloseButton" xml:space="preserve">
+    <value>Sluiten</value>
+  </data>
+  <data name="MatchExplain_ReportOutcome" xml:space="preserve">
+    <value>Resultaat:</value>
+  </data>
+  <data name="MatchExplain_ReportNote" xml:space="preserve">
+    <value>Opmerking:</value>
+  </data>
+  <data name="MatchExplain_ReportAttrHeader" xml:space="preserve">
+    <value>Attribuutvergelijking</value>
+  </data>
+  <data name="MatchExplain_ReportStepsHeader" xml:space="preserve">
+    <value>Matchstappen</value>
+  </data>
+  <data name="MatchExplain_ReportSourceHeader" xml:space="preserve">
+    <value>Modelbron</value>
+  </data>
+  <data name="MatchExplain_ReportOtherCandidatesHeader" xml:space="preserve">
+    <value>Andere overwogen kandidaten</value>
+  </data>
+  <data name="MatchingForm_EmptyModelList" xml:space="preserve">
+    <value>De modellenlijst is leeg. Gebruik 'Bestand|Zoek modellen...' om een lijst te genereren.</value>
+  </data>
+  <data name="MatchingForm_RemoveConfirm" xml:space="preserve">
+    <value>Vervanging voor '{0}' permanent verwijderen?</value>
+  </data>
+  <data name="FlightPlan_SimBriefUsernameTooltip" xml:space="preserve">
+    <value>Uw SimBrief-gebruikersnaam</value>
+  </data>
+  <data name="FlightPlan_ImportSimBriefTooltip" xml:space="preserve">
+    <value>SimBrief-gebruikersnaam opslaan en het laatste vluchtplan ophalen</value>
+  </data>
+  <data name="FlightPlan_Imported" xml:space="preserve">
+    <value>Geïmporteerd {0} -&gt; {1}</value>
+  </data>
+  <data name="FlightPlan_NoSimBriefPlan" xml:space="preserve">
+    <value>Geen SimBrief-vluchtplan gevonden voor die gebruikersnaam</value>
+  </data>
+  <data name="MainForm_SimBriefButtonTooltip" xml:space="preserve">
+    <value>SimBrief-gegevens gebruiken als bron voor het vluchtplan en nu opnieuw ophalen</value>
+  </data>
 </root>

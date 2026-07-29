@@ -1687,6 +1687,14 @@ namespace JoinFS
             message.Write(simObject.ownerLivery);
             message.Write(simObject is Sim.Aircraft aircraftObj ? aircraftObj.flightPlan.icaoType : "");
             message.Write(simObject is Sim.Aircraft aircraftObj2 ? aircraftObj2.flightPlan.icaoAirline : "");
+            // class code/WTC - appended at the end so older peers (which stop reading after icaoAirline)
+            // simply ignore these trailing bytes. Sourced from the owner's own config-confirmed/live-
+            // derived data (Sim.Obj.ownerClassCode etc.), not re-derived here, so every receiving peer
+            // gets the sender's best-available classification instead of independently re-deriving it
+            // from ownerIcaoType, which fails for add-ons reporting a bogus/non-standard type string.
+            message.Write(simObject.ownerClassCode);
+            message.Write(simObject.ownerWtc);
+            message.Write(simObject.ownerClassCodeConfirmed);
         }
 
 
@@ -1728,6 +1736,11 @@ namespace JoinFS
             // icaoAirline) simply ignore these trailing bytes instead of misreading the message
             message.Write(aircraft.flightPlan.registration);
             message.Write(aircraft.flightPlan.flightNumber);
+            // class code/WTC - see WriteObjectPositionVelocityMessage for why these are sourced from the
+            // owner's own confirmed data rather than re-derived by each receiving peer
+            message.Write(aircraft.ownerClassCode);
+            message.Write(aircraft.ownerWtc);
+            message.Write(aircraft.ownerClassCodeConfirmed);
         }
 
         /// <summary>
@@ -3097,7 +3110,10 @@ namespace JoinFS
                                     string variation = (reader.PeekChar() != -1) ? reader.ReadString() : "";
                                     string icaoType = (reader.PeekChar() != -1) ? reader.ReadString() : "";
                                     string icaoAirline = (reader.PeekChar() != -1) ? reader.ReadString() : "";
-                                    Sim.Obj simObject = main.sim?.UpdateObject(nuid, netId, model, variation, icaoType, icaoAirline, typerole, netTime, ref positionVelocity);
+                                    string classCode = (reader.PeekChar() != -1) ? reader.ReadString() : "";
+                                    string wtc = (reader.PeekChar() != -1) ? reader.ReadString() : "";
+                                    bool classCodeConfirmed = (reader.PeekChar() != -1) ? reader.ReadBoolean() : false;
+                                    Sim.Obj simObject = main.sim?.UpdateObject(nuid, netId, model, variation, icaoType, icaoAirline, classCode, wtc, classCodeConfirmed, typerole, netTime, ref positionVelocity);
 
                                     // check for object
                                     if (simObject != null)
@@ -3171,7 +3187,10 @@ namespace JoinFS
                                             string icaoAirline = (reader.PeekChar() != -1) ? reader.ReadString() : "";
                                             string registration = (reader.PeekChar() != -1) ? reader.ReadString() : "";
                                             string flightNumber = (reader.PeekChar() != -1) ? reader.ReadString() : "";
-                                            Sim.Aircraft aircraft = main.sim?.UpdateAircraft(nuid, netId, user, plane, callsign, registration, nickname, model, variation, icaoType, icaoAirline, flightNumber, typerole, netTime, ref aircraftPosition);
+                                            string classCode = (reader.PeekChar() != -1) ? reader.ReadString() : "";
+                                            string wtc = (reader.PeekChar() != -1) ? reader.ReadString() : "";
+                                            bool classCodeConfirmed = (reader.PeekChar() != -1) ? reader.ReadBoolean() : false;
+                                            Sim.Aircraft aircraft = main.sim?.UpdateAircraft(nuid, netId, user, plane, callsign, registration, nickname, model, variation, icaoType, icaoAirline, flightNumber, classCode, wtc, classCodeConfirmed, typerole, netTime, ref aircraftPosition);
                                             // check for aircraft
                                             if (aircraft != null)
                                             {

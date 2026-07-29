@@ -112,7 +112,7 @@ namespace JoinFS
             this.Label_TraceHeader.Size = new Size(300, 16);
             this.Label_TraceHeader.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             this.Label_TraceHeader.Name = "Label_TraceHeader";
-            this.Label_TraceHeader.Text = "Matching steps (in the order they were tried):";
+            this.Label_TraceHeader.Text = JoinFS.Resources.Strings.MatchExplain_TraceHeader;
             //
             // Text_Trace
             //
@@ -138,7 +138,7 @@ namespace JoinFS
             this.Button_OpenModelsList.Size = new Size(170, 28);
             this.Button_OpenModelsList.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             this.Button_OpenModelsList.Name = "Button_OpenModelsList";
-            this.Button_OpenModelsList.Text = "Open known-models list";
+            this.Button_OpenModelsList.Text = JoinFS.Resources.Strings.MatchExplain_OpenModelsListButton;
             this.Button_OpenModelsList.UseVisualStyleBackColor = true;
             this.Button_OpenModelsList.Click += new System.EventHandler(this.Button_OpenModelsList_Click);
             //
@@ -148,7 +148,7 @@ namespace JoinFS
             this.Button_Copy.Size = new Size(120, 28);
             this.Button_Copy.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             this.Button_Copy.Name = "Button_Copy";
-            this.Button_Copy.Text = "Copy to clipboard";
+            this.Button_Copy.Text = JoinFS.Resources.Strings.MatchExplain_CopyButton;
             this.Button_Copy.UseVisualStyleBackColor = true;
             this.Button_Copy.Click += new System.EventHandler(this.Button_Copy_Click);
             //
@@ -158,7 +158,7 @@ namespace JoinFS
             this.Button_ExportBundle.Size = new Size(140, 28);
             this.Button_ExportBundle.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             this.Button_ExportBundle.Name = "Button_ExportBundle";
-            this.Button_ExportBundle.Text = "Export Debug Bundle...";
+            this.Button_ExportBundle.Text = JoinFS.Resources.Strings.MatchExplain_ExportBundleButton;
             this.Button_ExportBundle.UseVisualStyleBackColor = true;
             this.Button_ExportBundle.Click += new System.EventHandler(this.Button_ExportBundle_Click);
             //
@@ -168,7 +168,7 @@ namespace JoinFS
             this.Button_Close.Size = new Size(80, 28);
             this.Button_Close.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             this.Button_Close.Name = "Button_Close";
-            this.Button_Close.Text = "Close";
+            this.Button_Close.Text = JoinFS.Resources.Strings.MatchExplain_CloseButton;
             this.Button_Close.UseVisualStyleBackColor = true;
             this.Button_Close.Click += new System.EventHandler(this.Button_Close_Click);
             //

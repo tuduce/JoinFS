@@ -49,8 +49,8 @@ namespace JoinFS
             if (Settings.Default.ToolTips)
             {
                 ToolTip tip = new() { ShowAlways = true, IsBalloon = true, AutomaticDelay = 2000 };
-                tip.SetToolTip(Text_SimBriefUsername, "Your SimBrief username");
-                tip.SetToolTip(Button_ImportSimBrief, "Save the SimBrief username and fetch the latest flight plan");
+                tip.SetToolTip(Text_SimBriefUsername, Resources.Strings.FlightPlan_SimBriefUsernameTooltip);
+                tip.SetToolTip(Button_ImportSimBrief, Resources.Strings.FlightPlan_ImportSimBriefTooltip);
             }
         }
 
@@ -125,12 +125,12 @@ namespace JoinFS
                     pendingAlternate = imported.alternate;
                     pendingAltitude = imported.altitude;
 
-                    Label_SimBriefStatus.Text = "Imported " + imported.departure + " -> " + imported.destination;
+                    Label_SimBriefStatus.Text = string.Format(Resources.Strings.FlightPlan_Imported, imported.departure, imported.destination);
                 }
                 else
                 {
                     // never blank out already-shown data on failure
-                    Label_SimBriefStatus.Text = "No SimBrief flight plan found for that username";
+                    Label_SimBriefStatus.Text = Resources.Strings.FlightPlan_NoSimBriefPlan;
                 }
             }
             finally

@@ -1363,12 +1363,15 @@ namespace JoinFS
                             // aircraft
                             Aircraft aircraft = obj as Aircraft;
                             // update position
-                            main.sim ?. UpdateAircraft(new LocalNode.Nuid(), obj.id, false, aircraft.plane, aircraft.callsign, "", aircraft.nickname, aircraft.model, aircraft.livery, aircraft.icaoType, aircraft.icaoAirline, "", aircraft.typerole, recentFrame.time, ref (recentFrame as AircraftPositionFrame).data);
+                            // recordings don't currently capture classCode/wtc (a Phase 3 network-only
+                            // addition) - pass empty/unconfirmed so replay falls back to local re-derivation
+                            // from icaoType, same as before this feature existed
+                            main.sim ?. UpdateAircraft(new LocalNode.Nuid(), obj.id, false, aircraft.plane, aircraft.callsign, "", aircraft.nickname, aircraft.model, aircraft.livery, aircraft.icaoType, aircraft.icaoAirline, "", "", "", false, aircraft.typerole, recentFrame.time, ref (recentFrame as AircraftPositionFrame).data);
                         }
                         else
                         {
                             // update position
-                            main.sim?.UpdateObject(new LocalNode.Nuid(), obj.id, obj.model, obj.livery, obj.icaoType, obj.icaoAirline, obj.typerole, recentFrame.time, ref (recentFrame as ObjectPositionFrame).data);
+                            main.sim?.UpdateObject(new LocalNode.Nuid(), obj.id, obj.model, obj.livery, obj.icaoType, obj.icaoAirline, "", "", false, obj.typerole, recentFrame.time, ref (recentFrame as ObjectPositionFrame).data);
                         }
                         // reset object
                         main.sim ?. ResetObject(new LocalNode.Nuid(), obj.id);
@@ -1522,7 +1525,7 @@ namespace JoinFS
                     double t = Blend(from, to, time);
                     Vector angles = InterpolateAngles(obj, from.data.pitch, from.data.heading, from.data.bank, to.data.pitch, to.data.heading, to.data.bank, t);
                     Sim.AircraftPosition data = Interpolate(from, to, t, angles);
-                    main.sim?.UpdateAircraft(new LocalNode.Nuid(), obj.id, false, aircraft.plane, aircraft.callsign, "", aircraft.nickname, aircraft.model, aircraft.livery, aircraft.icaoType, aircraft.icaoAirline, "", aircraft.typerole, time, ref data);
+                    main.sim?.UpdateAircraft(new LocalNode.Nuid(), obj.id, false, aircraft.plane, aircraft.callsign, "", aircraft.nickname, aircraft.model, aircraft.livery, aircraft.icaoType, aircraft.icaoAirline, "", "", "", false, aircraft.typerole, time, ref data);
                 }
             }
             else
@@ -1534,7 +1537,7 @@ namespace JoinFS
                     double t = Blend(from, to, time);
                     Vector angles = InterpolateAngles(obj, from.data.pitch, from.data.heading, from.data.bank, to.data.pitch, to.data.heading, to.data.bank, t);
                     Sim.ObjectPositionVelocity data = Interpolate(from, to, t, angles);
-                    main.sim?.UpdateObject(new LocalNode.Nuid(), obj.id, obj.model, obj.livery, obj.icaoType, obj.icaoAirline, obj.typerole, time, ref data);
+                    main.sim?.UpdateObject(new LocalNode.Nuid(), obj.id, obj.model, obj.livery, obj.icaoType, obj.icaoAirline, "", "", false, obj.typerole, time, ref data);
                 }
             }
         }

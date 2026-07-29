@@ -597,4 +597,148 @@
   <data name="Download" xml:space="preserve">
     <value>Скачать</value>
   </data>
+  <data name="MatchAttr_Title" xml:space="preserve">
+    <value>Название</value>
+  </data>
+  <data name="MatchAttr_Livery" xml:space="preserve">
+    <value>Ливрея / Вариант</value>
+  </data>
+  <data name="MatchAttr_Registration" xml:space="preserve">
+    <value>Регистрационный номер</value>
+  </data>
+  <data name="MatchAttr_IcaoType" xml:space="preserve">
+    <value>Тип ICAO</value>
+  </data>
+  <data name="MatchAttr_IcaoAirline" xml:space="preserve">
+    <value>Авиакомпания ICAO</value>
+  </data>
+  <data name="MatchAttr_ClassCode" xml:space="preserve">
+    <value>Классификационный код</value>
+  </data>
+  <data name="MatchAttr_Wtc" xml:space="preserve">
+    <value>WTC</value>
+  </data>
+  <data name="MatchAttr_Typerole" xml:space="preserve">
+    <value>Роль типа</value>
+  </data>
+  <data name="MatchAttr_Folder" xml:space="preserve">
+    <value>Папка</value>
+  </data>
+  <data name="MatchExplain_NoMatchYet" xml:space="preserve">
+    <value>Для этого воздушного судна подбор модели ещё не выполнялся.</value>
+  </data>
+  <data name="MatchExplain_ResultPrefix" xml:space="preserve">
+    <value>Результат: {0}</value>
+  </data>
+  <data name="MatchExplain_ResultMatchSuffix" xml:space="preserve">
+    <value> подбор -&gt; '{0}'</value>
+  </data>
+  <data name="MatchExplain_ResultNoModel" xml:space="preserve">
+    <value> - не удалось выбрать модель (ничего не установлено/просканировано).</value>
+  </data>
+  <data name="MatchExplain_IcaoGuessedWarning" xml:space="preserve">
+    <value>Примечание: тип ICAO подобранной модели был определён JoinFS по тексту названия, а не подтверждён данными симулятора в реальном времени или её настоящим файлом конфигурации - этот сигнал получает пониженный вес при подсчёте очков. Проверьте правильность подбора, если он выглядит неверным.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_IcaoModelFallback" xml:space="preserve">
+    <value>Примечание: файл конфигурации этой модели указывает icao_type_designator='{0}', что не является распознанным типом ICAO - вместо этого JoinFS использовал поле icao_model, которое правильно указывает реальный тип ('{1}').</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_IcaoModelOnly" xml:space="preserve">
+    <value>Примечание: файл конфигурации этой модели не указывает icao_type_designator - вместо этого JoinFS использовал поле icao_model, которое правильно указывает реальный тип ('{0}').</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuessBlank" xml:space="preserve">
+    <value>Примечание: файл конфигурации этой модели не указывает icao_type_designator - вместо этого JoinFS определил '{0}' по тексту названия модели. Проверьте правильность подбора, если он выглядит неверным.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuessCorroboratedBlank" xml:space="preserve">
+    <value>Примечание: файл конфигурации этой модели не указывает icao_type_designator - вместо этого JoinFS определил '{0}' по тексту названия модели, что подтверждается кодом класса/категорией спутной турбулентности, полученными из того же файла конфигурации.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuess" xml:space="preserve">
+    <value>Примечание: файл конфигурации этой модели указывает icao_type_designator='{0}', что не является распознанным типом ICAO - вместо этого JoinFS определил '{1}' по тексту названия модели. Проверьте правильность подбора, если он выглядит неверным.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuessCorroborated" xml:space="preserve">
+    <value>Примечание: файл конфигурации этой модели указывает icao_type_designator='{0}', что не является распознанным типом ICAO - вместо этого JoinFS определил '{1}' по тексту названия модели, что подтверждается кодом класса/категорией спутной турбулентности, полученными из того же файла конфигурации.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_Unresolved" xml:space="preserve">
+    <value>Примечание: файл конфигурации этой модели указывает icao_type_designator='{0}', что не является распознанным типом ICAO, и JoinFS также не смог найти лучшее соответствие по названию или коду класса - значение сообщается как указано.</value>
+  </data>
+  <data name="MatchExplain_ClassCodeConfirmedNote" xml:space="preserve">
+    <value>Примечание: классификационный код/WTC/роль типа подобранной модели были подтверждены напрямую данными симулятора в реальном времени или её настоящим файлом конфигурации при последнем локальном полёте, а не найдены по типу ICAO во встроенном справочнике Doc8643.</value>
+  </data>
+  <data name="MatchExplain_OtherCandidatesHeader" xml:space="preserve">
+    <value>Другие рассмотренные варианты (топ {0} по очкам):</value>
+  </data>
+  <data name="MatchExplain_BanExclusionNote" xml:space="preserve">
+    <value> {0} нелётный(ые) модель(и) (объекты декораций, статичные ливреи и т.д.) были исключены списком запрета во время последнего сканирования.</value>
+  </data>
+  <data name="MatchExplain_ModelSource_FS2024" xml:space="preserve">
+    <value>Источник моделей (эта сборка): перечисление воздушных судов/ливрей в реальном времени через SimConnect, запрашивается через Файл ▸ Поиск моделей ▸ Сканировать (или автоматически при подключении, если включено "Сканировать при запуске").</value>
+  </data>
+  <data name="MatchExplain_ModelSource_XPlane" xml:space="preserve">
+    <value>Источник моделей (эта сборка): определения CSL X-Plane, разобранные из xsb_aircraft.txt при сканировании папок (Файл ▸ Поиск моделей ▸ Сканировать).</value>
+  </data>
+  <data name="MatchExplain_ModelSource_Other" xml:space="preserve">
+    <value>Источник моделей (эта сборка): сканирование папок aircraft.cfg/sim.cfg в папках воздушных судов симулятора (Файл ▸ Поиск моделей ▸ Сканировать).</value>
+  </data>
+  <data name="MatchExplain_NoModelsFile" xml:space="preserve">
+    <value>Файл известных моделей пока не найден. Сначала выполните Файл ▸ Поиск моделей ▸ Сканировать.</value>
+  </data>
+  <data name="MatchExplain_CouldNotOpen" xml:space="preserve">
+    <value>Не удалось открыть '{0}': {1}</value>
+  </data>
+  <data name="MatchExplain_CouldNotCreateBundle" xml:space="preserve">
+    <value>Не удалось создать отладочный пакет: {0}</value>
+  </data>
+  <data name="MatchExplain_TraceHeader" xml:space="preserve">
+    <value>Этапы подбора (в порядке, в котором они выполнялись):</value>
+  </data>
+  <data name="MatchExplain_OpenModelsListButton" xml:space="preserve">
+    <value>Открыть список известных моделей</value>
+  </data>
+  <data name="MatchExplain_CopyButton" xml:space="preserve">
+    <value>Копировать в буфер обмена</value>
+  </data>
+  <data name="MatchExplain_ExportBundleButton" xml:space="preserve">
+    <value>Экспортировать отладочный пакет...</value>
+  </data>
+  <data name="MatchExplain_CloseButton" xml:space="preserve">
+    <value>Закрыть</value>
+  </data>
+  <data name="MatchExplain_ReportOutcome" xml:space="preserve">
+    <value>Результат:</value>
+  </data>
+  <data name="MatchExplain_ReportNote" xml:space="preserve">
+    <value>Примечание:</value>
+  </data>
+  <data name="MatchExplain_ReportAttrHeader" xml:space="preserve">
+    <value>Сравнение атрибутов</value>
+  </data>
+  <data name="MatchExplain_ReportStepsHeader" xml:space="preserve">
+    <value>Этапы подбора</value>
+  </data>
+  <data name="MatchExplain_ReportSourceHeader" xml:space="preserve">
+    <value>Источник моделей</value>
+  </data>
+  <data name="MatchExplain_ReportOtherCandidatesHeader" xml:space="preserve">
+    <value>Другие рассмотренные варианты</value>
+  </data>
+  <data name="MatchingForm_EmptyModelList" xml:space="preserve">
+    <value>Список моделей пуст. Используйте 'Файл|Поиск моделей...', чтобы создать список.</value>
+  </data>
+  <data name="MatchingForm_RemoveConfirm" xml:space="preserve">
+    <value>Окончательно удалить замену для '{0}'?</value>
+  </data>
+  <data name="FlightPlan_SimBriefUsernameTooltip" xml:space="preserve">
+    <value>Ваше имя пользователя SimBrief</value>
+  </data>
+  <data name="FlightPlan_ImportSimBriefTooltip" xml:space="preserve">
+    <value>Сохранить имя пользователя SimBrief и получить последний план полёта</value>
+  </data>
+  <data name="FlightPlan_Imported" xml:space="preserve">
+    <value>Импортировано {0} -&gt; {1}</value>
+  </data>
+  <data name="FlightPlan_NoSimBriefPlan" xml:space="preserve">
+    <value>План полёта SimBrief для этого имени пользователя не найден</value>
+  </data>
+  <data name="MainForm_SimBriefButtonTooltip" xml:space="preserve">
+    <value>Использовать данные SimBrief как источник плана полёта и получить их заново сейчас</value>
+  </data>
 </root>

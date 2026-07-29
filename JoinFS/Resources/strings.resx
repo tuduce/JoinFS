@@ -603,4 +603,148 @@
   <data name="Download" xml:space="preserve">
     <value>Download</value>
   </data>
+  <data name="MatchAttr_Title" xml:space="preserve">
+    <value>Title</value>
+  </data>
+  <data name="MatchAttr_Livery" xml:space="preserve">
+    <value>Livery / Variation</value>
+  </data>
+  <data name="MatchAttr_Registration" xml:space="preserve">
+    <value>Registration</value>
+  </data>
+  <data name="MatchAttr_IcaoType" xml:space="preserve">
+    <value>ICAO Type</value>
+  </data>
+  <data name="MatchAttr_IcaoAirline" xml:space="preserve">
+    <value>ICAO Airline</value>
+  </data>
+  <data name="MatchAttr_ClassCode" xml:space="preserve">
+    <value>Class Code</value>
+  </data>
+  <data name="MatchAttr_Wtc" xml:space="preserve">
+    <value>WTC</value>
+  </data>
+  <data name="MatchAttr_Typerole" xml:space="preserve">
+    <value>Typerole</value>
+  </data>
+  <data name="MatchAttr_Folder" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="MatchExplain_NoMatchYet" xml:space="preserve">
+    <value>No match has been computed yet for this aircraft.</value>
+  </data>
+  <data name="MatchExplain_ResultPrefix" xml:space="preserve">
+    <value>Result: {0}</value>
+  </data>
+  <data name="MatchExplain_ResultMatchSuffix" xml:space="preserve">
+    <value> match -&gt; '{0}'</value>
+  </data>
+  <data name="MatchExplain_ResultNoModel" xml:space="preserve">
+    <value> - no model could be chosen (nothing installed/scanned).</value>
+  </data>
+  <data name="MatchExplain_IcaoGuessedWarning" xml:space="preserve">
+    <value>Note: the matched model's ICAO type was inferred by JoinFS from its title text, not confirmed via live simulator data or its real configuration file - this signal is downweighted in scoring. Verify this is correct if the match looks wrong.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_IcaoModelFallback" xml:space="preserve">
+    <value>Note: this model's configuration file declares icao_type_designator='{0}', which is not a recognized ICAO type - JoinFS used its icao_model field instead, which correctly names a real type ('{1}').</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_IcaoModelOnly" xml:space="preserve">
+    <value>Note: this model's configuration file does not declare an ICAO type designator - JoinFS used its icao_model field instead, which correctly names a real type ('{0}').</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuess" xml:space="preserve">
+    <value>Note: this model's configuration file declares icao_type_designator='{0}', which is not a recognized ICAO type - JoinFS guessed '{1}' instead from the model's title text. Verify this is correct if the match looks wrong.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuessBlank" xml:space="preserve">
+    <value>Note: this model's configuration file does not declare an ICAO type designator - JoinFS guessed '{0}' instead from the model's title text. Verify this is correct if the match looks wrong.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuessCorroborated" xml:space="preserve">
+    <value>Note: this model's configuration file declares icao_type_designator='{0}', which is not a recognized ICAO type - JoinFS guessed '{1}' instead from the model's title text, corroborated by its class code/wake turbulence category derived from the same configuration file.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuessCorroboratedBlank" xml:space="preserve">
+    <value>Note: this model's configuration file does not declare an ICAO type designator - JoinFS guessed '{0}' instead from the model's title text, corroborated by its class code/wake turbulence category derived from the same configuration file.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_Unresolved" xml:space="preserve">
+    <value>Note: this model's configuration file declares icao_type_designator='{0}', which is not a recognized ICAO type, and JoinFS could not find a better match from the title text or class code either - reporting it as declared.</value>
+  </data>
+  <data name="MatchExplain_ClassCodeConfirmedNote" xml:space="preserve">
+    <value>Note: the matched model's Class Code/WTC/Typerole were confirmed directly from live simulator data or its real configuration file the last time it was flown locally, rather than looked up from the bundled Doc8643 reference by ICAO type.</value>
+  </data>
+  <data name="MatchExplain_OtherCandidatesHeader" xml:space="preserve">
+    <value>Other candidates considered (top {0} by score):</value>
+  </data>
+  <data name="MatchExplain_BanExclusionNote" xml:space="preserve">
+    <value> {0} non-flyable model(s) (scenery props, static display liveries, etc.) were excluded by the ban list during the last scan.</value>
+  </data>
+  <data name="MatchExplain_ModelSource_FS2024" xml:space="preserve">
+    <value>Model source (this build): SimConnect live aircraft/livery enumeration, requested via File ▸ Scan For Models ▸ Scan (or automatically at connect if "Scan at launch" is enabled).</value>
+  </data>
+  <data name="MatchExplain_ModelSource_XPlane" xml:space="preserve">
+    <value>Model source (this build): X-Plane CSL definitions parsed from xsb_aircraft.txt during a folder scan (File ▸ Scan For Models ▸ Scan).</value>
+  </data>
+  <data name="MatchExplain_ModelSource_Other" xml:space="preserve">
+    <value>Model source (this build): folder scan of aircraft.cfg/sim.cfg under the simulator's aircraft folders (File ▸ Scan For Models ▸ Scan).</value>
+  </data>
+  <data name="MatchExplain_NoModelsFile" xml:space="preserve">
+    <value>No known-models file was found yet. Run File ▸ Scan For Models ▸ Scan first.</value>
+  </data>
+  <data name="MatchExplain_CouldNotOpen" xml:space="preserve">
+    <value>Could not open '{0}': {1}</value>
+  </data>
+  <data name="MatchExplain_CouldNotCreateBundle" xml:space="preserve">
+    <value>Could not create debug bundle: {0}</value>
+  </data>
+  <data name="MatchExplain_TraceHeader" xml:space="preserve">
+    <value>Matching steps (in the order they were tried):</value>
+  </data>
+  <data name="MatchExplain_OpenModelsListButton" xml:space="preserve">
+    <value>Open known-models list</value>
+  </data>
+  <data name="MatchExplain_CopyButton" xml:space="preserve">
+    <value>Copy to clipboard</value>
+  </data>
+  <data name="MatchExplain_ExportBundleButton" xml:space="preserve">
+    <value>Export Debug Bundle...</value>
+  </data>
+  <data name="MatchExplain_CloseButton" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="MatchExplain_ReportOutcome" xml:space="preserve">
+    <value>Outcome:</value>
+  </data>
+  <data name="MatchExplain_ReportNote" xml:space="preserve">
+    <value>Note:</value>
+  </data>
+  <data name="MatchExplain_ReportAttrHeader" xml:space="preserve">
+    <value>Attribute comparison</value>
+  </data>
+  <data name="MatchExplain_ReportStepsHeader" xml:space="preserve">
+    <value>Matching steps</value>
+  </data>
+  <data name="MatchExplain_ReportSourceHeader" xml:space="preserve">
+    <value>Model source</value>
+  </data>
+  <data name="MatchExplain_ReportOtherCandidatesHeader" xml:space="preserve">
+    <value>Other candidates considered</value>
+  </data>
+  <data name="MatchingForm_EmptyModelList" xml:space="preserve">
+    <value>The model list is empty. Use 'File|Scan For Models...' to generate a list.</value>
+  </data>
+  <data name="MatchingForm_RemoveConfirm" xml:space="preserve">
+    <value>Permanently remove substitution for '{0}'?</value>
+  </data>
+  <data name="FlightPlan_SimBriefUsernameTooltip" xml:space="preserve">
+    <value>Your SimBrief username</value>
+  </data>
+  <data name="FlightPlan_ImportSimBriefTooltip" xml:space="preserve">
+    <value>Save the SimBrief username and fetch the latest flight plan</value>
+  </data>
+  <data name="FlightPlan_Imported" xml:space="preserve">
+    <value>Imported {0} -&gt; {1}</value>
+  </data>
+  <data name="FlightPlan_NoSimBriefPlan" xml:space="preserve">
+    <value>No SimBrief flight plan found for that username</value>
+  </data>
+  <data name="MainForm_SimBriefButtonTooltip" xml:space="preserve">
+    <value>Use SimBrief data as the flight-plan source and re-fetch it now</value>
+  </data>
 </root>

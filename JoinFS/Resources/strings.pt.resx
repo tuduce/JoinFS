@@ -597,4 +597,148 @@
   <data name="Download" xml:space="preserve">
     <value>Download</value>
   </data>
+  <data name="MatchAttr_Title" xml:space="preserve">
+    <value>Título</value>
+  </data>
+  <data name="MatchAttr_Livery" xml:space="preserve">
+    <value>Pintura / Variante</value>
+  </data>
+  <data name="MatchAttr_Registration" xml:space="preserve">
+    <value>Matrícula</value>
+  </data>
+  <data name="MatchAttr_IcaoType" xml:space="preserve">
+    <value>Tipo ICAO</value>
+  </data>
+  <data name="MatchAttr_IcaoAirline" xml:space="preserve">
+    <value>Companhia ICAO</value>
+  </data>
+  <data name="MatchAttr_ClassCode" xml:space="preserve">
+    <value>Código de classe</value>
+  </data>
+  <data name="MatchAttr_Wtc" xml:space="preserve">
+    <value>WTC</value>
+  </data>
+  <data name="MatchAttr_Typerole" xml:space="preserve">
+    <value>Função de tipo</value>
+  </data>
+  <data name="MatchAttr_Folder" xml:space="preserve">
+    <value>Pasta</value>
+  </data>
+  <data name="MatchExplain_NoMatchYet" xml:space="preserve">
+    <value>Ainda não foi calculada nenhuma correspondência para esta aeronave.</value>
+  </data>
+  <data name="MatchExplain_ResultPrefix" xml:space="preserve">
+    <value>Resultado: {0}</value>
+  </data>
+  <data name="MatchExplain_ResultMatchSuffix" xml:space="preserve">
+    <value> correspondência -&gt; '{0}'</value>
+  </data>
+  <data name="MatchExplain_ResultNoModel" xml:space="preserve">
+    <value> - não foi possível escolher nenhum modelo (nada instalado/escaneado).</value>
+  </data>
+  <data name="MatchExplain_IcaoGuessedWarning" xml:space="preserve">
+    <value>Nota: o tipo ICAO do modelo correspondido foi inferido pelo JoinFS a partir do texto do título, não confirmado por dados ao vivo do simulador ou pelo seu arquivo de configuração real - este sinal é penalizado na pontuação. Verifique se está correto caso a correspondência pareça errada.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_IcaoModelFallback" xml:space="preserve">
+    <value>Nota: o arquivo de configuração deste modelo declara icao_type_designator='{0}', que não é um tipo ICAO reconhecido - o JoinFS usou em vez disso o campo icao_model, que nomeia corretamente um tipo real ('{1}').</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_IcaoModelOnly" xml:space="preserve">
+    <value>Nota: o arquivo de configuração deste modelo não declara nenhum icao_type_designator - o JoinFS usou em vez disso o campo icao_model, que nomeia corretamente um tipo real ('{0}').</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuessBlank" xml:space="preserve">
+    <value>Nota: o arquivo de configuração deste modelo não declara nenhum icao_type_designator - o JoinFS deduziu '{0}' a partir do texto do título do modelo. Verifique se está correto caso a correspondência pareça errada.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuessCorroboratedBlank" xml:space="preserve">
+    <value>Nota: o arquivo de configuração deste modelo não declara nenhum icao_type_designator - o JoinFS deduziu '{0}' a partir do texto do título do modelo, corroborado pelo código de classe/categoria de esteira de turbulência derivado do mesmo arquivo de configuração.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuess" xml:space="preserve">
+    <value>Nota: o arquivo de configuração deste modelo declara icao_type_designator='{0}', que não é um tipo ICAO reconhecido - o JoinFS deduziu '{1}' a partir do texto do título do modelo. Verifique se está correto caso a correspondência pareça errada.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuessCorroborated" xml:space="preserve">
+    <value>Nota: o arquivo de configuração deste modelo declara icao_type_designator='{0}', que não é um tipo ICAO reconhecido - o JoinFS deduziu '{1}' a partir do texto do título do modelo, corroborado pelo código de classe/categoria de esteira de turbulência derivado do mesmo arquivo de configuração.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_Unresolved" xml:space="preserve">
+    <value>Nota: o arquivo de configuração deste modelo declara icao_type_designator='{0}', que não é um tipo ICAO reconhecido, e o JoinFS também não conseguiu encontrar uma correspondência melhor a partir do título ou do código de classe - o valor é reportado como declarado.</value>
+  </data>
+  <data name="MatchExplain_ClassCodeConfirmedNote" xml:space="preserve">
+    <value>Nota: o código de classe/WTC/função de tipo do modelo correspondido foram confirmados diretamente a partir de dados ao vivo do simulador ou do seu arquivo de configuração real na última vez em que foi pilotado localmente, em vez de consultados pelo tipo ICAO na referência Doc8643 incluída.</value>
+  </data>
+  <data name="MatchExplain_OtherCandidatesHeader" xml:space="preserve">
+    <value>Outros candidatos considerados (top {0} por pontuação):</value>
+  </data>
+  <data name="MatchExplain_BanExclusionNote" xml:space="preserve">
+    <value> {0} modelo(s) não voável(is) (objetos de cenário, pinturas estáticas, etc.) foram excluídos pela lista de bloqueio durante a última varredura.</value>
+  </data>
+  <data name="MatchExplain_ModelSource_FS2024" xml:space="preserve">
+    <value>Fonte dos modelos (esta versão): enumeração ao vivo de aeronaves/pinturas via SimConnect, solicitada via Arquivo ▸ Procurar modelos ▸ Escanear (ou automaticamente ao conectar se "Escanear ao iniciar" estiver ativado).</value>
+  </data>
+  <data name="MatchExplain_ModelSource_XPlane" xml:space="preserve">
+    <value>Fonte dos modelos (esta versão): definições CSL do X-Plane lidas de xsb_aircraft.txt durante uma varredura de pasta (Arquivo ▸ Procurar modelos ▸ Escanear).</value>
+  </data>
+  <data name="MatchExplain_ModelSource_Other" xml:space="preserve">
+    <value>Fonte dos modelos (esta versão): varredura de pasta de aircraft.cfg/sim.cfg nas pastas de aeronaves do simulador (Arquivo ▸ Procurar modelos ▸ Escanear).</value>
+  </data>
+  <data name="MatchExplain_NoModelsFile" xml:space="preserve">
+    <value>Ainda não foi encontrado nenhum arquivo de modelos conhecidos. Execute primeiro Arquivo ▸ Procurar modelos ▸ Escanear.</value>
+  </data>
+  <data name="MatchExplain_CouldNotOpen" xml:space="preserve">
+    <value>Não foi possível abrir '{0}': {1}</value>
+  </data>
+  <data name="MatchExplain_CouldNotCreateBundle" xml:space="preserve">
+    <value>Não foi possível criar o pacote de depuração: {0}</value>
+  </data>
+  <data name="MatchExplain_TraceHeader" xml:space="preserve">
+    <value>Etapas de correspondência (na ordem em que foram tentadas):</value>
+  </data>
+  <data name="MatchExplain_OpenModelsListButton" xml:space="preserve">
+    <value>Abrir lista de modelos conhecidos</value>
+  </data>
+  <data name="MatchExplain_CopyButton" xml:space="preserve">
+    <value>Copiar para a área de transferência</value>
+  </data>
+  <data name="MatchExplain_ExportBundleButton" xml:space="preserve">
+    <value>Exportar pacote de depuração...</value>
+  </data>
+  <data name="MatchExplain_CloseButton" xml:space="preserve">
+    <value>Fechar</value>
+  </data>
+  <data name="MatchExplain_ReportOutcome" xml:space="preserve">
+    <value>Resultado:</value>
+  </data>
+  <data name="MatchExplain_ReportNote" xml:space="preserve">
+    <value>Nota:</value>
+  </data>
+  <data name="MatchExplain_ReportAttrHeader" xml:space="preserve">
+    <value>Comparação de atributos</value>
+  </data>
+  <data name="MatchExplain_ReportStepsHeader" xml:space="preserve">
+    <value>Etapas de correspondência</value>
+  </data>
+  <data name="MatchExplain_ReportSourceHeader" xml:space="preserve">
+    <value>Fonte dos modelos</value>
+  </data>
+  <data name="MatchExplain_ReportOtherCandidatesHeader" xml:space="preserve">
+    <value>Outros candidatos considerados</value>
+  </data>
+  <data name="MatchingForm_EmptyModelList" xml:space="preserve">
+    <value>A lista de modelos está vazia. Use 'Arquivo|Procurar modelos...' para gerar uma lista.</value>
+  </data>
+  <data name="MatchingForm_RemoveConfirm" xml:space="preserve">
+    <value>Remover permanentemente a substituição de '{0}'?</value>
+  </data>
+  <data name="FlightPlan_SimBriefUsernameTooltip" xml:space="preserve">
+    <value>Seu nome de usuário do SimBrief</value>
+  </data>
+  <data name="FlightPlan_ImportSimBriefTooltip" xml:space="preserve">
+    <value>Salvar o nome de usuário do SimBrief e buscar o plano de voo mais recente</value>
+  </data>
+  <data name="FlightPlan_Imported" xml:space="preserve">
+    <value>Importado {0} -&gt; {1}</value>
+  </data>
+  <data name="FlightPlan_NoSimBriefPlan" xml:space="preserve">
+    <value>Nenhum plano de voo do SimBrief encontrado para esse nome de usuário</value>
+  </data>
+  <data name="MainForm_SimBriefButtonTooltip" xml:space="preserve">
+    <value>Usar dados do SimBrief como fonte do plano de voo e buscá-los novamente agora</value>
+  </data>
 </root>

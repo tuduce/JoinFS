@@ -597,4 +597,148 @@
   <data name="Download" xml:space="preserve">
     <value>다운로드</value>
   </data>
+  <data name="MatchAttr_Title" xml:space="preserve">
+    <value>제목</value>
+  </data>
+  <data name="MatchAttr_Livery" xml:space="preserve">
+    <value>도장 / 변형</value>
+  </data>
+  <data name="MatchAttr_Registration" xml:space="preserve">
+    <value>등록번호</value>
+  </data>
+  <data name="MatchAttr_IcaoType" xml:space="preserve">
+    <value>ICAO 기종</value>
+  </data>
+  <data name="MatchAttr_IcaoAirline" xml:space="preserve">
+    <value>ICAO 항공사</value>
+  </data>
+  <data name="MatchAttr_ClassCode" xml:space="preserve">
+    <value>분류 코드</value>
+  </data>
+  <data name="MatchAttr_Wtc" xml:space="preserve">
+    <value>WTC</value>
+  </data>
+  <data name="MatchAttr_Typerole" xml:space="preserve">
+    <value>기종 역할</value>
+  </data>
+  <data name="MatchAttr_Folder" xml:space="preserve">
+    <value>폴더</value>
+  </data>
+  <data name="MatchExplain_NoMatchYet" xml:space="preserve">
+    <value>이 항공기에 대해 아직 매칭이 계산되지 않았습니다.</value>
+  </data>
+  <data name="MatchExplain_ResultPrefix" xml:space="preserve">
+    <value>결과: {0}</value>
+  </data>
+  <data name="MatchExplain_ResultMatchSuffix" xml:space="preserve">
+    <value> 매칭 -&gt; '{0}'</value>
+  </data>
+  <data name="MatchExplain_ResultNoModel" xml:space="preserve">
+    <value> - 선택할 수 있는 모델이 없습니다 (설치/스캔된 항목 없음).</value>
+  </data>
+  <data name="MatchExplain_IcaoGuessedWarning" xml:space="preserve">
+    <value>참고: 매칭된 모델의 ICAO 기종은 JoinFS가 제목 텍스트로부터 추측한 것이며, 실시간 시뮬레이터 데이터나 실제 구성 파일로 확인되지 않았습니다 - 이 신호는 점수 계산 시 가중치가 낮아집니다. 매칭이 잘못된 것 같으면 확인해 주세요.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_IcaoModelFallback" xml:space="preserve">
+    <value>참고: 이 모델의 구성 파일은 icao_type_designator='{0}'로 선언되어 있으며, 이는 인식되는 ICAO 기종이 아닙니다 - JoinFS는 대신 실제 기종('{1}')을 올바르게 나타내는 icao_model 필드를 사용했습니다.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_IcaoModelOnly" xml:space="preserve">
+    <value>참고: 이 모델의 구성 파일에는 icao_type_designator가 선언되어 있지 않습니다 - JoinFS는 대신 실제 기종('{0}')을 올바르게 나타내는 icao_model 필드를 사용했습니다.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuessBlank" xml:space="preserve">
+    <value>참고: 이 모델의 구성 파일에는 icao_type_designator가 선언되어 있지 않습니다 - JoinFS는 대신 모델의 제목 텍스트에서 '{0}'을(를) 추측했습니다. 매칭이 잘못된 것 같으면 확인해 주세요.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuessCorroboratedBlank" xml:space="preserve">
+    <value>참고: 이 모델의 구성 파일에는 icao_type_designator가 선언되어 있지 않습니다 - JoinFS는 동일한 구성 파일에서 유도된 클래스 코드/후류 난기류 등급으로 뒷받침되는 '{0}'을(를) 모델의 제목 텍스트에서 추측했습니다.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuess" xml:space="preserve">
+    <value>참고: 이 모델의 구성 파일은 icao_type_designator='{0}'로 선언되어 있으며, 이는 인식되는 ICAO 기종이 아닙니다 - JoinFS는 대신 모델의 제목 텍스트에서 '{1}'을(를) 추측했습니다. 매칭이 잘못된 것 같으면 확인해 주세요.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_TitleGuessCorroborated" xml:space="preserve">
+    <value>참고: 이 모델의 구성 파일은 icao_type_designator='{0}'로 선언되어 있으며, 이는 인식되는 ICAO 기종이 아닙니다 - JoinFS는 동일한 구성 파일에서 유도된 클래스 코드/후류 난기류 등급으로 뒷받침되는 '{1}'을(를) 모델의 제목 텍스트에서 추측했습니다.</value>
+  </data>
+  <data name="MatchExplain_IcaoResolution_Unresolved" xml:space="preserve">
+    <value>참고: 이 모델의 구성 파일은 icao_type_designator='{0}'로 선언되어 있으며, 이는 인식되는 ICAO 기종이 아니며, JoinFS는 제목이나 클래스 코드로부터도 더 나은 일치 항목을 찾지 못했습니다 - 선언된 값 그대로 보고합니다.</value>
+  </data>
+  <data name="MatchExplain_ClassCodeConfirmedNote" xml:space="preserve">
+    <value>참고: 매칭된 모델의 분류 코드/WTC/기종 역할은 마지막으로 로컬에서 비행했을 때 실시간 시뮬레이터 데이터 또는 실제 구성 파일로부터 직접 확인된 것이며, 내장된 Doc8643 참조에서 ICAO 기종으로 조회된 것이 아닙니다.</value>
+  </data>
+  <data name="MatchExplain_OtherCandidatesHeader" xml:space="preserve">
+    <value>고려된 다른 후보 (점수 상위 {0}개):</value>
+  </data>
+  <data name="MatchExplain_BanExclusionNote" xml:space="preserve">
+    <value> {0}개의 비행 불가 모델(배경 소품, 정적 도장 등)이 마지막 스캔 중 차단 목록에 의해 제외되었습니다.</value>
+  </data>
+  <data name="MatchExplain_ModelSource_FS2024" xml:space="preserve">
+    <value>모델 소스(이 빌드): "시작 시 스캔"이 활성화된 경우 연결 시 자동으로, 또는 파일 ▸ 모델 검색 ▸ 스캔을 통해 요청되는 SimConnect 실시간 항공기/도장 열거.</value>
+  </data>
+  <data name="MatchExplain_ModelSource_XPlane" xml:space="preserve">
+    <value>모델 소스(이 빌드): 폴더 스캔(파일 ▸ 모델 검색 ▸ 스캔) 중 xsb_aircraft.txt에서 파싱된 X-Plane CSL 정의.</value>
+  </data>
+  <data name="MatchExplain_ModelSource_Other" xml:space="preserve">
+    <value>모델 소스(이 빌드): 시뮬레이터의 항공기 폴더 아래 aircraft.cfg/sim.cfg 폴더 스캔(파일 ▸ 모델 검색 ▸ 스캔).</value>
+  </data>
+  <data name="MatchExplain_NoModelsFile" xml:space="preserve">
+    <value>아직 알려진 모델 파일을 찾을 수 없습니다. 먼저 파일 ▸ 모델 검색 ▸ 스캔을 실행하세요.</value>
+  </data>
+  <data name="MatchExplain_CouldNotOpen" xml:space="preserve">
+    <value>'{0}'을(를) 열 수 없습니다: {1}</value>
+  </data>
+  <data name="MatchExplain_CouldNotCreateBundle" xml:space="preserve">
+    <value>디버그 번들을 생성할 수 없습니다: {0}</value>
+  </data>
+  <data name="MatchExplain_TraceHeader" xml:space="preserve">
+    <value>매칭 단계(시도된 순서대로):</value>
+  </data>
+  <data name="MatchExplain_OpenModelsListButton" xml:space="preserve">
+    <value>알려진 모델 목록 열기</value>
+  </data>
+  <data name="MatchExplain_CopyButton" xml:space="preserve">
+    <value>클립보드에 복사</value>
+  </data>
+  <data name="MatchExplain_ExportBundleButton" xml:space="preserve">
+    <value>디버그 번들 내보내기...</value>
+  </data>
+  <data name="MatchExplain_CloseButton" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="MatchExplain_ReportOutcome" xml:space="preserve">
+    <value>결과:</value>
+  </data>
+  <data name="MatchExplain_ReportNote" xml:space="preserve">
+    <value>참고:</value>
+  </data>
+  <data name="MatchExplain_ReportAttrHeader" xml:space="preserve">
+    <value>속성 비교</value>
+  </data>
+  <data name="MatchExplain_ReportStepsHeader" xml:space="preserve">
+    <value>매칭 단계</value>
+  </data>
+  <data name="MatchExplain_ReportSourceHeader" xml:space="preserve">
+    <value>모델 소스</value>
+  </data>
+  <data name="MatchExplain_ReportOtherCandidatesHeader" xml:space="preserve">
+    <value>고려된 다른 후보</value>
+  </data>
+  <data name="MatchingForm_EmptyModelList" xml:space="preserve">
+    <value>모델 목록이 비어 있습니다. 'File|Scan For Models...'를 사용하여 목록을 생성하세요.</value>
+  </data>
+  <data name="MatchingForm_RemoveConfirm" xml:space="preserve">
+    <value>'{0}'에 대한 대체를 영구적으로 제거하시겠습니까?</value>
+  </data>
+  <data name="FlightPlan_SimBriefUsernameTooltip" xml:space="preserve">
+    <value>SimBrief 사용자 이름</value>
+  </data>
+  <data name="FlightPlan_ImportSimBriefTooltip" xml:space="preserve">
+    <value>SimBrief 사용자 이름을 저장하고 최신 비행 계획을 가져옵니다</value>
+  </data>
+  <data name="FlightPlan_Imported" xml:space="preserve">
+    <value>가져옴 {0} -&gt; {1}</value>
+  </data>
+  <data name="FlightPlan_NoSimBriefPlan" xml:space="preserve">
+    <value>해당 사용자 이름에 대한 SimBrief 비행 계획을 찾을 수 없습니다</value>
+  </data>
+  <data name="MainForm_SimBriefButtonTooltip" xml:space="preserve">
+    <value>SimBrief 데이터를 비행 계획 소스로 사용하고 지금 다시 가져오기</value>
+  </data>
 </root>

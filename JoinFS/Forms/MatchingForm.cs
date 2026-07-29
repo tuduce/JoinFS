@@ -381,7 +381,7 @@ namespace JoinFS
             if (model != null)
             {
                 // ask for confirmation
-                DialogResult result = MessageBox.Show("Permanently remove substitution for '" + model + "'?", Main.Name + ": Model Matching", MessageBoxButtons.YesNo);
+                DialogResult result = MessageBox.Show(string.Format(Resources.Strings.MatchingForm_RemoveConfirm, model), Main.Name + ": Model Matching", MessageBoxButtons.YesNo);
                 if (result == DialogResult.Yes)
                 {
                     lock (main.conch)

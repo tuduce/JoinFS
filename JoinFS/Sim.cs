@@ -253,6 +253,8 @@ namespace JoinFS
 #if FS2024
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
             public String livery;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+            public String liveryFolder;
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
             public String airline;
 #endif
@@ -721,6 +723,18 @@ namespace JoinFS
             public string ownerLivery = "";
             public string ownerIcaoType = "";
             public string ownerIcaoAirline = "";
+            /// <summary>
+            /// Doc8643 class code (e.g. "H1T") and wake turbulence category, as resolved by the OWNER's
+            /// own JoinFS instance - config-confirmed (real aircraft.cfg/livery.cfg data) or live-derived
+            /// (category/engine simvars), never a title guess. Sent over the network so every receiving
+            /// peer benefits from the sender's best-available data instead of each peer independently
+            /// re-deriving classCode from ownerIcaoType via its own bundled Doc8643 table, which fails
+            /// whenever ownerIcaoType is a bogus/non-standard string that isn't a real Doc8643 designator.
+            /// </summary>
+            public string ownerClassCode = "";
+            public string ownerWtc = "";
+            /// <summary>True when ownerClassCode/ownerWtc came from the owner's config-confirmed or live-derived read, not a fallback guess</summary>
+            public bool ownerClassCodeConfirmed = false;
             public Substitution.Model subModel = null;
             public Substitution.Type subType = Substitution.Type.Original;
             public Substitution.MatchTrace subTrace = null;
@@ -870,7 +884,7 @@ namespace JoinFS
             // update match
             if (obj.Injected)
             {
-                UpdateObject(obj, obj.ownerModel, obj.ownerLivery, obj.ownerIcaoType, obj.ownerIcaoAirline, obj.typerole);
+                UpdateObject(obj, obj.ownerModel, obj.ownerLivery, obj.ownerIcaoType, obj.ownerIcaoAirline, obj.ownerClassCode, obj.ownerWtc, obj.ownerClassCodeConfirmed, obj.typerole);
             }
         }
 
@@ -1166,7 +1180,7 @@ namespace JoinFS
         /// Update the model for an object
         /// </summary>
         /// <param name="model"></param>
-        public async void UpdateObject(Obj obj, string model, string livery, string icaoType, string icaoAirline, int typerole)
+        public async void UpdateObject(Obj obj, string model, string livery, string icaoType, string icaoAirline, string classCode, string wtc, bool classCodeConfirmed, int typerole)
         {
             obj.typerole = typerole;
             // update model
@@ -1174,13 +1188,16 @@ namespace JoinFS
             obj.ownerIcaoType = icaoType;
             obj.ownerIcaoAirline = icaoAirline;
             obj.ownerLivery = livery;
+            obj.ownerClassCode = classCode;
+            obj.ownerWtc = wtc;
+            obj.ownerClassCodeConfirmed = classCodeConfirmed;
 #if FS2024
             // model match - livery is only meaningful as a matching signal on FS2024, which is the
             // only sim that reports a real livery name via SimConnect; other builds still carry the
             // value through (e.g. for network relay) even though they can never populate it locally
-            (obj.subModel, obj.subType, obj.subTrace) = await main.substitution?.Match(obj.ownerModel, obj.ownerLivery, obj.ownerIcaoType, obj.ownerIcaoAirline, obj.typerole, (obj as Aircraft)?.flightPlan.registration ?? "");
+            (obj.subModel, obj.subType, obj.subTrace) = await main.substitution?.Match(obj.ownerModel, obj.ownerLivery, obj.ownerIcaoType, obj.ownerIcaoAirline, obj.ownerClassCode, obj.ownerWtc, obj.ownerClassCodeConfirmed, obj.typerole, (obj as Aircraft)?.flightPlan.registration ?? "");
 #else
-            (obj.subModel, obj.subType, obj.subTrace) = await main.substitution ?. Match(obj.ownerModel, obj.ownerIcaoType, obj.ownerIcaoAirline, obj.typerole, (obj as Aircraft)?.flightPlan.registration ?? "");
+            (obj.subModel, obj.subType, obj.subTrace) = await main.substitution ?. Match(obj.ownerModel, obj.ownerIcaoType, obj.ownerIcaoAirline, obj.ownerClassCode, obj.ownerWtc, obj.ownerClassCodeConfirmed, obj.typerole, (obj as Aircraft)?.flightPlan.registration ?? "");
 #endif
             // reset failed flag
             obj.failed = false;
@@ -1324,7 +1341,7 @@ namespace JoinFS
         /// <param name="ownerGuid">Owner of the object</param>
         /// <param name="netId">Owner's sim ID</param>
         /// <param name="engine">Aircraft engine</param>
-        public Obj UpdateObject(LocalNode.Nuid ownerNuid, uint netId, string model, string livery, string icaoType, string icaoAirline, int typerole, double netTime, ref ObjectPositionVelocity positionVelocity)
+        public Obj UpdateObject(LocalNode.Nuid ownerNuid, uint netId, string model, string livery, string icaoType, string icaoAirline, string classCode, string wtc, bool classCodeConfirmed, int typerole, double netTime, ref ObjectPositionVelocity positionVelocity)
         {
             // get object
             Obj obj = objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId);
@@ -1337,7 +1354,7 @@ namespace JoinFS
                     expireTime = main.ElapsedTime + OBJECT_EXPIRE_TIME
                 };
                 // model
-                UpdateObject(obj, model, livery, icaoType, icaoAirline, typerole);
+                UpdateObject(obj, model, livery, icaoType, icaoAirline, classCode, wtc, classCodeConfirmed, typerole);
                 // update position and velocity
                 UpdateObject(obj, netTime, ref positionVelocity);
                 // create variables
@@ -1929,7 +1946,7 @@ namespace JoinFS
         /// <param name="ownerGuid">Owner of the aircraft</param>
         /// <param name="netId">Owner's sim ID</param>
         /// <param name="engine">Aircraft engine</param>
-        public Aircraft UpdateAircraft(LocalNode.Nuid ownerNuid, uint netId, bool user, bool plane, string callsign, string registration, string nickname, string model, string livery, string icaoType, string icaoAirline, string flightNumber, int typerole, double netTime, ref AircraftPosition aircraftPosition)
+        public Aircraft UpdateAircraft(LocalNode.Nuid ownerNuid, uint netId, bool user, bool plane, string callsign, string registration, string nickname, string model, string livery, string icaoType, string icaoAirline, string flightNumber, string classCode, string wtc, bool classCodeConfirmed, int typerole, double netTime, ref AircraftPosition aircraftPosition)
         {
             // check for valid aircraft
             if ((objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId) is not Aircraft aircraft))
@@ -1951,7 +1968,7 @@ namespace JoinFS
                 aircraft.flightPlan.icaoAirline = icaoAirline;
                 aircraft.flightPlan.flightNumber = flightNumber;
                 // model
-                UpdateObject(aircraft, model, livery, icaoType, icaoAirline, typerole);
+                UpdateObject(aircraft, model, livery, icaoType, icaoAirline, classCode, wtc, classCodeConfirmed, typerole);
                 // create variables
                 CreateModelVariables(aircraft);
                 // add aircraft
@@ -2910,9 +2927,9 @@ namespace JoinFS
         /// Current data version
         /// </summary>
 #if FS2024
-        public const short VERSION = 21006;
+        public const short VERSION = 21007;
 #else
-        public const short VERSION = 21006;
+        public const short VERSION = 21007;
 #endif
 
         /// <summary>
@@ -3466,13 +3483,32 @@ namespace JoinFS
                                     // convert the long hyphen
                                     model = model.Replace("â€“", "–");
 
-                                    // learn this model's real ICAO type/airline/classCode from SimConnect now that
+                                    // learn this model's real ICAO type/airline/classCode/registration now that
                                     // it's actually instantiated - closes the gap for aircraft a title guess can't
-                                    // tag, and for add-ons whose reported type doesn't match any Doc8643 designator
+                                    // tag, and for add-ons whose reported type doesn't match any Doc8643 designator.
+                                    // Confidence hierarchy (highest first): (1) real aircraft.cfg/livery.cfg data,
+                                    // located via LIVERY FOLDER - FS2024 only, same reliability tier non-FS2024
+                                    // builds already get from their upfront folder scan; (2) DeriveLiveClassCode
+                                    // (category/engine simvars) when no config file can be found/parsed; (3) a
+                                    // title-text guess (handled elsewhere), for a model never yet instantiated.
                                     Substitution.DeriveLiveClassCode(info.category, info.engineType, info.numEngines, out string liveClassCode, out string liveWtc);
 #if FS2024
-                                    string resolvedIcaoAirline = main.substitution?.LearnIcaoFromLiveObject(model, info.livery, type, info.airline, liveClassCode, liveWtc) ?? "";
+                                    string configIcaoType = "", configWtc = "", configIcaoAirline = "", configAtcId = "", configClassCode = "", configIcaoResolutionNote = "";
+                                    bool configConfirmed = main.substitution != null && main.substitution.TryReadConfigFromLiveryFolder(
+                                        info.liveryFolder, model, out configIcaoType, out configWtc,
+                                        out configIcaoAirline, out configAtcId, out configClassCode, out configIcaoResolutionNote);
+                                    string learnIcaoType = configConfirmed ? configIcaoType : type;
+                                    string learnClassCode = configConfirmed ? configClassCode : liveClassCode;
+                                    string learnWtc = configConfirmed && configWtc.Length > 0 ? configWtc : liveWtc;
+                                    string learnIcaoAirline = configConfirmed && configIcaoAirline.Length > 0 ? configIcaoAirline : info.airline;
+                                    string learnAtcId = configConfirmed ? configAtcId : "";
+                                    bool learnClassCodeConfirmed = configConfirmed || liveClassCode.Length > 0;
+                                    string resolvedIcaoAirline = main.substitution?.LearnIcaoFromLiveObject(model, info.livery, learnIcaoType, learnIcaoAirline, learnClassCode, learnWtc, learnAtcId, configConfirmed, configConfirmed ? configIcaoResolutionNote : "") ?? "";
 #else
+                                    string learnIcaoType = type;
+                                    string learnClassCode = liveClassCode;
+                                    string learnWtc = liveWtc;
+                                    bool learnClassCodeConfirmed = liveClassCode.Length > 0;
                                     string resolvedIcaoAirline = main.substitution?.LearnIcaoFromLiveObject(model, "", type, "", liveClassCode, liveWtc) ?? "";
 #endif
 
@@ -3517,11 +3553,16 @@ namespace JoinFS
                                     }
                                     // set type role
                                     if (main.substitution != null) obj.typerole = main.substitution.GetTypeRole(obj.ownerModel);
-                                    // carry the live-resolved ICAO type/airline onto the object itself, not just the
-                                    // installed model's metadata - this is what Match()/the Recorder actually read,
-                                    // and previously stayed blank forever for locally-discovered objects otherwise
-                                    obj.ownerIcaoType = type;
+                                    // carry the live-resolved ICAO type/airline/classCode onto the object itself, not
+                                    // just the installed model's metadata - this is what Match()/the Recorder/the
+                                    // network broadcast actually read, and previously stayed blank (or, for icaoType,
+                                    // used the raw unconfirmed ATC MODEL string) forever for locally-discovered
+                                    // objects otherwise
+                                    obj.ownerIcaoType = learnIcaoType.Length > 0 ? learnIcaoType : type;
                                     obj.ownerIcaoAirline = resolvedIcaoAirline;
+                                    obj.ownerClassCode = learnClassCode;
+                                    obj.ownerWtc = learnWtc;
+                                    obj.ownerClassCodeConfirmed = learnClassCodeConfirmed;
                                     // substitute model
                                     main.substitution ?. Masquerade(obj.ownerModel, out obj.subModel, out obj.subType, out obj.subTrace);
                                     // set expire time
@@ -3552,6 +3593,21 @@ namespace JoinFS
                                         aircraft.flightPlan.flightNumber = info.flightNumber;
                                         // prefer a synthesized real callsign (ICAO airline + flight number) over the tail number
                                         aircraft.flightPlan.callsign = ResolveCallsign(resolvedIcaoAirline, info.flightNumber, tailNumber);
+                                        // fill in ICAO type/airline from the live-resolved data (learnIcaoType/
+                                        // resolvedIcaoAirline - see the confidence hierarchy above), but only when
+                                        // not already set - this was never populated here at all before, leaving
+                                        // the Flight Plan dialog's Type field blank and never broadcasting an ICAO
+                                        // type for the user's own aircraft unless a SimBrief import had already
+                                        // filled it in; a prior SimBrief-sourced value still takes precedence,
+                                        // matching the "userFlightPlan survives" intent right above
+                                        if (aircraft.flightPlan.icaoType.Length == 0 && learnIcaoType.Length > 0)
+                                        {
+                                            aircraft.flightPlan.icaoType = learnIcaoType;
+                                        }
+                                        if (aircraft.flightPlan.icaoAirline.Length == 0 && resolvedIcaoAirline.Length > 0)
+                                        {
+                                            aircraft.flightPlan.icaoAirline = resolvedIcaoAirline;
+                                        }
                                         // message
 #if FS2024
                                         main.MonitorEvent("Listing aircraft '" + aircraft.flightPlan.callsign + "' User 'Me' - ID '" + obj.simId + "' - Model '" + obj.ownerModel + "' Livery '" + info.livery + "'");
@@ -4967,7 +5023,7 @@ namespace JoinFS
                     if (creatingObject.simId != uint.MaxValue)
                     {
                         // update model
-                        UpdateObject(creatingObject, creatingObject.ownerModel, creatingObject.ownerLivery, creatingObject.ownerIcaoType, creatingObject.ownerIcaoAirline, creatingObject.typerole);
+                        UpdateObject(creatingObject, creatingObject.ownerModel, creatingObject.ownerLivery, creatingObject.ownerIcaoType, creatingObject.ownerIcaoAirline, creatingObject.ownerClassCode, creatingObject.ownerWtc, creatingObject.ownerClassCodeConfirmed, creatingObject.typerole);
                         // create variables
                         CreateModelVariables(creatingObject);
                         // check for aircraft
@@ -4993,7 +5049,7 @@ namespace JoinFS
                         // set timer
                         creatingObjectExpireTime = main.ElapsedTime + NEW_OBJECT_EXPIRE_TIME;
                         // update model
-                        UpdateObject(creatingObject, creatingObject.ownerModel, creatingObject.ownerLivery, creatingObject.ownerIcaoType, creatingObject.ownerIcaoAirline, creatingObject.typerole);
+                        UpdateObject(creatingObject, creatingObject.ownerModel, creatingObject.ownerLivery, creatingObject.ownerIcaoType, creatingObject.ownerIcaoAirline, creatingObject.ownerClassCode, creatingObject.ownerWtc, creatingObject.ownerClassCodeConfirmed, creatingObject.typerole);
                         // check for aircraft
                         if (creatingObject is Aircraft)
                         {

@@ -1115,7 +1115,7 @@ namespace JoinFS
                 tip.SetToolTip(Button_Network, Resources.Strings.Tip_NetworkButton);
                 tip.SetToolTip(Button_Simulator, Resources.Strings.Tip_SimulatorButton);
                 tip.SetToolTip(StatusStrip_Main, Resources.Strings.Tip_Status);
-                tip.SetToolTip(Button_SimBrief, "Use SimBrief data as the flight-plan source and re-fetch it now");
+                tip.SetToolTip(Button_SimBrief, Resources.Strings.MainForm_SimBriefButtonTooltip);
             }
 
             // initial flight-plan button state

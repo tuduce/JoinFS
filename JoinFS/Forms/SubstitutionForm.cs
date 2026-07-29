@@ -260,9 +260,9 @@ namespace JoinFS
             // no live remote ICAO data available for this manual-override preview - falls through
             // to the same prefix/default tiers as before ICAO-based matching existed
 #if FS2024
-                (model, type, _) = await main.substitution.Match(replace, variation, "", "", typerole);
+                (model, type, _) = await main.substitution.Match(replace, variation, "", "", "", "", false, typerole);
 #else
-                (model, type, _) = await main.substitution.Match(replace, "", "", typerole);
+                (model, type, _) = await main.substitution.Match(replace, "", "", "", "", false, typerole);
 #endif
             //}
 

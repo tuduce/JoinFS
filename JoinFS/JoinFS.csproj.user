@@ -44,9 +44,6 @@
     <Compile Update="Forms\MonitorForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Update="Forms\NicknameForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Update="Forms\ObjectsForm.cs">
       <SubType>Form</SubType>
     </Compile>

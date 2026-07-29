@@ -140,7 +140,7 @@
     <value>34, 15</value>
   </data>
   <data name="label2.Text" xml:space="preserve">
-    <value>Sorte</value>
+    <value>Lfz. Typ</value>
   </data>
   <data name="Text_Type.Location" type="System.Drawing.Point, System.Drawing">
     <value>89, 41</value>
@@ -164,7 +164,7 @@
     <value>21, 15</value>
   </data>
   <data name="label4.Text" xml:space="preserve">
-    <value>Zu</value>
+    <value>Nach</value>
   </data>
   <data name="Text_To.Location" type="System.Drawing.Point, System.Drawing">
     <value>248, 41</value>

@@ -1517,5 +1517,293 @@ namespace JoinFS.Resources {
                 return ResourceManager.GetString("WeatherObservation", resourceCulture);
             }
         }
+
+        internal static string MatchAttr_Title {
+            get {
+                return ResourceManager.GetString("MatchAttr_Title", resourceCulture);
+            }
+        }
+
+        internal static string MatchAttr_Livery {
+            get {
+                return ResourceManager.GetString("MatchAttr_Livery", resourceCulture);
+            }
+        }
+
+        internal static string MatchAttr_Registration {
+            get {
+                return ResourceManager.GetString("MatchAttr_Registration", resourceCulture);
+            }
+        }
+
+        internal static string MatchAttr_IcaoType {
+            get {
+                return ResourceManager.GetString("MatchAttr_IcaoType", resourceCulture);
+            }
+        }
+
+        internal static string MatchAttr_IcaoAirline {
+            get {
+                return ResourceManager.GetString("MatchAttr_IcaoAirline", resourceCulture);
+            }
+        }
+
+        internal static string MatchAttr_ClassCode {
+            get {
+                return ResourceManager.GetString("MatchAttr_ClassCode", resourceCulture);
+            }
+        }
+
+        internal static string MatchAttr_Wtc {
+            get {
+                return ResourceManager.GetString("MatchAttr_Wtc", resourceCulture);
+            }
+        }
+
+        internal static string MatchAttr_Typerole {
+            get {
+                return ResourceManager.GetString("MatchAttr_Typerole", resourceCulture);
+            }
+        }
+
+        internal static string MatchAttr_Folder {
+            get {
+                return ResourceManager.GetString("MatchAttr_Folder", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_NoMatchYet {
+            get {
+                return ResourceManager.GetString("MatchExplain_NoMatchYet", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_ResultPrefix {
+            get {
+                return ResourceManager.GetString("MatchExplain_ResultPrefix", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_ResultMatchSuffix {
+            get {
+                return ResourceManager.GetString("MatchExplain_ResultMatchSuffix", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_ResultNoModel {
+            get {
+                return ResourceManager.GetString("MatchExplain_ResultNoModel", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_IcaoGuessedWarning {
+            get {
+                return ResourceManager.GetString("MatchExplain_IcaoGuessedWarning", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_IcaoResolution_IcaoModelFallback {
+            get {
+                return ResourceManager.GetString("MatchExplain_IcaoResolution_IcaoModelFallback", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_IcaoResolution_IcaoModelOnly {
+            get {
+                return ResourceManager.GetString("MatchExplain_IcaoResolution_IcaoModelOnly", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_IcaoResolution_TitleGuess {
+            get {
+                return ResourceManager.GetString("MatchExplain_IcaoResolution_TitleGuess", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_IcaoResolution_TitleGuessBlank {
+            get {
+                return ResourceManager.GetString("MatchExplain_IcaoResolution_TitleGuessBlank", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_IcaoResolution_TitleGuessCorroborated {
+            get {
+                return ResourceManager.GetString("MatchExplain_IcaoResolution_TitleGuessCorroborated", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_IcaoResolution_TitleGuessCorroboratedBlank {
+            get {
+                return ResourceManager.GetString("MatchExplain_IcaoResolution_TitleGuessCorroboratedBlank", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_IcaoResolution_Unresolved {
+            get {
+                return ResourceManager.GetString("MatchExplain_IcaoResolution_Unresolved", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_ClassCodeConfirmedNote {
+            get {
+                return ResourceManager.GetString("MatchExplain_ClassCodeConfirmedNote", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_OtherCandidatesHeader {
+            get {
+                return ResourceManager.GetString("MatchExplain_OtherCandidatesHeader", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_BanExclusionNote {
+            get {
+                return ResourceManager.GetString("MatchExplain_BanExclusionNote", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_ModelSource_FS2024 {
+            get {
+                return ResourceManager.GetString("MatchExplain_ModelSource_FS2024", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_ModelSource_XPlane {
+            get {
+                return ResourceManager.GetString("MatchExplain_ModelSource_XPlane", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_ModelSource_Other {
+            get {
+                return ResourceManager.GetString("MatchExplain_ModelSource_Other", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_NoModelsFile {
+            get {
+                return ResourceManager.GetString("MatchExplain_NoModelsFile", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_CouldNotOpen {
+            get {
+                return ResourceManager.GetString("MatchExplain_CouldNotOpen", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_CouldNotCreateBundle {
+            get {
+                return ResourceManager.GetString("MatchExplain_CouldNotCreateBundle", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_TraceHeader {
+            get {
+                return ResourceManager.GetString("MatchExplain_TraceHeader", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_OpenModelsListButton {
+            get {
+                return ResourceManager.GetString("MatchExplain_OpenModelsListButton", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_CopyButton {
+            get {
+                return ResourceManager.GetString("MatchExplain_CopyButton", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_ExportBundleButton {
+            get {
+                return ResourceManager.GetString("MatchExplain_ExportBundleButton", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_CloseButton {
+            get {
+                return ResourceManager.GetString("MatchExplain_CloseButton", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_ReportOutcome {
+            get {
+                return ResourceManager.GetString("MatchExplain_ReportOutcome", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_ReportNote {
+            get {
+                return ResourceManager.GetString("MatchExplain_ReportNote", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_ReportAttrHeader {
+            get {
+                return ResourceManager.GetString("MatchExplain_ReportAttrHeader", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_ReportStepsHeader {
+            get {
+                return ResourceManager.GetString("MatchExplain_ReportStepsHeader", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_ReportSourceHeader {
+            get {
+                return ResourceManager.GetString("MatchExplain_ReportSourceHeader", resourceCulture);
+            }
+        }
+
+        internal static string MatchExplain_ReportOtherCandidatesHeader {
+            get {
+                return ResourceManager.GetString("MatchExplain_ReportOtherCandidatesHeader", resourceCulture);
+            }
+        }
+
+        internal static string MatchingForm_EmptyModelList {
+            get {
+                return ResourceManager.GetString("MatchingForm_EmptyModelList", resourceCulture);
+            }
+        }
+
+        internal static string MatchingForm_RemoveConfirm {
+            get {
+                return ResourceManager.GetString("MatchingForm_RemoveConfirm", resourceCulture);
+            }
+        }
+
+        internal static string FlightPlan_SimBriefUsernameTooltip {
+            get {
+                return ResourceManager.GetString("FlightPlan_SimBriefUsernameTooltip", resourceCulture);
+            }
+        }
+
+        internal static string FlightPlan_ImportSimBriefTooltip {
+            get {
+                return ResourceManager.GetString("FlightPlan_ImportSimBriefTooltip", resourceCulture);
+            }
+        }
+
+        internal static string FlightPlan_Imported {
+            get {
+                return ResourceManager.GetString("FlightPlan_Imported", resourceCulture);
+            }
+        }
+
+        internal static string FlightPlan_NoSimBriefPlan {
+            get {
+                return ResourceManager.GetString("FlightPlan_NoSimBriefPlan", resourceCulture);
+            }
+        }
+
+        internal static string MainForm_SimBriefButtonTooltip {
+            get {
+                return ResourceManager.GetString("MainForm_SimBriefButtonTooltip", resourceCulture);
+            }
+        }
     }
 }
