@@ -7,10 +7,17 @@ public partial class Form1 : Form
     private RecordingFile? loadedRecording;
     private readonly VariableLookup variableLookup = VariableLookup.Create();
 
+    private RecordingEditSession? _editSession;
+    private TabControl? _tabControl;
+    private TimelineControl? _timeline;
+    private VariableEditorPanel? _editorPanel;
+    private Button? _saveButton;
+
     public Form1()
     {
         InitializeComponent();
         ApplyModernLook();
+        SetupEditorComponents();
         UpdateSummary(null);
         detailsTextBox.Text = $"Open a JoinFS recording file to inspect its content.{Environment.NewLine}Variable lookup entries loaded: {variableLookup.Count}.";
     }
@@ -99,6 +106,10 @@ public partial class Form1 : Form
             PopulateTree(loadedRecording);
             UpdateSummary(loadedRecording);
             detailsTextBox.Text = $"Select an aircraft, object, or frame from the tree to view details.{Environment.NewLine}Variable lookup entries loaded: {variableLookup.Count}.";
+            _editSession = null;
+            _timeline?.SetFrames([], 0);
+            _editorPanel?.SetSession(null);
+            UpdateSaveButtonState();
         }
         catch (Exception ex)
         {
@@ -176,13 +187,29 @@ public partial class Form1 : Form
 
     private void FramesTreeView_AfterSelect(object? sender, TreeViewEventArgs e)
     {
-        detailsTextBox.Text = e.Node?.Tag switch
+        switch (e.Node?.Tag)
         {
-            RecordedAircraft aircraft => FormatAircraft(aircraft),
-            RecordedObject obj => FormatObject(obj),
-            RecordedFrame frame => FormatFrame(frame, variableLookup),
-            _ => string.Empty
-        };
+            case RecordedAircraft aircraft:
+                detailsTextBox.Text = FormatAircraft(aircraft);
+                OpenEditorForObject(aircraft);
+                _tabControl?.SelectTab(1);
+                break;
+
+            case RecordedObject obj:
+                detailsTextBox.Text = FormatObject(obj);
+                OpenEditorForObject(obj);
+                _tabControl?.SelectTab(1);
+                break;
+
+            case RecordedFrame frame:
+                detailsTextBox.Text = FormatFrame(frame, variableLookup);
+                _tabControl?.SelectTab(0);
+                break;
+
+            default:
+                detailsTextBox.Text = string.Empty;
+                break;
+        }
     }
 
     private static string FormatAircraft(RecordedAircraft aircraft)
@@ -321,5 +348,142 @@ public partial class Form1 : Form
             8 => "FourProp",
             _ => "Unknown"
         };
+    }
+
+    // ── Editor setup ─────────────────────────────────────────────────────────────
+
+    private void SetupEditorComponents()
+    {
+        Color background = Color.FromArgb(15, 23, 42);
+        Color surface    = Color.FromArgb(30, 41, 59);
+        Color text       = Color.FromArgb(226, 232, 240);
+        Color muted      = Color.FromArgb(148, 163, 184);
+        Color accent     = Color.FromArgb(59, 130, 246);
+
+        // Tab control replaces the raw details text box in Panel2.
+        _tabControl = new TabControl
+        {
+            Dock = DockStyle.Fill,
+            BackColor = surface,
+            ForeColor = text,
+        };
+
+        TabPage detailsPage = new("Details") { BackColor = surface, Padding = new Padding(0) };
+        detailsTextBox.Dock = DockStyle.Fill;
+        detailsPage.Controls.Add(detailsTextBox);
+
+        TabPage editorPage = new("Editor") { BackColor = surface, Padding = new Padding(0) };
+
+        _timeline = new TimelineControl { Dock = DockStyle.Top };
+        _editorPanel = new VariableEditorPanel { Dock = DockStyle.Fill };
+
+        _timeline.CurrentFrameChanged += OnTimelineCurrentFrameChanged;
+        _timeline.RangeChanged        += OnTimelineRangeChanged;
+        _editorPanel.SaveRequested    += OnSaveRequested;
+
+        editorPage.Controls.Add(_editorPanel);  // Fill — added before Top so Top is processed first.
+        editorPage.Controls.Add(_timeline);     // Top
+
+        _tabControl.TabPages.Add(detailsPage);
+        _tabControl.TabPages.Add(editorPage);
+
+        splitContainer.Panel2.Controls.Remove(detailsTextBox);
+        splitContainer.Panel2.Controls.Add(_tabControl);
+
+        // Save button — placed to the right of the Open button.
+        _saveButton = new Button
+        {
+            Text = "Save...",
+            Enabled = false,
+            Size = new Size(80, 27),
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(16, 185, 129),
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold, GraphicsUnit.Point),
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+        };
+        _saveButton.FlatAppearance.BorderSize = 0;
+        _saveButton.Location = new Point(openButton.Left - _saveButton.Width - 8, openButton.Top);
+        _saveButton.Click += OnSaveRequested;
+        Controls.Add(_saveButton);
+        _saveButton.BringToFront();
+    }
+
+    private void OpenEditorForObject(RecordedObject obj)
+    {
+        _editSession = new RecordingEditSession(obj);
+        _editSession.Changed += (_, _) => UpdateSaveButtonState();
+
+        var timelineFrames = obj.Frames.Select((f, i) => (
+            Index: i,
+            Time: f.Time,
+            IsVariable: f.Type is FrameType.IntegerVariables
+                                  or FrameType.FloatVariables
+                                  or FrameType.String8Variables
+        ));
+
+        double duration = obj.Frames.Count > 0 ? obj.Frames[^1].Time : 0;
+        _timeline?.SetFrames(timelineFrames, duration);
+        _editorPanel?.SetSession(_editSession);
+        UpdateSaveButtonState();
+    }
+
+    private void OnTimelineCurrentFrameChanged(object? sender, int frameIndex)
+    {
+        _editorPanel?.SetCurrentFrame(frameIndex);
+    }
+
+    private void OnTimelineRangeChanged(object? sender, EventArgs e)
+    {
+        if (_timeline == null || _editorPanel == null) return;
+
+        if (_timeline.HasRange)
+            _editorPanel.SetRange(_timeline.RangeStartIndex, _timeline.RangeEndIndex);
+        else
+            _editorPanel.ClearRange();
+    }
+
+    private void OnSaveRequested(object? sender, EventArgs e)
+    {
+        if (loadedRecording == null) return;
+
+        using SaveFileDialog sfd = new()
+        {
+            Filter = "JoinFS recordings|*.jfs|All files|*.*",
+            DefaultExt = "jfs",
+            Title = "Save Modified Recording",
+            FileName = Path.GetFileNameWithoutExtension(fileTextBox.Text) + "_edited.jfs",
+            InitialDirectory = Path.GetDirectoryName(fileTextBox.Text),
+        };
+
+        if (sfd.ShowDialog(this) != DialogResult.OK) return;
+
+        // Commit all pending overlays into the in-memory data structure.
+        _editSession?.CommitEditsToObject();
+
+        try
+        {
+            RecordingWriter.Write(loadedRecording, sfd.FileName);
+        }
+        catch (NotImplementedException)
+        {
+            MessageBox.Show(
+                this,
+                "Edits have been committed to the in-memory recording.\n\n" +
+                "Implement RecordingWriter.Write() to complete binary serialisation.",
+                "Save — Writer Not Yet Implemented",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Save Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void UpdateSaveButtonState()
+    {
+        if (_saveButton != null)
+            _saveButton.Enabled = loadedRecording != null;
     }
 }
