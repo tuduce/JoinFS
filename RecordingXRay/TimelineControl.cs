@@ -5,19 +5,24 @@ namespace RecordingXRay;
 /// - colour-coded frame ticks (variable frames vs. position/other frames),
 /// - a draggable scrubber for the current frame,
 /// - draggable range-start and range-end handles,
-/// - a right-click context menu for precise range placement.
+/// - a right-click context menu for precise range placement,
+/// - mouse-wheel zoom (centred on cursor) and zoom-bar buttons.
 /// </summary>
 public sealed class TimelineControl : Control
 {
     // ── Layout ───────────────────────────────────────────────────────────────────
 
-    private const int PaddingH = 16;
-    private const int LabelTop = 3;
-    private const int TrackTop = 24;
+    private const int PaddingH  = 16;
+    private const int LabelTop  = 3;
+    private const int TrackTop  = 24;
     private const int TrackHeight = 18;
-    private const int HandleHW = 5;   // half-width of diamond handle
-    private const int HandleHH = 7;   // half-height of diamond handle
+    private const int HandleHW  = 5;   // half-width of diamond handle
+    private const int HandleHH  = 7;   // half-height of diamond handle
     private const int HitRadius = 9;
+    private const int ZoomBarH  = 22;  // height of the bottom zoom button strip
+    private const double ZoomMin = 1.0;
+    private const double ZoomMax = 200.0;
+    private const double ZoomStep = 1.25;
 
     // ── Colors (dark theme) ──────────────────────────────────────────────────────
 
@@ -39,8 +44,14 @@ public sealed class TimelineControl : Control
     private int _rangeStart = -1;
     private int _rangeEnd = -1;
 
-    private enum DragTarget { None, Scrubber, RangeStart, RangeEnd }
+    private enum DragTarget { None, Scrubber, RangeStart, RangeEnd, Pan }
     private DragTarget _dragTarget = DragTarget.None;
+    private int _panStartX;
+    private double _panStartOffset;
+
+    // Zoom: _zoomFactor ≥ 1; _viewOffset is the left edge of the viewport in time.
+    private double _zoomFactor = 1.0;
+    private double _viewOffset = 0.0;  // in seconds
 
     // ── Events ───────────────────────────────────────────────────────────────────
 
@@ -54,7 +65,7 @@ public sealed class TimelineControl : Control
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint
                  | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
         BackColor = Color.FromArgb(30, 41, 59);
-        Height = 68;
+        Height = 68 + ZoomBarH;
         Cursor = Cursors.Hand;
     }
 
@@ -78,6 +89,12 @@ public sealed class TimelineControl : Control
         set { _rangeEnd = value; Invalidate(); }
     }
 
+    public double ZoomFactor
+    {
+        get => _zoomFactor;
+        set { _zoomFactor = Math.Clamp(value, ZoomMin, ZoomMax); ClampViewOffset(); Invalidate(); }
+    }
+
     public bool HasRange => _rangeStart >= 0 && _rangeEnd >= 0 && _rangeEnd >= _rangeStart;
 
     public int FrameCount => _frames.Count;
@@ -89,6 +106,8 @@ public sealed class TimelineControl : Control
         _currentFrameIndex = -1;
         _rangeStart = -1;
         _rangeEnd = -1;
+        _zoomFactor = 1.0;
+        _viewOffset = 0.0;
         Invalidate();
     }
 
@@ -117,6 +136,7 @@ public sealed class TimelineControl : Control
         DrawTimeLabels(g, tl, tw);
         DrawRangeHandles(g, tl, tw);
         DrawScrubber(g, tl, tw);
+        DrawZoomBar(g, tl, tw);
     }
 
     private void DrawTrack(Graphics g, int tl, int tw)
@@ -160,14 +180,74 @@ public sealed class TimelineControl : Control
         using Font f = new("Segoe UI", 7.5f);
         using SolidBrush b = new(CLabel);
 
-        for (int i = 0; i <= 4; i++)
+        double visibleDuration = _totalDuration / _zoomFactor;
+        int labelCount = Math.Max(2, tw / 80);
+        for (int i = 0; i <= labelCount; i++)
         {
-            double t = _totalDuration * i / 4;
+            double t = _viewOffset + visibleDuration * i / labelCount;
+            if (t > _totalDuration) break;
             int x = TimeToX(tl, tw, t);
-            string label = $"{t:0.0}s";
+            string label = $"{t:0.00}s";
             SizeF sz = g.MeasureString(label, f);
-            g.DrawString(label, f, b, x - sz.Width / 2f, LabelTop);
+            if (x - sz.Width / 2f >= tl && x + sz.Width / 2f <= tl + tw)
+                g.DrawString(label, f, b, x - sz.Width / 2f, LabelTop);
         }
+    }
+
+    private void DrawZoomBar(Graphics g, int tl, int tw)
+    {
+        int barTop = Height - ZoomBarH;
+
+        // Background strip
+        using (SolidBrush bg = new(Color.FromArgb(15, 23, 42)))
+            g.FillRectangle(bg, 0, barTop, Width, ZoomBarH);
+
+        using Font f = new("Segoe UI", 8f);
+        using SolidBrush lb = new(CLabel);
+
+        // Zoom percentage label
+        string pct = $"{_zoomFactor:0.0}\u00d7  [{_viewOffset:0.00}s–{_viewOffset + _totalDuration / _zoomFactor:0.00}s]";
+        g.DrawString(pct, f, lb, tl, barTop + 4);
+
+        // "-" and "+" buttons
+        int btnW = 22, btnH = 16;
+        int btnY = barTop + (ZoomBarH - btnH) / 2;
+        int plusX  = tl + tw - btnW;
+        int minusX = plusX - btnW - 4;
+
+        DrawZoomButton(g, minusX, btnY, btnW, btnH, "−");
+        DrawZoomButton(g, plusX,  btnY, btnW, btnH, "+");
+
+        // Scroll track (minimap)
+        if (_zoomFactor > 1.0)
+        {
+            int trackX = tl + 80, trackRight = minusX - 8;
+            int trackW = trackRight - trackX;
+            if (trackW > 20)
+            {
+                using Pen tp = new(Color.FromArgb(71, 85, 105), 1);
+                g.DrawRectangle(tp, trackX, btnY, trackW, btnH);
+
+                double thumbStart = _viewOffset / _totalDuration;
+                double thumbEnd   = (_viewOffset + _totalDuration / _zoomFactor) / _totalDuration;
+                int tx = trackX + (int)(thumbStart * trackW);
+                int tw2 = Math.Max(4, (int)((thumbEnd - thumbStart) * trackW));
+                using SolidBrush tb = new(Color.FromArgb(80, 59, 130, 246));
+                g.FillRectangle(tb, tx, btnY + 1, tw2, btnH - 1);
+            }
+        }
+    }
+
+    private void DrawZoomButton(Graphics g, int x, int y, int w, int h, string label)
+    {
+        using SolidBrush bg = new(Color.FromArgb(51, 65, 85));
+        using Pen border = new(Color.FromArgb(71, 85, 105), 1);
+        using SolidBrush fg = new(CLabel);
+        using Font f = new("Segoe UI", 9f, FontStyle.Bold);
+        g.FillRectangle(bg, x, y, w, h);
+        g.DrawRectangle(border, x, y, w - 1, h - 1);
+        SizeF sz = g.MeasureString(label, f);
+        g.DrawString(label, f, fg, x + (w - sz.Width) / 2f, y + (h - sz.Height) / 2f);
     }
 
     private void DrawRangeHandles(Graphics g, int tl, int tw)
@@ -204,8 +284,13 @@ public sealed class TimelineControl : Control
 
     // ── Coordinate helpers ───────────────────────────────────────────────────────
 
+    /// <summary>Converts a time value to an x pixel, accounting for zoom/offset.</summary>
     private int TimeToX(int tl, int tw, double time)
-        => tl + (int)(Math.Clamp(time / _totalDuration, 0, 1) * tw);
+    {
+        double visible = _totalDuration / _zoomFactor;
+        double frac = (time - _viewOffset) / visible;
+        return tl + (int)(Math.Clamp(frac, 0, 1) * tw);
+    }
 
     private int FrameToX(int tl, int tw, int fi)
     {
@@ -213,14 +298,14 @@ public sealed class TimelineControl : Control
         return TimeToX(tl, tw, _frames[fi].Time);
     }
 
-    /// <summary>Binary search for the frame whose time is closest to the x pixel.</summary>
+    /// <summary>Binary search for the frame closest to the x pixel within the current viewport.</summary>
     private int XToFrame(int tl, int tw, int x)
     {
         if (_frames.Count == 0) return -1;
 
-        double target = Math.Clamp((double)(x - tl) / tw, 0, 1) * _totalDuration;
+        double visible = _totalDuration / _zoomFactor;
+        double target = _viewOffset + Math.Clamp((double)(x - tl) / tw, 0, 1) * visible;
 
-        // Find insertion point.
         int lo = 0, hi = _frames.Count;
         while (lo < hi)
         {
@@ -229,13 +314,36 @@ public sealed class TimelineControl : Control
             else hi = mid;
         }
 
-        // Compare neighbours to find the closest frame.
         int candidate = Math.Clamp(lo, 0, _frames.Count - 1);
         if (candidate > 0 &&
             Math.Abs(_frames[candidate - 1].Time - target) <= Math.Abs(_frames[candidate].Time - target))
             candidate--;
 
         return candidate;
+    }
+
+    private void ClampViewOffset()
+    {
+        double visible = _totalDuration / _zoomFactor;
+        _viewOffset = Math.Clamp(_viewOffset, 0, Math.Max(0, _totalDuration - visible));
+    }
+
+    /// <summary>
+    /// Zooms by <paramref name="factor"/> keeping the time under pixel <paramref name="pivotX"/> fixed.
+    /// </summary>
+    private void ZoomAt(int tl, int tw, int pivotX, double factor)
+    {
+        double visible = _totalDuration / _zoomFactor;
+        double pivotTime = _viewOffset + Math.Clamp((double)(pivotX - tl) / tw, 0, 1) * visible;
+
+        _zoomFactor = Math.Clamp(_zoomFactor * factor, ZoomMin, ZoomMax);
+        double newVisible = _totalDuration / _zoomFactor;
+
+        // Keep pivotTime at the same screen position.
+        double frac = Math.Clamp((double)(pivotX - tl) / tw, 0, 1);
+        _viewOffset = pivotTime - frac * newVisible;
+        ClampViewOffset();
+        Invalidate();
     }
 
     // ── Mouse interaction ────────────────────────────────────────────────────────
@@ -247,6 +355,15 @@ public sealed class TimelineControl : Control
 
         int tl = PaddingH, tw = Width - 2 * PaddingH;
 
+        // Middle button: start pan
+        if (e.Button == MouseButtons.Middle)
+        {
+            _dragTarget = DragTarget.Pan;
+            _panStartX = e.X;
+            _panStartOffset = _viewOffset;
+            return;
+        }
+
         if (e.Button == MouseButtons.Right)
         {
             ShowContextMenu(e.Location, tl, tw);
@@ -254,6 +371,19 @@ public sealed class TimelineControl : Control
         }
 
         if (e.Button != MouseButtons.Left) return;
+
+        // Check zoom bar button hit.
+        if (e.Y >= Height - ZoomBarH)
+        {
+            int btnW = 22, btnH = 16;
+            int plusX  = tl + tw - btnW;
+            int minusX = plusX - btnW - 4;
+            if (e.X >= plusX && e.X <= plusX + btnW)
+                ZoomAt(tl, tw, tl + tw / 2, ZoomStep);
+            else if (e.X >= minusX && e.X <= minusX + btnW)
+                ZoomAt(tl, tw, tl + tw / 2, 1.0 / ZoomStep);
+            return;
+        }
 
         // Hit-test handles before falling back to scrubber seek.
         if (_rangeStart >= 0 && Math.Abs(e.X - FrameToX(tl, tw, _rangeStart)) <= HitRadius)
@@ -270,15 +400,14 @@ public sealed class TimelineControl : Control
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        if (e.Button != MouseButtons.Left || _frames.Count == 0 || _dragTarget == DragTarget.None)
-            return;
+        if (_frames.Count == 0 || _dragTarget == DragTarget.None) return;
 
         int tl = PaddingH, tw = Width - 2 * PaddingH;
 
         switch (_dragTarget)
         {
             case DragTarget.Scrubber:
-                SeekToX(e.X, tl, tw);
+                if (e.Button == MouseButtons.Left) SeekToX(e.X, tl, tw);
                 break;
 
             case DragTarget.RangeStart:
@@ -298,6 +427,15 @@ public sealed class TimelineControl : Control
                 RangeChanged?.Invoke(this, EventArgs.Empty);
                 break;
             }
+
+            case DragTarget.Pan:
+            {
+                double visible = _totalDuration / _zoomFactor;
+                double delta = -(double)(e.X - _panStartX) / tw * visible;
+                _viewOffset = Math.Clamp(_panStartOffset + delta, 0, Math.Max(0, _totalDuration - visible));
+                Invalidate();
+                break;
+            }
         }
     }
 
@@ -305,6 +443,19 @@ public sealed class TimelineControl : Control
     {
         base.OnMouseUp(e);
         _dragTarget = DragTarget.None;
+    }
+
+    protected override void OnMouseWheel(MouseEventArgs e)
+    {
+        base.OnMouseWheel(e);
+        if (_frames.Count == 0) return;
+
+        int tl = PaddingH, tw = Width - 2 * PaddingH;
+        double factor = e.Delta > 0 ? ZoomStep : 1.0 / ZoomStep;
+        // Hold Ctrl for finer steps.
+        if ((ModifierKeys & Keys.Control) != 0)
+            factor = e.Delta > 0 ? 1.05 : 1.0 / 1.05;
+        ZoomAt(tl, tw, e.X, factor);
     }
 
     private void SeekToX(int x, int tl, int tw)

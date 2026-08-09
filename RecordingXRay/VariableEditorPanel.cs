@@ -22,7 +22,7 @@ public sealed class VariableEditorPanel : UserControl
     private static readonly Color CDirtyBg = Color.FromArgb(38, 251, 191, 36);
     private static readonly Color CError   = Color.FromArgb(239, 68, 68);
 
-    private const int ColValueIndex = 2;
+    private const int ColValueIndex = 3;
 
     // ── Data ─────────────────────────────────────────────────────────────────────
 
@@ -116,21 +116,23 @@ public sealed class VariableEditorPanel : UserControl
         };
 
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Variable", Name = "colName", ReadOnly = true, FillWeight = 38 });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "VUID", Name = "colVuid", ReadOnly = true, FillWeight = 12 });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Type", Name = "colType", ReadOnly = true, FillWeight = 10 });
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Value", Name = "colValue", ReadOnly = false, FillWeight = 38 });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Value", Name = "colValue", ReadOnly = false, FillWeight = 32 });
         _grid.Columns.Add(new DataGridViewCheckBoxColumn
         {
             HeaderText = "✎",
             Name = "colDirty",
             ReadOnly = true,
             FillWeight = 8,
-            FalseValue = false,
-            TrueValue = true,
+            FalseValue = (object)false,
+            TrueValue = (object)true,
         });
 
         _grid.CellEndEdit += OnCellEndEdit;
         _grid.RowPrePaint += (_, e) => e.PaintParts &= ~DataGridViewPaintParts.Focus;
         _grid.SelectionChanged += (_, _) => PopulateRangeStartValue();
+        _grid.CellMouseClick += OnGridCellMouseClick;
 
         // ── Range panel ──────────────────────────────────────────────────────────
         _rangePanel = new Panel
@@ -332,9 +334,11 @@ public sealed class VariableEditorPanel : UserControl
 
     private void AddRow(uint varId, string typeName, string value, bool dirty, RowTag tag)
     {
-        int ri = _grid.Rows.Add(_lookup.Resolve(varId), typeName, value, dirty);
+        string vuidHex = $"0x{varId:X8}";
+        int ri = _grid.Rows.Add(_lookup.Resolve(varId), vuidHex, typeName, value);
         DataGridViewRow row = _grid.Rows[ri];
         row.Tag = tag;
+        row.Cells["colDirty"].Value = dirty;
 
         if (dirty)
             row.DefaultCellStyle.BackColor = CDirtyBg;
@@ -464,6 +468,43 @@ public sealed class VariableEditorPanel : UserControl
         {
             ShowError(ex.Message);
         }
+    }
+
+    private void OnGridCellMouseClick(object? sender, DataGridViewCellMouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Right || e.RowIndex < 0) return;
+        if (_grid.Rows[e.RowIndex].Tag is not RowTag tag) return;
+
+        string currentName = _lookup.Resolve(tag.VarId);
+        bool isUnknown = currentName == "unknown";
+
+        ContextMenuStrip menu = new();
+        menu.BackColor = Color.FromArgb(30, 41, 59);
+        menu.ForeColor = Color.FromArgb(226, 232, 240);
+        menu.RenderMode = ToolStripRenderMode.System;
+
+        string vuidHex = $"0x{tag.VarId:X8}";
+        ToolStripMenuItem header = new($"VUID {vuidHex}  —  {currentName}") { Enabled = false };
+        menu.Items.Add(header);
+        menu.Items.Add(new ToolStripSeparator());
+
+        ToolStripMenuItem nameItem = new(isUnknown ? "Assign name to this VUID…" : "Edit VUID name…");
+        nameItem.Click += (_, _) =>
+        {
+            using VuidEditorForm form = new(_lookup, tag.VarId, currentName);
+            if (form.ShowDialog(FindForm()) == DialogResult.OK)
+            {
+                // Re-render the variable name in the row.
+                _grid.Rows[e.RowIndex].Cells["colName"].Value = _lookup.Resolve(tag.VarId);
+            }
+        };
+        menu.Items.Add(nameItem);
+
+        ToolStripMenuItem copyItem = new($"Copy VUID  ({vuidHex})");
+        copyItem.Click += (_, _) => Clipboard.SetText(vuidHex);
+        menu.Items.Add(copyItem);
+
+        menu.Show(_grid, _grid.PointToClient(Cursor.Position));
     }
 
     // Pre-fill the start value box with the currently selected variable's value.

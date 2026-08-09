@@ -164,10 +164,19 @@ public sealed class VariableLookup
         return baseName;
     }
 
-    private static uint CreateVuid(string text)
+    public static uint CreateVuid(string text)
     {
         uint vuid = HashString(text);
         return vuid == 0 ? 1 : vuid;
+    }
+
+    /// <summary>
+    /// Registers a user-supplied name for a VUID, overwriting any existing entry.
+    /// </summary>
+    public void Register(uint vuid, string name)
+    {
+        if (vuid == 0 || string.IsNullOrWhiteSpace(name)) return;
+        names[vuid] = name;
     }
 
     private static uint HashString(string str)

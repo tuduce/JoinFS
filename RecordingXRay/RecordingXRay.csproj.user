@@ -10,5 +10,8 @@
     <Compile Update="VariableEditorPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Update="VuidEditorForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
   </ItemGroup>
 </Project>
