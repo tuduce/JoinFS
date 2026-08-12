@@ -4,6 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using static JoinFS.Sim;
+#if LATENCY_TRACE
+using JoinFS.Diagnostics;
+#endif
 #endif
 
 namespace JoinFS
@@ -277,6 +280,9 @@ namespace JoinFS
 
         void RecvSimObjectData(SimConnect sender, SIMCONNECT_RECV_SIMOBJECT_DATA data)
         {
+#if LATENCY_TRACE
+            LatencyTracer.Record(TracePoint.SimConnectDataReceived, data.dwObjectID);
+#endif
             sim.ProcessSimObjectData(data.dwObjectID, data.dwRequestID, data.dwData[0]);
         }
 
@@ -588,6 +594,9 @@ namespace JoinFS
             {
                 try
                 {
+#if LATENCY_TRACE
+                    LatencyTracer.Record(TracePoint.SimConnectRequestSent, simId);
+#endif
                     // request full aircraft position
                     sc.RequestDataOnSimObject(request, def, simId, SIMCONNECT_PERIOD.ONCE, SIMCONNECT_DATA_REQUEST_FLAG.DEFAULT, 0, 0, 1);
                 }

@@ -9,6 +9,9 @@ using System.Globalization;
 using JoinFS.Properties;
 using System.Net.Http;
 using System.Threading.Tasks;
+#if LATENCY_TRACE
+using JoinFS.Diagnostics;
+#endif
 
 
 namespace JoinFS
@@ -482,6 +485,14 @@ namespace JoinFS
                     // check for aircraft form
                     // follow aircraft
                     main.aircraftForm?.Context_Aircraft_Follow_Click(null, EventArgs.Empty);
+                }
+#endif
+
+#if LATENCY_TRACE
+                // Ctrl+Shift+T: dump latency trace to CSV/JSON
+                if (control && shift && !alt && KeyPressed(0x54)) // 0x54 = 'T'
+                {
+                    main.DumpLatencyTrace();
                 }
 #endif
             }

@@ -9,6 +9,9 @@ using System.IO;
 using System.Diagnostics;
 using System.Globalization;
 using System.Threading;
+#if LATENCY_TRACE
+using JoinFS.Diagnostics;
+#endif
 
 namespace JoinFS
 {
@@ -657,8 +660,14 @@ namespace JoinFS
                         //    return;
                         //}
 
+#if LATENCY_TRACE
+                        LatencyTracer.Record(TracePoint.UdpSendCalled, 0, (ushort)length);
+#endif
                         // send data
                         udpClient.Send(data, length, endPoint);
+#if LATENCY_TRACE
+                        LatencyTracer.Record(TracePoint.UdpSendCompleted, 0, (ushort)length);
+#endif
                     }
                     catch (Exception ex)
                     {
@@ -815,6 +824,9 @@ namespace JoinFS
                     // check if this node is not the recipient
                     else if (recipientNuid != localNuid && recipientNuid.Valid() && localNuid.Valid())
                     {
+#if LATENCY_TRACE
+                        LatencyTracer.Record(TracePoint.HubRelayIn);
+#endif
                         // check if message has not already been forwarded
                         if (direct)
                         {
@@ -827,6 +839,9 @@ namespace JoinFS
                                 byte[] data = receiveBuffer.GetBuffer();
                                 // set forward flag
                                 data[FLAGS_OFFSET] |= FLAG_FORWARD;
+#if LATENCY_TRACE
+                                LatencyTracer.Record(TracePoint.HubRelayOut, 0, (ushort)receiveBuffer.Length);
+#endif
                                 // forward the message to the recipient
                                 Send(value1.endPoint, data, (int)receiveBuffer.Length);
 
@@ -1579,11 +1594,17 @@ namespace JoinFS
             // while there are messages queued
             while (IsOpen && udpClient.Available > 0)
             {
+#if LATENCY_TRACE
+                LatencyTracer.Record(TracePoint.UdpPacketReceivedInOsBuffer);
+#endif
                 // remote node address
                 IPEndPoint endPoint = new(IPAddress.Any, 0);
                 try
                 {
                     byte[] messageData = udpClient.Receive(ref endPoint);
+#if LATENCY_TRACE
+                    LatencyTracer.Record(TracePoint.UdpPacketReceived, 0, (ushort)messageData.Length);
+#endif
 
                     // copy data into message buffer
                     receiveBuffer.SetLength(0);
@@ -1598,6 +1619,9 @@ namespace JoinFS
 
                 // receive the message
                 ReceiveMsg(endPoint);
+#if LATENCY_TRACE
+                LatencyTracer.Record(TracePoint.PacketProcessed);
+#endif
             }
         }
 

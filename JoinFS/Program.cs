@@ -15,11 +15,24 @@ using System.Reflection;
 using System.Security.Cryptography;
 using JoinFS.Properties;
 using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
+#if LATENCY_TRACE
+using JoinFS.Diagnostics;
+#endif
 
 namespace JoinFS
 {
     public class Main
     {
+#if LATENCY_TRACE
+        // Windows multimedia timer API for high-resolution timer
+        [DllImport("winmm.dll", EntryPoint = "timeBeginPeriod")]
+        private static extern uint TimeBeginPeriod(uint period);
+
+        [DllImport("winmm.dll", EntryPoint = "timeEndPeriod")]
+        private static extern uint TimeEndPeriod(uint period);
+#endif
+
         // default settings
         public const int DEFAULT_ACTIVITY_CIRCLE = 40;
         public const int DEFAULT_FOLLOW_DISTANCE = 80;
@@ -153,6 +166,11 @@ namespace JoinFS
         /// </summary>
         public void Close()
         {
+#if LATENCY_TRACE
+            // Restore Windows timer resolution
+            TimeEndPeriod(1);
+#endif
+
             // check for thread
             if (_workThread != null)
             {
@@ -661,6 +679,13 @@ namespace JoinFS
                 // create stopwatch
                 stopwatch = Stopwatch.StartNew();
 
+#if LATENCY_TRACE
+                // Set Windows timer resolution to 1ms for more precise Thread.Sleep
+                // This reduces jitter from default 15.625ms to ~1ms
+                TimeBeginPeriod(1);
+                MonitorEvent("LATENCY_TRACE: High-resolution timer enabled (1ms)");
+#endif
+
                 // get all JoinFS instances
                 Process[] instances = System.Diagnostics.Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetEntryAssembly().Location));
                 // get this instance
@@ -1063,6 +1088,10 @@ namespace JoinFS
                 // get start time
                 long start = sw.ElapsedMilliseconds;
 
+#if LATENCY_TRACE
+                LatencyTracer.Record(TracePoint.TickStart);
+#endif
+
                 lock (conch)
                 {
                     sim?.DoWork();
@@ -1150,6 +1179,10 @@ namespace JoinFS
                         scheduleHeightAdjustmentSave = false;
                     }
                 }
+
+#if LATENCY_TRACE
+                LatencyTracer.Record(TracePoint.TickEnd);
+#endif
 
                 // get duration of work
                 long duration = sw.ElapsedMilliseconds - start;
@@ -1758,6 +1791,31 @@ namespace JoinFS
             }
         }
 
+#if LATENCY_TRACE
+        /// <summary>
+        /// Dump latency trace data to CSV and JSON
+        /// </summary>
+        public void DumpLatencyTrace()
+        {
+            try
+            {
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string basePath = Path.Combine(Directory.GetCurrentDirectory(), $"latency_trace_{timestamp}");
+
+                var (csvPath, jsonPath) = LatencyReport.Dump(basePath);
+
+                MonitorEvent($"Latency trace dumped:");
+                MonitorEvent($"  CSV: {csvPath}");
+                MonitorEvent($"  JSON: {jsonPath}");
+                MonitorEvent($"  Total entries: {LatencyTracer.TotalEntries}");
+            }
+            catch (Exception ex)
+            {
+                MonitorEvent($"ERROR: Failed to dump latency trace: {ex.Message}");
+            }
+        }
+#endif
+
         public void MonitorAircraft(Sim.Aircraft aircraft)
         {
             // get user position
@@ -2052,6 +2110,9 @@ namespace JoinFS
                         else if (info.Modifiers == ConsoleModifiers.Control && info.Key == ConsoleKey.N) main.ToggleNetwork();
                         else if (info.Modifiers == ConsoleModifiers.Control && info.Key == ConsoleKey.S) main.ToggleSimulator();
                         else if (info.Modifiers == ConsoleModifiers.Control && info.Key == ConsoleKey.Q) main.substitution ?. Scan(true);
+#if LATENCY_TRACE
+                        else if (info.Modifiers == 0 && info.Key == ConsoleKey.T) main.DumpLatencyTrace();
+#endif
                     }
                     else
                     {

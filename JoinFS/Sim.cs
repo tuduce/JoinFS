@@ -5,6 +5,9 @@ using System.Text.RegularExpressions;
 using System.IO;
 using System.Globalization;
 using JoinFS.Properties;
+#if LATENCY_TRACE
+using JoinFS.Diagnostics;
+#endif
 
 
 
@@ -1971,6 +1974,9 @@ namespace JoinFS
             {
                 // create message
                 main.network.WriteAircraftPositionMessage(aircraft.netId, netTime, aircraft, ref aircraftPosition);
+#if LATENCY_TRACE
+                LatencyTracer.Record(TracePoint.PositionWrittenToSendBuffer, aircraft.netId);
+#endif
                 // broadcast message to other nodes
                 main.network.localNode.Broadcast();
             }
@@ -2193,6 +2199,10 @@ namespace JoinFS
                             {
                                 // create message
                                 main.network.WriteAircraftPositionMessage(aircraft.netId, aircraft.simTime, aircraft, ref aircraftPosition);
+
+#if LATENCY_TRACE
+                                LatencyTracer.Record(TracePoint.PositionWrittenToSendBuffer, aircraft.netId);
+#endif
 
                                 // get nodes
                                 LocalNode.Nuid[] nodeList = main.network.localNode.GetNodeList();

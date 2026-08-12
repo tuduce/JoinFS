@@ -38,6 +38,9 @@
     <Compile Update="Forms\MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Update="Forms\MatchExplainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Update="Forms\MatchingForm.cs">
       <SubType>Form</SubType>
     </Compile>
