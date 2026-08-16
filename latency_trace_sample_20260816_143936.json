@@ -1,0 +1,78 @@
+{
+  "metadata": {
+    "generatedAt": "2026-08-16T14:39:36.0025477+02:00",
+    "totalEntries": 926046,
+    "analyzedEntries": 65536,
+    "stopwatchFrequency": 10000000
+  },
+  "perHopLatencyUs": {
+    "UdpSendCalled → UdpSendCompleted": {
+      "count": 13573,
+      "min": 3.4,
+      "p50": 11.5,
+      "p95": 64.4,
+      "p99": 102.5,
+      "max": 1128.1,
+      "mean": 17.00819273557802
+    },
+    "UdpPacketReceived → PacketProcessed": {
+      "count": 8817,
+      "min": 1.2,
+      "p50": 20.8,
+      "p95": 63.13999999999979,
+      "p99": 121.80800000000018,
+      "max": 1172.7,
+      "mean": 23.8379153907225
+    },
+    "TickStart → TickEnd": {
+      "count": 5100,
+      "min": 22.5,
+      "p50": 119.3,
+      "p95": 509.5,
+      "p99": 847.1050000000023,
+      "max": 6278.6,
+      "mean": 179.57150980392166
+    },
+    "SimConnectRequestSent → SimConnectDataReceived": {
+      "count": 570,
+      "min": 4394.1,
+      "p50": 11586.65,
+      "p95": 25857.69499999997,
+      "p99": 48033.27699999997,
+      "max": 55454.7,
+      "mean": 13678.347192982455
+    }
+  },
+  "tracePointCounts": {
+    "UdpSendCalled": 13615,
+    "UdpSendCompleted": 13615,
+    "UdpPacketReceivedInOsBuffer": 8817,
+    "UdpPacketReceived": 8817,
+    "PacketProcessed": 8817,
+    "TickEnd": 5101,
+    "TickStart": 5100,
+    "SimConnectRequestSent": 528,
+    "SimConnectDataReceived": 598,
+    "PositionWrittenToSendBuffer": 528
+  },
+  "topDelays": [
+    {
+      "fromPoint": "TickEnd",
+      "toPoint": "TickStart",
+      "delayUs": 73349.6,
+      "timestampMs": 242163675.2026
+    },
+    {
+      "fromPoint": "TickEnd",
+      "toPoint": "TickStart",
+      "delayUs": 6707.3,
+      "timestampMs": 242170303.0846
+    },
+    {
+      "fromPoint": "TickEnd",
+      "toPoint": "TickStart",
+      "delayUs": 6600.4,
+      "timestampMs": 242171073.4149
+    }
+  ]
+}
