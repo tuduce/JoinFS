@@ -107,6 +107,16 @@ namespace JoinFS.Diagnostics
         private static long totalEntries = 0;
 
         /// <summary>
+        /// Last total entries count when auto-dump occurred (to avoid rapid repeated dumps)
+        /// </summary>
+        private static long lastAutoDumpEntry = 0;
+
+        /// <summary>
+        /// Auto-dump threshold: 90% of buffer size
+        /// </summary>
+        private const long AutoDumpThreshold = (long)(BufferSize * 0.9);
+
+        /// <summary>
         /// Whether tracing is currently enabled
         /// </summary>
         private static volatile bool isEnabled = true;
@@ -185,6 +195,39 @@ namespace JoinFS.Diagnostics
             Interlocked.Exchange(ref writeIndex, 0);
             Interlocked.Exchange(ref totalEntries, 0);
             Array.Clear(Buffer, 0, BufferSize);
+        }
+
+        /// <summary>
+        /// Check if buffer is nearly full (90%+) and should be auto-dumped
+        /// </summary>
+        /// <returns>True if buffer should be dumped to avoid data loss</returns>
+        public static bool ShouldAutoDump()
+        {
+            long total = Interlocked.Read(ref totalEntries);
+            long lastDump = Interlocked.Read(ref lastAutoDumpEntry);
+
+            // Auto-dump if we've written at least AutoDumpThreshold entries since last dump
+            return (total - lastDump) >= AutoDumpThreshold;
+        }
+
+        /// <summary>
+        /// Mark that an auto-dump has occurred (updates lastAutoDumpEntry)
+        /// </summary>
+        public static void MarkAutoDumped()
+        {
+            Interlocked.Exchange(ref lastAutoDumpEntry, Interlocked.Read(ref totalEntries));
+        }
+
+        /// <summary>
+        /// Get current buffer fill percentage (0-100)
+        /// </summary>
+        public static double GetFillPercentage()
+        {
+            long total = Interlocked.Read(ref totalEntries);
+            long lastDump = Interlocked.Read(ref lastAutoDumpEntry);
+            long sinceLastDump = total - lastDump;
+
+            return Math.Min(100.0, (sinceLastDump * 100.0) / BufferSize);
         }
 
         /// <summary>

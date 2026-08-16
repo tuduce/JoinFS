@@ -167,6 +167,9 @@ namespace JoinFS
         public void Close()
         {
 #if LATENCY_TRACE
+            // Final trace dump on shutdown to preserve all data
+            DumpLatencyTrace("shutdown");
+
             // Restore Windows timer resolution
             TimeEndPeriod(1);
 #endif
@@ -1083,6 +1086,10 @@ namespace JoinFS
             // create stopwatch
             Stopwatch sw = Stopwatch.StartNew();
 
+#if LATENCY_TRACE
+            int tickCounter = 0; // For periodic auto-dump check
+#endif
+
             while (workFinish == false)
             {
                 // get start time
@@ -1182,6 +1189,18 @@ namespace JoinFS
 
 #if LATENCY_TRACE
                 LatencyTracer.Record(TracePoint.TickEnd);
+
+                // Check for auto-dump every 100 ticks (every ~500 ms) to avoid high-frequency checks
+                tickCounter++;
+                if (tickCounter >= 100)
+                {
+                    tickCounter = 0;
+                    if (LatencyTracer.ShouldAutoDump())
+                    {
+                        DumpLatencyTrace("auto");
+                        LatencyTracer.MarkAutoDumped();
+                    }
+                }
 #endif
 
                 // get duration of work
@@ -1795,16 +1814,16 @@ namespace JoinFS
         /// <summary>
         /// Dump latency trace data to CSV and JSON
         /// </summary>
-        public void DumpLatencyTrace()
+        public void DumpLatencyTrace(string label = "manual")
         {
             try
             {
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string basePath = Path.Combine(Directory.GetCurrentDirectory(), $"latency_trace_{timestamp}");
+                string basePath = Path.Combine(Directory.GetCurrentDirectory(), $"latency_trace_{label}_{timestamp}");
 
                 var (csvPath, jsonPath) = LatencyReport.Dump(basePath);
 
-                MonitorEvent($"Latency trace dumped:");
+                MonitorEvent($"Latency trace dumped ({label}):");
                 MonitorEvent($"  CSV: {csvPath}");
                 MonitorEvent($"  JSON: {jsonPath}");
                 MonitorEvent($"  Total entries: {LatencyTracer.TotalEntries}");
