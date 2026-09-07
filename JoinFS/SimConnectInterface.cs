@@ -757,16 +757,17 @@ namespace JoinFS
                     // ugly, I know
                     if (main.sim.GetSimulatorName() != "Microsoft Flight Simulator 2024")
                     {
-                        // MSFS2020 can't hadle helicopter creation as aircraft, must create object
-                        if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020" &&
-                            obj is Sim.Helicopter)
-                        {
-                            sc.AICreateSimulatedObject(title, initPosition, Sim.Requests.CREATE_OBJECT);
-                        }
-                        else
-                        {
-                            sc.AICreateNonATCAircraft(title, sim.MakeAtcId(obj as Sim.Aircraft), initPosition, Sim.Requests.CREATE_OBJECT);
-                        }
+                        // Helicopters inject as real, positionable AI aircraft on every sim now, same as
+                        // fixed-wing. Previously MSFS2020 helicopters were special-cased to
+                        // AICreateSimulatedObject ("MSFS2020 can't handle helicopter creation as aircraft") -
+                        // but that produces a physics-less object MSFS2020 glues to the terrain and refuses
+                        // every subsequent SetData position/velocity on (SIMCONNECT_EXCEPTION_OBJECT_AI),
+                        // so a hovering network/recorded helicopter was stuck on the ground and could not be
+                        // moved. The special-case rationale was never substantiated; if a specific helicopter
+                        // model genuinely won't spawn as an aircraft the injection finder's failed/retry path
+                        // handles it (and a per-object AICreateSimulatedObject fallback can be added if field
+                        // testing shows real models failing).
+                        sc.AICreateNonATCAircraft(title, sim.MakeAtcId(obj as Sim.Aircraft), initPosition, Sim.Requests.CREATE_OBJECT);
                     }
 #if FS2024
                     else if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")

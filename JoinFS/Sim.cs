@@ -1638,13 +1638,19 @@ namespace JoinFS
                         // 1.5m still corrects a genuinely wrong/stuck placement far sooner than the airborne case, while
                         // comfortably absorbing realistic per-model ground-clearance imprecision instead of fighting it.
                         //
-                        // simPosition.ground is the SimConnect read-back of the injected object's own on-ground bit,
-                        // and MSFS2024 frequently never sets it for an injected object - a parked helicopter reports
-                        // rawGround=0 indefinitely. That left this at the loose 50m airborne limit and ran the
-                        // full-gain vertical catch-up below against the sim's ground-contact collision as a bounce
-                        // (the MSFS2024 parked-helicopter jitter). Fall back to the sender's own debounced on-ground
-                        // flag when the local read-back doesn't confirm it.
-                        bool onGround = simPosition.ground != 0 || obj.trustingPlatformGround;
+                        // simPosition.ground is the SimConnect read-back of the INJECTED object's own on-ground bit,
+                        // and it is unreliable for an injected object in OPPOSITE directions on the two sims:
+                        // MSFS2024 frequently never sets it (a parked injected helicopter reports rawGround=0
+                        // indefinitely), while MSFS2020 "sticks" an object on-ground once it has been placed there
+                        // (see the "glued to the ground" note above and SimConnectInterface.CreateObject) - so for a
+                        // network aircraft its pilot is actually flying/hovering, MSFS2020's read-back reports
+                        // rawGround=1 regardless of the altitude JoinFS commands, which used to force Regime A and
+                        // hand the vertical axis to the sim's gear physics - dropping the hovering aircraft onto the
+                        // local terrain and making manual height adjustment impossible. Trust only the SENDER's own
+                        // debounced on-ground flag (trustingPlatformGround) - the sender is authoritative about
+                        // whether its own aircraft is on the ground. This also matches UpdateAircraft's own regimeA
+                        // decision, which is already keyed on trustPlatformGround alone.
+                        bool onGround = obj.trustingPlatformGround;
                         // two on-ground regimes (see Fix 1/2):
                         //  Regime A - ordinary ground: the sim's own gear-contact physics owns the vertical
                         //    axis AND pitch/bank; JoinFS commands only horizontal position + heading, and
@@ -2500,8 +2506,22 @@ namespace JoinFS
                     {
                         // calculate height
                         double height = aircraftPosition.altitude - aircraftPosition.elevation;
-                        // check if close to the ground
-                        if (height < 50.0)
+                        // BUG FIX (MSFS2020 low-hovering helicopters dragged to the ground): this
+                        // legacy blend pulls the displayed altitude toward THIS install's local
+                        // "GROUND ALTITUDE" readback for the injected object. That readback is
+                        // unreliable for an AIRBORNE AI object on MSFS2020 - it can stay stuck at
+                        // the terrain elevation under the observer's own aircraft rather than
+                        // tracking the injected object's position - so a genuinely hovering
+                        // helicopter got a large bogus downward correction and slid around on the
+                        // ground (correct on MSFS2024, which reads it properly). The original
+                        // helicopter/elevated-platform design only ever pulled toward local terrain
+                        // when the sender reported ON-GROUND (see cbffffe); this old block was just
+                        // never brought under that gate. Require the sender's on-ground flag here
+                        // too - a flying/hovering aircraft is now left at the sender's altitude.
+                        // Regime A (trusted on-ground) already owns real ground placement and is
+                        // excluded above, so this remains only a brief transition smoother between
+                        // the ground flag arriving and Regime A engaging.
+                        if (aircraftPosition.ground != 0 && height < 50.0)
                         {
                             // calculate proportion to adjust by
                             double proportion = 1.0 - height * 0.02;
@@ -2521,8 +2541,9 @@ namespace JoinFS
                         }
                         else
                         {
-                            // far from the ground - drop the smoothed offset so a later approach starts fresh
-                            // instead of carrying over a stale value from a different location/time.
+                            // sender airborne, or far from the ground - drop the smoothed offset so a
+                            // later approach/landing starts fresh instead of carrying over a stale
+                            // value from a different location/time.
                             aircraft.smoothedElevationOffset = double.NaN;
                         }
                     }
