@@ -124,6 +124,14 @@ namespace JoinFS
         // elevated platform (helipad/ship deck/rooftop) ground-trust feature - command-line only, not persisted
         public bool settingsElevatedPlatformRecognition = true;
         public int settingsElevatedPlatformThreshold = 50; // cm
+
+        // 26.5.1 hotfix test-phase tunables - command-line only, not persisted (see Release-26.5.1 notes)
+        /// <summary>Regime A on-ground vertical hard-reset tolerance in metres - see Sim.UpdateSimObjectVelocity. Matches the proven pre-regime baseline (1.5m): the continuous dead-band + reduced-gain correction handles ordinary convergence, so this only needs to catch a genuinely wrong/stuck placement.</summary>
+        public double settingsGroundAltitudeDeltaLimit = 1.5;
+        /// <summary>Seconds between retries of an injection that MSFS rejected while still on the menu / loading - see Sim FAILED_RETRY.</summary>
+        public double settingsInjectionRetrySeconds = 10.0;
+        /// <summary>Enables FirstChanceException logging to firstchance-&lt;port&gt;.txt and the per-tick RawPos ground diagnostic. Off by default.</summary>
+        public bool settingsTraceDiagnostics = false;
 #if XPLANE || CONSOLE
         public bool settingsGenerateCsl = false;
         public bool settingsSkipCsl = false;
@@ -575,6 +583,26 @@ namespace JoinFS
                                 }
                                 break;
 
+                            case "-groundaltitudedeltalimit":
+                                index++;
+                                if (index < args.Length && Double.TryParse(args[index], NumberStyles.Float, CultureInfo.InvariantCulture, out double groundAltitudeDeltaLimitVal) && groundAltitudeDeltaLimitVal > 0.0)
+                                {
+                                    settingsGroundAltitudeDeltaLimit = groundAltitudeDeltaLimitVal;
+                                }
+                                break;
+
+                            case "-injectionretryseconds":
+                                index++;
+                                if (index < args.Length && Double.TryParse(args[index], NumberStyles.Float, CultureInfo.InvariantCulture, out double injectionRetrySecondsVal) && injectionRetrySecondsVal > 0.0)
+                                {
+                                    settingsInjectionRetrySeconds = injectionRetrySecondsVal;
+                                }
+                                break;
+
+                            case "-tracediagnostics":
+                                settingsTraceDiagnostics = true;
+                                break;
+
 #if XPLANE || CONSOLE
                             case "-generatecsl":
                                 settingsGenerateCsl = true;
@@ -678,6 +706,9 @@ namespace JoinFS
                                 Console.WriteLine("  --websocketlog         Log WebSocket events and webhook calls (default false)");
                                 Console.WriteLine("  --elevatedplatformrecognition <true|false>       Confirm on-ground mismatches (any aircraft type) against local radar altitude instead of always trusting local terrain mesh (default true)");
                                 Console.WriteLine("  --elevatedplatformthreshold <cm>                 Minimum elevation mismatch before elevated platform recognition engages (default 50)");
+                                Console.WriteLine("  --groundaltitudedeltalimit <m>                   Regime A on-ground vertical hard-reset tolerance (default 1.5)");
+                                Console.WriteLine("  --injectionretryseconds <s>                      Delay before retrying an injection MSFS rejected while loading (default 10)");
+                                Console.WriteLine("  --tracediagnostics                               Enable first-chance exception logging and the per-tick ground-placement trace (default off)");
                                 Console.WriteLine("");
                                 Console.WriteLine("Interactive key commands:");
                                 Console.WriteLine("");
