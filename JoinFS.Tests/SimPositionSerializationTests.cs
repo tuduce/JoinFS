@@ -156,5 +156,53 @@ namespace JoinFS.Tests
             Assert.Equal(original.height, read.height, 3);
             Assert.Equal(1, read.ground);
         }
+
+        [Fact]
+        public void ReadLengthPrefixed_BogusLength_Throws()
+        {
+            // a length prefix that can't possibly fit the rest of the buffer => not really the
+            // length-prefixed format (version mismatch) or truncated => must fail, not read garbage
+            byte[] buf = { 0xFF, 0xFF, 1, 2, 3, 4, 5, 6 };
+            using MemoryStream ms = new(buf);
+            using BinaryReader r = new(ms);
+            JoinFS.Sim.AircraftPosition read = new();
+            Assert.Throws<JoinFS.Sim.ReadException>(() => JoinFS.Sim.Read(JoinFS.Sim.VERSION, r, ref read));
+        }
+
+        [Fact]
+        public void StalePeer_PrefixlessBody_NeverPassesAsValid()
+        {
+            // an old peer (no ushort prefix) whose Sim.VERSION nonetheless reads as 21009+
+            byte[] oldBody = WriteAircraft(JoinFS.Sim.XPLANE_POSITION_BLOB_VERSION, SampleAircraft());
+            using MemoryStream ms = new(oldBody);
+            using BinaryReader r = new(ms);
+            JoinFS.Sim.AircraftPosition read = new();
+
+            bool threw = false;
+            try { JoinFS.Sim.Read(JoinFS.Sim.VERSION, r, ref read); }
+            catch (Exception) { threw = true; }
+
+            // either the read faulted, or it produced values the plausibility gate rejects -
+            // never a clean, believable position
+            Assert.True(threw || !JoinFS.Sim.PlausibleAircraftPosition(in read));
+        }
+
+        [Fact]
+        public void PlausibleAircraftPosition_AcceptsRealRejectsGarbage()
+        {
+            Assert.True(JoinFS.Sim.PlausibleAircraftPosition(SampleAircraft()));
+
+            var nan = SampleAircraft(); nan.latitude = double.NaN;
+            Assert.False(JoinFS.Sim.PlausibleAircraftPosition(in nan));
+
+            var huge = SampleAircraft(); huge.longitude = 1e200;
+            Assert.False(JoinFS.Sim.PlausibleAircraftPosition(in huge));
+
+            var inf = SampleAircraft(); inf.heading = float.PositiveInfinity;
+            Assert.False(JoinFS.Sim.PlausibleAircraftPosition(in inf));
+
+            var offEarth = SampleAircraft(); offEarth.latitude = 5.0; // radians, |lat| must be <= 3.2
+            Assert.False(JoinFS.Sim.PlausibleAircraftPosition(in offEarth));
+        }
     }
 }

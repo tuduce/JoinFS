@@ -3042,6 +3042,23 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Throttle for the "implausible position" warning - one line per sender per 30 s so a
+        /// version-mismatched peer streaming garbage at 10 Hz can't drown the monitor.
+        /// </summary>
+        readonly Dictionary<LocalNode.Nuid, double> implausiblePositionLogTime = new();
+
+        void WarnImplausiblePosition(LocalNode.Nuid nuid, string what)
+        {
+            if (implausiblePositionLogTime.TryGetValue(nuid, out double last) && main.ElapsedTime - last < 30.0)
+            {
+                return;
+            }
+            implausiblePositionLogTime[nuid] = main.ElapsedTime;
+            main.MonitorEvent("Discarding implausible " + what + " from '" + nuid
+                + "' - check every peer and the hub are on the same JoinFS version");
+        }
+
+        /// <summary>
         /// Receive an incoming message
         /// </summary>
         /// <param name="nuid">Sender nuid</param>
@@ -3078,6 +3095,13 @@ namespace JoinFS
                                     double netTime = reader.ReadDouble();
                                     Sim.ObjectPositionVelocity positionVelocity = new();
                                     Sim.Read(dataVersion, reader, ref positionVelocity);
+
+                                    // drop a garbage decode (wire-format mismatch) instead of relaying it
+                                    if (Sim.PlausibleObjectPositionVelocity(in positionVelocity) == false)
+                                    {
+                                        WarnImplausiblePosition(nuid, "ObjectPosition");
+                                        break;
+                                    }
 
                                     // update position and velocity
                                     string variation = (reader.PeekChar() != -1) ? reader.ReadString() : "";
@@ -3139,6 +3163,14 @@ namespace JoinFS
                                         double netTime = reader.ReadDouble();
                                         Sim.AircraftPosition aircraftPosition = new();
                                         Sim.Read(dataVersion, reader, ref aircraftPosition);
+
+                                        // drop a garbage decode (wire-format mismatch) instead of applying
+                                        // and re-broadcasting it
+                                        if (Sim.PlausibleAircraftPosition(in aircraftPosition) == false)
+                                        {
+                                            WarnImplausiblePosition(nuid, "AircraftPosition");
+                                            break;
+                                        }
 
                                         // check for shared cockpit update
                                         if (netId == uint.MaxValue)
