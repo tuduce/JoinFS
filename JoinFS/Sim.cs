@@ -1972,9 +1972,14 @@ namespace JoinFS
             {
                 // ATC FLIGHT NUMBER is meant to be purely numeric, but it was write-only/unread by JoinFS
                 // before this feature existed, so many add-ons/pilots instead stored an entire pre-existing
-                // callsign there. If it already carries the airline prefix, or isn't numeric at all, trust
-                // it as a complete callsign rather than gluing the airline code onto it again.
-                if (flightNumber.StartsWith(icaoAirline, StringComparison.OrdinalIgnoreCase) || !flightNumber.All(char.IsDigit))
+                // callsign there. If it already carries the airline prefix, or already has the shape of a
+                // complete airline callsign (AirlineCallsignRegex - 3-letter designator + digits + optional
+                // trailing letters), trust it as complete rather than gluing the airline code onto it again.
+                // A plain non-digit check here is too broad: real-world flight numbers routinely carry their
+                // own trailing letter suffix (e.g. "34U", schedule/period variants) without being a full
+                // callsign at all - that would wrongly skip the "EWG" + "34U" -> "EWG34U" synthesis and use
+                // the bare flight number as the callsign.
+                if (flightNumber.StartsWith(icaoAirline, StringComparison.OrdinalIgnoreCase) || AirlineCallsignRegex().IsMatch(flightNumber.Trim().ToUpperInvariant()))
                 {
                     return flightNumber;
                 }
