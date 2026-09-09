@@ -1642,7 +1642,7 @@ namespace JoinFS
             // add current time
             message.Write(simObject.simTime);
             // add position and velocity
-            Sim.Write(message, ref positionVelocity);
+            Sim.Write(message, Sim.VERSION, ref positionVelocity);
             // livery/ICAO type/airline - unconditional; livery is only ever populated on FS2024 (the
             // only sim that reports a real livery name via SimConnect), but other builds still relay
             // whatever a peer sends them, same reasoning as ICAO data mattering for FS2020 too
@@ -1687,7 +1687,7 @@ namespace JoinFS
             // add current time
             message.Write(netTime);
             // add position and velocity
-            Sim.Write(message, ref aircraftPosition);
+            Sim.Write(message, Sim.VERSION, ref aircraftPosition);
             // livery/ICAO type/airline - unconditional; livery is only ever populated on FS2024 (the
             // only sim that reports a real livery name via SimConnect), but other builds still relay
             // whatever a peer sends them, same reasoning as ICAO data mattering for FS2020 too

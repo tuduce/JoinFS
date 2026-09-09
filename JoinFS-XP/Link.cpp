@@ -40,6 +40,10 @@ char buffer[MAXLINE];
 struct sockaddr_in servaddr, clientAddress;
 
 
+// Wire-protocol version of the JoinFS <-> plugin IPC link. Must equal DATA_VERSION in
+// JoinFS/XPlane.cs (CI enforces this via build/check-protocol-versions.ps1). This is a
+// different namespace from the JoinFS network/.jfs format version (Sim.VERSION) - do not
+// assume any relationship between the two numbers.
 static const short DATA_VERSION = 21023;
 static const short PORT = 7472;
 
