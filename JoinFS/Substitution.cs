@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 #if !CONSOLE
 using System.Windows.Forms;
 #endif
 using System.IO;
 using System.Globalization;
 using JoinFS.Properties;
-using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace JoinFS
@@ -705,6 +705,16 @@ namespace JoinFS
             // name (e.g. "Baron", 5 chars) coincidentally matching inside an unrelated title/operator
             // name (e.g. "...BVN_Baron Aviation", a Cessna Caravan livery for an operator named "Baron
             // Aviation", with no "Beechcraft"/"Raytheon" anywhere in the title to justify the match).
+            //
+            // Exception: a needle with distinctive internal casing (a capital letter after position 0,
+            // alongside a lowercase letter - e.g. "XCub", "NXCub") is treated as a coined product name
+            // rather than a plain English word, and is exempt from both the >=6 length floor and the
+            // manufacturer-must-also-appear requirement. "Baron" (Title Case only - one leading capital)
+            // does not qualify, so that case is unaffected. Confirmed real case: Cub Crafters' Doc8643
+            // rows for CC19 are "XCub"/"NXCub" (4-5 chars) - too short for the general rule, and their
+            // installed titles ("XCub Passengers Big Wheels") never contain "Cub Crafters" to satisfy the
+            // manufacturer check either, so without this the type/class code could never be resolved from
+            // title text alone.
             (string icaoType, int matchLength) best = ("", 0);
             foreach (var row in doc8643Rows)
             {
@@ -712,10 +722,11 @@ namespace JoinFS
                     && (corroboratingWtc.Length == 0 || row.wtc == corroboratingWtc);
 
                 string needle = row.modelName.Replace("-", "");
-                int minNeedleLength = classCorroborated ? 3 : 6;
+                bool distinctiveCasing = needle.Skip(1).Any(char.IsUpper) && needle.Any(char.IsLower);
+                int minNeedleLength = classCorroborated || distinctiveCasing ? 3 : 6;
                 if (needle.Length < minNeedleLength || needle.Length <= best.matchLength) continue;
                 if (ContainsToken(haystack, needle) == false) continue;
-                if (classCorroborated == false && needle.Length < 8 && ContainsToken(haystack, row.manufacturer) == false) continue;
+                if (classCorroborated == false && distinctiveCasing == false && needle.Length < 8 && ContainsToken(haystack, row.manufacturer) == false) continue;
 
                 best = (row.icaoType, needle.Length);
             }
@@ -4098,9 +4109,16 @@ namespace JoinFS
                 Add(MatchAttribute.IcaoAirline, 100 * airlineGuessFactor, "ICAO airline '" + remoteIcaoAirline + "'" + (airlineGuessFactor < 1 ? " (guessed)" : ""));
             }
 
+            // classCode/WTC are not downweighted by guessFactor even when candidate.icaoType came from a
+            // title guess: once a title guess has identified a real, recognized Doc8643 designator, that
+            // designator's classCode/WTC mapping is itself deterministic, not a second independent guess -
+            // the uncertainty is only in "is this the right aircraft," already captured by the IcaoType
+            // match's own downweight above. Downweighting both compounded to the point that a correctly
+            // title-guessed match (e.g. "XCub" -> CC19/L1P) could score below an unrelated candidate that
+            // merely happened to share the same class code by coincidence (e.g. a Cirrus SR22, also L1P).
             if (remoteClassCode.Length == 3 && candidate.classCode.Length == 3 && candidate.classCode == remoteClassCode)
             {
-                Add(MatchAttribute.ClassCode, 60 * guessFactor, "class code '" + remoteClassCode + "'" + (guessFactor < 1 ? " (guessed)" : ""));
+                Add(MatchAttribute.ClassCode, 60, "class code '" + remoteClassCode + "'");
                 if (candidate.classCode[1] == remoteClassCode[1])
                 {
                     Add(MatchAttribute.ClassCode, 20, "engine count");
@@ -4113,7 +4131,7 @@ namespace JoinFS
 
             if (remoteWtc.Length > 0 && candidate.wtc.Length > 0 && candidate.wtc == remoteWtc)
             {
-                Add(MatchAttribute.Wtc, 40 * guessFactor, "WTC '" + remoteWtc + "'" + (guessFactor < 1 ? " (guessed)" : ""));
+                Add(MatchAttribute.Wtc, 40, "WTC '" + remoteWtc + "'");
             }
 
             // registration - prefer an exact match against the candidate's own scanned atc_id when it
@@ -4164,31 +4182,34 @@ namespace JoinFS
                 }
             }
 
-            // weakest signal - loose word overlap between livery names
-            if (remoteLivery.Length > 0)
+            // weakest signal - multi-word overlap between the remote's title/livery and the candidate's
+            // title/variation. Every distinct significant word (>=3 chars - short enough to still catch
+            // "Cub" for the well-known Piper Cub family) shared by both sides adds points - not just a
+            // leading prefix or the first word found, so e.g. "XCub Kenmore Livery" against an installed
+            // "XCub Passengers Large Wheels (Kenmore)" credits both "XCub" and "Kenmore" instead of only
+            // the shared "XCub " prefix. Word-boundary matched (ContainsToken), case-insensitive. Replaces
+            // the old separate "first livery word only" and "title-prefix only" mechanisms, both too
+            // narrow to catch words that match out of position.
             {
-                foreach (var word in remoteLivery.Split([' ', '-', '_'], StringSplitOptions.RemoveEmptyEntries))
+                HashSet<string> remoteWords = new(StringComparer.OrdinalIgnoreCase);
+                foreach (var word in (remoteTitle + " " + remoteLivery).Split([' ', '-', '_', '(', ')', '.', ','], StringSplitOptions.RemoveEmptyEntries))
                 {
-                    if (word.Length < 4) continue;
-                    if (candidate.variation.Contains(word, StringComparison.OrdinalIgnoreCase))
+                    if (word.Length >= 3) remoteWords.Add(word);
+                }
+                string candidateText = candidate.title + " " + candidate.variation;
+                List<string> matchedWords = [];
+                foreach (var word in remoteWords)
+                {
+                    if (ContainsToken(candidateText, word))
                     {
-                        Add(MatchAttribute.Livery, 1, "livery word '" + word + "'");
-                        break;
+                        matchedWords.Add(word);
                     }
                 }
-            }
-
-            // graded title-prefix match (replaces the old separate all-or-nothing "Auto" tier) - longer
-            // shared prefixes score higher, capped so it can't dominate real identity signals above
-            int maxLen = Math.Min(remoteTitle.Length, candidate.title.Length);
-            int prefixLen = 0;
-            while (prefixLen < maxLen && char.ToLowerInvariant(remoteTitle[prefixLen]) == char.ToLowerInvariant(candidate.title[prefixLen]))
-            {
-                prefixLen++;
-            }
-            if (prefixLen >= 4)
-            {
-                Add(MatchAttribute.Title, Math.Min(prefixLen, 25), "title prefix (" + prefixLen + " chars)");
+                if (matchedWords.Count > 0)
+                {
+                    Add(MatchAttribute.Title, Math.Min(matchedWords.Count * 8, 40),
+                        matchedWords.Count + " title/livery word(s) matched (" + string.Join(", ", matchedWords) + ")");
+                }
             }
 
             score = total;
@@ -4247,8 +4268,9 @@ namespace JoinFS
                         matched = matchedValue,
                         decisive = attributeScores != null ? contribution > 0 : Array.IndexOf(decisiveAttrs, attr) >= 0,
                         scoreContribution = contribution,
+                        // ClassCode/Wtc are no longer downweighted for a guessed icaoType - see ScoreCandidate
                         wasDownweighted = contribution > 0 && (
-                            (matchedIsGuessed && attr is MatchAttribute.IcaoType or MatchAttribute.ClassCode or MatchAttribute.Wtc) ||
+                            (matchedIsGuessed && attr == MatchAttribute.IcaoType) ||
                             (matchedAirlineIsGuessed && attr == MatchAttribute.IcaoAirline))
                     });
                 }
