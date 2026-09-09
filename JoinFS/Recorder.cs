@@ -167,7 +167,7 @@ namespace JoinFS
                 // write frame
                 base.Write(writer);
                 // write position velocity
-                Sim.Write(writer, ref data);
+                Sim.Write(writer, Sim.VERSION, ref data);
             }
 
             /// <summary>
@@ -225,7 +225,7 @@ namespace JoinFS
                 // write frame
                 base.Write(writer);
                 // write position velocity
-                Sim.Write(writer, ref data);
+                Sim.Write(writer, Sim.VERSION, ref data);
             }
 
             /// <summary>

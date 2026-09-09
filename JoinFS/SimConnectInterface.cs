@@ -51,7 +51,7 @@ namespace JoinFS
                     }
                     break;
                 default:
-                    main.MonitorEvent("SIMCONNECT ERROR - " + ex.Message);
+                    main.MonitorEvent("SIMCONNECT ERROR - " + ex.ToString());
                     main.recorder?.NotifySimulatorError("SIMCONNECT ERROR - " + ex.Message);
                     break;
             }
@@ -142,6 +142,9 @@ namespace JoinFS
                 sc.AddToDataDefinition(Sim.Definitions.OBJECT_EULER, "Plane Heading Degrees True", "radians", SIMCONNECT_DATATYPE.FLOAT32, 0.0f, SimConnect.SIMCONNECT_UNUSED);
                 sc.AddToDataDefinition(Sim.Definitions.OBJECT_EULER, "Plane Bank Degrees", "radians", SIMCONNECT_DATATYPE.FLOAT32, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 
+                // define a one-field gear-handle structure for the on-ground gear-down force
+                sc.AddToDataDefinition(Sim.Definitions.OBJECT_GEAR, "GEAR HANDLE POSITION", "bool", SIMCONNECT_DATATYPE.INT32, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+
                 // define a position velocity variables structure
                 sc.AddToDataDefinition(Sim.Definitions.AIRCRAFT_POSITION, "Plane Latitude", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
                 sc.AddToDataDefinition(Sim.Definitions.AIRCRAFT_POSITION, "Plane Longitude", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
@@ -187,6 +190,7 @@ namespace JoinFS
                 sc.RegisterDataDefineStruct<Sim.ObjectPositionUpdate>(Sim.Definitions.OBJECT_POSITION_UPDATE);
                 sc.RegisterDataDefineStruct<Sim.ObjectVelocity>(Sim.Definitions.OBJECT_VELOCITY);
                 sc.RegisterDataDefineStruct<Sim.ObjectEuler>(Sim.Definitions.OBJECT_EULER);
+                sc.RegisterDataDefineStruct<Sim.IntegerStruct>(Sim.Definitions.OBJECT_GEAR);
                 sc.RegisterDataDefineStruct<Sim.AircraftPosition>(Sim.Definitions.AIRCRAFT_POSITION);
                 sc.RegisterDataDefineStruct<Sim.AircraftSetId>(Sim.Definitions.AIRCRAFT_SET_ID);
                 sc.RegisterDataDefineStruct<Object[]>(Sim.Definitions.AIRCRAFT_WAYPOINTS);
@@ -248,6 +252,11 @@ namespace JoinFS
                 sc.SubscribeToSystemEvent(Sim.Event.OBJECT_REMOVED, "ObjectRemoved");
                 sc.SubscribeToSystemEvent(Sim.Event.FRAME, "Frame");
                 sc.SubscribeToSystemEvent(Sim.Event.PAUSE, "Pause");
+                // SimStart/SimStop - used only to re-arm failed injections, never to gate
+                // the injection branch: SimStart semantics vary between MSFS builds and a missed event
+                // would suppress all traffic, which the injection-finder backoff already guards against.
+                sc.SubscribeToSystemEvent(Sim.Event.SIM_START, "SimStart");
+                sc.SubscribeToSystemEvent(Sim.Event.SIM_STOP, "SimStop");
             }
             catch (COMException ex)
             {
@@ -255,7 +264,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorEvent("ERROR - " + ex.ToString());
             }
         }
 
@@ -369,7 +378,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    main.MonitorEvent("ERROR - " + ex.Message);
+                    main.MonitorEvent("ERROR - " + ex.ToString());
                 }
             }
         }
@@ -398,7 +407,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    main.MonitorEvent("ERROR - " + ex.Message);
+                    main.MonitorEvent("ERROR - " + ex.ToString());
                 }
             }
         }
@@ -427,7 +436,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    main.MonitorEvent("ERROR - " + ex.Message);
+                    main.MonitorEvent("ERROR - " + ex.ToString());
                 }
             }
         }
@@ -453,7 +462,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorEvent("ERROR - " + ex.ToString());
             }
         }
 
@@ -469,13 +478,15 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorEvent("ERROR - " + ex.ToString());
             }
         }
 
         public void SetData(Enum def, uint simId, object data)
         {
-            if ((Sim.Definitions)def != Sim.Definitions.OBJECT_VELOCITY)
+            // OBJECT_VELOCITY and OBJECT_GEAR are written every frame for on-ground objects - don't flood
+            // the Network monitor category with them
+            if ((Sim.Definitions)def != Sim.Definitions.OBJECT_VELOCITY && (Sim.Definitions)def != Sim.Definitions.OBJECT_GEAR)
             {
                 main.MonitorNetwork("SetData ID '" + simId + "' - Data '" + Sim.DefinitionToString((Sim.Definitions)def) + "'");
             }
@@ -491,7 +502,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorEvent("ERROR - " + ex.ToString());
             }
         }
 
@@ -525,7 +536,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorEvent("ERROR - " + ex.ToString());
             }
         }
 
@@ -545,7 +556,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorEvent("ERROR - " + ex.ToString());
             }
         }
 
@@ -576,7 +587,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    main.MonitorEvent("ERROR - " + ex.Message);
+                    main.MonitorEvent("ERROR - " + ex.ToString());
                 }
             };
             if (_isSimOpen)
@@ -605,7 +616,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    main.MonitorEvent("ERROR - " + ex.Message);
+                    main.MonitorEvent("ERROR - " + ex.ToString());
                 }
             };
             if (_isSimOpen)
@@ -635,7 +646,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    main.MonitorEvent("ERROR - " + ex.Message);
+                    main.MonitorEvent("ERROR - " + ex.ToString());
                 }
             };
             if (_isSimOpen)
@@ -662,7 +673,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorEvent("ERROR - " + ex.ToString());
             }
         }
 
@@ -679,7 +690,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorEvent("ERROR - " + ex.ToString());
             }
         }
 
@@ -691,7 +702,21 @@ namespace JoinFS
 
         public void CreateObject(Sim.Obj obj)
         {
-            // create sim position
+            // NOTE: this used to set OnGround=1 for an ordinary-ground spawn (sender on ordinary ground,
+            // not on an elevated platform) so the sim would place the object on its own gear from the
+            // start, avoiding a visible drop/bounce for a large substitute on first appearance. Reverted:
+            // obj.trustingPlatformElevation can only ever be true once the object is SimValid - i.e. once
+            // it's already been created and polled locally at least once - which is structurally
+            // impossible at this point, since the object doesn't exist in the sim yet. So a helicopter's
+            // very first injection while it's already resting on an elevated platform (rooftop/helipad/
+            // ship deck) always looked like an ordinary ground spawn here, forcing OnGround=1 and letting
+            // the sim snap it onto LOCAL terrain far below - and once "on ground" in that sense, it could
+            // fail to lift back off even after elevation-trust correctly engaged a moment later (MSFS/
+            // FS2020 is known to "stick" an object once marked on-ground - see the FS2020 comment in
+            // UpdateSimObjectVelocity). Always spawning airborne (OnGround=0) is a minor regression for
+            // the ordinary-ground bounce case, but the ordinary-ground path's own convergence (grace period + hysteresis
+            // in UpdateSimObjectVelocity) settles that quickly and correctly either way; silently breaking
+            // elevated-platform landings was not an acceptable trade-off for saving that.
             SIMCONNECT_DATA_INITPOSITION initPosition = new()
             {
                 Airspeed = 0,
@@ -703,6 +728,16 @@ namespace JoinFS
                 Heading = obj.netPosition.angles.y * (180.0 / Math.PI),
                 OnGround = 0
             };
+
+            // Defer until SimConnect has actually sent OPEN. There's a window between simconnect != null
+            // (Sim.Connected flips true) and RecvOpen where CreateObject would fire a COMException - use
+            // the same _pendingRequests pattern as RequestSimulatorModels, deferring the call until the SimConnect OPEN callback.
+            if (_isSimOpen == false)
+            {
+                _pendingRequests.Add(() => CreateObject(obj));
+                main.MonitorEvent("SimConnect not ready. Injection of '" + obj.ModelTitle + "' queued.");
+                return;
+            }
 
             try
             {
@@ -722,16 +757,17 @@ namespace JoinFS
                     // ugly, I know
                     if (main.sim.GetSimulatorName() != "Microsoft Flight Simulator 2024")
                     {
-                        // MSFS2020 can't hadle helicopter creation as aircraft, must create object
-                        if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2020" &&
-                            obj is Sim.Helicopter)
-                        {
-                            sc.AICreateSimulatedObject(title, initPosition, Sim.Requests.CREATE_OBJECT);
-                        }
-                        else
-                        {
-                            sc.AICreateNonATCAircraft(title, sim.MakeAtcId(obj as Sim.Aircraft), initPosition, Sim.Requests.CREATE_OBJECT);
-                        }
+                        // Helicopters inject as real, positionable AI aircraft on every sim now, same as
+                        // fixed-wing. Previously MSFS2020 helicopters were special-cased to
+                        // AICreateSimulatedObject ("MSFS2020 can't handle helicopter creation as aircraft") -
+                        // but that produces a physics-less object MSFS2020 glues to the terrain and refuses
+                        // every subsequent SetData position/velocity on (SIMCONNECT_EXCEPTION_OBJECT_AI),
+                        // so a hovering network/recorded helicopter was stuck on the ground and could not be
+                        // moved. The special-case rationale was never substantiated; if a specific helicopter
+                        // model genuinely won't spawn as an aircraft the injection finder's failed/retry path
+                        // handles it (and a per-object AICreateSimulatedObject fallback can be added if field
+                        // testing shows real models failing).
+                        sc.AICreateNonATCAircraft(title, sim.MakeAtcId(obj as Sim.Aircraft), initPosition, Sim.Requests.CREATE_OBJECT);
                     }
 #if FS2024
                     else if (main.sim.GetSimulatorName() == "Microsoft Flight Simulator 2024")
@@ -755,7 +791,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorEvent("ERROR - " + ex.ToString());
             }
         }
 
@@ -768,7 +804,7 @@ namespace JoinFS
             }
             catch (AccessViolationException ex)
             {
-                main.MonitorEvent("ERROR - Access violation " + ex.Message);
+                main.MonitorEvent("ERROR - Access violation " + ex.ToString());
             }
             catch (COMException ex)
             {
@@ -776,7 +812,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorEvent("ERROR - " + ex.ToString());
             }
         }
     }

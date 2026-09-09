@@ -97,6 +97,7 @@ public sealed class AircraftPositionFrame : RecordedFrame
     public float Elevation { get; init; }
     public bool Ground { get; init; }
     public bool ElevationCorrection { get; init; }
+    public float StaticCgToGround { get; init; } = float.NaN;
 }
 
 public sealed class SimEventFrame : RecordedFrame
@@ -219,8 +220,8 @@ public static class RecordingReader
 
         return type switch
         {
-            FrameType.ObjectPosition => ReadObjectPositionFrame(reader, version, time),
-            FrameType.AircraftPosition => ReadAircraftPositionFrame(reader, version, time),
+            FrameType.ObjectPosition => ReadPositionBlob(reader, version, () => ReadObjectPositionFrame(reader, version, time)),
+            FrameType.AircraftPosition => ReadPositionBlob(reader, version, () => ReadAircraftPositionFrame(reader, version, time)),
             FrameType.SimEvent => new SimEventFrame
             {
                 Type = type,
@@ -248,6 +249,25 @@ public static class RecordingReader
             },
             _ => throw new InvalidDataException($"Unsupported frame type in recording: {type}")
         };
+    }
+
+    // Mirrors Sim.ReadLengthPrefixed: from recording format version 21009 on, a position blob
+    // is preceded by a ushort byte-length. The length is authoritative - after the body parser
+    // runs we snap to the blob end, so an unknown trailing field can't desync following frames.
+    private static T ReadPositionBlob<T>(BinaryReader reader, short version, Func<T> readBody)
+    {
+        if (version < 21009 || !reader.BaseStream.CanSeek)
+        {
+            return readBody();
+        }
+
+        ushort length = reader.ReadUInt16();
+        long bodyStart = reader.BaseStream.Position;
+        T result;
+        try { result = readBody(); }
+        catch (EndOfStreamException) { result = default!; }
+        reader.BaseStream.Position = bodyStart + length;
+        return result;
     }
 
     private static ObjectPositionFrame ReadObjectPositionFrame(BinaryReader reader, short version, double time)
@@ -340,6 +360,9 @@ public static class RecordingReader
             elevationCorrection = (flags & 0x02) != 0;
         }
 
+        // "STATIC CG TO GROUND" (feet) - added to the AircraftPosition blob at format version 21008.
+        float staticCgToGround = version >= 21008 ? reader.ReadSingle() : float.NaN;
+
         return new AircraftPositionFrame
         {
             Type = FrameType.AircraftPosition,
@@ -367,6 +390,7 @@ public static class RecordingReader
             Elevation = elevation,
             Ground = ground,
             ElevationCorrection = elevationCorrection,
+            StaticCgToGround = staticCgToGround,
         };
     }
 

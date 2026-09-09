@@ -45,7 +45,14 @@ namespace JoinFS
         const int MAX_AIRCRAFT = 20;
 
         /// <summary>
-        /// X-Plane connection version
+        /// X-Plane connection version - the wire-protocol version of the JoinFS &lt;-&gt; native
+        /// X-Plane plugin IPC link. Hand-kept in sync with JoinFS-XP/Link.cpp's DATA_VERSION
+        /// (CI enforces parity, see build/check-protocol-versions.ps1).
+        ///
+        /// This is a DIFFERENT namespace from Sim.VERSION (the network stream / .jfs format
+        /// counter) even though the two share an integer range. NEVER pass DATA_VERSION into
+        /// Sim.Read / Sim.Write - the plugin's AircraftPositionMsg is a frozen C struct, so
+        /// those calls pin to Sim.XPLANE_POSITION_BLOB_VERSION instead.
         /// </summary>
         const short DATA_VERSION = 21023;
 
@@ -649,9 +656,11 @@ namespace JoinFS
                                     {
                                         // read simulator time
                                         aircraftList[index].simTime = reader.ReadDouble();
-                                        // read position
+                                        // read position - pin to the frozen plugin blob layout, NOT dataVersion
+                                        // (== DATA_VERSION), which is a different version namespace and would make
+                                        // Sim.Read over-read fields the native plugin never sends.
                                         Sim.AircraftPosition position = new Sim.AircraftPosition();
-                                        Sim.Read(dataVersion, reader, ref position);
+                                        Sim.Read(Sim.XPLANE_POSITION_BLOB_VERSION, reader, ref position);
                                         // read plane state
                                         position.latitude *= Math.PI / 180.0;
                                         position.longitude *= Math.PI / 180.0;
@@ -1028,8 +1037,9 @@ namespace JoinFS
                     message.Write((byte)index);
                     // write time
                     message.Write(netTime);
-                    // write position
-                    Sim.Write(message, ref position);
+                    // write position - pin to the frozen plugin blob layout (no staticCgToGround,
+                    // no length prefix); the native plugin reads a fixed-size C struct.
+                    Sim.Write(message, Sim.XPLANE_POSITION_BLOB_VERSION, ref position);
                     // send message
                     localNode.Send(pluginEndPoint);
                 }

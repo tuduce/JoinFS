@@ -86,30 +86,11 @@ namespace JoinFS
         /// </summary>
         private static readonly HttpClient httpClient = new();
         string[] seedhubs = null;
-        bool seedhubsFallback = false;
 
-        private async Task DownloadSeedhubsAsync(string url)
+        private async Task DownloadSeedhubsAsync()
         {
-            try
-            {
-                var response = await httpClient.GetStringAsync(url);
-                seedhubs = response.Split('\n');
-                main?.MonitorEvent($"Seedhubs download complete from {url}");
-            }
-            catch (Exception ex)
-            {
-                main?.MonitorEvent($"Error downloading seedhubs from {url}: {ex.Message}");
-                if (!seedhubsFallback)
-                {
-                    seedhubsFallback = true;
-                    string fallBackUrl = "https://drive.google.com/uc?export=download&id=0Byn9605PQfMecnhwdUtITi1yYlk";
-                    await DownloadSeedhubsAsync(fallBackUrl);
-                }
-                else
-                {
-                    seedhubs = [""];
-                }
-            }
+            string content = await GitHubData.GetTextAsync("JoinFS/util/seedhubs.txt", s => main?.MonitorEvent(s));
+            seedhubs = content?.Split('\n') ?? [""];
         }
 
         /// <summary>
@@ -181,28 +162,11 @@ namespace JoinFS
         /// For banlist
         /// </summary>
         string[] banlist = null;
-        bool banlistFallback = false;
 
-        private async Task DownloadBanlistAsync(string url)
+        private async Task DownloadBanlistAsync()
         {
-            try
-            {
-                var response = await httpClient.GetStringAsync(url);
-                banlist = response.Split('\n');
-            }
-            catch
-            {
-                if (!banlistFallback)
-                {
-                    banlistFallback = true;
-                    string fallBackUrl = "https://drive.google.com/uc?export=download&id=1yhrHsv8s0_vnBhzyy7hgSv0Yw_31eJLu";
-                    await DownloadBanlistAsync(fallBackUrl);
-                }
-                else
-                {
-                    banlist = [ "" ];
-                }
-            }
+            string content = await GitHubData.GetTextAsync("JoinFS/util/banlist.txt", s => main?.MonitorEvent(s));
+            banlist = content?.Split('\n') ?? [""];
         }
 
 #if EVAL
@@ -292,13 +256,11 @@ namespace JoinFS
             // load hub list
             LoadHubList();
 #endif
-            string hubsUrl = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/seedhubs.txt";
-            string banUrl = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/banlist.txt";
             var tasks = new List<Task> {
                 DownloadMyIpAsync(),
 #if !NO_HUBS
-                DownloadSeedhubsAsync(hubsUrl),
-                DownloadBanlistAsync(banUrl),
+                DownloadSeedhubsAsync(),
+                DownloadBanlistAsync(),
 #endif
             };
             Task.WhenAll(tasks).GetAwaiter().GetResult();
@@ -1680,7 +1642,7 @@ namespace JoinFS
             // add current time
             message.Write(simObject.simTime);
             // add position and velocity
-            Sim.Write(message, ref positionVelocity);
+            Sim.Write(message, Sim.VERSION, ref positionVelocity);
             // livery/ICAO type/airline - unconditional; livery is only ever populated on FS2024 (the
             // only sim that reports a real livery name via SimConnect), but other builds still relay
             // whatever a peer sends them, same reasoning as ICAO data mattering for FS2020 too
@@ -1725,7 +1687,7 @@ namespace JoinFS
             // add current time
             message.Write(netTime);
             // add position and velocity
-            Sim.Write(message, ref aircraftPosition);
+            Sim.Write(message, Sim.VERSION, ref aircraftPosition);
             // livery/ICAO type/airline - unconditional; livery is only ever populated on FS2024 (the
             // only sim that reports a real livery name via SimConnect), but other builds still relay
             // whatever a peer sends them, same reasoning as ICAO data mattering for FS2020 too
@@ -3080,6 +3042,23 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Throttle for the "implausible position" warning - one line per sender per 30 s so a
+        /// version-mismatched peer streaming garbage at 10 Hz can't drown the monitor.
+        /// </summary>
+        readonly Dictionary<LocalNode.Nuid, double> implausiblePositionLogTime = new();
+
+        void WarnImplausiblePosition(LocalNode.Nuid nuid, string what)
+        {
+            if (implausiblePositionLogTime.TryGetValue(nuid, out double last) && main.ElapsedTime - last < 30.0)
+            {
+                return;
+            }
+            implausiblePositionLogTime[nuid] = main.ElapsedTime;
+            main.MonitorEvent("Discarding implausible " + what + " from '" + nuid
+                + "' - check every peer and the hub are on the same JoinFS version");
+        }
+
+        /// <summary>
         /// Receive an incoming message
         /// </summary>
         /// <param name="nuid">Sender nuid</param>
@@ -3116,6 +3095,13 @@ namespace JoinFS
                                     double netTime = reader.ReadDouble();
                                     Sim.ObjectPositionVelocity positionVelocity = new();
                                     Sim.Read(dataVersion, reader, ref positionVelocity);
+
+                                    // drop a garbage decode (wire-format mismatch) instead of relaying it
+                                    if (Sim.PlausibleObjectPositionVelocity(in positionVelocity) == false)
+                                    {
+                                        WarnImplausiblePosition(nuid, "ObjectPosition");
+                                        break;
+                                    }
 
                                     // update position and velocity
                                     string variation = (reader.PeekChar() != -1) ? reader.ReadString() : "";
@@ -3177,6 +3163,14 @@ namespace JoinFS
                                         double netTime = reader.ReadDouble();
                                         Sim.AircraftPosition aircraftPosition = new();
                                         Sim.Read(dataVersion, reader, ref aircraftPosition);
+
+                                        // drop a garbage decode (wire-format mismatch) instead of applying
+                                        // and re-broadcasting it
+                                        if (Sim.PlausibleAircraftPosition(in aircraftPosition) == false)
+                                        {
+                                            WarnImplausiblePosition(nuid, "AircraftPosition");
+                                            break;
+                                        }
 
                                         // check for shared cockpit update
                                         if (netId == uint.MaxValue)

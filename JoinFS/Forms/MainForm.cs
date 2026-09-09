@@ -7,7 +7,6 @@ using System.Drawing;
 using System.IO;
 using System.Globalization;
 using JoinFS.Properties;
-using System.Net.Http;
 using System.Threading.Tasks;
 
 
@@ -224,41 +223,15 @@ namespace JoinFS
         /// <summary>
         /// For checking version
         /// </summary>
-        // WebClient versionWebClient = new WebClient(); // obsolete
-        HttpClient versionHttpClient = new();
         string latestVersion = null;
 
         /// <summary>
-        /// Fetch latest version async (replaces WebClient)
+        /// Fetch latest version async (via the jsDelivr CDN, with fork fallback)
         /// </summary>
         private async Task FetchLatestVersionAsync()
         {
-            try
-            {
-                string url;
-                if (Settings.Default.EarlyUpdate)
-                {
-                    url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/version.txt";
-                }
-                else
-                {
-                    url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/version.txt";
-                }
-                var result = await versionHttpClient.GetStringAsync(url);
-                if (!string.IsNullOrEmpty(result) && result[0] != '<')
-                {
-                    latestVersion = result;
-                }
-                else
-                {
-                    latestVersion = "";
-                }
-            }
-            catch (Exception ex)
-            {
-                main.MonitorEvent(ex.Message);
-                latestVersion = "";
-            }
+            string result = await GitHubData.GetTextAsync("JoinFS/util/version.txt", s => main?.MonitorEvent(s));
+            latestVersion = !string.IsNullOrEmpty(result) && result[0] != '<' ? result : "";
         }
 
 #region Shortcuts

@@ -40,6 +40,10 @@ jobs:
 #      - name: Setup MSBuild.exe
 #        uses: microsoft/setup-msbuild@v2
 
+      - name: Check X-Plane link protocol parity (C# vs C++)
+        shell: pwsh
+        run: ./build/check-protocol-versions.ps1
+
       - name: Execute unit tests
         run: dotnet test ${env:Test_Project} -c FS2024-Debug /p:Platform=x64
 

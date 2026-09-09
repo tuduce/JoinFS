@@ -124,6 +124,14 @@ namespace JoinFS
         // elevated platform (helipad/ship deck/rooftop) ground-trust feature - command-line only, not persisted
         public bool settingsElevatedPlatformRecognition = true;
         public int settingsElevatedPlatformThreshold = 50; // cm
+
+        // test-phase tunables - command-line only, not persisted
+        /// <summary>on-ground vertical hard-reset tolerance for ordinary ground in metres - see Sim.UpdateSimObjectVelocity. Matches the proven earlier single-mode behaviour (1.5m): the continuous dead-band + reduced-gain correction handles ordinary convergence, so this only needs to catch a genuinely wrong/stuck placement.</summary>
+        public double settingsGroundAltitudeDeltaLimit = 1.5;
+        /// <summary>Seconds between retries of an injection that MSFS rejected while still on the menu / loading - see Sim FAILED_RETRY.</summary>
+        public double settingsInjectionRetrySeconds = 10.0;
+        /// <summary>Enables FirstChanceException logging to firstchance-&lt;port&gt;.txt and the per-tick RawPos ground diagnostic. Off by default.</summary>
+        public bool settingsTraceDiagnostics = false;
 #if XPLANE || CONSOLE
         public bool settingsGenerateCsl = false;
         public bool settingsSkipCsl = false;
@@ -575,6 +583,26 @@ namespace JoinFS
                                 }
                                 break;
 
+                            case "-groundaltitudedeltalimit":
+                                index++;
+                                if (index < args.Length && Double.TryParse(args[index], NumberStyles.Float, CultureInfo.InvariantCulture, out double groundAltitudeDeltaLimitVal) && groundAltitudeDeltaLimitVal > 0.0)
+                                {
+                                    settingsGroundAltitudeDeltaLimit = groundAltitudeDeltaLimitVal;
+                                }
+                                break;
+
+                            case "-injectionretryseconds":
+                                index++;
+                                if (index < args.Length && Double.TryParse(args[index], NumberStyles.Float, CultureInfo.InvariantCulture, out double injectionRetrySecondsVal) && injectionRetrySecondsVal > 0.0)
+                                {
+                                    settingsInjectionRetrySeconds = injectionRetrySecondsVal;
+                                }
+                                break;
+
+                            case "-tracediagnostics":
+                                settingsTraceDiagnostics = true;
+                                break;
+
 #if XPLANE || CONSOLE
                             case "-generatecsl":
                                 settingsGenerateCsl = true;
@@ -678,6 +706,9 @@ namespace JoinFS
                                 Console.WriteLine("  --websocketlog         Log WebSocket events and webhook calls (default false)");
                                 Console.WriteLine("  --elevatedplatformrecognition <true|false>       Confirm on-ground mismatches (any aircraft type) against local radar altitude instead of always trusting local terrain mesh (default true)");
                                 Console.WriteLine("  --elevatedplatformthreshold <cm>                 Minimum elevation mismatch before elevated platform recognition engages (default 50)");
+                                Console.WriteLine("  --groundaltitudedeltalimit <m>                   on-ground vertical hard-reset tolerance for ordinary ground (default 1.5)");
+                                Console.WriteLine("  --injectionretryseconds <s>                      Delay before retrying an injection MSFS rejected while loading (default 10)");
+                                Console.WriteLine("  --tracediagnostics                               Enable first-chance exception logging and the per-tick ground-placement trace (default off)");
                                 Console.WriteLine("");
                                 Console.WriteLine("Interactive key commands:");
                                 Console.WriteLine("");
@@ -993,7 +1024,11 @@ namespace JoinFS
                 MonitorEvent("Start complete");
 
                 // start work thread
-                _workThread = new Thread(new ThreadStart(DoWork));
+                _workThread = new Thread(new ThreadStart(DoWork))
+                {
+                    // never let a stuck work thread keep the process alive after the UI has gone
+                    IsBackground = true
+                };
                 _workThread.Start();
 #if CONSOLE
                 webhookService = settingsComsWebhookUri.Length > 0 ? new WebhookService(this) : null;
@@ -1157,10 +1192,22 @@ namespace JoinFS
             // create stopwatch
             Stopwatch sw = Stopwatch.StartNew();
 
+            // consecutive-failure tracking for the work-thread failure guard below - a single throw in
+            // DoWork used to kill the process silently on .NET 8; now it's logged and the loop keeps
+            // running, but a tight storm of failures escalates to a controlled shutdown rather than
+            // spinning a zombie.
+            const int workThreadFailureLimit = 5;
+            const double workThreadFailureWindowMs = 5000.0;
+            int consecutiveWorkFailures = 0;
+            long firstFailureTime = 0;
+
             while (workFinish == false)
             {
                 // get start time
                 long start = sw.ElapsedMilliseconds;
+
+                try
+                {
 
                 lock (conch)
                 {
@@ -1269,6 +1316,40 @@ namespace JoinFS
                     }
                 }
 
+                // a clean pass - reset the failure streak
+                consecutiveWorkFailures = 0;
+
+                }
+                catch (Exception ex)
+                {
+                    // was a silent CTD before the work-thread guard - log it and try to keep running
+                    CrashLog.Write("work-thread", ex, this);
+                    try { MonitorEvent("ERROR - work-thread exception (recovered): " + ex); } catch { }
+
+                    long now = sw.ElapsedMilliseconds;
+                    if (consecutiveWorkFailures == 0 || now - firstFailureTime > workThreadFailureWindowMs)
+                    {
+                        firstFailureTime = now;
+                        consecutiveWorkFailures = 1;
+                    }
+                    else
+                    {
+                        consecutiveWorkFailures++;
+                    }
+
+                    if (consecutiveWorkFailures >= workThreadFailureLimit)
+                    {
+                        // a genuine failure storm - stop spinning a zombie and shut down in a controlled way
+                        CrashLog.Write("work-thread-escalation", ex, this, true);
+                        try { MonitorEvent("FATAL - work-thread failed " + consecutiveWorkFailures + " times in " + workThreadFailureWindowMs / 1000.0 + "s - shutting down"); } catch { }
+                        shutdown = "JoinFS stopped after repeated internal errors. See the crash log in " + storagePath + ".";
+                        break;
+                    }
+
+                    // brief pause so a fast-repeating fault doesn't fill the log in a millisecond
+                    Thread.Sleep(50);
+                }
+
                 // get duration of work
                 long duration = sw.ElapsedMilliseconds - start;
                 // calculate sleep time
@@ -1352,6 +1433,35 @@ namespace JoinFS
             // check if not showing message
             // schedule message
             scheduleShowMessage ??= message;
+        }
+
+        /// <summary>
+        /// If a crash file from a previous run exists and is newer than the last one we told the user
+        /// about, surface a one-time non-blocking prompt pointing at it, then mark it handled.
+        /// </summary>
+        public void CheckForPreviousCrash()
+        {
+            try
+            {
+                string crashFile = CrashLog.CrashFilePath(this);
+                if (File.Exists(crashFile) == false)
+                {
+                    return;
+                }
+
+                DateTime crashTime = File.GetLastWriteTimeUtc(crashFile);
+                string marker = CrashLog.HandledMarkerPath(this);
+                DateTime handledTime = File.Exists(marker) ? File.GetLastWriteTimeUtc(marker) : DateTime.MinValue;
+
+                if (crashTime > handledTime)
+                {
+                    ShowMessage("JoinFS did not shut down cleanly last time. A crash report was saved to:\n\n"
+                        + crashFile + "\n\nPlease send this file (and the log-*.txt files in the same folder) to the developers.");
+                    // record that we've surfaced this one
+                    File.WriteAllText(marker, crashTime.ToString("o"));
+                }
+            }
+            catch { /* diagnostics prompt is best-effort */ }
         }
 
 #region Airport
@@ -2161,21 +2271,41 @@ namespace JoinFS
             // one escaping WinForms' UI message loop, and one from a fire-and-forget Task.Run that's
             // never awaited/observed (which, unlike the other two, doesn't even crash the process by
             // default - it just silently disappears).
+            //
+            // Each handler writes to the standalone CrashLog first (File.AppendAllText, no conch, no
+            // Monitor StreamWriter) so a fault on the work thread, which holds conch for all
+            // of DoWork, still produces a file; the MonitorEvent call is best-effort and nested in a try.
             AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
             {
-                main.MonitorEvent("FATAL unhandled exception (terminating=" + e.IsTerminating + "): " + (e.ExceptionObject as Exception)?.ToString());
+                Exception ex = e.ExceptionObject as Exception;
+                CrashLog.Write("AppDomain.UnhandledException", ex, main, e.IsTerminating);
+                try { main.MonitorEvent("FATAL unhandled exception (terminating=" + e.IsTerminating + "): " + ex?.ToString()); } catch { }
             };
             TaskScheduler.UnobservedTaskException += (sender, e) =>
             {
-                main.MonitorEvent("Unobserved background task exception: " + e.Exception);
+                CrashLog.Write("TaskScheduler.UnobservedTaskException", e.Exception, main);
+                try { main.MonitorEvent("Unobserved background task exception: " + e.Exception); } catch { }
                 e.SetObserved();
             };
 #if !CONSOLE
             Application.ThreadException += (sender, e) =>
             {
-                main.MonitorEvent("Unhandled UI thread exception: " + e.Exception);
+                CrashLog.Write("Application.ThreadException", e.Exception, main);
+                try { main.MonitorEvent("Unhandled UI thread exception: " + e.Exception); } catch { }
             };
 #endif
+            // opt-in only (-tracediagnostics) - first-chance fires for every caught exception too, so this
+            // is far too noisy for a normal run. Writes compact lines to a separate firstchance-<port>.txt.
+            if (main.settingsTraceDiagnostics)
+            {
+                AppDomain.CurrentDomain.FirstChanceException += (sender, e) =>
+                {
+                    CrashLog.WriteFirstChance(e.Exception.GetType().Name + ": " + e.Exception.Message, main);
+                };
+            }
+
+            // if a crash file from a previous run is newer than the last one we surfaced, tell the user once
+            main.CheckForPreviousCrash();
 
             // check for gui
             if (main.settingsNoGui)
