@@ -5,7 +5,7 @@ using System.Text;
 namespace JoinFS
 {
     /// <summary>
-    /// Standalone crash writer - see Fix 4 (CTD diagnostics).
+    /// Standalone crash writer for the crash-to-desktop diagnostics.
     ///
     /// Deliberately self-contained: it writes with File.AppendAllText straight to a dedicated file and
     /// never touches Monitor's StreamWriter or takes lock(conch). The existing fatal handlers route

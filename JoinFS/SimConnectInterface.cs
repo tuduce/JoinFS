@@ -142,7 +142,7 @@ namespace JoinFS
                 sc.AddToDataDefinition(Sim.Definitions.OBJECT_EULER, "Plane Heading Degrees True", "radians", SIMCONNECT_DATATYPE.FLOAT32, 0.0f, SimConnect.SIMCONNECT_UNUSED);
                 sc.AddToDataDefinition(Sim.Definitions.OBJECT_EULER, "Plane Bank Degrees", "radians", SIMCONNECT_DATATYPE.FLOAT32, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 
-                // define a one-field gear-handle structure (see Fix 1f)
+                // define a one-field gear-handle structure for the on-ground gear-down force
                 sc.AddToDataDefinition(Sim.Definitions.OBJECT_GEAR, "GEAR HANDLE POSITION", "bool", SIMCONNECT_DATATYPE.INT32, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 
                 // define a position velocity variables structure
@@ -252,7 +252,7 @@ namespace JoinFS
                 sc.SubscribeToSystemEvent(Sim.Event.OBJECT_REMOVED, "ObjectRemoved");
                 sc.SubscribeToSystemEvent(Sim.Event.FRAME, "Frame");
                 sc.SubscribeToSystemEvent(Sim.Event.PAUSE, "Pause");
-                // SimStart/SimStop - used only to re-arm failed injections (see Fix 3), never to gate
+                // SimStart/SimStop - used only to re-arm failed injections, never to gate
                 // the injection branch: SimStart semantics vary between MSFS builds and a missed event
                 // would suppress all traffic, which the injection-finder backoff already guards against.
                 sc.SubscribeToSystemEvent(Sim.Event.SIM_START, "SimStart");
@@ -702,7 +702,7 @@ namespace JoinFS
 
         public void CreateObject(Sim.Obj obj)
         {
-            // NOTE: this used to set OnGround=1 for a Regime A ground spawn (sender on ordinary ground,
+            // NOTE: this used to set OnGround=1 for an ordinary-ground spawn (sender on ordinary ground,
             // not on an elevated platform) so the sim would place the object on its own gear from the
             // start, avoiding a visible drop/bounce for a large substitute on first appearance. Reverted:
             // obj.trustingPlatformElevation can only ever be true once the object is SimValid - i.e. once
@@ -714,7 +714,7 @@ namespace JoinFS
             // fail to lift back off even after elevation-trust correctly engaged a moment later (MSFS/
             // FS2020 is known to "stick" an object once marked on-ground - see the FS2020 comment in
             // UpdateSimObjectVelocity). Always spawning airborne (OnGround=0) is a minor regression for
-            // the ordinary-ground bounce case, but Regime A's own convergence (grace period + hysteresis
+            // the ordinary-ground bounce case, but the ordinary-ground path's own convergence (grace period + hysteresis
             // in UpdateSimObjectVelocity) settles that quickly and correctly either way; silently breaking
             // elevated-platform landings was not an acceptable trade-off for saving that.
             SIMCONNECT_DATA_INITPOSITION initPosition = new()
@@ -731,7 +731,7 @@ namespace JoinFS
 
             // Defer until SimConnect has actually sent OPEN. There's a window between simconnect != null
             // (Sim.Connected flips true) and RecvOpen where CreateObject would fire a COMException - use
-            // the same _pendingRequests pattern as RequestSimulatorModels (see Fix 3c).
+            // the same _pendingRequests pattern as RequestSimulatorModels, deferring the call until the SimConnect OPEN callback.
             if (_isSimOpen == false)
             {
                 _pendingRequests.Add(() => CreateObject(obj));

@@ -16,7 +16,7 @@ namespace JoinFS
         public string logName = "";
         public string previousName = "";
 
-        /// <summary>Base path shared by every generation of the rotated previous-log file (see Fix 4d).</summary>
+        /// <summary>Base path shared by every generation of the rotated previous-log file.</summary>
         string previousBase = "";
 
         /// <summary>
@@ -27,12 +27,12 @@ namespace JoinFS
         StreamWriter writer;
 
         /// <summary>
-        /// Guards all mutation of <see cref="lines"/> and writes to <see cref="writer"/> - see Fix 4d.
+        /// Guards all mutation of <see cref="lines"/> and writes to <see cref="writer"/>, so the crash writer can snapshot them safely.
         /// MonitorForm reads <see cref="lines"/> off the UI thread while the work thread appends to it here.
         /// </summary>
         readonly object writeLock = new();
 
-        /// <summary>Number of previous-generation log files to keep (see Fix 4d) - a crash log then survives several restarts.</summary>
+        /// <summary>Number of previous-generation log files to keep - a crash log then survives several restarts.</summary>
         const int LogGenerations = 5;
 
         /// <summary>
@@ -63,7 +63,7 @@ namespace JoinFS
                 {
                     // rotate previous log files through several generations, so a crash log written
                     // shortly before shutdown survives the user's next few launches instead of being
-                    // overwritten on the very next start (see Fix 4d).
+                    // overwritten on the very next start.
                     try
                     {
                         string GenName(int gen) => gen <= 1 ? previousName : previousBase + "." + gen + ".txt";
@@ -205,7 +205,7 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Thread-safe copy of the last <paramref name="count"/> log lines, for the crash writer (see Fix 4).
+        /// Thread-safe copy of the last <paramref name="count"/> log lines, for the standalone crash writer.
         /// </summary>
         public string[] LinesSnapshot(int count)
         {

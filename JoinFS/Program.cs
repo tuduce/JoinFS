@@ -125,8 +125,8 @@ namespace JoinFS
         public bool settingsElevatedPlatformRecognition = true;
         public int settingsElevatedPlatformThreshold = 50; // cm
 
-        // 26.5.1 hotfix test-phase tunables - command-line only, not persisted (see Release-26.5.1 notes)
-        /// <summary>Regime A on-ground vertical hard-reset tolerance in metres - see Sim.UpdateSimObjectVelocity. Matches the proven pre-regime baseline (1.5m): the continuous dead-band + reduced-gain correction handles ordinary convergence, so this only needs to catch a genuinely wrong/stuck placement.</summary>
+        // test-phase tunables - command-line only, not persisted
+        /// <summary>on-ground vertical hard-reset tolerance for ordinary ground in metres - see Sim.UpdateSimObjectVelocity. Matches the proven earlier single-mode behaviour (1.5m): the continuous dead-band + reduced-gain correction handles ordinary convergence, so this only needs to catch a genuinely wrong/stuck placement.</summary>
         public double settingsGroundAltitudeDeltaLimit = 1.5;
         /// <summary>Seconds between retries of an injection that MSFS rejected while still on the menu / loading - see Sim FAILED_RETRY.</summary>
         public double settingsInjectionRetrySeconds = 10.0;
@@ -706,7 +706,7 @@ namespace JoinFS
                                 Console.WriteLine("  --websocketlog         Log WebSocket events and webhook calls (default false)");
                                 Console.WriteLine("  --elevatedplatformrecognition <true|false>       Confirm on-ground mismatches (any aircraft type) against local radar altitude instead of always trusting local terrain mesh (default true)");
                                 Console.WriteLine("  --elevatedplatformthreshold <cm>                 Minimum elevation mismatch before elevated platform recognition engages (default 50)");
-                                Console.WriteLine("  --groundaltitudedeltalimit <m>                   Regime A on-ground vertical hard-reset tolerance (default 1.5)");
+                                Console.WriteLine("  --groundaltitudedeltalimit <m>                   on-ground vertical hard-reset tolerance for ordinary ground (default 1.5)");
                                 Console.WriteLine("  --injectionretryseconds <s>                      Delay before retrying an injection MSFS rejected while loading (default 10)");
                                 Console.WriteLine("  --tracediagnostics                               Enable first-chance exception logging and the per-tick ground-placement trace (default off)");
                                 Console.WriteLine("");
@@ -1192,7 +1192,7 @@ namespace JoinFS
             // create stopwatch
             Stopwatch sw = Stopwatch.StartNew();
 
-            // consecutive-failure tracking for the loop guard below (see Fix 4c) - a single throw in
+            // consecutive-failure tracking for the work-thread failure guard below - a single throw in
             // DoWork used to kill the process silently on .NET 8; now it's logged and the loop keeps
             // running, but a tight storm of failures escalates to a controlled shutdown rather than
             // spinning a zombie.
@@ -1322,7 +1322,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    // was a silent CTD before Fix 4c - log it and try to keep running
+                    // was a silent CTD before the work-thread guard - log it and try to keep running
                     CrashLog.Write("work-thread", ex, this);
                     try { MonitorEvent("ERROR - work-thread exception (recovered): " + ex); } catch { }
 
@@ -1437,7 +1437,7 @@ namespace JoinFS
 
         /// <summary>
         /// If a crash file from a previous run exists and is newer than the last one we told the user
-        /// about, surface a one-time non-blocking prompt pointing at it, then mark it handled (see Fix 4e).
+        /// about, surface a one-time non-blocking prompt pointing at it, then mark it handled.
         /// </summary>
         public void CheckForPreviousCrash()
         {
@@ -2273,7 +2273,7 @@ namespace JoinFS
             // default - it just silently disappears).
             //
             // Each handler writes to the standalone CrashLog first (File.AppendAllText, no conch, no
-            // Monitor StreamWriter - see Fix 4) so a fault on the work thread, which holds conch for all
+            // Monitor StreamWriter) so a fault on the work thread, which holds conch for all
             // of DoWork, still produces a file; the MonitorEvent call is best-effort and nested in a try.
             AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
             {
