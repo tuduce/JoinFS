@@ -3446,25 +3446,8 @@ namespace JoinFS
                 // download the file if it does not exist
                 if (File.Exists(typeClassifiersFile) == false)
                 {
-                    // download the file from a web server
-                    string url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/model2type.txt";
-                    try
-                    {
-                        // download the file
-                        //using (WebClient client = new WebClient())
-                        //{
-                        //    client.DownloadFile(url, typeClassifiersFile);
-                        //}
-                        using HttpClient httpClient = new();
-                        var response = await httpClient.GetAsync(url);
-                        response.EnsureSuccessStatusCode();
-                        using var fs = new FileStream(typeClassifiersFile, FileMode.Create, FileAccess.Write, FileShare.None);
-                        await response.Content.CopyToAsync(fs);
-                    }
-                    catch (Exception ex)
-                    {
-                        main.MonitorEvent("Error downloading type classifiers: " + ex.Message);
-                    }
+                    // download the file from the repository (via CDN, with fork fallback)
+                    await GitHubData.DownloadToFileAsync("JoinFS/util/model2type.txt", typeClassifiersFile, main.MonitorEvent);
                 }
                 // check if file exists
                 if (File.Exists(typeClassifiersFile))
@@ -3503,30 +3486,8 @@ namespace JoinFS
                 // type classifiers file
                 string AddonsFile = Path.Combine(main.storagePath, "Addons_FS2020.txt");
                 string AddonsFile_Web = Path.Combine(main.storagePath, "Addons_FS2020_Web.txt");
-                // Always download the AddOns file from a web server.
-                string url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/Addons_FS2020.txt";
-
-                try
-                {
-                    // download the file
-                    //using (WebClient client = new WebClient())
-                    //{
-                    //    client.DownloadFile(url, AddonsFile_Web);
-                    //}
-                    using (HttpClient httpClient = new HttpClient())
-                    {
-                        var response = await httpClient.GetAsync(url);
-                        response.EnsureSuccessStatusCode();
-                        using (var fs = new FileStream(AddonsFile_Web, FileMode.Create, FileAccess.Write, FileShare.None))
-                        {
-                            await response.Content.CopyToAsync(fs);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    main.MonitorEvent("Error downloading FS2020 AddOns List: " + ex.Message);
-                }
+                // Always refresh the AddOns file from the repository (via CDN, with fork fallback).
+                await GitHubData.DownloadToFileAsync("JoinFS/util/Addons_FS2020.txt", AddonsFile_Web, main.MonitorEvent);
                 // check if file exists
                 if (File.Exists(AddonsFile_Web))
                 {
@@ -3560,21 +3521,8 @@ namespace JoinFS
                 // download the file if it does not exist
                 if (File.Exists(banListFile) == false)
                 {
-                    // download the file from a web server
-                    string url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/bannedModels.txt";
-                    try
-                    {
-                        // download the file
-                        using HttpClient httpClient = new();
-                        var response = await httpClient.GetAsync(url);
-                        response.EnsureSuccessStatusCode();
-                        using var fs = new FileStream(banListFile, FileMode.Create, FileAccess.Write, FileShare.None);
-                        await response.Content.CopyToAsync(fs);
-                    }
-                    catch (Exception ex)
-                    {
-                        main.MonitorEvent("Error downloading type classifiers: " + ex.Message);
-                    }
+                    // download the file from the repository (via CDN, with fork fallback)
+                    await GitHubData.DownloadToFileAsync("JoinFS/util/bannedModels.txt", banListFile, main.MonitorEvent);
                 }
                 // check if file exists
                 if (File.Exists(banListFile))

@@ -86,30 +86,11 @@ namespace JoinFS
         /// </summary>
         private static readonly HttpClient httpClient = new();
         string[] seedhubs = null;
-        bool seedhubsFallback = false;
 
-        private async Task DownloadSeedhubsAsync(string url)
+        private async Task DownloadSeedhubsAsync()
         {
-            try
-            {
-                var response = await httpClient.GetStringAsync(url);
-                seedhubs = response.Split('\n');
-                main?.MonitorEvent($"Seedhubs download complete from {url}");
-            }
-            catch (Exception ex)
-            {
-                main?.MonitorEvent($"Error downloading seedhubs from {url}: {ex.Message}");
-                if (!seedhubsFallback)
-                {
-                    seedhubsFallback = true;
-                    string fallBackUrl = "https://drive.google.com/uc?export=download&id=0Byn9605PQfMecnhwdUtITi1yYlk";
-                    await DownloadSeedhubsAsync(fallBackUrl);
-                }
-                else
-                {
-                    seedhubs = [""];
-                }
-            }
+            string content = await GitHubData.GetTextAsync("JoinFS/util/seedhubs.txt", s => main?.MonitorEvent(s));
+            seedhubs = content?.Split('\n') ?? [""];
         }
 
         /// <summary>
@@ -181,28 +162,11 @@ namespace JoinFS
         /// For banlist
         /// </summary>
         string[] banlist = null;
-        bool banlistFallback = false;
 
-        private async Task DownloadBanlistAsync(string url)
+        private async Task DownloadBanlistAsync()
         {
-            try
-            {
-                var response = await httpClient.GetStringAsync(url);
-                banlist = response.Split('\n');
-            }
-            catch
-            {
-                if (!banlistFallback)
-                {
-                    banlistFallback = true;
-                    string fallBackUrl = "https://drive.google.com/uc?export=download&id=1yhrHsv8s0_vnBhzyy7hgSv0Yw_31eJLu";
-                    await DownloadBanlistAsync(fallBackUrl);
-                }
-                else
-                {
-                    banlist = [ "" ];
-                }
-            }
+            string content = await GitHubData.GetTextAsync("JoinFS/util/banlist.txt", s => main?.MonitorEvent(s));
+            banlist = content?.Split('\n') ?? [""];
         }
 
 #if EVAL
@@ -292,13 +256,11 @@ namespace JoinFS
             // load hub list
             LoadHubList();
 #endif
-            string hubsUrl = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/seedhubs.txt";
-            string banUrl = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/banlist.txt";
             var tasks = new List<Task> {
                 DownloadMyIpAsync(),
 #if !NO_HUBS
-                DownloadSeedhubsAsync(hubsUrl),
-                DownloadBanlistAsync(banUrl),
+                DownloadSeedhubsAsync(),
+                DownloadBanlistAsync(),
 #endif
             };
             Task.WhenAll(tasks).GetAwaiter().GetResult();

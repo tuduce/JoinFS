@@ -1,0 +1,4 @@
+# JoinFS network ban list
+# One IPv4 address per line. Lines that are not a valid IPv4 address (blank lines,
+# comments like this one) are ignored. Nodes connecting from a listed address are
+# refused. Fetched at startup via the jsDelivr CDN.
