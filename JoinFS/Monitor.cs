@@ -16,12 +16,24 @@ namespace JoinFS
         public string logName = "";
         public string previousName = "";
 
+        /// <summary>Base path shared by every generation of the rotated previous-log file (see Fix 4d).</summary>
+        string previousBase = "";
+
         /// <summary>
         /// displayed lines of text
         /// </summary>
         public List<string> lines = [];
 
         StreamWriter writer;
+
+        /// <summary>
+        /// Guards all mutation of <see cref="lines"/> and writes to <see cref="writer"/> - see Fix 4d.
+        /// MonitorForm reads <see cref="lines"/> off the UI thread while the work thread appends to it here.
+        /// </summary>
+        readonly object writeLock = new();
+
+        /// <summary>Number of previous-generation log files to keep (see Fix 4d) - a crash log then survives several restarts.</summary>
+        const int LogGenerations = 5;
 
         /// <summary>
         /// Keep track of repeated lines
@@ -49,8 +61,27 @@ namespace JoinFS
                 // check if file exists
                 if (File.Exists(logName))
                 {
+                    // rotate previous log files through several generations, so a crash log written
+                    // shortly before shutdown survives the user's next few launches instead of being
+                    // overwritten on the very next start (see Fix 4d).
+                    try
+                    {
+                        string GenName(int gen) => gen <= 1 ? previousName : previousBase + "." + gen + ".txt";
+
+                        // drop the oldest, then shuffle each generation up by one
+                        if (File.Exists(GenName(LogGenerations))) File.Delete(GenName(LogGenerations));
+                        for (int gen = LogGenerations - 1; gen >= 1; gen--)
+                        {
+                            if (File.Exists(GenName(gen)))
+                            {
+                                File.Move(GenName(gen), GenName(gen + 1));
+                            }
+                        }
+                    }
+                    catch { /* rotation is best-effort - fall through to the plain move below */ }
+
                     // rename current log file
-                    File.Delete(previousName);
+                    if (File.Exists(previousName)) File.Delete(previousName);
                     File.Move(logName, previousName);
                 }
 
@@ -67,10 +98,13 @@ namespace JoinFS
                             AutoFlush = true
                         };
                         // write current lines
-                        foreach (var line in lines)
+                        lock (writeLock)
                         {
-                            // save line to log file
-                            writer.WriteLine(line);
+                            foreach (var line in lines)
+                            {
+                                // save line to log file
+                                writer.WriteLine(line);
+                            }
                         }
                     }
                 }
@@ -104,7 +138,8 @@ namespace JoinFS
 
             // make file name
             logName = main.storagePath + Path.DirectorySeparatorChar + LOG_FILE + "-" + port + ".txt";
-            previousName = main.storagePath + Path.DirectorySeparatorChar + LOG_FILE + "-" + port + "-previous.txt";
+            previousBase = main.storagePath + Path.DirectorySeparatorChar + LOG_FILE + "-" + port + "-previous";
+            previousName = previousBase + ".txt";
 
             // check for auto log
 //            if (Settings.Default.AutoLog)
@@ -143,26 +178,43 @@ namespace JoinFS
         /// <param name="text">Output text</param>
         public void Write(String text)
         {
-            // don't display previous line
-            if (lines.Count == 0 || lines[lines.Count - 1].Length <= 26 || text.Equals(lines[lines.Count - 1].Substring(26)) == false)
+            lock (writeLock)
             {
-                ProcessRepeat();
+                // don't display previous line
+                if (lines.Count == 0 || lines[lines.Count - 1].Length <= 26 || text.Equals(lines[lines.Count - 1].Substring(26)) == false)
+                {
+                    ProcessRepeat();
 
-                // include time
-                string line = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss.fff") + " - " + text;
-                // add line
-                lines.Add(line);
-                // check for log file
-                // save line to log file
-                writer?.WriteLine(line);
+                    // include time
+                    string line = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss.fff") + " - " + text;
+                    // add line
+                    lines.Add(line);
+                    // check for log file
+                    // save line to log file
+                    writer?.WriteLine(line);
 #if CONSOLE
-                Console.WriteLine(line);
+                    Console.WriteLine(line);
 #endif
+                }
+                else
+                {
+                    // increment repeat
+                    repeatCount++;
+                }
             }
-            else
+        }
+
+        /// <summary>
+        /// Thread-safe copy of the last <paramref name="count"/> log lines, for the crash writer (see Fix 4).
+        /// </summary>
+        public string[] LinesSnapshot(int count)
+        {
+            lock (writeLock)
             {
-                // increment repeat
-                repeatCount++;
+                int start = Math.Max(0, lines.Count - count);
+                string[] result = new string[lines.Count - start];
+                lines.CopyTo(start, result, 0, result.Length);
+                return result;
             }
         }
     }
