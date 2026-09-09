@@ -3,9 +3,7 @@ name: Docker Publish
 on:
   push:
     branches: [mainout]
-    # full X.Y.Z release tags only - a pre-release tag like v26.6-beta must not
-    # publish (or move :latest on) the production console image
-    tags: ['v*.*.*']
+    tags: ['v*']
 
 jobs:
   docker:
