@@ -696,6 +696,20 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Register the combined SimConnect read structure for a whole variable file (bundles many
+        /// variables into a single data definition, so they can be requested from the simulator with
+        /// one RequestDataOnSimObject call instead of one call per variable)
+        /// </summary>
+        public void RegisterVariableBundle(VariableMgr.Bundle bundle, List<VariableMgr.Definition> fields)
+        {
+#if SIMCONNECT
+            // check for simconnect
+            // register bundle
+            simconnect?.RegisterVariableBundle(bundle, fields);
+#endif
+        }
+
+        /// <summary>
         /// Request a variable
         /// </summary>
         public void RequestVariable(Enum scRequest, Enum scDefinition, uint simId)

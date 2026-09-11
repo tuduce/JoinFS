@@ -63,6 +63,45 @@ namespace JoinFS
         Dictionary<string, List<uint>> files = [];
 
         /// <summary>
+        /// A combined SimConnect "read" data definition that bundles every SimConnect-visible
+        /// variable belonging to a single variable file into one structure, so that the whole
+        /// file can be requested from the simulator with a single RequestDataOnSimObject call
+        /// instead of one call per variable. Individual write-back of a variable (SetDataOnSimObject)
+        /// keeps using that variable's own single-field Definition.scDefinition, untouched by this -
+        /// only the periodic read path is bundled. Not used for X-Plane, which still requests each
+        /// dataref individually.
+        /// </summary>
+        public class Bundle
+        {
+            /// <summary>
+            /// SimConnect data definition ID for the combined structure
+            /// </summary>
+            public ScDefinition scDefinition;
+
+            /// <summary>
+            /// Vuids of the bundled variables, in the same order as the fields of the
+            /// generated structure (field order matters - it must match the order the
+            /// fields were added to the SimConnect data definition)
+            /// </summary>
+            public List<uint> vuids = [];
+
+            /// <summary>
+            /// The structure type generated at runtime to marshal this bundle's data
+            /// </summary>
+            public Type structType;
+
+            /// <summary>
+            /// Cached field accessors, one per entry in <see cref="vuids"/> and in the same order
+            /// </summary>
+            public System.Reflection.FieldInfo[] fields;
+        }
+
+        /// <summary>
+        /// List of read bundles, one per variable file (SimConnect only)
+        /// </summary>
+        Dictionary<string, Bundle> bundles = [];
+
+        /// <summary>
         /// List of alias vuids
         /// </summary>
         Dictionary<uint, uint> aliasVuids = [];
@@ -654,6 +693,8 @@ namespace JoinFS
             definitions.Clear();
             // clear file list
             files.Clear();
+            // clear read bundles
+            bundles.Clear();
             // clear aliases
             aliasVuids.Clear();
             // clear SimConnect definition
@@ -954,6 +995,15 @@ namespace JoinFS
                     // close reader
                     reader?.Close();
                 }
+
+#if !XPLANE && !CONSOLE
+                // build (once) the combined SimConnect read structure for this file, bundling
+                // every variable it contains into a single data definition
+                if (main.sim != null && files.TryGetValue(filename, out List<uint> fileVuids))
+                {
+                    RegisterBundle(filename, fileVuids);
+                }
+#endif
             }
 
             // check for loaded file
@@ -966,5 +1016,60 @@ namespace JoinFS
             // return empty list
             return [];
         }
+
+#if !XPLANE && !CONSOLE
+        /// <summary>
+        /// Build and register the combined SimConnect read structure for a variable file, if not
+        /// already done. Bundles every variable in the file that has a SimConnect name into a
+        /// single data definition/struct so that a Set only has to issue one RequestDataOnSimObject
+        /// call for the whole file instead of one call per variable.
+        /// </summary>
+        void RegisterBundle(string filename, List<uint> fileVuids)
+        {
+            // already built for this file
+            if (bundles.ContainsKey(filename))
+            {
+                return;
+            }
+
+            // collect the simconnect-visible variables for this file, in file order
+            List<uint> fieldVuids = [];
+            foreach (var vuid in fileVuids)
+            {
+                if (definitions.TryGetValue(vuid, out Definition definition) && definition.scName.Length > 0)
+                {
+                    fieldVuids.Add(vuid);
+                }
+            }
+
+            // nothing to bundle for this file (e.g. dataref-only entries)
+            if (fieldVuids.Count == 0)
+            {
+                return;
+            }
+
+            // new bundle
+            Bundle bundle = new()
+            {
+                scDefinition = NextDefinition,
+                vuids = fieldVuids
+            };
+
+            // ask the simulator interface to build the structure and register it with simconnect
+            main.sim?.RegisterVariableBundle(bundle, fieldVuids.ConvertAll(vuid => definitions[vuid]));
+
+            // remember it
+            bundles[filename] = bundle;
+        }
+
+        /// <summary>
+        /// Get the combined read bundle for a variable file, or null if the file has no
+        /// SimConnect-visible variables (or bundling has not run, e.g. no simulator)
+        /// </summary>
+        public Bundle GetBundle(string filename)
+        {
+            return bundles.TryGetValue(filename, out Bundle bundle) ? bundle : null;
+        }
+#endif
     }
 }
