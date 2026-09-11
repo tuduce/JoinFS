@@ -2,6 +2,8 @@
 using Microsoft.FlightSimulator.SimConnect;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using static JoinFS.Sim;
 #endif
@@ -454,6 +456,135 @@ namespace JoinFS
             catch (Exception ex)
             {
                 main.MonitorEvent("ERROR - " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Module used to hold the structures generated at runtime for bundled variable reads.
+        /// One field is emitted per bundled variable (in order), typed to match the variable's
+        /// SimConnect datatype, so a single RequestDataOnSimObject can return many variables in
+        /// one SIMCONNECT_RECV_SIMOBJECT_DATA message instead of one message per variable.
+        /// </summary>
+        static readonly ModuleBuilder bundleModuleBuilder = AssemblyBuilder
+            .DefineDynamicAssembly(new AssemblyName("JoinFS.VariableBundles"), AssemblyBuilderAccess.Run)
+            .DefineDynamicModule("VariableBundles");
+
+        /// <summary>
+        /// Unique name suffix for generated bundle structures
+        /// </summary>
+        static int bundleTypeCounter;
+
+        /// <summary>
+        /// Build a value type with one field per entry in <paramref name="fields"/>, in order,
+        /// laid out and marshalled exactly like the existing single-variable structs
+        /// (<see cref="Sim.IntegerStruct"/>, <see cref="Sim.FloatStruct"/>, <see cref="Sim.String8Struct"/>)
+        /// so SimConnect's managed wrapper can marshal a whole bundle's worth of variables at once.
+        /// </summary>
+        static Type BuildBundleStructType(List<VariableMgr.Definition> fields)
+        {
+            TypeBuilder typeBuilder = bundleModuleBuilder.DefineType(
+                "Bundle" + System.Threading.Interlocked.Increment(ref bundleTypeCounter),
+                TypeAttributes.Public | TypeAttributes.SequentialLayout | TypeAttributes.Sealed |
+                TypeAttributes.AnsiClass | TypeAttributes.BeforeFieldInit,
+                typeof(ValueType),
+                PackingSize.Size1);
+
+            ConstructorInfo marshalAsCtor = typeof(MarshalAsAttribute).GetConstructor([typeof(UnmanagedType)]);
+            FieldInfo sizeConstField = typeof(MarshalAsAttribute).GetField(nameof(MarshalAsAttribute.SizeConst));
+
+            for (int index = 0; index < fields.Count; index++)
+            {
+                // field name encodes its position - this is how DetectSimconnect maps values
+                // back onto vuids, since reflection does not guarantee GetFields() order
+                string fieldName = "F" + index;
+
+                switch (fields[index].type)
+                {
+                    case VariableMgr.Definition.Type.INTEGER:
+                        typeBuilder.DefineField(fieldName, typeof(int), FieldAttributes.Public);
+                        break;
+                    case VariableMgr.Definition.Type.FLOAT:
+                        typeBuilder.DefineField(fieldName, typeof(float), FieldAttributes.Public);
+                        break;
+                    case VariableMgr.Definition.Type.STRING8:
+                        {
+                            FieldBuilder stringField = typeBuilder.DefineField(fieldName, typeof(string), FieldAttributes.Public);
+                            // [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8)] - matches Sim.String8Struct
+                            CustomAttributeBuilder marshalAsAttr = new(
+                                marshalAsCtor,
+                                [UnmanagedType.ByValTStr],
+                                [sizeConstField],
+                                [8]);
+                            stringField.SetCustomAttribute(marshalAsAttr);
+                        }
+                        break;
+                }
+            }
+
+            return typeBuilder.CreateType();
+        }
+
+        /// <summary>
+        /// Register the combined read structure for a variable file: build a struct matching
+        /// its fields, add each field to the SimConnect data definition (same name/units as the
+        /// per-variable registration would have used), and register the struct with SimConnect's
+        /// marshaller so OnRecvSimobjectData hands back one populated instance per request instead
+        /// of requiring one request (and one COM round trip) per variable.
+        /// </summary>
+        public void RegisterVariableBundle(VariableMgr.Bundle bundle, List<VariableMgr.Definition> fields)
+        {
+            try
+            {
+                // build the structure type for this bundle
+                Type structType = BuildBundleStructType(fields);
+
+                // add every field to the data definition, in the same order they were built into the struct
+                foreach (var field in fields)
+                {
+                    switch (field.type)
+                    {
+                        case VariableMgr.Definition.Type.INTEGER:
+                            sc.AddToDataDefinition(bundle.scDefinition, field.scName, field.scUnits, SIMCONNECT_DATATYPE.INT32, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+                            break;
+                        case VariableMgr.Definition.Type.FLOAT:
+                            sc.AddToDataDefinition(bundle.scDefinition, field.scName, field.scUnits, SIMCONNECT_DATATYPE.FLOAT32, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+                            break;
+                        case VariableMgr.Definition.Type.STRING8:
+                            sc.AddToDataDefinition(bundle.scDefinition, field.scName, field.scUnits, SIMCONNECT_DATATYPE.STRING8, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+                            break;
+                    }
+                }
+
+                // register the structure with the managed wrapper's marshaller - the generic
+                // method is only known at runtime, so invoke it via reflection
+                typeof(SimConnect)
+                    .GetMethod(nameof(SimConnect.RegisterDataDefineStruct))
+                    .MakeGenericMethod(structType)
+                    .Invoke(sc, [bundle.scDefinition]);
+
+                // cache the field accessors, in field order, for fast unpacking on receipt
+                FieldInfo[] fieldInfos = new FieldInfo[fields.Count];
+                for (int index = 0; index < fields.Count; index++)
+                {
+                    fieldInfos[index] = structType.GetField("F" + index);
+                }
+
+                bundle.structType = structType;
+                bundle.fields = fieldInfos;
+            }
+            catch (COMException ex)
+            {
+                HandleException(ex);
+            }
+            catch (TargetInvocationException ex) when (ex.InnerException is COMException comEx)
+            {
+                // RegisterDataDefineStruct is invoked via reflection - unwrap so COM errors
+                // are handled the same way as everywhere else
+                HandleException(comEx);
+            }
+            catch (Exception ex)
+            {
+                main.MonitorEvent("ERROR - " + (ex.InnerException?.Message ?? ex.Message));
             }
         }
 

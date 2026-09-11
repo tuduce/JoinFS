@@ -20,10 +20,12 @@ namespace JoinFS
             public const double SLAVE_DELAY = 3.0;
 
             /// <summary>
-            /// List of simconnect requests
+            /// List of simconnect bundle requests - one per variable file, each covering every
+            /// SimConnect-visible variable in that file in a single RequestDataOnSimObject call
+            /// (rather than one request per variable, as before)
             /// </summary>
-            public Dictionary<uint, ScRequest> scRequests = [];
-            readonly Dictionary<ScRequest, uint> scRequestVuids = [];
+            public Dictionary<string, ScRequest> scRequests = [];
+            readonly Dictionary<ScRequest, Bundle> scRequestBundles = [];
 
             /// <summary>
             /// List of integer variables
@@ -194,40 +196,45 @@ namespace JoinFS
                 // check for file in definitions
                 List<uint> vuids = variableMgr.GetFromFile(filename);
 
-                // for each variable
+                // initialize start time for every declared variable, regardless of simulator state
                 foreach (var vuid in vuids)
                 {
-                    // check for definition
-                    if (variableMgr.definitions.TryGetValue(vuid, out Definition definition))
+                    if (variableMgr.definitions.ContainsKey(vuid))
                     {
-
-                        // initialize start time
                         startTimes[vuid] = 0.0;
+                    }
+                }
 
-                        // check if sim connected and object is valid
-                        if (main.sim != null && main.sim.Connected && simId != uint.MaxValue)
-                        {
+                // check if sim connected and object is valid
+                if (main.sim != null && main.sim.Connected && simId != uint.MaxValue)
+                {
 #if XPLANE || CONSOLE
-                            // check for xplane
-                            if ((main.sim ?. xplane).IsConnected)
-                            {
-                                // request from xplane
-                                main.sim.xplane.RequestVariable(simId, vuid);
-                            }
-#else
-                            if (definition.scName.Length > 0)
-                            {
-                                // simconnect request
-                                ScRequest scRequest = variableMgr.NextRequest;
-                                // add request
-                                scRequests[vuid] = scRequest;
-                                scRequestVuids[scRequest] = vuid;
-                                // request the varaible from simconnect
-                                main.sim?.RequestVariable(scRequest, definition.scDefinition, simId);
-                            }
-#endif
+                    // check for xplane - unchanged, each dataref is still requested individually
+                    if ((main.sim ?. xplane).IsConnected)
+                    {
+                        // for each variable
+                        foreach (var vuid in vuids)
+                        {
+                            // request from xplane
+                            main.sim.xplane.RequestVariable(simId, vuid);
                         }
                     }
+#else
+                    // simconnect: this whole file's variables were already bundled into a single
+                    // read structure when the file was first loaded (see VariableMgr.RegisterBundle) -
+                    // request it once instead of issuing one RequestDataOnSimObject per variable
+                    Bundle bundle = variableMgr.GetBundle(filename);
+                    if (bundle != null)
+                    {
+                        // simconnect request
+                        ScRequest scRequest = variableMgr.NextRequest;
+                        // add request
+                        scRequests[filename] = scRequest;
+                        scRequestBundles[scRequest] = bundle;
+                        // request the bundle from simconnect
+                        main.sim?.RequestVariable(scRequest, bundle.scDefinition, simId);
+                    }
+#endif
                 }
             }
 
@@ -248,7 +255,7 @@ namespace JoinFS
 
                     // clear requests
                     scRequests.Clear();
-                    scRequestVuids.Clear();
+                    scRequestBundles.Clear();
                 }
             }
 
@@ -259,40 +266,50 @@ namespace JoinFS
             /// <param name="data"></param>
             public void DetectSimconnect(ScRequest scRequest, object data)
             {
-                // check for request
-                if (scRequestVuids.TryGetValue(scRequest, out uint vuid))
+                // check for request - this is now a per-file bundle covering many variables,
+                // not a single variable, so unpack every field in the received structure
+                if (scRequestBundles.TryGetValue(scRequest, out Bundle bundle))
                 {
-                    // check for variable
-                    if (variableMgr.definitions.TryGetValue(vuid, out Definition definition))
+                    // for each bundled variable
+                    for (int index = 0; index < bundle.vuids.Count; index++)
                     {
-                        switch (definition.type)
+                        uint vuid = bundle.vuids[index];
+
+                        // check for variable
+                        if (variableMgr.definitions.TryGetValue(vuid, out Definition definition))
                         {
-                            case Definition.Type.INTEGER:
-                                {
-                                    // get new value
-                                    int value = ((Sim.IntegerStruct)data).value;
-                                    // check for mask
-                                    if (definition.mask != 0)
+                            // get the value of this field from the bundle structure
+                            object fieldValue = bundle.fields[index].GetValue(data);
+
+                            switch (definition.type)
+                            {
+                                case Definition.Type.INTEGER:
                                     {
-                                        // apply mask
-                                        value = (value & definition.mask) != 0 ? 1 : 0;
+                                        // get new value
+                                        int value = (int)fieldValue;
+                                        // check for mask
+                                        if (definition.mask != 0)
+                                        {
+                                            // apply mask
+                                            value = (value & definition.mask) != 0 ? 1 : 0;
+                                        }
+                                        // detect integer
+                                        DetectInteger(vuid, ConvertFromSimConnect(definition.scUnits, value), false);
                                     }
-                                    // detect integer
-                                    DetectInteger(vuid, ConvertFromSimConnect(definition.scUnits, value), false);
-                                }
-                                break;
-                            case Definition.Type.FLOAT:
-                                {
-                                    // detect float
-                                    DetectFloat(vuid, ((Sim.FloatStruct)data).value, false);
-                                }
-                                break;
-                            case Definition.Type.STRING8:
-                                {
-                                    // detect string8
-                                    DetectString8(vuid, ((Sim.String8Struct)data).value);
-                                }
-                                break;
+                                    break;
+                                case Definition.Type.FLOAT:
+                                    {
+                                        // detect float
+                                        DetectFloat(vuid, (float)fieldValue, false);
+                                    }
+                                    break;
+                                case Definition.Type.STRING8:
+                                    {
+                                        // detect string8
+                                        DetectString8(vuid, (string)fieldValue);
+                                    }
+                                    break;
+                            }
                         }
                     }
                 }
