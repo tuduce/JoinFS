@@ -291,8 +291,20 @@
   <data name="Shortcuts_Network" xml:space="preserve">
     <value>Включить / выключить состояние сети</value>
   </data>
+  <data name="Shortcuts_Overdub" xml:space="preserve">
+    <value>Начать запись с наложением</value>
+  </data>
+  <data name="Shortcuts_Record" xml:space="preserve">
+    <value>Начать запись выбранного самолета</value>
+  </data>
+  <data name="Shortcuts_Replay" xml:space="preserve">
+    <value>Воспроизведение / пауза самолета, сохраненного в рекордере</value>
+  </data>
   <data name="Shortcuts_Simulator" xml:space="preserve">
     <value>Включение / выключение состояния симулятора</value>
+  </data>
+  <data name="Shortcuts_Stop" xml:space="preserve">
+    <value>Остановить запись / воспроизведение</value>
   </data>
   <data name="SingleProp" xml:space="preserve">
     <value>SingleProp</value>
