@@ -98,7 +98,7 @@ namespace JoinFS
         void RefreshWindow()
         {
             // rows
-            DataGridViewRow[] rows = new DataGridViewRow[6];
+            DataGridViewRow[] rows = new DataGridViewRow[10];
             // for each row
             for (int index = 0; index < rows.Length; index++)
             {
@@ -131,6 +131,22 @@ namespace JoinFS
             rows[5].Cells[0].Style.ForeColor = Settings.Default.ShortcutFollow ? Settings.Default.ColourActiveText : Settings.Default.ColourWaitingText;
             rows[5].Cells[0].Value = main.mainForm ?. followShortcut.combination;
             rows[5].Cells[1].Value = Resources.Strings.Shortcuts_Follow;
+            rows[6].Cells[0].Style.BackColor = Settings.Default.ShortcutRecord ? Settings.Default.ColourActiveBackground : Settings.Default.ColourWaitingBackground;
+            rows[6].Cells[0].Style.ForeColor = Settings.Default.ShortcutRecord ? Settings.Default.ColourActiveText : Settings.Default.ColourWaitingText;
+            rows[6].Cells[0].Value = main.mainForm ?. recordShortcut.combination;
+            rows[6].Cells[1].Value = Resources.Strings.Shortcuts_Record;
+            rows[7].Cells[0].Style.BackColor = Settings.Default.ShortcutOverdub ? Settings.Default.ColourActiveBackground : Settings.Default.ColourWaitingBackground;
+            rows[7].Cells[0].Style.ForeColor = Settings.Default.ShortcutOverdub ? Settings.Default.ColourActiveText : Settings.Default.ColourWaitingText;
+            rows[7].Cells[0].Value = main.mainForm ?. overdubShortcut.combination;
+            rows[7].Cells[1].Value = Resources.Strings.Shortcuts_Overdub;
+            rows[8].Cells[0].Style.BackColor = Settings.Default.ShortcutStop ? Settings.Default.ColourActiveBackground : Settings.Default.ColourWaitingBackground;
+            rows[8].Cells[0].Style.ForeColor = Settings.Default.ShortcutStop ? Settings.Default.ColourActiveText : Settings.Default.ColourWaitingText;
+            rows[8].Cells[0].Value = main.mainForm ?. stopShortcut.combination;
+            rows[8].Cells[1].Value = Resources.Strings.Shortcuts_Stop;
+            rows[9].Cells[0].Style.BackColor = Settings.Default.ShortcutReplay ? Settings.Default.ColourActiveBackground : Settings.Default.ColourWaitingBackground;
+            rows[9].Cells[0].Style.ForeColor = Settings.Default.ShortcutReplay ? Settings.Default.ColourActiveText : Settings.Default.ColourWaitingText;
+            rows[9].Cells[0].Value = main.mainForm ?. replayShortcut.combination;
+            rows[9].Cells[1].Value = Resources.Strings.Shortcuts_Replay;
 
             // clear existing cells
             DataGrid_Shortcuts.Rows.Clear();
@@ -219,6 +235,10 @@ namespace JoinFS
                 case 3: ShowOption(Settings.Default.ShortcutHandOver); break;
                 case 4: ShowOption(Settings.Default.ShortcutEnterCockpit); break;
                 case 5: ShowOption(Settings.Default.ShortcutFollow); break;
+                case 6: ShowOption(Settings.Default.ShortcutRecord); break;
+                case 7: ShowOption(Settings.Default.ShortcutOverdub); break;
+                case 8: ShowOption(Settings.Default.ShortcutStop); break;
+                case 9: ShowOption(Settings.Default.ShortcutReplay); break;
             }
 
             // check for valid selection
@@ -240,6 +260,10 @@ namespace JoinFS
                 case 3: Settings.Default.ShortcutHandOver = true; break;
                 case 4: Settings.Default.ShortcutEnterCockpit = true; break;
                 case 5: Settings.Default.ShortcutFollow = true; break;
+                case 6: Settings.Default.ShortcutRecord = true; break;
+                case 7: Settings.Default.ShortcutOverdub = true; break;
+                case 8: Settings.Default.ShortcutStop = true; break;
+                case 9: Settings.Default.ShortcutReplay = true; break;
             }
 
             RefreshWindow();
@@ -257,6 +281,10 @@ namespace JoinFS
                 case 3: Settings.Default.ShortcutHandOver = false; break;
                 case 4: Settings.Default.ShortcutEnterCockpit = false; break;
                 case 5: Settings.Default.ShortcutFollow = false; break;
+                case 6: Settings.Default.ShortcutRecord = false; break;
+                case 7: Settings.Default.ShortcutOverdub = false; break;
+                case 8: Settings.Default.ShortcutStop = false; break;
+                case 9: Settings.Default.ShortcutReplay = false; break;
             }
 
             RefreshWindow();
@@ -275,6 +303,10 @@ namespace JoinFS
                 case 3: shortcutForm.combination = main.mainForm ?. handOverShortcut.combination; break;
                 case 4: shortcutForm.combination = main.mainForm ?. enterShortcut.combination; break;
                 case 5: shortcutForm.combination = main.mainForm ?. followShortcut.combination; break;
+                case 6: shortcutForm.combination = main.mainForm ?. recordShortcut.combination; break;
+                case 7: shortcutForm.combination = main.mainForm ?. overdubShortcut.combination; break;
+                case 8: shortcutForm.combination = main.mainForm ?. stopShortcut.combination; break;
+                case 9: shortcutForm.combination = main.mainForm ?. replayShortcut.combination; break;
             }
 
             // initialize key combination
@@ -291,6 +323,10 @@ namespace JoinFS
                     case 3: Settings.Default.ShortcutHandOverKey = shortcutForm.combination; break;
                     case 4: Settings.Default.ShortcutEnterKey = shortcutForm.combination; break;
                     case 5: Settings.Default.ShortcutFollowKey = shortcutForm.combination; break;
+                    case 6: Settings.Default.ShortcutRecordKey = shortcutForm.combination; break;
+                    case 7: Settings.Default.ShortcutOverdubKey = shortcutForm.combination; break;
+                    case 8: Settings.Default.ShortcutStopKey = shortcutForm.combination; break;
+                    case 9: Settings.Default.ShortcutReplayKey = shortcutForm.combination; break;
                 }
                 // reload shortcuts
                 main.mainForm ?. LoadShortcuts();

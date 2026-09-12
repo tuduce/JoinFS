@@ -886,7 +886,55 @@ namespace JoinFS.Properties {
                 this["ShortcutFollow"] = value;
             }
         }
-        
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool ShortcutRecord {
+            get {
+                return ((bool)(this["ShortcutRecord"]));
+            }
+            set {
+                this["ShortcutRecord"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool ShortcutOverdub {
+            get {
+                return ((bool)(this["ShortcutOverdub"]));
+            }
+            set {
+                this["ShortcutOverdub"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool ShortcutStop {
+            get {
+                return ((bool)(this["ShortcutStop"]));
+            }
+            set {
+                this["ShortcutStop"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool ShortcutReplay {
+            get {
+                return ((bool)(this["ShortcutReplay"]));
+            }
+            set {
+                this["ShortcutReplay"] = value;
+            }
+        }
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("True")]
@@ -1486,7 +1534,55 @@ namespace JoinFS.Properties {
                 this["ShortcutFollowKey"] = value;
             }
         }
-        
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("CTRL+SHIFT+R")]
+        public string ShortcutRecordKey {
+            get {
+                return ((string)(this["ShortcutRecordKey"]));
+            }
+            set {
+                this["ShortcutRecordKey"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("CTRL+SHIFT+O")]
+        public string ShortcutOverdubKey {
+            get {
+                return ((string)(this["ShortcutOverdubKey"]));
+            }
+            set {
+                this["ShortcutOverdubKey"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("CTRL+SHIFT+X")]
+        public string ShortcutStopKey {
+            get {
+                return ((string)(this["ShortcutStopKey"]));
+            }
+            set {
+                this["ShortcutStopKey"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("CTRL+SHIFT+P")]
+        public string ShortcutReplayKey {
+            get {
+                return ((string)(this["ShortcutReplayKey"]));
+            }
+            set {
+                this["ShortcutReplayKey"] = value;
+            }
+        }
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
