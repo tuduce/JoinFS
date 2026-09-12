@@ -14,7 +14,21 @@ jobs:
 
     strategy:
       matrix:
-        configuration: [FS2024, FS2020, FSX, P3D, XPLANE, CONSOLE]
+        include:
+          - configuration: FS2024
+            arch: x64
+          - configuration: FS2020
+            arch: x64
+          - configuration: FSX
+            arch: x86
+          - configuration: P3D
+            arch: x86
+          - configuration: XPLANE
+            arch: x64
+          - configuration: CONSOLE
+            arch: x64
+          - configuration: CONSOLE
+            arch: AMD64
 
     runs-on: self-hosted
 
@@ -28,6 +42,16 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      
+      - name: Set VERSION variable
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $ver = "${{ github.event.inputs.VERSION }}"
+          } else {
+            $ver = "${{ github.ref_name }}" -replace "^v", ""
+          }
+          "VERSION=$ver" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
 #      - name: Install .NET Core
 #        uses: actions/setup-dotnet@v4
@@ -47,18 +71,28 @@ jobs:
         run: dotnet restore ${env:Solution_Name} /p:Configuration=${{ matrix.configuration }}
 
       - name: Build App Variants
-        run: dotnet build ${env:App_Project} -c ${{ matrix.configuration }}
+        run: dotnet build ${env:App_Project} -c ${{ matrix.configuration }} /p:PlatformTarget=${{ matrix.arch }}
 
       - name: Build Installers
         run: |
           cd JoinFS\Installer\
-          dotnet build JoinFS.wixproj -c ${{ matrix.configuration }}
+          dotnet build JoinFS.wixproj -c ${{ matrix.configuration }} /p:Platform=${{ matrix.arch }}
 
+      - name: Rename Output Files
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path "JoinFS\Installer\bin\" -Include *.msi, *.zip -Recurse | ForEach-Object {
+            $newName = "JoinFS-${{ matrix.configuration }}-${{ matrix.arch }}-${env:VERSION}" + $_.Extension
+            Rename-Item -Path $_.FullName -NewName $newName
+          }
+          
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: JoinFS-${{ matrix.configuration }}
-          path: JoinFS\Installer\bin\${{ matrix.configuration }}\*
+          name: JoinFS-${{ matrix.configuration }}-${{ matrix.arch }}
+          path: |
+            JoinFS\Installer\bin\**\*.msi
+            JoinFS\Installer\bin\**\*.zip
           retention-days: 2
 
   create-release:

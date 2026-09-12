@@ -2219,10 +2219,40 @@ namespace JoinFS
                 // check for valid simconnect
                 if (Connected && aircraft.Created)
                 {
-                    // update controls
-                    DoSimEvent(aircraft.simId, Event.RUDDER_SET, (uint)-ConvertToAxis(aircraftPosition.rudder));
-                    DoSimEvent(aircraft.simId, Event.ELEVATOR_SET, (uint)-ConvertToAxis(aircraftPosition.elevator));
-                    DoSimEvent(aircraft.simId, Event.AILERON_SET, (uint)-ConvertToAxis(aircraftPosition.aileron));
+#if SIMCONNECT
+                    // Only forward raw control-surface axis events to AI/network-model objects, where they're
+                    // purely cosmetic (surface animation for other players watching this traffic fly by).
+                    // Never send them to userAircraft: while remoteFlightControl is true (share cockpit /
+                    // riding along in a recorded or network aircraft), userAircraft's position and orientation
+                    // - including heading - are already being authoritatively driven every frame by
+                    // UpdateSimObjectVelocity's direct SetData(OBJECT_EULER/OBJECT_POSITION/OBJECT_VELOCITY)
+                    // calls. userAircraft is the one SimConnect object with a live, fully-modeled flight
+                    // dynamics engine (ground steering, aerodynamic response to rudder, etc.) - AI objects
+                    // don't react to control axis events the same way. Feeding it a rudder/elevator/aileron
+                    // *event* on top of a hard kinematic override means two independent authorities fight for
+                    // the same rotational degree of freedom every tick: the physics engine tries to rotate the
+                    // airframe in response to the (possibly stale recorded, or simply network-jittery) control
+                    // input, while the kinematic override snaps it straight back to the reported orientation.
+                    // In free air the mismatch is absorbed smoothly, but on/near the ground - where wheel
+                    // friction and nosewheel-steering-to-rudder coupling react sharply and nonlinearly, and
+                    // where UpdateSimObjectVelocity's own ground altitude tolerance is far tighter (frequent
+                    // hard resets rather than smooth extrapolation - see altitudeDeltaLimit there) - the two
+                    // authorities visibly fight, showing up as violent shaking concentrated on the yaw axis
+                    // (rudder/steering being the dominant ground-yaw actuator). How strongly a given aircraft's
+                    // ground-handling model reacts to this varies with its flight model config (tailwheel vs.
+                    // nosewheel coupling strength, ground friction), which is why this only reproduced on some
+                    // aircraft models, and applies equally to live network flight and recording playback, since
+                    // both funnel through this same GetControlledObject-redirected update path.
+                    if (aircraft != userAircraft)
+                    {
+#endif
+                        // update controls
+                        DoSimEvent(aircraft.simId, Event.RUDDER_SET, (uint)-ConvertToAxis(aircraftPosition.rudder));
+                        DoSimEvent(aircraft.simId, Event.ELEVATOR_SET, (uint)-ConvertToAxis(aircraftPosition.elevator));
+                        DoSimEvent(aircraft.simId, Event.AILERON_SET, (uint)-ConvertToAxis(aircraftPosition.aileron));
+#if SIMCONNECT
+                    }
+#endif
                 }
             }
         }
