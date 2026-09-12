@@ -71,6 +71,8 @@ in 26.6.
 - **The public hub list, ban list, model-matching data and the update check** are
   fetched through the jsDelivr CDN (with a fork fallback) instead of
   `raw.githubusercontent.com`, which had started returning HTTP 404.
+- **Fixed yaw trembling after crossing the 2*PI heading boundary** in a recorded
+  plane the user entered the cockpit of.
 
 ## Limitations
 
