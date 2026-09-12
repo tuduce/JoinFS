@@ -145,6 +145,21 @@ namespace JoinFS
         {
             // difference
             double delta = b - a;
+            // Reduce to (-2*PI, 2*PI) before applying the single wrap-around correction below, so the
+            // correction is always sufficient even when a and b have drifted more than one full revolution
+            // apart - e.g. one side is a continuously-unwrapped/accumulated angle (see Recorder's playback
+            // angle unwrapping, which deliberately keeps adding whole revolutions so recorded headings don't
+            // jump at the 0/360 boundary) while the other is a freshly wrapped reading, such as a live
+            // SimConnect heading readback for userAircraft. Without this reduction, a multi-revolution
+            // difference (e.g. ~720 degrees, two aircraft facing the same real heading but represented ~720
+            // degrees apart) left a residual of a whole extra revolution after only one +/-2*PI correction.
+            // That bogus ~360 degree "delta" was being fed into UpdateSimObjectVelocity's angular velocity and
+            // sent straight to a live flight-dynamics object (see the share-cockpit yaw-shake investigation),
+            // commanding a physically nonsensical yaw rate (~9.5 rad/s observed) every time the two
+            // representations happened to be sampled that far apart - producing violent, repeated shaking. The
+            // modulo is a no-op for the normal case (adjacent recorded frames, or two angles already within one
+            // revolution of each other), so this doesn't change behaviour anywhere else AngleDelta is used.
+            delta %= Math.PI * 2.0;
             // move into range
             if (delta < -Math.PI) delta += Math.PI * 2.0f;
             else if (delta > Math.PI) delta -= Math.PI * 2.0f;

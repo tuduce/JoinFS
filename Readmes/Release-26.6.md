@@ -4,7 +4,7 @@
 
 ## Bug Fixes
 
-
+- Fixed yaw trembling after crossing the 2*PI heading boundary in a recorded plane the user entered cockpit.
 
 ## Limitations
 
