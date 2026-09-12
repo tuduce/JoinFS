@@ -283,10 +283,10 @@
     <value>Starten Sie die Overdub-Aufzeichnung</value>
   </data>
   <data name="Shortcuts_Record" xml:space="preserve">
-    <value>Starten Sie die Aufzeichnung des ausgewählten Flugzeugs</value>
+    <value>Starten Sie die Aufzeichnung der ausgewählten Flugzeuge</value>
   </data>
   <data name="Shortcuts_Replay" xml:space="preserve">
-    <value>Spielen Sie das im Rekorder gespeicherte Flugzeug ab / halten Sie es an</value>
+    <value>Spielen Sie die Aufnahme ab / halten Sie die Aufnahme an</value>
   </data>
   <data name="Shortcuts_Simulator" xml:space="preserve">
     <value>Schalten Sie den Simulatorstatus ein / aus</value>
