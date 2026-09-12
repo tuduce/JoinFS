@@ -218,6 +218,18 @@
     <Setting Name="ShortcutFollow" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
+    <Setting Name="ShortcutRecord" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="ShortcutOverdub" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="ShortcutStop" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="ShortcutReplay" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
     <Setting Name="ToolTips" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
@@ -367,6 +379,18 @@
     </Setting>
     <Setting Name="ShortcutFollowKey" Type="System.String" Scope="User">
       <Value Profile="(Default)">CTRL+F</Value>
+    </Setting>
+    <Setting Name="ShortcutRecordKey" Type="System.String" Scope="User">
+      <Value Profile="(Default)">CTRL+SHIFT+R</Value>
+    </Setting>
+    <Setting Name="ShortcutOverdubKey" Type="System.String" Scope="User">
+      <Value Profile="(Default)">CTRL+SHIFT+O</Value>
+    </Setting>
+    <Setting Name="ShortcutStopKey" Type="System.String" Scope="User">
+      <Value Profile="(Default)">CTRL+SHIFT+X</Value>
+    </Setting>
+    <Setting Name="ShortcutReplayKey" Type="System.String" Scope="User">
+      <Value Profile="(Default)">CTRL+SHIFT+P</Value>
     </Setting>
     <Setting Name="FileFlightPlanOnStart" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>

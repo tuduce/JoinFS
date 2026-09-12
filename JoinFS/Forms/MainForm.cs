@@ -296,6 +296,10 @@ namespace JoinFS
         public Shortcut handOverShortcut = new();
         public Shortcut enterShortcut = new();
         public Shortcut followShortcut = new();
+        public Shortcut recordShortcut = new();
+        public Shortcut overdubShortcut = new();
+        public Shortcut stopShortcut = new();
+        public Shortcut replayShortcut = new();
 
         /// <summary>
         /// Check if a particular key is pressed
@@ -385,6 +389,10 @@ namespace JoinFS
             LoadShortcut(Settings.Default.ShortcutHandOverKey, handOverShortcut);
             LoadShortcut(Settings.Default.ShortcutEnterKey, enterShortcut);
             LoadShortcut(Settings.Default.ShortcutFollowKey, followShortcut);
+            LoadShortcut(Settings.Default.ShortcutRecordKey, recordShortcut);
+            LoadShortcut(Settings.Default.ShortcutOverdubKey, overdubShortcut);
+            LoadShortcut(Settings.Default.ShortcutStopKey, stopShortcut);
+            LoadShortcut(Settings.Default.ShortcutReplayKey, replayShortcut);
         }
 
         /// <summary>
@@ -499,6 +507,34 @@ namespace JoinFS
                     main.aircraftForm?.Context_Aircraft_Follow_Click(null, EventArgs.Empty);
                 }
 #endif
+
+                // check if record key pressed
+                if (Settings.Default.ShortcutRecord && CombinationPressed(control, shift, alt, recordShortcut))
+                {
+                    // start recording
+                    main.recorderForm?.Button_Record_Click(null, EventArgs.Empty);
+                }
+
+                // check if overdub key pressed
+                if (Settings.Default.ShortcutOverdub && CombinationPressed(control, shift, alt, overdubShortcut))
+                {
+                    // start overdub
+                    main.recorderForm?.Button_Overdub_Click(null, EventArgs.Empty);
+                }
+
+                // check if stop key pressed
+                if (Settings.Default.ShortcutStop && CombinationPressed(control, shift, alt, stopShortcut))
+                {
+                    // stop recording/playing
+                    main.recorderForm?.Button_Stop_Click(null, EventArgs.Empty);
+                }
+
+                // check if replay key pressed
+                if (Settings.Default.ShortcutReplay && CombinationPressed(control, shift, alt, replayShortcut))
+                {
+                    // toggle replay/pause
+                    main.recorderForm?.Button_Play_Click(null, EventArgs.Empty);
+                }
             }
         }
 

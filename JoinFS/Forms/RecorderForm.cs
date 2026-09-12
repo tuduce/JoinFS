@@ -233,7 +233,7 @@ namespace JoinFS
             }
         }
 
-        private void Button_Record_Click(object sender, EventArgs e)
+        public void Button_Record_Click(object sender, EventArgs e)
         {
             main.mainForm ?. CheckRecording();
 
@@ -252,7 +252,7 @@ namespace JoinFS
             RefreshWindow();
         }
 
-        private void Button_Play_Click(object sender, EventArgs e)
+        public void Button_Play_Click(object sender, EventArgs e)
         {
             lock (main.conch)
             {
@@ -273,7 +273,7 @@ namespace JoinFS
 #endif
         }
 
-        private void Button_Stop_Click(object sender, EventArgs e)
+        public void Button_Stop_Click(object sender, EventArgs e)
         {
             lock (main.conch)
             {
@@ -286,7 +286,7 @@ namespace JoinFS
 #endif
         }
 
-        private void Button_Overdub_Click(object sender, EventArgs e)
+        public void Button_Overdub_Click(object sender, EventArgs e)
         {
             lock (main.conch)
             {
