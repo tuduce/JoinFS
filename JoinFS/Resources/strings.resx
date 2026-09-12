@@ -285,8 +285,20 @@
   <data name="Shortcuts_Network" xml:space="preserve">
     <value>Toggle the network state on/off</value>
   </data>
+  <data name="Shortcuts_Overdub" xml:space="preserve">
+    <value>Start overdub recording</value>
+  </data>
+  <data name="Shortcuts_Record" xml:space="preserve">
+    <value>Start recording the selected aircraft</value>
+  </data>
+  <data name="Shortcuts_Replay" xml:space="preserve">
+    <value>Play/pause replay of the recorded aircraft</value>
+  </data>
   <data name="Shortcuts_Simulator" xml:space="preserve">
     <value>Toggle the simulator state on/off</value>
+  </data>
+  <data name="Shortcuts_Stop" xml:space="preserve">
+    <value>Stop recording/playing</value>
   </data>
   <data name="SingleProp" xml:space="preserve">
     <value>SingleProp</value>

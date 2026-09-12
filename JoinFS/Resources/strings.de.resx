@@ -279,8 +279,20 @@
   <data name="Shortcuts_Network" xml:space="preserve">
     <value>Schalten Sie den Netzwerkstatus ein / aus</value>
   </data>
+  <data name="Shortcuts_Overdub" xml:space="preserve">
+    <value>Starten Sie die Overdub-Aufzeichnung</value>
+  </data>
+  <data name="Shortcuts_Record" xml:space="preserve">
+    <value>Starten Sie die Aufzeichnung der ausgewählten Flugzeuge</value>
+  </data>
+  <data name="Shortcuts_Replay" xml:space="preserve">
+    <value>Spielen Sie die Aufnahme ab / halten Sie die Aufnahme an</value>
+  </data>
   <data name="Shortcuts_Simulator" xml:space="preserve">
     <value>Schalten Sie den Simulatorstatus ein / aus</value>
+  </data>
+  <data name="Shortcuts_Stop" xml:space="preserve">
+    <value>Stoppen Sie die Aufnahme / Wiedergabe</value>
   </data>
   <data name="SingleProp" xml:space="preserve">
     <value>Einmot Prop</value>

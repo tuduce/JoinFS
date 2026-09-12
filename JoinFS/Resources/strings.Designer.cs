@@ -887,7 +887,34 @@ namespace JoinFS.Resources {
                 return ResourceManager.GetString("Shortcuts_Network", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Start overdub recording.
+        /// </summary>
+        internal static string Shortcuts_Overdub {
+            get {
+                return ResourceManager.GetString("Shortcuts_Overdub", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Start recording the selected aircraft.
+        /// </summary>
+        internal static string Shortcuts_Record {
+            get {
+                return ResourceManager.GetString("Shortcuts_Record", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Play/pause replay of the recorded aircraft.
+        /// </summary>
+        internal static string Shortcuts_Replay {
+            get {
+                return ResourceManager.GetString("Shortcuts_Replay", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Toggle the simulator state on/off.
         /// </summary>
@@ -896,7 +923,16 @@ namespace JoinFS.Resources {
                 return ResourceManager.GetString("Shortcuts_Simulator", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Stop recording/playing.
+        /// </summary>
+        internal static string Shortcuts_Stop {
+            get {
+                return ResourceManager.GetString("Shortcuts_Stop", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to SingleProp.
         /// </summary>
