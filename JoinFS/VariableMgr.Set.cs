@@ -224,7 +224,9 @@ namespace JoinFS
                     // read structure when the file was first loaded (see VariableMgr.RegisterBundle) -
                     // request it once instead of issuing one RequestDataOnSimObject per variable
                     Bundle bundle = variableMgr.GetBundle(filename);
-                    if (bundle != null)
+                    // only request it if it actually finished registering with simconnect
+                    // (fields stays null if RegisterVariableBundle hit an error)
+                    if (bundle != null && bundle.fields != null)
                     {
                         // simconnect request
                         ScRequest scRequest = variableMgr.NextRequest;
