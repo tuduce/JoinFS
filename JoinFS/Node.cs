@@ -1581,9 +1581,10 @@ namespace JoinFS
             {
                 // remote node address
                 IPEndPoint endPoint = new(IPAddress.Any, 0);
+                byte[] messageData = null;
                 try
                 {
-                    byte[] messageData = udpClient.Receive(ref endPoint);
+                    messageData = udpClient.Receive(ref endPoint);
 
                     // copy data into message buffer
                     receiveBuffer.SetLength(0);
@@ -1596,9 +1597,494 @@ namespace JoinFS
                     nodeError?.Invoke(ex.Message);
                 }
 
-                // receive the message
-                ReceiveMsg(endPoint);
+                // JFP2 coexistence (docs/protocol-v2-design.md §3): a single byte compare on the
+                // first byte of the datagram routes it to the right stack before anything else is
+                // parsed. Legacy datagrams always start with the low byte of VERSION (0x520B ->
+                // 0x0B on the wire); JFP2 datagrams always start with Jfp2.Envelope.Magic (0xFA),
+                // which can never collide. This is the only line that touches the legacy receive
+                // path (docs/protocol-v2-architecture.md §8.2) - everything else about ReceiveMsg
+                // below is unmodified.
+                if (messageData != null && messageData.Length > 0 && messageData[0] == Jfp2.Envelope.Magic)
+                {
+                    // receive the JFP2 message
+                    Jfp2ReceiveMsg(endPoint, messageData);
+                }
+                else
+                {
+                    // receive the message
+                    ReceiveMsg(endPoint);
+                }
             }
+        }
+
+        #endregion
+
+        #region JFP2
+
+        // JFP2 dead-code landing (docs/protocol-v2-implementation-plan.md Phase 1): a peer already
+        // known via the legacy Join/AddNode/Pulse mesh (i.e. already present in `nodes`) is offered a
+        // Hello handshake. If it answers, we hold a negotiated Jfp2.PeerSession for it, but nothing
+        // yet *uses* that negotiation - no application traffic (Position/Identity/...) has been
+        // ported to JFP2 (that starts at Phase 2). If it never answers, it's marked AssumedLegacy and
+        // left alone. Either way, the legacy path for that peer is completely unaffected.
+
+        /// <summary>
+        /// Number of Hello attempts before giving up and treating a peer as legacy-only.
+        /// </summary>
+        const int JFP2_HELLO_MAX_ATTEMPTS = 5;
+
+        /// <summary>
+        /// Seconds between Hello retries - mirrors the guaranteed-message resend cadence (§4 of
+        /// docs/network-protocol.md) since both are "a small control message, retried until acked".
+        /// </summary>
+        const double JFP2_HELLO_RETRY_INTERVAL = 2.0;
+
+        /// <summary>
+        /// This build's schema offers, sent in every Hello/HelloAck. Negotiator.Resolve already
+        /// handles "neither side offers this class" gracefully (the class simply never gets an
+        /// agreed-version entry, docs/protocol-v2-design.md §5.3), so this list only ever needs to
+        /// grow as later phases port real codecs - nothing else about negotiation changes.
+        /// </summary>
+        static readonly List<Jfp2.SchemaOffer> LocalJfp2Offers =
+        [
+            new Jfp2.SchemaOffer(false, Jfp2.MessageClasses.Status, 1, 1),
+            new Jfp2.SchemaOffer(false, Jfp2.MessageClasses.StatusRequest, 1, 1),
+            new Jfp2.SchemaOffer(false, Jfp2.MessageClasses.Identity, 1, 1),
+            new Jfp2.SchemaOffer(false, Jfp2.MessageClasses.VariableSync, 1, 1),
+            new Jfp2.SchemaOffer(false, Jfp2.MessageClasses.Position, 1, 1),
+            new Jfp2.SchemaOffer(false, Jfp2.MessageClasses.Event, 1, 1),
+            new Jfp2.SchemaOffer(false, Jfp2.MessageClasses.FlightPlan, 1, 1),
+            new Jfp2.SchemaOffer(false, Jfp2.MessageClasses.Notes, 1, 1),
+            new Jfp2.SchemaOffer(false, Jfp2.MessageClasses.Weather, 1, 1),
+            new Jfp2.SchemaOffer(false, Jfp2.MessageClasses.WeatherReply, 1, 1),
+        ];
+
+        /// <summary>
+        /// Delegate shape for handing a decoded-but-not-yet-interpreted JFP2 application-partition
+        /// message up to the application layer (Network.cs) - the JFP2 analogue of the legacy
+        /// receiveNotify. `schemaVersion` is this peer's own locally-resolved
+        /// PeerSession.AgreedAppVersion[messageClass] (docs/protocol-v2-design.md §5.3) - there is no
+        /// per-message version field on the wire to read, unlike the legacy protocol's DataVersion.
+        /// </summary>
+        public delegate void Jfp2ReceiveNotify(IPEndPoint endPoint, Nuid nuid, byte messageClass, byte schemaVersion, ReadOnlySpan<byte> payload);
+        public Jfp2ReceiveNotify jfp2ReceiveNotify;
+
+        /// <summary>
+        /// This build's optional capability bits. None implemented yet.
+        /// </summary>
+        const ulong LocalJfp2Capabilities = (ulong)Jfp2.Capability.None;
+
+        /// <summary>
+        /// Per-peer JFP2 negotiation state, keyed the same way the legacy `nodes` dictionary already
+        /// is (by Nuid) so JFP2 session state rides alongside existing mesh bookkeeping rather than
+        /// duplicating it (docs/protocol-v2-architecture.md §2).
+        /// </summary>
+        readonly Dictionary<Nuid, Jfp2.PeerSession> jfp2Sessions = [];
+
+        /// <summary>
+        /// Next PeerId this node will assign to a new JFP2 peer session. PeerId only needs to be
+        /// unique from this node's own point of view (it is how a remote peer will address us going
+        /// forward), so a simple wrapping counter is sufficient.
+        /// </summary>
+        ushort nextJfp2PeerId = 1;
+
+        ushort NextJfp2PeerId()
+        {
+            // 0 is reserved as "not yet assigned" (a fresh PeerSession's RemoteAssignedId default),
+            // so skip it if the counter ever wraps around.
+            ushort id = nextJfp2PeerId++;
+            if (nextJfp2PeerId == 0) nextJfp2PeerId = 1;
+            return id;
+        }
+
+        /// <summary>
+        /// Find which known Nuid a JFP2 datagram's source endpoint belongs to. JFP2's own envelope
+        /// only carries small negotiated PeerIds (docs/protocol-v2-design.md §4.1), not a Nuid, so the
+        /// very first Hello from a peer - before any PeerId has been assigned - can only be matched
+        /// back to the legacy mesh by its UDP source address, the same way the legacy guaranteed-
+        /// delivery reassembly already matches incoming segments by endpoint.
+        /// </summary>
+        Nuid? FindNuidByEndPoint(IPEndPoint endPoint)
+        {
+            foreach (var kv in nodes)
+            {
+                if (kv.Value.endPoint.Equals(endPoint) || kv.Value.routeEndPoint.Equals(endPoint))
+                {
+                    return kv.Key;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Send any JFP2 datagram (internal or application partition), bypassing the legacy
+        /// sendBuffer/sendWriter machinery entirely - JFP2's envelope has a completely different
+        /// layout, and there is no shared state to protect since the two stacks never touch the same
+        /// buffer.
+        /// </summary>
+        void SendJfp2Datagram(IPEndPoint endPoint, Jfp2.EnvelopeFlags flags, byte rawMessageClass, ushort senderPeerId, ushort recipientPeerId, ReadOnlySpan<byte> payload)
+        {
+            if (!IsOpen || endPoint == null) return;
+
+            byte[] datagram = new byte[Jfp2.Envelope.FixedSize + payload.Length];
+            var envelope = new Jfp2.Envelope(flags, senderPeerId, recipientPeerId, rawMessageClass);
+            envelope.WriteTo(datagram);
+            payload.CopyTo(datagram.AsSpan(Jfp2.Envelope.FixedSize));
+
+            try
+            {
+                udpClient.Send(datagram, datagram.Length, endPoint);
+            }
+            catch (Exception ex)
+            {
+                nodeError?.Invoke(ex.Message + ", " + endPoint.ToString());
+            }
+        }
+
+        void SendJfp2Hello(Nuid nuid, Jfp2.PeerSession session)
+        {
+            if (!nodes.TryGetValue(nuid, out Node node)) return;
+
+            var hello = new Jfp2.HandshakeMessage
+            {
+                ProtoMajorMin = Jfp2.Envelope.ProtoMajor,
+                ProtoMajorMax = Jfp2.Envelope.ProtoMajor,
+                Capabilities = LocalJfp2Capabilities,
+                SelfAssignedId = session.LocalAssignedId,
+                Offers = new List<Jfp2.SchemaOffer>(LocalJfp2Offers),
+            };
+            SendJfp2Datagram(node.routeEndPoint, Jfp2.EnvelopeFlags.Internal, Jfp2.MessageClasses.Hello, session.LocalAssignedId, session.RemoteAssignedId, hello.Serialize());
+            nodeDebug?.Invoke("JFP2: Send Hello to " + nuid + " (attempt " + session.HelloAttempts + ")");
+        }
+
+        void SendJfp2HelloAck(IPEndPoint endPoint, Jfp2.PeerSession session, byte result)
+        {
+            var ack = new Jfp2.HandshakeMessage
+            {
+                ProtoMajorMin = Jfp2.Envelope.ProtoMajor,
+                ProtoMajorMax = Jfp2.Envelope.ProtoMajor,
+                Capabilities = LocalJfp2Capabilities,
+                SelfAssignedId = session.LocalAssignedId,
+                Result = result,
+                Offers = new List<Jfp2.SchemaOffer>(LocalJfp2Offers),
+            };
+            SendJfp2Datagram(endPoint, Jfp2.EnvelopeFlags.Internal, Jfp2.MessageClasses.HelloAck, session.LocalAssignedId, session.RemoteAssignedId, ack.Serialize());
+        }
+
+        void HandleJfp2Hello(IPEndPoint endPoint, ReadOnlySpan<byte> payload)
+        {
+            Jfp2.HandshakeMessage hello = Jfp2.HandshakeMessage.Deserialize(payload);
+
+            // Only negotiate with peers already known via the legacy mesh (Join/AddNode/Pulse) -
+            // see docs/protocol-v2-architecture.md §3's sequence diagram, where the legacy
+            // Join/JoinReply exchange always happens before any Hello.
+            Nuid? nuid = FindNuidByEndPoint(endPoint);
+            if (nuid == null)
+            {
+                nodeDebug?.Invoke("JFP2: Hello from unknown endpoint " + endPoint + " - ignored (not in legacy mesh yet)");
+                return;
+            }
+
+            if (!jfp2Sessions.TryGetValue(nuid.Value, out Jfp2.PeerSession session))
+            {
+                session = new Jfp2.PeerSession { LocalAssignedId = NextJfp2PeerId() };
+                jfp2Sessions[nuid.Value] = session;
+            }
+            session.RemoteAssignedId = hello.SelfAssignedId;
+
+            if (hello.ProtoMajorMin > Jfp2.Envelope.ProtoMajor || hello.ProtoMajorMax < Jfp2.Envelope.ProtoMajor)
+            {
+                // incompatible envelope version - reply with rejection, never negotiate app versions
+                SendJfp2HelloAck(endPoint, session, result: 1);
+                nodeDebug?.Invoke("JFP2: Hello from " + nuid.Value + " - incompatible ProtoMajor range [" + hello.ProtoMajorMin + "," + hello.ProtoMajorMax + "]");
+                return;
+            }
+
+            Jfp2.Negotiator.Resolve(session, LocalJfp2Capabilities, LocalJfp2Offers, hello.Capabilities, hello.Offers);
+            session.HandshakeComplete = true;
+            session.AssumedLegacy = false;
+
+            nodeDebug?.Invoke("JFP2: Hello from " + nuid.Value + " - handshake complete, replying with HelloAck");
+            SendJfp2HelloAck(endPoint, session, result: 0);
+        }
+
+        void HandleJfp2HelloAck(IPEndPoint endPoint, ReadOnlySpan<byte> payload)
+        {
+            Jfp2.HandshakeMessage ack = Jfp2.HandshakeMessage.Deserialize(payload);
+
+            Nuid? nuid = FindNuidByEndPoint(endPoint);
+            if (nuid == null || !jfp2Sessions.TryGetValue(nuid.Value, out Jfp2.PeerSession session))
+            {
+                // no outstanding Hello we recognize this reply as answering - ignore
+                return;
+            }
+
+            if (ack.Result != 0)
+            {
+                // peer rejected our Hello (incompatible ProtoMajor) - fall back to legacy for now
+                session.AssumedLegacy = true;
+                nodeDebug?.Invoke("JFP2: HelloAck from " + nuid.Value + " - rejected (result=" + ack.Result + "), assuming legacy-only");
+                return;
+            }
+
+            session.RemoteAssignedId = ack.SelfAssignedId;
+            Jfp2.Negotiator.Resolve(session, LocalJfp2Capabilities, LocalJfp2Offers, ack.Capabilities, ack.Offers);
+            session.HandshakeComplete = true;
+
+            nodeDebug?.Invoke("JFP2: HelloAck from " + nuid.Value + " - handshake complete");
+        }
+
+        /// <summary>
+        /// Entry point for every JFP2 datagram, dispatched from ReceiveMessages() by magic byte.
+        /// Mirrors the shape of ReceiveMsg (parse header, then switch on message class) but is
+        /// otherwise completely independent of it - no shared buffers, no shared parsing state.
+        /// </summary>
+        void Jfp2ReceiveMsg(IPEndPoint endPoint, byte[] messageData)
+        {
+            // check if address is banned (same policy as the legacy stack)
+            if (banList.Find(a => a.Equals(endPoint.Address)) != null)
+            {
+                return;
+            }
+
+            try
+            {
+                Jfp2.Envelope envelope = Jfp2.Envelope.ReadFrom(messageData, out int consumed);
+                ReadOnlySpan<byte> payload = messageData.AsSpan(consumed);
+
+                if (!envelope.IsInternal)
+                {
+                    // Application-partition message (Status/... as of Phase 2). Hand it to the
+                    // application layer (Network.cs) via jfp2ReceiveNotify, the JFP2 analogue of the
+                    // legacy receiveNotify - but only for a peer we actually have a completed,
+                    // non-AssumedLegacy negotiation with, and only for a class it actually agreed on.
+                    // A well-behaved peer never sends a class it didn't negotiate; these checks are
+                    // purely defensive (e.g. against a stale PeerSession after a peer restarted).
+                    Nuid? appNuid = FindNuidByEndPoint(endPoint);
+                    if (appNuid == null)
+                    {
+                        nodeDebug?.Invoke("JFP2: application message from unknown endpoint " + endPoint + " - ignored");
+                        return;
+                    }
+                    if (!jfp2Sessions.TryGetValue(appNuid.Value, out Jfp2.PeerSession appSession) || !appSession.HandshakeComplete)
+                    {
+                        nodeDebug?.Invoke("JFP2: application message from " + appNuid.Value + " with no completed handshake - ignored");
+                        return;
+                    }
+                    byte agreedVersion = appSession.AgreedAppVersion[envelope.RawMessageClass];
+                    if (agreedVersion == 0)
+                    {
+                        nodeDebug?.Invoke("JFP2: application message class " + envelope.RawMessageClass + " from " + appNuid.Value + " was never agreed on - ignored");
+                        return;
+                    }
+                    jfp2ReceiveNotify?.Invoke(endPoint, appNuid.Value, envelope.RawMessageClass, agreedVersion, payload);
+                    return;
+                }
+
+                switch (envelope.RawMessageClass)
+                {
+                    case Jfp2.MessageClasses.Hello:
+                        HandleJfp2Hello(endPoint, payload);
+                        break;
+
+                    case Jfp2.MessageClasses.HelloAck:
+                        HandleJfp2HelloAck(endPoint, payload);
+                        break;
+
+                    default:
+                        // Join/Leave/Pulse/Pathfinder-equivalent JFP2 messages are out of scope for
+                        // Phase 1 - the legacy mesh-management messages already do this job.
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                nodeError?.Invoke("ERROR: Failed to read JFP2 message: " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Offer/retry a Hello to every peer already known via the legacy mesh. Called once per tick
+        /// from DoWork(), right alongside DoPulse() - same thread, same lock, no new concurrency
+        /// (docs/protocol-v2-architecture.md §8).
+        /// </summary>
+        void DoJfp2Handshake()
+        {
+            foreach (var kv in nodes)
+            {
+                Nuid nuid = kv.Key;
+                Node node = kv.Value;
+
+                if (!jfp2Sessions.TryGetValue(nuid, out Jfp2.PeerSession session))
+                {
+                    // JFP2's envelope carries no routable Nuid, only small per-peer PeerIds meaningful
+                    // solely to the two negotiating parties (docs/protocol-v2-design.md §4.1) - unlike
+                    // every legacy message, which embeds a real Recipient Nuid a relay node can act on
+                    // without understanding the payload (network-protocol.md §6.3). A Hello sent to an
+                    // indirect peer's routeEndPoint therefore lands on the relay itself, which has no
+                    // way to know it should forward an opaque JFP2 datagram - best case it's silently
+                    // dropped, worst case a JFP2-capable relay completes a handshake *as itself*,
+                    // leaving the true originator believing it negotiated with a peer it never reached.
+                    // Until JFP2 has its own relay/translation mechanism (the Jfp2Bridge work), only
+                    // ever attempt Hello with peers we're DIRECTLY connected to. An indirect peer is
+                    // silently skipped here (no session, no AssumedLegacy) rather than given up on
+                    // permanently, so it's picked up automatically the moment Pathfinder establishes a
+                    // direct path - see also TryGetJfp2AppPeer, which re-checks Direct on every send so
+                    // a peer that goes indirect again after a completed handshake safely falls back to
+                    // legacy instead of sending JFP2 into a routeEndpoint that no longer reaches it.
+                    if (!node.Direct)
+                    {
+                        continue;
+                    }
+
+                    // first time we've seen this peer - offer a Hello immediately
+                    session = new Jfp2.PeerSession { LocalAssignedId = NextJfp2PeerId() };
+                    jfp2Sessions[nuid] = session;
+                    session.HelloAttempts = 1;
+                    session.NextHelloAttempt = main.ElapsedTime + JFP2_HELLO_RETRY_INTERVAL;
+                    SendJfp2Hello(nuid, session);
+                }
+                else if (!session.HandshakeComplete && !session.AssumedLegacy)
+                {
+                    if (!node.Direct)
+                    {
+                        // lost direct connectivity mid-negotiation (e.g. Pathfinder re-routed us
+                        // indirect before Hello completed) - drop the session rather than keep
+                        // retrying at what's now the wrong address; the branch above resumes
+                        // negotiation automatically once direct connectivity returns.
+                        jfp2Sessions.Remove(nuid);
+                    }
+                    else if (main.ElapsedTime > session.NextHelloAttempt)
+                    {
+                        if (session.HelloAttempts >= JFP2_HELLO_MAX_ATTEMPTS)
+                        {
+                            // peer never answered - treat as legacy-only for the rest of the session,
+                            // exactly as if it had never offered JFP2 at all
+                            session.AssumedLegacy = true;
+                            nodeDebug?.Invoke("JFP2: " + nuid + " did not answer Hello after " + session.HelloAttempts + " attempts - assuming legacy-only peer");
+                        }
+                        else
+                        {
+                            session.HelloAttempts++;
+                            session.NextHelloAttempt = main.ElapsedTime + JFP2_HELLO_RETRY_INTERVAL;
+                            SendJfp2Hello(nuid, session);
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// True if `endPoint` maps to a legacy-mesh peer (docs/protocol-v2-architecture.md §3 - JFP2
+        /// negotiation only ever runs against peers already known via legacy Join/AddNode/Pulse) that
+        /// has completed a JFP2 handshake, isn't AssumedLegacy, and has agreed on a version > 0 for
+        /// `messageClass`. When true, `nuid`/`version` give what the caller needs to resolve a codec
+        /// and call SendJfp2Application. Used by the application layer (Network.cs) to decide, per
+        /// send, whether to route a given message through JFP2 or fall back to the untouched legacy
+        /// Write*Message()+Send() path - see docs/protocol-v2-architecture.md §8.2.
+        /// </summary>
+        public bool TryGetJfp2AppPeer(IPEndPoint endPoint, byte messageClass, out Nuid nuid, out byte version)
+        {
+            Nuid? found = FindNuidByEndPoint(endPoint);
+            if (found == null)
+            {
+                nuid = default;
+                version = 0;
+                return false;
+            }
+            nuid = found.Value;
+            return TryGetJfp2AppPeer(nuid, messageClass, out version);
+        }
+
+        /// <summary>
+        /// Same check as the IPEndPoint overload above, but for a caller that already has the peer's
+        /// Nuid (e.g. from LocalNode.GetNodeList()) and would otherwise have to round-trip through an
+        /// endpoint just to look it back up - added in Phase 3 for the per-node send loops
+        /// Identity/VariableSync need (docs/protocol-v2-implementation-plan.md Phase 3).
+        /// </summary>
+        public bool TryGetJfp2AppPeer(Nuid nuid, byte messageClass, out byte version)
+        {
+            version = 0;
+            // Re-check direct connectivity on every call, not just at handshake time: a peer that
+            // completed JFP2 negotiation while direct but has since gone indirect (Pathfinder re-
+            // routed it via a relay) can no longer be reached at its negotiated PeerId/routeEndpoint -
+            // see DoJfp2Handshake's comment for why JFP2 can't just relay through an intermediate node
+            // yet. Falling back to legacy here is silent and automatic; no session cleanup needed.
+            if (!nodes.TryGetValue(nuid, out Node node) || !node.Direct)
+            {
+                return false;
+            }
+            if (!jfp2Sessions.TryGetValue(nuid, out Jfp2.PeerSession session) || !session.HandshakeComplete || session.AssumedLegacy)
+            {
+                return false;
+            }
+            version = session.AgreedAppVersion[messageClass];
+            return version > 0;
+        }
+
+        /// <summary>
+        /// Send an already-encoded JFP2 application-partition payload (unreliable, matching every
+        /// application message class implemented so far) to a peer identified by Nuid. The caller is
+        /// expected to have already checked TryGetJfp2AppPeer and encoded `payload` with the matching
+        /// CodecRegistry-resolved codec.
+        /// </summary>
+        public void SendJfp2Application(Nuid nuid, byte messageClass, ReadOnlySpan<byte> payload)
+        {
+            if (!nodes.TryGetValue(nuid, out Node node) || !jfp2Sessions.TryGetValue(nuid, out Jfp2.PeerSession session))
+            {
+                return;
+            }
+            SendJfp2Datagram(node.routeEndPoint, Jfp2.EnvelopeFlags.None, messageClass, session.LocalAssignedId, session.RemoteAssignedId, payload);
+        }
+
+        /// <summary>
+        /// A peer's JFP2 negotiation state, coarse enough for UI display (see SessionForm's Protocol
+        /// column). `NotApplicable` is for the local node itself - JFP2 negotiation is peer-to-peer,
+        /// so it never applies to "this node" in its own peer list.
+        /// </summary>
+        public enum Jfp2PeerState
+        {
+            /// <summary>No completed handshake yet: either a Hello was just sent and no reply has
+            /// arrived, or (briefly, for well under one tick) no Hello has been attempted yet.</summary>
+            Negotiating,
+            /// <summary>The peer never answered Hello after JFP2_HELLO_MAX_ATTEMPTS retries and is
+            /// being treated as legacy-only for the rest of the session - see DoJfp2Handshake.</summary>
+            Legacy,
+            /// <summary>Handshake complete; this peer negotiated at least the internal Hello/HelloAck
+            /// exchange over JFP2 (individual application message classes may still each be at
+            /// agreed version 0 - see TryGetJfp2AppPeer for the per-class check).</summary>
+            Negotiated,
+            /// <summary>The local node itself, not a peer - JFP2 negotiation doesn't apply.</summary>
+            NotApplicable,
+        }
+
+        /// <summary>
+        /// Coarse JFP2 negotiation state for a peer, for UI display - see Jfp2PeerState. Use
+        /// TryGetJfp2AppPeer instead when the caller actually needs to know whether a specific
+        /// message class can be sent over JFP2 to this peer.
+        /// </summary>
+        public Jfp2PeerState GetNodeJfp2State(Nuid nuid)
+        {
+            if (jfp2Sessions.TryGetValue(nuid, out Jfp2.PeerSession session))
+            {
+                if (session.HandshakeComplete && !session.AssumedLegacy) return Jfp2PeerState.Negotiated;
+                if (session.AssumedLegacy) return Jfp2PeerState.Legacy;
+            }
+            else if (nodes.TryGetValue(nuid, out Node node) && !node.Direct)
+            {
+                // DoJfp2Handshake deliberately never creates a session (never even attempts a Hello)
+                // for an indirect peer - JFP2 has no relay/translation mechanism yet, see that
+                // method's own comment. Without this branch, a peer that is only ever reachable
+                // through a relay (e.g. a hub-mediated connection between two NATed clients) would
+                // report Negotiating forever, since no session will ever exist to resolve it one way
+                // or the other - shown in the Sessions window as a "Pending" that never clears. Report
+                // Legacy here for display purposes only: this doesn't touch jfp2Sessions, so
+                // DoJfp2Handshake still transparently starts real negotiation the moment Pathfinder
+                // establishes a direct path (at which point a session appears and this branch no
+                // longer applies - Negotiating correctly reflects the real handshake in progress).
+                return Jfp2PeerState.Legacy;
+            }
+            return Jfp2PeerState.Negotiating;
         }
 
         #endregion
@@ -2033,6 +2519,8 @@ namespace JoinFS
 
                             // remove node
                             nodes.Remove(nuid);
+                            // drop any JFP2 negotiation state for the departed node too
+                            jfp2Sessions.Remove(nuid);
                             // notify application
                             nodeLeave?.Invoke(nuid);
                         }
@@ -2042,6 +2530,7 @@ namespace JoinFS
                     removeList.Clear();
 
                     DoPulse();
+                    DoJfp2Handshake();
                     DoRouting();
                 }
 

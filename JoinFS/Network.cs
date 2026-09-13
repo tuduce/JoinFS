@@ -263,8 +263,24 @@ namespace JoinFS
                 nodeLeave = NodeLeave,
                 nodeError = main.MonitorEvent,
                 nodeDebug = main.MonitorNetwork,
-                receiveNotify = ReceiveMsg
+                receiveNotify = ReceiveMsg,
+                jfp2ReceiveNotify = HandleJfp2Application
             };
+
+            // register JFP2 codecs (docs/protocol-v2-implementation-plan.md Phase 2) - once per
+            // process; CodecRegistry.Register just overwrites the same (class, version) entry if
+            // called again, so this is safe even though Network's constructor could in principle run
+            // more than once in a process (e.g. multiple JoinFS instances in the same CONSOLE host).
+            Jfp2.Codecs.CodecRegistry.Register(new Jfp2.Codecs.StatusRequestV1Codec());
+            Jfp2.Codecs.CodecRegistry.Register(new Jfp2.Codecs.StatusV1Codec());
+            Jfp2.Codecs.CodecRegistry.Register(new Jfp2.Codecs.IdentityV1Codec());
+            Jfp2.Codecs.CodecRegistry.Register(new Jfp2.Codecs.VariableSyncV1Codec());
+            Jfp2.Codecs.CodecRegistry.Register(new Jfp2.Codecs.PositionV1Codec());
+            Jfp2.Codecs.CodecRegistry.Register(new Jfp2.Codecs.EventV1Codec());
+            Jfp2.Codecs.CodecRegistry.Register(new Jfp2.Codecs.FlightPlanV1Codec());
+            Jfp2.Codecs.CodecRegistry.Register(new Jfp2.Codecs.NotesV1Codec());
+            Jfp2.Codecs.CodecRegistry.Register(new Jfp2.Codecs.WeatherUpdateV1Codec());
+            Jfp2.Codecs.CodecRegistry.Register(new Jfp2.Codecs.WeatherReplyV1Codec());
 
             // override local address when running in Docker or behind NAT
             if (IPAddress.TryParse(main.settingsLocalAddress, out IPAddress localAddress) && localAddress.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
@@ -579,20 +595,16 @@ namespace JoinFS
                     // check for valid endpoint
                     if (entry.endPoint.Port != 0)
                     {
-                        // prepare message
-                        WriteStatusRequestMessage(false);
-                        // send status request to node
-                        localNode.Send(entry.endPoint);
+                        // send status request to node (via JFP2 if negotiated, else legacy)
+                        SendStatusRequest(entry.endPoint, false);
                     }
                     // check if user is unknown
                     else if (onlineUsers.TryGetValue(entry.uuid, out var user))
                     {
                         // update end point
                         entry.endPoint = MakeEndPoint(user);
-                        // prepare message
-                        WriteStatusRequestMessage(false);
-                        // send status request to node
-                        localNode.Send(entry.endPoint);
+                        // send status request to node (via JFP2 if negotiated, else legacy)
+                        SendStatusRequest(entry.endPoint, false);
                     }
                     // check if user is unknown
                     else if (entry.uuid != 0)
@@ -637,7 +649,17 @@ namespace JoinFS
                         submitHub = null;
                     }
 
-                    // prepare message
+                    // Deliberately NOT migrated to SendStatusRequest/JFP2 (docs/protocol-v2-
+                    // implementation-plan.md Phase 2): this prepares ONE legacy sendBuffer and fans
+                    // it out, unmodified, to potentially many hub endpoints below AND (via the
+                    // pendingHubsTimer block further down, on a different timer with no re-prepare of
+                    // its own) to pendingHubList entries too - splitting some of those sends to JFP2
+                    // while others keep relying on this one shared buffer would risk sending stale or
+                    // wrong bytes to whichever endpoint if the eligibility split ever disagreed with
+                    // the buffer's actual contents. Hub/address-book endpoints are also essentially
+                    // never legacy-mesh peers with a JFP2 PeerSession in the first place (Status here
+                    // is directory/discovery traffic, orthogonal to session membership), so there is
+                    // little to gain by touching this call site.
                     WriteStatusRequestMessage((hubStatusRequestCount & 7) == 0);
                     // update count
                     hubStatusRequestCount++;
@@ -920,6 +942,7 @@ namespace JoinFS
             DoSharedData();
             DoAddressBook();
             DoDNS();
+            DoJfp2IdentityCleanup();
 #if !NO_HUBS
             DoOnlineUsers();
             DoHubs();
@@ -1180,10 +1203,8 @@ namespace JoinFS
             {
                 // add hub to pending list
                 pendingHubList.Add(endPoint, (float)main.ElapsedTime + PENDING_HUB_EXPIRE_TIME);
-                // request status
-                WriteStatusRequestMessage(true);
-                // send request
-                localNode.Send(endPoint);
+                // request status (via JFP2 if negotiated, else legacy)
+                SendStatusRequest(endPoint, true);
             }
         }
 
@@ -2296,6 +2317,1190 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Send a Status reply to `endPoint` via JFP2 if that peer has completed JFP2 negotiation and
+        /// agreed on the Status message class; otherwise fall back to the untouched legacy
+        /// WriteStatusMessage()+Send() path, byte-identical to what an unpatched build would send.
+        /// See docs/protocol-v2-implementation-plan.md Phase 2 and docs/protocol-v2-architecture.md
+        /// §8.2 for the split-send pattern this follows.
+        /// </summary>
+        void SendStatus(IPEndPoint endPoint)
+        {
+            if (localNode.TryGetJfp2AppPeer(endPoint, Jfp2.MessageClasses.Status, out LocalNode.Nuid nuid, out byte version))
+            {
+                Jfp2.Codecs.StatusUpdate status = BuildJfp2StatusUpdate();
+                var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.StatusUpdate>(Jfp2.MessageClasses.Status, version);
+                Span<byte> buffer = stackalloc byte[512]; // several free-text hub fields; sized generously
+                int length = codec.Encode(status, buffer);
+                localNode.SendJfp2Application(nuid, Jfp2.MessageClasses.Status, buffer[..length]);
+            }
+            else
+            {
+                WriteStatusMessage();
+                localNode.Send(endPoint);
+            }
+        }
+
+        /// <summary>
+        /// Send a StatusRequest to `endPoint` via JFP2 if negotiated, otherwise fall back to the
+        /// untouched legacy WriteStatusRequestMessage()+Send() path. See SendStatus's remarks.
+        /// </summary>
+        void SendStatusRequest(IPEndPoint endPoint, bool requestHubList)
+        {
+            if (localNode.TryGetJfp2AppPeer(endPoint, Jfp2.MessageClasses.StatusRequest, out LocalNode.Nuid nuid, out byte version))
+            {
+                Jfp2.Codecs.StatusRequestUpdate request = new()
+                {
+                    HubEnabled = main.settingsHub,
+                    HubListRequested = requestHubList,
+                    Uuid = main.uuid,
+                };
+                var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.StatusRequestUpdate>(Jfp2.MessageClasses.StatusRequest, version);
+                Span<byte> buffer = stackalloc byte[Jfp2.Codecs.StatusRequestV1Codec.Size];
+                int length = codec.Encode(request, buffer);
+                localNode.SendJfp2Application(nuid, Jfp2.MessageClasses.StatusRequest, buffer[..length]);
+            }
+            else
+            {
+                WriteStatusRequestMessage(requestHubList);
+                localNode.Send(endPoint);
+            }
+        }
+
+        /// <summary>
+        /// Gather this node's current status fields into a version-agnostic StatusUpdate value - the
+        /// exact same fields WriteStatusMessage() writes to the legacy wire format, so a JFP2-
+        /// negotiated peer learns the same information a legacy peer would.
+        /// </summary>
+        Jfp2.Codecs.StatusUpdate BuildJfp2StatusUpdate()
+        {
+            int atcCount = GetMainAtc(out string airport, out int level);
+
+            ushort planes = 0, helicopters = 0, boats = 0, vehicles = 0;
+            if (main.sim != null)
+            {
+                foreach (var obj in main.sim.objectList)
+                {
+                    if (obj.owner == Sim.Obj.Owner.Network || main.sim.IsBroadcast(obj))
+                    {
+                        if (obj is Sim.Plane) planes++;
+                        else if (obj is Sim.Helicopter) helicopters++;
+                        else if (obj is Sim.Boat) boats++;
+                        else if (obj is Sim.Vehicle) vehicles++;
+                    }
+                }
+            }
+
+            var status = new Jfp2.Codecs.StatusUpdate
+            {
+                Guid = main.guid,
+                AppVersion = Main.Version,
+                Users = (ushort)localUserList.Count,
+                AtcCount = (ushort)atcCount,
+                AtcAirport = airport,
+                AtcLevel = level,
+                Planes = planes,
+                Helicopters = helicopters,
+                Boats = boats,
+                Vehicles = vehicles,
+                HubEnabled = main.settingsHub,
+            };
+
+            if (main.settingsHub)
+            {
+                string address = main.settingsHubDomain;
+                if (address.Length == 0)
+                {
+                    address = Settings.Default.MyIp;
+                }
+                status.Address = address;
+                status.Name = main.settingsHubName;
+                status.About = main.settingsHubAbout;
+                status.Voip = main.settingsHubVoip;
+                status.NextEvent = main.settingsHubEvent;
+                status.Airport = main.settingsAtc ? main.settingsAtcAirport : "";
+                status.ActivityCircle = main.settingsActivityCircle;
+                status.GlobalSession = localNode.GlobalSession;
+                status.PasswordRequired = localNode.Password;
+            }
+
+            return status;
+        }
+
+        /// <summary>
+        /// Dispatch a decoded JFP2 application-partition message to the same downstream logic the
+        /// legacy protocol's ReceiveMsg switch already runs - see HandleStatusRequest/HandleStatus.
+        /// Wired as LocalNode.jfp2ReceiveNotify in this class's constructor.
+        /// </summary>
+        void HandleJfp2Application(IPEndPoint endPoint, LocalNode.Nuid nuid, byte messageClass, byte schemaVersion, ReadOnlySpan<byte> payload)
+        {
+            switch (messageClass)
+            {
+                case Jfp2.MessageClasses.StatusRequest:
+                    try
+                    {
+                        Jfp2.Codecs.StatusRequestUpdate request = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.StatusRequestUpdate>(messageClass, schemaVersion).Decode(payload);
+                        HandleStatusRequest(endPoint, nuid, request);
+                    }
+                    catch (Exception ex)
+                    {
+                        main.MonitorEvent("ERROR: Failed to read JFP2 StatusRequest message. " + ex.Message);
+                    }
+                    break;
+
+                case Jfp2.MessageClasses.Status:
+                    try
+                    {
+                        Jfp2.Codecs.StatusUpdate status = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.StatusUpdate>(messageClass, schemaVersion).Decode(payload);
+                        // A JFP2 peer always sends every Status field explicitly (docs/protocol-v2-
+                        // design.md §1.3/§7.5's whole point is no more conditional/EOF-sensed shapes),
+                        // so there is no legacy dataVersion-gated flags byte to reconstruct here.
+                        HandleStatus(endPoint, nuid, status, legacyDataVersion: 0);
+                    }
+                    catch (Exception ex)
+                    {
+                        main.MonitorEvent("ERROR: Failed to read JFP2 Status message. " + ex.Message);
+                    }
+                    break;
+
+                case Jfp2.MessageClasses.Identity:
+                    try
+                    {
+                        Jfp2.Codecs.IdentityUpdate identity = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.IdentityUpdate>(messageClass, schemaVersion).Decode(payload);
+                        HandleJfp2Identity(nuid, identity);
+                    }
+                    catch (Exception ex)
+                    {
+                        main.MonitorEvent("ERROR: Failed to read JFP2 Identity message. " + ex.Message);
+                    }
+                    break;
+
+                case Jfp2.MessageClasses.VariableSync:
+                    try
+                    {
+                        Jfp2.Codecs.VariableSyncUpdate sync = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.VariableSyncUpdate>(messageClass, schemaVersion).Decode(payload);
+                        HandleJfp2VariableSync(nuid, sync);
+                    }
+                    catch (Exception ex)
+                    {
+                        main.MonitorEvent("ERROR: Failed to read JFP2 VariableSync message. " + ex.Message);
+                    }
+                    break;
+
+                case Jfp2.MessageClasses.Position:
+                    try
+                    {
+                        Jfp2.Codecs.PositionUpdate update = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.PositionUpdate>(messageClass, schemaVersion).Decode(payload);
+                        HandleJfp2Position(nuid, update);
+                    }
+                    catch (Exception ex)
+                    {
+                        main.MonitorEvent("ERROR: Failed to read JFP2 Position message. " + ex.Message);
+                    }
+                    break;
+
+                case Jfp2.MessageClasses.Event:
+                    try
+                    {
+                        Jfp2.Codecs.EventUpdate evt = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.EventUpdate>(messageClass, schemaVersion).Decode(payload);
+                        HandleSimEvent(nuid, evt.ObjectId, evt.EventId, evt.Data);
+                    }
+                    catch (Exception ex)
+                    {
+                        main.MonitorEvent("ERROR: Failed to read JFP2 Event message. " + ex.Message);
+                    }
+                    break;
+
+                case Jfp2.MessageClasses.FlightPlan:
+                    try
+                    {
+                        Jfp2.Codecs.FlightPlanUpdate flightPlan = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.FlightPlanUpdate>(messageClass, schemaVersion).Decode(payload);
+                        // JFP2 always writes every field explicitly (no legacy version-gated shape),
+                        // so there's no real wire "version" byte to pass through - 1 is what every
+                        // legacy sender already writes there unconditionally (see WriteFlightPlanMessage)
+                        HandleFlightPlan(nuid, flightPlan.ObjectId, 1, flightPlan);
+                    }
+                    catch (Exception ex)
+                    {
+                        main.MonitorEvent("ERROR: Failed to read JFP2 FlightPlan message. " + ex.Message);
+                    }
+                    break;
+
+                case Jfp2.MessageClasses.Notes:
+                    try
+                    {
+                        Jfp2.Codecs.NoteUpdate note = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.NoteUpdate>(messageClass, schemaVersion).Decode(payload);
+                        Guid guid = note.Guid;
+                        main.notes.ProcessCommsNote(ref guid, note.Nickname, note.Callsign, note.NoteId, note.Age, note.Channel, note.Text);
+                    }
+                    catch (Exception ex)
+                    {
+                        main.MonitorEvent("ERROR: Failed to read JFP2 Notes message. " + ex.Message);
+                    }
+                    break;
+
+                case Jfp2.MessageClasses.Weather:
+                    try
+                    {
+                        Jfp2.Codecs.WeatherReport report = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.WeatherReport>(messageClass, schemaVersion).Decode(payload);
+                        if (report.Metar.Length > 0)
+                        {
+                            main.sim?.SetWeatherObservation(nuid, report.Metar);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        main.MonitorEvent("ERROR: Failed to read JFP2 Weather message. " + ex.Message);
+                    }
+                    break;
+
+                case Jfp2.MessageClasses.WeatherReply:
+                    try
+                    {
+                        Jfp2.Codecs.WeatherReport report = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.WeatherReport>(messageClass, schemaVersion).Decode(payload);
+                        if (report.Metar.Length > 0)
+                        {
+                            main.sim?.SetWeatherObservation(report.Metar);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        main.MonitorEvent("ERROR: Failed to read JFP2 WeatherReply message. " + ex.Message);
+                    }
+                    break;
+
+                default:
+                    // No other application message class is implemented over JFP2 yet (Phase 6+).
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Shared StatusRequest handling for both the legacy StatusRequest message and its JFP2
+        /// counterpart - the wire read differs per protocol, but what happens once the fields are
+        /// known is identical, matching the "codec decodes into a version-agnostic value, shared logic
+        /// downstream" principle used for the hub translation bridge (docs/protocol-v2-design.md §7.7).
+        /// </summary>
+        void HandleStatusRequest(IPEndPoint endPoint, LocalNode.Nuid nuid, Jfp2.Codecs.StatusRequestUpdate request)
+        {
+            if (localNode.Connected)
+            {
+                // check for hub
+                if (request.HubEnabled)
+                {
+                    // submit new hub
+                    SubmitHub(endPoint);
+                }
+
+                try
+                {
+                    // send reply (via JFP2 or legacy, whichever this peer negotiated - see SendStatus)
+                    SendStatus(endPoint);
+                }
+                catch (Exception ex)
+                {
+                    main.MonitorEvent("Failed to write status reply message: " + ex.Message);
+                }
+
+                // check if this is a hub
+                if (main.settingsHub)
+                {
+                    // check for request
+                    if (request.HubListRequested)
+                    {
+                        // write hub list
+                        SendHubListMessage(endPoint);
+                    }
+
+                    try
+                    {
+                        // register
+                        RegisterOnlineUser(request.Uuid, nuid, (ushort)endPoint.Port);
+                    }
+                    catch { }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Shared Status handling for both the legacy Status message and its JFP2 counterpart. See
+        /// HandleStatusRequest's remarks. `legacyDataVersion` is purely the write-only, never-read
+        /// Hub.dataVersion diagnostic field (docs/network-protocol.md never documents a reader for it,
+        /// and neither does this codebase) - 0 for a JFP2-sourced update, since JFP2 has no single
+        /// scalar analogous to the legacy per-message DataVersion.
+        /// </summary>
+        void HandleStatus(IPEndPoint endPoint, LocalNode.Nuid nuid, Jfp2.Codecs.StatusUpdate status, ushort legacyDataVersion)
+        {
+            // check for hub
+            if (status.HubEnabled)
+            {
+                // remove from pending list
+                pendingHubList.Remove(endPoint);
+
+                // check for maximum IPs and not this hub
+                if (HubCount_IP(nuid) < MAX_IP_HUBS && nuid != localNode.GetLocalNuid())
+                {
+                    // find hub in the list
+                    Hub hub = hubList.Find(h => h.nuid == nuid);
+                    if (hub == null)
+                    {
+                        // create new entry
+                        hub = new Hub();
+                        // add hub to the list
+                        hubList.Add(hub);
+                        // hub has changed
+                        hubListChanged = true;
+                        main.MonitorEvent("Added new hub '" + status.Name + "' - '" + UuidToString(MakeUuid(status.Guid)) + "'");
+                    }
+                    // check if hub changed
+                    else if (
+                        hub.guid.Equals(status.Guid) == false ||
+                        hub.appVersion.Equals(status.AppVersion) == false ||
+                        hub.addressText.Equals(status.Address) == false ||
+                        hub.name.Equals(status.Name) == false ||
+                        hub.about.Equals(status.About) == false ||
+                        hub.voip.Equals(status.Voip) == false ||
+                        hub.nextEvent.Equals(status.NextEvent) == false ||
+                        hub.airport.Equals(status.Airport) == false ||
+                        hub.activityCircle != status.ActivityCircle ||
+                        hub.globalSession != status.GlobalSession ||
+                        hub.password != status.PasswordRequired
+                        )
+                    {
+                        // hub has changed
+                        hubListChanged = true;
+                    }
+
+                    // check for global enabled
+                    if (localNode.GlobalSession)
+                    {
+                        // check for first contact with global hub
+                        if (hub.globalSession == false && status.GlobalSession)
+                        {
+                            // join with session
+                            Join(endPoint, 0);
+                        }
+                    }
+
+                    // update hub details
+                    hub.nuid = nuid;
+                    hub.endPoint = endPoint;
+                    hub.port = (ushort)endPoint.Port;
+                    hub.dateTime = DateTime.Now;
+                    hub.guid = status.Guid;
+                    hub.appVersion = status.AppVersion;
+                    hub.dataVersion = legacyDataVersion;
+                    hub.online = true;
+                    hub.offlineTime = main.ElapsedTime + OFFLINE_TIME;
+                    hub.users = status.Users;
+                    hub.atcCount = status.AtcCount;
+                    hub.atcAirport = status.AtcAirport;
+                    hub.atcLevel = status.AtcLevel;
+                    hub.planes = status.Planes;
+                    hub.helicopters = status.Helicopters;
+                    hub.boats = status.Boats;
+                    hub.vehicles = status.Vehicles;
+                    hub.addressText = status.Address;
+                    hub.name = status.Name;
+                    hub.about = status.About;
+                    hub.voip = status.Voip;
+                    hub.nextEvent = status.NextEvent;
+                    hub.airport = status.Airport;
+                    hub.activityCircle = status.ActivityCircle;
+                    hub.globalSession = status.GlobalSession;
+                    hub.password = status.PasswordRequired;
+                }
+            }
+            else
+            {
+                // check if this used to be a hub
+                Hub hub = hubList.Find(h => h.nuid == nuid);
+                if (hub != null)
+                {
+                    main.MonitorEvent("Removed hub '" + hub.name + "' - '" + UuidToString(MakeUuid(status.Guid)) + "'");
+                    // remove
+                    hubList.Remove(hub);
+                    // hub has changed
+                    hubListChanged = true;
+                }
+            }
+
+            // check for existing entry
+            AddressBook.AddressBookEntry entry = main.addressBook.entries.Find(f => f.endPoint.Address.Equals(endPoint.Address));
+            if (entry != null)
+            {
+                // update entry
+                entry.online = true;
+                entry.offlineTime = main.ElapsedTime + OFFLINE_TIME;
+            }
+        }
+
+        #region JFP2 Identity/VariableSync (Phase 3)
+
+        // docs/protocol-v2-implementation-plan.md Phase 3. Unlike Status (Phase 2), Identity and
+        // VariableSync have no single existing legacy call site to redirect - Identity is brand new
+        // (its fields currently ride inside every ObjectPosition/AircraftPosition tick, see
+        // WriteObjectPositionVelocityMessage/WriteAircraftPositionMessage) and VariableSync unifies
+        // three legacy messages sent from one broadcast-everyone call (Sim.cs's variablesTimer loop).
+        // Both are therefore wired from Sim.cs's existing per-object broadcast loop via the small
+        // per-peer entry points below (SendJfp2IdentityIfNeeded / SendVariableUpdate), each of which
+        // independently decides JFP2 vs legacy for that one peer - see docs/protocol-v2-architecture.md
+        // §8.2's split-send pattern, same idea Phase 2 already used for Status.
+        //
+        // Deliberately out of scope for this phase (see docs/protocol-v2-implementation-plan.md for
+        // the full reasoning): Jfp2Bridge, the hub-role decode/re-encode translator between a JFP2 peer
+        // and a legacy-only peer (design doc §7.7). Direct JFP2<->JFP2 peers get full benefit from what
+        // follows; a hub relaying between a JFP2 peer and a legacy peer still works today via each
+        // peer's own existing legacy fallback (a JFP2 peer talking through a legacy-only hub simply
+        // never negotiates JFP2 with it and uses legacy throughout), it just doesn't get the identity/
+        // variable-sync efficiency win on that hop yet.
+
+        /// <summary>
+        /// How often (seconds) to resend Identity to a peer even if nothing changed, so a peer that
+        /// joins mid-session or missed a single unreliable datagram still converges within a bounded
+        /// window - design doc §6.2 says "on the order of every 3-5 seconds".
+        /// </summary>
+        const double JFP2_IDENTITY_HEARTBEAT_INTERVAL = 4.0;
+
+        /// <summary>
+        /// Last Identity actually sent to a given peer for a given local object, so sends only go out
+        /// on change or heartbeat - see SendJfp2IdentityIfNeeded. Keyed by (Obj.netId, peer Nuid);
+        /// entries are for objects THIS node broadcasts, so netId alone (always one of our own ids) is
+        /// enough without an owner qualifier.
+        /// </summary>
+        class Jfp2IdentitySendState
+        {
+            public bool Sent;
+            public Jfp2.Codecs.IdentityUpdate Last;
+            public double LastSentTime;
+        }
+        readonly Dictionary<(uint NetId, LocalNode.Nuid Peer), Jfp2IdentitySendState> jfp2IdentitySendState = [];
+
+        /// <summary>
+        /// Build this object's current Identity fields, sourced exactly the way
+        /// WriteObjectPositionVelocityMessage/WriteAircraftPositionMessage already source them for the
+        /// legacy wire (JoinFS/Network.cs) - including the existing legacy quirk that a non-Aircraft
+        /// Obj's icaoType/icaoAirline/registration are never populated (only Sim.Aircraft.flightPlan
+        /// carries those), preserved here for parity rather than "fixed", since this is a transport
+        /// migration, not a behavior change.
+        /// </summary>
+        Jfp2.Codecs.IdentityUpdate BuildJfp2IdentityUpdate(Sim.Obj obj)
+        {
+            Sim.Aircraft aircraft = obj as Sim.Aircraft;
+            return new Jfp2.Codecs.IdentityUpdate
+            {
+                ObjectId = obj.netId,
+                IsAircraft = aircraft != null,
+                IsPlane = obj is Sim.Plane,
+                Callsign = aircraft?.flightPlan.callsign ?? "",
+                Model = obj.ModelTitle,
+                Livery = obj.ownerLivery,
+                IcaoType = aircraft?.flightPlan.icaoType ?? "",
+                IcaoAirline = aircraft?.flightPlan.icaoAirline ?? "",
+                Registration = aircraft?.flightPlan.registration ?? "",
+                FlightNumber = aircraft?.flightPlan.flightNumber ?? "",
+                ClassCode = obj.ownerClassCode,
+                Wtc = obj.ownerWtc,
+                ClassCodeConfirmed = obj.ownerClassCodeConfirmed,
+                TypeRole = (byte)obj.typerole,
+            };
+        }
+
+        static bool Jfp2IdentityEquals(in Jfp2.Codecs.IdentityUpdate a, in Jfp2.Codecs.IdentityUpdate b)
+        {
+            return a.IsAircraft == b.IsAircraft && a.IsPlane == b.IsPlane
+                && a.Callsign == b.Callsign && a.Model == b.Model && a.Livery == b.Livery
+                && a.IcaoType == b.IcaoType && a.IcaoAirline == b.IcaoAirline && a.Registration == b.Registration
+                && a.FlightNumber == b.FlightNumber
+                && a.ClassCode == b.ClassCode && a.Wtc == b.Wtc
+                && a.ClassCodeConfirmed == b.ClassCodeConfirmed && a.TypeRole == b.TypeRole;
+        }
+
+        /// <summary>
+        /// Send Identity for `obj` to `peerNuid` if that peer negotiated JFP2 Identity AND (anything
+        /// about the identity changed since the last send to this specific peer, or the heartbeat
+        /// interval elapsed). A no-op for a peer that hasn't negotiated Identity - legacy peers keep
+        /// getting identity fields the unchanged way, inline in every Position message.
+        /// </summary>
+        public void SendJfp2IdentityIfNeeded(LocalNode.Nuid peerNuid, Sim.Obj obj)
+        {
+            if (!localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.Identity, out byte version))
+            {
+                return;
+            }
+
+            Jfp2.Codecs.IdentityUpdate current = BuildJfp2IdentityUpdate(obj);
+            var key = (obj.netId, peerNuid);
+            if (!jfp2IdentitySendState.TryGetValue(key, out Jfp2IdentitySendState state))
+            {
+                state = new Jfp2IdentitySendState();
+                jfp2IdentitySendState[key] = state;
+            }
+
+            bool changed = !state.Sent || !Jfp2IdentityEquals(state.Last, current);
+            bool heartbeatDue = main.ElapsedTime - state.LastSentTime >= JFP2_IDENTITY_HEARTBEAT_INTERVAL;
+            if (!changed && !heartbeatDue)
+            {
+                return;
+            }
+
+            var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.IdentityUpdate>(Jfp2.MessageClasses.Identity, version);
+            Span<byte> buffer = stackalloc byte[512];
+            int length = codec.Encode(current, buffer);
+            localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Identity, buffer[..length]);
+
+            state.Sent = true;
+            state.Last = current;
+            state.LastSentTime = main.ElapsedTime;
+        }
+
+        /// <summary>
+        /// Identity messages received for an object we don't know about yet - cached here so a
+        /// shortly-following JFP2 Position (Phase 4) can use it to create the object, honoring the
+        /// send-side guarantee (Network.SendJfp2Position) that Identity always reaches a peer before
+        /// that object's first Position does (docs/protocol-v2-design.md §7.7). Cleaned up by
+        /// DoJfp2IdentityCleanup alongside jfp2IdentitySendState.
+        /// </summary>
+        readonly Dictionary<(uint NetId, LocalNode.Nuid Sender), Jfp2.Codecs.IdentityUpdate> jfp2PendingIdentity = [];
+
+        /// <summary>
+        /// Apply a received Identity update onto the matching already-known object, or cache it if the
+        /// object doesn't exist locally yet (see jfp2PendingIdentity) - the sender's own Position send
+        /// path guarantees Identity precedes that object's first Position, so this is the normal path
+        /// for a brand-new object, not a fallback.
+        /// </summary>
+        void HandleJfp2Identity(LocalNode.Nuid nuid, Jfp2.Codecs.IdentityUpdate identity)
+        {
+            if (main.sim == null)
+            {
+                return;
+            }
+
+            Sim.Obj obj = main.sim.objectList.Find(o => o.ownerNuid == nuid && o.netId == identity.ObjectId);
+            if (obj == null)
+            {
+                jfp2PendingIdentity[(identity.ObjectId, nuid)] = identity;
+                return;
+            }
+
+            bool modelChanged = identity.Model != obj.ownerModel;
+
+            // same entry point RemoveObjectFromSim/UpdateAircraft already use to apply model/livery/
+            // classCode/wtc/typerole and re-run substitution matching (JoinFS/Sim.cs)
+            main.sim.UpdateObject(obj, identity.Model, identity.Livery, identity.IcaoType, identity.IcaoAirline, identity.ClassCode, identity.Wtc, identity.ClassCodeConfirmed, identity.TypeRole);
+
+            if (modelChanged)
+            {
+                // force a de-spawn/respawn under the new model, matching legacy's own model-change
+                // handling in Sim.UpdateAircraft
+                main.sim.RemoveObjectFromSim(obj);
+            }
+
+            if (obj is Sim.Aircraft aircraft)
+            {
+                bool callsignChanged = identity.Callsign != aircraft.flightPlan.callsign;
+                aircraft.flightPlan.callsign = identity.Callsign;
+                aircraft.flightPlan.registration = identity.Registration;
+                if (callsignChanged)
+                {
+                    // retune ATC ID display, matching legacy's SetAtcId-on-callsign-change behavior
+                    main.sim.SetAtcId(nuid);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Periodic cleanup of jfp2IdentitySendState so it doesn't grow unbounded over a long session
+        /// - entries for a peer that's no longer connected are simply stale bookkeeping. Called from
+        /// DoWork() on a slow timer; cheap enough (a handful of dictionary entries per broadcast
+        /// object) that an occasional pass is more than sufficient.
+        /// </summary>
+        readonly Timer jfp2IdentityCleanupTimer = new(30.0);
+        readonly List<(uint NetId, LocalNode.Nuid Peer)> tempJfp2IdentityKeys = [];
+        readonly List<(uint NetId, LocalNode.Nuid Sender)> tempJfp2PendingIdentityKeys = [];
+        void DoJfp2IdentityCleanup()
+        {
+            if (!jfp2IdentityCleanupTimer.Elapsed(main.ElapsedTime))
+            {
+                return;
+            }
+
+            foreach (var key in jfp2IdentitySendState.Keys)
+            {
+                if (!localNode.NodeReceiveEstablished(key.Peer) && !localNode.NodeSendEstablished(key.Peer))
+                {
+                    tempJfp2IdentityKeys.Add(key);
+                }
+            }
+            foreach (var key in tempJfp2IdentityKeys)
+            {
+                jfp2IdentitySendState.Remove(key);
+            }
+            tempJfp2IdentityKeys.Clear();
+
+            // same idea for jfp2PendingIdentity - a cached Identity whose sender disconnected before
+            // ever sending the matching Position (Phase 4) is just stale bookkeeping
+            foreach (var key in jfp2PendingIdentity.Keys)
+            {
+                if (!localNode.NodeReceiveEstablished(key.Sender) && !localNode.NodeSendEstablished(key.Sender))
+                {
+                    tempJfp2PendingIdentityKeys.Add(key);
+                }
+            }
+            foreach (var key in tempJfp2PendingIdentityKeys)
+            {
+                jfp2PendingIdentity.Remove(key);
+            }
+            tempJfp2PendingIdentityKeys.Clear();
+        }
+
+        /// <summary>
+        /// Maximum VariableEntry count per JFP2 VariableSync datagram - kept comfortably under
+        /// VariableSyncV1Codec's one-byte (255) entry-count cap. A single object's combined integer+
+        /// float+string8 set can in principle approach MAX_INTEGER_VARIABLES+MAX_FLOAT_VARIABLES+
+        /// MAX_STRING8_VARIABLES (100+100+80=280), so this chunks the same way the legacy
+        /// SendIntegerVariablesMessage/etc. already chunk at their own per-type caps.
+        /// </summary>
+        const int JFP2_VARIABLE_SYNC_CHUNK_SIZE = 200;
+
+        /// <summary>
+        /// Send this object's variable set to `peerNuid` via JFP2 VariableSync if that peer negotiated
+        /// it; otherwise falls back to the unchanged legacy SendIntegerVariablesMessage/
+        /// SendFloatVariablesMessage/SendString8VariablesMessage, unicast to that one peer (byte-
+        /// identical content to what a broadcast to that peer would have sent). Callers replace a
+        /// single legacy broadcast-to-everyone call with one call to this method per node in
+        /// LocalNode.GetNodeList(), matching the split-send pattern Position's own call sites already
+        /// use (JoinFS/Sim.cs already loops per-node there) - see Sim.cs's variablesTimer block.
+        /// </summary>
+        public void SendVariableUpdate(LocalNode.Nuid peerNuid, uint netId, Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> string8s, LocalNode.Nuid ownerNuid)
+        {
+            if (localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.VariableSync, out byte version))
+            {
+                SendJfp2VariableSync(peerNuid, netId, integers, floats, string8s, version);
+            }
+            else
+            {
+                SendIntegerVariablesMessage(peerNuid, netId, integers, ownerNuid);
+                SendFloatVariablesMessage(peerNuid, netId, floats, ownerNuid);
+                SendString8VariablesMessage(peerNuid, netId, string8s, ownerNuid);
+            }
+        }
+
+        void SendJfp2VariableSync(LocalNode.Nuid peerNuid, uint netId, Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> string8s, byte version)
+        {
+            int total = integers.Count + floats.Count + string8s.Count;
+            if (total == 0)
+            {
+                return;
+            }
+
+            var entries = new List<Jfp2.Codecs.VariableEntry>(total);
+            foreach (var kv in integers) entries.Add(new Jfp2.Codecs.VariableEntry { Vuid = kv.Key, Kind = Jfp2.Codecs.VariableKind.Int32, IntValue = kv.Value });
+            foreach (var kv in floats) entries.Add(new Jfp2.Codecs.VariableEntry { Vuid = kv.Key, Kind = Jfp2.Codecs.VariableKind.Float32, FloatValue = kv.Value });
+            foreach (var kv in string8s) entries.Add(new Jfp2.Codecs.VariableEntry { Vuid = kv.Key, Kind = Jfp2.Codecs.VariableKind.String8, StringValue = kv.Value });
+
+            var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.VariableSyncUpdate>(Jfp2.MessageClasses.VariableSync, version);
+            for (int offset = 0; offset < entries.Count; offset += JFP2_VARIABLE_SYNC_CHUNK_SIZE)
+            {
+                int count = Math.Min(JFP2_VARIABLE_SYNC_CHUNK_SIZE, entries.Count - offset);
+                var chunk = new Jfp2.Codecs.VariableSyncUpdate { ObjectId = netId, Entries = entries.GetRange(offset, count) };
+                byte[] buffer = new byte[Jfp2.Codecs.VariableSyncV1Codec.HeaderSize + count * Jfp2.Codecs.VariableSyncV1Codec.MaxBytesPerEntry];
+                int length = codec.Encode(chunk, buffer);
+                localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.VariableSync, buffer.AsSpan(0, length));
+            }
+        }
+
+        /// <summary>
+        /// Apply a received VariableSync onto the matching aircraft, mirroring the legacy IntegerVariables/
+        /// FloatVariables/String8Variables receive cases in ReceiveMsg exactly (including the shared-
+        /// cockpit netId==uint.MaxValue branch and recording integration) - just regrouped from one
+        /// self-describing entry list back into the three typed dictionaries those existing Sim.
+        /// UpdateAircraft overloads expect, since nothing downstream needs to change to consume them.
+        /// Matches the legacy receive path's existing scope: non-Aircraft Obj variables are not applied
+        /// here either (Sim.cs's UpdateAircraft(Nuid, uint, Dictionary&lt;...&gt;) overloads are Aircraft-only,
+        /// same gap network-protocol.md/recording-protocol.md already document for the legacy path).
+        /// </summary>
+        void HandleJfp2VariableSync(LocalNode.Nuid nuid, Jfp2.Codecs.VariableSyncUpdate sync)
+        {
+            if (main.sim == null || sync.Entries == null || sync.Entries.Count == 0 || !localNode.Connected)
+            {
+                return;
+            }
+
+            Dictionary<uint, int> integers = null;
+            Dictionary<uint, float> floats = null;
+            Dictionary<uint, string> string8s = null;
+            foreach (var entry in sync.Entries)
+            {
+                switch (entry.Kind)
+                {
+                    case Jfp2.Codecs.VariableKind.Int32:
+                        (integers ??= []).Add(entry.Vuid, entry.IntValue);
+                        break;
+                    case Jfp2.Codecs.VariableKind.Float32:
+                        (floats ??= []).Add(entry.Vuid, entry.FloatValue);
+                        break;
+                    case Jfp2.Codecs.VariableKind.String8:
+                        (string8s ??= []).Add(entry.Vuid, entry.StringValue);
+                        break;
+                }
+            }
+
+            LocalNode.Nuid ownerNuid = nuid;
+            uint netId = sync.ObjectId;
+            if (sync.ObjectId == uint.MaxValue)
+            {
+                // shared cockpit - update the user's own aircraft directly, exactly like the legacy
+                // receive cases' shared-cockpit branch
+                if (main.sim.userAircraft == null)
+                {
+                    return;
+                }
+                ownerNuid = main.sim.userAircraft.ownerNuid;
+                netId = main.sim.userAircraft.netId;
+            }
+
+            ApplyJfp2Variables(ownerNuid, netId, integers, floats, string8s);
+        }
+
+        void ApplyJfp2Variables(LocalNode.Nuid ownerNuid, uint netId, Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> string8s)
+        {
+            if (integers != null)
+            {
+                Sim.Aircraft aircraft = main.sim.UpdateAircraft(ownerNuid, netId, integers);
+                if (aircraft != null && main.recorder.recording && aircraft.record)
+                {
+                    main.recorder.Record(aircraft.recorderObj, integers);
+                }
+            }
+            if (floats != null)
+            {
+                Sim.Aircraft aircraft = main.sim.UpdateAircraft(ownerNuid, netId, floats);
+                if (aircraft != null && main.recorder.recording && aircraft.record)
+                {
+                    main.recorder.Record(aircraft.recorderObj, floats);
+                }
+            }
+            if (string8s != null)
+            {
+                Sim.Aircraft aircraft = main.sim.UpdateAircraft(ownerNuid, netId, string8s);
+                if (aircraft != null && main.recorder.recording && aircraft.record)
+                {
+                    main.recorder.Record(aircraft.recorderObj, string8s);
+                }
+            }
+        }
+
+        #endregion
+
+        #region JFP2 Position (Phase 4)
+
+        // docs/protocol-v2-implementation-plan.md Phase 4. Position is the highest-frequency message
+        // in the system (design doc §2/§6.1) and the reason the whole JFP2 envelope is 8 bytes instead
+        // of 21. Scoped to AIRCRAFT position only, matching the legacy AircraftPosition message - the
+        // generic (non-Aircraft) ObjectPosition message stays entirely on the legacy path this phase;
+        // see the implementation plan for the reasoning (it's materially lower frequency and this keeps
+        // the phase tractable). Every identity-ish field (livery, ICAO type/airline, registration,
+        // class code/WTC, callsign, model, typerole) already moved to Identity in Phase 3 and is
+        // deliberately not repeated here.
+
+        /// <summary>
+        /// Build this aircraft's current motion state into a version-agnostic PositionUpdate, sourced
+        /// exactly the way WriteAircraftPositionMessage already sources the same fields for the legacy
+        /// wire (JoinFS/Network.cs) minus everything that moved to Identity.
+        /// </summary>
+        Jfp2.Codecs.PositionUpdate BuildJfp2PositionUpdate(uint objectId, Sim.Aircraft aircraft, ref Sim.AircraftPosition position, double netTime)
+        {
+            Jfp2.Codecs.PositionStateFlags flags = Jfp2.Codecs.PositionStateFlags.None;
+            if (position.ground != 0) flags |= Jfp2.Codecs.PositionStateFlags.OnGround;
+            if (Settings.Default.ElevationCorrection) flags |= Jfp2.Codecs.PositionStateFlags.ElevationCorrection;
+            if (aircraft.user) flags |= Jfp2.Codecs.PositionStateFlags.UserControlled;
+            if (aircraft.paused) flags |= Jfp2.Codecs.PositionStateFlags.Paused;
+
+            return new Jfp2.Codecs.PositionUpdate
+            {
+                ObjectId = objectId,
+                NetTime = netTime,
+                Latitude = position.latitude,
+                Longitude = position.longitude,
+                Altitude = position.altitude,
+                Pitch = position.pitch,
+                Bank = position.bank,
+                Heading = position.heading,
+                VelocityX = position.velocityX,
+                VelocityY = position.velocityY,
+                VelocityZ = position.velocityZ,
+                AngularVelocityX = position.angularVelocityX,
+                AngularVelocityY = position.angularVelocityY,
+                AngularVelocityZ = position.angularVelocityZ,
+                AccelerationX = position.accelerationX,
+                AccelerationY = position.accelerationY,
+                AccelerationZ = position.accelerationZ,
+                Rudder = position.rudder,
+                Elevator = position.elevator,
+                Aileron = position.aileron,
+                BrakeLeft = position.brakeLeft,
+                BrakeRight = position.brakeRight,
+                Elevation = position.elevation,
+                StaticCgToGround = position.staticCgToGround,
+                StateFlags = flags,
+            };
+        }
+
+        /// <summary>
+        /// The inverse of BuildJfp2PositionUpdate - rebuilds a Sim.AircraftPosition from a decoded
+        /// PositionUpdate for handing to the exact same Sim.UpdateAircraft entry points the legacy
+        /// receive path already uses.
+        /// </summary>
+        static Sim.AircraftPosition ToAircraftPosition(in Jfp2.Codecs.PositionUpdate update)
+        {
+            return new Sim.AircraftPosition
+            {
+                latitude = update.Latitude,
+                longitude = update.Longitude,
+                altitude = update.Altitude,
+                pitch = update.Pitch,
+                bank = update.Bank,
+                heading = update.Heading,
+                velocityX = update.VelocityX,
+                velocityY = update.VelocityY,
+                velocityZ = update.VelocityZ,
+                angularVelocityX = update.AngularVelocityX,
+                angularVelocityY = update.AngularVelocityY,
+                angularVelocityZ = update.AngularVelocityZ,
+                accelerationX = update.AccelerationX,
+                accelerationY = update.AccelerationY,
+                accelerationZ = update.AccelerationZ,
+                rudder = update.Rudder,
+                elevator = update.Elevator,
+                aileron = update.Aileron,
+                brakeLeft = update.BrakeLeft,
+                brakeRight = update.BrakeRight,
+                elevation = update.Elevation,
+                radarAltitude = 0.0f,
+                ground = (update.StateFlags & Jfp2.Codecs.PositionStateFlags.OnGround) != 0 ? 1 : 0,
+                staticCgToGround = update.StaticCgToGround,
+            };
+        }
+
+        /// <summary>
+        /// Send `aircraft`'s position to `peerNuid` via JFP2 Position if negotiated. Returns true if
+        /// the caller should NOT also send legacy (either because it was actually sent via JFP2, or
+        /// because it was deliberately withheld this one tick - see the ordering note below); false
+        /// means this peer hasn't negotiated Position and the caller should use its own already-
+        /// prepared legacy Write*Message()+Send() path, unchanged.
+        /// </summary>
+        public bool SendJfp2Position(LocalNode.Nuid peerNuid, Sim.Aircraft aircraft, ref Sim.AircraftPosition position, double netTime, bool sharedCockpit = false)
+        {
+            if (!localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.Position, out byte version))
+            {
+                return false;
+            }
+
+            uint objectId = sharedCockpit ? uint.MaxValue : aircraft.netId;
+
+            if (!sharedCockpit)
+            {
+                // Guarantee Identity reaches this peer before this object's first-ever Position does
+                // (docs/protocol-v2-design.md §7.7) - SendJfp2IdentityIfNeeded is always called
+                // immediately before this in the same per-object/per-peer loop (Sim.cs), so if it
+                // hasn't sent Identity to this peer even once yet, withhold Position for this one tick
+                // rather than let it arrive first. The object doesn't exist on the receiving end before
+                // Identity arrives anyway, so losing one tick of position for a brand-new object is
+                // unobservable - and this peer has already committed to JFP2 for Position, so "handled"
+                // (no legacy fallback) is still the right return value.
+                if (!jfp2IdentitySendState.TryGetValue((aircraft.netId, peerNuid), out Jfp2IdentitySendState identityState) || !identityState.Sent)
+                {
+                    return true;
+                }
+            }
+
+            Jfp2.Codecs.PositionUpdate update = BuildJfp2PositionUpdate(objectId, aircraft, ref position, netTime);
+            var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.PositionUpdate>(Jfp2.MessageClasses.Position, version);
+            Span<byte> buffer = stackalloc byte[Jfp2.Codecs.PositionV1Codec.Size];
+            int length = codec.Encode(update, buffer);
+            localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Position, buffer[..length]);
+            return true;
+        }
+
+        /// <summary>
+        /// Apply a received Position update. Mirrors the legacy AircraftPosition receive case
+        /// (Network.ReceiveMsg) exactly: the shared-cockpit netId==uint.MaxValue branch updates the
+        /// local user's own aircraft directly; otherwise the update is gated by the same "user OR
+        /// MultipleObjects permission" rule, and a brand-new object is created using whatever Identity
+        /// was cached for it (see jfp2PendingIdentity / HandleJfp2Identity) - the send-side ordering
+        /// guarantee means that cache should always be populated by the time Position for a genuinely
+        /// new object arrives; if it isn't (packet loss), the update is dropped and a later Position
+        /// tick (after the next Identity heartbeat, at most ~4s) picks it up instead.
+        /// </summary>
+        void HandleJfp2Position(LocalNode.Nuid nuid, Jfp2.Codecs.PositionUpdate update)
+        {
+            if (main.sim == null || !localNode.Connected)
+            {
+                return;
+            }
+
+            bool userControlled = (update.StateFlags & Jfp2.Codecs.PositionStateFlags.UserControlled) != 0;
+            Sim.AircraftPosition aircraftPosition = ToAircraftPosition(update);
+
+            if (update.ObjectId == uint.MaxValue)
+            {
+                // shared cockpit - update the user's own aircraft directly, exactly like the legacy
+                // AircraftPosition receive case's shared-cockpit branch
+                if (main.sim.userAircraft != null && shareFlightControls == nuid)
+                {
+                    main.sim.UpdateAircraft(main.sim.userAircraft, update.NetTime, aircraftPosition);
+                }
+                return;
+            }
+
+            if (!userControlled && !main.log.MultipleObjects(nuid) && !main.settingsMultiObjects)
+            {
+                return;
+            }
+
+            Sim.Aircraft aircraft = main.sim.objectList.Find(o => o.ownerNuid == nuid && o.netId == update.ObjectId) as Sim.Aircraft;
+
+            if (aircraft == null)
+            {
+                if (!jfp2PendingIdentity.TryGetValue((update.ObjectId, nuid), out Jfp2.Codecs.IdentityUpdate identity))
+                {
+                    // Identity hasn't arrived yet for a genuinely new object - drop this Position
+                    // update rather than guess at a model/type; see the ordering note above.
+                    return;
+                }
+
+                string nickname = userControlled ? main.network.GetNodeName(nuid) : "";
+                aircraft = main.sim.UpdateAircraft(nuid, update.ObjectId, userControlled, identity.IsPlane, identity.Callsign, identity.Registration,
+                    nickname, identity.Model, identity.Livery, identity.IcaoType, identity.IcaoAirline, identity.FlightNumber,
+                    identity.ClassCode, identity.Wtc, identity.ClassCodeConfirmed, identity.TypeRole, update.NetTime, ref aircraftPosition);
+                jfp2PendingIdentity.Remove((update.ObjectId, nuid));
+            }
+            else
+            {
+                aircraft.paused = (update.StateFlags & Jfp2.Codecs.PositionStateFlags.Paused) != 0;
+                main.sim.UpdateAircraft(aircraft, update.NetTime, aircraftPosition);
+            }
+
+            if (aircraft != null && main.recorder.recording && aircraft.record)
+            {
+                main.recorder.Record(aircraft.recorderObj, update.NetTime, ref aircraftPosition);
+            }
+        }
+
+        #endregion
+
+        #region JFP2 Event/FlightPlan/Notes/Weather (Phase 5)
+
+        // docs/protocol-v2-implementation-plan.md Phase 5. See that document for the full scoping
+        // notes on FlightPlan's unexplained self-nuid branch (preserved, not understood or removed)
+        // and Notes' scope (the live single-note push only - the bulk catch-up dump stays legacy-only).
+
+        /// <summary>
+        /// Shared SimEvent handling for both the legacy message and its JFP2 counterpart - identical
+        /// to what used to be inline in the legacy ReceiveMsg case block, factored out so JFP2 can
+        /// call it too. Note Sim.UpdateAircraft(Nuid, uint, uint, uint, bool) itself re-broadcasts to
+        /// this node's OTHER peers when the event lands on a Recorder-owned object being played back
+        /// (see SendEventUpdate's own call site in Sim.cs) - that relay logic is unchanged and applies
+        /// equally regardless of whether the inbound event arrived via legacy or JFP2.
+        /// </summary>
+        void HandleSimEvent(LocalNode.Nuid nuid, uint netId, uint eventId, uint data)
+        {
+            if (!localNode.Connected)
+            {
+                return;
+            }
+
+            if (netId == uint.MaxValue)
+            {
+                if (main.sim != null && main.sim.userAircraft != null)
+                {
+                    bool flight = main.log.ShareCockpit(nuid) && nuid == shareFlightControls;
+                    main.sim.UpdateAircraft(main.sim.userAircraft.ownerNuid, main.sim.userAircraft.netId, eventId, data, flight);
+                }
+            }
+            else
+            {
+                Sim.Aircraft aircraft = main.sim?.UpdateAircraft(nuid, netId, eventId, data, true);
+                if (aircraft != null && main.recorder.recording && aircraft.record)
+                {
+                    main.recorder.Record(aircraft.recorderObj, eventId, data);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Send a SimEvent to `peerNuid` via JFP2 Event if negotiated, otherwise the unchanged legacy
+        /// WriteSimEventMessage()+Send()/Broadcast() path. Callers use this once per node instead of a
+        /// single legacy Broadcast()/Send() call, matching the split-send pattern already used for
+        /// Position/VariableSync/Identity. Returns true if handled via JFP2 (caller should not also
+        /// send legacy).
+        /// </summary>
+        public bool SendEventUpdate(LocalNode.Nuid peerNuid, uint netId, uint eventId, uint data)
+        {
+            if (!localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.Event, out byte version))
+            {
+                return false;
+            }
+            var update = new Jfp2.Codecs.EventUpdate { ObjectId = netId, EventId = eventId, Data = data };
+            var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.EventUpdate>(Jfp2.MessageClasses.Event, version);
+            Span<byte> buffer = stackalloc byte[Jfp2.Codecs.EventV1Codec.Size];
+            int length = codec.Encode(update, buffer);
+            localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Event, buffer[..length]);
+            return true;
+        }
+
+        /// <summary>
+        /// Shared FlightPlan handling for both the legacy message and its JFP2 counterpart.
+        /// </summary>
+        void HandleFlightPlan(LocalNode.Nuid ownerNuid, uint netId, byte version, Jfp2.Codecs.FlightPlanUpdate flightPlan)
+        {
+            if (main.sim == null)
+            {
+                return;
+            }
+
+            // Preserved exactly from legacy even though its trigger condition under normal peer-to-
+            // peer mesh operation isn't fully understood: both real send call sites
+            // (Network.BroadcastFlightPlanUpdate's callers) always pass this node's own Nuid as
+            // ownerNuid, and Broadcast() shouldn't ordinarily deliver a node's own broadcast back to
+            // itself. Kept as a faithful mechanical port rather than silently dropped - see the
+            // implementation plan for this note.
+            if (localNode.GetLocalNuid().Equals(ownerNuid))
+            {
+                main.sim.userFlightPlan.icaoType = flightPlan.IcaoType;
+                main.sim.userFlightPlan.departure = flightPlan.Departure.ToUpperInvariant();
+                main.sim.userFlightPlan.destination = flightPlan.Destination.ToUpperInvariant();
+                main.sim.userFlightPlan.rules = flightPlan.Rules;
+                main.sim.userFlightPlan.route = flightPlan.Route;
+                main.sim.userFlightPlan.remarks = flightPlan.Remarks;
+                main.sim.userFlightPlan.alternate = flightPlan.Alternate;
+                main.sim.userFlightPlan.speed = flightPlan.Speed;
+                main.sim.userFlightPlan.altitude = flightPlan.Altitude;
+                main.sim.userFlightPlan.callsign = flightPlan.Callsign;
+                main.sim.userFlightPlan.registration = flightPlan.Registration;
+                main.sim.userFlightPlan.icaoAirline = flightPlan.IcaoAirline;
+                main.sim.userFlightPlan.flightNumber = flightPlan.FlightNumber;
+                main.MonitorEvent("Flight Plan Update");
+                if (main.sim.userAircraft != null)
+                {
+                    main.sim.userAircraft.flightPlanVersion++;
+                    if (main.sim.userAircraft.flightPlanVersion == 0) main.sim.userAircraft.flightPlanVersion = 1;
+                }
+            }
+            else if (main.sim.objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId) is Sim.Aircraft aircraft)
+            {
+                aircraft.flightPlanVersion = version;
+                aircraft.flightPlan.icaoType = flightPlan.IcaoType;
+                aircraft.flightPlan.departure = flightPlan.Departure.ToUpperInvariant();
+                aircraft.flightPlan.destination = flightPlan.Destination.ToUpperInvariant();
+                aircraft.flightPlan.rules = flightPlan.Rules;
+                aircraft.flightPlan.route = flightPlan.Route;
+                aircraft.flightPlan.remarks = flightPlan.Remarks;
+                aircraft.flightPlan.alternate = flightPlan.Alternate;
+                aircraft.flightPlan.speed = flightPlan.Speed;
+                aircraft.flightPlan.altitude = flightPlan.Altitude;
+                aircraft.flightPlan.callsign = flightPlan.Callsign;
+                aircraft.flightPlan.registration = flightPlan.Registration;
+                aircraft.flightPlan.icaoAirline = flightPlan.IcaoAirline;
+                aircraft.flightPlan.flightNumber = flightPlan.FlightNumber;
+            }
+        }
+
+        /// <summary>
+        /// Send `flightPlan` to every currently connected peer: JFP2 FlightPlan for whichever peers
+        /// negotiated it, the unchanged legacy message for the rest - same split-send pattern already
+        /// used for Position/VariableSync/Identity. Replaces a direct SendFlightPlanMessage(...) call
+        /// (which always broadcasts to everyone via legacy) at both of its call sites.
+        /// </summary>
+        public void BroadcastFlightPlanUpdate(uint netId, Sim.FlightPlan flightPlan)
+        {
+            // prepared once, reused for every peer that ends up on the legacy path below
+            WriteFlightPlanMessage(localNode.GetLocalNuid(), netId, flightPlan);
+
+            var update = new Jfp2.Codecs.FlightPlanUpdate
+            {
+                ObjectId = netId,
+                IcaoType = flightPlan.icaoType,
+                Departure = flightPlan.departure,
+                Destination = flightPlan.destination,
+                Rules = flightPlan.rules,
+                Route = flightPlan.route,
+                Remarks = flightPlan.remarks,
+                Alternate = flightPlan.alternate,
+                Speed = flightPlan.speed,
+                Altitude = flightPlan.altitude,
+                Callsign = flightPlan.callsign,
+                Registration = flightPlan.registration,
+                IcaoAirline = flightPlan.icaoAirline,
+                FlightNumber = flightPlan.flightNumber,
+            };
+            // allocated once outside the loop below (CA2014 - a stackalloc inside a per-peer loop
+            // would grow with session size instead of being freed each iteration)
+            byte[] buffer = new byte[512];
+
+            foreach (var peerNuid in localNode.GetNodeList())
+            {
+                if (localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.FlightPlan, out byte version))
+                {
+                    var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.FlightPlanUpdate>(Jfp2.MessageClasses.FlightPlan, version);
+                    int length = codec.Encode(update, buffer);
+                    localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.FlightPlan, buffer.AsSpan(0, length));
+                }
+                else
+                {
+                    localNode.Send(peerNuid);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Reply to a WeatherRequest from `nuid` via JFP2 WeatherReply if negotiated, otherwise the
+        /// unchanged legacy WriteWeatherReplyMessage()+Send() path. WeatherRequest itself is not
+        /// ported to JFP2 (see the implementation plan - it has no live callers and its NetId field is
+        /// never read on receive), so this only upgrades the outgoing reply half.
+        /// </summary>
+        void SendWeatherReply(LocalNode.Nuid nuid, string metar)
+        {
+            if (localNode.TryGetJfp2AppPeer(nuid, Jfp2.MessageClasses.WeatherReply, out byte version))
+            {
+                var report = new Jfp2.Codecs.WeatherReport { Metar = metar };
+                var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.WeatherReport>(Jfp2.MessageClasses.WeatherReply, version);
+                Span<byte> buffer = stackalloc byte[512];
+                int length = codec.Encode(report, buffer);
+                localNode.SendJfp2Application(nuid, Jfp2.MessageClasses.WeatherReply, buffer[..length]);
+            }
+            else
+            {
+                WriteWeatherReplyMessage(metar);
+                localNode.Send(nuid);
+            }
+        }
+
+        /// <summary>
+        /// Send `metar` to `peerNuid` via JFP2 Weather if negotiated, otherwise the unchanged legacy
+        /// WriteWeatherUpdateMessage()+Send() path. Callers loop over LocalNode.GetNodeList() instead
+        /// of the old single Broadcast() call.
+        /// </summary>
+        public void SendWeatherUpdate(LocalNode.Nuid peerNuid, string metar)
+        {
+            if (localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.Weather, out byte version))
+            {
+                var report = new Jfp2.Codecs.WeatherReport { Metar = metar };
+                var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.WeatherReport>(Jfp2.MessageClasses.Weather, version);
+                Span<byte> buffer = stackalloc byte[512];
+                int length = codec.Encode(report, buffer);
+                localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Weather, buffer[..length]);
+            }
+            else
+            {
+                WriteWeatherUpdateMessage(metar);
+                localNode.Send(peerNuid);
+            }
+        }
+
+        #endregion
+
+        /// <summary>
         /// Write message for weather request
         /// </summary>
         public void WriteSimEventMessage(uint netId, uint eventId, uint data)
@@ -2760,8 +3965,30 @@ namespace JoinFS
             message.Write((byte)1);
             // end
             message.Write((byte)1);
-            // broadcast
-            localNode.Broadcast();
+
+            // one send per connected peer instead of one legacy Broadcast() call, so each peer can
+            // independently get JFP2 Notes (if negotiated) or the unchanged legacy message - wire-
+            // identical to the old broadcast for any peer that ends up on the legacy path
+            // (docs/protocol-v2-implementation-plan.md Phase 5; same split-send pattern already used
+            // elsewhere in this file)
+            var note = new Jfp2.Codecs.NoteUpdate { Guid = guid, Nickname = nickname, Callsign = callsign, NoteId = noteId, Age = age, Channel = channel, Text = text };
+            // allocated once outside the loop below (CA2014 - a stackalloc inside a per-peer loop
+            // would grow with session size instead of being freed each iteration)
+            byte[] noteBuffer = new byte[1024];
+
+            foreach (var peerNuid in localNode.GetNodeList())
+            {
+                if (localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.Notes, out byte version))
+                {
+                    var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.NoteUpdate>(Jfp2.MessageClasses.Notes, version);
+                    int length = codec.Encode(note, noteBuffer);
+                    localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Notes, noteBuffer.AsSpan(0, length));
+                }
+                else
+                {
+                    localNode.Send(peerNuid);
+                }
+            }
         }
 
         /// <summary>
@@ -2901,9 +4128,13 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Send online message to all hubs
+        /// Prepare (but do not send) a legacy FlightPlan message into the shared send buffer -
+        /// factored out of SendFlightPlanMessage so a caller that needs to fan out per-peer (see
+        /// Network.BroadcastFlightPlanUpdate, docs/protocol-v2-implementation-plan.md Phase 5) can
+        /// prepare once and reuse the buffer, the same pattern WriteAircraftPositionMessage/
+        /// Broadcast() already established for Position.
         /// </summary>
-        public void SendFlightPlanMessage(LocalNode.Nuid ownerNuid, uint netId, Sim.FlightPlan flightPlan)
+        void WriteFlightPlanMessage(LocalNode.Nuid ownerNuid, uint netId, Sim.FlightPlan flightPlan)
         {
             // if nothing more authoritative (SimBrief, live sim/config data) already supplied a real ICAO
             // airline, try to derive one from the callsign's shape - commercial airline callsigns are an ICAO
@@ -2942,6 +4173,14 @@ namespace JoinFS
             message.Write(flightPlan.registration);
             message.Write(flightPlan.icaoAirline);
             message.Write(flightPlan.flightNumber);
+        }
+
+        /// <summary>
+        /// Send online message to all hubs
+        /// </summary>
+        public void SendFlightPlanMessage(LocalNode.Nuid ownerNuid, uint netId, Sim.FlightPlan flightPlan)
+        {
+            WriteFlightPlanMessage(ownerNuid, netId, flightPlan);
             // send message
             localNode.Broadcast();
         }
@@ -3239,34 +4478,7 @@ namespace JoinFS
                                     // read event data
                                     uint data = reader.ReadUInt32();
 
-                                    // check for shared cockpit update
-                                    if (netId == uint.MaxValue)
-                                    {
-                                        // check for user aircraft
-                                        if (main.sim != null && main.sim.userAircraft != null)
-                                        {
-                                            // get allowed controls
-                                            bool flight = main.log.ShareCockpit(nuid) && nuid == shareFlightControls;
-                                            // update aircraft in sim
-                                            main.sim.UpdateAircraft(main.sim.userAircraft.ownerNuid, main.sim.userAircraft.netId, eventId, data, flight);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        // update aircraft in sim
-                                        Sim.Aircraft aircraft = main.sim ?. UpdateAircraft(nuid, netId, eventId, data, true);
-
-                                        // check for aircraft
-                                        if (aircraft != null)
-                                        {
-                                            // check if aircraft is being recorded
-                                            if (main.recorder.recording && aircraft.record)
-                                            {
-                                                // record payload
-                                                main.recorder.Record(aircraft.recorderObj, eventId, data);
-                                            }
-                                        }
-                                    }
+                                    HandleSimEvent(nuid, netId, eventId, data);
                                 }
                             }
                             catch (Exception ex)
@@ -3287,10 +4499,12 @@ namespace JoinFS
                                     {
                                         if (main.sim != null && main.sim.scheduleMetar != null)
                                         {
-                                            // write reply message
-                                            WriteWeatherReplyMessage(main.sim.scheduleMetar);
-                                            // send reply
-                                            localNode.Send(nuid);
+                                            // reply via JFP2 if this requester negotiated it, else the
+                                            // unchanged legacy message (docs/protocol-v2-
+                                            // implementation-plan.md Phase 5 - only WeatherRequest's
+                                            // reply is JFP2-aware; the request itself isn't ported,
+                                            // see SendWeatherReply's own remarks)
+                                            SendWeatherReply(nuid, main.sim.scheduleMetar);
                                         }
                                     }
                                     catch (Exception ex)
@@ -3441,50 +4655,18 @@ namespace JoinFS
                                 // check if connected
                                 if (localNode.Connected)
                                 {
-                                    // get hub flag
-                                    bool hubEnabled = reader.ReadByte() != 0;
-                                    // get hub request flag
-                                    bool hubListRequest = reader.ReadByte() != 0;
-
-                                    // check for hub
-                                    if (hubEnabled)
+                                    // read fields into the same version-agnostic value the JFP2 codec
+                                    // decodes into - see HandleStatusRequest, shared by both protocols
+                                    Jfp2.Codecs.StatusRequestUpdate request = new()
                                     {
-                                        // submit new hub
-                                        SubmitHub(endPoint);
-                                    }
+                                        HubEnabled = reader.ReadByte() != 0,
+                                        HubListRequested = reader.ReadByte() != 0,
+                                    };
+                                    // uuid is the last field on the wire; swallow a short/missing read
+                                    // exactly as the pre-refactor code did (nothing reads after it)
+                                    try { request.Uuid = reader.ReadUInt32(); } catch { }
 
-                                    try
-                                    {
-                                        // write reply message
-                                        WriteStatusMessage();
-                                        // send reply
-                                        localNode.Send(endPoint);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        main.MonitorEvent("Failed to write status reply message: " + ex.Message);
-                                    }
-
-                                    // check if this is a hub
-                                    if (main.settingsHub)
-                                    {
-                                        // check for request
-                                        if (hubListRequest)
-                                        {
-                                            // write hub list
-                                            SendHubListMessage(endPoint);
-                                        }
-
-                                        try
-                                        {
-                                            // get uuid
-                                            uint uuid = reader.ReadUInt32();
-
-                                            // register
-                                            RegisterOnlineUser(uuid, nuid, (ushort)endPoint.Port);
-                                        }
-                                        catch { }
-                                    }
+                                    HandleStatusRequest(endPoint, nuid, request);
                                 }
                             }
                             catch (Exception ex)
@@ -3498,159 +4680,47 @@ namespace JoinFS
                             {
                                 // update stat
                                 Stats.Status.Record(reader.BaseStream.Length);
-                                // read guid
-                                Guid guid = new(reader.ReadBytes(16));
-                                // read application version
-                                string appVersion = reader.ReadString();
-                                // read node count
-                                ushort users = reader.ReadUInt16();
-                                // read ATC count
-                                ushort atcCount = reader.ReadUInt16();
-                                // read airport
-                                string atcAirport = (atcCount > 0) ? reader.ReadString() : "";
-                                // read level
-                                int atcLevel = (atcCount > 0) ? reader.ReadByte() : 2;
-                                // read planes
-                                ushort planes = reader.ReadUInt16();
-                                // read helicopters
-                                ushort helicopters = reader.ReadUInt16();
-                                // read boats
-                                ushort boats = reader.ReadUInt16();
-                                // read vehicles
-                                ushort vehicles = reader.ReadUInt16();
-                                // read hub enabled
-                                bool hubEnabled = reader.ReadBoolean();
 
-                                // check for hub
-                                if (hubEnabled)
+                                // read fields into the same version-agnostic value the JFP2 codec
+                                // decodes into - see HandleStatus, shared by both protocols
+                                Jfp2.Codecs.StatusUpdate status = new()
                                 {
-                                    // read address
-                                    string addressText = reader.ReadString().TrimStart(' ').TrimEnd(' ');
-                                    // read name
-                                    string name = reader.ReadString().TrimStart(' ').TrimEnd(' ');
-                                    // read about
-                                    string about = reader.ReadString().TrimStart(' ').TrimEnd(' ');
-                                    // read voip
-                                    string voip = reader.ReadString().TrimStart(' ').TrimEnd(' ');
-                                    // read next event
-                                    string nextEvent = reader.ReadString().TrimStart(' ').TrimEnd(' ');
-                                    // read airport
-                                    string airport = reader.ReadString().TrimStart(' ').TrimEnd(' ');
-                                    // read activity circle
-                                    int activityCircle = reader.ReadInt32();
+                                    Guid = new Guid(reader.ReadBytes(16)),
+                                    AppVersion = reader.ReadString(),
+                                    Users = reader.ReadUInt16(),
+                                };
+                                status.AtcCount = reader.ReadUInt16();
+                                status.AtcAirport = (status.AtcCount > 0) ? reader.ReadString() : "";
+                                status.AtcLevel = (status.AtcCount > 0) ? reader.ReadByte() : 2;
+                                status.Planes = reader.ReadUInt16();
+                                status.Helicopters = reader.ReadUInt16();
+                                status.Boats = reader.ReadUInt16();
+                                status.Vehicles = reader.ReadUInt16();
+                                status.HubEnabled = reader.ReadBoolean();
+
+                                if (status.HubEnabled)
+                                {
+                                    status.Address = reader.ReadString().TrimStart(' ').TrimEnd(' ');
+                                    status.Name = reader.ReadString().TrimStart(' ').TrimEnd(' ');
+                                    status.About = reader.ReadString().TrimStart(' ').TrimEnd(' ');
+                                    status.Voip = reader.ReadString().TrimStart(' ').TrimEnd(' ');
+                                    status.NextEvent = reader.ReadString().TrimStart(' ').TrimEnd(' ');
+                                    status.Airport = reader.ReadString().TrimStart(' ').TrimEnd(' ');
+                                    status.ActivityCircle = reader.ReadInt32();
                                     // read flags
                                     byte flags = (dataVersion >= 10025) ? reader.ReadByte() : (byte)0;
-                                    bool globalSession = (flags & 0x02) != 0;
-                                    bool password = (flags & 0x04) != 0;
+                                    status.GlobalSession = (flags & 0x02) != 0;
+                                    status.PasswordRequired = (flags & 0x04) != 0;
 
                                     // check for unspecified address
-                                    if (addressText.Length <= 0)
+                                    if (status.Address.Length <= 0)
                                     {
                                         // use actual end point
-                                        addressText = endPoint.ToString();
-                                    }
-
-                                    // remove from pending list
-                                    pendingHubList.Remove(endPoint);
-
-                                    // check for maximum IPs and not this hub
-                                    if (HubCount_IP(nuid) < MAX_IP_HUBS && nuid != localNode.GetLocalNuid())
-                                    {
-                                        // find hub in the list
-                                        Hub hub = hubList.Find(h => h.nuid == nuid);
-                                        if (hub == null)
-                                        {
-                                            // create new entry
-                                            hub = new Hub();
-                                            // add hub to the list
-                                            hubList.Add(hub);
-                                            // hub has changed
-                                            hubListChanged = true;
-                                            main.MonitorEvent("Added new hub '" + name + "' - '" + UuidToString(MakeUuid(guid)) + "'");
-                                        }
-                                        // check if hub changed
-                                        else if (
-                                            hub.guid.Equals(guid) == false ||
-                                            hub.appVersion.Equals(appVersion) == false ||
-                                            hub.addressText.Equals(addressText) == false ||
-                                            hub.name.Equals(name) == false ||
-                                            hub.about.Equals(about) == false ||
-                                            hub.voip.Equals(voip) == false ||
-                                            hub.nextEvent.Equals(nextEvent) == false ||
-                                            hub.airport.Equals(airport) == false ||
-                                            hub.activityCircle != activityCircle ||
-                                            hub.globalSession != globalSession ||
-                                            hub.password != password
-                                            )
-                                        {
-                                            // hub has changed
-                                            hubListChanged = true;
-                                        }
-
-                                        // check for global enabled
-                                        if (localNode.GlobalSession)
-                                        {
-                                            // check for first contact with global hub
-                                            if (hub.globalSession == false && globalSession)
-                                            {
-                                                // join with session
-                                                Join(endPoint, 0);
-                                            }
-                                        }
-
-                                        // update hub details
-                                        hub.nuid = nuid;
-                                        hub.endPoint = endPoint;
-                                        hub.port = (ushort)endPoint.Port;
-                                        hub.dateTime = DateTime.Now;
-                                        hub.guid = guid;
-                                        hub.appVersion = appVersion;
-                                        hub.dataVersion = (ushort)dataVersion;
-                                        hub.online = true;
-                                        hub.offlineTime = main.ElapsedTime + OFFLINE_TIME;
-                                        hub.users = users;
-                                        hub.atcCount = atcCount;
-                                        hub.atcAirport = atcAirport;
-                                        hub.atcLevel = atcLevel;
-                                        hub.planes = planes;
-                                        hub.helicopters = helicopters;
-                                        hub.boats = boats;
-                                        hub.vehicles = vehicles;
-                                        hub.addressText = addressText;
-                                        hub.name = name;
-                                        hub.about = about;
-                                        hub.voip = voip;
-                                        hub.nextEvent = nextEvent;
-                                        hub.airport = airport;
-                                        hub.activityCircle = activityCircle;
-                                        hub.globalSession = globalSession;
-                                        hub.password = password;
-
-                                        //mainForm.MonitorNetwork("Status: " + name);
-                                    }
-                                }
-                                else
-                                {
-                                    // check if this used to be a hub
-                                    Hub hub = hubList.Find(h => h.nuid == nuid);
-                                    if (hub != null)
-                                    {
-                                        main.MonitorEvent("Removed hub '" + hub.name + "' - '" + UuidToString(MakeUuid(guid)) + "'");
-                                        // remove
-                                        hubList.Remove(hub);
-                                        // hub has changed
-                                        hubListChanged = true;
+                                        status.Address = endPoint.ToString();
                                     }
                                 }
 
-                                // check for existing entry
-                                AddressBook.AddressBookEntry entry = main.addressBook.entries.Find(f => f.endPoint.Address.Equals(endPoint.Address));
-                                if (entry != null)
-                                {
-                                    // update entry
-                                    entry.online = true;
-                                    entry.offlineTime = main.ElapsedTime + OFFLINE_TIME;
-                                }
+                                HandleStatus(endPoint, nuid, status, (ushort)dataVersion);
                             }
                             catch (Exception ex)
                             {
@@ -4099,55 +5169,29 @@ namespace JoinFS
                                 LocalNode.Nuid ownerNuid = new(reader);
                                 // get network ID
                                 uint netId = reader.ReadUInt32();
-                                // check for forced updated
-                                if (main.sim != null && localNode.GetLocalNuid().Equals(ownerNuid))
+                                // read version
+                                byte flightPlanWireVersion = reader.ReadByte();
+                                // read flight plan into the same version-agnostic value the JFP2 side
+                                // decodes into - see HandleFlightPlan, shared by both protocols
+                                Jfp2.Codecs.FlightPlanUpdate flightPlanUpdate = new()
                                 {
-                                    // read version
-                                    reader.ReadByte();
-                                    // read flight plan
-                                    main.sim.userFlightPlan.icaoType = reader.ReadString();
-                                    main.sim.userFlightPlan.departure = reader.ReadString().ToUpperInvariant();
-                                    main.sim.userFlightPlan.destination = reader.ReadString().ToUpperInvariant();
-                                    main.sim.userFlightPlan.rules = reader.ReadString();
-                                    main.sim.userFlightPlan.route = reader.ReadString();
-                                    main.sim.userFlightPlan.remarks = reader.ReadString();
-                                    main.sim.userFlightPlan.alternate = dataVersion >= 21003 ? reader.ReadString() : "";
-                                    main.sim.userFlightPlan.speed = dataVersion >= 21003 ? reader.ReadString() : "";
-                                    main.sim.userFlightPlan.altitude = dataVersion >= 21003 ? reader.ReadString() : "";
-                                    main.sim.userFlightPlan.callsign = dataVersion >= 21003 ? reader.ReadString() : "";
-                                    main.sim.userFlightPlan.registration = dataVersion >= 21006 ? reader.ReadString() : "";
-                                    main.sim.userFlightPlan.icaoAirline = dataVersion >= 21006 ? reader.ReadString() : "";
-                                    main.sim.userFlightPlan.flightNumber = dataVersion >= 21006 ? reader.ReadString() : "";
-                                    // message
-                                    main.MonitorEvent("Flight Plan Update");
-                                    // check for user aircraft
-                                    if (main.sim.userAircraft != null)
-                                    {
-                                        // update version
-                                        main.sim.userAircraft.flightPlanVersion++;
-                                        if (main.sim.userAircraft.flightPlanVersion == 0) main.sim.userAircraft.flightPlanVersion = 1;
-                                    }
-                                }
-                                // check for valid aircraft
-                                else if (main.sim != null && main.sim.objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId) is Sim.Aircraft aircraft)
-                                {
-                                    // read version
-                                    aircraft.flightPlanVersion = reader.ReadByte();
-                                    // read flight plan
-                                    aircraft.flightPlan.icaoType = reader.ReadString();
-                                    aircraft.flightPlan.departure = reader.ReadString().ToUpperInvariant();
-                                    aircraft.flightPlan.destination = reader.ReadString().ToUpperInvariant();
-                                    aircraft.flightPlan.rules = reader.ReadString();
-                                    aircraft.flightPlan.route = reader.ReadString();
-                                    aircraft.flightPlan.remarks = reader.ReadString();
-                                    aircraft.flightPlan.alternate = dataVersion >= 21003 ? reader.ReadString() : "";
-                                    aircraft.flightPlan.speed = dataVersion >= 21003 ? reader.ReadString() : "";
-                                    aircraft.flightPlan.altitude = dataVersion >= 21003 ? reader.ReadString() : "";
-                                    aircraft.flightPlan.callsign = dataVersion >= 21003 ? reader.ReadString() : "";
-                                    aircraft.flightPlan.registration = dataVersion >= 21006 ? reader.ReadString() : "";
-                                    aircraft.flightPlan.icaoAirline = dataVersion >= 21006 ? reader.ReadString() : "";
-                                    aircraft.flightPlan.flightNumber = dataVersion >= 21006 ? reader.ReadString() : "";
-                                }
+                                    ObjectId = netId,
+                                    IcaoType = reader.ReadString(),
+                                    Departure = reader.ReadString(),
+                                    Destination = reader.ReadString(),
+                                    Rules = reader.ReadString(),
+                                    Route = reader.ReadString(),
+                                    Remarks = reader.ReadString(),
+                                    Alternate = dataVersion >= 21003 ? reader.ReadString() : "",
+                                    Speed = dataVersion >= 21003 ? reader.ReadString() : "",
+                                    Altitude = dataVersion >= 21003 ? reader.ReadString() : "",
+                                    Callsign = dataVersion >= 21003 ? reader.ReadString() : "",
+                                    Registration = dataVersion >= 21006 ? reader.ReadString() : "",
+                                    IcaoAirline = dataVersion >= 21006 ? reader.ReadString() : "",
+                                    FlightNumber = dataVersion >= 21006 ? reader.ReadString() : "",
+                                };
+
+                                HandleFlightPlan(ownerNuid, netId, flightPlanWireVersion, flightPlanUpdate);
                             }
                             catch (Exception ex)
                             {

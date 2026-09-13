@@ -2022,6 +2022,18 @@ namespace JoinFS
         /// <param name="positionVelocity">Position and Velocity</param>
         public void UpdateAircraft(Aircraft aircraft, double netTime, AircraftPosition aircraftPosition)
         {
+            // set expire time - mirrors the other UpdateAircraft overload (used by the legacy
+            // AircraftPosition receive path), which refreshes this unconditionally on every position
+            // update. This overload is also the JFP2 Position receive path's "aircraft already
+            // exists" branch (Network.cs's HandleJfp2Position) - without this, a network aircraft
+            // that negotiated JFP2 for Position never has its expireTime pushed forward again after
+            // creation, so the periodic expiry sweep (ProcessObjects) delists it exactly
+            // OBJECT_EXPIRE_TIME after it first appeared even though fresh updates keep arriving,
+            // then it gets relisted only once packet loss/Identity re-broadcast timing happens to
+            // let it be re-created - observed as a repeating Delisting/Listing cycle for JFP2-linked
+            // aircraft that legacy-only peers never exhibit.
+            aircraft.expireTime = main.ElapsedTime + OBJECT_EXPIRE_TIME;
+
             // check for non user or remote controlled user
             if (aircraft != userAircraft || aircraft.remoteFlightControl)
             {
@@ -2309,10 +2321,21 @@ namespace JoinFS
                         " senderStaticCgToGround=" + (aircraftPosition.staticCgToGround * 0.3048).ToString("F2") + "m" +
                         " netTime=" + netTime.ToString("F1"));
                 }
-                // create message
+                // create message (prepared once, reused for every peer that ends up on the legacy
+                // path below - unchanged from before)
                 main.network.WriteAircraftPositionMessage(aircraft.netId, netTime, aircraft, ref aircraftPosition);
-                // broadcast message to other nodes
-                main.network.localNode.Broadcast();
+                // one send per connected peer instead of one legacy Broadcast() call, so each peer can
+                // independently get JFP2 Position (if negotiated) or the unchanged legacy message -
+                // wire-identical to the old broadcast for any peer that ends up on the legacy path
+                // (docs/protocol-v2-implementation-plan.md Phase 4; same split-send pattern already
+                // used for Identity/VariableSync in Phase 3)
+                foreach (var relayNuid in main.network.localNode.GetNodeList())
+                {
+                    if (!main.network.SendJfp2Position(relayNuid, aircraft, ref aircraftPosition, netTime))
+                    {
+                        main.network.localNode.Send(relayNuid);
+                    }
+                }
             }
 
             // check if type has changed
@@ -2393,10 +2416,18 @@ namespace JoinFS
                 // check if aircraft is injected and needs to be broadcast
                 if (aircraft.Injected && IsBroadcast(aircraft))
                 {
-                    // create message
+                    // create message (reused below for any peer that ends up on the legacy path)
                     main.network.WriteSimEventMessage(aircraft.netId, eventId, data);
-                    // broadcast message to other nodes
-                    main.network.localNode.Broadcast();
+                    // one send per connected peer instead of one legacy Broadcast() call, so each
+                    // peer can independently get JFP2 Event (if negotiated) or the unchanged legacy
+                    // message (docs/protocol-v2-implementation-plan.md Phase 5)
+                    foreach (var peerNuid in main.network.localNode.GetNodeList())
+                    {
+                        if (!main.network.SendEventUpdate(peerNuid, aircraft.netId, eventId, data))
+                        {
+                            main.network.localNode.Send(peerNuid);
+                        }
+                    }
                 }
             }
 
@@ -2531,15 +2562,22 @@ namespace JoinFS
                                 // check that our aircraft is not under remote control
                                 if (aircraft.remoteFlightControl == false)
                                 {
-                                    // create message
-                                    main.network.WriteAircraftPositionMessage(uint.MaxValue, aircraft.simTime, aircraft, ref aircraftPosition);
-                                    // send message to owner of entered aircraft
-                                    main.network.localNode.Send(enteredAircraft.ownerNuid);
+                                    // JFP2 Position (shared-cockpit sentinel) if negotiated with the
+                                    // owner of the entered aircraft, else the unchanged legacy message
+                                    // (docs/protocol-v2-implementation-plan.md Phase 4)
+                                    if (!main.network.SendJfp2Position(enteredAircraft.ownerNuid, aircraft, ref aircraftPosition, aircraft.simTime, sharedCockpit: true))
+                                    {
+                                        // create message
+                                        main.network.WriteAircraftPositionMessage(uint.MaxValue, aircraft.simTime, aircraft, ref aircraftPosition);
+                                        // send message to owner of entered aircraft
+                                        main.network.localNode.Send(enteredAircraft.ownerNuid);
+                                    }
                                 }
                             }
                             else if (IsBroadcast(aircraft) && aircraft.Injected == false)
                             {
-                                // create message
+                                // create message (prepared once, reused for every peer that ends up on
+                                // the legacy path below - unchanged from before)
                                 main.network.WriteAircraftPositionMessage(aircraft.netId, aircraft.simTime, aircraft, ref aircraftPosition);
 
                                 // get nodes
@@ -2558,11 +2596,16 @@ namespace JoinFS
                                         intervalMask = 0x1f;
                                     }
 
-                                    // check send interval
+                                    // check send interval - unchanged throttling decision, applied
+                                    // before deciding JFP2 vs legacy for whichever peers are due this
+                                    // tick (docs/protocol-v2-implementation-plan.md Phase 4)
                                     if ((aircraft.positionCount & intervalMask) == 0)
                                     {
-                                        // broadcast message to other nodes
-                                        main.network.localNode.Send(nuid);
+                                        if (!main.network.SendJfp2Position(nuid, aircraft, ref aircraftPosition, aircraft.simTime))
+                                        {
+                                            // broadcast message to other nodes
+                                            main.network.localNode.Send(nuid);
+                                        }
                                     }
                                 }
                             }
@@ -4171,10 +4214,12 @@ namespace JoinFS
                             // check if connected
                             if (main.network.localNode.Connected)
                             {
-                                // create message
-                                main.network.WriteWeatherUpdateMessage(metar);
-                                // broadcast message to other nodes
-                                main.network.localNode.Broadcast();
+                                // one send per connected peer instead of one legacy Broadcast() call
+                                // (docs/protocol-v2-implementation-plan.md Phase 5)
+                                foreach (var peerNuid in main.network.localNode.GetNodeList())
+                                {
+                                    main.network.SendWeatherUpdate(peerNuid, metar);
+                                }
                             }
                         }
                     }
@@ -4313,18 +4358,29 @@ namespace JoinFS
                             // check if entered another aircraft
                             if (aircraft.owner == Obj.Owner.Me && enteredAircraft != null)
                             {
-                                // create message
-                                main.network.WriteSimEventMessage(aircraft.netId, eventId, data);
-                                // broadcast message to other nodes
-                                main.network.localNode.Send(enteredAircraft.ownerNuid);
+                                // JFP2 Event if negotiated with the entered aircraft's owner, else the
+                                // unchanged legacy message (docs/protocol-v2-implementation-plan.md
+                                // Phase 5)
+                                if (!main.network.SendEventUpdate(enteredAircraft.ownerNuid, aircraft.netId, eventId, data))
+                                {
+                                    main.network.WriteSimEventMessage(aircraft.netId, eventId, data);
+                                    main.network.localNode.Send(enteredAircraft.ownerNuid);
+                                }
                             }
                             // check if aircraft is being broadcast
                             else if (IsBroadcast(aircraft) && aircraft.Injected == false)
                             {
-                                // create message
+                                // create message (reused below for any peer on the legacy path)
                                 main.network.WriteSimEventMessage(aircraft.netId, eventId, data);
-                                // broadcast message to other nodes
-                                main.network.localNode.Broadcast();
+                                // one send per connected peer instead of one legacy Broadcast() call
+                                // (docs/protocol-v2-implementation-plan.md Phase 5)
+                                foreach (var peerNuid in main.network.localNode.GetNodeList())
+                                {
+                                    if (!main.network.SendEventUpdate(peerNuid, aircraft.netId, eventId, data))
+                                    {
+                                        main.network.localNode.Send(peerNuid);
+                                    }
+                                }
                             }
                         }
                         catch (Exception ex)
@@ -5685,10 +5741,13 @@ namespace JoinFS
                             // check for shared cockpit
                             if (obj.owner == Obj.Owner.Me && enteredAircraft != null)
                             {
-                                // send variables
-                                main.network.SendIntegerVariablesMessage(enteredAircraft.ownerNuid, uint.MaxValue, obj.variableSet.integers, main.network.localNode.GetLocalNuid());
-                                main.network.SendFloatVariablesMessage(enteredAircraft.ownerNuid, uint.MaxValue, obj.variableSet.floats, main.network.localNode.GetLocalNuid());
-                                main.network.SendString8VariablesMessage(enteredAircraft.ownerNuid, uint.MaxValue, obj.variableSet.string8s, main.network.localNode.GetLocalNuid());
+                                // send identity (JFP2 only, no-op for a legacy peer - see
+                                // Network.SendJfp2IdentityIfNeeded) and variables (JFP2 VariableSync if
+                                // negotiated, else the unchanged legacy Integer/Float/String8Variables
+                                // messages - see Network.SendVariableUpdate). docs/protocol-v2-
+                                // implementation-plan.md Phase 3.
+                                main.network.SendJfp2IdentityIfNeeded(enteredAircraft.ownerNuid, obj);
+                                main.network.SendVariableUpdate(enteredAircraft.ownerNuid, uint.MaxValue, obj.variableSet.integers, obj.variableSet.floats, obj.variableSet.string8s, main.network.localNode.GetLocalNuid());
                             }
                             // check if aircraft is being broadcast
                             else if (IsBroadcast(obj) && obj.Injected == false)
@@ -5701,10 +5760,17 @@ namespace JoinFS
                                 }
                                 main.MonitorVariables("BROADCAST FLOATS - " + obj.ModelTitle + " - " + floatsDump);
 
-                                // broadcast variables
-                                main.network.SendIntegerVariablesMessage(new LocalNode.Nuid(), obj.netId, obj.variableSet.integers, main.network.localNode.GetLocalNuid());
-                                main.network.SendFloatVariablesMessage(new LocalNode.Nuid(), obj.netId, obj.variableSet.floats, main.network.localNode.GetLocalNuid());
-                                main.network.SendString8VariablesMessage(new LocalNode.Nuid(), obj.netId, obj.variableSet.string8s, main.network.localNode.GetLocalNuid());
+                                // one send per connected peer instead of one legacy Broadcast() call,
+                                // so each peer can independently get JFP2 Identity/VariableSync or the
+                                // unchanged legacy messages - wire-identical to the old broadcast for
+                                // any peer that ends up on the legacy path (docs/protocol-v2-
+                                // implementation-plan.md Phase 3; same split-send pattern Position's
+                                // own call sites already use elsewhere in this file).
+                                foreach (var peerNuid in main.network.localNode.GetNodeList())
+                                {
+                                    main.network.SendJfp2IdentityIfNeeded(peerNuid, obj);
+                                    main.network.SendVariableUpdate(peerNuid, obj.netId, obj.variableSet.integers, obj.variableSet.floats, obj.variableSet.string8s, main.network.localNode.GetLocalNuid());
+                                }
                             }
                         }
 
@@ -5729,8 +5795,9 @@ namespace JoinFS
                     // if object is being broadcast
                     if (IsBroadcast(obj) && obj is Aircraft aircraft)
                     {
-                        // send flight plan
-                        main.network.SendFlightPlanMessage(main.network.localNode.GetLocalNuid(), obj.netId, aircraft.flightPlan);
+                        // send flight plan (JFP2 FlightPlan for negotiated peers, unchanged legacy
+                        // message for the rest - docs/protocol-v2-implementation-plan.md Phase 5)
+                        main.network.BroadcastFlightPlanUpdate(obj.netId, aircraft.flightPlan);
                     }
                 }
             }

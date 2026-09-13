@@ -201,3 +201,76 @@ sequenceDiagram
 - The hub diagrams (§5–§6) are a special case of the general one (§1): a hub is simply a JoinFS process
   where two of its `PeerSession`s (or PeerSession-equivalents) happen to disagree on protocol, which is
   exactly the condition that activates `Jfp2Bridge` for that specific pair (§7.7).
+
+## 8. Threading model and tick-loop integration
+
+Sections 1–6 show JFP2 as a second stack "beside" the legacy one. This section grounds that in the
+actual current control flow, traced from `JoinFS/Program.cs` and `JoinFS/Node.cs`, because it drives a
+concrete conclusion: **JFP2 introduces zero new threads and zero new locks.**
+
+### 8.1 The current call chain
+
+JoinFS runs everything — simulator polling, networking, recording — on **one dedicated background
+thread**, `Program._workThread` (`new Thread(new ThreadStart(DoWork))`), executing an unbounded loop
+that targets a ~5ms tick (it sleeps `5 - duration` after each pass) and wraps the whole pass in a
+single `lock (conch)`:
+
+```mermaid
+graph TD
+    WT["Program._workThread (one dedicated thread, ~5ms tick)\nlock (conch) { ... }"]
+    WT --> SIMDW["sim.DoWork()"]
+    WT --> NETDW["network.DoWork()"]
+    WT --> RECDW["recorder.DoWork()"]
+    WT --> OTHER["euroscope / whazzup / notes / webhook / websocket .DoWork()"]
+
+    NETDW --> DLN["DoLocalNode()\n(scheduled Join/Login/SharedData, then:)"]
+    NETDW --> OTHNET["DoWebClients / DoSharedData / DoAddressBook /\nDoDNS / DoOnlineUsers / DoHubs / DoLocalUserList / DoHubUserList"]
+    DLN --> LNDW["localNode.DoWork()"]
+
+    LNDW --> EXPIRE["node expiry / removeList cleanup"]
+    LNDW --> PULSE["DoPulse()"]
+    LNDW --> ROUTE["DoRouting()"]
+    LNDW --> GUAR["DoGuaranteedMessages() (retransmit timers)"]
+    LNDW --> RECVMSG["ReceiveMessages()"]
+
+    RECVMSG --> POLL{{"while (IsOpen and udpClient.Available > 0):\nudpClient.Receive(...) then ReceiveMsg(endPoint)"}}
+```
+
+Two properties of this that matter for JFP2:
+
+- **Receive is a poll, not a callback.** `LocalNode.ReceiveMessages()` does not use `BeginReceive`/
+  `ReceiveAsync`; it drains whatever is already sitting in `udpClient.Available` synchronously, once
+  per tick, calling `ReceiveMsg(endPoint)` inline for each datagram before moving to the next. There is
+  no separate I/O thread delivering datagrams asynchronously.
+- **Send is "prepare once into a shared buffer, then broadcast the same bytes."** The typical call
+  pattern (e.g. in `Sim.cs`) is `network.WriteAircraftPositionMessage(...)` — which serializes into
+  `LocalNode`'s single shared `sendBuffer` — immediately followed by `network.localNode.Broadcast()`,
+  which sends *that one already-serialized buffer* to every node in `nodes`. One serialize, fanned out
+  verbatim to every neighbor.
+
+### 8.2 Where JFP2 hooks in — same thread, same lock, same tick
+
+| Existing call site | JFP2 addition |
+|---|---|
+| `ReceiveMessages()`'s `while` loop, right after `udpClient.Receive` returns `messageData` | Check `messageData[0]` before deciding how to handle it: `0x0B` → call `ReceiveMsg(endPoint)` exactly as today, unmodified; `0xFA` → call a new `Jfp2ReceiveMsg(endPoint, messageData)` instead. Both branches run to completion, on this same thread, inside this same `while` iteration, before the loop reads the next datagram — there is no interleaving to reason about because there was never any concurrency here. |
+| `WriteAircraftPositionMessage(...)` + `Broadcast()` (and the equivalent `Write*`/`Send*Message` + `Broadcast()`/unicast `Send()` pairs elsewhere in `Sim.cs`/`Network.cs`) | Instead of one serialize + one broadcast-to-everyone, group the neighbors currently in `nodes` by what each one's `PeerSession` says (`AssumedLegacy`, or `AgreedAppVersion[MessageClass]`). Neighbors with no `PeerSession` or `AssumedLegacy == true` keep going through the untouched `Write*Message()` + `Broadcast()`/`Send()` path exactly as today. Neighbors with a resolved JFP2 version get a small parallel loop, right beside the existing one, that does `CodecRegistry.Resolve(...).Encode(...)` and sends the JFP2 envelope to just that subset. Still one pass, still this same thread, still this same tick. |
+| `LocalNode.DoWork()`'s sequence of `DoPulse()` / `DoRouting()` / `DoGuaranteedMessages()` | Add sibling calls in the same sequence: a Hello-retry/`AssumedLegacy`-timeout check (mirrors `DoPulse()`'s cadence), the Identity 3–5s heartbeat (§6.2), and, if guaranteed JFP2 messages are used, a `DoJfp2GuaranteedMessages()` mirroring `DoGuaranteedMessages()`. All of these reuse the codebase's existing lightweight `JoinFS.Timer` (`Elapsed(main.ElapsedTime)`, the same idiom already driving `hubsTimer`/`internetAddressTimer`/etc.) — a plain polled interval check, not a `System.Threading.Timer` or a new thread. |
+| Hub-only: the decode/cache/re-encode bridge (§7.7) | Called from *inside* the `Jfp2ReceiveMsg`/legacy `ReceiveMsg` branches above (to decode-and-cache) and from inside the per-group send loop above (to encode for the other side's group) — `Jfp2Bridge`'s per-object caches are plain dictionaries touched only from this one thread, exactly like `nodes` already is. |
+
+### 8.3 Why no new thread or lock is needed — and the one escape hatch that exists if it ever were
+
+Every piece of state JFP2 needs to read or write during a tick — the `nodes` dictionary, the new
+`PeerSession` table, `CodecRegistry`, `Jfp2Bridge`'s per-object caches — is only ever touched from this
+one thread, inside the single `conch` critical section networking already runs in today. Adding a
+second thread that also reads the same `udpClient` or the same `nodes` table would be pure downside: it
+would force new locking around state that currently needs none, to solve a problem (idle time on the
+tick thread) that doesn't exist — the ~5ms budget is dominated by `sim.DoWork()`'s simulator polling,
+not by draining a handful of already-queued UDP datagrams.
+
+If some future JFP2 feature genuinely needed to block or run long (a DNS-style lookup, a large one-time
+load), the codebase already has an established pattern for that, used today for exactly this reason:
+dispatch it with `Task.Run(...)` and have it hand its result back through `Program._commandQueue` (a
+`ConcurrentQueue<Action>`), which the work thread drains, still under `lock (conch)`, once per tick.
+Nothing in the JFP2 design as specified needs this — Hello/HelloAck negotiation is a plain, small,
+non-blocking message exchange handled the same way `Join`/`Pulse` already are — but it is the right
+tool if that ever changes, rather than introducing a dedicated JFP2 thread.

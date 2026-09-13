@@ -1646,7 +1646,7 @@ namespace JoinFS
             // main-screen source buttons commit and broadcast immediately - no dialog/Save step
             if (main.sim.userAircraft != null)
             {
-                main.network.SendFlightPlanMessage(main.network.localNode.GetLocalNuid(), main.sim.userAircraft.netId, main.sim.userFlightPlan);
+                main.network.BroadcastFlightPlanUpdate(main.sim.userAircraft.netId, main.sim.userFlightPlan);
             }
         }
 

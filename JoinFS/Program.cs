@@ -1843,7 +1843,7 @@ namespace JoinFS
             if (network.localNode.Connected)
             {
                 MonitorEvent("Session:");
-                MonitorEvent("  ADDRESS NICKNAME CALLSIGN CONNECTED LATENCY AIRCRAFT OBJECTS VERSION SIMULATOR");
+                MonitorEvent("  ADDRESS NICKNAME CALLSIGN CONNECTED LATENCY AIRCRAFT OBJECTS VERSION SIMULATOR PROTOCOL");
                 string line = " ";
                 line += " " + network.localNode.GetLocalNuid();
                 line += " " + settingsNickname;
@@ -1854,6 +1854,7 @@ namespace JoinFS
                 line += " " + sim.objectList.FindAll(o => (o is Sim.Aircraft) == false && o.owner == Sim.Obj.Owner.Sim).Count;
                 line += " " + version;
                 line += " " + (sim != null ? sim.GetSimulatorName() : "");
+                line += " " + "-"; // network (transport) protocol doesn't apply to the local node itself
                 MonitorEvent(line);
                 // for each node
                 foreach (var node in network.nodeList)
@@ -1868,6 +1869,14 @@ namespace JoinFS
                     line += " " + sim.objectList.FindAll(o => o.ownerNuid == node.Key && (o is Sim.Aircraft) == false).Count;
                     line += " " + network.GetNodeVersion(node.Key);
                     line += " " + network.GetNodeSimulator(node.Key);
+                    // network (transport) protocol indicator - distinct from the application
+                    // GetNodeVersion above. See LocalNode.Jfp2PeerState.
+                    line += " " + network.localNode.GetNodeJfp2State(node.Key) switch
+                    {
+                        LocalNode.Jfp2PeerState.Negotiated => "JFP2",
+                        LocalNode.Jfp2PeerState.Legacy => "Legacy",
+                        _ => "Pending",
+                    };
                     MonitorEvent(line);
                 }
                 MonitorEvent("Total " + (1 + network.nodeList.Count) + " user(s)");

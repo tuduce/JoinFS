@@ -39,8 +39,11 @@ namespace JoinFS
             public float latency;
             public string latencyText;
             public int versionValue;
+            public LocalNode.Jfp2PeerState jfp2State;
+            public string protocol;
+            public int protocolValue;
 
-            public Item(Guid guid, LocalNode.Nuid nuid, IPEndPoint endPoint, string nickname, string version, string simulator, string callsign, int aircraftCount, int objectCount, string share, bool save, bool ignore, int port, bool receiveEstablished, bool sendEstablished, bool direct, float latency)
+            public Item(Guid guid, LocalNode.Nuid nuid, IPEndPoint endPoint, string nickname, string version, string simulator, string callsign, int aircraftCount, int objectCount, string share, bool save, bool ignore, int port, bool receiveEstablished, bool sendEstablished, bool direct, float latency, LocalNode.Jfp2PeerState jfp2State)
             {
                 this.guid = guid;
                 this.nuid = nuid;
@@ -74,6 +77,26 @@ namespace JoinFS
                         versionValue = (n0 << 16) + (n1 << 8) + n2;
                     }
                 }
+
+                // network (transport) protocol indicator - distinct from the application `version`
+                // above. See LocalNode.Jfp2PeerState.
+                this.jfp2State = jfp2State;
+                switch (jfp2State)
+                {
+                    case LocalNode.Jfp2PeerState.Negotiated:
+                        protocol = "JFP2";
+                        break;
+                    case LocalNode.Jfp2PeerState.Legacy:
+                        protocol = "Legacy";
+                        break;
+                    case LocalNode.Jfp2PeerState.NotApplicable:
+                        protocol = "";
+                        break;
+                    default:
+                        protocol = "Pending";
+                        break;
+                }
+                protocolValue = (int)jfp2State;
             }
         }
 
@@ -273,7 +296,7 @@ namespace JoinFS
             nuid = main.network.localNode.GetLocalNuid();
 
             // create new item
-            Item item = new(main.guid, nuid, new IPEndPoint(0, 0), main.settingsNickname, Main.Version, main.sim != null ? main.sim.GetSimulatorName() : "", callsign, aircraftCount, objectCount, "", false, false, main.network.localNode.GetLocalNuid().port, connected, connected, true, 0.0f);
+            Item item = new(main.guid, nuid, new IPEndPoint(0, 0), main.settingsNickname, Main.Version, main.sim != null ? main.sim.GetSimulatorName() : "", callsign, aircraftCount, objectCount, "", false, false, main.network.localNode.GetLocalNuid().port, connected, connected, true, 0.0f, LocalNode.Jfp2PeerState.NotApplicable);
             // add to list
             itemList.Add(item);
         }
@@ -359,8 +382,11 @@ namespace JoinFS
             // latency
             latency = main.network.localNode.GetNodeRTT(nuid);
 
+            // network protocol state (legacy vs JFP2 - see LocalNode.Jfp2PeerState)
+            LocalNode.Jfp2PeerState jfp2State = main.network.localNode.GetNodeJfp2State(nuid);
+
             // add item
-            Item item = new(guid, nuid, endPoint, nickname, version, simulator, callsign, aircraftCount, objectCount, share, save, ignore, port, receiveEstablished, sendEstablished, direct, latency);
+            Item item = new(guid, nuid, endPoint, nickname, version, simulator, callsign, aircraftCount, objectCount, share, save, ignore, port, receiveEstablished, sendEstablished, direct, latency, jfp2State);
             // add to list
             itemList.Add(item);
         }
@@ -456,6 +482,9 @@ namespace JoinFS
                 case 11:
                     itemList.Sort(delegate (Item i1, Item i2) { return i1.simulator.Equals(i2.simulator) ? i1.nickname.CompareTo(i2.nickname) : i1.simulator.CompareTo(i2.simulator); });
                     break;
+                case 12:
+                    itemList.Sort(delegate (Item i1, Item i2) { return i1.protocolValue.Equals(i2.protocolValue) ? i1.nickname.CompareTo(i2.nickname) : -i1.protocolValue.CompareTo(i2.protocolValue); });
+                    break;
             }
 
             // update window title
@@ -482,6 +511,7 @@ namespace JoinFS
                 rows[index].Cells[9].Value = itemList[index].port;
                 rows[index].Cells[10].Value = itemList[index].version;
                 rows[index].Cells[11].Value = itemList[index].simulator;
+                rows[index].Cells[12].Value = itemList[index].protocol;
             }
 
             // clear existing cells
@@ -513,6 +543,25 @@ namespace JoinFS
                         DataGrid_UserList.Rows[index].Cells[2].Style.BackColor = Settings.Default.ColourInactiveBackground;
                         DataGrid_UserList.Rows[index].Cells[2].Style.ForeColor = Settings.Default.ColourInactiveText;
                     }
+                }
+
+                // colour the Protocol cell the same way the Connected cell above is coloured -
+                // Negotiated/Negotiating/Legacy reuse the Active/Waiting/Inactive scheme. The local
+                // node's own row (NotApplicable, blank text) is left at the default style.
+                switch (itemList[index].jfp2State)
+                {
+                    case LocalNode.Jfp2PeerState.Negotiated:
+                        DataGrid_UserList.Rows[index].Cells[12].Style.BackColor = Settings.Default.ColourActiveBackground;
+                        DataGrid_UserList.Rows[index].Cells[12].Style.ForeColor = Settings.Default.ColourActiveText;
+                        break;
+                    case LocalNode.Jfp2PeerState.Negotiating:
+                        DataGrid_UserList.Rows[index].Cells[12].Style.BackColor = Settings.Default.ColourWaitingBackground;
+                        DataGrid_UserList.Rows[index].Cells[12].Style.ForeColor = Settings.Default.ColourWaitingText;
+                        break;
+                    case LocalNode.Jfp2PeerState.Legacy:
+                        DataGrid_UserList.Rows[index].Cells[12].Style.BackColor = Settings.Default.ColourInactiveBackground;
+                        DataGrid_UserList.Rows[index].Cells[12].Style.ForeColor = Settings.Default.ColourInactiveText;
+                        break;
                 }
 
                 // check for selected node

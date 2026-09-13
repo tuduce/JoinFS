@@ -198,6 +198,9 @@
   <data name="&gt;&gt;ColSimulator.Name" xml:space="preserve">
     <value>ColSimulator</value>
   </data>
+  <data name="&gt;&gt;ColProtocol.Name" xml:space="preserve">
+    <value>ColProtocol</value>
+  </data>
   <data name="&gt;&gt;Context_User_Permissions.Name" xml:space="preserve">
     <value>Context_User_Permissions</value>
   </data>
@@ -443,6 +446,9 @@
   </data>
   <data name="ColSimulator.HeaderText" xml:space="preserve">
     <value>Simulator</value>
+  </data>
+  <data name="ColProtocol.HeaderText" xml:space="preserve">
+    <value>Protocol</value>
   </data>
   <data name="&gt;&gt;ColNickname.Name" xml:space="preserve">
     <value>ColNickname</value>
@@ -795,6 +801,9 @@
   <data name="&gt;&gt;ColSimulator.Type" xml:space="preserve">
     <value>System.Windows.Forms.DataGridViewTextBoxColumn, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
+  <data name="&gt;&gt;ColProtocol.Type" xml:space="preserve">
+    <value>System.Windows.Forms.DataGridViewTextBoxColumn, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
   <data name="ColAircraft.Width" type="System.Int32, mscorlib">
     <value>52</value>
   </data>
@@ -830,6 +839,9 @@
   </data>
   <data name="ColSimulator.Width" type="System.Int32, mscorlib">
     <value>64</value>
+  </data>
+  <data name="ColProtocol.Width" type="System.Int32, mscorlib">
+    <value>70</value>
   </data>
   <data name="Button_Send.Enabled" type="System.Boolean, mscorlib">
     <value>False</value>
@@ -922,6 +934,9 @@
     <value>True</value>
   </metadata>
   <metadata name="ColSimulator.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+    <value>True</value>
+  </metadata>
+  <metadata name="ColProtocol.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
     <value>True</value>
   </metadata>
   <metadata name="ColNickname.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
