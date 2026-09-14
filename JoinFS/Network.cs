@@ -1762,6 +1762,9 @@ namespace JoinFS
             message.Write(aircraft.ownerClassCode);
             message.Write(aircraft.ownerWtc);
             message.Write(aircraft.ownerClassCodeConfirmed);
+            message.Write(aircraftPosition.staticCgToGround);
+            // The legacy network protocol is frozen.
+            // Use the JFP2 protocol if you need to extend the messages.
         }
 
         /// <summary>
@@ -4440,6 +4443,7 @@ namespace JoinFS
                                             string classCode = (reader.PeekChar() != -1) ? reader.ReadString() : "";
                                             string wtc = (reader.PeekChar() != -1) ? reader.ReadString() : "";
                                             bool classCodeConfirmed = (reader.PeekChar() != -1) ? reader.ReadBoolean() : false;
+                                            aircraftPosition.staticCgToGround = (reader.PeekChar() != -1) ? reader.ReadSingle() : float.NaN;
                                             Sim.Aircraft aircraft = main.sim?.UpdateAircraft(nuid, netId, user, plane, callsign, registration, nickname, model, variation, icaoType, icaoAirline, flightNumber, classCode, wtc, classCodeConfirmed, typerole, netTime, ref aircraftPosition);
                                             // check for aircraft
                                             if (aircraft != null)

@@ -3515,7 +3515,10 @@ namespace JoinFS
             // helicopters-on-elevated-platforms feature / ground-jitter-on-model-mismatch fix). Always
             // written; older readers (version < 21008) simply don't read it, matching the elevation/flags
             // fields' existing pattern above.
-            writer.Write(aircraftPosition.staticCgToGround);
+
+            // This message format is frozen. Anything written here breaks the ability of older clients to read the message.
+            // If you need to add new fields, use the JFP2 protocol.
+            // writer.Write(aircraftPosition.staticCgToGround);
         }
 
         /// <summary>
@@ -3554,7 +3557,10 @@ namespace JoinFS
             // "STATIC CG TO GROUND" - see Write() above. NaN (not 0.0f) for an older peer that didn't send
             // it, so downstream code can tell "no data" apart from a real zero clearance and fall back to
             // uncorrected placement instead of attempting a wrong correction.
-            aircraftPosition.staticCgToGround = version >= 21008 ? reader.ReadSingle() : float.NaN;
+
+            // The legacy message format is frozen. Anything read here breaks the ability of older clients to read the message.
+            // If you need to add new fields, use the JFP2 protocol.
+            // aircraftPosition.staticCgToGround = version >= 21008 ? reader.ReadSingle() : float.NaN;
         }
 
         /// <summary>
