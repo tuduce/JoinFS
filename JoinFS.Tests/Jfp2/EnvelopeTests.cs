@@ -82,5 +82,62 @@ namespace JoinFS.Tests.Jfp2
             // The 62%-smaller-than-legacy claim in docs/protocol-v2-design.md §4.1 depends on this.
             Assert.Equal(8, Envelope.FixedSize);
         }
+
+        // docs/protocol-v2-implementation-review.md Finding 1: the guaranteed-delivery extension block
+        // (§4.4) was defined on the wire since Phase 1 but WriteTo/ReadFrom never actually produced or
+        // consumed it. These tests cover the fix.
+
+        [Fact]
+        public void WriteTo_ReadFrom_RoundTrips_WithGuaranteedExtension()
+        {
+            var envelope = new Envelope(EnvelopeFlags.Guaranteed, 1001, 2002, MessageClasses.Event, guaranteedId: 4242, guaranteedIndex: 0, guaranteedCount: 1);
+            byte[] buffer = new byte[Envelope.FixedSize + Envelope.GuaranteedExtraSize];
+
+            int written = envelope.WriteTo(buffer);
+            Envelope back = Envelope.ReadFrom(buffer, out int consumed);
+
+            Assert.Equal(Envelope.FixedSize + Envelope.GuaranteedExtraSize, written);
+            Assert.Equal(Envelope.FixedSize + Envelope.GuaranteedExtraSize, consumed);
+            Assert.True(back.IsGuaranteed);
+            Assert.Equal(envelope.GuaranteedId, back.GuaranteedId);
+            Assert.Equal(envelope.GuaranteedIndex, back.GuaranteedIndex);
+            Assert.Equal(envelope.GuaranteedCount, back.GuaranteedCount);
+        }
+
+        [Fact]
+        public void WireSize_IncludesGuaranteedExtensionOnlyWhenGuaranteed()
+        {
+            var unreliable = new Envelope(EnvelopeFlags.None, 1, 2, MessageClasses.Position);
+            var guaranteed = new Envelope(EnvelopeFlags.Guaranteed, 1, 2, MessageClasses.Event, 1, 0, 1);
+
+            Assert.Equal(Envelope.FixedSize, unreliable.WireSize);
+            Assert.Equal(Envelope.FixedSize + Envelope.GuaranteedExtraSize, guaranteed.WireSize);
+        }
+
+        [Fact]
+        public void ReadFrom_GuaranteedDatagramTooShortForExtension_Throws()
+        {
+            // A full guaranteed envelope written into a buffer sized only for the fixed 8 bytes gets
+            // truncated - the Flags byte still claims Guaranteed, but the 4-byte extension it promises
+            // never made it into the datagram. ReadFrom must reject this rather than silently reading
+            // past the buffer or into whatever payload bytes happen to follow.
+            byte[] full = new byte[Envelope.FixedSize + Envelope.GuaranteedExtraSize];
+            new Envelope(EnvelopeFlags.Guaranteed, 1, 2, MessageClasses.Event, 1, 0, 1).WriteTo(full);
+            byte[] truncated = full[..Envelope.FixedSize];
+
+            Assert.Throws<System.ArgumentException>(() => Envelope.ReadFrom(truncated, out _));
+        }
+
+        [Fact]
+        public void GuaranteedEnvelope_DefaultConstructor_HasZeroExtensionFields()
+        {
+            // The 4-arg constructor (used by every non-guaranteed send site) must never leave
+            // GuaranteedId/Index/Count uninitialized/garbage - they're always well-defined zeros.
+            var envelope = new Envelope(EnvelopeFlags.None, 1, 2, MessageClasses.Position);
+
+            Assert.Equal(0, envelope.GuaranteedId);
+            Assert.Equal(0, envelope.GuaranteedIndex);
+            Assert.Equal(0, envelope.GuaranteedCount);
+        }
     }
 }

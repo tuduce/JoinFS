@@ -35,25 +35,31 @@ namespace JoinFS.Tests.Jfp2
             Assert.Equal("N12345", back.Entries[2].StringValue);
         }
 
+        // docs/protocol-v2-implementation-review.md Finding 5 (fixed 2026-09-14): String8 used to be a
+        // fixed 8-byte ASCII field that silently truncated/mangled anything longer or non-ASCII. It's
+        // now length-prefixed UTF8 like every other string field, matching the legacy String8Variables
+        // message's own wire encoding (a plain BinaryWriter.Write(string), never capped at 8 bytes).
+
         [Fact]
-        public void String8Value_LongerThan8Chars_IsTruncated()
+        public void String8Value_LongerThan8Chars_RoundTripsExactly()
         {
             var codec = new VariableSyncV1Codec();
+            const string value = "TOOLONGVALUEFORTHEOLD8BYTEFIELD";
             var sync = new VariableSyncUpdate
             {
                 ObjectId = 1,
-                Entries = new List<VariableEntry> { new VariableEntry { Vuid = 1, Kind = VariableKind.String8, StringValue = "TOOLONGVALUE" } }
+                Entries = new List<VariableEntry> { new VariableEntry { Vuid = 1, Kind = VariableKind.String8, StringValue = value } }
             };
 
             byte[] buffer = new byte[256];
             int written = codec.Encode(sync, buffer);
             VariableSyncUpdate back = codec.Decode(buffer.AsSpan(0, written));
 
-            Assert.Equal("TOOLONGVALUE"[..8], back.Entries[0].StringValue);
+            Assert.Equal(value, back.Entries[0].StringValue);
         }
 
         [Fact]
-        public void String8Value_ShorterThan8Chars_TrimsPadding()
+        public void String8Value_ShortString_RoundTripsExactly()
         {
             var codec = new VariableSyncV1Codec();
             var sync = new VariableSyncUpdate
@@ -66,7 +72,46 @@ namespace JoinFS.Tests.Jfp2
             int written = codec.Encode(sync, buffer);
             VariableSyncUpdate back = codec.Decode(buffer.AsSpan(0, written));
 
+            // No more fixed-width padding to trim - "AB" comes back as exactly "AB", not "AB      ".
             Assert.Equal("AB", back.Entries[0].StringValue);
+        }
+
+        [Fact]
+        public void String8Value_NonAscii_RoundTripsExactly()
+        {
+            // The old ASCII-only fixed-width encoding would have mangled this; UTF8 doesn't.
+            var codec = new VariableSyncV1Codec();
+            const string value = "Zürich–München";
+            var sync = new VariableSyncUpdate
+            {
+                ObjectId = 1,
+                Entries = new List<VariableEntry> { new VariableEntry { Vuid = 1, Kind = VariableKind.String8, StringValue = value } }
+            };
+
+            byte[] buffer = new byte[256];
+            int written = codec.Encode(sync, buffer);
+            VariableSyncUpdate back = codec.Decode(buffer.AsSpan(0, written));
+
+            Assert.Equal(value, back.Entries[0].StringValue);
+        }
+
+        [Fact]
+        public void EntrySize_SizesABufferThatFitsExactly()
+        {
+            // Network.SendJfp2VariableSync sizes its send buffer with EntrySize instead of a fixed
+            // guess (see the same finding's fix in Network.cs) - confirm it's neither too small
+            // (Encode would throw) nor wastefully large (Decode should consume exactly `written`).
+            var codec = new VariableSyncV1Codec();
+            var entry = new VariableEntry { Vuid = 1, Kind = VariableKind.String8, StringValue = new string('X', 500) };
+            var sync = new VariableSyncUpdate { ObjectId = 1, Entries = new List<VariableEntry> { entry } };
+
+            int bufferSize = VariableSyncV1Codec.HeaderSize + VariableSyncV1Codec.EntrySize(entry);
+            byte[] buffer = new byte[bufferSize];
+            int written = codec.Encode(sync, buffer);
+
+            Assert.Equal(bufferSize, written);
+            VariableSyncUpdate back = codec.Decode(buffer.AsSpan(0, written));
+            Assert.Equal(entry.StringValue, back.Entries[0].StringValue);
         }
 
         [Fact]

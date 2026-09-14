@@ -122,16 +122,41 @@ namespace JoinFS.Jfp2
         public readonly ushort RecipientPeerId; // 0 = broadcast to the whole mesh, matching the legacy null-Nuid convention
         public readonly byte RawMessageClass;
 
+        /// <summary>
+        /// Guaranteed-delivery extension fields (§4.4) - meaningful only when Flags.Guaranteed is set,
+        /// in which case WriteTo/ReadFrom read/write 4 extra bytes immediately after the fixed 8-byte
+        /// header: GuaranteedId (u16), GuaranteedIndex (u8), GuaranteedCount (u8). JFP2's guaranteed
+        /// messages (see LocalNode.SendJfp2Application's `guaranteed` overload) are never segmented, so
+        /// GuaranteedIndex/Count are always 0/1 in practice - the fields exist because the wire format
+        /// spec's §4.4 reserves room for segmentation the same way the legacy protocol's guaranteed
+        /// messages support it, not because anything in this codebase currently segments a JFP2 message.
+        /// </summary>
+        public readonly ushort GuaranteedId;
+        public readonly byte GuaranteedIndex;
+        public readonly byte GuaranteedCount;
+
         public Envelope(EnvelopeFlags flags, ushort senderPeerId, ushort recipientPeerId, byte rawMessageClass)
+            : this(flags, senderPeerId, recipientPeerId, rawMessageClass, 0, 0, 0)
+        {
+        }
+
+        public Envelope(EnvelopeFlags flags, ushort senderPeerId, ushort recipientPeerId, byte rawMessageClass, ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount)
         {
             Flags = flags;
             SenderPeerId = senderPeerId;
             RecipientPeerId = recipientPeerId;
             RawMessageClass = rawMessageClass;
+            GuaranteedId = guaranteedId;
+            GuaranteedIndex = guaranteedIndex;
+            GuaranteedCount = guaranteedCount;
         }
 
         public bool IsInternal => (Flags & EnvelopeFlags.Internal) != 0;
         public bool IsGuaranteed => (Flags & EnvelopeFlags.Guaranteed) != 0;
+
+        /// <summary>Total header size on the wire for this envelope: the fixed 8 bytes, plus the 4-byte
+        /// guaranteed-delivery extension when IsGuaranteed.</summary>
+        public int WireSize => FixedSize + (IsGuaranteed ? GuaranteedExtraSize : 0);
 
         /// <summary>
         /// True if the first two bytes of a received datagram are the legacy magic (0x520B, written
@@ -150,15 +175,20 @@ namespace JoinFS.Jfp2
 
         public int WriteTo(Span<byte> dest)
         {
-            if (dest.Length < FixedSize)
-                throw new ArgumentException("destination buffer smaller than the JFP2 fixed header");
+            if (dest.Length < WireSize)
+                throw new ArgumentException("destination buffer smaller than the JFP2 header (fixed + guaranteed extension, if any)");
             dest[0] = Magic;
             dest[1] = ProtoMajor;
             dest[2] = (byte)Flags;
             BinaryPrimitives.WriteUInt16LittleEndian(dest.Slice(3, 2), SenderPeerId);
             BinaryPrimitives.WriteUInt16LittleEndian(dest.Slice(5, 2), RecipientPeerId);
             dest[7] = RawMessageClass;
-            return FixedSize;
+            if (!IsGuaranteed)
+                return FixedSize;
+            BinaryPrimitives.WriteUInt16LittleEndian(dest.Slice(FixedSize, 2), GuaranteedId);
+            dest[FixedSize + 2] = GuaranteedIndex;
+            dest[FixedSize + 3] = GuaranteedCount;
+            return WireSize;
         }
 
         public static Envelope ReadFrom(ReadOnlySpan<byte> src, out int bytesConsumed)
@@ -173,8 +203,20 @@ namespace JoinFS.Jfp2
             ushort sender = BinaryPrimitives.ReadUInt16LittleEndian(src.Slice(3, 2));
             ushort recipient = BinaryPrimitives.ReadUInt16LittleEndian(src.Slice(5, 2));
             byte msgClass = src[7];
-            bytesConsumed = FixedSize;
-            return new Envelope(flags, sender, recipient, msgClass);
+
+            if ((flags & EnvelopeFlags.Guaranteed) == 0)
+            {
+                bytesConsumed = FixedSize;
+                return new Envelope(flags, sender, recipient, msgClass);
+            }
+
+            if (src.Length < FixedSize + GuaranteedExtraSize)
+                throw new ArgumentException("datagram shorter than the JFP2 guaranteed-delivery extension it claims to carry");
+            ushort guaranteedId = BinaryPrimitives.ReadUInt16LittleEndian(src.Slice(FixedSize, 2));
+            byte guaranteedIndex = src[FixedSize + 2];
+            byte guaranteedCount = src[FixedSize + 3];
+            bytesConsumed = FixedSize + GuaranteedExtraSize;
+            return new Envelope(flags, sender, recipient, msgClass, guaranteedId, guaranteedIndex, guaranteedCount);
         }
     }
 

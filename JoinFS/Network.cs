@@ -3005,8 +3005,14 @@ namespace JoinFS
             for (int offset = 0; offset < entries.Count; offset += JFP2_VARIABLE_SYNC_CHUNK_SIZE)
             {
                 int count = Math.Min(JFP2_VARIABLE_SYNC_CHUNK_SIZE, entries.Count - offset);
-                var chunk = new Jfp2.Codecs.VariableSyncUpdate { ObjectId = netId, Entries = entries.GetRange(offset, count) };
-                byte[] buffer = new byte[Jfp2.Codecs.VariableSyncV1Codec.HeaderSize + count * Jfp2.Codecs.VariableSyncV1Codec.MaxBytesPerEntry];
+                var chunkEntries = entries.GetRange(offset, count);
+                var chunk = new Jfp2.Codecs.VariableSyncUpdate { ObjectId = netId, Entries = chunkEntries };
+                // Sized exactly per entry rather than count * a fixed worst-case: String8 entries are
+                // variable-length now (docs/protocol-v2-implementation-review.md Finding 5), so a flat
+                // per-entry bound can no longer guarantee the buffer is big enough.
+                int bufferSize = Jfp2.Codecs.VariableSyncV1Codec.HeaderSize;
+                foreach (var e in chunkEntries) bufferSize += Jfp2.Codecs.VariableSyncV1Codec.EntrySize(e);
+                byte[] buffer = new byte[bufferSize];
                 int length = codec.Encode(chunk, buffer);
                 localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.VariableSync, buffer.AsSpan(0, length));
             }
@@ -3348,7 +3354,9 @@ namespace JoinFS
             var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.EventUpdate>(Jfp2.MessageClasses.Event, version);
             Span<byte> buffer = stackalloc byte[Jfp2.Codecs.EventV1Codec.Size];
             int length = codec.Encode(update, buffer);
-            localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Event, buffer[..length]);
+            // guaranteed: true - matches legacy WriteSimEventMessage, which also sends guaranteed
+            // (docs/protocol-v2-implementation-review.md Finding 1).
+            localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Event, buffer[..length], guaranteed: true);
             return true;
         }
 
@@ -3470,7 +3478,9 @@ namespace JoinFS
                 var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.WeatherReport>(Jfp2.MessageClasses.WeatherReply, version);
                 Span<byte> buffer = stackalloc byte[512];
                 int length = codec.Encode(report, buffer);
-                localNode.SendJfp2Application(nuid, Jfp2.MessageClasses.WeatherReply, buffer[..length]);
+                // guaranteed: true - matches legacy WriteWeatherReplyMessage, which also sends
+                // guaranteed (docs/protocol-v2-implementation-review.md Finding 1).
+                localNode.SendJfp2Application(nuid, Jfp2.MessageClasses.WeatherReply, buffer[..length], guaranteed: true);
             }
             else
             {
@@ -3985,7 +3995,9 @@ namespace JoinFS
                 {
                     var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.NoteUpdate>(Jfp2.MessageClasses.Notes, version);
                     int length = codec.Encode(note, noteBuffer);
-                    localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Notes, noteBuffer.AsSpan(0, length));
+                    // guaranteed: true - matches legacy SendCommsNoteMessage, which also sends
+                    // guaranteed (docs/protocol-v2-implementation-review.md Finding 1).
+                    localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Notes, noteBuffer.AsSpan(0, length), guaranteed: true);
                 }
                 else
                 {

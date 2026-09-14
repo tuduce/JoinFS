@@ -11,6 +11,31 @@ point for `grep`/search, not as guaranteed-current.
 
 Status legend: `[ ]` not started, `[~]` in progress, `[x]` done.
 
+**2026-09-14: see `docs/protocol-v2-implementation-review.md`** for an independent field-by-field
+audit of everything Phases 0-5 actually built, plus a rollout-readiness verdict. Short version: the
+field-level design holds up. Three of the review's findings were fixed the same day:
+
+- **Finding 1** (guaranteed delivery entirely unimplemented, silently downgrading Event/Notes/
+  WeatherReply's reliability versus their legacy equivalents): `Jfp2.Envelope`'s guaranteed-delivery
+  extension is now read/written, and `LocalNode` retries a guaranteed send until acked via a new
+  `GuaranteedDone` message.
+- **Finding 2** (Position hot-path send allocating on every call): `SendJfp2Datagram` now sends off an
+  `ArrayPool`-rented buffer instead of a fresh `byte[]` per call.
+- **Finding 5, first half** (`VariableSyncV1Codec`'s `String8` entries were a fixed 8-byte ASCII field
+  that silently truncated/mangled anything longer or non-ASCII - confirmed a real regression, not a
+  safe assumption, once checked against `SimConnectInterface.cs`'s own string requests and the legacy
+  `String8Variables` message's actual wire format, which was never 8-byte-capped): now length-prefixed
+  UTF8 like every other string field, with `Network.cs`'s send-buffer sizing fixed to match (it
+  previously assumed a fixed worst-case per entry, which the old encoding guaranteed but the new one
+  doesn't).
+
+All 6 configurations build clean; the test suite is at 127/127. None of these three fixes has been
+verified live yet (real packet loss for Finding 1, a profiler for Finding 2, a genuinely-long or non-
+ASCII synced variable value for Finding 5 - see the review's §6 and its Finding 5 entry). Finding 5's
+second half (`WireText`'s unbounded `ushort` length cast) remains open, low-priority. Read the review
+before starting Phase 6 or touching reliability/allocation/string-encoding-sensitive code in
+`JoinFS/Jfp2/`.
+
 ## Phase 0 — Validate the reference implementation before porting anything
 
 The reference code in `ProtocolV2Reference/` (repo root) was written without access to a .NET SDK and
@@ -372,16 +397,35 @@ and what that does and doesn't limit.
       the legacy branch (same reasoning as Phase 2/3's identical conversions).
 - [x] Build: all 6 configurations compile with 0 errors. Full test suite: 106/106 passing.
 - [x] Manual verification: re-ran the two-instance loopback negotiation test; both sides resolve
-      `Position=1` in `AgreedAppVersion`, zero errors/exceptions. **Not exercised: an actual live
-      Position send+receive with a real broadcasting aircraft** - same `--nosim` limitation as every
-      prior phase's manual verification in this sandbox. The ordering fix (pending-identity cache,
-      withhold-until-identity-sent) is verified by code review and the codec's own unit tests, not by a
-      live object-creation-via-JFP2 test.
+      `Position=1` in `AgreedAppVersion`, zero errors/exceptions. **Not exercised (at the time): an
+      actual live Position send+receive with a real broadcasting aircraft** - same `--nosim`
+      limitation as every prior phase's manual verification in this sandbox. The ordering fix
+      (pending-identity cache, withhold-until-identity-sent) is verified by code review and the
+      codec's own unit tests, not by a live object-creation-via-JFP2 test.
+      **Update, 2026-09-14 — this gap is now closed, with a real simulator, outside this sandbox:**
+      the user built a `CONSOLE` v26.6 client and a v26.6 hub (the hub also upgraded), plus the
+      uncommitted `Node.cs` change already sitting in the working tree that drops UDP packets
+      addressed to the node's own IP (needed since both client instances and the hub ran on the same
+      machine/IP, differentiated only by port). Two v26.6 CONSOLE instances (ports 6112 and 6113) each
+      connected to the v26.6 hub; a simulator attached to the session showed all 3 aircraft (the local
+      user aircraft plus one injected object per peer), and moving the user aircraft on one instance
+      was correctly reflected in the corresponding injected aircraft on the other, confirmed in both
+      directions. This is a real, live, end-to-end confirmation of JFP2 Position **and** Identity
+      (object creation from the pending-identity cache — an injected aircraft can't appear at all
+      without Identity having arrived and been consumed correctly) between two directly-negotiated
+      JFP2 peers. **Second run, mixed versions:** the same v26.6 hub with one v26.6 client and one
+      unpatched v26.5 (legacy-only) client — position routing between them worked as expected, i.e.
+      the v26.6 peer's Hello to the v26.5 peer goes unanswered, `AssumedLegacy` kicks in, and Position
+      falls back to the legacy wire format for that pair, exactly as designed (§7.2/§7.6 of the design
+      doc) and now confirmed with live traffic rather than negotiation-table inspection alone.
+      **Still not exercised live:** VariableSync/Event/Notes/Weather/FlightPlan with real triggering
+      data (animation-state variables, a gear-toggle event, a chat message, a METAR reply) - this run
+      only put Position and Identity through their paces. See
+      `docs/protocol-v2-implementation-review.md` §3 for the updated verification-status summary.
 - [ ] `PositionV2Codec` (quantized) — **not implemented.** Per the plan's own instruction ("roll out
-      PositionV1 alone first; confirm stability across a real mesh before touching V2") and given
-      PositionV1 itself hasn't yet been confirmed against a real simulator, V2 remains explicitly
-      deferred. Add it as an independently-offered schema version (never the only option) once V1 has
-      field experience.
+      PositionV1 alone first; confirm stability across a real mesh before touching V2") — PositionV1
+      has now been confirmed against a real simulator (see the update above), so this is no longer
+      blocked on that; still deferred pending broader field experience with V1 first.
 
 ## Phase 5 — Remaining message classes (design doc §6.4) — DONE (scoped) 2026-09-13
 

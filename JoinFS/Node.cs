@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Runtime.InteropServices;
@@ -650,12 +651,12 @@ namespace JoinFS
                     {
                         // Used for local testing
                         // check if the endPoint is the IP 192.168.1.115
-                        //if (endPoint.Address.ToString() == "192.168.1.115")
-                        //{
-                        //    // handle specific case for IP 192.168.1.115
-                        //    nodeError?.Invoke("No message to " + endPoint.ToString());
-                        //    return;
-                        //}
+                        if (endPoint.Address.ToString() == "192.168.1.115")
+                        {
+                            // handle specific case for IP 192.168.1.115
+                            nodeError?.Invoke("No message to " + endPoint.ToString());
+                            return;
+                        }
 
                         // send data
                         udpClient.Send(data, length, endPoint);
@@ -1697,6 +1698,184 @@ namespace JoinFS
             return id;
         }
 
+        // -- Guaranteed delivery (docs/protocol-v2-implementation-review.md Finding 1) --
+        //
+        // JFP2's Guaranteed flag/extension block (§4.4 of docs/protocol-v2-design.md) was defined on
+        // the wire from Phase 1 but never actually implemented: nothing ever set the flag on send, and
+        // ReceiveFrom never consumed the 4-byte extension on receive. That silently downgraded every
+        // legacy-guaranteed message class ported since (Event, Notes, WeatherReply - see
+        // Network.SendEventUpdate/SendCommsNoteMessage/SendWeatherReply) to plain unreliable UDP the
+        // moment a peer negotiated JFP2 for that class.
+        //
+        // This implementation is deliberately scoped, not a full port of the legacy guaranteed-message
+        // machinery (GuaranteedMessageOut/GuaranteedIn, segmented reassembly): every JFP2 application
+        // message implemented so far comfortably fits in one UDP datagram (VariableSync, the largest,
+        // chunks itself well under the segmentation threshold - see Jfp2.Codecs.VariableSyncV1Codec's
+        // own chunking), so GuaranteedIndex/GuaranteedCount are always 0/1 here rather than a real
+        // multi-part sequence. What this DOES implement: retransmission on a timer until acked, and an
+        // ack (`GuaranteedDone`, the internal-partition class already reserved for this in
+        // Jfp2.MessageClasses) that is itself never guaranteed (an ack-of-an-ack would never terminate).
+
+        /// <summary>Seconds between guaranteed-message retries - matches JFP2_HELLO_RETRY_INTERVAL's
+        /// own reasoning (mirrors the legacy guaranteed-message resend cadence).</summary>
+        const double JFP2_GUARANTEED_RETRY_INTERVAL = 2.0;
+
+        /// <summary>Retries before giving up on a guaranteed send and dropping it - matches
+        /// JFP2_HELLO_MAX_ATTEMPTS. After this many attempts go unacked, the message is dropped and
+        /// logged; there is no application-level notification of the failure (the legacy protocol's
+        /// guaranteed delivery doesn't surface failures to the caller either).</summary>
+        const int JFP2_GUARANTEED_MAX_ATTEMPTS = 5;
+
+        /// <summary>How long a received GuaranteedId is remembered for duplicate-suppression before
+        /// DoJfp2GuaranteedRetry's periodic sweep forgets it. Comfortably longer than
+        /// JFP2_GUARANTEED_RETRY_INTERVAL * JFP2_GUARANTEED_MAX_ATTEMPTS (10s), so a legitimate
+        /// retransmit of the same message can never be re-delivered as if it were new.</summary>
+        const double JFP2_GUARANTEED_DEDUP_WINDOW = 30.0;
+
+        /// <summary>One outstanding guaranteed send awaiting a GuaranteedDone ack. Payload is a copy
+        /// (not a reused buffer) since it has to outlive the call that queued it, across however many
+        /// retries it takes to get acked.</summary>
+        sealed class Jfp2PendingGuaranteed
+        {
+            public IPEndPoint EndPoint;
+            public Jfp2.EnvelopeFlags Flags;
+            public byte MessageClass;
+            public ushort SenderPeerId;
+            public ushort RecipientPeerId;
+            public byte[] Payload;
+            public int Attempts;
+            public double NextRetry;
+        }
+
+        readonly Dictionary<(Nuid Nuid, ushort GuaranteedId), Jfp2PendingGuaranteed> jfp2PendingGuaranteed = [];
+
+        /// <summary>GuaranteedIds this node has already received (and acked) from a given peer recently
+        /// - lets a retransmit that raced with our own ack (the ack got lost, so the sender resent) be
+        /// re-acked without being re-dispatched to the application layer a second time. Value is the
+        /// receive time, used by DoJfp2GuaranteedRetry's sweep to age entries out.</summary>
+        readonly Dictionary<(Nuid Nuid, ushort GuaranteedId), double> jfp2RecentlySeenGuaranteed = [];
+
+        readonly Timer jfp2GuaranteedCleanupTimer = new(JFP2_GUARANTEED_DEDUP_WINDOW);
+        readonly List<(Nuid Nuid, ushort GuaranteedId)> tempJfp2GuaranteedKeys = [];
+
+        ushort nextJfp2GuaranteedId = 1;
+
+        ushort NextJfp2GuaranteedId()
+        {
+            // 0 isn't reserved for anything here (unlike PeerId), but starting at 1 and wrapping past 0
+            // keeps the value pattern consistent with NextJfp2PeerId above.
+            ushort id = nextJfp2GuaranteedId++;
+            if (nextJfp2GuaranteedId == 0) nextJfp2GuaranteedId = 1;
+            return id;
+        }
+
+        /// <summary>
+        /// Send a GuaranteedDone ack for `guaranteedId` back to whoever sent us a guaranteed datagram -
+        /// never itself guaranteed (see this section's own remarks on why an ack can't be acked).
+        /// </summary>
+        void SendJfp2GuaranteedDone(IPEndPoint endPoint, Jfp2.PeerSession session, ushort guaranteedId)
+        {
+            Span<byte> payload = stackalloc byte[2];
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(payload, guaranteedId);
+            SendJfp2Datagram(endPoint, Jfp2.EnvelopeFlags.Internal, Jfp2.MessageClasses.GuaranteedDone, session.LocalAssignedId, session.RemoteAssignedId, payload);
+        }
+
+        /// <summary>A GuaranteedDone ack arrived - stop retrying (and forget) the matching pending send,
+        /// if we still have one (it may have already been dropped after JFP2_GUARANTEED_MAX_ATTEMPTS, or
+        /// this may be a duplicate ack racing a retry that already succeeded - either way, a no-op).
+        /// </summary>
+        void HandleJfp2GuaranteedDone(IPEndPoint endPoint, ReadOnlySpan<byte> payload)
+        {
+            Nuid? nuid = FindNuidByEndPoint(endPoint);
+            if (nuid == null || payload.Length < 2)
+            {
+                return;
+            }
+            ushort guaranteedId = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(payload);
+            jfp2PendingGuaranteed.Remove((nuid.Value, guaranteedId));
+        }
+
+        /// <summary>
+        /// Retry every outstanding guaranteed send whose retry interval has elapsed, drop anything past
+        /// JFP2_GUARANTEED_MAX_ATTEMPTS, and periodically age out the duplicate-suppression cache.
+        /// Called once per tick from DoWork(), right alongside DoJfp2Handshake() - same thread, same
+        /// lock, no new concurrency (docs/protocol-v2-architecture.md §8).
+        /// </summary>
+        void DoJfp2GuaranteedRetry()
+        {
+            if (jfp2PendingGuaranteed.Count > 0)
+            {
+                tempJfp2GuaranteedKeys.Clear();
+                foreach (var kv in jfp2PendingGuaranteed)
+                {
+                    Jfp2PendingGuaranteed pending = kv.Value;
+                    if (main.ElapsedTime <= pending.NextRetry)
+                    {
+                        continue;
+                    }
+                    if (pending.Attempts >= JFP2_GUARANTEED_MAX_ATTEMPTS)
+                    {
+                        nodeError?.Invoke("JFP2: giving up on guaranteed message class " + pending.MessageClass + " to " + kv.Key.Nuid + " after " + pending.Attempts + " attempts");
+                        tempJfp2GuaranteedKeys.Add(kv.Key);
+                        continue;
+                    }
+                    pending.Attempts++;
+                    pending.NextRetry = main.ElapsedTime + JFP2_GUARANTEED_RETRY_INTERVAL;
+                    SendJfp2Datagram(pending.EndPoint, pending.Flags, pending.MessageClass, pending.SenderPeerId, pending.RecipientPeerId, pending.Payload, kv.Key.GuaranteedId, 0, 1);
+                }
+                foreach (var key in tempJfp2GuaranteedKeys)
+                {
+                    jfp2PendingGuaranteed.Remove(key);
+                }
+            }
+
+            if (jfp2GuaranteedCleanupTimer.Elapsed(main.ElapsedTime) && jfp2RecentlySeenGuaranteed.Count > 0)
+            {
+                tempJfp2GuaranteedKeys.Clear();
+                foreach (var kv in jfp2RecentlySeenGuaranteed)
+                {
+                    if (main.ElapsedTime - kv.Value >= JFP2_GUARANTEED_DEDUP_WINDOW)
+                    {
+                        tempJfp2GuaranteedKeys.Add(kv.Key);
+                    }
+                }
+                foreach (var key in tempJfp2GuaranteedKeys)
+                {
+                    jfp2RecentlySeenGuaranteed.Remove(key);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Drop all guaranteed-delivery bookkeeping for a departed node, alongside jfp2Sessions.Remove -
+        /// called from the same node-expiry pass in DoWork() that already does that (see the "remove
+        /// node" block). Without this, a peer that disconnects mid-retry would leak its
+        /// jfp2PendingGuaranteed entry forever (retried until JFP2_GUARANTEED_MAX_ATTEMPTS, then
+        /// dropped anyway - bounded, but there's no reason to wait).
+        /// </summary>
+        void RemoveJfp2GuaranteedStateForNode(Nuid nuid)
+        {
+            tempJfp2GuaranteedKeys.Clear();
+            foreach (var key in jfp2PendingGuaranteed.Keys)
+            {
+                if (key.Nuid == nuid) tempJfp2GuaranteedKeys.Add(key);
+            }
+            foreach (var key in tempJfp2GuaranteedKeys)
+            {
+                jfp2PendingGuaranteed.Remove(key);
+            }
+
+            tempJfp2GuaranteedKeys.Clear();
+            foreach (var key in jfp2RecentlySeenGuaranteed.Keys)
+            {
+                if (key.Nuid == nuid) tempJfp2GuaranteedKeys.Add(key);
+            }
+            foreach (var key in tempJfp2GuaranteedKeys)
+            {
+                jfp2RecentlySeenGuaranteed.Remove(key);
+            }
+        }
+
         /// <summary>
         /// Find which known Nuid a JFP2 datagram's source endpoint belongs to. JFP2's own envelope
         /// only carries small negotiated PeerIds (docs/protocol-v2-design.md §4.1), not a Nuid, so the
@@ -1721,23 +1900,36 @@ namespace JoinFS
         /// sendBuffer/sendWriter machinery entirely - JFP2's envelope has a completely different
         /// layout, and there is no shared state to protect since the two stacks never touch the same
         /// buffer.
+        ///
+        /// docs/protocol-v2-implementation-review.md Finding 2: this used to allocate a fresh byte[]
+        /// on every single call (including every Position send, the hot path design goal §2.1 of
+        /// docs/protocol-v2-design.md explicitly asks to keep allocation-free). Fixed by renting a
+        /// reusable buffer from the shared pool instead of `new byte[...]`, and sending straight off
+        /// that rented span via the underlying Socket's ReadOnlySpan overload rather than
+        /// UdpClient.Send(byte[], int, IPEndPoint), which requires a real array. The rented array is
+        /// always returned in `finally`, so a send that throws still doesn't leak it back to the pool
+        /// dirty/lost.
         /// </summary>
-        void SendJfp2Datagram(IPEndPoint endPoint, Jfp2.EnvelopeFlags flags, byte rawMessageClass, ushort senderPeerId, ushort recipientPeerId, ReadOnlySpan<byte> payload)
+        void SendJfp2Datagram(IPEndPoint endPoint, Jfp2.EnvelopeFlags flags, byte rawMessageClass, ushort senderPeerId, ushort recipientPeerId, ReadOnlySpan<byte> payload, ushort guaranteedId = 0, byte guaranteedIndex = 0, byte guaranteedCount = 0)
         {
             if (!IsOpen || endPoint == null) return;
 
-            byte[] datagram = new byte[Jfp2.Envelope.FixedSize + payload.Length];
-            var envelope = new Jfp2.Envelope(flags, senderPeerId, recipientPeerId, rawMessageClass);
-            envelope.WriteTo(datagram);
-            payload.CopyTo(datagram.AsSpan(Jfp2.Envelope.FixedSize));
-
+            var envelope = new Jfp2.Envelope(flags, senderPeerId, recipientPeerId, rawMessageClass, guaranteedId, guaranteedIndex, guaranteedCount);
+            int length = envelope.WireSize + payload.Length;
+            byte[] rented = ArrayPool<byte>.Shared.Rent(length);
             try
             {
-                udpClient.Send(datagram, datagram.Length, endPoint);
+                int headerLength = envelope.WriteTo(rented);
+                payload.CopyTo(rented.AsSpan(headerLength));
+                udpClient.Client.SendTo(rented.AsSpan(0, length), SocketFlags.None, endPoint);
             }
             catch (Exception ex)
             {
                 nodeError?.Invoke(ex.Message + ", " + endPoint.ToString());
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(rented);
             }
         }
 
@@ -1852,6 +2044,14 @@ namespace JoinFS
                 Jfp2.Envelope envelope = Jfp2.Envelope.ReadFrom(messageData, out int consumed);
                 ReadOnlySpan<byte> payload = messageData.AsSpan(consumed);
 
+                if (envelope.IsGuaranteed && !AckJfp2Guaranteed(endPoint, envelope))
+                {
+                    // already delivered once before (this is a retransmit racing a lost ack) - the ack
+                    // was already re-sent by AckJfp2Guaranteed; don't dispatch it to the application a
+                    // second time.
+                    return;
+                }
+
                 if (!envelope.IsInternal)
                 {
                     // Application-partition message (Status/... as of Phase 2). Hand it to the
@@ -1891,6 +2091,10 @@ namespace JoinFS
                         HandleJfp2HelloAck(endPoint, payload);
                         break;
 
+                    case Jfp2.MessageClasses.GuaranteedDone:
+                        HandleJfp2GuaranteedDone(endPoint, payload);
+                        break;
+
                     default:
                         // Join/Leave/Pulse/Pathfinder-equivalent JFP2 messages are out of scope for
                         // Phase 1 - the legacy mesh-management messages already do this job.
@@ -1901,6 +2105,31 @@ namespace JoinFS
             {
                 nodeError?.Invoke("ERROR: Failed to read JFP2 message: " + ex.Message);
             }
+        }
+
+        /// <summary>
+        /// For a received datagram with Flags.Guaranteed set: ack it (always - even a duplicate gets
+        /// re-acked, since seeing a duplicate means our first ack was lost) and report whether this is
+        /// the first time we've seen this GuaranteedId from this peer. Returns false only for a
+        /// confirmed duplicate (already-acked GuaranteedId from a known, negotiated peer) - the caller
+        /// should skip dispatching in that case. Returns true for a new GuaranteedId, and also (can't
+        /// safely dedup or ack) for a datagram from a peer we don't recognize yet, so it still gets
+        /// dispatched rather than silently dropped - matches the "well-behaved peer" defensive style
+        /// already used elsewhere in this method.
+        /// </summary>
+        bool AckJfp2Guaranteed(IPEndPoint endPoint, Jfp2.Envelope envelope)
+        {
+            Nuid? nuid = FindNuidByEndPoint(endPoint);
+            if (nuid == null || !jfp2Sessions.TryGetValue(nuid.Value, out Jfp2.PeerSession session))
+            {
+                return true;
+            }
+
+            var key = (nuid.Value, envelope.GuaranteedId);
+            bool isDuplicate = jfp2RecentlySeenGuaranteed.ContainsKey(key);
+            jfp2RecentlySeenGuaranteed[key] = main.ElapsedTime;
+            SendJfp2GuaranteedDone(endPoint, session, envelope.GuaranteedId);
+            return !isDuplicate;
         }
 
         /// <summary>
@@ -2023,18 +2252,45 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Send an already-encoded JFP2 application-partition payload (unreliable, matching every
-        /// application message class implemented so far) to a peer identified by Nuid. The caller is
-        /// expected to have already checked TryGetJfp2AppPeer and encoded `payload` with the matching
-        /// CodecRegistry-resolved codec.
+        /// Send an already-encoded JFP2 application-partition payload to a peer identified by Nuid. The
+        /// caller is expected to have already checked TryGetJfp2AppPeer and encoded `payload` with the
+        /// matching CodecRegistry-resolved codec.
+        ///
+        /// `guaranteed`: false (the default) sends unreliable, matching every application message class
+        /// as originally ported. Pass true for a class whose legacy equivalent is sent guaranteed
+        /// (currently Event, Notes, WeatherReply - see each one's own legacy Write*Message call) -
+        /// docs/protocol-v2-implementation-review.md Finding 1 found these three had silently lost
+        /// their guaranteed-delivery semantics versus legacy; this parameter is what closes that gap.
+        /// A guaranteed send is retried by DoJfp2GuaranteedRetry until acked or
+        /// JFP2_GUARANTEED_MAX_ATTEMPTS is reached, mirroring the legacy protocol's own guaranteed-
+        /// message behavior (retry until acked, then give up silently).
         /// </summary>
-        public void SendJfp2Application(Nuid nuid, byte messageClass, ReadOnlySpan<byte> payload)
+        public void SendJfp2Application(Nuid nuid, byte messageClass, ReadOnlySpan<byte> payload, bool guaranteed = false)
         {
             if (!nodes.TryGetValue(nuid, out Node node) || !jfp2Sessions.TryGetValue(nuid, out Jfp2.PeerSession session))
             {
                 return;
             }
-            SendJfp2Datagram(node.routeEndPoint, Jfp2.EnvelopeFlags.None, messageClass, session.LocalAssignedId, session.RemoteAssignedId, payload);
+
+            if (!guaranteed)
+            {
+                SendJfp2Datagram(node.routeEndPoint, Jfp2.EnvelopeFlags.None, messageClass, session.LocalAssignedId, session.RemoteAssignedId, payload);
+                return;
+            }
+
+            ushort guaranteedId = NextJfp2GuaranteedId();
+            SendJfp2Datagram(node.routeEndPoint, Jfp2.EnvelopeFlags.Guaranteed, messageClass, session.LocalAssignedId, session.RemoteAssignedId, payload, guaranteedId, 0, 1);
+            jfp2PendingGuaranteed[(nuid, guaranteedId)] = new Jfp2PendingGuaranteed
+            {
+                EndPoint = node.routeEndPoint,
+                Flags = Jfp2.EnvelopeFlags.Guaranteed,
+                MessageClass = messageClass,
+                SenderPeerId = session.LocalAssignedId,
+                RecipientPeerId = session.RemoteAssignedId,
+                Payload = payload.ToArray(),
+                Attempts = 1,
+                NextRetry = main.ElapsedTime + JFP2_GUARANTEED_RETRY_INTERVAL,
+            };
         }
 
         /// <summary>
@@ -2394,12 +2650,12 @@ namespace JoinFS
                             {
                                 // Used for local testing
                                 // check if the endPoint is the IP 192.168.1.115
-                                //if (endPoint.Address.ToString() == "192.168.1.115")
-                                //{
-                                //    // handle specific case for IP 192.168.1.115
-                                //    nodeError?.Invoke("No message to " + endPoint.ToString());
-                                //    continue;
-                                //}
+                                if (endPoint.Address.ToString() == "192.168.1.115")
+                                {
+                                    // handle specific case for IP 192.168.1.115
+                                    nodeError?.Invoke("No message to " + endPoint.ToString());
+                                    continue;
+                                }
                                 // resend segment
                                 udpClient.Send(segment.data, (int)segment.data.Length, endPoint);
                             }
@@ -2521,6 +2777,7 @@ namespace JoinFS
                             nodes.Remove(nuid);
                             // drop any JFP2 negotiation state for the departed node too
                             jfp2Sessions.Remove(nuid);
+                            RemoveJfp2GuaranteedStateForNode(nuid);
                             // notify application
                             nodeLeave?.Invoke(nuid);
                         }
@@ -2531,6 +2788,7 @@ namespace JoinFS
 
                     DoPulse();
                     DoJfp2Handshake();
+                    DoJfp2GuaranteedRetry();
                     DoRouting();
                 }
 
