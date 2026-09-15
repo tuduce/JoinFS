@@ -59,6 +59,13 @@ None of these require re-architecting anything — all are localized, well-under
 design that is otherwise sound and consistently applied. See §4 for the fully itemized finding list
 and §5 for what "ready" would concretely look like.
 
+**Update, 2026-09-15 — Finding 6 added.** Field testing (two real-simulator sessions, logged in
+`docs/protocol-v2-implementation-plan.md`) surfaced a pre-existing, non-JFP2-specific latency source in
+`VariableMgr.Set`'s receive-side hold-off logic that explains a reported 1-2 second lag in light-state
+(landing/taxi light) propagation, observed identically over both JFP2 and legacy transport. It does not
+block the JFP2 rollout (it isn't a JFP2 regression), but it's worth fixing independently — see Finding
+6 in §4.
+
 ## 2. Field-by-field catalog
 
 Every field below is drawn from the actual `JoinFS/Jfp2/**/*.cs` source, not the design doc's
@@ -389,6 +396,52 @@ string-encoding edge cases.**
   field genuinely needs longer strings; a one-line bounds assertion (`Debug.Assert` or similar) would
   suffice then.
 - **Verified:** all 6 build configurations compile clean; full test suite 127/127 passing.
+
+**Finding 6 (medium, pre-existing — not introduced or worsened by JFP2, added 2026-09-15) — Injected-
+object variable updates are held off for 3-5 seconds per vuid, and a shared composite vuid means one
+light changing blocks all the others sharing it.**
+
+- `VariableMgr.Set` (`JoinFS/VariableMgr.Set.cs`) enforces a per-vuid hold-off before an injected
+  (remote) object's cached variable value may be overwritten by a newly-received one: `SLAVE_DELAY =
+  3.0` seconds for an ordinary injected object, `MASTER_DELAY = 5.0` seconds for the shared-cockpit/
+  entered-another-aircraft case (`Set.DelayTime`, lines 328-344). `UpdateInteger`/`UpdateFloats`/
+  `UpdateString8` all gate on this **before** checking whether the incoming value differs from the
+  cached one (line 507: `if (startTimes.ContainsKey(vuid) == false || startTimes[vuid] <
+  main.ElapsedTime)`), so an update landing inside the window is dropped outright, not queued —
+  whatever value the next post-window message happens to carry is what gets applied.
+- Landing, taxi, nav, and beacon lights are not four independent variables on the wire or in this
+  hold-off's bookkeeping: `Variables.cs`'s built-in `Plane.txt`/`Rotorcraft.txt` definitions declare
+  them as masked bits of one shared SimConnect variable, `LIGHT STATES` (`mask:0..3`,
+  `Variables.cs:176-179`). Registration (`Variables.cs:902-921`) creates one shared composite
+  `Definition` (`maskVuid = CreateVuid("LIGHT STATES")`, `mask == 0`) that all four sub-variables point
+  at; on receive, `UpdateInteger` only ever writes to SimConnect for that one composite vuid (`mask ==
+  0`, line 526) — the individual per-bit booleans update a local dictionary entry only and never reach
+  SimConnect (lines 561-567). This means nav/beacon/landing/taxi genuinely share one hold-off window:
+  toggling any one of them re-arms the 3-second block for all four.
+- Confirmed reachable by both receive paths identically: legacy `IntegerVariables`
+  (`Network.cs:5218-5265`) and JFP2 `VariableSync` both terminate in `Sim.UpdateAircraft(ownerNuid,
+  netId, Dictionary<uint,int>)` (`Sim.cs:2440`), which calls
+  `controlledAircraft.variableSet.UpdateIntegers(variables)` unconditionally — this is not a
+  JFP2-specific code path.
+- **Observed effect, field-tested 2026-09-15** (see `docs/protocol-v2-implementation-plan.md`'s
+  field-test log): toggling landing and taxi lights together — a natural real-world action —
+  reproduced a 0-3 second lag on a remote peer in both a JFP2-negotiated direct-mesh pair and a mixed
+  JFP2/legacy pair, matching this mechanism's predicted worst case. Strobe is the one exception in
+  `Plane.txt` (its own dedicated `LIGHT STROBE`/`STROBES_SET` variable/event, unmasked,
+  `Variables.cs:180`) — it has its own independent hold-off and doesn't contend with the other four; in
+  `Rotorcraft.txt`, strobe is folded into the same `LIGHT STATES` mask, so all five compete there.
+- **Not fixed, not a JFP2 regression** — this predates JFP2 entirely and is reached identically by both
+  transports, so it is out of scope for a JFP2-specific fix, but it materially affects how quickly
+  *any* remote light/switch state is perceived to update regardless of which transport carries it.
+  Worth its own investigation: whether `SLAVE_DELAY`/`MASTER_DELAY` should be shorter (or skipped)
+  specifically for boolean/mask-derived integer variables, since the delay's likely original purpose —
+  damping rapid-fire SimConnect writes for continuously-varying values like radio frequencies or trims
+  — doesn't obviously apply to a variable that changes rarely and discretely.
+- **Still open:** a related but distinct field observation — a legacy v26.5 peer reportedly seeing a
+  remote light stuck "always on" rather than merely delayed — is not fully explained by this hold-off
+  alone (a hold-off predicts delay, not permanent staleness) and needs a live re-test with
+  `monitor.variables`/`monitor.network` logging on both ends to resolve; see the field-test log for the
+  specific hypotheses to check.
 
 ## 5. What "ready" would look like
 

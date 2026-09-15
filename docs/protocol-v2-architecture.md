@@ -76,7 +76,7 @@ Two things this diagram is meant to make concrete:
 | `JoinFS/Network.cs` | Untouched | Legacy application message `Read`/`Write` methods, used as-is by both the legacy path and the hub bridge (§7.7). |
 | `JoinFS/Jfp2/Envelope.cs` | New | `EnvelopeFlags`, `MessageClasses`, `Envelope` struct (§4.1–§4.6), `PeerKey` (§4.7). |
 | `JoinFS/Jfp2/Negotiation.cs` | New | `SchemaOffer`, `Capability`, `Tlv`, `HandshakeMessage`, `Negotiator`, `PeerSession` (§5). |
-| `JoinFS/Jfp2/Codecs/ICodec.cs` | New | `ICodec<T>`, `CodecRegistry` (§6, §9.2). |
+| `JoinFS/Jfp2/Codecs/ICodec.cs` | New | `ICodec<T>`, `CodecRegistry` (§6). |
 | `JoinFS/Jfp2/Codecs/PositionCodecs.cs` | New | `PositionUpdate`, `PositionV1Codec`, `PositionV2Codec` (§6.1). |
 | `JoinFS/Jfp2/Codecs/IdentityCodec.cs` | New | `IdentityUpdate`, `IdentityV1Codec` (§6.2). |
 | `JoinFS/Jfp2/Codecs/VariableSyncCodec.cs` | New | `VariableKind`, `VariableEntry`, `VariableSyncUpdate`, `VariableSyncV1Codec` (§6.3, §6.5). |

@@ -62,7 +62,7 @@ has never been compiled. Do this first; everything else builds on it.
 - [x] No discrepancy found between the Python-verified numbers and the compiled C# output — every
       number in `docs/protocol-v2-design.md` §6.1 reproduced exactly (see `dotnet run` output above).
 
-## Phase 1 — Land JFP2 as dead code (design doc §10 step 1) — DONE 2026-09-13
+## Phase 1 — Land JFP2 as dead code (design doc §9 step 1) — DONE 2026-09-13
 
 Goal: JFP2 datagrams can be sent/received and negotiation completes, but nothing depends on it yet.
 Legacy behavior must be provably unchanged throughout this phase.
@@ -137,7 +137,7 @@ Legacy behavior must be provably unchanged throughout this phase.
         the real hub completely unaffected throughout (and the node expiring normally ~20s later when
         the hub stopped responding, per the legacy `EXPIRE_TIME` logic, also untouched).
 
-## Phase 2 — Migrate one low-risk message class (design doc §10 step 2) — DONE 2026-09-13
+## Phase 2 — Migrate one low-risk message class (design doc §9 step 2) — DONE 2026-09-13
 
 - [x] Picked `Status`/`StatusRequest` (network-protocol.md §8.6), per the design doc's own suggestion.
       **Deviation:** the design catalog (§4.3) only reserved one class slot ("Status") for this whole
@@ -226,7 +226,7 @@ Legacy behavior must be provably unchanged throughout this phase.
         `Status`/`StatusRequest` datagram between two patched, already-`AgreedAppVersion`-negotiated
         peers is actually `0xFA`-prefixed on the wire, not just correctly routed in code.
 
-## Phase 3 — Migrate Identity and VariableSync (design doc §10 step 3) — DONE (scoped) 2026-09-13
+## Phase 3 — Migrate Identity and VariableSync (design doc §9 step 3) — DONE (scoped) 2026-09-13
 
 This closes the specific bugs documented in `docs/protocol-changes-v26.4-v26.5.md` §1.2 and
 `docs/recording-protocol.md` §7.1/§7.2, for **direct JFP2↔JFP2 peer pairs**. `Jfp2Bridge` (hub-role
@@ -335,7 +335,7 @@ and what that does and doesn't limit.
         appearing correctly) that livery/callsign/variable changes propagate and that the Sessions
         window's Protocol column (see the earlier "sessions window" work) shows `JFP2` for that peer.
 
-## Phase 4 — Migrate Position (design doc §10 step 4) — PositionV1 DONE (scoped) 2026-09-13
+## Phase 4 — Migrate Position (design doc §9 step 4) — PositionV1 DONE (scoped) 2026-09-13
 
 - [x] Implemented `PositionV1Codec` for real — `JoinFS/Jfp2/Codecs/PositionCodec.cs`. **Deviation
       (scope):** covers **Aircraft position only** (the legacy `AircraftPosition` message); the generic
@@ -525,6 +525,67 @@ and what that does and doesn't limit.
       tests and direct code review of the extracted handlers against the exact legacy logic they
       preserve.
 
+## Field test findings, 2026-09-15
+
+Two field tests run by the maintainer against real MSFS clients and a real hub, after Phases 0-5 above
+were complete. Both used a real simulator (unlike every `--nosim` verification logged in the phases
+above), so these are the first tests to exercise VariableSync (light-state sync) end-to-end. Logged here
+per this file's own "keep this updated" convention; the root-cause analysis is cross-referenced into
+`docs/protocol-v2-implementation-review.md` (Finding 6) since it's a code-audit finding, not a design
+question — nothing here changes `docs/protocol-v2-design.md`.
+
+**Test 1 — mixed versions, direct mesh.** One v26.5 (legacy-only) and one v26.6 (this tree) instance,
+both connected to a v26.6 hub. The v26.6 side correctly detected the hub as JFP2-capable and the v26.5
+peer as legacy; the two client instances negotiated a direct JFP2 mesh connection (no hub routing), as
+intended. Position data looked correct on both sides. The v26.6 side saw the v26.5 peer's landing/taxi
+lights switch on and off, but with an intermittent ~1-2 second delay. The v26.5 (legacy) side reported
+seeing the v26.6 peer's lights as always on, never observing them switch off.
+
+**Test 2 — two v26.6 instances via a v26.6 hub, JFP2 mesh.** Both instances correctly negotiated a
+direct JFP2 (`jfp2`) connection instead of routing through the hub. Light-state switching was correctly
+delivered in both directions, again with an intermittent ~1-2 second delay. Position updates looked
+good. The maintainer also noted the JFP2 negotiation itself felt slow to complete, during which the
+aircraft list stayed empty (correctly, in the maintainer's assessment, but slower than expected).
+
+**Analysis:**
+
+- **The ~1-2s light-toggle delay has a precise, code-confirmed root cause, logged as Finding 6 in
+  `docs/protocol-v2-implementation-review.md`.** Landing/taxi/nav/beacon lights share one underlying
+  SimConnect variable (`LIGHT STATES`); `VariableMgr.Set`'s receive-side apply logic enforces a 3-second
+  (`SLAVE_DELAY`) hold-off per vuid before a new value may overwrite the cached one, and updates landing
+  inside that window are dropped rather than queued. Toggling landing and taxi lights together — what
+  both tests did — is close to the worst case for this shared-vuid, drop-not-queue mechanism, producing
+  exactly the observed intermittent 0-3s lag. This is pre-existing code, reached identically by the
+  legacy and JFP2 receive paths (both terminate in `Sim.UpdateAircraft`'s `VariableMgr.Set.UpdateIntegers`
+  call), so it affected Test 1's legacy side and Test 2's all-JFP2 mesh equally — consistent with what
+  was observed. See Finding 6 for the full code trace and a possible follow-up (a shorter or absent
+  hold-off specifically for boolean/mask-derived variables).
+- **JFP2 negotiation's own cost is small; what's actually slow is pre-existing, unrelated mesh
+  formation.** `DoJfp2Handshake` only attempts a Hello once a peer is already `Direct` in the legacy
+  mesh (`Node.cs`) — JFP2 negotiation cannot start before that. Reaching `Direct` is gated by the
+  legacy Pathfinder mechanism (`PATHFINDER_INTERVAL = 5s`, `Node.cs`), which predates JFP2 entirely and
+  is unchanged by it; the Hello/HelloAck exchange itself completed in ~46ms in Phase 1's own loopback
+  test once started. So "JFP2 negotiation feels slow" in Test 2 is very likely the ~5s-or-more legacy
+  direct-path discovery, not JFP2's handshake cost — worth confirming with `GetNodeJfp2State` and
+  `node.Direct` timestamps in the next test rather than assumed.
+- **The "aircraft list is empty until negotiated" observation may not reflect an actual JFP2 gate.**
+  Every per-message send call (`SendVariableUpdate`, the Position broadcast loop) falls back to legacy
+  immediately, on every tick, whenever a peer's JFP2 session isn't yet negotiated — nothing in the code
+  withholds Position pending negotiation completion (the one exception, a one-tick withhold for a
+  brand-new object's first Position pending its own Identity, only applies to *already*-negotiated
+  peers and is bounded to ~0.2s). The empty aircraft list is more likely coincident with the same mesh-
+  formation/Join timing above than a hard dependency on JFP2 finishing. Recommend logging
+  `GetNodeJfp2State` transitions alongside the first-aircraft-visible timestamp next time to separate
+  the two.
+- **Still open, needs a live re-test with logging:** why the v26.5 peer in Test 1 saw the light as
+  "always on" rather than merely delayed. A 3-second hold-off predicts delay, not permanent staleness,
+  so this isn't fully explained yet — possible causes include the true state spending much more time ON
+  than OFF during the observation window, a specific OFF-carrying datagram being lost at an unlucky
+  moment relative to the hold-off window, or a difference in v26.5's exact `VariableMgr.Set` snapshot
+  that this review (run against the current tree, not the v26.5 tag) couldn't check. Next test should
+  enable `monitor.variables`/`monitor.network` on **both** the sender and the v26.5 receiver
+  simultaneously and watch the actual `LIGHT STATES` integer value the receiver decodes.
+
 ## Phase 6 — Follow-on, out of scope for this protocol but related
 
 - [ ] Recording format synergy (design doc §8): consider adapting the `ICodec<T>`/`CodecRegistry`
@@ -532,7 +593,7 @@ and what that does and doesn't limit.
       causes the bug documented in `docs/recording-protocol.md` §7.1. Separate piece of work; do not
       block JFP2 network rollout on it.
 - [ ] Variable-name/vuid table sync at scale, selective acknowledgement, coalescing policy tuning —
-      see `docs/protocol-v2-design.md` §11 for what's still genuinely open.
+      see `docs/protocol-v2-design.md` §10 for what's still genuinely open.
 
 ## Notes for whoever picks this up next
 

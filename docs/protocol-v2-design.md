@@ -2,14 +2,11 @@
 
 ## Status
 
-Originally a design proposal; **Phases 0-5 of the rollout plan (§10) are now implemented** in
-`JoinFS/Jfp2/` and live-verified against real simulators for Position/Identity, per
-`docs/protocol-v2-implementation-plan.md` and `docs/protocol-v2-implementation-review.md` (both
-current as of 2026-09-14). `Jfp2Bridge` (hub-role translation, §7.7) and `PositionV2` (quantized, §6.1)
-remain unimplemented by design (see those docs for why). §12 below adds a time-behavior analysis based
-on field testing performed 2026-09-15. The standalone reference implementation under
-`ProtocolV2Reference/` referenced throughout §1-§11 predates the real port and is kept for its
-worked-example/verification value (§9); it is not what actually ships.
+Design specification for JFP2. This document describes the protocol itself — wire format, negotiation,
+message catalog, and rollout strategy — as a guide for implementing it; it does not track the state of
+any particular build. For implementation progress, phase-by-phase deviations from this design, and
+field-verification results, see `docs/protocol-v2-implementation-plan.md` and
+`docs/protocol-v2-implementation-review.md`.
 
 This document assumes familiarity with `docs/network-protocol.md` (the current wire protocol),
 `docs/recording-protocol.md` (the current recording format and its extension recommendations), and
@@ -119,8 +116,7 @@ Three pieces, cleanly separated:
 Both stacks — legacy and JFP2 — can share one UDP socket and port, because every JFP2 datagram starts
 with a magic byte (`0xFA`) that can never collide with the legacy protocol's fixed first byte (`0x0B`,
 the low byte of the little-endian `0x520B` constant). A receiver looks at byte 0 and dispatches to the
-appropriate stack before parsing anything else (`Wire.Envelope.IsLegacyDatagram` /
-`IsJfp2Datagram` in the reference implementation). This is what makes "coexistence" concrete rather
+appropriate stack before parsing anything else. This is what makes "coexistence" concrete rather
 than aspirational: a mesh can have a mix of legacy-only and JFP2-capable peers, and every peer decides
 per-datagram, per-remote-address, which stack to use — with no shared mutable state between the two
 paths.
@@ -288,9 +284,9 @@ means a class either peer has never heard of degrades to a known-good baseline i
 whole handshake, which is what makes it safe to introduce a brand new message class incrementally:
 old peers simply never offer it, every negotiation involving them resolves it to 0, and 0 is defined
 to mean "don't send this to this peer" for classes with no meaningful baseline (VariableSync, for
-example — see the reference implementation's demo, where a peer that never declared VariableSync
-support resolves it to 0 and is simply never sent VariableSync messages, exactly mirroring how that
-peer behaves today under the legacy protocol, which does not know that message either).
+example: a peer that never declares VariableSync support resolves it to 0 and is simply never sent
+VariableSync messages, exactly mirroring how that peer behaves today under the legacy protocol, which
+does not know that message either).
 
 The result is stored as two flat 256-entry byte arrays per peer session — `AgreedAppVersion[]` and
 `AgreedInternalVersion[]`, indexed directly by `MessageClass` — computed exactly once when the
@@ -348,15 +344,12 @@ concerns are purely a codec-level encoding choice, never an in-memory or call-si
   1e-7 degree scale, altitude as float32, and the three orientation angles (pitch/bank/heading) as
   int16 at a `32767/π` scale. 61 bytes.
 
-Both were checked independently in Python (`/tmp/verify.py` during design; not shipped, since it was
-a design aid rather than a deliverable) against the coordinate edge cases (±90° latitude, ±180°
-longitude) before being written into the reference codec: the 1e-7 degree quantization step is
+Across the coordinate edge cases (±90° latitude, ±180° longitude), the 1e-7 degree quantization step is
 approximately 1.1 cm at the equator and never worse than that anywhere on Earth, comfortably inside
 the precision that matters for multiplayer position rendering, and every quantized value fits well
 within `int32`'s range with no overflow risk.
 
-**Size comparison** (header + fixed Position fields; matches the reference implementation's
-`Program.cs` output):
+**Size comparison** (header + fixed Position fields):
 
 | | Header | Payload | Total | vs. legacy |
 |---|---|---|---|---|
@@ -544,7 +537,7 @@ when every connected peer has negotiated the same protocol and schema version �
 all-same-version-JFP2 case the hub still takes the cheap raw-relay path unchanged, and only pays the
 decode/re-encode cost on the specific hop where a protocol boundary actually exists.
 
-This also makes the hub the natural first place to land JFP2 support in the rollout plan (§10): it
+This also makes the hub the natural first place to land JFP2 support in the rollout plan (§9): it
 already terminates every peer's connection individually, so it can offer Hello/HelloAck and translate
 for whichever peers answer, while any two legacy-only peers behind it continue exactly as they do
 today, unaware anything changed.
@@ -553,81 +546,18 @@ today, unaware anything changed.
 
 This document is scoped to the network protocol, but the codec design in §6 has a direct, low-effort
 application to the recording format audited in docs/recording-protocol.md: the same
-`ICodec<T>`/`CodecRegistry` pattern (§9.2) could back a recording file's per-record serialization,
-replacing the current compile-directive-gated `Obj.Write`/`Read1` methods with an explicit, versioned
-codec selected by a value stored once in the file header rather than inferred from `Sim.VERSION` at
-read time (this generalizes the length-prefix-framing and magic-number recommendations already made in
-docs/recording-protocol.md's extension-suggestions section). Recording currently has no protocol
-negotiation problem (a file has exactly one writer and no live peer to negotiate with), so §5 does not
-apply to it — but adopting the *codec* half of this design (§6, §9.2) for recording would close §7.1
-and give recordings the same "old reader skips fields it doesn't recognize" property that JFP2 gives
-live traffic. This is called out as a natural follow-on, not proposed as part of this document's scope.
+per-(record type, schema version) codec pattern described in §6 could back a recording file's
+per-record serialization, replacing the current compile-directive-gated `Obj.Write`/`Read1` methods
+with an explicit, versioned codec selected by a value stored once in the file header rather than
+inferred from `Sim.VERSION` at read time (this generalizes the length-prefix-framing and magic-number
+recommendations already made in docs/recording-protocol.md's extension-suggestions section). Recording
+currently has no protocol negotiation problem (a file has exactly one writer and no live peer to
+negotiate with), so §5 does not apply to it — but adopting the *codec* half of this design (§6) for
+recording would close §7.1 and give recordings the same "old reader skips fields it doesn't recognize"
+property that JFP2 gives live traffic. This is called out as a natural follow-on, not proposed as part
+of this document's scope.
 
-## 9. Reference implementation
-
-A standalone reference implementation lives in `ProtocolV2Reference/` at the repository root (not
-referenced by `JoinFS.sln`, so it cannot affect the real build). It implements:
-
-- `Wire.cs` — the envelope, message class constants, and `PeerKey` (§4).
-- `Legacy.cs` — the minimal legacy-magic-number detection needed for coexistence (§3); explicitly
-  **not** a reimplementation of `JoinFS/Node.cs`/`JoinFS/Network.cs`, which the real integration would
-  call into unchanged.
-- `Negotiation.cs` — `HandshakeMessage`, `Negotiator.Resolve`, `PeerSession`, `Tlv` (§5).
-- `Codecs.cs` — `ICodec<T>`, `CodecRegistry`, and the concrete codecs described in §6.
-- `Program.cs` — an end-to-end demo exercising negotiation between two differently-capable simulated
-  peers, round-tripping every message type, demonstrating legacy/JFP2 datagram discrimination, and
-  printing the size comparison table reproduced in §6.1.
-
-### 9.1 Verification status — please read before adopting
-
-**This reference implementation has not been compiled or run.** The environment this document was
-produced in had no .NET SDK installed and no network path to install one (confirmed: `dotnet` absent
-from `PATH`; the official install script blocked by the environment's proxy with `403 Forbidden`;
-`apt-get` package mirrors also returning `403 Forbidden`). The C# was written carefully by hand, with
-two design-level mistakes caught and corrected purely by inspection during authoring — a naming
-collision between a planned `MessageClass` static class and `ICodec<T>`'s instance property (fixed by
-renaming the class to `MessageClasses`), and an invalid `byte[].CopyTo(Span<byte>)` call in `PeerKey`
-(fixed to `Address.AsSpan().CopyTo(...)`) — but neither a compiler nor a test run has confirmed the
-code beyond that review.
-
-To compensate, every **numeric claim** in this document (quantization precision and edge cases in
-§6.1, the header byte-size reductions in §4 and §6.1, and the negotiation algorithm's behavior across
-multiple simulated peers with different declared ranges in §5.3) was independently re-derived and
-checked with standalone Python scripts against the same math the C# implements, run successfully in
-this environment. Those numbers, not the unverified C#, are the load-bearing claims in this document.
-
-**Before adopting any of this**, please build and run the reference project yourself:
-
-```
-cd ProtocolV2Reference
-dotnet run
-```
-
-on a machine with the .NET 8 SDK (the same one used to build the real JoinFS variants). If anything
-fails to compile, or a round-trip check in the demo output doesn't match its printed expectation, that
-is the reference implementation catching up to this document, not the reverse — the design rationale
-in §1–§8 does not depend on any particular line of the reference C# being correct as written.
-
-### 9.2 Integration shape (not yet implemented)
-
-To be clear about scope: none of `JoinFS/Node.cs`, `JoinFS/Network.cs`, or any other file under
-`JoinFS/` has been modified. Integrating this design into the real client would mean, roughly:
-
-1. Add JFP2 send/receive alongside the existing UDP handling, discriminated by the magic byte (§3).
-2. Implement the Hello/HelloAck exchange as a new step after the existing `Join`/`JoinReply` sequence,
-   populating `PeerSession` per remote peer.
-3. Port each existing message type to a `v1` codec (a mechanical transcription of its current field
-   list, per §6.4), then introduce `PositionV2` as the first genuinely new schema version once v1 is
-   stable end-to-end.
-4. Gate all of the above behind a feature flag or a slow, opt-in rollout (§10) — a legacy-only peer
-   must remain fully functional throughout.
-5. For hub builds specifically, add the per-object identity/variable cache and the decode-then-
-   re-encode bridge described in §7.7. `ProtocolV2Reference/` does not include this piece: it
-   exercises the codecs and negotiation in isolation, but a translating bridge necessarily calls into
-   the real, unmodified legacy `Read`/`Write` methods on one side, which only exist in `JoinFS/`
-   itself and were deliberately not duplicated here (§9, `Legacy.cs`'s own scope note).
-
-## 10. Migration and rollout plan
+## 9. Migration and rollout plan
 
 1. **Land JFP2 as dead code.** Ship builds that can send/receive JFP2 datagrams and complete the
    handshake, but do not yet use it for any live traffic — verify coexistence (§7.1) and negotiation
@@ -648,7 +578,7 @@ To be clear about scope: none of `JoinFS/Node.cs`, `JoinFS/Network.cs`, or any o
 6. Legacy support has no proposed sunset date in this document; that is a product decision outside
    this design's scope.
 
-## 11. Open questions and future work
+## 10. Open questions and future work
 
 - **Selective acknowledgement** (`Capability.SelectiveAck`, §5.4): reserved but unspecified; would let
   a guaranteed multi-part message retransmit only the missing pieces instead of the whole set, further
@@ -663,215 +593,3 @@ To be clear about scope: none of `JoinFS/Node.cs`, `JoinFS/Network.cs`, or any o
   Any future breaking redesign should follow the same pattern (a magic-byte or version-byte dispatch
   before anything else is parsed) but is otherwise unconstrained by this document.
 
-## 12. Time behavior (added 2026-09-15, from field testing)
-
-This section was added after two field tests run by the maintainer against real MSFS clients and a
-real hub (both v26.6, one test also mixing in an unpatched v26.5 legacy client), specifically because
-both tests observed latency in aircraft-light state (landing/taxi light on/off) propagation and in how
-quickly a newly-connected peer's aircraft becomes visible. Every claim below is anchored to the actual
-code in `JoinFS/` as staged from the maintainer's working tree on 2026-09-15 (commit at or after
-`83ae480`, matching `docs/protocol-v2-implementation-review.md`); §12.9 separates what the code
-actually proves from what still needs a live-log re-test to confirm.
-
-### 12.1 Timing constants at a glance
-
-| Constant | Value | File | Governs |
-|---|---|---|---|
-| `PULSE_INTERVAL` | 1 s | `Node.cs` (per `docs/network-protocol.md` §7) | Legacy keepalive/NAT-binding broadcast to every known node, direct or relayed |
-| `PATHFINDER_INTERVAL` | 5 s | `Node.cs:3458` | Cadence of the legacy mesh's NAT-traversal/direct-path-discovery round — see §12.2 |
-| `REESTABLISH_TIME` / node expire | 3 s / 30 s | `Node.cs:27` / `docs/network-protocol.md` §7 | Legacy per-node liveness bookkeeping, unrelated to JFP2 |
-| `JFP2_HELLO_RETRY_INTERVAL` / `JFP2_HELLO_MAX_ATTEMPTS` | 2 s / 5 | `Node.cs:1641,1635` | JFP2 Hello retry cadence; peer is marked `AssumedLegacy` after 5×2s = 10s of silence |
-| `JFP2_GUARANTEED_RETRY_INTERVAL` / `_MAX_ATTEMPTS` | 2 s / 5 | `Node.cs:1721,1727` | Retry cadence for guaranteed JFP2 sends (Event/Notes/WeatherReply); gives up after 10s |
-| `JFP2_GUARANTEED_DEDUP_WINDOW` | 30 s | `Node.cs:1733` | How long a guaranteed message's id is remembered to suppress a duplicate re-dispatch |
-| `JFP2_IDENTITY_HEARTBEAT_INTERVAL` | 4.0 s | `Network.cs:2765` | Max staleness of a receiver's cached Identity for an object (§6.2's "3-5 seconds") |
-| `variablesTimer` | 0.2 s (5 Hz) | `Sim.cs:2972` | Send cadence for Identity-change-check and VariableSync/legacy-variable full-state resend, per object per peer |
-| `JFP2_VARIABLE_SYNC_CHUNK_SIZE` | 200 entries | `Network.cs:2966` | Message-splitting threshold, not a timing gate |
-| `Set.MASTER_DELAY` / `Set.SLAVE_DELAY` | 5.0 s / 3.0 s | `VariableMgr.Set.cs:19-20` | **Receive-side hold-off before a new value may overwrite a variable's applied value — see §12.6, the main finding below** |
-| `Program._workThread` tick | ~5 ms | `docs/protocol-v2-architecture.md` §8.1 | Everything above rides this single tick; it is never itself a source of multi-hundred-ms latency |
-
-### 12.2 JFP2 negotiation latency is dominated by legacy mesh formation, not by JFP2 itself
-
-`DoJfp2Handshake` (`Node.cs`, called from `DoWork()` right after `DoPulse()`) only ever attempts a
-Hello to a peer that is already `node.Direct` in the legacy mesh (`Node.cs:2164`, `if (!node.Direct)
-continue;`) — JFP2 has no relay/translation path yet (§7.7, §9.2 step 5), so negotiating with an
-indirect (hub-relayed) peer would be pointless. The moment a peer flips to `Direct`, a Hello is sent
-that same tick. Once started, the handshake itself is fast: Phase 1's own loopback test measured both
-sides reaching `HandshakeComplete = true` within **~46 ms** (`docs/protocol-v2-implementation-plan.md`,
-Phase 1).
-
-What actually gates when a peer becomes `Direct` is the legacy mesh's own Pathfinder mechanism —
-unrelated to JFP2, unchanged by this design, and running on a **5-second** cadence
-(`PATHFINDER_INTERVAL`, `Node.cs:3458`): `DoRouting()` asks the hub to relay a `Pathfinder` probe to
-every not-yet-established or not-yet-direct node once per interval, and a node only flips `Direct` when
-a `Pathfinder`/`PathfinderResponse`/`Pulse`/`PulseResponse` actually arrives **from that peer's own
-UDP endpoint** rather than via the hub's relay (`RegisterNode(..., direct: true)`, e.g. `Node.cs:1293`,
-`1370`). Two clients behind permissive NATs (e.g. the same LAN) can go direct on the very next 1-second
-`Pulse` round; two clients needing real NAT traversal over the public internet realistically need at
-least one full 5-second Pathfinder cycle, sometimes more.
-
-**Practical consequence for both tests:** what the maintainer experienced as "JFP2 negotiation seems a
-bit long" is, per this code, very unlikely to be JFP2's own Hello/HelloAck cost (sub-100ms once it
-starts) and far more likely the pre-existing legacy direct-mesh-formation delay that has to complete
-*before* JFP2 even attempts to negotiate. This is worth confirming on the next test by logging
-`LocalNode.GetNodeJfp2State(nuid)` alongside `node.Direct` timestamps — if `Direct` and
-`HandshakeComplete` land within the same tick (as the code predicts), the 5-second Pathfinder cadence,
-not JFP2, is where any "quicker negotiation" work should be aimed.
-
-### 12.3 Per-message JFP2/legacy fallback is decided every send, not gated on negotiation completing
-
-It is important to separate "negotiation hasn't finished" from "nothing is being sent." Every
-send-side call site checks `TryGetJfp2AppPeer` (or the `SendJfp2*` wrapper that does) **on every call**
-and falls back to the legacy message **immediately**, with no waiting, whenever that peer's JFP2
-session isn't `HandshakeComplete` yet:
-
-- `Network.SendVariableUpdate` (`Network.cs:2977-2989`): JFP2 `VariableSync` if negotiated, else the
-  byte-unchanged legacy `SendIntegerVariablesMessage`/`SendFloatVariablesMessage`/
-  `SendString8VariablesMessage` triplet, unconditionally.
-- The Position broadcast loop (`Sim.cs:2602-2609`): `if (!SendJfp2Position(...)) { localNode.Send(nuid);
-  }` — a `false` return (peer not JFP2-negotiated) sends the already-prepared legacy buffer to that
-  peer that same tick.
-
-The one genuine, deliberate withhold is `SendJfp2Position`'s one-tick delay for a **brand-new object**
-on a peer that *has* already negotiated JFP2 for Position, pending that object's first Identity send
-(`Network.cs:3220-3223`, the §7.7 ordering fix) — bounded to a single `variablesTimer` tick (~0.2s), not
-seconds, and it doesn't apply to legacy-fallback peers at all.
-
-**This means the aircraft list should not, per this code, sit empty for the whole negotiation window** —
-Position (and hence aircraft visibility) falls back to legacy on every tick a JFP2 session hasn't
-completed. The "airplanes list remains empty until JFP2 negotiated" observation from Test 2 is more
-likely coincident with the same mesh-formation/Join timing described in §12.2 (no peer is visible until
-legacy Join/AddNode has registered it either way) than a hard dependency on JFP2 completing. Recommended
-follow-up: capture `GetNodeJfp2State` transitions and the timestamp the first aircraft appears in the
-same log, to confirm whether they're really coupled or just close together in time.
-
-### 12.4 Position: no latency added by JFP2 beyond the encode/send call itself
-
-Position uses a `stackalloc` buffer for encoding (`Network.cs:3222` per
-`docs/protocol-v2-implementation-review.md` Finding 2) and an `ArrayPool`-rented buffer for the
-socket send (`LocalNode.SendJfp2Datagram`, same finding, fixed 2026-09-14) — no allocation, no
-batching, no coalescing (`Flags.Coalesced` is unimplemented, Finding 3b), so a Position update reaches
-the socket in the same tick it's produced. The only throttling in the whole path is the pre-existing,
-JFP2-independent distance-based `GetIntervalMask` (`Sim.cs:3285`), which defaults to "send every tick"
-(mask `0`) until a per-object-pair entry says otherwise. This matches both tests reporting position
-data as essentially correct and un-delayed.
-
-### 12.5 Identity: a bounded, deliberate 4-second staleness window
-
-`SendJfp2IdentityIfNeeded` (`Network.cs:2827`) sends on change (a diff against
-`jfp2IdentitySendState`) or whenever `JFP2_IDENTITY_HEARTBEAT_INTERVAL` (4.0s) has elapsed since the
-last send, checked every `variablesTimer` tick (0.2s) but only actually transmitted on change or
-heartbeat. This is a deliberate, documented tradeoff (§6.2) for a low-frequency message, not a bug —
-worth restating here only because it puts a concrete number on "how stale can a peer's callsign/livery
-be:" up to 4 seconds after a change, not 4 seconds on every tick.
-
-### 12.6 VariableSync / light-state propagation: the actual source of the observed 1-2 second lag
-
-This is the main finding of this section, and it is **pre-existing code shared unchanged by both the
-legacy and JFP2 receive paths** — not a JFP2 regression, and not fixed by anything in this design.
-
-**Send side is not the bottleneck.** `obj.variableSet.integers/floats/string8s` are re-sent as a full
-current-value snapshot (not diffed since the last send) every `variablesTimer` tick — **every 0.2
-seconds, 5 Hz** — to every peer, via `SendVariableUpdate` (`Sim.cs:5756,5778` → `Network.cs:2977`),
-regardless of whether that peer is JFP2 or legacy. A light toggle is therefore on the wire within at
-most ~200ms of being detected locally.
-
-**The lag is entirely on the receive/apply side**, in `VariableMgr.Set` (`VariableMgr.Set.cs`), and it
-has two parts that compound for exactly the lights the maintainer tested:
-
-1. **Landing, taxi, nav, and beacon lights are bits of one shared SimConnect variable, not four
-   independent ones.** `Variables.cs`'s built-in `Plane.txt`/`Rotorcraft.txt` definitions declare them
-   as `LIGHT STATES|mask:0..3` (`Variables.cs:176-179, 283-286`). At variable-registration time
-   (`Variables.cs:902-921`), every masked sub-variable pointing at the same SimConnect name gets a
-   second, **shared** `Definition` for that composite integer (`maskVuid = CreateVuid("LIGHT
-   STATES")`), registered once and reused by all of nav/beacon/landing/taxi (and, in `Rotorcraft.txt`
-   only, strobe too). On receive, `VariableMgr.Set.UpdateInteger` (`VariableMgr.Set.cs:493-592`) only
-   ever issues an actual SimConnect write when `definition.mask == 0` (line 526) — true for this one
-   shared composite entry, never for the individual per-bit booleans, which merely update a local
-   dictionary value with no visible effect (lines 561-567). In other words: **the wire and the
-   application layer both ultimately converge on one integer that carries all four lights' state
-   together**, whether that integer arrives via JFP2 `VariableSync` or a legacy `IntegerVariables`
-   message.
-2. **That one shared integer is subject to a 3-second hold-off per remote object, and the hold-off
-   drops updates rather than queuing them.** `Set.DelayTime` (`VariableMgr.Set.cs:328-344`) returns
-   `SLAVE_DELAY = 3.0` seconds for any injected (i.e., another peer's) object — `MASTER_DELAY = 5.0`
-   for the shared-cockpit/entered-another-aircraft case. Every one of `UpdateInteger`/`UpdateFloats`/
-   `UpdateString8` gates on this **before** even checking whether the incoming value differs from the
-   cached one (`VariableMgr.Set.cs:507`, `if (startTimes.ContainsKey(vuid) == false ||
-   startTimes[vuid] < main.ElapsedTime)`): if the 3-second window from the *previous* applied change to
-   that vuid hasn't elapsed, the incoming update — however different — is silently dropped, not
-   buffered for later. Only once the window has expired does the next arriving message's value (whatever
-   it happens to be at that moment) get applied, which re-arms another 3-second window.
-
-Because nav/beacon/landing/taxi all funnel through the *same* vuid, toggling any one of them re-arms
-the shared 3-second hold-off for **all four**. Toggling landing and taxi lights together or in close
-succession — exactly what both tests did — is close to a worst case for this mechanism: whichever
-change is applied first "wins" the window, and any further light change in the following up-to-3-seconds
-is dropped and only takes effect once a later resend (guaranteed within 0.2s of the window reopening,
-since the full state is always being resent) happens to carry a still-different value. This produces
-lag anywhere from ~0 to ~3 seconds depending on how much of the previous window was already consumed —
-consistent with "sometimes about 1-2 seconds" in both tests. Strobe is the one exception in `Plane.txt`
-specifically: it's mapped to its own dedicated SimConnect variable/event (`LIGHT STROBE`/`STROBES_SET`,
-unmasked, `Variables.cs:180`), so it has its own independent 3-second window and doesn't contend with
-the other four — but in `Rotorcraft.txt` it's folded into the same `LIGHT STATES` mask as the rest
-(`Variables.cs:287`), so all five compete there.
-
-This mechanism predates JFP2 entirely (it lives in `VariableMgr.Set`, untouched by any JFP2 phase) and
-is reached identically from both receive paths — the legacy `IntegerVariables` case
-(`Network.cs:5218-5265`) and the JFP2 path (`HandleJfp2VariableSync`) both terminate in
-`Sim.UpdateAircraft(ownerNuid, netId, Dictionary<uint,int> variables)` (`Sim.cs:2440`), which calls
-`controlledAircraft.variableSet.UpdateIntegers(variables)` unconditionally. This is why Test 2 (JFP2↔
-JFP2 direct mesh, no hub, no legacy fallback anywhere in the path) saw the *same* ~1-2s lag pattern as
-Test 1's 26.6 side: the bottleneck is below the transport layer JFP2 replaces, so JFP2 cannot by itself
-have fixed or worsened it.
-
-### 12.7 Guaranteed-message retry timing (Event, Notes, WeatherReply)
-
-Per `docs/protocol-v2-implementation-review.md` Finding 1 (fixed 2026-09-14), a guaranteed JFP2 send
-is retried every `JFP2_GUARANTEED_RETRY_INTERVAL` (2s) up to `JFP2_GUARANTEED_MAX_ATTEMPTS` (5) — a
-**10-second** worst-case window before giving up silently. Worth flagging explicitly here because it's
-a materially shorter bound than the legacy protocol's own guaranteed-delivery timing
-(`docs/network-protocol.md` §2: resent every 2s until a **180-second** expiry) — a JFP2-negotiated peer
-under sustained loss will give up on a chat message or weather reply roughly 17x sooner than a
-legacy peer would. Not exercised under real packet loss yet (implementation review §6); worth
-confirming this shorter give-up window is acceptable before treating JFP2 guaranteed delivery as
-equivalent to legacy's.
-
-### 12.8 Mixed-version fallback timing (Test 1's 26.5 peer)
-
-A peer that never answers Hello costs the JFP2-capable side up to `JFP2_HELLO_MAX_ATTEMPTS ×
-JFP2_HELLO_RETRY_INTERVAL` = **10 seconds** of retries before `AssumedLegacy` is set permanently
-(`Node.cs:2186-2198`). Per §12.3, this window is not a functional gap — every message to that peer
-already falls back to legacy on every individual send throughout it — so the only cost is a handful of
-wasted Hello datagrams, matching Test 1's report that legacy Position/Join/Pulse traffic to the 26.5
-peer worked normally throughout.
-
-### 12.9 Open questions from the 2026-09-15 field tests — needs live-log confirmation
-
-The analysis above is grounded directly in the code and explains, with high confidence, the ~1-2s
-light-toggle lag reported in *both* tests (§12.6) and gives a plausible, code-consistent account of the
-negotiation-latency and empty-aircraft-list observations (§12.2, §12.3). Two things it does **not**
-fully explain, and which the code alone cannot resolve without a live re-test:
-
-- **Test 1: the 26.5 (legacy) peer reportedly saw the maintainer's lights "always on," never
-  switching off, rather than merely delayed.** §12.6's 3-second hold-off is a strong candidate
-  contributor (it is reached identically by the legacy receive path), but a hold-off alone predicts
-  *delayed* toggling, not a value that never changes — unless the true state simply spent much more
-  time ON than OFF during the observation window, or a specific OFF-carrying datagram was lost right
-  when the window happened to be open (both are plausible but unverified). This needs
-  `monitor.variables`/`monitor.network` enabled on **both** the 26.6 sender and the 26.5 receiver in the
-  same test run, watching the actual `LIGHT STATES` integer value the 26.5 side decodes, to distinguish
-  "never received an OFF" from "received it but the hold-off ate it" from "the 26.5-side apply path has
-  a difference this review didn't find" (this review only had the current tree available, not the
-  specific v26.5 snapshot the peer ran).
-- **Test 2: whether the aircraft list is truly gated on JFP2 negotiation, or just coincidentally timed
-  with it.** §12.3 gives a code-based reason to expect the latter; confirming it needs
-  `GetNodeJfp2State` and first-aircraft-visible timestamps from the same log.
-
-**Possible follow-up (not committed to by this document):** §12.6's `SLAVE_DELAY`/`MASTER_DELAY`
-hold-off was presumably designed to prevent rapid-fire SimConnect writes for continuously-varying
-values (radio frequencies, trims); it isn't obvious the same 3-5 second window should apply to a
-boolean light switch that changes rarely and discretely. A shorter hold-off (or none) specifically for
-boolean/mask-derived integer variables would likely eliminate most of §12.6's lag without reintroducing
-whatever write-storm problem the original delay was guarding against — worth its own investigation
-before changing, since this mechanism is shared by every INTEGER variable in the system, not just
-lights.
