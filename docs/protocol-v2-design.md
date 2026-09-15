@@ -2,9 +2,14 @@
 
 ## Status
 
-Design proposal. Not yet implemented in `JoinFS/`. A standalone, hand-written reference
-implementation exists under `ProtocolV2Reference/` alongside this document; see §9 for its scope and,
-importantly, its verification status before relying on it.
+Originally a design proposal; **Phases 0-5 of the rollout plan (§10) are now implemented** in
+`JoinFS/Jfp2/` and live-verified against real simulators for Position/Identity, per
+`docs/protocol-v2-implementation-plan.md` and `docs/protocol-v2-implementation-review.md` (both
+current as of 2026-09-14). `Jfp2Bridge` (hub-role translation, §7.7) and `PositionV2` (quantized, §6.1)
+remain unimplemented by design (see those docs for why). §12 below adds a time-behavior analysis based
+on field testing performed 2026-09-15. The standalone reference implementation under
+`ProtocolV2Reference/` referenced throughout §1-§11 predates the real port and is kept for its
+worked-example/verification value (§9); it is not what actually ships.
 
 This document assumes familiarity with `docs/network-protocol.md` (the current wire protocol),
 `docs/recording-protocol.md` (the current recording format and its extension recommendations), and
@@ -657,3 +662,216 @@ To be clear about scope: none of `JoinFS/Node.cs`, `JoinFS/Network.cs`, or any o
 - **`ProtoMajor` 3+ governance**: this document specifies only `ProtoMajor == 2`'s envelope layout.
   Any future breaking redesign should follow the same pattern (a magic-byte or version-byte dispatch
   before anything else is parsed) but is otherwise unconstrained by this document.
+
+## 12. Time behavior (added 2026-09-15, from field testing)
+
+This section was added after two field tests run by the maintainer against real MSFS clients and a
+real hub (both v26.6, one test also mixing in an unpatched v26.5 legacy client), specifically because
+both tests observed latency in aircraft-light state (landing/taxi light on/off) propagation and in how
+quickly a newly-connected peer's aircraft becomes visible. Every claim below is anchored to the actual
+code in `JoinFS/` as staged from the maintainer's working tree on 2026-09-15 (commit at or after
+`83ae480`, matching `docs/protocol-v2-implementation-review.md`); §12.9 separates what the code
+actually proves from what still needs a live-log re-test to confirm.
+
+### 12.1 Timing constants at a glance
+
+| Constant | Value | File | Governs |
+|---|---|---|---|
+| `PULSE_INTERVAL` | 1 s | `Node.cs` (per `docs/network-protocol.md` §7) | Legacy keepalive/NAT-binding broadcast to every known node, direct or relayed |
+| `PATHFINDER_INTERVAL` | 5 s | `Node.cs:3458` | Cadence of the legacy mesh's NAT-traversal/direct-path-discovery round — see §12.2 |
+| `REESTABLISH_TIME` / node expire | 3 s / 30 s | `Node.cs:27` / `docs/network-protocol.md` §7 | Legacy per-node liveness bookkeeping, unrelated to JFP2 |
+| `JFP2_HELLO_RETRY_INTERVAL` / `JFP2_HELLO_MAX_ATTEMPTS` | 2 s / 5 | `Node.cs:1641,1635` | JFP2 Hello retry cadence; peer is marked `AssumedLegacy` after 5×2s = 10s of silence |
+| `JFP2_GUARANTEED_RETRY_INTERVAL` / `_MAX_ATTEMPTS` | 2 s / 5 | `Node.cs:1721,1727` | Retry cadence for guaranteed JFP2 sends (Event/Notes/WeatherReply); gives up after 10s |
+| `JFP2_GUARANTEED_DEDUP_WINDOW` | 30 s | `Node.cs:1733` | How long a guaranteed message's id is remembered to suppress a duplicate re-dispatch |
+| `JFP2_IDENTITY_HEARTBEAT_INTERVAL` | 4.0 s | `Network.cs:2765` | Max staleness of a receiver's cached Identity for an object (§6.2's "3-5 seconds") |
+| `variablesTimer` | 0.2 s (5 Hz) | `Sim.cs:2972` | Send cadence for Identity-change-check and VariableSync/legacy-variable full-state resend, per object per peer |
+| `JFP2_VARIABLE_SYNC_CHUNK_SIZE` | 200 entries | `Network.cs:2966` | Message-splitting threshold, not a timing gate |
+| `Set.MASTER_DELAY` / `Set.SLAVE_DELAY` | 5.0 s / 3.0 s | `VariableMgr.Set.cs:19-20` | **Receive-side hold-off before a new value may overwrite a variable's applied value — see §12.6, the main finding below** |
+| `Program._workThread` tick | ~5 ms | `docs/protocol-v2-architecture.md` §8.1 | Everything above rides this single tick; it is never itself a source of multi-hundred-ms latency |
+
+### 12.2 JFP2 negotiation latency is dominated by legacy mesh formation, not by JFP2 itself
+
+`DoJfp2Handshake` (`Node.cs`, called from `DoWork()` right after `DoPulse()`) only ever attempts a
+Hello to a peer that is already `node.Direct` in the legacy mesh (`Node.cs:2164`, `if (!node.Direct)
+continue;`) — JFP2 has no relay/translation path yet (§7.7, §9.2 step 5), so negotiating with an
+indirect (hub-relayed) peer would be pointless. The moment a peer flips to `Direct`, a Hello is sent
+that same tick. Once started, the handshake itself is fast: Phase 1's own loopback test measured both
+sides reaching `HandshakeComplete = true` within **~46 ms** (`docs/protocol-v2-implementation-plan.md`,
+Phase 1).
+
+What actually gates when a peer becomes `Direct` is the legacy mesh's own Pathfinder mechanism —
+unrelated to JFP2, unchanged by this design, and running on a **5-second** cadence
+(`PATHFINDER_INTERVAL`, `Node.cs:3458`): `DoRouting()` asks the hub to relay a `Pathfinder` probe to
+every not-yet-established or not-yet-direct node once per interval, and a node only flips `Direct` when
+a `Pathfinder`/`PathfinderResponse`/`Pulse`/`PulseResponse` actually arrives **from that peer's own
+UDP endpoint** rather than via the hub's relay (`RegisterNode(..., direct: true)`, e.g. `Node.cs:1293`,
+`1370`). Two clients behind permissive NATs (e.g. the same LAN) can go direct on the very next 1-second
+`Pulse` round; two clients needing real NAT traversal over the public internet realistically need at
+least one full 5-second Pathfinder cycle, sometimes more.
+
+**Practical consequence for both tests:** what the maintainer experienced as "JFP2 negotiation seems a
+bit long" is, per this code, very unlikely to be JFP2's own Hello/HelloAck cost (sub-100ms once it
+starts) and far more likely the pre-existing legacy direct-mesh-formation delay that has to complete
+*before* JFP2 even attempts to negotiate. This is worth confirming on the next test by logging
+`LocalNode.GetNodeJfp2State(nuid)` alongside `node.Direct` timestamps — if `Direct` and
+`HandshakeComplete` land within the same tick (as the code predicts), the 5-second Pathfinder cadence,
+not JFP2, is where any "quicker negotiation" work should be aimed.
+
+### 12.3 Per-message JFP2/legacy fallback is decided every send, not gated on negotiation completing
+
+It is important to separate "negotiation hasn't finished" from "nothing is being sent." Every
+send-side call site checks `TryGetJfp2AppPeer` (or the `SendJfp2*` wrapper that does) **on every call**
+and falls back to the legacy message **immediately**, with no waiting, whenever that peer's JFP2
+session isn't `HandshakeComplete` yet:
+
+- `Network.SendVariableUpdate` (`Network.cs:2977-2989`): JFP2 `VariableSync` if negotiated, else the
+  byte-unchanged legacy `SendIntegerVariablesMessage`/`SendFloatVariablesMessage`/
+  `SendString8VariablesMessage` triplet, unconditionally.
+- The Position broadcast loop (`Sim.cs:2602-2609`): `if (!SendJfp2Position(...)) { localNode.Send(nuid);
+  }` — a `false` return (peer not JFP2-negotiated) sends the already-prepared legacy buffer to that
+  peer that same tick.
+
+The one genuine, deliberate withhold is `SendJfp2Position`'s one-tick delay for a **brand-new object**
+on a peer that *has* already negotiated JFP2 for Position, pending that object's first Identity send
+(`Network.cs:3220-3223`, the §7.7 ordering fix) — bounded to a single `variablesTimer` tick (~0.2s), not
+seconds, and it doesn't apply to legacy-fallback peers at all.
+
+**This means the aircraft list should not, per this code, sit empty for the whole negotiation window** —
+Position (and hence aircraft visibility) falls back to legacy on every tick a JFP2 session hasn't
+completed. The "airplanes list remains empty until JFP2 negotiated" observation from Test 2 is more
+likely coincident with the same mesh-formation/Join timing described in §12.2 (no peer is visible until
+legacy Join/AddNode has registered it either way) than a hard dependency on JFP2 completing. Recommended
+follow-up: capture `GetNodeJfp2State` transitions and the timestamp the first aircraft appears in the
+same log, to confirm whether they're really coupled or just close together in time.
+
+### 12.4 Position: no latency added by JFP2 beyond the encode/send call itself
+
+Position uses a `stackalloc` buffer for encoding (`Network.cs:3222` per
+`docs/protocol-v2-implementation-review.md` Finding 2) and an `ArrayPool`-rented buffer for the
+socket send (`LocalNode.SendJfp2Datagram`, same finding, fixed 2026-09-14) — no allocation, no
+batching, no coalescing (`Flags.Coalesced` is unimplemented, Finding 3b), so a Position update reaches
+the socket in the same tick it's produced. The only throttling in the whole path is the pre-existing,
+JFP2-independent distance-based `GetIntervalMask` (`Sim.cs:3285`), which defaults to "send every tick"
+(mask `0`) until a per-object-pair entry says otherwise. This matches both tests reporting position
+data as essentially correct and un-delayed.
+
+### 12.5 Identity: a bounded, deliberate 4-second staleness window
+
+`SendJfp2IdentityIfNeeded` (`Network.cs:2827`) sends on change (a diff against
+`jfp2IdentitySendState`) or whenever `JFP2_IDENTITY_HEARTBEAT_INTERVAL` (4.0s) has elapsed since the
+last send, checked every `variablesTimer` tick (0.2s) but only actually transmitted on change or
+heartbeat. This is a deliberate, documented tradeoff (§6.2) for a low-frequency message, not a bug —
+worth restating here only because it puts a concrete number on "how stale can a peer's callsign/livery
+be:" up to 4 seconds after a change, not 4 seconds on every tick.
+
+### 12.6 VariableSync / light-state propagation: the actual source of the observed 1-2 second lag
+
+This is the main finding of this section, and it is **pre-existing code shared unchanged by both the
+legacy and JFP2 receive paths** — not a JFP2 regression, and not fixed by anything in this design.
+
+**Send side is not the bottleneck.** `obj.variableSet.integers/floats/string8s` are re-sent as a full
+current-value snapshot (not diffed since the last send) every `variablesTimer` tick — **every 0.2
+seconds, 5 Hz** — to every peer, via `SendVariableUpdate` (`Sim.cs:5756,5778` → `Network.cs:2977`),
+regardless of whether that peer is JFP2 or legacy. A light toggle is therefore on the wire within at
+most ~200ms of being detected locally.
+
+**The lag is entirely on the receive/apply side**, in `VariableMgr.Set` (`VariableMgr.Set.cs`), and it
+has two parts that compound for exactly the lights the maintainer tested:
+
+1. **Landing, taxi, nav, and beacon lights are bits of one shared SimConnect variable, not four
+   independent ones.** `Variables.cs`'s built-in `Plane.txt`/`Rotorcraft.txt` definitions declare them
+   as `LIGHT STATES|mask:0..3` (`Variables.cs:176-179, 283-286`). At variable-registration time
+   (`Variables.cs:902-921`), every masked sub-variable pointing at the same SimConnect name gets a
+   second, **shared** `Definition` for that composite integer (`maskVuid = CreateVuid("LIGHT
+   STATES")`), registered once and reused by all of nav/beacon/landing/taxi (and, in `Rotorcraft.txt`
+   only, strobe too). On receive, `VariableMgr.Set.UpdateInteger` (`VariableMgr.Set.cs:493-592`) only
+   ever issues an actual SimConnect write when `definition.mask == 0` (line 526) — true for this one
+   shared composite entry, never for the individual per-bit booleans, which merely update a local
+   dictionary value with no visible effect (lines 561-567). In other words: **the wire and the
+   application layer both ultimately converge on one integer that carries all four lights' state
+   together**, whether that integer arrives via JFP2 `VariableSync` or a legacy `IntegerVariables`
+   message.
+2. **That one shared integer is subject to a 3-second hold-off per remote object, and the hold-off
+   drops updates rather than queuing them.** `Set.DelayTime` (`VariableMgr.Set.cs:328-344`) returns
+   `SLAVE_DELAY = 3.0` seconds for any injected (i.e., another peer's) object — `MASTER_DELAY = 5.0`
+   for the shared-cockpit/entered-another-aircraft case. Every one of `UpdateInteger`/`UpdateFloats`/
+   `UpdateString8` gates on this **before** even checking whether the incoming value differs from the
+   cached one (`VariableMgr.Set.cs:507`, `if (startTimes.ContainsKey(vuid) == false ||
+   startTimes[vuid] < main.ElapsedTime)`): if the 3-second window from the *previous* applied change to
+   that vuid hasn't elapsed, the incoming update — however different — is silently dropped, not
+   buffered for later. Only once the window has expired does the next arriving message's value (whatever
+   it happens to be at that moment) get applied, which re-arms another 3-second window.
+
+Because nav/beacon/landing/taxi all funnel through the *same* vuid, toggling any one of them re-arms
+the shared 3-second hold-off for **all four**. Toggling landing and taxi lights together or in close
+succession — exactly what both tests did — is close to a worst case for this mechanism: whichever
+change is applied first "wins" the window, and any further light change in the following up-to-3-seconds
+is dropped and only takes effect once a later resend (guaranteed within 0.2s of the window reopening,
+since the full state is always being resent) happens to carry a still-different value. This produces
+lag anywhere from ~0 to ~3 seconds depending on how much of the previous window was already consumed —
+consistent with "sometimes about 1-2 seconds" in both tests. Strobe is the one exception in `Plane.txt`
+specifically: it's mapped to its own dedicated SimConnect variable/event (`LIGHT STROBE`/`STROBES_SET`,
+unmasked, `Variables.cs:180`), so it has its own independent 3-second window and doesn't contend with
+the other four — but in `Rotorcraft.txt` it's folded into the same `LIGHT STATES` mask as the rest
+(`Variables.cs:287`), so all five compete there.
+
+This mechanism predates JFP2 entirely (it lives in `VariableMgr.Set`, untouched by any JFP2 phase) and
+is reached identically from both receive paths — the legacy `IntegerVariables` case
+(`Network.cs:5218-5265`) and the JFP2 path (`HandleJfp2VariableSync`) both terminate in
+`Sim.UpdateAircraft(ownerNuid, netId, Dictionary<uint,int> variables)` (`Sim.cs:2440`), which calls
+`controlledAircraft.variableSet.UpdateIntegers(variables)` unconditionally. This is why Test 2 (JFP2↔
+JFP2 direct mesh, no hub, no legacy fallback anywhere in the path) saw the *same* ~1-2s lag pattern as
+Test 1's 26.6 side: the bottleneck is below the transport layer JFP2 replaces, so JFP2 cannot by itself
+have fixed or worsened it.
+
+### 12.7 Guaranteed-message retry timing (Event, Notes, WeatherReply)
+
+Per `docs/protocol-v2-implementation-review.md` Finding 1 (fixed 2026-09-14), a guaranteed JFP2 send
+is retried every `JFP2_GUARANTEED_RETRY_INTERVAL` (2s) up to `JFP2_GUARANTEED_MAX_ATTEMPTS` (5) — a
+**10-second** worst-case window before giving up silently. Worth flagging explicitly here because it's
+a materially shorter bound than the legacy protocol's own guaranteed-delivery timing
+(`docs/network-protocol.md` §2: resent every 2s until a **180-second** expiry) — a JFP2-negotiated peer
+under sustained loss will give up on a chat message or weather reply roughly 17x sooner than a
+legacy peer would. Not exercised under real packet loss yet (implementation review §6); worth
+confirming this shorter give-up window is acceptable before treating JFP2 guaranteed delivery as
+equivalent to legacy's.
+
+### 12.8 Mixed-version fallback timing (Test 1's 26.5 peer)
+
+A peer that never answers Hello costs the JFP2-capable side up to `JFP2_HELLO_MAX_ATTEMPTS ×
+JFP2_HELLO_RETRY_INTERVAL` = **10 seconds** of retries before `AssumedLegacy` is set permanently
+(`Node.cs:2186-2198`). Per §12.3, this window is not a functional gap — every message to that peer
+already falls back to legacy on every individual send throughout it — so the only cost is a handful of
+wasted Hello datagrams, matching Test 1's report that legacy Position/Join/Pulse traffic to the 26.5
+peer worked normally throughout.
+
+### 12.9 Open questions from the 2026-09-15 field tests — needs live-log confirmation
+
+The analysis above is grounded directly in the code and explains, with high confidence, the ~1-2s
+light-toggle lag reported in *both* tests (§12.6) and gives a plausible, code-consistent account of the
+negotiation-latency and empty-aircraft-list observations (§12.2, §12.3). Two things it does **not**
+fully explain, and which the code alone cannot resolve without a live re-test:
+
+- **Test 1: the 26.5 (legacy) peer reportedly saw the maintainer's lights "always on," never
+  switching off, rather than merely delayed.** §12.6's 3-second hold-off is a strong candidate
+  contributor (it is reached identically by the legacy receive path), but a hold-off alone predicts
+  *delayed* toggling, not a value that never changes — unless the true state simply spent much more
+  time ON than OFF during the observation window, or a specific OFF-carrying datagram was lost right
+  when the window happened to be open (both are plausible but unverified). This needs
+  `monitor.variables`/`monitor.network` enabled on **both** the 26.6 sender and the 26.5 receiver in the
+  same test run, watching the actual `LIGHT STATES` integer value the 26.5 side decodes, to distinguish
+  "never received an OFF" from "received it but the hold-off ate it" from "the 26.5-side apply path has
+  a difference this review didn't find" (this review only had the current tree available, not the
+  specific v26.5 snapshot the peer ran).
+- **Test 2: whether the aircraft list is truly gated on JFP2 negotiation, or just coincidentally timed
+  with it.** §12.3 gives a code-based reason to expect the latter; confirming it needs
+  `GetNodeJfp2State` and first-aircraft-visible timestamps from the same log.
+
+**Possible follow-up (not committed to by this document):** §12.6's `SLAVE_DELAY`/`MASTER_DELAY`
+hold-off was presumably designed to prevent rapid-fire SimConnect writes for continuously-varying
+values (radio frequencies, trims); it isn't obvious the same 3-5 second window should apply to a
+boolean light switch that changes rarely and discretely. A shorter hold-off (or none) specifically for
+boolean/mask-derived integer variables would likely eliminate most of §12.6's lag without reintroducing
+whatever write-storm problem the original delay was guarding against — worth its own investigation
+before changing, since this mechanism is shared by every INTEGER variable in the system, not just
+lights.
