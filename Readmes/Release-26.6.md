@@ -7,6 +7,7 @@
 
 - Fixed yaw trembling after crossing the 2*PI heading boundary in a recorded plane the user entered cockpit.
 - Fixed position messages generated with v26.5 could not be interpreted by older versions.
+- Fixed guaranteed-message delivery broken for any relayed peer.
 
 ## Limitations
 

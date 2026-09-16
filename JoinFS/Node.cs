@@ -65,6 +65,18 @@ namespace JoinFS
             /// </summary>
             public bool Direct { get { return endPoint.Address.Equals(routeEndPoint.Address); } }
             /// <summary>
+            /// Stricter than Direct: true only if routeEndPoint is still exactly this node's own
+            /// endPoint (address AND port), not merely an address match. JFP2's Hello/Application sends
+            /// target routeEndPoint directly (its envelope carries no routable Nuid a relay could act
+            /// on - see DoJfp2Handshake's own comment), so they need the precise "nothing has been
+            /// substituted" check: Direct's address-only comparison is a deliberate legacy heuristic
+            /// (works because a relay is normally a different host entirely) that under-detects the one
+            /// case where routeEndPoint is swapped to a relay sharing the node's own IP but a different
+            /// port - e.g. a hub self-hosted on the same machine as one of the peers. Not used by any
+            /// legacy code path; legacy relies only on Direct, unchanged.
+            /// </summary>
+            public bool RouteIsOwnEndPoint { get { return routeEndPoint.Equals(endPoint); } }
+            /// <summary>
             /// Connection state of the node
             /// </summary>
             public bool sendEstablished;
@@ -2158,10 +2170,12 @@ namespace JoinFS
                     // ever attempt Hello with peers we're DIRECTLY connected to. An indirect peer is
                     // silently skipped here (no session, no AssumedLegacy) rather than given up on
                     // permanently, so it's picked up automatically the moment Pathfinder establishes a
-                    // direct path - see also TryGetJfp2AppPeer, which re-checks Direct on every send so
+                    // direct path - see also TryGetJfp2AppPeer, which re-checks on every send so
                     // a peer that goes indirect again after a completed handshake safely falls back to
                     // legacy instead of sending JFP2 into a routeEndpoint that no longer reaches it.
-                    if (!node.Direct)
+                    // RouteIsOwnEndPoint, not Direct: see that property's own comment - Direct's
+                    // address-only comparison isn't precise enough for what a JFP2 send actually needs.
+                    if (!node.RouteIsOwnEndPoint)
                     {
                         continue;
                     }
@@ -2175,7 +2189,7 @@ namespace JoinFS
                 }
                 else if (!session.HandshakeComplete && !session.AssumedLegacy)
                 {
-                    if (!node.Direct)
+                    if (!node.RouteIsOwnEndPoint)
                     {
                         // lost direct connectivity mid-negotiation (e.g. Pathfinder re-routed us
                         // indirect before Hello completed) - drop the session rather than keep
@@ -2239,7 +2253,8 @@ namespace JoinFS
             // routed it via a relay) can no longer be reached at its negotiated PeerId/routeEndpoint -
             // see DoJfp2Handshake's comment for why JFP2 can't just relay through an intermediate node
             // yet. Falling back to legacy here is silent and automatic; no session cleanup needed.
-            if (!nodes.TryGetValue(nuid, out Node node) || !node.Direct)
+            // RouteIsOwnEndPoint, not Direct: see that property's own comment.
+            if (!nodes.TryGetValue(nuid, out Node node) || !node.RouteIsOwnEndPoint)
             {
                 return false;
             }
@@ -2326,7 +2341,7 @@ namespace JoinFS
                 if (session.HandshakeComplete && !session.AssumedLegacy) return Jfp2PeerState.Negotiated;
                 if (session.AssumedLegacy) return Jfp2PeerState.Legacy;
             }
-            else if (nodes.TryGetValue(nuid, out Node node) && !node.Direct)
+            else if (nodes.TryGetValue(nuid, out Node node) && !node.RouteIsOwnEndPoint)
             {
                 // DoJfp2Handshake deliberately never creates a session (never even attempts a Hello)
                 // for an indirect peer - JFP2 has no relay/translation mechanism yet, see that
@@ -2631,8 +2646,18 @@ namespace JoinFS
                     // check for node
                     if (nodes.TryGetValue(message.nuid, out Node value))
                     {
-                        // use node endpoint
-                        endPoint = value.endPoint;
+                        // Use the node's current ROUTE endpoint, not its own claimed direct endpoint -
+                        // Send() (above) already resolves routeEndPoint when first queuing this message
+                        // specifically so a guaranteed send to an indirect peer goes via the hub relay
+                        // (docs/network-protocol.md's FLAG_FORWARD mechanism). Using value.endPoint here
+                        // silently discarded that resolution on every send - including the very first,
+                        // since queuing never sends immediately - so a guaranteed message (SimEvent,
+                        // Notes, WeatherReply) could never reach a genuinely indirect peer: it always
+                        // targeted an address the peer is, by definition, not directly reachable at.
+                        // Re-resolving routeEndPoint fresh here (rather than trusting the cached
+                        // message.endPoint from queue time) also means a peer that goes direct mid-retry
+                        // correctly switches to the direct path without waiting for a fresh send.
+                        endPoint = value.routeEndPoint;
                     }
                     else
                     {

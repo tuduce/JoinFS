@@ -15,6 +15,18 @@ matches what the plan claims.
 
 ## 1. Summary verdict
 
+**Update, 2026-09-16 (later the same day): Position, VariableSync, and SimEvent were live-tested
+end-to-end for the hub-relay scenario against a real MSFS2024 session, closing the gap the first
+2026-09-16 update below left open ("negotiation confirmed, application traffic not yet exercised with
+real data"). Position and VariableSync worked correctly immediately; SimEvent surfaced Finding 8, a
+real pre-existing legacy bug (not JFP2's) that made guaranteed-delivery messages unreachable for any
+indirect peer — now fixed and re-verified live.** See Finding 8 in §4.
+
+**Update, 2026-09-16: the hub-relay scenario (two JFP2-capable peers that cannot reach each other
+directly, everything relayed through a JFP2-capable hub) has now been live-tested and found, once
+Finding 7 below was fixed, to behave exactly as it did before JFP2 existed** — see Finding 7 in §4 and
+the implementation plan's own "Hub-relay verification, 2026-09-16" section for the methodology.
+
 **Update, 2026-09-14 (later the same day): Findings 1, 2, and (partially) 5 are now fixed in code** —
 see §4 for what changed (Finding 5's second half, `WireText`'s unbounded `ushort` length cast, remains
 open). The summary below is left as originally written, with each affected item struck through and
@@ -443,6 +455,122 @@ light changing blocks all the others sharing it.**
   `monitor.variables`/`monitor.network` logging on both ends to resolve; see the field-test log for the
   specific hypotheses to check.
 
+**Finding 7 (low severity, narrow trigger → FOUND AND FIXED 2026-09-16) — a JFP2 Hello retry could
+reach the wrong endpoint, and corrupt an unrelated peer's session state, when a peer's route to
+another peer switches to a relay sharing that peer's own IP address.**
+
+- This surfaced while live-testing the exact scenario this session was asked to verify: two
+  JFP2-capable (v26.6) JoinFS instances that **cannot reach each other directly at all**, with every
+  message relayed through a JFP2-capable hub — distinct from the "JFP2 negotiates a direct mesh path
+  via hub-assisted rendezvous" scenario the 2026-09-15 field tests already covered (both of those ended
+  up direct once Pathfinder found a path).
+- **Test setup:** one `CONSOLE-Debug` hub + two `CONSOLE-Debug` clients on `127.0.0.1`, with
+  `LocalNode.ReceiveMessages()` temporarily patched (env-var gated, reverted after) to drop any
+  datagram — legacy or JFP2 — arriving from the other client's port, forcing Pathfinder to conclude
+  Indirect and forcing all real client-to-client traffic through the hub's pre-existing `FLAG_FORWARD`
+  relay (`Node.cs`'s `ReceiveMsg`).
+- **Confirmed correct, independent of the bug below:** hub↔client A and hub↔client B each negotiate
+  JFP2 cleanly on their own; the two clients never complete (and, after the fix, never even usefully
+  attempt) a JFP2 session with each other; the legacy `FLAG_FORWARD` relay — completely unmodified by
+  JFP2 — carries every real message between the two clients throughout the session (confirmed live via
+  repeated `NETWORK: Forwarded <A> <B>` / `<B> <A>` log lines at Pulse cadence). This is the "same
+  functionality as before JFP2" outcome the design intends for a relay-only peer pair, now confirmed
+  live rather than only by code inspection.
+- **The bug:** `DoJfp2Handshake`'s guard against ever attempting Hello with an indirect peer
+  (`Node.cs`, pre-fix) used `Node.Direct`, a property comparing only the IP **address** of a node's own
+  claimed endpoint against its current `routeEndPoint` (`endPoint.Address.Equals(routeEndPoint.Address)`,
+  `Node.cs:66`). This is a reliable signal in essentially every real deployment, since a hub and a
+  client are normally different hosts with different IPs — but a client's `routeEndPoint` for another
+  peer can be reassigned to route through the hub *before* this address-only check reflects it, if the
+  hub happens to share the same IP address as the peer being relayed to (necessarily true for any
+  same-machine test, since hub and both clients share `127.0.0.1`; also plausible for a real deployment
+  where someone self-hosts a hub on the same machine they fly from). When hit, `DoJfp2Handshake`
+  retried a Hello addressed to the just-reassigned `routeEndPoint`, landing on the hub's own socket
+  instead of the intended peer's. Because the hub already had its own separate, already-negotiated
+  JFP2 session with the *true sender* (from its own direct hub↔client negotiation), `HandleJfp2Hello`'s
+  unconditional `session.RemoteAssignedId = hello.SelfAssignedId` (`Node.cs`, formerly line 1999)
+  overwrote that unrelated, already-correct session's `RemoteAssignedId` with an unrelated PeerId the
+  sender had generated for its *other*, indirect peer-session object — silently corrupting session
+  state. This is exactly the "worst case" `DoJfp2Handshake`'s own pre-existing comment predicted
+  ("a JFP2-capable relay completes a handshake *as itself*") but had not previously been shown to
+  actually occur.
+- **No observable functional break today:** per Finding 4, no current receive-path code validates
+  `RecipientPeerId`/`SenderPeerId` on receive (`Jfp2ReceiveMsg` routes purely by
+  `FindNuidByEndPoint`), so the corrupted field was, at the time this was found, write-only and never
+  read back. The two clients' own mutual negotiation attempt still correctly self-limited (5 attempts,
+  ~10s, `AssumedLegacy = true`) even before this fix, and the hub↔client sessions kept working
+  throughout — which is why this produced no visible symptom without inspecting network traces
+  directly.
+- **Fix applied:** added `Node.RouteIsOwnEndPoint` (full `IPEndPoint.Equals` — address *and* port —
+  rather than `Direct`'s address-only comparison) and switched the three JFP2-only call sites that
+  need this precise a check — `DoJfp2Handshake`'s two `node.Direct` checks and
+  `TryGetJfp2AppPeer`'s — to use it instead; `GetNodeJfp2State`'s UI-display branch was updated the
+  same way for consistency. Legacy code, which relies on `Direct`'s existing address-only semantics
+  for its own unrelated relay-forwarding decision (`Node.cs`'s `ReceiveMsg`, the
+  `value1.Direct` check), is untouched.
+- **Verified:** re-ran the identical localhost hub-relay scenario after the fix — the stray
+  attempt-4/5 Hello and the hub's spurious duplicate "Hello from X - handshake complete, replying with
+  HelloAck" are both gone; the session for the indirect peer is now silently dropped the moment
+  `routeEndPoint` diverges from that peer's own endpoint, before any misdirected send can happen. All
+  6 build configurations compile clean (0 warnings beyond the pre-existing, unrelated `XPlane.cs` one);
+  full test suite 127/127 passing.
+
+**Finding 8 (high severity, pure legacy code, pre-dates JFP2 → FOUND AND FIXED 2026-09-16) —
+guaranteed-delivery legacy messages (SimEvent, Notes, WeatherReply) could never reach a genuinely
+indirect (hub-relayed) peer at all, on any protocol version, before or after JFP2.**
+
+- Found while live-testing Position/VariableSync/Event propagation for the hub-relay scenario (Finding
+  7's own test setup) against a real MSFS2024 session, per the maintainer's request to verify these
+  three actually work, not just negotiate. Position and VariableSync (light states, flaps, gear, prop
+  RPM — all triggered live in the sim and confirmed applied to the injected aircraft on both ends) both
+  worked correctly first try. `SimEvent` did not: a synthetic event fired locally on one client
+  (`Sim.ProcessEvent`, since no control on the test aircraft in MSFS2024 maps to the narrow
+  `EVENT_00011000`..`EVENT_0001100A` range JoinFS treats as a discrete event — lights/flaps/gear all
+  route through VariableSync instead, confirmed by direct SimConnect-level tracing) was never received
+  by the other client, despite `Network.HandleSimEvent`/`Sim.ProcessEvent`'s own broadcast-eligibility
+  logic (`IsBroadcast`, `Injected`, `Connected`, peer count) all resolving correctly and the message
+  being confirmed queued.
+- **Root cause:** `LocalNode.Send(IPEndPoint, byte[], int)` (`Node.cs`), when the caller requested a
+  guaranteed send, correctly resolves the peer's current **route** endpoint (`value.routeEndPoint` —
+  the hub, for an indirect peer) and stores it on the queued `GuaranteedMessageOut`. But a guaranteed
+  send never transmits immediately — queuing only adds to `guaranteedOutList`; the actual
+  `udpClient.Send` happens exclusively inside `DoGuaranteedMessages()`'s periodic sweep (every tick, and
+  every 2s thereafter for retries). That sweep re-resolved the destination itself, independently, via
+  `value.endPoint` — the peer's own **claimed direct** address (the same field the class's own doc
+  comment calls "direct endpoint of recipient") — silently discarding the correct `routeEndPoint`
+  resolution from queue time. For a genuinely indirect peer, `value.endPoint` is by definition an
+  address that peer is not reachable at, so **every** transmission attempt, including the first one,
+  targeted the wrong address. Unreliable (non-guaranteed) sends don't hit this path at all — they
+  transmit immediately from the correctly-resolved endpoint passed into `Send` — which is exactly why
+  Position and VariableSync were unaffected and this went undetected until a guaranteed message was
+  specifically live-tested.
+- **Scope: this is not a JFP2 bug.** `Send`/`DoGuaranteedMessages` are pure legacy code, untouched by
+  any JFP2 phase (confirmed: no JFP2 commit or this session's Finding 7 fix touches either method). It
+  has presumably existed since the guaranteed-delivery mechanism itself was written, affecting the
+  **legacy** protocol equally before JFP2 existed — `SimEvent`, `Notes` (live chat push), and
+  `WeatherReply` are the three legacy message types sent guaranteed
+  (`docs/protocol-v2-implementation-review.md`'s own Finding 1 lists the same three for JFP2's separate,
+  since-fixed guaranteed-delivery gap). A relay-only peer pair talking over legacy could apparently never
+  have exchanged any of these three correctly, on any past version — a real, if narrow (relay-only
+  topologies are less common than direct mesh), regression against "same functionality as always."
+- **Fix applied:** `DoGuaranteedMessages()`'s endpoint resolution now uses `value.routeEndPoint`
+  instead of `value.endPoint`, matching `Send`'s own already-correct resolution — re-resolved fresh on
+  every retry (not just once at queue time), so a peer that goes direct mid-retry also picks that up
+  immediately rather than waiting for a new guaranteed send to be queued.
+- **Verified live, real end-to-end confirmation against MSFS2024:** re-ran the hub-relay test scenario
+  (two indirect peers, blocked from reaching each other directly, both with a real SimConnect
+  connection) with the fix applied. The synthetic `SimEvent` was queued, correctly retried against the
+  hub's address once `routeEndPoint` resolved to it, forwarded by the hub's ordinary `FLAG_FORWARD`
+  relay (confirmed via the `NETWORK: Forwarded` log line — this also finally confirms, after repeated
+  confusing negative results earlier in the same investigation, that hub forwarding itself works
+  correctly and was never in question; the earlier confusion was this endpoint bug preventing the
+  guaranteed message from ever reaching the hub in the first place), received by the other client
+  (`HandleSimEvent`), and applied to the injected aircraft via SimConnect
+  (`DoSimEvent ID '...' - Event 'EVENT_00011000' - Data '424242'`). Position and VariableSync were
+  independently confirmed the same session with real triggered data (landing/taxi lights, flaps, gear,
+  prop RPM — each detected on the sending side and correctly applied on the receiving side's injected
+  aircraft). All 6 build configurations compile clean; full test suite 127/127 passing.
+
 ## 5. What "ready" would look like
 
 The design and the phased implementation plan are both sound, and the field-level audit in §2 found
@@ -466,6 +594,9 @@ traffic" to "ready for a real rollout" is concrete and bounded:
    and, ideally, the profiling/fault-injection work in §6. `Jfp2Bridge` (hub translation) remains
    correctly out of scope until direct-peer JFP2 has more field experience, per the implementation
    plan's own reasoning — nothing in this review changes that call.
+5. ~~Confirm the hub-relay-only scenario (two JFP2 peers unreachable from each other, everything via
+   a JFP2-capable hub) doesn't regress~~ — **done 2026-09-16** (Finding 7, §4): live-tested and, after
+   fixing the bug the test surfaced, confirmed byte-for-byte legacy behavior for such a pair.
 
 ## 6. What still needs profiling or fault injection (not attempted here)
 

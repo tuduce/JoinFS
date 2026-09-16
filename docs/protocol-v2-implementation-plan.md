@@ -586,6 +586,94 @@ aircraft list stayed empty (correctly, in the maintainer's assessment, but slowe
   enable `monitor.variables`/`monitor.network` on **both** the sender and the v26.5 receiver
   simultaneously and watch the actual `LIGHT STATES` integer value the receiver decodes.
 
+## Hub-relay verification, 2026-09-16
+
+Verified the scenario distinct from every prior manual/field test in this file: **two latest-version
+(v26.6) JoinFS instances that cannot reach each other directly at all**, connected to a common
+latest-version hub that relays everything between them (as opposed to the 2026-09-15 field tests,
+where the hub only helped two clients find a direct path and JFP2 then ran mesh-direct). Goal: confirm
+this pair gets **exactly the same functionality as before JFP2 existed** — the deliberate scope
+decision from Phase 3 onward (`Jfp2Bridge` is out of scope; an indirect pair should just use legacy
+throughout).
+
+**Method:** one `CONSOLE-Debug` hub + two `CONSOLE-Debug` clients, all on `127.0.0.1` (`-create -hub
+-port 6112`, `-join 127.0.0.1:6112 -port 6113`, `-join 127.0.0.1:6112 -port 6114`, all `-nosim -nogui
+-background`). Since same-machine loopback traffic can't be blocked by a real firewall, temporarily
+patched `LocalNode.ReceiveMessages()` (env-var gated on `JFP2_TEST_BLOCK_PORT`, fully reverted after)
+to drop any datagram — legacy or JFP2 — arriving from the other client's port, simulating a NAT that
+blocks direct P2P between them while leaving both clients' path to the hub untouched. Also temporarily
+defaulted `Monitor.network = true` (reverted after) so `nodeDebug`/`NETWORK:`/`JFP2:` lines actually
+reached the per-instance log files under `%LOCALAPPDATA%\JoinFS-CONSOLE-Debug\log-<port>.txt`.
+
+**Result — confirmed correct:** hub↔A and hub↔B each independently negotiate JFP2 cleanly (Hello/
+HelloAck complete in both directions within one tick each). The two clients themselves never complete
+a JFP2 session with each other. The pre-existing legacy `FLAG_FORWARD` hub-relay mechanism in
+`Node.cs`'s `ReceiveMsg` — completely untouched by any JFP2 phase — carries every real message between
+A and B for the entire session, confirmed live via repeated `NETWORK: Forwarded <A> <B>` / `<B> <A>`
+log lines on the hub at ordinary Pulse cadence. This is the intended "same functionality as before"
+outcome for a relay-only pair.
+
+**Result — bug found and fixed:** the test also surfaced a real, if narrow, bug — see
+`docs/protocol-v2-implementation-review.md` Finding 7 for the full writeup. Short version:
+`DoJfp2Handshake`'s guard against attempting Hello with an indirect peer used `Node.Direct`, which
+compares only IP *addresses* — reliable when hub and peer are different hosts (the overwhelming
+common case), but not when they share an IP (necessarily true on one machine, since hub and both
+clients are all `127.0.0.1` here; also possible for a real self-hosted-hub-on-the-same-machine setup).
+When hit, a stray Hello retry landed on the hub instead of the intended peer, and the hub's
+`HandleJfp2Hello` unconditionally overwrote its own already-correct session state for the true sender
+with an unrelated value. No receive path currently validates that field (Finding 4), so this produced
+no functional break, but it violated the documented "only ever attempt Hello with peers we're directly
+connected to" invariant and was a latent risk. **Fixed** by adding `Node.RouteIsOwnEndPoint` (exact
+`IPEndPoint` match, not just address) and using it in place of `Node.Direct` for JFP2's own gating
+(`DoJfp2Handshake`, `TryGetJfp2AppPeer`, `GetNodeJfp2State`); legacy code's own use of `Direct` is
+unchanged. Re-ran the same test after the fix — the stray retry and the hub's spurious duplicate
+HelloAck are both gone.
+
+**Verified:** all 6 build configurations (FS2024/FS2020/FSX/P3D/XPLANE/CONSOLE, `-Debug`) compile
+clean; full test suite 127/127 passing.
+
+## Hub-relay live application-data verification (real MSFS2024), 2026-09-16
+
+Follow-up to the hub-relay verification above, which only confirmed negotiation (both real-sim clients
+correctly stay on the legacy path with each other). This pass exercised actual application data —
+Position, VariableSync, and SimEvent — through the same indirect-pair-via-hub topology, with both test
+clients (`FS2024-Debug`, not `CONSOLE-Debug`) given a real SimConnect connection to a single running
+MSFS2024 instance with a loaded flight, per the maintainer's request. Since only one real aircraft was
+available, both clients connected to the same simulator, so each injected the other's broadcast as an
+AI copy of the same real aircraft near itself — a deliberate, working stand-in for a second physical
+simulator.
+
+- **Position + Identity:** confirmed immediately. Both clients injected an AI aircraft for the other
+  ("Injecting aircraft 'HB-TDX' ... Model 'Beechcraft V35B Bonanza G-BSVH'"), and continuously applied
+  real control-surface/Euler updates from live telemetry (`DoSimEvent .../SetData ... 'OBJECT_EULER'`
+  every tick) for the duration of the session.
+- **VariableSync:** confirmed with real triggered changes, not just idle telemetry — the maintainer
+  toggled landing/taxi lights, moved flaps, and cycled the landing gear live in MSFS. Every change was
+  detected on the sending side (`DETECT VARIABLE - OBJECT:524288 - light states = 30`, `flaps handle
+  percent = 0.5`, `gear handle position = 1`, etc.) and correctly applied to the injected aircraft on
+  the receiving side (`UPDATE VARIABLE - OBJECT:<injected id> - ...` with matching values), repeated
+  correctly across many real toggles.
+- **SimEvent:** none of lights/flaps/gear map to JoinFS's own discrete "Event" message class in this
+  codebase (`Sim.Event.EVENT_00011000`..`EVENT_0001100A`, 11 raw SimConnect event IDs) — confirmed by
+  direct SimConnect-level tracing showing zero hits for any of those IDs across all three real actions;
+  modern MSFS2024 exposes almost everything as continuous variables instead, so real cockpit controls on
+  this aircraft don't naturally exercise this class at all. Closed the gap with a temporary synthetic
+  trigger (a one-shot CLI-env-gated call straight into `Sim.ProcessEvent(10, 424242)` once connected) —
+  a legitimate way to exercise the real send→relay→receive→apply pipeline without depending on an
+  elusive real-world control mapping. This surfaced Finding 8
+  (`docs/protocol-v2-implementation-review.md`) — a real, pre-existing bug in the **legacy** guaranteed-
+  delivery send path (not JFP2's) that made `SimEvent`/`Notes`/`WeatherReply` unreachable for any
+  genuinely indirect peer, on any past version. Fixed (`LocalNode.DoGuaranteedMessages()`, `Node.cs`);
+  re-ran the same synthetic-event test after the fix and confirmed full send → hub-forward → receive →
+  `DoSimEvent` application, live.
+- **Incidentally confirmed:** the legacy `FLAG_FORWARD` hub relay itself works correctly and was never
+  in question — `NETWORK: Forwarded` fired normally once a guaranteed message actually reached the hub;
+  earlier apparent silence was entirely explained by Finding 8's bug preventing guaranteed sends from
+  reaching the hub in the first place, not a relay problem.
+- All temporary test instrumentation (env-var-gated NAT-block scaffold, diagnostic logging, the
+  synthetic-event trigger) was reverted after; only the Finding 8 fix itself remains in the tree.
+  **Verified:** all 6 build configurations compile clean; full test suite 127/127 passing.
+
 ## Phase 6 — Follow-on, out of scope for this protocol but related
 
 - [ ] Recording format synergy (design doc §8): consider adapting the `ICodec<T>`/`CodecRegistry`
