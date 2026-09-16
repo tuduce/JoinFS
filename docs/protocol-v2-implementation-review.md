@@ -15,6 +15,14 @@ matches what the plan claims.
 
 ## 1. Summary verdict
 
+**Update, 2026-09-16 (a third pass the same day): the mixed-version case — one latest instance and one
+legacy instance (unmodified `v26.5`), relayed through a latest-version hub, unable to reach each other
+directly — was live-tested end-to-end against MSFS2024. Position and VariableSync worked immediately in
+both directions. Peer introduction itself (neither side ever learning the other existed) surfaced
+Finding 9, a second real pre-existing legacy bug distinct from Finding 8. `SimEvent` then confirmed
+Finding 8 is not fixed in already-released legacy builds — latest→legacy delivery works, legacy→latest
+does not, until that legacy build is itself patched.** See Finding 9 in §4.
+
 **Update, 2026-09-16 (later the same day): Position, VariableSync, and SimEvent were live-tested
 end-to-end for the hub-relay scenario against a real MSFS2024 session, closing the gap the first
 2026-09-16 update below left open ("negotiation confirmed, application traffic not yet exercised with
@@ -570,6 +578,59 @@ indirect (hub-relayed) peer at all, on any protocol version, before or after JFP
   independently confirmed the same session with real triggered data (landing/taxi lights, flaps, gear,
   prop RPM — each detected on the sending side and correctly applied on the receiving side's injected
   aircraft). All 6 build configurations compile clean; full test suite 127/127 passing.
+
+**Finding 9 (high severity, pure legacy code, pre-dates JFP2 → FOUND AND FIXED 2026-09-16) — a
+`GuaranteedDone` ack from one recipient of a guaranteed broadcast could incorrectly cancel a
+*different* recipient's still-outstanding copy of the same message, because acks were matched by
+message id alone.**
+
+- Found while testing the specific scenario this session was asked to verify: one **latest**-version
+  JoinFS instance and one **legacy** instance (built from git tag `v26.5`, unmodified), both connecting
+  to a **latest**-version hub, unable to reach each other directly (relay-only, same NAT-block test
+  methodology as Finding 7/8). Position and VariableSync worked immediately, exactly as in the
+  latest+latest test. But neither side ever learned the other existed — no AI aircraft got injected on
+  either end.
+- **Root cause:** peer introduction relies on two guaranteed mechanisms: `JoinReply` (tells a newly
+  joining client about every peer the hub already knows) and a reactive `AddNode` broadcast (tells every
+  *existing* peer about a newly joined one, via `LocalNode.Broadcast()`). `Broadcast()` loops over every
+  known node and queues one `GuaranteedMessageOut` per recipient — but the message's `GuaranteedId` is
+  assigned once, by the single `PrepareInternalMessage`/`PrepareMessage` call *before* the loop, and gets
+  written into the wire payload itself, so **every recipient's copy carries the identical id**. On
+  receive, `case MESSAGE_ID.GuaranteedDone:` matched purely by
+  `guaranteedOutList.FindIndex(g => g.id == doneId)` — ignoring the acking peer's own identity entirely.
+  Whichever recipient of a multi-recipient broadcast acked first would remove the *first* same-id list
+  entry, regardless of which recipient it actually belonged to — silently and permanently starving a
+  different peer's copy of ever being retried again (the entry is removed outright, not just marked
+  partially done). This is timing/ordering-dependent, not deterministic, which is why it hadn't surfaced
+  in the (also broadcast-dependent) latest+latest tests in Finding 7/8's own sessions — those apparently
+  got lucky on entry ordering.
+- **Scope: not a JFP2 bug.** `Broadcast()` and the `GuaranteedDone` handler are pure legacy code,
+  untouched by any JFP2 phase and confirmed present, byte-for-byte the same defect, in the unmodified
+  `v26.5` tag — meaning this has been a latent bug in every JoinFS release for as long as guaranteed
+  broadcasts have existed, not something introduced recently.
+- **Fix applied:** the match now also requires `g.nuid == senderNuid` — but only when the queued entry
+  actually has a valid nuid. Some guaranteed sends (`JoinReply`, `JoinFail`, and others) are deliberately
+  prepared with `PrepareInternalMessage(new Nuid(), true)` — an intentionally invalid recipient nuid,
+  since they address a not-yet-registered peer by raw `IPEndPoint` rather than by nuid lookup — and are
+  always exactly one `GuaranteedMessageOut` per id regardless, so they need no such check (an initial,
+  stricter version of this fix that required a valid nuid unconditionally broke `JoinReply` reliability
+  for exactly this reason, caught and corrected during this same test session before being verified).
+- **Verified live against MSFS2024, both directions:** re-ran the latest+legacy hub-relay scenario with
+  the fix applied. Both sides correctly learned about each other (`JoinReply ... carries 1 peer(s)` on
+  the hub side, matching receipt and registration on the client side) and injected each other's real
+  aircraft. Position and VariableSync (gear, flaps — live-toggled) confirmed correct in both directions.
+  `SimEvent` (guaranteed) confirmed **latest → legacy**; **legacy → latest failed** on the first pass -
+  traced to the legacy build still carrying the *original, unfixed* Finding 8 bug in its own send-side
+  code (confirmed present, byte-for-byte, in the same `v26.5` tag) - a latest-version hub cannot work
+  around a bug in the sending peer's own code. Root cause confirmed by temporarily applying both this
+  session's fixes to the `v26.5` worktree alone and re-running: legacy → latest `SimEvent` delivery then
+  succeeded too. The verification patch was reverted — the legacy worktree was left at a clean,
+  unmodified `v26.5` checkout, since the point was testing genuine backward compatibility, not producing
+  a patched legacy build. **Practical implication:** a legacy peer's own guaranteed messages (`SimEvent`,
+  `Notes`, `WeatherReply`) will not reach an indirect peer through any hub, of any version, until that
+  specific legacy release is patched — this is a real, narrow limitation of already-deployed builds, not
+  something fixable from the hub or the latest-version peer's side alone. All 6 build configurations
+  compile clean; full test suite 127/127 passing.
 
 ## 5. What "ready" would look like
 

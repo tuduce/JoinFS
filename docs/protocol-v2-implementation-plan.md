@@ -674,6 +674,43 @@ simulator.
   synthetic-event trigger) was reverted after; only the Finding 8 fix itself remains in the tree.
   **Verified:** all 6 build configurations compile clean; full test suite 127/127 passing.
 
+## Mixed-version (latest + legacy) hub-relay verification, 2026-09-16
+
+Extended the hub-relay verification to the scenario the maintainer specifically asked for: one
+**latest**-version JoinFS instance and one **legacy** instance — built unmodified from git tag `v26.5`
+in a separate worktree (`../JoinFS-legacy`) — both connecting to a **latest**-version hub, unable to
+reach each other directly. Same real-MSFS2024, same-machine-dual-AI-injection methodology as the
+latest+latest test, same env-var-gated NAT-block scaffold (this time applied to only the latest client's
+receive path — sufficient to force both sides indirect, since Pathfinder needs a round trip: with no
+reply ever coming back, the legacy peer's own unmodified Pathfinder logic independently concludes
+indirect too, with zero awareness of the block).
+
+**Result — Finding 9 found and fixed:** initially, *neither* side learned the other existed at all (no
+AI aircraft injected either way), despite Position/VariableSync-style traffic between each client and
+the hub looking completely normal. Traced to a second real, pre-existing (non-JFP2) bug in the
+guaranteed-broadcast ack-matching logic — full writeup in
+`docs/protocol-v2-implementation-review.md` Finding 9. Confirmed present byte-for-byte in the unmodified
+`v26.5` tag, so this has silently affected peer discovery in relay-only sessions for as long as
+guaranteed broadcasts have existed. Fixed in `LocalNode.cs`'s `GuaranteedDone` handler.
+
+**Result — Position and VariableSync confirmed working, both directions:** once Finding 9 was fixed,
+both sides correctly injected each other's real aircraft, and live-toggled gear/flaps propagated
+correctly and symmetrically (latest→legacy and legacy→latest).
+
+**Result — SimEvent confirmed asymmetric, root-caused:** latest→legacy `SimEvent` delivery worked
+(the latest side already carries the Finding 8 fix). legacy→latest did not — because the legacy
+build still carries the *original* Finding 8 bug in its own send-side code, which no hub-side fix can
+route around. Confirmed by temporarily applying both this session's `Node.cs` fixes to the `v26.5`
+worktree alone and re-running: legacy→latest `SimEvent` then succeeded too. **This verification patch
+was reverted** (`git checkout -- .` in the legacy worktree) — it was diagnostic only; the legacy
+worktree was left at a clean, unmodified `v26.5` checkout, since testing genuine backward compatibility
+was the point, not producing a patched legacy build. Whoever owns already-released `v26.4`/`v26.5`
+maintenance branches should consider backporting both this session's `Node.cs` fixes (Finding 8 and
+Finding 9) — they're pure legacy-code fixes with no JFP2 dependency, so they apply cleanly to a
+pre-JFP2 tree.
+
+**Verified:** all 6 build configurations (latest tree) compile clean; full test suite 127/127 passing.
+
 ## Phase 6 — Follow-on, out of scope for this protocol but related
 
 - [ ] Recording format synergy (design doc §8): consider adapting the `ICodec<T>`/`CodecRegistry`

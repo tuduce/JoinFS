@@ -1259,8 +1259,23 @@ namespace JoinFS
                                         // get index
                                         byte doneIndex = receiveReader.ReadByte();
 
-                                        // find guaranteed message
-                                        int index = guaranteedOutList.FindIndex(g => g.id == doneId);
+                                        // find guaranteed message - must match both id AND the acking
+                                        // peer's own nuid, not just id. A guaranteed message sent via
+                                        // Broadcast() (e.g. AddNode) queues one GuaranteedMessageOut per
+                                        // recipient, but PrepareInternalMessage/PrepareMessage assigns
+                                        // one GuaranteedId for the whole call, so every recipient's copy
+                                        // shares the same id on the wire. Matching by id alone let
+                                        // whichever recipient acked first remove an arbitrary same-id
+                                        // entry - possibly a DIFFERENT recipient's still-outstanding
+                                        // copy - permanently starving it of any further retry. Some
+                                        // guaranteed sends (JoinReply, JoinFail, ...) are prepared with
+                                        // PrepareInternalMessage(new Nuid(), true) - an intentionally
+                                        // invalid recipient nuid, since they address by raw IPEndPoint
+                                        // before the peer is registered - and are always exactly one
+                                        // GuaranteedMessageOut per id, so they need no nuid check at all;
+                                        // only enforce it for an entry that actually has a valid nuid
+                                        // (i.e. came from Broadcast(), where the collision above happens).
+                                        int index = guaranteedOutList.FindIndex(g => g.id == doneId && (!g.nuid.Valid() || g.nuid == senderNuid));
                                         // check if guaranteed message still exists
                                         if (index >= 0 && doneIndex < guaranteedOutList[index].segmentList.Count)
                                         {
