@@ -2749,13 +2749,19 @@ namespace JoinFS
         // independently decides JFP2 vs legacy for that one peer - see docs/protocol-v2-architecture.md
         // §8.2's split-send pattern, same idea Phase 2 already used for Status.
         //
-        // Deliberately out of scope for this phase (see docs/protocol-v2-implementation-plan.md for
-        // the full reasoning): Jfp2Bridge, the hub-role decode/re-encode translator between a JFP2 peer
-        // and a legacy-only peer (design doc §7.7). Direct JFP2<->JFP2 peers get full benefit from what
-        // follows; a hub relaying between a JFP2 peer and a legacy peer still works today via each
-        // peer's own existing legacy fallback (a JFP2 peer talking through a legacy-only hub simply
-        // never negotiates JFP2 with it and uses legacy throughout), it just doesn't get the identity/
-        // variable-sync efficiency win on that hop yet.
+        // SendJfp2IdentityIfNeeded (below) also gets the efficiency win when relayed through a JFP2-
+        // capable hub to another indirect JFP2 peer (Jfp2Bridge design plan Increment 2 - see
+        // TryGetJfp2RelayPeer/SendJfp2RelayApplication in Node.cs), since the hub forwards the already-
+        // encoded bytes unchanged rather than needing to decode/re-encode anything. VariableSync
+        // (SendVariableUpdate) is not yet wired for relay - still deliberately out of scope, see
+        // docs/protocol-v2-implementation-plan.md.
+        //
+        // Still out of scope (see docs/protocol-v2-implementation-plan.md for the full reasoning):
+        // Jfp2Bridge, the hub-role decode/re-encode translator between a JFP2 peer and a legacy-only
+        // peer (design doc §7.7) - that's a genuinely different case from the relay above, since there
+        // the hub has no shared wire format to forward unchanged. A JFP2 peer talking through a
+        // legacy-only (or not-yet-negotiating) hub still simply never negotiates JFP2 with it and uses
+        // legacy throughout, unaffected by any of this.
 
         /// <summary>
         /// How often (seconds) to resend Identity to a peer even if nothing changed, so a peer that
@@ -2819,14 +2825,25 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Send Identity for `obj` to `peerNuid` if that peer negotiated JFP2 Identity AND (anything
-        /// about the identity changed since the last send to this specific peer, or the heartbeat
-        /// interval elapsed). A no-op for a peer that hasn't negotiated Identity - legacy peers keep
-        /// getting identity fields the unchanged way, inline in every Position message.
+        /// Send Identity for `obj` to `peerNuid` if that peer negotiated JFP2 Identity, directly or
+        /// through a relay (see TryGetJfp2RelayPeer/SendJfp2RelayApplication - Jfp2Bridge design plan
+        /// Increment 2), AND (anything about the identity changed since the last send to this specific
+        /// peer, or the heartbeat interval elapsed). A no-op for a peer reachable only via legacy -
+        /// legacy peers keep getting identity fields the unchanged way, inline in every Position
+        /// message.
+        ///
+        /// Wiring this for relay is not optional scope creep: SendJfp2Position's identity-before-
+        /// position ordering guard (see its own comment) checks jfp2IdentitySendState regardless of
+        /// whether the peer is direct or relayed, so if this method never sent Identity via JFP2 to an
+        /// indirect peer, that guard would withhold Position for that peer forever - relaying Position
+        /// without also relaying Identity would be a silent regression (an indirect peer would stop
+        /// seeing this aircraft at all), not a smaller, safer increment.
         /// </summary>
         public void SendJfp2IdentityIfNeeded(LocalNode.Nuid peerNuid, Sim.Obj obj)
         {
-            if (!localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.Identity, out byte version))
+            bool direct = localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.Identity, out byte version);
+            LocalNode.Nuid hubNuid = default;
+            if (!direct && !localNode.TryGetJfp2RelayPeer(peerNuid, Jfp2.MessageClasses.Identity, out hubNuid, out version))
             {
                 return;
             }
@@ -2849,7 +2866,14 @@ namespace JoinFS
             var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.IdentityUpdate>(Jfp2.MessageClasses.Identity, version);
             Span<byte> buffer = stackalloc byte[512];
             int length = codec.Encode(current, buffer);
-            localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Identity, buffer[..length]);
+            if (direct)
+            {
+                localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Identity, buffer[..length]);
+            }
+            else
+            {
+                localNode.SendJfp2RelayApplication(hubNuid, peerNuid, Jfp2.MessageClasses.Identity, buffer[..length]);
+            }
 
             state.Sent = true;
             state.Last = current;
@@ -2967,18 +2991,21 @@ namespace JoinFS
 
         /// <summary>
         /// Send this object's variable set to `peerNuid` via JFP2 VariableSync if that peer negotiated
-        /// it; otherwise falls back to the unchanged legacy SendIntegerVariablesMessage/
-        /// SendFloatVariablesMessage/SendString8VariablesMessage, unicast to that one peer (byte-
-        /// identical content to what a broadcast to that peer would have sent). Callers replace a
-        /// single legacy broadcast-to-everyone call with one call to this method per node in
-        /// LocalNode.GetNodeList(), matching the split-send pattern Position's own call sites already
-        /// use (JoinFS/Sim.cs already loops per-node there) - see Sim.cs's variablesTimer block.
+        /// it, directly or through a relay (see TryGetJfp2RelayPeer/SendJfp2RelayApplication - Jfp2Bridge
+        /// design plan Increment 3); otherwise falls back to the unchanged legacy
+        /// SendIntegerVariablesMessage/SendFloatVariablesMessage/SendString8VariablesMessage, unicast to
+        /// that one peer (byte-identical content to what a broadcast to that peer would have sent).
+        /// Callers replace a single legacy broadcast-to-everyone call with one call to this method per
+        /// node in LocalNode.GetNodeList(), matching the split-send pattern Position's own call sites
+        /// already use (JoinFS/Sim.cs already loops per-node there) - see Sim.cs's variablesTimer block.
         /// </summary>
         public void SendVariableUpdate(LocalNode.Nuid peerNuid, uint netId, Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> string8s, LocalNode.Nuid ownerNuid)
         {
-            if (localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.VariableSync, out byte version))
+            bool direct = localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.VariableSync, out byte version);
+            LocalNode.Nuid hubNuid = default;
+            if (direct || localNode.TryGetJfp2RelayPeer(peerNuid, Jfp2.MessageClasses.VariableSync, out hubNuid, out version))
             {
-                SendJfp2VariableSync(peerNuid, netId, integers, floats, string8s, version);
+                SendJfp2VariableSync(peerNuid, netId, integers, floats, string8s, version, direct, hubNuid);
             }
             else
             {
@@ -2988,7 +3015,7 @@ namespace JoinFS
             }
         }
 
-        void SendJfp2VariableSync(LocalNode.Nuid peerNuid, uint netId, Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> string8s, byte version)
+        void SendJfp2VariableSync(LocalNode.Nuid peerNuid, uint netId, Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> string8s, byte version, bool direct, LocalNode.Nuid hubNuid)
         {
             int total = integers.Count + floats.Count + string8s.Count;
             if (total == 0)
@@ -3014,7 +3041,14 @@ namespace JoinFS
                 foreach (var e in chunkEntries) bufferSize += Jfp2.Codecs.VariableSyncV1Codec.EntrySize(e);
                 byte[] buffer = new byte[bufferSize];
                 int length = codec.Encode(chunk, buffer);
-                localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.VariableSync, buffer.AsSpan(0, length));
+                if (direct)
+                {
+                    localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.VariableSync, buffer.AsSpan(0, length));
+                }
+                else
+                {
+                    localNode.SendJfp2RelayApplication(hubNuid, peerNuid, Jfp2.MessageClasses.VariableSync, buffer.AsSpan(0, length));
+                }
             }
         }
 
@@ -3192,15 +3226,20 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Send `aircraft`'s position to `peerNuid` via JFP2 Position if negotiated. Returns true if
-        /// the caller should NOT also send legacy (either because it was actually sent via JFP2, or
+        /// Send `aircraft`'s position to `peerNuid` via JFP2 Position if negotiated, directly or
+        /// through a relay (see TryGetJfp2RelayPeer/SendJfp2RelayApplication - Jfp2Bridge design plan
+        /// Increment 2: the hub relays this on, unchanged, to `peerNuid`, so from this node's point of
+        /// view sending to an indirect peer looks identical to sending direct). Returns true if the
+        /// caller should NOT also send legacy (either because it was actually sent via JFP2, or
         /// because it was deliberately withheld this one tick - see the ordering note below); false
-        /// means this peer hasn't negotiated Position and the caller should use its own already-
-        /// prepared legacy Write*Message()+Send() path, unchanged.
+        /// means this peer hasn't negotiated Position, directly or via a relay, and the caller should
+        /// use its own already-prepared legacy Write*Message()+Send() path, unchanged.
         /// </summary>
         public bool SendJfp2Position(LocalNode.Nuid peerNuid, Sim.Aircraft aircraft, ref Sim.AircraftPosition position, double netTime, bool sharedCockpit = false)
         {
-            if (!localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.Position, out byte version))
+            bool direct = localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.Position, out byte version);
+            LocalNode.Nuid hubNuid = default;
+            if (!direct && !localNode.TryGetJfp2RelayPeer(peerNuid, Jfp2.MessageClasses.Position, out hubNuid, out version))
             {
                 return false;
             }
@@ -3211,12 +3250,13 @@ namespace JoinFS
             {
                 // Guarantee Identity reaches this peer before this object's first-ever Position does
                 // (docs/protocol-v2-design.md §7.7) - SendJfp2IdentityIfNeeded is always called
-                // immediately before this in the same per-object/per-peer loop (Sim.cs), so if it
-                // hasn't sent Identity to this peer even once yet, withhold Position for this one tick
-                // rather than let it arrive first. The object doesn't exist on the receiving end before
-                // Identity arrives anyway, so losing one tick of position for a brand-new object is
-                // unobservable - and this peer has already committed to JFP2 for Position, so "handled"
-                // (no legacy fallback) is still the right return value.
+                // separately (Sim.cs's variablesTimer loop) over the same peer list, directly or via
+                // relay exactly like this method, so if it hasn't sent Identity to this peer even once
+                // yet, withhold Position for this one tick rather than let it arrive first. The object
+                // doesn't exist on the receiving end before Identity arrives anyway, so losing one tick
+                // of position for a brand-new object is unobservable - and this peer has already
+                // committed to JFP2 for Position, so "handled" (no legacy fallback) is still the right
+                // return value.
                 if (!jfp2IdentitySendState.TryGetValue((aircraft.netId, peerNuid), out Jfp2IdentitySendState identityState) || !identityState.Sent)
                 {
                     return true;
@@ -3227,7 +3267,14 @@ namespace JoinFS
             var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.PositionUpdate>(Jfp2.MessageClasses.Position, version);
             Span<byte> buffer = stackalloc byte[Jfp2.Codecs.PositionV1Codec.Size];
             int length = codec.Encode(update, buffer);
-            localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Position, buffer[..length]);
+            if (direct)
+            {
+                localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Position, buffer[..length]);
+            }
+            else
+            {
+                localNode.SendJfp2RelayApplication(hubNuid, peerNuid, Jfp2.MessageClasses.Position, buffer[..length]);
+            }
             return true;
         }
 
@@ -3338,15 +3385,18 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Send a SimEvent to `peerNuid` via JFP2 Event if negotiated, otherwise the unchanged legacy
-        /// WriteSimEventMessage()+Send()/Broadcast() path. Callers use this once per node instead of a
-        /// single legacy Broadcast()/Send() call, matching the split-send pattern already used for
-        /// Position/VariableSync/Identity. Returns true if handled via JFP2 (caller should not also
-        /// send legacy).
+        /// Send a SimEvent to `peerNuid` via JFP2 Event if negotiated, directly or through a relay (see
+        /// TryGetJfp2RelayPeer/SendJfp2RelayApplication - Jfp2Bridge design plan Increment 3),
+        /// otherwise the unchanged legacy WriteSimEventMessage()+Send()/Broadcast() path. Callers use
+        /// this once per node instead of a single legacy Broadcast()/Send() call, matching the split-
+        /// send pattern already used for Position/VariableSync/Identity. Returns true if handled via
+        /// JFP2 (caller should not also send legacy).
         /// </summary>
         public bool SendEventUpdate(LocalNode.Nuid peerNuid, uint netId, uint eventId, uint data)
         {
-            if (!localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.Event, out byte version))
+            bool direct = localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.Event, out byte version);
+            LocalNode.Nuid hubNuid = default;
+            if (!direct && !localNode.TryGetJfp2RelayPeer(peerNuid, Jfp2.MessageClasses.Event, out hubNuid, out version))
             {
                 return false;
             }
@@ -3355,8 +3405,17 @@ namespace JoinFS
             Span<byte> buffer = stackalloc byte[Jfp2.Codecs.EventV1Codec.Size];
             int length = codec.Encode(update, buffer);
             // guaranteed: true - matches legacy WriteSimEventMessage, which also sends guaranteed
-            // (docs/protocol-v2-implementation-review.md Finding 1).
-            localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Event, buffer[..length], guaranteed: true);
+            // (docs/protocol-v2-implementation-review.md Finding 1). A relayed guaranteed send is
+            // retried by this node exactly as if peerNuid were direct - see SendJfp2RelayApplication's
+            // own remarks on end-to-end acking through the relay.
+            if (direct)
+            {
+                localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Event, buffer[..length], guaranteed: true);
+            }
+            else
+            {
+                localNode.SendJfp2RelayApplication(hubNuid, peerNuid, Jfp2.MessageClasses.Event, buffer[..length], guaranteed: true);
+            }
             return true;
         }
 
@@ -3418,10 +3477,19 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Send `flightPlan` to every currently connected peer: JFP2 FlightPlan for whichever peers
-        /// negotiated it, the unchanged legacy message for the rest - same split-send pattern already
-        /// used for Position/VariableSync/Identity. Replaces a direct SendFlightPlanMessage(...) call
-        /// (which always broadcasts to everyone via legacy) at both of its call sites.
+        /// Send `flightPlan` to every currently connected peer: JFP2 FlightPlan (direct, or through a
+        /// relay - see TryGetJfp2RelayPeer/SendJfp2RelayApplication, Jfp2Bridge design plan Increment 3)
+        /// for whichever peers negotiated it, the unchanged legacy message for the rest - same split-
+        /// send pattern already used for Position/VariableSync/Identity. Replaces a direct
+        /// SendFlightPlanMessage(...) call (which always broadcasts to everyone via legacy) at both of
+        /// its call sites.
+        ///
+        /// This closes FlightPlanCodec.cs's own "third-party relay is out of scope until Jfp2Bridge
+        /// exists" note without needing an OwnerNuid field on the wire or a schema version bump:
+        /// HandleFlightPlan already takes its owner attribution from the `nuid` argument the dispatch
+        /// layer supplies (Node.cs's Jfp2ReceiveMsg resolves that to the relayed message's true origin,
+        /// not the relaying hub - see EnvelopeFlags.Forwarded's doc comment), so relaying a peer's
+        /// FlightPlan through a hub attributes correctly with zero codec change.
         /// </summary>
         public void BroadcastFlightPlanUpdate(uint netId, Sim.FlightPlan flightPlan)
         {
@@ -3451,11 +3519,20 @@ namespace JoinFS
 
             foreach (var peerNuid in localNode.GetNodeList())
             {
-                if (localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.FlightPlan, out byte version))
+                bool direct = localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.FlightPlan, out byte version);
+                LocalNode.Nuid hubNuid = default;
+                if (direct || localNode.TryGetJfp2RelayPeer(peerNuid, Jfp2.MessageClasses.FlightPlan, out hubNuid, out version))
                 {
                     var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.FlightPlanUpdate>(Jfp2.MessageClasses.FlightPlan, version);
                     int length = codec.Encode(update, buffer);
-                    localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.FlightPlan, buffer.AsSpan(0, length));
+                    if (direct)
+                    {
+                        localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.FlightPlan, buffer.AsSpan(0, length));
+                    }
+                    else
+                    {
+                        localNode.SendJfp2RelayApplication(hubNuid, peerNuid, Jfp2.MessageClasses.FlightPlan, buffer.AsSpan(0, length));
+                    }
                 }
                 else
                 {
@@ -3465,14 +3542,19 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Reply to a WeatherRequest from `nuid` via JFP2 WeatherReply if negotiated, otherwise the
-        /// unchanged legacy WriteWeatherReplyMessage()+Send() path. WeatherRequest itself is not
-        /// ported to JFP2 (see the implementation plan - it has no live callers and its NetId field is
-        /// never read on receive), so this only upgrades the outgoing reply half.
+        /// Reply to a WeatherRequest from `nuid` via JFP2 WeatherReply if negotiated, directly or
+        /// through a relay (see TryGetJfp2RelayPeer/SendJfp2RelayApplication - Jfp2Bridge design plan
+        /// Increment 3 - relevant here since the requester may well be indirect, reached only via
+        /// whatever hub relayed its WeatherRequest to us in the first place), otherwise the unchanged
+        /// legacy WriteWeatherReplyMessage()+Send() path. WeatherRequest itself is not ported to JFP2
+        /// (see the implementation plan - it has no live callers and its NetId field is never read on
+        /// receive), so this only upgrades the outgoing reply half.
         /// </summary>
         void SendWeatherReply(LocalNode.Nuid nuid, string metar)
         {
-            if (localNode.TryGetJfp2AppPeer(nuid, Jfp2.MessageClasses.WeatherReply, out byte version))
+            bool direct = localNode.TryGetJfp2AppPeer(nuid, Jfp2.MessageClasses.WeatherReply, out byte version);
+            LocalNode.Nuid hubNuid = default;
+            if (direct || localNode.TryGetJfp2RelayPeer(nuid, Jfp2.MessageClasses.WeatherReply, out hubNuid, out version))
             {
                 var report = new Jfp2.Codecs.WeatherReport { Metar = metar };
                 var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.WeatherReport>(Jfp2.MessageClasses.WeatherReply, version);
@@ -3480,7 +3562,14 @@ namespace JoinFS
                 int length = codec.Encode(report, buffer);
                 // guaranteed: true - matches legacy WriteWeatherReplyMessage, which also sends
                 // guaranteed (docs/protocol-v2-implementation-review.md Finding 1).
-                localNode.SendJfp2Application(nuid, Jfp2.MessageClasses.WeatherReply, buffer[..length], guaranteed: true);
+                if (direct)
+                {
+                    localNode.SendJfp2Application(nuid, Jfp2.MessageClasses.WeatherReply, buffer[..length], guaranteed: true);
+                }
+                else
+                {
+                    localNode.SendJfp2RelayApplication(hubNuid, nuid, Jfp2.MessageClasses.WeatherReply, buffer[..length], guaranteed: true);
+                }
             }
             else
             {
@@ -3490,19 +3579,29 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Send `metar` to `peerNuid` via JFP2 Weather if negotiated, otherwise the unchanged legacy
-        /// WriteWeatherUpdateMessage()+Send() path. Callers loop over LocalNode.GetNodeList() instead
-        /// of the old single Broadcast() call.
+        /// Send `metar` to `peerNuid` via JFP2 Weather if negotiated, directly or through a relay (see
+        /// TryGetJfp2RelayPeer/SendJfp2RelayApplication - Jfp2Bridge design plan Increment 3), otherwise
+        /// the unchanged legacy WriteWeatherUpdateMessage()+Send() path. Callers loop over
+        /// LocalNode.GetNodeList() instead of the old single Broadcast() call.
         /// </summary>
         public void SendWeatherUpdate(LocalNode.Nuid peerNuid, string metar)
         {
-            if (localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.Weather, out byte version))
+            bool direct = localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.Weather, out byte version);
+            LocalNode.Nuid hubNuid = default;
+            if (direct || localNode.TryGetJfp2RelayPeer(peerNuid, Jfp2.MessageClasses.Weather, out hubNuid, out version))
             {
                 var report = new Jfp2.Codecs.WeatherReport { Metar = metar };
                 var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.WeatherReport>(Jfp2.MessageClasses.Weather, version);
                 Span<byte> buffer = stackalloc byte[512];
                 int length = codec.Encode(report, buffer);
-                localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Weather, buffer[..length]);
+                if (direct)
+                {
+                    localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Weather, buffer[..length]);
+                }
+                else
+                {
+                    localNode.SendJfp2RelayApplication(hubNuid, peerNuid, Jfp2.MessageClasses.Weather, buffer[..length]);
+                }
             }
             else
             {
@@ -3991,13 +4090,23 @@ namespace JoinFS
 
             foreach (var peerNuid in localNode.GetNodeList())
             {
-                if (localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.Notes, out byte version))
+                bool direct = localNode.TryGetJfp2AppPeer(peerNuid, Jfp2.MessageClasses.Notes, out byte version);
+                LocalNode.Nuid hubNuid = default;
+                if (direct || localNode.TryGetJfp2RelayPeer(peerNuid, Jfp2.MessageClasses.Notes, out hubNuid, out version))
                 {
                     var codec = Jfp2.Codecs.CodecRegistry.Resolve<Jfp2.Codecs.NoteUpdate>(Jfp2.MessageClasses.Notes, version);
                     int length = codec.Encode(note, noteBuffer);
                     // guaranteed: true - matches legacy SendCommsNoteMessage, which also sends
-                    // guaranteed (docs/protocol-v2-implementation-review.md Finding 1).
-                    localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Notes, noteBuffer.AsSpan(0, length), guaranteed: true);
+                    // guaranteed (docs/protocol-v2-implementation-review.md Finding 1). See
+                    // TryGetJfp2RelayPeer/SendJfp2RelayApplication - Jfp2Bridge design plan Increment 3.
+                    if (direct)
+                    {
+                        localNode.SendJfp2Application(peerNuid, Jfp2.MessageClasses.Notes, noteBuffer.AsSpan(0, length), guaranteed: true);
+                    }
+                    else
+                    {
+                        localNode.SendJfp2RelayApplication(hubNuid, peerNuid, Jfp2.MessageClasses.Notes, noteBuffer.AsSpan(0, length), guaranteed: true);
+                    }
                 }
                 else
                 {

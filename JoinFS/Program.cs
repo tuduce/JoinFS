@@ -1874,6 +1874,7 @@ namespace JoinFS
                     line += " " + network.localNode.GetNodeJfp2State(node.Key) switch
                     {
                         LocalNode.Jfp2PeerState.Negotiated => "JFP2",
+                        LocalNode.Jfp2PeerState.Relayed => "JFP2 (relayed)",
                         LocalNode.Jfp2PeerState.Legacy => "Legacy",
                         _ => "Pending",
                     };

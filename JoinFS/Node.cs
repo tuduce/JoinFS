@@ -663,12 +663,14 @@ namespace JoinFS
                     {
                         // Used for local testing
                         // check if the endPoint is the IP 192.168.1.115
-                        //if (endPoint.Address.ToString() == "192.168.1.115")
-                        //{
-                        //    // handle specific case for IP 192.168.1.115
-                        //    nodeError?.Invoke("No message to " + endPoint.ToString());
-                        //    return;
-                        //}
+#if !CONSOLE
+                        if (endPoint.Address.ToString() == "192.168.1.115")
+                        {
+                            // handle specific case for IP 192.168.1.115
+                            nodeError?.Invoke("No message to " + endPoint.ToString());
+                            return;
+                        }
+#endif
 
                         // send data
                         udpClient.Send(data, length, endPoint);
@@ -1772,6 +1774,12 @@ namespace JoinFS
             public byte[] Payload;
             public int Attempts;
             public double NextRetry;
+            /// <summary>Only meaningful when Flags includes EnvelopeFlags.Forwarded (a relayed
+            /// guaranteed send - see SendJfp2RelayApplication) - default/unused otherwise. Threaded
+            /// through so DoJfp2GuaranteedRetry's resends carry the same relay addressing as the
+            /// original send, not a blank one.</summary>
+            public Jfp2.RelayNuid OriginNuid;
+            public Jfp2.RelayNuid TargetNuid;
         }
 
         readonly Dictionary<(Nuid Nuid, ushort GuaranteedId), Jfp2PendingGuaranteed> jfp2PendingGuaranteed = [];
@@ -1799,12 +1807,29 @@ namespace JoinFS
         /// <summary>
         /// Send a GuaranteedDone ack for `guaranteedId` back to whoever sent us a guaranteed datagram -
         /// never itself guaranteed (see this section's own remarks on why an ack can't be acked).
+        ///
+        /// `relayTrueOrigin`, when given, means the message being acked itself arrived via
+        /// EnvelopeFlags.Forwarded (i.e. `endPoint` is a relaying hub, not the true sender) - the ack
+        /// is then itself sent Forwarded (Origin = me, Target = relayTrueOrigin) so the hub relays it
+        /// on to the true sender using the exact same uniform rule any Forwarded datagram gets
+        /// (Jfp2ReceiveMsg's IsForwarded branch), rather than terminating at the hub. This makes a
+        /// relayed guaranteed message's delivery confirmation end-to-end, matching how the legacy
+        /// stack's own guaranteed-delivery acks already flow transparently through its FLAG_FORWARD
+        /// relay - see docs/protocol-v2-design.md §7.7.
         /// </summary>
-        void SendJfp2GuaranteedDone(IPEndPoint endPoint, Jfp2.PeerSession session, ushort guaranteedId)
+        void SendJfp2GuaranteedDone(IPEndPoint endPoint, Jfp2.PeerSession session, ushort guaranteedId, Nuid? relayTrueOrigin = null)
         {
             Span<byte> payload = stackalloc byte[2];
             System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(payload, guaranteedId);
-            SendJfp2Datagram(endPoint, Jfp2.EnvelopeFlags.Internal, Jfp2.MessageClasses.GuaranteedDone, session.LocalAssignedId, session.RemoteAssignedId, payload);
+            if (relayTrueOrigin.HasValue)
+            {
+                SendJfp2Datagram(endPoint, Jfp2.EnvelopeFlags.Internal | Jfp2.EnvelopeFlags.Forwarded, Jfp2.MessageClasses.GuaranteedDone, 0, 0, payload,
+                    originNuid: ToRelayNuid(localNuid), targetNuid: ToRelayNuid(relayTrueOrigin.Value));
+            }
+            else
+            {
+                SendJfp2Datagram(endPoint, Jfp2.EnvelopeFlags.Internal, Jfp2.MessageClasses.GuaranteedDone, session.LocalAssignedId, session.RemoteAssignedId, payload);
+            }
         }
 
         /// <summary>A GuaranteedDone ack arrived - stop retrying (and forget) the matching pending send,
@@ -1848,7 +1873,7 @@ namespace JoinFS
                     }
                     pending.Attempts++;
                     pending.NextRetry = main.ElapsedTime + JFP2_GUARANTEED_RETRY_INTERVAL;
-                    SendJfp2Datagram(pending.EndPoint, pending.Flags, pending.MessageClass, pending.SenderPeerId, pending.RecipientPeerId, pending.Payload, kv.Key.GuaranteedId, 0, 1);
+                    SendJfp2Datagram(pending.EndPoint, pending.Flags, pending.MessageClass, pending.SenderPeerId, pending.RecipientPeerId, pending.Payload, kv.Key.GuaranteedId, 0, 1, pending.OriginNuid, pending.TargetNuid);
                 }
                 foreach (var key in tempJfp2GuaranteedKeys)
                 {
@@ -1923,6 +1948,29 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Like FindNuidByEndPoint, but only matches a neighbor that is itself directly reachable
+        /// (RouteIsOwnEndPoint) at that exact address+port - used to resolve "which of my direct
+        /// neighbors is the relay/hub for an indirect peer's routeEndPoint", never chaining through a
+        /// second indirection. See TryGetJfp2RelayPeer.
+        /// </summary>
+        Nuid? FindDirectNuidByEndPoint(IPEndPoint endPoint)
+        {
+            foreach (var kv in nodes)
+            {
+                if (kv.Value.RouteIsOwnEndPoint && kv.Value.endPoint.Equals(endPoint))
+                {
+                    return kv.Key;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>Same 3-field shape, different type - see Jfp2.RelayNuid's own doc comment for why
+        /// the two aren't the same type.</summary>
+        static Nuid ToNuid(Jfp2.RelayNuid relay) => new(relay.Ip, relay.Port, relay.Local);
+        static Jfp2.RelayNuid ToRelayNuid(Nuid nuid) => new(nuid.ip, nuid.port, nuid.local);
+
+        /// <summary>
         /// Send any JFP2 datagram (internal or application partition), bypassing the legacy
         /// sendBuffer/sendWriter machinery entirely - JFP2's envelope has a completely different
         /// layout, and there is no shared state to protect since the two stacks never touch the same
@@ -1937,15 +1985,26 @@ namespace JoinFS
         /// always returned in `finally`, so a send that throws still doesn't leak it back to the pool
         /// dirty/lost.
         /// </summary>
-        void SendJfp2Datagram(IPEndPoint endPoint, Jfp2.EnvelopeFlags flags, byte rawMessageClass, ushort senderPeerId, ushort recipientPeerId, ReadOnlySpan<byte> payload, ushort guaranteedId = 0, byte guaranteedIndex = 0, byte guaranteedCount = 0)
+        void SendJfp2Datagram(IPEndPoint endPoint, Jfp2.EnvelopeFlags flags, byte rawMessageClass, ushort senderPeerId, ushort recipientPeerId, ReadOnlySpan<byte> payload, ushort guaranteedId = 0, byte guaranteedIndex = 0, byte guaranteedCount = 0, Jfp2.RelayNuid originNuid = default, Jfp2.RelayNuid targetNuid = default)
         {
             if (!IsOpen || endPoint == null) return;
 
-            var envelope = new Jfp2.Envelope(flags, senderPeerId, recipientPeerId, rawMessageClass, guaranteedId, guaranteedIndex, guaranteedCount);
+            var envelope = new Jfp2.Envelope(flags, senderPeerId, recipientPeerId, rawMessageClass, guaranteedId, guaranteedIndex, guaranteedCount, originNuid, targetNuid);
             int length = envelope.WireSize + payload.Length;
             byte[] rented = ArrayPool<byte>.Shared.Rent(length);
             try
             {
+                // Used for local testing
+                // check if the endPoint is the IP 192.168.1.115
+#if !CONSOLE
+                if (endPoint.Address.ToString() == "192.168.1.115")
+                {
+                    // handle specific case for IP 192.168.1.115
+                    nodeError?.Invoke("No message to " + endPoint.ToString());
+                    return;
+                }
+#endif
+
                 int headerLength = envelope.WriteTo(rented);
                 payload.CopyTo(rented.AsSpan(headerLength));
                 udpClient.Client.SendTo(rented.AsSpan(0, length), SocketFlags.None, endPoint);
@@ -2069,6 +2128,18 @@ namespace JoinFS
             try
             {
                 Jfp2.Envelope envelope = Jfp2.Envelope.ReadFrom(messageData, out int consumed);
+
+                // Forwarded (Jfp2Bridge relay - see EnvelopeFlags.Forwarded's doc comment): if this
+                // datagram isn't addressed to me, forward it on unchanged and stop - this node is
+                // acting purely as a relay for it and never parses any further. This check runs
+                // before everything else (including the guaranteed-ack check below) since relaying
+                // isn't "receiving" - only the true final recipient acks/dispatches a relayed message.
+                if (envelope.IsForwarded && ToNuid(envelope.TargetNuid) != localNuid)
+                {
+                    RelayForwardedJfp2Datagram(envelope, messageData);
+                    return;
+                }
+
                 ReadOnlySpan<byte> payload = messageData.AsSpan(consumed);
 
                 if (envelope.IsGuaranteed && !AckJfp2Guaranteed(endPoint, envelope))
@@ -2087,24 +2158,30 @@ namespace JoinFS
                     // non-AssumedLegacy negotiation with, and only for a class it actually agreed on.
                     // A well-behaved peer never sends a class it didn't negotiate; these checks are
                     // purely defensive (e.g. against a stale PeerSession after a peer restarted).
-                    Nuid? appNuid = FindNuidByEndPoint(endPoint);
-                    if (appNuid == null)
+                    //
+                    // sessionNuid is always the peer this datagram was physically negotiated with (the
+                    // hub, for a relayed message) - that's whose agreed schema version the payload was
+                    // actually encoded with. attributionNuid is who the application layer should credit
+                    // the data to: envelope.OriginNuid for a relayed message, sessionNuid otherwise.
+                    Nuid? sessionNuid = FindNuidByEndPoint(endPoint);
+                    if (sessionNuid == null)
                     {
                         nodeDebug?.Invoke("JFP2: application message from unknown endpoint " + endPoint + " - ignored");
                         return;
                     }
-                    if (!jfp2Sessions.TryGetValue(appNuid.Value, out Jfp2.PeerSession appSession) || !appSession.HandshakeComplete)
+                    if (!jfp2Sessions.TryGetValue(sessionNuid.Value, out Jfp2.PeerSession appSession) || !appSession.HandshakeComplete)
                     {
-                        nodeDebug?.Invoke("JFP2: application message from " + appNuid.Value + " with no completed handshake - ignored");
+                        nodeDebug?.Invoke("JFP2: application message from " + sessionNuid.Value + " with no completed handshake - ignored");
                         return;
                     }
                     byte agreedVersion = appSession.AgreedAppVersion[envelope.RawMessageClass];
                     if (agreedVersion == 0)
                     {
-                        nodeDebug?.Invoke("JFP2: application message class " + envelope.RawMessageClass + " from " + appNuid.Value + " was never agreed on - ignored");
+                        nodeDebug?.Invoke("JFP2: application message class " + envelope.RawMessageClass + " from " + sessionNuid.Value + " was never agreed on - ignored");
                         return;
                     }
-                    jfp2ReceiveNotify?.Invoke(endPoint, appNuid.Value, envelope.RawMessageClass, agreedVersion, payload);
+                    Nuid attributionNuid = envelope.IsForwarded ? ToNuid(envelope.OriginNuid) : sessionNuid.Value;
+                    jfp2ReceiveNotify?.Invoke(endPoint, attributionNuid, envelope.RawMessageClass, agreedVersion, payload);
                     return;
                 }
 
@@ -2143,6 +2220,13 @@ namespace JoinFS
         /// safely dedup or ack) for a datagram from a peer we don't recognize yet, so it still gets
         /// dispatched rather than silently dropped - matches the "well-behaved peer" defensive style
         /// already used elsewhere in this method.
+        ///
+        /// When `envelope` arrived via EnvelopeFlags.Forwarded (relayed through a hub - `endPoint` is
+        /// the hub, not the true sender), both the dedup key and the ack are scoped to the true origin
+        /// (envelope.OriginNuid) instead of the hub: scoping dedup to the hub alone would let two
+        /// different relayed senders that happen to pick the same GuaranteedId collide, and the ack
+        /// needs to travel back through the hub to the true sender, not terminate at the hub - see
+        /// SendJfp2GuaranteedDone's own remarks.
         /// </summary>
         bool AckJfp2Guaranteed(IPEndPoint endPoint, Jfp2.Envelope envelope)
         {
@@ -2152,10 +2236,11 @@ namespace JoinFS
                 return true;
             }
 
-            var key = (nuid.Value, envelope.GuaranteedId);
+            Nuid dedupNuid = envelope.IsForwarded ? ToNuid(envelope.OriginNuid) : nuid.Value;
+            var key = (dedupNuid, envelope.GuaranteedId);
             bool isDuplicate = jfp2RecentlySeenGuaranteed.ContainsKey(key);
             jfp2RecentlySeenGuaranteed[key] = main.ElapsedTime;
-            SendJfp2GuaranteedDone(endPoint, session, envelope.GuaranteedId);
+            SendJfp2GuaranteedDone(endPoint, session, envelope.GuaranteedId, envelope.IsForwarded ? (Nuid?)dedupNuid : null);
             return !isDuplicate;
         }
 
@@ -2181,13 +2266,19 @@ namespace JoinFS
                     // way to know it should forward an opaque JFP2 datagram - best case it's silently
                     // dropped, worst case a JFP2-capable relay completes a handshake *as itself*,
                     // leaving the true originator believing it negotiated with a peer it never reached.
-                    // Until JFP2 has its own relay/translation mechanism (the Jfp2Bridge work), only
-                    // ever attempt Hello with peers we're DIRECTLY connected to. An indirect peer is
-                    // silently skipped here (no session, no AssumedLegacy) rather than given up on
-                    // permanently, so it's picked up automatically the moment Pathfinder establishes a
-                    // direct path - see also TryGetJfp2AppPeer, which re-checks on every send so
-                    // a peer that goes indirect again after a completed handshake safely falls back to
-                    // legacy instead of sending JFP2 into a routeEndpoint that no longer reaches it.
+                    // Negotiation itself stays direct-only by design, permanently - a Hello/HelloAck
+                    // exchange is inherently two-party (a session's agreed versions/capabilities only
+                    // ever describe those two peers), so only ever attempt Hello with peers we're
+                    // DIRECTLY connected to. This is unrelated to (and unaffected by) the fact that,
+                    // once a direct session exists, that session's application traffic CAN now reach a
+                    // third, indirect peer through it - see TryGetJfp2RelayPeer/
+                    // RelayForwardedJfp2Datagram and EnvelopeFlags.Forwarded's doc comment. An indirect
+                    // peer is silently skipped here (no session, no AssumedLegacy) rather than given up
+                    // on permanently, so it's picked up automatically the moment Pathfinder establishes
+                    // a direct path - see also TryGetJfp2AppPeer, which re-checks on every send so a
+                    // peer that goes indirect again after a completed handshake safely falls back to
+                    // relaying through a hub (or, failing that, legacy) instead of sending JFP2 into a
+                    // routeEndpoint that no longer reaches it directly.
                     // RouteIsOwnEndPoint, not Direct: see that property's own comment - Direct's
                     // address-only comparison isn't precise enough for what a JFP2 send actually needs.
                     if (!node.RouteIsOwnEndPoint)
@@ -2282,6 +2373,141 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// True if `finalNuid` is a currently-indirect peer whose route goes through a neighbor this
+        /// node has a completed, non-legacy JFP2 session with, and that neighbor has agreed a version
+        /// > 0 for `messageClass`. When true, `hubNuid`/`version` give what the caller needs to send
+        /// via SendJfp2RelayApplication instead of falling back straight to legacy. Callers should try
+        /// TryGetJfp2AppPeer first - this only ever applies once that has already returned false for
+        /// an indirect peer. See docs/protocol-v2-design.md §7.7 (Jfp2Bridge).
+        /// </summary>
+        public bool TryGetJfp2RelayPeer(Nuid finalNuid, byte messageClass, out Nuid hubNuid, out byte version)
+        {
+            hubNuid = default;
+            version = 0;
+            if (!nodes.TryGetValue(finalNuid, out Node node) || node.RouteIsOwnEndPoint)
+            {
+                // unknown, or already direct - TryGetJfp2AppPeer is the right check for a direct peer.
+                return false;
+            }
+            Nuid? found = FindDirectNuidByEndPoint(node.routeEndPoint);
+            if (found == null)
+            {
+                return false;
+            }
+            hubNuid = found.Value;
+            if (!jfp2Sessions.TryGetValue(hubNuid, out Jfp2.PeerSession session) || !session.HandshakeComplete || session.AssumedLegacy)
+            {
+                return false;
+            }
+            version = session.AgreedAppVersion[messageClass];
+            return version > 0;
+        }
+
+        /// <summary>
+        /// Originate a JFP2 application message addressed to an indirect peer (`targetNuid`), sent
+        /// over this node's own direct session with a relay (`hubNuid`, resolved by
+        /// TryGetJfp2RelayPeer). Tagged with EnvelopeFlags.Forwarded, OriginNuid = this node's own
+        /// Nuid, TargetNuid = `targetNuid` - any node that subsequently receives this (the hub, and
+        /// only the hub, since `targetNuid` isn't its own Nuid) forwards it on unchanged, byte-for-
+        /// byte, using the same uniform rule any Forwarded datagram gets (Jfp2ReceiveMsg's
+        /// IsForwarded branch) - this node never needs to know or care how many hops that takes.
+        /// The caller is expected to have already encoded `payload` with the version
+        /// TryGetJfp2RelayPeer returned for `hubNuid`.
+        ///
+        /// `guaranteed` mirrors SendJfp2Application's own parameter and reuses the same, otherwise-
+        /// unmodified guaranteed-delivery machinery (jfp2PendingGuaranteed/DoJfp2GuaranteedRetry) -
+        /// this node's own resends are retried exactly as if `targetNuid` were direct; the resulting
+        /// ack travels back end-to-end through the relay (see SendJfp2GuaranteedDone's own remarks),
+        /// so from this node's point of view a relayed guaranteed send behaves identically to a
+        /// direct one.
+        /// </summary>
+        public void SendJfp2RelayApplication(Nuid hubNuid, Nuid targetNuid, byte messageClass, ReadOnlySpan<byte> payload, bool guaranteed = false)
+        {
+            if (!nodes.TryGetValue(hubNuid, out Node node) || !jfp2Sessions.TryGetValue(hubNuid, out _))
+            {
+                return;
+            }
+
+            Jfp2.RelayNuid origin = ToRelayNuid(localNuid);
+            Jfp2.RelayNuid target = ToRelayNuid(targetNuid);
+
+            if (!guaranteed)
+            {
+                SendJfp2Datagram(node.routeEndPoint, Jfp2.EnvelopeFlags.Forwarded, messageClass, 0, 0, payload, originNuid: origin, targetNuid: target);
+                return;
+            }
+
+            ushort guaranteedId = NextJfp2GuaranteedId();
+            var flags = Jfp2.EnvelopeFlags.Forwarded | Jfp2.EnvelopeFlags.Guaranteed;
+            SendJfp2Datagram(node.routeEndPoint, flags, messageClass, 0, 0, payload, guaranteedId, 0, 1, origin, target);
+            jfp2PendingGuaranteed[(hubNuid, guaranteedId)] = new Jfp2PendingGuaranteed
+            {
+                EndPoint = node.routeEndPoint,
+                Flags = flags,
+                MessageClass = messageClass,
+                SenderPeerId = 0,
+                RecipientPeerId = 0,
+                Payload = payload.ToArray(),
+                Attempts = 1,
+                NextRetry = main.ElapsedTime + JFP2_GUARANTEED_RETRY_INTERVAL,
+                OriginNuid = origin,
+                TargetNuid = target,
+            };
+        }
+
+        /// <summary>
+        /// Forward a JFP2 datagram addressed (via its Forwarded/TargetNuid extension) to some other
+        /// node, byte-for-byte unchanged - mirrors the legacy stack's own FLAG_FORWARD relay
+        /// (ReceiveMsg) at the transport layer: this node never parses past the envelope header, so
+        /// it works uniformly for any message class, internal or application, guaranteed or not,
+        /// without needing per-class awareness. Only relays to a target that is this node's own
+        /// direct neighbor (RouteIsOwnEndPoint) - refusing otherwise is what caps relay at exactly
+        /// one hop, since a second hub would need its own direct route to the same target, which by
+        /// construction it doesn't have if this node's relay was needed at all. Shares the legacy
+        /// relay's own routingNodes/MAX_ROUTING_NODES capacity budget (per-hub concurrent-relayed-
+        /// sender cap) rather than a separate counter - one shared relay budget across both stacks
+        /// (Jfp2Bridge design plan §2.6). See EnvelopeFlags.Forwarded's doc comment for the full
+        /// addressing scheme this implements.
+        /// </summary>
+        void RelayForwardedJfp2Datagram(Jfp2.Envelope envelope, byte[] messageData)
+        {
+            Nuid target = ToNuid(envelope.TargetNuid);
+            if (!nodes.TryGetValue(target, out Node targetNode) || !targetNode.RouteIsOwnEndPoint)
+            {
+                nodeDebug?.Invoke("JFP2: relay target " + target + " is not a direct neighbor - dropped");
+                return;
+            }
+
+            Nuid origin = ToNuid(envelope.OriginNuid);
+            if (routingNodes.Count >= MAX_ROUTING_NODES && !routingNodes.ContainsKey(origin))
+            {
+                nodeDebug?.Invoke("JFP2: relay capacity reached - dropped datagram from " + origin);
+                return;
+            }
+            routingNodes[origin] = DateTime.Now.AddSeconds(5);
+
+            try
+            {
+                // Used for local testing
+                // check if the endPoint is the IP 192.168.1.115
+#if !CONSOLE
+                if (targetNode.routeEndPoint.Address.ToString() == "192.168.1.115")
+                {
+                    // handle specific case for IP 192.168.1.115
+                    nodeError?.Invoke("No message to " + targetNode.routeEndPoint.ToString());
+                    return;
+                }
+#endif
+
+                udpClient.Client.SendTo(messageData, SocketFlags.None, targetNode.routeEndPoint);
+            }
+            catch (Exception ex)
+            {
+                nodeError?.Invoke(ex.Message + ", " + targetNode.routeEndPoint.ToString());
+            }
+        }
+
+        /// <summary>
         /// Send an already-encoded JFP2 application-partition payload to a peer identified by Nuid. The
         /// caller is expected to have already checked TryGetJfp2AppPeer and encoded `payload` with the
         /// matching CodecRegistry-resolved codec.
@@ -2340,6 +2566,12 @@ namespace JoinFS
             /// exchange over JFP2 (individual application message classes may still each be at
             /// agreed version 0 - see TryGetJfp2AppPeer for the per-class check).</summary>
             Negotiated,
+            /// <summary>This peer is indirect (no direct JFP2 session exists or ever will, negotiation
+            /// being inherently direct-only - see DoJfp2Handshake), but at least one of our direct
+            /// neighbors has a completed JFP2 session with it, so traffic to it can go out over JFP2
+            /// via a relay (TryGetJfp2RelayPeer/SendJfp2RelayApplication) rather than falling all the
+            /// way back to legacy - see EnvelopeFlags.Forwarded's doc comment in Envelope.cs.</summary>
+            Relayed,
             /// <summary>The local node itself, not a peer - JFP2 negotiation doesn't apply.</summary>
             NotApplicable,
         }
@@ -2359,15 +2591,27 @@ namespace JoinFS
             else if (nodes.TryGetValue(nuid, out Node node) && !node.RouteIsOwnEndPoint)
             {
                 // DoJfp2Handshake deliberately never creates a session (never even attempts a Hello)
-                // for an indirect peer - JFP2 has no relay/translation mechanism yet, see that
+                // for an indirect peer - negotiation itself is inherently direct-only, see that
                 // method's own comment. Without this branch, a peer that is only ever reachable
                 // through a relay (e.g. a hub-mediated connection between two NATed clients) would
                 // report Negotiating forever, since no session will ever exist to resolve it one way
-                // or the other - shown in the Sessions window as a "Pending" that never clears. Report
-                // Legacy here for display purposes only: this doesn't touch jfp2Sessions, so
-                // DoJfp2Handshake still transparently starts real negotiation the moment Pathfinder
-                // establishes a direct path (at which point a session appears and this branch no
-                // longer applies - Negotiating correctly reflects the real handshake in progress).
+                // or the other - shown in the Sessions window as a "Pending" that never clears. This
+                // doesn't touch jfp2Sessions, so DoJfp2Handshake still transparently starts real
+                // negotiation the moment Pathfinder establishes a direct path (at which point a
+                // session appears and this branch no longer applies - Negotiating correctly reflects
+                // the real handshake in progress).
+                //
+                // Position is checked as a representative class rather than reporting Legacy
+                // unconditionally: if some direct neighbor of ours has negotiated JFP2 Position with
+                // this indirect peer, traffic to it actually goes out over JFP2 via a relay (see
+                // EnvelopeFlags.Forwarded's doc comment), not legacy - Position is a reasonable
+                // bellwether since every message class this build supports relaying (everything
+                // except Status/StatusRequest) is negotiated together at the same Hello/HelloAck, so
+                // if Position relayed, the others essentially always did too.
+                if (TryGetJfp2RelayPeer(nuid, Jfp2.MessageClasses.Position, out _, out _))
+                {
+                    return Jfp2PeerState.Relayed;
+                }
                 return Jfp2PeerState.Legacy;
             }
             return Jfp2PeerState.Negotiating;
@@ -2690,12 +2934,14 @@ namespace JoinFS
                             {
                                 // Used for local testing
                                 // check if the endPoint is the IP 192.168.1.115
-                                //if (endPoint.Address.ToString() == "192.168.1.115")
-                                //{
-                                //    // handle specific case for IP 192.168.1.115
-                                //    nodeError?.Invoke("No message to " + endPoint.ToString());
-                                //    continue;
-                                //}
+#if !CONSOLE
+                                if (endPoint.Address.ToString() == "192.168.1.115")
+                                {
+                                    // handle specific case for IP 192.168.1.115
+                                    nodeError?.Invoke("No message to " + endPoint.ToString());
+                                    continue;
+                                }
+#endif
                                 // resend segment
                                 udpClient.Send(segment.data, (int)segment.data.Length, endPoint);
                             }

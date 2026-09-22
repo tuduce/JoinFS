@@ -81,7 +81,7 @@ Two things this diagram is meant to make concrete:
 | `JoinFS/Jfp2/Codecs/IdentityCodec.cs` | New | `IdentityUpdate`, `IdentityV1Codec` (§6.2). |
 | `JoinFS/Jfp2/Codecs/VariableSyncCodec.cs` | New | `VariableKind`, `VariableEntry`, `VariableSyncUpdate`, `VariableSyncV1Codec` (§6.3, §6.5). |
 | `JoinFS/Jfp2/Codecs/*` (Event/FlightPlan/Notes/Weather/Status) | New | Mechanical `v1` ports per §6.4, one file each following the same pattern. |
-| `JoinFS/Jfp2/Jfp2Bridge.cs` | New, **hub role only** | Per-object identity/variable cache and the decode-then-re-encode translation described in §7.7; only instantiated when a node is relaying between peers on different negotiated protocols/versions. |
+| `JoinFS/Jfp2/Jfp2Bridge.cs` | New, **hub role only** — currently an empty reserved class, not yet instantiated by anything | Per-object identity/variable cache and the decode-then-re-encode translation described in §7.7, for Tier 2 (differing JFP2 schema versions) and Tier 3 (JFP2↔legacy). **Not needed for the common case**: when both legs already agree on the same JFP2 schema version for a class (Tier 1 — implemented, see `docs/protocol-v2-implementation-plan.md` Phase 6), `LocalNode.RelayForwardedJfp2Datagram` forwards the datagram byte-for-byte, the same way the legacy `FLAG_FORWARD` relay works, without ever touching this class. The diagrams below predate that finding and still show the original "always decode via Jfp2Bridge" model — treat them as describing Tier 2/3 only; see Phase 6 for what Tier 1 actually does. |
 
 `PeerSession` instances are keyed the same way `Node.cs` already keys its own per-neighbor state
 (by `Nuid`/`IPEndPoint`), so JFP2 state rides alongside the existing mesh bookkeeping rather than

@@ -313,6 +313,18 @@ and what that does and doesn't limit.
       (grep for where a hub-mode `VariableMgr.Set` instance actually gets its `Update*` called from
       when `main.sim` is null), *then* design `Jfp2Bridge`'s per-object identity/vuid caches against a
       confirmed shape.
+      **Update, Phase 6:** the sim-less-hub question above turned out to be moot for the relay work
+      that actually landed. `main.sim` is unconditionally constructed in `Program.cs` (`sim = new
+      Sim(this);`, no `#if` guard) in every build including `CONSOLE` — `CONSOLE` just lacks a
+      SimConnect *reference* (`#if SIMCONNECT`-gated code never compiles for it), so `main.sim ==
+      null` never actually happens at runtime in any current build; the null-conditionals are dormant
+      defensive code, not a real gap. More importantly, Phase 6's Tier 1 relay (see below) needs no
+      per-object cache of any kind — it never decodes a payload at all, so this question doesn't even
+      arise for it. It remains open only for a *future* Tier 2/3 (decode/re-encode across differing
+      schema versions, or JFP2↔legacy translation) — and even there, Phase 6 concluded any such cache
+      should be `Jfp2Bridge`'s own, not a repurposed `Sim.objectList`/`VariableMgr.Set`, since those
+      carry real simulator-object side effects (SimConnect AI injection) a hub's pure relay shouldn't
+      trigger.
 - [x] Build: all 6 configurations compile with 0 errors (the one pre-existing `XPlane.cs` warning is
       unrelated). Full test suite: 91/91 passing.
 - [x] Manual verification:
@@ -711,7 +723,142 @@ pre-JFP2 tree.
 
 **Verified:** all 6 build configurations (latest tree) compile clean; full test suite 127/127 passing.
 
-## Phase 6 — Follow-on, out of scope for this protocol but related
+## Phase 6 — Jfp2Bridge, Increments 1-3 (design doc §7.7)
+
+`Jfp2Bridge` — deferred at Phase 3 (see that phase's note above) and still zero-implementation as of
+the mixed-version verification above — designed and landed in three increments. Full design writeup:
+`docs/protocol-v2-design.md` §7.7 (updated to match what actually shipped, not just the original
+sketch).
+
+**Reframing that shaped the whole design:** indirect delivery already worked correctly for every
+message class before any of this — a JFP2 sender falls back to legacy for an indirect peer, and the
+legacy `FLAG_FORWARD` byte-blit relay (untouched, verified above) carries it the rest of the way. So
+`Jfp2Bridge` is a bandwidth/format optimization on an already-correct path, not a correctness fix —
+the design goal was to do the least possible work per relayed message, ideally zero decode.
+
+- [x] **Increment 1 — envelope + dispatch plumbing.** `EnvelopeFlags.Forwarded` (declared since Phase
+      1, never implemented) now carries a 14-byte extension — `OriginNuid` + `TargetNuid`, both
+      always present — immediately after the optional `Guaranteed` extension. **Design correction
+      made during implementation:** the plan approved for this phase used a single Nuid field whose
+      meaning flipped by direction (final-recipient outbound, true-origin inbound); implementing it
+      surfaced a real bug — a receiving node can't tell "relay this further" from "consume this" from
+      that field alone, since in neither role does it ever equal the receiver's own Nuid. Carrying
+      both fields always removes the ambiguity: any node applies one uniform rule regardless of
+      whether it's acting as hub or final recipient for a given datagram — `TargetNuid == my Nuid` →
+      consume, attributing to `OriginNuid`; otherwise → forward the bytes unchanged to `TargetNuid`,
+      but only if it's this node's own direct neighbor (`RouteIsOwnEndPoint`), which is what caps
+      relay at exactly one hop (a second hub would need its own direct route to the same target, which
+      by construction it doesn't have). This also turned out to make the common case (both legs
+      already agree on the same schema version) a true byte-for-byte blit — `LocalNode.
+      RelayForwardedJfp2Datagram` never touches the payload or even the envelope, mirroring the
+      legacy `FLAG_FORWARD` relay exactly, just redirecting the UDP destination. `Jfp2Bridge.cs`
+      (the file `docs/protocol-v2-architecture.md` reserved for this) ended up not needed for that
+      path at all — it stays an empty, documented placeholder for the genuinely-need-to-decode cases
+      (Tier 2/3, not yet implemented — see below). New: `LocalNode.TryGetJfp2RelayPeer`,
+      `FindDirectNuidByEndPoint`, `SendJfp2RelayApplication`, `RelayForwardedJfp2Datagram`, plus a
+      dispatch fork in `Jfp2ReceiveMsg` checked before anything else (including the guaranteed-ack
+      check, since relaying isn't receiving). Guaranteed delivery across a relay hop turned out to
+      work fully end-to-end for free once the blit exists (the ack is just another `Forwarded`
+      datagram that flows through the same uniform rule) — `AckJfp2Guaranteed`/
+      `SendJfp2GuaranteedDone` needed small additions (dedup keyed by true origin, not the physical
+      hub, to avoid two different relayed senders colliding on the same `GuaranteedId`; the ack
+      itself sent `Forwarded` back through the hub when the message it's acking arrived `Forwarded`),
+      but `HandleJfp2GuaranteedDone` and the retry loop (`DoJfp2GuaranteedRetry`) needed **no**
+      changes at all. Tests: extended `EnvelopeTests.cs` with round-trip coverage for the new
+      extension (both alone and combined with the `Guaranteed` extension) — 6 new cases.
+      **Not unit-tested:** `TryGetJfp2RelayPeer`/the dispatch fork itself — `LocalNode` has no test
+      seams (no `InternalsVisibleTo`, no fake-`Main`/mockable-socket path) and no prior precedent in
+      this codebase unit-tests it in isolation; verification for this piece is the field test in
+      Increment 2 below, per the existing manual-test-guide convention.
+- [x] **Increment 2 — Tier 1 wired for Position + Identity.** `Network.SendJfp2Position`/
+      `SendJfp2IdentityIfNeeded` now try direct JFP2, then relay (`TryGetJfp2RelayPeer`), then legacy,
+      in that order. **Scope correction made during implementation:** the approved plan said "Position
+      only," but Position's own identity-before-position ordering guard (`SendJfp2Position`'s own
+      comment) checks whether Identity was ever sent to that peer *via JFP2* — a flag only
+      `SendJfp2IdentityIfNeeded` sets. Wiring Position alone would have left that flag permanently
+      unset for every indirect peer (since Identity would still fall to legacy, unaffected), so
+      Position would withhold forever with **no** legacy fallback either — a real regression (the
+      peer's aircraft would simply stop appearing for indirectly-connected peers), not a smaller,
+      safer slice. Both had to move together.
+- [x] **Increment 3 — Tier 1 wired for the remaining classes.** Same three-way pattern applied to
+      `SendVariableUpdate`/`SendJfp2VariableSync`, `SendEventUpdate`, `BroadcastFlightPlanUpdate`,
+      `SendWeatherReply`, `SendWeatherUpdate`, and the Notes send loop (`Network.cs`). Guaranteed
+      classes (Event, Notes, WeatherReply) pass `guaranteed: true` through to
+      `SendJfp2RelayApplication` exactly as their direct sends already did — no special-casing needed,
+      per Increment 1's end-to-end-for-free finding. **`FlightPlanCodec.cs`'s "third-party relay is
+      out of scope until Jfp2Bridge exists" note is now resolved without a schema change**:
+      `HandleFlightPlan`'s owner attribution already comes from the `nuid` argument the dispatch layer
+      supplies, and `Jfp2ReceiveMsg` now resolves that to the relayed message's true origin — so
+      relaying a peer's FlightPlan through a hub attributes correctly with zero codec/wire change.
+      **Deliberately left out:** `Status`/`StatusRequest` — both address by raw `IPEndPoint` (querying
+      a hub-directory entry, often before that hub is even a mesh member), a fundamentally different
+      addressing model from the mesh-`Nuid`-keyed relay mechanism the rest of this phase builds on;
+      relaying a pre-membership directory query doesn't have a natural fit here and wasn't forced into
+      one. `VariableSync`'s own doc comment updated to note it now gets the relay efficiency win too,
+      distinguishing it from the still-out-of-scope legacy↔JFP2 translation case.
+- [x] Build: all 6 configurations compile with 0 errors (the one pre-existing `XPlane.cs` warning is
+      unrelated). Full test suite: 132/132 passing (77 in `JoinFS.Tests/Jfp2/`).
+- [x] **Field-tested live, 2026-09-22 — see the dedicated writeup below.** Confirmed working: session
+      list correctly reports relayed peers, and Position/Identity/VariableSync (light-state toggles)
+      genuinely flow over JFP2 through the hub, confirmed via Wireshark, not silently falling back to
+      legacy.
+- [ ] **Not yet done — explicitly out of scope for Phase 6:** Tier 2 (both legs JFP2 but different
+      agreed schema versions for a class — no live traffic exercises this yet since every class is
+      only at v1) and Tier 3 (one leg JFP2, one legacy-only — the original, narrower §7.7 scope). Both
+      need real decode/re-encode through the version-agnostic codec structs, which is exactly what
+      `Jfp2Bridge.cs` is reserved for. Also not yet done: exercising `routingNodes`/`MAX_ROUTING_NODES`
+      with >10 concurrent relayed senders (the field test below used two leaves, well under the cap).
+
+## Jfp2Bridge Tier 1 field test, 2026-09-22
+
+Two `JoinFS` clients + one hub, all on one machine (loopback), matching the topology used for the
+Phase 3-5 hub-relay verifications. The maintainer's own ad hoc local-testing mechanism (an
+uncommitted, previously-disabled `Node.cs` patch — "Used for local testing" — dropping any legacy
+`Send()` destined to a specific hardcoded IP, `192.168.1.115`) was used in place of the
+`JFP2_TEST_BLOCK_PORT` scaffold from earlier phases, to force the two clients indirect from each
+other while both stay direct to the hub.
+
+**Bugs found and fixed during setup, before the real test could run:**
+
+1. **JFP2 sends bypassed the maintainer's IP-block test patch entirely.** That patch lives only in
+   the legacy `Send(IPEndPoint, ...)` method (two call sites); every JFP2 send goes through
+   `LocalNode.SendJfp2Datagram`/the new `RelayForwardedJfp2Datagram`, both of which call
+   `udpClient.Client.SendTo` directly and never passed through the patched method. **Fixed** by
+   adding the identical check to both, so JFP2 traffic now respects the same test-only block legacy
+   traffic already did. (This patch is the maintainer's own uncommitted local scaffold, not something
+   this session introduced or is proposing to keep long-term — noted here only because the fix to
+   keep JFP2 consistent with it is a real, committed code change.)
+2. **First test run was invalid for an unrelated reason**: the hub binary itself had been built with
+   that same IP-block patch active, and the IP being blocked was the machine running *both* client
+   instances — so the hub was silently dropping nearly everything from either client (Join, Pulse,
+   Pathfinder, AddNode propagation), independent of anything JFP2-related. Explains all three
+   symptoms initially reported (flaky first connection needing a manual reconnect, the peer never
+   appearing in the session list, the hub eventually expiring from it). Rebuilding the hub without
+   the patch active resolved this.
+3. **`GetNodeJfp2State`'s own documented limitation turned out to matter in practice**: an indirect
+   peer that's actually being relayed over JFP2 was reported as `Legacy` in the Sessions window,
+   because that method never checked `TryGetJfp2RelayPeer` for a peer with no direct `PeerSession` -
+   it's a limitation this session had already called out in a comment while writing Increment 1, but
+   left unaddressed until this test exposed it as user-visible and worth fixing rather than leaving
+   as a known gap. **Fixed**: added `Jfp2PeerState.Relayed`, checked via `TryGetJfp2RelayPeer` against
+   `Position` as a representative class (every relay-capable class negotiates together at the same
+   Hello/HelloAck, so checking one is representative of the rest). Updated both `SessionForm.cs`
+   displays (text: "JFP2 (relayed)"; color: grouped with `Negotiated`, not `Legacy`) and the
+   `CONSOLE` build's text monitor line in `Program.cs`.
+
+**Result, after both fixes — confirmed correct:** both clients' session lists show each other as
+`Relayed`. Packet capture (Wireshark) confirms Position, Identity, and VariableSync datagrams
+between the two clients carry the JFP2 magic byte and flow through the hub, not the legacy 21-byte
+header - i.e. Tier 1's byte-for-byte relay (`RelayForwardedJfp2Datagram`) is genuinely active, not
+silently falling back to legacy despite the correct-looking session state. Live light-state
+(VariableSync) toggles on one client were correctly observed on the other through the relay.
+`Pulse`/`PulseResponse` correctly stayed on the legacy wire throughout, as designed (see Phase 1's
+scoping note - JFP2 never re-implements mesh liveness/membership, only application traffic, since a
+JFP2 session only ever exists on top of a peer the legacy mesh already discovered and keeps alive).
+
+**Verified:** all 6 build configurations compile clean; full test suite 132/132 passing.
+
+## Phase 7 — Follow-on, out of scope for this protocol but related
 
 - [ ] Recording format synergy (design doc §8): consider adapting the `ICodec<T>`/`CodecRegistry`
       pattern to `Recorder.cs`'s `Obj.Write`/`Read1`, replacing the `#if FS2024` compile-time gate that

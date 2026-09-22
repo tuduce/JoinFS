@@ -469,7 +469,26 @@ flag day: existing readers that only handle `Family == 4` skip entries they don'
 computing their length from the family byte, the same pattern recommended for the recording format's
 own extensibility in docs/recording-protocol.md's suggestions section.
 
-**7.7 Hub-mediated translation between protocol generations.** Everything in §7.1–§7.6 covers what an
+**7.7 Hub-mediated translation between protocol generations.**
+
+> **Implementation note (added when `docs/protocol-v2-implementation-plan.md` Phase 6 landed):** this
+> section as originally written describes what turned out to be only part of the picture — the
+> "translate" case (Tier 2/3 below), for when the hub's two legs genuinely disagree on wire format.
+> It doesn't cover the common case: two JFP2 peers, both agreeing on the same schema version for a
+> class, that can't reach each other directly. For that case, the hub needs no per-object cache and
+> no decode/re-encode at all — `LocalNode.RelayForwardedJfp2Datagram` forwards the datagram byte-for-
+> byte, the same way the legacy `FLAG_FORWARD` relay already does, using a wire-level addressing
+> extension (`EnvelopeFlags.Forwarded` + an `OriginNuid`/`TargetNuid` pair, §4.1) rather than anything
+> described in this section. That mechanism, and the sender-side changes needed to actually route
+> traffic through it (`LocalNode.TryGetJfp2RelayPeer`, wired into every per-peer send site in
+> `Network.cs`), is fully implemented — see Phase 6 for the full writeup including a design
+> correction made during implementation (the addressing extension needs both fields always present,
+> not one field whose meaning flips by direction, to let a receiving node unambiguously tell "relay
+> this further" from "consume this"). What follows below (Tiers 2/3 — differing JFP2 schema
+> versions, or one leg genuinely legacy-only) is still just the original design, not yet built;
+> `Jfp2Bridge.cs` remains an empty reserved class for it.
+
+Everything in §7.1–§7.6 covers what an
 *ordinary* peer does: pick, once per neighbor, whether to speak JFP2 or legacy to that specific
 neighbor (§5.6), and never translate anything, because a peer that speaks both simply encodes its own
 outgoing messages twice — once per neighbor, in whatever that neighbor negotiated — rather than

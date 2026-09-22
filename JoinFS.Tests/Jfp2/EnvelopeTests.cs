@@ -139,5 +139,86 @@ namespace JoinFS.Tests.Jfp2
             Assert.Equal(0, envelope.GuaranteedIndex);
             Assert.Equal(0, envelope.GuaranteedCount);
         }
+
+        // Jfp2Bridge relay-addressing extension (EnvelopeFlags.Forwarded / Origin+TargetNuid) - see
+        // docs/protocol-v2-design.md §7.7 and the Jfp2Bridge design plan. Both Origin and Target are
+        // always carried (never a single field whose meaning flips by direction) so that any
+        // receiving node can decide "consume or relay further" purely by comparing TargetNuid to its
+        // own Nuid, regardless of whether it's playing hub or final-recipient role for this message.
+
+        [Fact]
+        public void WriteTo_ReadFrom_RoundTrips_WithRelayExtension()
+        {
+            var origin = new RelayNuid(0x0A0B0C0D, 5555, 42);
+            var target = new RelayNuid(0x11223344, 7777, 9);
+            var envelope = new Envelope(EnvelopeFlags.Forwarded, 0, 0, MessageClasses.Position, 0, 0, 0, origin, target);
+            byte[] buffer = new byte[Envelope.FixedSize + RelayNuid.WireSize * 2];
+
+            int written = envelope.WriteTo(buffer);
+            Envelope back = Envelope.ReadFrom(buffer, out int consumed);
+
+            int expectedSize = Envelope.FixedSize + RelayNuid.WireSize * 2;
+            Assert.Equal(expectedSize, written);
+            Assert.Equal(expectedSize, consumed);
+            Assert.True(back.IsForwarded);
+            Assert.Equal(origin, back.OriginNuid);
+            Assert.Equal(target, back.TargetNuid);
+        }
+
+        [Fact]
+        public void WriteTo_ReadFrom_RoundTrips_WithGuaranteedAndRelayExtensions()
+        {
+            // Both extensions present: Guaranteed's 4 bytes must land before Origin/TargetNuid's 14,
+            // per Envelope.WireSize's documented ordering.
+            var origin = new RelayNuid(0x7F000001, 8080, 1);
+            var target = new RelayNuid(0x7F000002, 8081, 1);
+            var envelope = new Envelope(EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded, 0, 0, MessageClasses.Event, 999, 0, 1, origin, target);
+            byte[] buffer = new byte[Envelope.FixedSize + Envelope.GuaranteedExtraSize + RelayNuid.WireSize * 2];
+
+            int written = envelope.WriteTo(buffer);
+            Envelope back = Envelope.ReadFrom(buffer, out int consumed);
+
+            int expectedSize = Envelope.FixedSize + Envelope.GuaranteedExtraSize + RelayNuid.WireSize * 2;
+            Assert.Equal(expectedSize, written);
+            Assert.Equal(expectedSize, consumed);
+            Assert.True(back.IsGuaranteed);
+            Assert.True(back.IsForwarded);
+            Assert.Equal(envelope.GuaranteedId, back.GuaranteedId);
+            Assert.Equal(origin, back.OriginNuid);
+            Assert.Equal(target, back.TargetNuid);
+        }
+
+        [Fact]
+        public void WireSize_IncludesRelayExtensionOnlyWhenForwarded()
+        {
+            var relayFields = (new RelayNuid(1, 2, 3), new RelayNuid(4, 5, 6));
+            var notForwarded = new Envelope(EnvelopeFlags.None, 1, 2, MessageClasses.Position);
+            var forwarded = new Envelope(EnvelopeFlags.Forwarded, 0, 0, MessageClasses.Position, 0, 0, 0, relayFields.Item1, relayFields.Item2);
+            var both = new Envelope(EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded, 0, 0, MessageClasses.Event, 1, 0, 1, relayFields.Item1, relayFields.Item2);
+
+            Assert.Equal(Envelope.FixedSize, notForwarded.WireSize);
+            Assert.Equal(Envelope.FixedSize + RelayNuid.WireSize * 2, forwarded.WireSize);
+            Assert.Equal(Envelope.FixedSize + Envelope.GuaranteedExtraSize + RelayNuid.WireSize * 2, both.WireSize);
+        }
+
+        [Fact]
+        public void ReadFrom_ForwardedDatagramTooShortForExtension_Throws()
+        {
+            byte[] full = new byte[Envelope.FixedSize + RelayNuid.WireSize * 2];
+            new Envelope(EnvelopeFlags.Forwarded, 0, 0, MessageClasses.Position, 0, 0, 0, new RelayNuid(1, 2, 3), new RelayNuid(4, 5, 6)).WriteTo(full);
+            byte[] truncated = full[..(Envelope.FixedSize + RelayNuid.WireSize)];
+
+            Assert.Throws<System.ArgumentException>(() => Envelope.ReadFrom(truncated, out _));
+        }
+
+        [Fact]
+        public void NonForwardedEnvelope_HasDefaultRelayFields()
+        {
+            var envelope = new Envelope(EnvelopeFlags.None, 1, 2, MessageClasses.Position);
+
+            Assert.False(envelope.IsForwarded);
+            Assert.Equal(default, envelope.OriginNuid);
+            Assert.Equal(default, envelope.TargetNuid);
+        }
     }
 }

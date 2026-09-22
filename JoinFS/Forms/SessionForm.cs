@@ -86,6 +86,9 @@ namespace JoinFS
                     case LocalNode.Jfp2PeerState.Negotiated:
                         protocol = "JFP2";
                         break;
+                    case LocalNode.Jfp2PeerState.Relayed:
+                        protocol = "JFP2 (relayed)";
+                        break;
                     case LocalNode.Jfp2PeerState.Legacy:
                         protocol = "Legacy";
                         break;
@@ -551,6 +554,7 @@ namespace JoinFS
                 switch (itemList[index].jfp2State)
                 {
                     case LocalNode.Jfp2PeerState.Negotiated:
+                    case LocalNode.Jfp2PeerState.Relayed:
                         DataGrid_UserList.Rows[index].Cells[12].Style.BackColor = Settings.Default.ColourActiveBackground;
                         DataGrid_UserList.Rows[index].Cells[12].Style.ForeColor = Settings.Default.ColourActiveText;
                         break;
