@@ -2,6 +2,7 @@
 
 - Reduced the number of SimConnect requests used to read aircraft variables on MSFS2020/2024, FSX and P3D. Variables that were previously requested individually are now bundled into a single combined request per aircraft, lowering SimConnect overhead - most noticeable with many aircraft nearby. X-Plane and network compatibility are unaffected.
 - Introduced JFP2, a new network protocol for exchanging aircraft position and state data between JoinFS peers, running alongside the existing protocol. JFP2 messages are significantly smaller than the previous format, especially for the high-frequency position updates that make up most network traffic, reducing bandwidth usage during a session. It also separates rarely-changing aircraft details (livery, registration, aircraft type) from position updates, fixing a class of bug where appearance information could get out of sync mid-session. JFP2 is negotiated automatically between two updated JoinFS instances; sessions involving an older version continue to work exactly as before, unaffected.
+- Added a protocol dissector for Wireshark, allowing users to inspect JoinFS network traffic in detail.
 
 ## Bug Fixes
 
