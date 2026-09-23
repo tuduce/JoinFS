@@ -16,6 +16,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using JoinFS.Properties;
 using System.Collections.Concurrent;
+using JoinFS.Net;
 
 namespace JoinFS
 {
@@ -182,12 +183,10 @@ namespace JoinFS
             // close systems
             if (network != null)
             {
-                // leave session
-                network.Leave();
-                // close network
-                network.localNode.Close();
+                // leave session and stop the network thread
+                network.Shutdown();
                 // monitor
-                MonitorEvent("Closed UDP port " + network.localNode.GetLocalNuid().port);
+                MonitorEvent("Closed UDP port " + network.LocalId.port);
             }
             sim ?. Close();
 #if CONSOLE
@@ -778,7 +777,7 @@ namespace JoinFS
 
 #if !NO_HUBS
                 // four byte identifier
-                uuid = Network.MakeUuid(guid);
+                uuid = UserDirectory.MakeUuid(guid);
 #endif
 
                 // create monitor module
@@ -918,7 +917,7 @@ namespace JoinFS
                 // port
                 ushort port = settingsPortEnabled ? settingsPort : Network.DEFAULT_PORT;
                 // open port
-                if (network.localNode.Open(port))
+                if (network.Open(port))
                 {
                     // monitor
                     MonitorEvent("Opened UDP port " + port);
@@ -950,7 +949,7 @@ namespace JoinFS
                 {
                     // join network
 #if NO_HUBS
-                    Join(Network.DecodeIP(doJoin.TrimStart(' ').TrimEnd(' ')));
+                    Join(AddressCodec.DecodeIP(doJoin.TrimStart(' ').TrimEnd(' ')));
 #else
                     Join(doJoin.TrimStart(' ').TrimEnd(' '));
 #endif
@@ -1673,10 +1672,10 @@ namespace JoinFS
                     lock (conch)
                     {
                         // convert address to end point
-                        if (network.MakeEndPoint(addressText, Network.DEFAULT_PORT, out IPEndPoint endPoint))
+                        if (network.Bootstrap.MakeEndPoint(addressText, Network.DEFAULT_PORT, out IPEndPoint endPoint))
                         {
                             // submit hub
-                            network.ScheduleSubmitHub(endPoint);
+                            network.Hubs.ScheduleSubmitHub(endPoint);
                         }
                     }
                 }
@@ -1702,7 +1701,7 @@ namespace JoinFS
 #endif
 
             // check for uuid
-            uint uuid = Network.MakeUuid(addressText);
+            uint uuid = UserDirectory.MakeUuid(addressText);
             // check for valid uuid
             if (uuid != 0)
             {
@@ -1713,9 +1712,9 @@ namespace JoinFS
             }
 
             // check for hub
-            Network.Hub hub;
+            HubDirectory.Hub hub;
             // find address in the address book
-            hub = network.hubList.Find(h => h.name.Equals(addressText));
+            hub = network.Hubs.List.Find(h => h.name.Equals(addressText));
             // if hub found
             if (hub != null)
             {
@@ -1772,7 +1771,7 @@ namespace JoinFS
                     bool result = false;
                     lock (conch)
                     {
-                        result = network.DnsLookup(parts[0], out address);
+                        result = network.Bootstrap.DnsLookup(parts[0], out address);
                     }
                     // try DNS lookup
                     if (result)
@@ -1814,7 +1813,7 @@ namespace JoinFS
             lock (conch)
             {
                 // get connected state
-                bool connected = network.localNode.CurrentState != LocalNode.State.Unconnected;
+                bool connected = network.Snapshot.State != SessionState.Unconnected;
 
                 // check if user join scheduled
                 if (network.scheduleJoinUser)
@@ -1840,15 +1839,15 @@ namespace JoinFS
         public void MonitorSessionDetails()
         {
             // check if connected
-            if (network.localNode.Connected)
+            if (network.Connected)
             {
                 MonitorEvent("Session:");
                 MonitorEvent("  ADDRESS NICKNAME CALLSIGN CONNECTED LATENCY AIRCRAFT OBJECTS VERSION SIMULATOR PROTOCOL");
                 string line = " ";
-                line += " " + network.localNode.GetLocalNuid();
+                line += " " + network.LocalId;
                 line += " " + settingsNickname;
-                line += " " + network.GetLocalCallsign();
-                line += " " + network.localNode.Connected;
+                line += " " + network.Peers.GetLocalCallsign();
+                line += " " + network.Connected;
                 line += " " + 0.0f;
                 line += " " + sim.objectList.FindAll(o => o is Sim.Aircraft && sim.IsBroadcast(o)).Count;
                 line += " " + sim.objectList.FindAll(o => (o is Sim.Aircraft) == false && o.owner == Sim.Obj.Owner.Sim).Count;
@@ -1857,30 +1856,24 @@ namespace JoinFS
                 line += " " + "-"; // network (transport) protocol doesn't apply to the local node itself
                 MonitorEvent(line);
                 // for each node
-                foreach (var node in network.nodeList)
+                foreach (var node in network.Peers.Nodes)
                 {
                     line = " ";
                     line += " " + node.Key;
                     line += " " + node.Value.nickname;
-                    line += " " + network.GetNodeCallsign(node.Key);
-                    line += " " + network.localNode.NodeReceiveEstablished(node.Key);
-                    line += " " + network.localNode.GetNodeRTT(node.Key);
+                    line += " " + network.Peers.GetNodeCallsign(node.Key);
+                    line += " " + (network.Snapshot.Peer(node.Key)?.ReceiveEstablished ?? false);
+                    line += " " + network.GetNodeRTT(node.Key);
                     line += " " + sim.objectList.FindAll(o => o.ownerNuid == node.Key && o is Sim.Aircraft).Count;
                     line += " " + sim.objectList.FindAll(o => o.ownerNuid == node.Key && (o is Sim.Aircraft) == false).Count;
-                    line += " " + network.GetNodeVersion(node.Key);
-                    line += " " + network.GetNodeSimulator(node.Key);
+                    line += " " + network.Peers.GetNodeVersion(node.Key);
+                    line += " " + network.Peers.GetNodeSimulator(node.Key);
                     // network (transport) protocol indicator - distinct from the application
-                    // GetNodeVersion above. See LocalNode.Jfp2PeerState.
-                    line += " " + network.localNode.GetNodeJfp2State(node.Key) switch
-                    {
-                        LocalNode.Jfp2PeerState.Negotiated => "JFP2",
-                        LocalNode.Jfp2PeerState.Relayed => "JFP2 (relayed)",
-                        LocalNode.Jfp2PeerState.Legacy => "Legacy",
-                        _ => "Pending",
-                    };
+                    // GetNodeVersion above, as described by the protocol plugins
+                    line += " " + (network.Snapshot.Peer(node.Key)?.LinkState ?? "Pending");
                     MonitorEvent(line);
                 }
-                MonitorEvent("Total " + (1 + network.nodeList.Count) + " user(s)");
+                MonitorEvent("Total " + (1 + network.Peers.Nodes.Count) + " user(s)");
             }
             else
             {
@@ -1921,7 +1914,7 @@ namespace JoinFS
 
             string line = " ";
             line += " " + aircraft.flightPlan.callsign;
-            line += " " + network.GetNodeName(aircraft.ownerNuid);
+            line += " " + network.Peers.GetNodeName(aircraft.ownerNuid);
             line += " " + distance + "nm";
             line += " " + heading;
             line += " " + altitude + "ft";

@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Windows.Forms;
 using System.Globalization;
 using JoinFS.Properties;
+using JoinFS.Net;
 
 namespace JoinFS
 {
@@ -16,7 +17,7 @@ namespace JoinFS
         /// </summary>
         class Item
         {
-            public LocalNode.Nuid nuid;
+            public NodeId nuid;
             public uint simId;
             public string ownerName;
             public Sim.Obj.Owner owner;
@@ -35,9 +36,9 @@ namespace JoinFS
             public bool ignoreModel;
 
 #if FS2024
-            public Item(LocalNode.Nuid nuid, uint simId, string ownerName, Sim.Obj.Owner owner, string ownerModel, string ownerLivery, string subModel, int typerole, int count, string bearingText, double distance, bool broadcast, bool ignoreNode, bool ignoreModel)
+            public Item(NodeId nuid, uint simId, string ownerName, Sim.Obj.Owner owner, string ownerModel, string ownerLivery, string subModel, int typerole, int count, string bearingText, double distance, bool broadcast, bool ignoreNode, bool ignoreModel)
 #else
-            public Item(LocalNode.Nuid nuid, uint simId, string ownerName, Sim.Obj.Owner owner, string ownerModel, string subModel, int typerole, int count, string bearingText, double distance, bool broadcast, bool ignoreNode, bool ignoreModel)
+            public Item(NodeId nuid, uint simId, string ownerName, Sim.Obj.Owner owner, string ownerModel, string subModel, int typerole, int count, string bearingText, double distance, bool broadcast, bool ignoreNode, bool ignoreModel)
 #endif
             {
                 this.nuid = nuid;
@@ -177,7 +178,7 @@ namespace JoinFS
             return obj.owner switch
             {
                 Sim.Obj.Owner.Me or Sim.Obj.Owner.Sim => main.settingsNickname,
-                Sim.Obj.Owner.Network => main.network.GetNodeName(obj.ownerNuid),
+                Sim.Obj.Owner.Network => main.network.Peers.GetNodeName(obj.ownerNuid),
                 Sim.Obj.Owner.Recorder => Resources.Strings.RecorderStr,
                 _ => "",
             };
@@ -297,7 +298,7 @@ namespace JoinFS
         {
             // selected item
             Item selectedItem = GetSelectedItem();
-            LocalNode.Nuid selectedNuid = (selectedItem != null) ? selectedItem.nuid : new LocalNode.Nuid();
+            NodeId selectedNuid = (selectedItem != null) ? selectedItem.nuid : new NodeId();
             uint selectedId = (selectedItem != null) ? selectedItem.simId : 0;
 
             // clear object list

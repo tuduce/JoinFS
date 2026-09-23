@@ -198,10 +198,10 @@ namespace JoinFS
                                 // nickname
                                 string nickname = "";
                                 // check for node
-                                if (main.network.nodeList.ContainsKey(aircraft.ownerNuid))
+                                if (main.network.Peers.Nodes.ContainsKey(aircraft.ownerNuid))
                                 {
                                     // get nickname
-                                    nickname = main.network.nodeList[aircraft.ownerNuid].nickname;
+                                    nickname = main.network.Peers.Nodes[aircraft.ownerNuid].nickname;
                                 }
 
                                 // default info
@@ -240,7 +240,7 @@ namespace JoinFS
                         }
 
                         // for each node
-                        foreach (var node in main.network.nodeList)
+                        foreach (var node in main.network.Peers.Nodes)
                         {
                             // check if seen guid
                             if (guidList.Exists(g => g.Equals(node.Value.guid)) == false)
@@ -271,7 +271,7 @@ namespace JoinFS
                     if (main.settingsWhazzupPublic)
                     {
                         // for each hub
-                        foreach (var hub in main.network.hubList)
+                        foreach (var hub in main.network.Hubs.List)
                         {
                             // for each user
                             foreach (var user in hub.userList)
@@ -309,7 +309,7 @@ namespace JoinFS
                     // hub count
                     int hubCount = main.settingsHub ? 1 : 0;
                     // for each hub
-                    foreach (var hub in main.network.hubList)
+                    foreach (var hub in main.network.Hubs.List)
                     {
                         // check if hub is online
                         if (hub.online)
@@ -347,7 +347,7 @@ namespace JoinFS
                     }
 
                     // for each hub
-                    foreach (var hub in main.network.hubList)
+                    foreach (var hub in main.network.Hubs.List)
                     {
                         // check if hub is online
                         if (hub.online)

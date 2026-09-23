@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
-using JoinFS.Jfp2;
-using JoinFS.Jfp2.Codecs;
+using JoinFS.Net.Jfp2;
+using JoinFS.Net.Jfp2.Codecs;
+using JoinFS.Net;
 using Xunit;
 
 namespace JoinFS.Tests.Jfp2

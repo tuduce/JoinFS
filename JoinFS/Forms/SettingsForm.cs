@@ -2,6 +2,7 @@
 using System.Windows.Forms;
 using System.Globalization;
 using JoinFS.Properties;
+using JoinFS.Net;
 
 namespace JoinFS
 {
@@ -224,7 +225,7 @@ namespace JoinFS
             if (nickname.Length < 2)
             {
                 // create random nickname, 2 letters
-                nickname = LocalNode.GenerateName(main.storagePath);
+                nickname = NetHash.GenerateName(main.storagePath);
             }
             main.settingsNickname = nickname;
             Settings.Default.Nickname = nickname;
@@ -412,7 +413,7 @@ namespace JoinFS
                 lock (main.conch)
                 {
                     // open the new port
-                    if (main.network.localNode.Open(newPort))
+                    if (main.network.Open(newPort))
                     {
                         // monitor
                         main.MonitorEvent("Closed UDP port " + oldPort);

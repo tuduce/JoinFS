@@ -1,12 +1,13 @@
 using System;
-using JoinFS.Jfp2;
-using JoinFS.Jfp2.Codecs;
+using JoinFS.Net.Jfp2;
+using JoinFS.Net.Jfp2.Codecs;
+using JoinFS.Net;
 using Xunit;
 
 namespace JoinFS.Tests.Jfp2
 {
     // Round-trip coverage for the Weather/WeatherReply codecs (docs/protocol-v2-implementation-
-    // plan.md Phase 5). WeatherReplyV1Codec and WeatherUpdateV1Codec share the WeatherReport wire
+    // plan.md Phase 5). WeatherReplyV1Codec and WeatherUpdateV1Codec share one wire
     // shape but are independently negotiated classes (Weather vs WeatherReply) - covered separately
     // so a change to one class's negotiation can never silently mask a break in the other.
     public class WeatherCodecTests
@@ -17,11 +18,11 @@ namespace JoinFS.Tests.Jfp2
         public void WeatherUpdate_RoundTrips()
         {
             var codec = new WeatherUpdateV1Codec();
-            var report = new WeatherReport { Metar = SampleMetar };
+            var report = new WeatherUpdate { Metar = SampleMetar };
 
             Span<byte> buffer = stackalloc byte[512];
             int written = codec.Encode(report, buffer);
-            WeatherReport back = codec.Decode(buffer[..written]);
+            WeatherUpdate back = codec.Decode(buffer[..written]);
 
             Assert.Equal(SampleMetar, back.Metar);
         }
@@ -30,11 +31,11 @@ namespace JoinFS.Tests.Jfp2
         public void WeatherReply_RoundTrips()
         {
             var codec = new WeatherReplyV1Codec();
-            var report = new WeatherReport { Metar = SampleMetar };
+            var report = new WeatherReply { Metar = SampleMetar };
 
             Span<byte> buffer = stackalloc byte[512];
             int written = codec.Encode(report, buffer);
-            WeatherReport back = codec.Decode(buffer[..written]);
+            WeatherReply back = codec.Decode(buffer[..written]);
 
             Assert.Equal(SampleMetar, back.Metar);
         }
@@ -43,11 +44,11 @@ namespace JoinFS.Tests.Jfp2
         public void EmptyMetar_RoundTrips()
         {
             var codec = new WeatherUpdateV1Codec();
-            var report = new WeatherReport { Metar = "" };
+            var report = new WeatherUpdate { Metar = "" };
 
             Span<byte> buffer = stackalloc byte[512];
             int written = codec.Encode(report, buffer);
-            WeatherReport back = codec.Decode(buffer[..written]);
+            WeatherUpdate back = codec.Decode(buffer[..written]);
 
             Assert.Equal("", back.Metar);
         }
@@ -58,8 +59,8 @@ namespace JoinFS.Tests.Jfp2
             CodecRegistry.Register(new WeatherUpdateV1Codec());
             CodecRegistry.Register(new WeatherReplyV1Codec());
 
-            ICodec<WeatherReport> updateCodec = CodecRegistry.Resolve<WeatherReport>(MessageClasses.Weather, 1);
-            ICodec<WeatherReport> replyCodec = CodecRegistry.Resolve<WeatherReport>(MessageClasses.WeatherReply, 1);
+            ICodec<WeatherUpdate> updateCodec = CodecRegistry.Resolve<WeatherUpdate>(MessageClasses.Weather, 1);
+            ICodec<WeatherReply> replyCodec = CodecRegistry.Resolve<WeatherReply>(MessageClasses.WeatherReply, 1);
 
             Assert.Equal(MessageClasses.Weather, updateCodec.MessageClass);
             Assert.Equal(MessageClasses.WeatherReply, replyCodec.MessageClass);

@@ -172,12 +172,12 @@ namespace JoinFS
         AircraftSnapshot SnapshotFromAircraft(Sim.Aircraft aircraft)
         {
             var snap = new AircraftSnapshot();
-            snap.guid = main.network.GetNodeGuid(aircraft.ownerNuid).ToString();
+            snap.guid = main.network.Peers.GetNodeGuid(aircraft.ownerNuid).ToString();
             snap.callsign = aircraft.flightPlan.callsign;
             snap.registration = aircraft.flightPlan.registration;
             snap.icaoAirline = aircraft.flightPlan.icaoAirline;
             snap.flightNumber = aircraft.flightPlan.flightNumber;
-            snap.nickname = main.network.GetNodeName(aircraft.ownerNuid);
+            snap.nickname = main.network.Peers.GetNodeName(aircraft.ownerNuid);
 
             var pos = aircraft.Position;
             if (pos != null)
@@ -224,7 +224,7 @@ namespace JoinFS
             return snap;
         }
 
-        AircraftSnapshot SnapshotFromHubUser(Network.HubUser user)
+        AircraftSnapshot SnapshotFromHubUser(HubDirectory.HubUser user)
         {
             var snap = new AircraftSnapshot();
             snap.guid     = user.guid.ToString();
@@ -315,7 +315,7 @@ namespace JoinFS
                 {
                     if (obj is not Sim.Aircraft aircraft) continue;
 
-                    Guid key = main.network.GetNodeGuid(aircraft.ownerNuid);
+                    Guid key = main.network.Peers.GetNodeGuid(aircraft.ownerNuid);
                     if (key == Guid.Empty) key = new Guid(aircraft.simId, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
                     var snap = SnapshotFromAircraft(aircraft);
@@ -341,7 +341,7 @@ namespace JoinFS
             // --- global hub users ---
             if (main.settingsWhazzupPublic)
             {
-                foreach (var hub in main.network.hubList)
+                foreach (var hub in main.network.Hubs.List)
                 {
                     foreach (var user in hub.userList)
                     {

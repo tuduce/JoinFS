@@ -1,7 +1,7 @@
 # JFP2 Implementation Plan
 
 Ordered, checkable task list for implementing the JFP2 protocol designed in
-`docs/protocol-v2-design.md` and `docs/protocol-v2-architecture.md`. **Keep this file updated** —
+`docs/reference/jfp2-protocol.md` and `docs/protocol-v2-architecture.md`. **Keep this file updated** —
 check items off as they're done, add sub-tasks as needed, and note any deviation from the design
 docs (with the reason) inline so the next session doesn't redo the same analysis.
 
@@ -60,7 +60,7 @@ has never been compiled. Do this first; everything else builds on it.
       `Negotiation.cs` per this plan's own scope — no codec exists yet under `JoinFS/Jfp2/Codecs/` to
       test against. Add that file when Phase 2 lands the first real codec.
 - [x] No discrepancy found between the Python-verified numbers and the compiled C# output — every
-      number in `docs/protocol-v2-design.md` §6.1 reproduced exactly (see `dotnet run` output above).
+      number in `docs/reference/jfp2-protocol.md` §6.1 reproduced exactly (see `dotnet run` output above).
 
 ## Phase 1 — Land JFP2 as dead code (design doc §9 step 1) — DONE 2026-09-13
 
@@ -96,7 +96,7 @@ Legacy behavior must be provably unchanged throughout this phase.
       uses. **Deviation:** `LocalJfp2Offers` is an empty list and `LocalJfp2Capabilities` is `0` for
       now — no application codec exists yet (Phase 2+), so there is nothing truthful to offer; the
       negotiation algorithm already handles an empty offer list gracefully (every class simply
-      resolves to version 0, per `docs/protocol-v2-design.md` §5.3), confirmed by
+      resolves to version 0, per `docs/reference/jfp2-protocol.md` §5.3), confirmed by
       `NegotiationTests.Resolve_ClassOnlyOneSideKnows_FallsBackToVersionZero`.
 - [x] Added the Hello-retry loop as `DoJfp2Handshake()`, called from `DoWork()` immediately after
       `DoPulse()`. **Deviation from the plan's literal wording:** rather than one shared
@@ -297,7 +297,7 @@ and what that does and doesn't limit.
          is one of the conditions that stores a value directly instead of pushing it through
          SimConnect) — but the actual call path that reaches those methods on a sim-less hub was not
          located. `Jfp2Bridge`'s whole design depends on mirroring that cache shape correctly
-         (`docs/protocol-v2-design.md` §7.7); building it against an unconfirmed assumption risked a
+         (`docs/reference/jfp2-protocol.md` §7.7); building it against an unconfirmed assumption risked a
          hub that silently drops or corrupts relayed data for real multiplayer sessions — too high a
          blast radius to guess at.
       2. It's also the single highest-complexity, highest-risk piece of the whole JFP2 rollout (a
@@ -544,7 +544,7 @@ were complete. Both used a real simulator (unlike every `--nosim` verification l
 above), so these are the first tests to exercise VariableSync (light-state sync) end-to-end. Logged here
 per this file's own "keep this updated" convention; the root-cause analysis is cross-referenced into
 `docs/protocol-v2-implementation-review.md` (Finding 6) since it's a code-audit finding, not a design
-question — nothing here changes `docs/protocol-v2-design.md`.
+question — nothing here changes `docs/reference/jfp2-protocol.md`.
 
 **Test 1 — mixed versions, direct mesh.** One v26.5 (legacy-only) and one v26.6 (this tree) instance,
 both connected to a v26.6 hub. The v26.6 side correctly detected the hub as JFP2-capable and the v26.5
@@ -727,7 +727,7 @@ pre-JFP2 tree.
 
 `Jfp2Bridge` — deferred at Phase 3 (see that phase's note above) and still zero-implementation as of
 the mixed-version verification above — designed and landed in three increments. Full design writeup:
-`docs/protocol-v2-design.md` §7.7 (updated to match what actually shipped, not just the original
+`docs/reference/jfp2-protocol.md` §7.7 (updated to match what actually shipped, not just the original
 sketch).
 
 **Reframing that shaped the whole design:** indirect delivery already worked correctly for every
@@ -858,18 +858,107 @@ JFP2 session only ever exists on top of a peer the legacy mesh already discovere
 
 **Verified:** all 6 build configurations compile clean; full test suite 132/132 passing.
 
-## Phase 7 — Follow-on, out of scope for this protocol but related
+## Phase 7 — Jfp2Bridge Tier 3 (JFP2↔legacy translation, design doc §7.7)
+
+Position and VariableSync only, one direction (JFP2 → legacy). The originally-scoped, narrower §7.7
+case: a hub with a JFP2 session to one peer and no viable JFP2 session (legacy-only, or
+AssumedLegacy) to the final recipient of a relayed message.
+
+- [x] **Correctness fix, found while implementing this phase.** Increments 1-3's Tier 1 relay
+      (`LocalNode.RelayForwardedJfp2Datagram`) blindly blitted every `Forwarded` datagram to its
+      target once it confirmed the target was a direct neighbor - it never checked whether that
+      target had actually negotiated JFP2 for the class in question. A legacy-only (or
+      `AssumedLegacy`) final target reached this way would have received an undecipherable JFP2-
+      framed datagram with no fallback, since the sender had already committed to the JFP2 send path
+      - silent data loss, or worse (an unrelated `PeerSession` on the target accidentally consuming
+      it, if one happened to exist for a different reason). **Fixed** as part of this phase's own
+      gating logic (see below) rather than as a separate patch, since the fix and Tier 3's dispatch
+      point are the same code.
+- [x] **Dispatch**: `RelayForwardedJfp2Datagram` now checks `TryGetJfp2AppPeer(target, class, ...)`
+      before blitting. Internal-partition messages (currently only a relayed `GuaranteedDone`) always
+      still blit unconditionally - the point of one is always to reach back to the JFP2 session that
+      originated a guaranteed send, which is JFP2 by construction, so the check doesn't apply. When
+      the target lacks a viable session for an application class, and the message isn't guaranteed
+      (see the next bullet), a new `LocalNode.Jfp2TranslateToLegacyNotify` delegate
+      (`jfp2TranslateToLegacyNotify`, wired to `Network.HandleJfp2TranslateToLegacy`) is invoked with
+      the true origin, final target, message class, and the origin's own agreed schema version
+      (needed to decode - the hub already knows this from its own session with the origin).
+- [x] **Guaranteed classes (Event, Notes, WeatherReply) are explicitly not handled** - dropped by
+      `RelayForwardedJfp2Datagram` before ever reaching the new delegate. Cross-protocol guaranteed
+      delivery needs its own store-and-forward design (ack the inbound JFP2 leg immediately, then
+      independently drive a **legacy** guaranteed send on the outbound leg using the existing
+      `GuaranteedMessageOut` machinery) that hasn't been built yet - left for a future pass rather
+      than shipped half-correct.
+- [x] **Position** (`Network.TranslateJfp2PositionToLegacy`): decodes via the origin's negotiated
+      `PositionV1Codec`, merges in identity from a new `jfp2BridgeIdentityCache` (keyed by
+      `(origin, ObjectId)` - see below), and calls a new low-level overload of
+      `Network.WriteAircraftPositionMessage` that takes plain values instead of a live `Sim.Aircraft`.
+      **Deviation from a strict "never touch legacy write logic" reading**: the existing
+      `WriteAircraftPositionMessage(uint, double, Sim.Aircraft, ref AircraftPosition)` needs a real
+      `Sim.Aircraft` to read `flightPlan`/`ownerLivery`/etc. from, which a pure-translation hub
+      deliberately doesn't have (translation must not touch `Sim.objectList` - see `Jfp2Bridge.cs`'s
+      own remarks on why). Resolved by **extracting**, not rewriting, the method's existing body into
+      a new overload taking the same values as plain parameters - the original overload now just
+      forwards `aircraft.user`, `aircraft is Sim.Plane`, etc. into it. Byte-for-byte identical wire
+      output for the 3 existing call sites (`Sim.cs`), confirmed by inspection (every value passed
+      through unchanged, same write order) - this is a pure extraction, not a behavior change, and
+      doesn't touch the frozen wire format itself. Shared-cockpit Position (`ObjectId ==
+      uint.MaxValue`) is not translated - dropped, same reasoning as the guaranteed classes above
+      (rare enough not to guess a shape for without a confirmed need).
+- [x] **Identity** has no legacy equivalent as a standalone message (legacy embeds identity fields
+      inline on every `AircraftPosition` tick) - a relayed Identity update just refreshes
+      `jfp2BridgeIdentityCache`, consumed by the next Position translation for that object. Before the
+      cache has anything for a given `(origin, ObjectId)`, Position translation fills the identity
+      fields with empty strings (matching design doc §7.7's own "identity not yet known" edge-case
+      note) rather than guessing or delaying the position update.
+- [x] **VariableSync** (`Network.TranslateJfp2VariableSyncToLegacy`): decodes via
+      `VariableSyncV1Codec`, regroups entries by `Kind` (the same regrouping `HandleJfp2VariableSync`
+      already does for the direct-receive case), and calls the existing, unmodified
+      `SendIntegerVariablesMessage`/`SendFloatVariablesMessage`/`SendString8VariablesMessage` - these
+      already take plain `Dictionary<uint, T>` + `netId` + `ownerNuid`, no `Sim.Aircraft` needed, so
+      no extraction was required here.
+- [x] `Jfp2Bridge.cs` stays an empty, documented placeholder - the translation logic and its cache
+      live in `Network.cs` instead (`jfp2BridgeIdentityCache`, `HandleJfp2TranslateToLegacy` and its
+      per-class helpers), matching where every sibling JFP2 per-object cache
+      (`jfp2IdentitySendState`, `jfp2PendingIdentity`) already lives, rather than introducing a
+      separate class that would need a reverse dependency back into `Network`/`Sim` types for no
+      benefit. See `Jfp2Bridge.cs`'s own updated comment.
+- [x] Build: all 6 configurations compile with 0 errors (the one pre-existing `XPlane.cs` warning is
+      unrelated). Full test suite: 132/132 passing (no new tests added this phase - see below).
+- [ ] **Not yet done:**
+      - The reverse direction (legacy → JFP2, translating a legacy sender's message for a JFP2-
+        negotiated indirect target) - purely a bandwidth/format optimization, not a correctness gap,
+        since the existing untouched `FLAG_FORWARD` byte-blit already delivers it correctly at legacy
+        fidelity. Needs a hook in `Node.cs`'s legacy `ReceiveMsg` relay branch, before its blit,
+        mirroring this phase's dispatch pattern.
+      - Event, FlightPlan, Notes, Weather, WeatherReply translation (FlightPlan and Weather are
+        unreliable and could be added following this phase's exact pattern; Event/Notes/WeatherReply
+        need the guaranteed store-and-forward design noted above first).
+      - Tier 2 (both legs JFP2, differing agreed schema versions) - still no live traffic to exercise
+        it against, since every class remains at v1 everywhere.
+      - No automated tests were added for the new translation logic - `HandleJfp2TranslateToLegacy`
+        and its helpers have the same `LocalNode`/`Network` test-seam problem noted for Increment 1's
+        dispatch fork (no `InternalsVisibleTo`, no fake-`Main`), and legacy message construction
+        additionally needs `localNode.PrepareMessage`'s internal buffer state. Verification for this
+        phase is build + read only; a live field test (one JFP2-capable leaf, one leaf running an
+        unmodified pre-JFP2 build or with JFP2 deliberately disabled, one hub, confirming the legacy
+        leaf receives correct `AircraftPosition`/`*Variables` messages byte-comparable to what a
+        same-version peer would have sent directly) has not been run - this needs a maintainer with
+        the same loopback setup used for the Tier 1 field test above, this time with a genuinely
+        legacy-only third instance.
+
+## Phase 8 — Follow-on, out of scope for this protocol but related
 
 - [ ] Recording format synergy (design doc §8): consider adapting the `ICodec<T>`/`CodecRegistry`
       pattern to `Recorder.cs`'s `Obj.Write`/`Read1`, replacing the `#if FS2024` compile-time gate that
       causes the bug documented in `docs/recording-protocol.md` §7.1. Separate piece of work; do not
       block JFP2 network rollout on it.
 - [ ] Variable-name/vuid table sync at scale, selective acknowledgement, coalescing policy tuning —
-      see `docs/protocol-v2-design.md` §10 for what's still genuinely open.
+      see `docs/reference/jfp2-protocol.md` §10 for what's still genuinely open.
 
 ## Notes for whoever picks this up next
 
-- If you deviate from anything in `docs/protocol-v2-design.md` or `docs/protocol-v2-architecture.md`
+- If you deviate from anything in `docs/reference/jfp2-protocol.md` or `docs/protocol-v2-architecture.md`
   during implementation (a field doesn't fit, a message needs different framing, the threading
   assumption breaks somewhere), **update those docs**, don't just diverge silently — they're the
   source of truth other sessions (and the human maintainer) will read first.

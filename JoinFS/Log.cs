@@ -4,10 +4,11 @@ using System.Threading;
 using System.Text;
 using System.Net;
 using System.IO;
+using JoinFS.Net;
 
 namespace JoinFS
 {
-    public class Log
+    public class Log : IPeerPolicy
     {
         const string LOG_FILE = "log.dat";
 
@@ -110,10 +111,10 @@ namespace JoinFS
         /// </summary>
         /// <param name="nodeList">Node List</param>
         /// <param name="guid">Guid of node</param>
-        void AddToNodeList(NodeList nodeList, LocalNode.Nuid nuid)
+        void AddToNodeList(NodeList nodeList, NodeId nuid)
         {
             // get node Guid
-            Guid guid = main.network.GetNodeGuid(nuid);
+            Guid guid = main.network.Peers.GetNodeGuid(nuid);
             // check for valid guid
             if (guid.Equals(Guid.Empty) == false && nodeList.guidList.ContainsKey(guid) == false)
             {
@@ -121,7 +122,7 @@ namespace JoinFS
                 nodeList.guidList.Add(guid, false);
             }
             // get address
-            if (main.network.localNode.Connected && main.network.localNode.GetNodeEndPoint(nuid, out IPEndPoint endPoint) && nodeList.addressList.ContainsKey(endPoint.Address) == false)
+            if (main.network.Connected && main.network.Snapshot.Peer(nuid)?.EndPoint is IPEndPoint endPoint && nodeList.addressList.ContainsKey(endPoint.Address) == false)
             {
                 // add address to list
                 nodeList.addressList.Add(endPoint.Address, false);
@@ -162,10 +163,10 @@ namespace JoinFS
         /// </summary>
         /// <param name="nodeList">Node list</param>
         /// <param name="guid">Guid of node</param>
-        void RemoveFromNodeList(NodeList nodeList, LocalNode.Nuid nuid)
+        void RemoveFromNodeList(NodeList nodeList, NodeId nuid)
         {
             // get guid
-            Guid guid = main.network.GetNodeGuid(nuid);
+            Guid guid = main.network.Peers.GetNodeGuid(nuid);
             // check if in list
             if (nodeList.guidList.ContainsKey(guid))
             {
@@ -173,7 +174,7 @@ namespace JoinFS
                 nodeList.guidList.Remove(guid);
             }
             // get address
-            if (main.network.localNode.Connected && main.network.localNode.GetNodeEndPoint(nuid, out IPEndPoint endPoint))
+            if (main.network.Connected && main.network.Snapshot.Peer(nuid)?.EndPoint is IPEndPoint endPoint)
             {
                 if (nodeList.addressList.ContainsKey(endPoint.Address))
                 {
@@ -216,16 +217,16 @@ namespace JoinFS
         /// Check if node is in list
         /// </summary>
         /// <returns></returns>
-        bool InNodeList(NodeList nodeList, LocalNode.Nuid nuid)
+        bool InNodeList(NodeList nodeList, NodeId nuid)
         {
             // check for guid
-            if (nodeList.guidList.ContainsKey(main.network.GetNodeGuid(nuid)))
+            if (nodeList.guidList.ContainsKey(main.network.Peers.GetNodeGuid(nuid)))
             {
                 // is in list
                 return true;
             }
             // get address
-            if (main.network.localNode.Connected && main.network.localNode.GetNodeEndPoint(nuid, out IPEndPoint endPoint))
+            if (main.network.Connected && main.network.Snapshot.Peer(nuid)?.EndPoint is IPEndPoint endPoint)
             {
                 // check for address
                 if (nodeList.addressList.ContainsKey(endPoint.Address))
@@ -367,7 +368,7 @@ namespace JoinFS
         /// </summary>
         /// <param name="guid"></param>
         /// <param name="address"></param>
-        public void AddIgnoreNode(LocalNode.Nuid nuid)
+        public void AddIgnoreNode(NodeId nuid)
         {
             // add node to ignore list
             AddToNodeList(ignoreList, nuid);
@@ -406,7 +407,7 @@ namespace JoinFS
         /// </summary>
         /// <param name="guid"></param>
         /// <param name="address"></param>
-        public void RemoveIgnoreNode(LocalNode.Nuid nuid)
+        public void RemoveIgnoreNode(NodeId nuid)
         {
             // remove node from ignore list
             RemoveFromNodeList(ignoreList, nuid);
@@ -445,7 +446,7 @@ namespace JoinFS
         /// <param name="guid">Guid</param>
         /// <param name="address">Address</param>
         /// <returns>Should be ignored</returns>
-        public bool IgnoreNode(LocalNode.Nuid nuid)
+        public bool IgnoreNode(NodeId nuid)
         {
             // check list
             return InNodeList(ignoreList, nuid);
@@ -483,7 +484,7 @@ namespace JoinFS
         /// <summary>
         /// Share cockpit with a node
         /// </summary>
-        public void AddShareCockpit(LocalNode.Nuid nuid)
+        public void AddShareCockpit(NodeId nuid)
         {
             // add node to cockpit list
             AddToNodeList(shareCockpitList, nuid);
@@ -494,7 +495,7 @@ namespace JoinFS
         /// <summary>
         /// Stop sharing cockpit with a node
         /// </summary>
-        public void RemoveShareCockpit(LocalNode.Nuid nuid)
+        public void RemoveShareCockpit(NodeId nuid)
         {
             // remove node from cockpit list
             RemoveFromNodeList(shareCockpitList, nuid);
@@ -506,7 +507,7 @@ namespace JoinFS
         /// Check whether to share cockpit with node
         /// </summary>
         /// <param name="guid">Guid</param>
-        public bool ShareCockpit(LocalNode.Nuid nuid)
+        public bool ShareCockpit(NodeId nuid)
         {
             // check list
             return InNodeList(shareCockpitList, nuid);
@@ -614,7 +615,7 @@ namespace JoinFS
         /// <summary>
         /// Allow multiple objects with a node
         /// </summary>
-        public void AddMultipleObjects(LocalNode.Nuid nuid)
+        public void AddMultipleObjects(NodeId nuid)
         {
             // add node to multiple objects
             AddToNodeList(multipleObjectsList, nuid);
@@ -625,7 +626,7 @@ namespace JoinFS
         /// <summary>
         /// Stop allowing multiple objects with a node
         /// </summary>
-        public void RemoveMultipleObjects(LocalNode.Nuid nuid)
+        public void RemoveMultipleObjects(NodeId nuid)
         {
             // remove node from multiple objects list
             RemoveFromNodeList(multipleObjectsList, nuid);
@@ -637,7 +638,7 @@ namespace JoinFS
         /// Check whether to allow multiple objects with node
         /// </summary>
         /// <param name="guid">Guid</param>
-        public bool MultipleObjects(LocalNode.Nuid nuid)
+        public bool MultipleObjects(NodeId nuid)
         {
             // check list
             return InNodeList(multipleObjectsList, nuid);

@@ -1,12 +1,13 @@
 using System;
-using JoinFS.Jfp2;
-using JoinFS.Jfp2.Codecs;
+using JoinFS.Net.Jfp2;
+using JoinFS.Net.Jfp2.Codecs;
+using JoinFS.Net;
 using Xunit;
 
 namespace JoinFS.Tests.Jfp2
 {
     // Round-trip coverage for the first real application-partition codecs
-    // (docs/protocol-v2-implementation-plan.md Phase 2, docs/protocol-v2-design.md §6.4's "remaining
+    // (docs/protocol-v2-implementation-plan.md Phase 2, docs/reference/jfp2-protocol.md §6.4's "remaining
     // message classes" - Status is a mechanical one-to-one port with no new wire shape).
     public class StatusCodecTests
     {
@@ -174,7 +175,7 @@ namespace JoinFS.Tests.Jfp2
         [Fact]
         public void StatusAndStatusRequest_UseDistinctMessageClasses()
         {
-            // docs/protocol-v2-design.md's catalog only reserved one slot ("Status") for this
+            // docs/reference/jfp2-protocol.md's catalog only reserved one slot ("Status") for this
             // exchange; Phase 2 appended StatusRequest at the next free slot rather than overloading
             // one class - assert the two never collide.
             Assert.NotEqual(MessageClasses.Status, MessageClasses.StatusRequest);

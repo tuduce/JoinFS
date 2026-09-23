@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using JoinFS.Net;
 using System.Net;
 #if !CONSOLE
 using System.Windows.Forms;
@@ -129,15 +130,15 @@ namespace JoinFS
                             entry.address = address;
 #if NO_HUBS
                             // use entry address
-                            main.network.MakeEndPoint(Network.DecodeIP(entry.address), Network.DEFAULT_PORT, out entry.endPoint);
+                            main.network.Bootstrap.MakeEndPoint(AddressCodec.DecodeIP(entry.address), Network.DEFAULT_PORT, out entry.endPoint);
 #else
                             // set uuid
-                            entry.uuid = Network.MakeUuid(address);
+                            entry.uuid = UserDirectory.MakeUuid(address);
                             // check if not uuid
                             if (entry.uuid == 0 && entry.address.Contains("."))
                             {
                                 // attempt to make endpoint
-                                main.network.MakeEndPoint(address, Network.DEFAULT_PORT, out entry.endPoint);
+                                main.network.Bootstrap.MakeEndPoint(address, Network.DEFAULT_PORT, out entry.endPoint);
                             }
 #endif
                             // add to list

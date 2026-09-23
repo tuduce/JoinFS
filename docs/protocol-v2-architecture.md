@@ -1,11 +1,17 @@
 # JFP2 Implementation Architecture — Diagrams
 
-This document is a companion to `docs/protocol-v2-design.md` (the protocol specification and
+> **Superseded (2026-09-23).** The code structure described below (JFP2 hooked into `Node.cs`/`Network.cs`, `LocalNode.jfp2Sessions`, the `Jfp2Bridge` placeholder) was replaced by the pluggable networking architecture in **`docs/network-plugin-architecture.md`**.
+> - JFP2 is now `JoinFS/Net/Protocols/Jfp2/Jfp2Plugin.cs`, next to a `LegacyPlugin`, under a protocol-neutral `NetworkCore` that runs on its own thread.
+> - Translation between protocols is generic (§2.6 there).
+>
+> The wire-format and sequence diagrams here are still accurate for JFP2 itself; the component and file-layout sections are historical.
+
+This document is a companion to `docs/reference/jfp2-protocol.md` (the protocol specification and
 rationale) and `docs/protocol-changes-v26.4-v26.5.md`/`docs/recording-protocol.md` (the prior audits
 that motivated it). It does not repeat the wire-format spec or the reasoning behind it — see those
 documents for that — it only diagrams **how JFP2 would be structured as code inside `JoinFS/`** and
 how the pieces talk to each other at runtime. Section numbers in parentheses (e.g. "§5.3") refer to
-`docs/protocol-v2-design.md`.
+`docs/reference/jfp2-protocol.md`.
 
 ## 1. Process-level component diagram (every build variant)
 
@@ -81,7 +87,7 @@ Two things this diagram is meant to make concrete:
 | `JoinFS/Jfp2/Codecs/IdentityCodec.cs` | New | `IdentityUpdate`, `IdentityV1Codec` (§6.2). |
 | `JoinFS/Jfp2/Codecs/VariableSyncCodec.cs` | New | `VariableKind`, `VariableEntry`, `VariableSyncUpdate`, `VariableSyncV1Codec` (§6.3, §6.5). |
 | `JoinFS/Jfp2/Codecs/*` (Event/FlightPlan/Notes/Weather/Status) | New | Mechanical `v1` ports per §6.4, one file each following the same pattern. |
-| `JoinFS/Jfp2/Jfp2Bridge.cs` | New, **hub role only** — currently an empty reserved class, not yet instantiated by anything | Per-object identity/variable cache and the decode-then-re-encode translation described in §7.7, for Tier 2 (differing JFP2 schema versions) and Tier 3 (JFP2↔legacy). **Not needed for the common case**: when both legs already agree on the same JFP2 schema version for a class (Tier 1 — implemented, see `docs/protocol-v2-implementation-plan.md` Phase 6), `LocalNode.RelayForwardedJfp2Datagram` forwards the datagram byte-for-byte, the same way the legacy `FLAG_FORWARD` relay works, without ever touching this class. The diagrams below predate that finding and still show the original "always decode via Jfp2Bridge" model — treat them as describing Tier 2/3 only; see Phase 6 for what Tier 1 actually does. |
+| `JoinFS/Jfp2/Jfp2Bridge.cs` | Empty reserved class, not instantiated by anything — see its own comment | The decode-then-re-encode translation described in §7.7 is implemented for Tier 3 (JFP2→legacy, Position and VariableSync — see `docs/protocol-v2-implementation-plan.md` Phase 7), but lives in `Network.cs` (`HandleJfp2TranslateToLegacy` and its per-class helpers, plus the `jfp2BridgeIdentityCache` field) rather than in this class, matching where every sibling JFP2 per-object cache already lives. Tier 1 (both legs already agree on the same JFP2 schema version — the common case, Phase 6) needs no decode/re-encode at all: `LocalNode.RelayForwardedJfp2Datagram` forwards the datagram byte-for-byte, the same way the legacy `FLAG_FORWARD` relay works, without touching any per-object state. Tier 2 (differing JFP2 schema versions) and the reverse Tier 3 direction (legacy→JFP2) remain unimplemented. The diagrams below predate all of this and still show the original "always decode via Jfp2Bridge" model — treat them as illustrating the general decode/re-encode idea only, not the actual class structure; see Phases 6-7 for what's actually built and where. |
 
 `PeerSession` instances are keyed the same way `Node.cs` already keys its own per-neighbor state
 (by `Nuid`/`IPEndPoint`), so JFP2 state rides alongside the existing mesh bookkeeping rather than

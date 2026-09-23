@@ -3,6 +3,7 @@ using System.Windows.Forms;
 using System.IO;
 using System.Drawing;
 using JoinFS.Properties;
+using JoinFS.Net;
 
 namespace JoinFS
 {
@@ -328,15 +329,15 @@ namespace JoinFS
         private void Context_Monitor_Node_Click(object sender, EventArgs e)
         {
             main.MonitorEvent("== NODE STATS ==");
-            main.MonitorEvent("Session ID : " + main.network.localNode.Suid);
-            main.MonitorEvent("Node Count : " + main.network.localNode.NodeCount);
-            main.MonitorEvent("Routing Nodes : " + main.network.localNode.RoutingNodeCount);
-            main.MonitorEvent("Guaranteed Incoming : " + main.network.localNode.GuaranteedInCount);
-            main.MonitorEvent("Guaranteed Outgoing : " + main.network.localNode.GuaranteedOutCount);
+            main.MonitorEvent("Session ID : " + main.network.Snapshot.Suid);
+            main.MonitorEvent("Node Count : " + main.network.Snapshot.PeerCount);
+            main.MonitorEvent("Routing Nodes : " + main.network.Snapshot.RelayCount);
+            main.MonitorEvent("Guaranteed Incoming : " + main.network.Snapshot.GuaranteedInCount);
+            main.MonitorEvent("Guaranteed Outgoing : " + main.network.Snapshot.GuaranteedOutCount);
             // check for hub
             if (main.settingsHub)
             {
-                main.MonitorEvent("Online Users : " + main.network.OnlineUserCount);
+                main.MonitorEvent("Online Users : " + main.network.Users.OnlineUserCount);
             }
             RefreshWindow();
         }

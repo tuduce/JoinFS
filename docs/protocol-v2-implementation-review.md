@@ -5,7 +5,7 @@
 Independent review of the **actual code** under `JoinFS/Jfp2/` and the JFP2 call sites in
 `JoinFS/Node.cs`/`JoinFS/Network.cs`, as they stand after
 `docs/protocol-v2-implementation-plan.md` Phases 0–5 (commit `83ae480`, 2026-09-14). This is not a
-review of the design (`docs/protocol-v2-design.md`) or of `ProtocolV2Reference/` in isolation — it
+review of the design (`docs/reference/jfp2-protocol.md`) or of `ProtocolV2Reference/` in isolation — it
 is a field-by-field audit of what was actually built, followed by a rollout-readiness verdict.
 
 Verified before writing this: `cd JoinFS.Tests && dotnet test --filter "FullyQualifiedName~Jfp2" -c

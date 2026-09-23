@@ -6,6 +6,7 @@ using System.IO;
 using System.Windows.Forms;
 #endif
 using JoinFS.Properties;
+using JoinFS.Net;
 
 
 namespace JoinFS
@@ -15,6 +16,14 @@ namespace JoinFS
     /// </summary>
     public class Recorder
     {
+        /// <summary>
+        /// Version written into .jfs recordings, and the newest this build reads. It used to be the
+        /// network data version (Sim.VERSION), so any wire change bumped recordings too; the legacy
+        /// wire now has its own (JoinFS.Net.Legacy.LegacyWire.DataVersion) and this changes only when
+        /// the recording format does. Same value as before, so files are unchanged.
+        /// </summary>
+        public const short FileVersion = 21008;
+
         /// <summary>
         /// Reference to the main form
         /// </summary>
@@ -1108,7 +1117,7 @@ namespace JoinFS
                             // plane
                             Sim.Aircraft simAircraft = simObject as Sim.Aircraft;
                             // create recorded aircraft
-                            simObject.recorderObj = new Aircraft(simAircraft is Sim.Plane, simAircraft.flightPlan.callsign, main.network.GetNodeName(simAircraft.ownerNuid), simAircraft.ownerModel, simAircraft.ownerLivery, simAircraft.ownerIcaoType, simAircraft.ownerIcaoAirline, simAircraft.typerole, simAircraft.owner);
+                            simObject.recorderObj = new Aircraft(simAircraft is Sim.Plane, simAircraft.flightPlan.callsign, main.network.Peers.GetNodeName(simAircraft.ownerNuid), simAircraft.ownerModel, simAircraft.ownerLivery, simAircraft.ownerIcaoType, simAircraft.ownerIcaoAirline, simAircraft.typerole, simAircraft.owner);
                         }
                         else
                         {
@@ -1136,7 +1145,7 @@ namespace JoinFS
                         aircraftCount++;
                     }
                 }
-                main.MonitorEvent("Recorder: start recording " + objList.Count + " objects (" + aircraftCount + " aircraft). SimConnected=" + main.sim.Connected + ", NetworkConnected=" + main.network.localNode.Connected + ".");
+                main.MonitorEvent("Recorder: start recording " + objList.Count + " objects (" + aircraftCount + " aircraft). SimConnected=" + main.sim.Connected + ", NetworkConnected=" + main.network.Connected + ".");
 
                 // now recording
                 recording = true;
@@ -1176,7 +1185,7 @@ namespace JoinFS
                 obj.StopPlaying();
 
                 // remove recorded object from sim
-                main.sim ?. RemoveObject(new LocalNode.Nuid(), obj.id);
+                main.sim ?. RemoveObject(new NodeId(), obj.id);
             }
 
             // check state
@@ -1188,7 +1197,7 @@ namespace JoinFS
                 int variableCount = recordFrameCounts.GetValueOrDefault(FrameType.IntegerVariables) + recordFrameCounts.GetValueOrDefault(FrameType.FloatVariables) + recordFrameCounts.GetValueOrDefault(FrameType.String8Variables);
                 if (positionCount == 0 && variableCount > 0)
                 {
-                    main.MonitorEvent("Recorder: warning - captured variable frames but no position frames. SimConnected=" + main.sim.Connected + ", NetworkConnected=" + main.network.localNode.Connected + ".");
+                    main.MonitorEvent("Recorder: warning - captured variable frames but no position frames. SimConnected=" + main.sim.Connected + ", NetworkConnected=" + main.network.Connected + ".");
                 }
 
                 if (recordSimErrorCount > 0)
@@ -1240,7 +1249,7 @@ namespace JoinFS
                 if (main.sim != null)
                 {
                     // remove recorded object from sim
-                    main.sim.RemoveObject(new LocalNode.Nuid(), obj.id);
+                    main.sim.RemoveObject(new NodeId(), obj.id);
 
                     // for each object in the sim
                     foreach (var simObject in main.sim.objectList)
@@ -1284,7 +1293,7 @@ namespace JoinFS
                     if (obj.playing)
                     {
                         // update pause state
-                        main.sim ?. PauseObject(new LocalNode.Nuid(), obj.id, false);
+                        main.sim ?. PauseObject(new NodeId(), obj.id, false);
                     }
                 }
 
@@ -1307,7 +1316,7 @@ namespace JoinFS
                     if (obj.playing)
                     {
                         // update pause state
-                        main.sim ?. PauseObject(new LocalNode.Nuid(), obj.id, true);
+                        main.sim ?. PauseObject(new NodeId(), obj.id, true);
                     }
                 }
             }
@@ -1366,15 +1375,15 @@ namespace JoinFS
                             // recordings don't currently capture classCode/wtc (a Phase 3 network-only
                             // addition) - pass empty/unconfirmed so replay falls back to local re-derivation
                             // from icaoType, same as before this feature existed
-                            main.sim ?. UpdateAircraft(new LocalNode.Nuid(), obj.id, false, aircraft.plane, aircraft.callsign, "", aircraft.nickname, aircraft.model, aircraft.livery, aircraft.icaoType, aircraft.icaoAirline, "", "", "", false, aircraft.typerole, recentFrame.time, ref (recentFrame as AircraftPositionFrame).data);
+                            main.sim ?. UpdateAircraft(new NodeId(), obj.id, false, aircraft.plane, aircraft.callsign, "", aircraft.nickname, aircraft.model, aircraft.livery, aircraft.icaoType, aircraft.icaoAirline, "", "", "", false, aircraft.typerole, recentFrame.time, ref (recentFrame as AircraftPositionFrame).data);
                         }
                         else
                         {
                             // update position
-                            main.sim?.UpdateObject(new LocalNode.Nuid(), obj.id, obj.model, obj.livery, obj.icaoType, obj.icaoAirline, "", "", false, obj.typerole, recentFrame.time, ref (recentFrame as ObjectPositionFrame).data);
+                            main.sim?.UpdateObject(new NodeId(), obj.id, obj.model, obj.livery, obj.icaoType, obj.icaoAirline, "", "", false, obj.typerole, recentFrame.time, ref (recentFrame as ObjectPositionFrame).data);
                         }
                         // reset object
-                        main.sim ?. ResetObject(new LocalNode.Nuid(), obj.id);
+                        main.sim ?. ResetObject(new NodeId(), obj.id);
                     }
                 }
             }
@@ -1534,7 +1543,7 @@ namespace JoinFS
                     double t = Blend(from, to, time);
                     Vector angles = InterpolateAngles(obj, from.data.pitch, from.data.heading, from.data.bank, to.data.pitch, to.data.heading, to.data.bank, t);
                     Sim.AircraftPosition data = Interpolate(from, to, t, angles);
-                    main.sim?.UpdateAircraft(new LocalNode.Nuid(), obj.id, false, aircraft.plane, aircraft.callsign, "", aircraft.nickname, aircraft.model, aircraft.livery, aircraft.icaoType, aircraft.icaoAirline, "", "", "", false, aircraft.typerole, time, ref data);
+                    main.sim?.UpdateAircraft(new NodeId(), obj.id, false, aircraft.plane, aircraft.callsign, "", aircraft.nickname, aircraft.model, aircraft.livery, aircraft.icaoType, aircraft.icaoAirline, "", "", "", false, aircraft.typerole, time, ref data);
                 }
             }
             else
@@ -1546,7 +1555,7 @@ namespace JoinFS
                     double t = Blend(from, to, time);
                     Vector angles = InterpolateAngles(obj, from.data.pitch, from.data.heading, from.data.bank, to.data.pitch, to.data.heading, to.data.bank, t);
                     Sim.ObjectPositionVelocity data = Interpolate(from, to, t, angles);
-                    main.sim?.UpdateObject(new LocalNode.Nuid(), obj.id, obj.model, obj.livery, obj.icaoType, obj.icaoAirline, "", "", false, obj.typerole, time, ref data);
+                    main.sim?.UpdateObject(new NodeId(), obj.id, obj.model, obj.livery, obj.icaoType, obj.icaoAirline, "", "", false, obj.typerole, time, ref data);
                 }
             }
         }
@@ -1569,7 +1578,7 @@ namespace JoinFS
                         if (paused)
                         {
                             // touch object
-                            main.sim ?. TouchObject(new LocalNode.Nuid(), obj.id);
+                            main.sim ?. TouchObject(new NodeId(), obj.id);
                         }
                         else
                         {
@@ -1591,16 +1600,16 @@ namespace JoinFS
                                     case FrameType.AircraftPosition:
                                         break;
                                     case FrameType.SimEvent:
-                                        main.sim ?. UpdateAircraft(new LocalNode.Nuid(), obj.id, (frame as SimEventFrame).eventId, (frame as SimEventFrame).data, true);
+                                        main.sim ?. UpdateAircraft(new NodeId(), obj.id, (frame as SimEventFrame).eventId, (frame as SimEventFrame).data, true);
                                         break;
                                     case FrameType.IntegerVariables:
-                                        main.sim ?. UpdateAircraft(new LocalNode.Nuid(), obj.id, (frame as IntegerVariablesFrame).variables);
+                                        main.sim ?. UpdateAircraft(new NodeId(), obj.id, (frame as IntegerVariablesFrame).variables);
                                         break;
                                     case FrameType.FloatVariables:
-                                        main.sim ?. UpdateAircraft(new LocalNode.Nuid(), obj.id, (frame as FloatVariablesFrame).variables);
+                                        main.sim ?. UpdateAircraft(new NodeId(), obj.id, (frame as FloatVariablesFrame).variables);
                                         break;
                                     case FrameType.String8Variables:
-                                        main.sim ?. UpdateAircraft(new LocalNode.Nuid(), obj.id, (frame as String8VariablesFrame).variables);
+                                        main.sim ?. UpdateAircraft(new NodeId(), obj.id, (frame as String8VariablesFrame).variables);
                                         break;
                                 }
                                 // next frame
@@ -1616,7 +1625,7 @@ namespace JoinFS
                                 // stop aircraft
                                 obj.StopPlaying();
                                 // remove recorded object from sim
-                                main.sim ?. RemoveObject(new LocalNode.Nuid(), obj.id);
+                                main.sim ?. RemoveObject(new NodeId(), obj.id);
                             }
                         }
                     }
@@ -1638,7 +1647,7 @@ namespace JoinFS
                             // plane
                             Sim.Aircraft simAircraft = simObject as Sim.Aircraft;
                             // create recorded aircraft
-                            simObject.recorderObj = new Aircraft(simAircraft is Sim.Plane, simAircraft.flightPlan.callsign, main.network.GetNodeName(simAircraft.ownerNuid), simAircraft.ownerModel, simAircraft.ownerLivery, simAircraft.ownerIcaoType, simAircraft.ownerIcaoAirline, simAircraft.typerole, simAircraft.owner);
+                            simObject.recorderObj = new Aircraft(simAircraft is Sim.Plane, simAircraft.flightPlan.callsign, main.network.Peers.GetNodeName(simAircraft.ownerNuid), simAircraft.ownerModel, simAircraft.ownerLivery, simAircraft.ownerIcaoType, simAircraft.ownerIcaoAirline, simAircraft.typerole, simAircraft.owner);
                         }
                         else
                         {
@@ -1674,7 +1683,7 @@ namespace JoinFS
         public void Write(BinaryWriter writer)
         {
             // write header
-            writer.Write(Sim.VERSION);
+            writer.Write(FileVersion);
             // count aircraft
             int aircraftCount = 0;
             // for each object

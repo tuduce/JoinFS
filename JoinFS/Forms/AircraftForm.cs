@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using System.Drawing;
 using JoinFS.Properties;
 using System.Linq;
+using JoinFS.Net;
 
 namespace JoinFS
 {
@@ -16,7 +17,7 @@ namespace JoinFS
         /// </summary>
         class Item
         {
-            public LocalNode.Nuid nuid;
+            public NodeId nuid;
             public uint netId = 0;
             public uint simId = 0;
             public Guid guid = Guid.Empty;
@@ -55,7 +56,7 @@ namespace JoinFS
             public double speed = 0.0;
             public bool showOnRadar = true;
 
-            public Item(Guid guid, LocalNode.Nuid nuid, uint netId, uint simId)
+            public Item(Guid guid, NodeId nuid, uint netId, uint simId)
             {
                 this.nuid = nuid;
                 this.netId = netId;
@@ -201,7 +202,7 @@ namespace JoinFS
         void AddAircraft(Sim.Aircraft aircraft)
         {
             // get guid
-            Guid guid = main.network.GetNodeGuid(aircraft.ownerNuid);
+            Guid guid = main.network.Peers.GetNodeGuid(aircraft.ownerNuid);
             // check for existing aircraft
             if (aircraft.owner != Sim.Obj.Owner.Network || itemList.Exists(u => u.nuid.Equals(aircraft.ownerNuid) && u.netId == aircraft.netId) == false)
             {
@@ -225,7 +226,7 @@ namespace JoinFS
                 }
 
                 // get nickname
-                item.nickname = main.network.GetNodeName(aircraft.ownerNuid);
+                item.nickname = main.network.Peers.GetNodeName(aircraft.ownerNuid);
                 // check for AI
                 if (aircraft.user == false)
                 {
@@ -285,7 +286,7 @@ namespace JoinFS
                 // original model
                 item.original = aircraft.ownerModel;
                 // get simulator
-                item.simulator = main.network.GetNodeSimulator(aircraft.ownerNuid);
+                item.simulator = main.network.Peers.GetNodeSimulator(aircraft.ownerNuid);
                 // weather
                 item.weather = aircraft == main.sim ?. weatherAircraft;
                 // broadcast
@@ -386,7 +387,7 @@ namespace JoinFS
         /// Add Hub user
         /// </summary>
         /// <param name="user"></param>
-        void AddAircraft(Network.HubUser user)
+        void AddAircraft(HubDirectory.HubUser user)
         {
             // check for existing user
             if (itemList.Exists(u => u.guid.Equals(user.guid)) == false)
@@ -494,7 +495,7 @@ namespace JoinFS
         /// <summary>
         /// temporary user list
         /// </summary>
-        List<Network.HubUser> tempHubUserList = [];
+        List<HubDirectory.HubUser> tempHubUserList = [];
 
         /// <summary>
         /// Refresh window
@@ -568,7 +569,7 @@ namespace JoinFS
                 if (Settings.Default.IncludeGlobalAircraft)
                 {
                     // for each hub
-                    foreach (var hub in main.network.hubList)
+                    foreach (var hub in main.network.Hubs.List)
                     {
                         // check if hub is the one already connected to
                         if (hub.endPoint.Equals(main.network.joinEndPoint) == false)

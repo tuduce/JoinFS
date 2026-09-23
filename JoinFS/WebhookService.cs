@@ -39,7 +39,7 @@ namespace JoinFS
                 {
                     if (obj is not Sim.Aircraft aircraft) continue;
 
-                    Guid guid = main.network.GetNodeGuid(aircraft.ownerNuid);
+                    Guid guid = main.network.Peers.GetNodeGuid(aircraft.ownerNuid);
                     if (guid == Guid.Empty) guid = new Guid(aircraft.simId, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
                     string com1 = "", com2 = "";
@@ -63,7 +63,7 @@ namespace JoinFS
                         changed.Add(new
                         {
                             callsign = aircraft.flightPlan.callsign,
-                            nickname = main.network.GetNodeName(aircraft.ownerNuid),
+                            nickname = main.network.Peers.GetNodeName(aircraft.ownerNuid),
                             com1,
                             com2
                         });

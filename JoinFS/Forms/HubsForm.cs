@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using System.Net;
 using System.Globalization;
 using JoinFS.Properties;
+using JoinFS.Net;
 
 namespace JoinFS
 {
@@ -23,7 +24,7 @@ namespace JoinFS
         {
             public string name;
             public Guid guid;
-            public LocalNode.Nuid nuid;
+            public NodeId nuid;
             public string status;
             public bool online;
             public string addressText;
@@ -39,7 +40,7 @@ namespace JoinFS
             public string version;
             public int versionValue;
 
-            public Item(string name, Guid guid, LocalNode.Nuid nuid, string status, bool online, string addressText, IPEndPoint endPoint, int users, int aircraft, string atcAirport, string nextEvent, string voip, string about, bool save, bool ignore, string version)
+            public Item(string name, Guid guid, NodeId nuid, string status, bool online, string addressText, IPEndPoint endPoint, int users, int aircraft, string atcAirport, string nextEvent, string voip, string about, bool save, bool ignore, string version)
             {
                 this.name = name;
                 this.guid = guid;
@@ -206,7 +207,7 @@ namespace JoinFS
             // selected item
             Item selectedItem = GetSelectedItem();
             // save nuid
-            LocalNode.Nuid selectedNuid = (selectedItem != null) ? selectedItem.nuid : new LocalNode.Nuid();
+            NodeId selectedNuid = (selectedItem != null) ? selectedItem.nuid : new NodeId();
 
             // clear list
             itemList.Clear();
@@ -238,18 +239,18 @@ namespace JoinFS
                     }
 
                     // get main ATC
-                    int atcCount = main.network.GetMainAtc(out string atcAirport, out int atcLevel);
+                    int atcCount = main.network.Peers.GetMainAtc(out string atcAirport, out int atcLevel);
 
                     // status
-                    string status = main.network.localNode.Password ? Resources.Strings.Password : main.network.localNode.GlobalSession ? "Global" : "Online";
+                    string status = main.network.Snapshot.PasswordProtected ? Resources.Strings.Password : main.network.Snapshot.GlobalSession ? "Global" : "Online";
 
                     // add row
-                    Item item = new(main.settingsHubName, main.guid, main.network.localNode.GetLocalNuid(), status, true, "", null, main.network.localUserList.Count, aircraft, atcAirport, main.settingsHubEvent, main.settingsHubVoip, main.settingsHubAbout, false, false, Main.Version);
+                    Item item = new(main.settingsHubName, main.guid, main.network.LocalId, status, true, "", null, main.network.HubHost.LocalUsers.Count, aircraft, atcAirport, main.settingsHubEvent, main.settingsHubVoip, main.settingsHubAbout, false, false, Main.Version);
                     itemList.Add(item);
                 }
 
                 // for each hub
-                foreach (var hub in main.network.hubList)
+                foreach (var hub in main.network.Hubs.List)
                 {
                     // check for valid hub 
                     if (hub.nuid.Valid())
@@ -479,7 +480,7 @@ namespace JoinFS
                         case 5:
                             {
                                 // find address book entry
-                                AddressBook.AddressBookEntry entry = main.addressBook.entries.Find(f => f.uuid == Network.MakeUuid(item.guid));
+                                AddressBook.AddressBookEntry entry = main.addressBook.entries.Find(f => f.uuid == UserDirectory.MakeUuid(item.guid));
 
                                 // check for existing entry
                                 if (entry != null)
@@ -515,9 +516,9 @@ namespace JoinFS
                                         if (entry.name.Length > 0)
                                         {
                                             // set uuid
-                                            entry.uuid = Network.MakeUuid(item.guid);
+                                            entry.uuid = UserDirectory.MakeUuid(item.guid);
                                             // set address
-                                            entry.address = Network.UuidToString(entry.uuid);
+                                            entry.address = UserDirectory.UuidToString(entry.uuid);
                                             // check for end point
                                             if (item.endPoint != null)
                                             {

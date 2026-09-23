@@ -7,6 +7,7 @@ using System.IO;
 using System.Globalization;
 using System.Threading.Tasks;
 using JoinFS.Properties;
+using JoinFS.Net;
 
 
 
@@ -767,7 +768,7 @@ namespace JoinFS
             public float prevDelay = 0.0f;
 
             public Owner owner = Owner.Me;
-            public LocalNode.Nuid ownerNuid;
+            public NodeId ownerNuid;
             public uint netId = uint.MaxValue;
             public uint simId = uint.MaxValue;
             /// <summary>
@@ -896,7 +897,7 @@ namespace JoinFS
             /// </summary>
             /// <param name="ownerGuid">Node</param>
             /// <param name="netId">Network ID</param>
-            public Obj(LocalNode.Nuid ownerNuid, uint netId)
+            public Obj(NodeId ownerNuid, uint netId)
             {
                 // owner of the object
                 this.owner = ownerNuid.Invalid() ? Owner.Recorder : Owner.Network;
@@ -1038,10 +1039,10 @@ namespace JoinFS
                 RemoveIntervalMask(obj);
 
                 // check if local object
-                if (IsBroadcast(obj) && main.network.localNode.Connected)
+                if (IsBroadcast(obj) && main.network.Connected)
                 {
                     // notify session
-                    main.network.SendRemoveObjectMessage(obj.netId);
+                    main.network.SimSender.SendRemoveObjectMessage(obj.netId);
                 }
 
                 // stop variable requests
@@ -1065,7 +1066,7 @@ namespace JoinFS
         /// Remove all objects belonging to a node
         /// </summary>
         /// <param name="ownerGuid">Node</param>
-        public void RemoveObject(LocalNode.Nuid ownerNuid)
+        public void RemoveObject(NodeId ownerNuid)
         {
             // for all objects
             foreach (Obj obj in objectList)
@@ -1085,7 +1086,7 @@ namespace JoinFS
         /// Remove all objects belonging to a specific node object
         /// </summary>
         /// <param name="ownerGuid">Node</param>
-        public void RemoveObject(LocalNode.Nuid ownerNuid, uint netId)
+        public void RemoveObject(NodeId ownerNuid, uint netId)
         {
             // for all objects
             foreach (Obj obj in objectList)
@@ -1105,7 +1106,7 @@ namespace JoinFS
         /// Remove all objects belonging to a node
         /// </summary>
         /// <param name="ownerGuid">Node</param>
-        public void RemoveObjectsFromSim(LocalNode.Nuid ownerNuid)
+        public void RemoveObjectsFromSim(NodeId ownerNuid)
         {
             // for all objects
             foreach (Obj obj in objectList)
@@ -1245,7 +1246,7 @@ namespace JoinFS
         /// </summary>
         /// <param name="ownerGuid">Owner guid</param>
         /// <param name="netId">Network ID</param>
-        public void ResetObject(LocalNode.Nuid ownerNuid, uint netId)
+        public void ResetObject(NodeId ownerNuid, uint netId)
         {
             // get object
             ResetObject(objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId));
@@ -1423,7 +1424,7 @@ namespace JoinFS
         /// <param name="ownerGuid">Owner of the object</param>
         /// <param name="netId">Owner's sim ID</param>
         /// <param name="engine">Aircraft engine</param>
-        public Obj UpdateObject(LocalNode.Nuid ownerNuid, uint netId, string model, string livery, string icaoType, string icaoAirline, string classCode, string wtc, bool classCodeConfirmed, int typerole, double netTime, ref ObjectPositionVelocity positionVelocity)
+        public Obj UpdateObject(NodeId ownerNuid, uint netId, string model, string livery, string icaoType, string icaoAirline, string classCode, string wtc, bool classCodeConfirmed, int typerole, double netTime, ref ObjectPositionVelocity positionVelocity)
         {
             // get object
             Obj obj = objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId);
@@ -1480,7 +1481,7 @@ namespace JoinFS
         /// <param name="ownerNuid">Owner ID</param>
         /// <param name="netId">Network ID</param>
         /// <param name="pause">Pause state</param>
-        public void PauseObject(LocalNode.Nuid ownerNuid, uint netId, bool pause)
+        public void PauseObject(NodeId ownerNuid, uint netId, bool pause)
         {
             // check for valid object
             if (objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is not null) is Obj obj)
@@ -1495,7 +1496,7 @@ namespace JoinFS
         /// </summary>
         /// <param name="ownerNuid">Owner ID</param>
         /// <param name="netId">Network ID</param>
-        public void TouchObject(LocalNode.Nuid ownerNuid, uint netId)
+        public void TouchObject(NodeId ownerNuid, uint netId)
         {
             // check for valid object
             if (objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is not null) is Obj obj)
@@ -1553,7 +1554,7 @@ namespace JoinFS
                             // Previous delay is a property of a node, but assigning it to the object
                             // makes for quicker access to the value. Ugly, but it here time matters.
                             float prevDelay = obj.prevDelay;
-                            delay = main.network.localNode.GetNodeRTT(obj.ownerNuid);
+                            delay = main.network.GetNodeRTT(obj.ownerNuid);
                             float alpha = 0.75f;
                             delay = alpha * delay + (1.0f - alpha) * prevDelay;
                             obj.prevDelay = delay;
@@ -1647,7 +1648,7 @@ namespace JoinFS
         Obj GetControlledObject(Obj obj)
         {
             // check for entered aircraft
-            if (userAircraft != null && (obj == enteredAircraft || userAircraft.remoteFlightControl && obj.ownerNuid == main.network.shareFlightControls && obj is Aircraft && (obj as Aircraft).user))
+            if (userAircraft != null && (obj == enteredAircraft || userAircraft.remoteFlightControl && obj.ownerNuid == main.network.Peers.shareFlightControls && obj is Aircraft && (obj as Aircraft).user))
             {
                 // control user aircraft instead
                 return userAircraft;
@@ -1879,7 +1880,7 @@ namespace JoinFS
             /// </summary>
             /// <param name="ownerGuid">Node</param>
             /// <param name="netId">Network ID</param>
-            public Aircraft(LocalNode.Nuid ownerNuid, uint netId) : base(ownerNuid, netId)
+            public Aircraft(NodeId ownerNuid, uint netId) : base(ownerNuid, netId)
             {
             }
 
@@ -1943,7 +1944,7 @@ namespace JoinFS
             /// </summary>
             /// <param name="ownerGuid">Node</param>
             /// <param name="netId">Network ID</param>
-            public Plane(LocalNode.Nuid ownerNuid, uint netId) : base(ownerNuid, netId) { }
+            public Plane(NodeId ownerNuid, uint netId) : base(ownerNuid, netId) { }
         }
 
         /// <summary>
@@ -1964,7 +1965,7 @@ namespace JoinFS
             /// </summary>
             /// <param name="ownerGuid">Node</param>
             /// <param name="netId">Network ID</param>
-            public Helicopter(LocalNode.Nuid ownerNuid, uint netId) : base(ownerNuid, netId) { }
+            public Helicopter(NodeId ownerNuid, uint netId) : base(ownerNuid, netId) { }
         }
 
         /// <summary>
@@ -1990,7 +1991,7 @@ namespace JoinFS
             /// </summary>
             /// <param name="ownerGuid">Node</param>
             /// <param name="netId">Network ID</param>
-            public Boat(LocalNode.Nuid ownerNuid, uint netId) : base(ownerNuid, netId) { }
+            public Boat(NodeId ownerNuid, uint netId) : base(ownerNuid, netId) { }
         }
 
         /// <summary>
@@ -2011,7 +2012,7 @@ namespace JoinFS
             /// </summary>
             /// <param name="ownerGuid">Node</param>
             /// <param name="netId">Network ID</param>
-            public Vehicle(LocalNode.Nuid ownerNuid, uint netId) : base(ownerNuid, netId) { }
+            public Vehicle(NodeId ownerNuid, uint netId) : base(ownerNuid, netId) { }
         }
 
         /// <summary>
@@ -2223,7 +2224,7 @@ namespace JoinFS
 
 #if XPLANE || CONSOLE
                     // update simulator
-                    xplane.UpdateAircraft(aircraft.simId, aircraft.user, main.network.GetNodeName(aircraft.ownerNuid), aircraft.flightPlan.callsign, aircraft.subModel, aircraft.flightPlan.icaoType);
+                    xplane.UpdateAircraft(aircraft.simId, aircraft.user, main.network.Peers.GetNodeName(aircraft.ownerNuid), aircraft.flightPlan.callsign, aircraft.subModel, aircraft.flightPlan.icaoType);
                     xplane.UpdateAircraft(aircraft.simId, (float)aircraft.distance, netTime, aircraftPosition);
 #endif
                 }
@@ -2275,7 +2276,7 @@ namespace JoinFS
         /// <param name="ownerGuid">Owner of the aircraft</param>
         /// <param name="netId">Owner's sim ID</param>
         /// <param name="engine">Aircraft engine</param>
-        public Aircraft UpdateAircraft(LocalNode.Nuid ownerNuid, uint netId, bool user, bool plane, string callsign, string registration, string nickname, string model, string livery, string icaoType, string icaoAirline, string flightNumber, string classCode, string wtc, bool classCodeConfirmed, int typerole, double netTime, ref AircraftPosition aircraftPosition)
+        public Aircraft UpdateAircraft(NodeId ownerNuid, uint netId, bool user, bool plane, string callsign, string registration, string nickname, string model, string livery, string icaoType, string icaoAirline, string flightNumber, string classCode, string wtc, bool classCodeConfirmed, int typerole, double netTime, ref AircraftPosition aircraftPosition)
         {
             // check for valid aircraft
             if ((objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId) is not Aircraft aircraft))
@@ -2321,21 +2322,8 @@ namespace JoinFS
                         " senderStaticCgToGround=" + (aircraftPosition.staticCgToGround * 0.3048).ToString("F2") + "m" +
                         " netTime=" + netTime.ToString("F1"));
                 }
-                // create message (prepared once, reused for every peer that ends up on the legacy
-                // path below - unchanged from before)
-                main.network.WriteAircraftPositionMessage(aircraft.netId, netTime, aircraft, ref aircraftPosition);
-                // one send per connected peer instead of one legacy Broadcast() call, so each peer can
-                // independently get JFP2 Position (if negotiated) or the unchanged legacy message -
-                // wire-identical to the old broadcast for any peer that ends up on the legacy path
-                // (docs/protocol-v2-implementation-plan.md Phase 4; same split-send pattern already
-                // used for Identity/VariableSync in Phase 3)
-                foreach (var relayNuid in main.network.localNode.GetNodeList())
-                {
-                    if (!main.network.SendJfp2Position(relayNuid, aircraft, ref aircraftPosition, netTime))
-                    {
-                        main.network.localNode.Send(relayNuid);
-                    }
-                }
+                // send to every node; each gets it in the protocol it negotiated
+                main.network.SimSender.SendAircraftPosition(aircraft, ref aircraftPosition, netTime, main.network.PeerIds());
             }
 
             // check if type has changed
@@ -2393,7 +2381,7 @@ namespace JoinFS
         /// <param name="netId">Owner's sim ID</param>
         /// <param name="eventId">Event ID</param>
         /// <param name="data">Data</param>
-        public Aircraft UpdateAircraft(LocalNode.Nuid ownerNuid, uint netId, uint eventId, uint data, bool flight)
+        public Aircraft UpdateAircraft(NodeId ownerNuid, uint netId, uint eventId, uint data, bool flight)
         {
             // get aircraft
             Aircraft aircraft = objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is Aircraft) as Aircraft;
@@ -2416,18 +2404,8 @@ namespace JoinFS
                 // check if aircraft is injected and needs to be broadcast
                 if (aircraft.Injected && IsBroadcast(aircraft))
                 {
-                    // create message (reused below for any peer that ends up on the legacy path)
-                    main.network.WriteSimEventMessage(aircraft.netId, eventId, data);
-                    // one send per connected peer instead of one legacy Broadcast() call, so each
-                    // peer can independently get JFP2 Event (if negotiated) or the unchanged legacy
-                    // message (docs/protocol-v2-implementation-plan.md Phase 5)
-                    foreach (var peerNuid in main.network.localNode.GetNodeList())
-                    {
-                        if (!main.network.SendEventUpdate(peerNuid, aircraft.netId, eventId, data))
-                        {
-                            main.network.localNode.Send(peerNuid);
-                        }
-                    }
+                    // send to every node
+                    main.network.SimSender.BroadcastEvent(aircraft.netId, eventId, data);
                 }
             }
 
@@ -2437,7 +2415,7 @@ namespace JoinFS
         /// <summary>
         /// Update aircraft integer variables
         /// </summary>
-        public Aircraft UpdateAircraft(LocalNode.Nuid ownerNuid, uint netId, Dictionary<uint, int> variables)
+        public Aircraft UpdateAircraft(NodeId ownerNuid, uint netId, Dictionary<uint, int> variables)
         {
             // get aircraft
             Aircraft aircraft = objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is Aircraft) as Aircraft;
@@ -2453,7 +2431,7 @@ namespace JoinFS
                 if (aircraft.Injected && IsBroadcast(aircraft))
                 {
                     // create message
-                    main.network.SendIntegerVariablesMessage(new LocalNode.Nuid(), aircraft.netId, variables, aircraft.ownerNuid);
+                    main.network.SimSender.BroadcastVariables(aircraft.netId, variables, null, null);
                 }
             }
 
@@ -2463,7 +2441,7 @@ namespace JoinFS
         /// <summary>
         /// Update aircraft float variables
         /// </summary>
-        public Aircraft UpdateAircraft(LocalNode.Nuid ownerNuid, uint netId, Dictionary<uint, float> variables)
+        public Aircraft UpdateAircraft(NodeId ownerNuid, uint netId, Dictionary<uint, float> variables)
         {
             // get aircraft
             Aircraft aircraft = objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is Aircraft) as Aircraft;
@@ -2479,7 +2457,7 @@ namespace JoinFS
                 if (aircraft.Injected && IsBroadcast(aircraft))
                 {
                     // create message
-                    main.network.SendFloatVariablesMessage(new LocalNode.Nuid(), aircraft.netId, variables, aircraft.ownerNuid);
+                    main.network.SimSender.BroadcastVariables(aircraft.netId, null, variables, null);
                 }
             }
 
@@ -2489,7 +2467,7 @@ namespace JoinFS
         /// <summary>
         /// Update aircraft string8 variables
         /// </summary>
-        public Aircraft UpdateAircraft(LocalNode.Nuid ownerNuid, uint netId, Dictionary<uint, string> variables)
+        public Aircraft UpdateAircraft(NodeId ownerNuid, uint netId, Dictionary<uint, string> variables)
         {
             // get aircraft
             Aircraft aircraft = objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is Aircraft) as Aircraft;
@@ -2505,7 +2483,7 @@ namespace JoinFS
                 if (aircraft.Injected && IsBroadcast(aircraft))
                 {
                     // create message
-                    main.network.SendString8VariablesMessage(new LocalNode.Nuid(), aircraft.netId, variables, aircraft.ownerNuid);
+                    main.network.SimSender.BroadcastVariables(aircraft.netId, null, null, variables);
                 }
             }
 
@@ -2540,7 +2518,7 @@ namespace JoinFS
                 }
 
                 // check if user or broadcasting this aircraft
-                if (aircraft.owner == Obj.Owner.Me || main.network.localNode.Connected && IsBroadcast(aircraft))
+                if (aircraft.owner == Obj.Owner.Me || main.network.Connected && IsBroadcast(aircraft))
                 {
                     // check if not under remote control
                     if (aircraft.remoteFlightControl == false)
@@ -2552,7 +2530,7 @@ namespace JoinFS
                     }
 
                     // check if broadcasting
-                    if (main.network.localNode.Connected)
+                    if (main.network.Connected)
                     {
                         try
                         {
@@ -2562,26 +2540,17 @@ namespace JoinFS
                                 // check that our aircraft is not under remote control
                                 if (aircraft.remoteFlightControl == false)
                                 {
-                                    // JFP2 Position (shared-cockpit sentinel) if negotiated with the
-                                    // owner of the entered aircraft, else the unchanged legacy message
-                                    // (docs/protocol-v2-implementation-plan.md Phase 4)
-                                    if (!main.network.SendJfp2Position(enteredAircraft.ownerNuid, aircraft, ref aircraftPosition, aircraft.simTime, sharedCockpit: true))
-                                    {
-                                        // create message
-                                        main.network.WriteAircraftPositionMessage(uint.MaxValue, aircraft.simTime, aircraft, ref aircraftPosition);
-                                        // send message to owner of entered aircraft
-                                        main.network.localNode.Send(enteredAircraft.ownerNuid);
-                                    }
+                                    // send to the owner of the entered aircraft, as the shared-cockpit object
+                                    main.network.SimSender.SendAircraftPosition(aircraft, ref aircraftPosition, aircraft.simTime, [enteredAircraft.ownerNuid], sharedCockpit: true);
                                 }
                             }
                             else if (IsBroadcast(aircraft) && aircraft.Injected == false)
                             {
-                                // create message (prepared once, reused for every peer that ends up on
-                                // the legacy path below - unchanged from before)
-                                main.network.WriteAircraftPositionMessage(aircraft.netId, aircraft.simTime, aircraft, ref aircraftPosition);
-
                                 // get nodes
-                                LocalNode.Nuid[] nodeList = main.network.localNode.GetNodeList();
+                                NodeId[] nodeList = main.network.PeerIds();
+                                // the nodes due an update this tick
+                                Span<NodeId> due = stackalloc NodeId[nodeList.Length];
+                                int dueCount = 0;
                                 // for each node
                                 foreach (var nuid in nodeList)
                                 {
@@ -2590,24 +2559,20 @@ namespace JoinFS
                                     // get interval mask
                                     int intervalMask = GetIntervalMask(aircraft, remoteObject);
                                     // check if node's simulator is not connected
-                                    if (main.network.GetNodeSimulatorConnected(nuid) == false)
+                                    if (main.network.Peers.GetNodeSimulatorConnected(nuid) == false)
                                     {
                                         // increase interval (every 32)
                                         intervalMask = 0x1f;
                                     }
 
-                                    // check send interval - unchanged throttling decision, applied
-                                    // before deciding JFP2 vs legacy for whichever peers are due this
-                                    // tick (docs/protocol-v2-implementation-plan.md Phase 4)
+                                    // check send interval
                                     if ((aircraft.positionCount & intervalMask) == 0)
                                     {
-                                        if (!main.network.SendJfp2Position(nuid, aircraft, ref aircraftPosition, aircraft.simTime))
-                                        {
-                                            // broadcast message to other nodes
-                                            main.network.localNode.Send(nuid);
-                                        }
+                                        due[dueCount++] = nuid;
                                     }
                                 }
+                                // one message; each node gets it in the protocol it negotiated
+                                main.network.SimSender.SendAircraftPosition(aircraft, ref aircraftPosition, aircraft.simTime, due[..dueCount]);
                             }
                             // increment count
                             aircraft.positionCount++;
@@ -2752,10 +2717,10 @@ namespace JoinFS
                     RemoveObjectFromSim(aircraft);
 
                     // check if aircraft is broadcast
-                    if (IsBroadcast(aircraft) && main.network.localNode.Connected)
+                    if (IsBroadcast(aircraft) && main.network.Connected)
                     {
                         // notify session
-                        main.network.SendRemoveObjectMessage(aircraft.netId);
+                        main.network.SimSender.SendRemoveObjectMessage(aircraft.netId);
                     }
 
                     // delay variable broadcast
@@ -2831,7 +2796,7 @@ namespace JoinFS
         /// </summary>
         /// <param name="nodeGuid">Guid of owner node</param>
         /// <param name="shareCockpit">State</param>
-        public void ShareCockpit(LocalNode.Nuid nodeNuid, byte share)
+        public void ShareCockpit(NodeId nodeNuid, byte share)
         {
             // check if aircraft found
             if (objectList.Find(o => o.ownerNuid == nodeNuid && o is Aircraft && (o as Aircraft).user) is Aircraft aircraft)
@@ -2884,7 +2849,7 @@ namespace JoinFS
         /// </summary>
         /// <param name="nodeGuid">Guid of owner node</param>
         /// <param name="shareCockpit">State</param>
-        public void DoSimEvent(LocalNode.Nuid nodeNuid, uint eventId, uint data)
+        public void DoSimEvent(NodeId nodeNuid, uint eventId, uint data)
         {
             // check if aircraft found
             if (objectList.Find(o => o.ownerNuid == nodeNuid && o is Aircraft && (o as Aircraft).user) is Aircraft aircraft)
@@ -2938,7 +2903,7 @@ namespace JoinFS
         /// Set weather from observation
         /// </summary>
         /// <param name="metar">METAR</param>
-        public void SetWeatherObservation(LocalNode.Nuid nuid, string metar)
+        public void SetWeatherObservation(NodeId nuid, string metar)
         {
             // get all aircraft for this node
             List<Obj> nodeAircraft = objectList.FindAll(o => o.ownerNuid == nuid && o is Aircraft);
@@ -3318,11 +3283,6 @@ namespace JoinFS
 #endregion
 
 #region Streaming
-
-        /// <summary>
-        /// Current data version
-        /// </summary>
-        public const short VERSION = 21008;
 
         /// <summary>
         /// Method for reading specific data versions
@@ -4079,7 +4039,7 @@ namespace JoinFS
                                 obj.simTime = main.ElapsedTime;
 
                                 // check if user or broadcasting this aircraft
-                                if (obj.owner == Obj.Owner.Me || main.network.localNode.Connected && IsBroadcast(obj))
+                                if (obj.owner == Obj.Owner.Me || main.network.Connected && IsBroadcast(obj))
                                 {
                                     // check if not under remote control
                                     if (obj.remoteFlightControl == false)
@@ -4091,17 +4051,17 @@ namespace JoinFS
                                     }
 
                                     // check if broadcasting
-                                    if (main.network.localNode.Connected)
+                                    if (main.network.Connected)
                                     {
                                         try
                                         {
                                             if (IsBroadcast(obj))
                                             {
-                                                // create message
-                                                main.network.WriteObjectPositionVelocityMessage(obj, ref positionVelocity);
-
                                                 // get nodes
-                                                LocalNode.Nuid[] nodeList = main.network.localNode.GetNodeList();
+                                                NodeId[] nodeList = main.network.PeerIds();
+                                                // the nodes due an update this tick
+                                                Span<NodeId> due = stackalloc NodeId[nodeList.Length];
+                                                int dueCount = 0;
                                                 // for each node
                                                 foreach (var nuid in nodeList)
                                                 {
@@ -4110,7 +4070,7 @@ namespace JoinFS
                                                     // get interval mask
                                                     int intervalMask = GetIntervalMask(obj, remoteObject);
                                                     // check if node's simulator is not connected
-                                                    if (main.network.GetNodeSimulatorConnected(nuid) == false)
+                                                    if (main.network.Peers.GetNodeSimulatorConnected(nuid) == false)
                                                     {
                                                         // increase interval (every 32)
                                                         intervalMask = 0x1f;
@@ -4119,10 +4079,10 @@ namespace JoinFS
                                                     // check send interval
                                                     if ((obj.positionCount & intervalMask) == 0)
                                                     {
-                                                        // broadcast message to other nodes
-                                                        main.network.localNode.Send(nuid);
+                                                        due[dueCount++] = nuid;
                                                     }
                                                 }
+                                                main.network.SimSender.SendObjectPosition(obj, ref positionVelocity, due[..dueCount]);
                                             }
                                             // increment count
                                             obj.positionCount++;
@@ -4218,14 +4178,9 @@ namespace JoinFS
                             }
 
                             // check if connected
-                            if (main.network.localNode.Connected)
+                            if (main.network.Connected)
                             {
-                                // one send per connected peer instead of one legacy Broadcast() call
-                                // (docs/protocol-v2-implementation-plan.md Phase 5)
-                                foreach (var peerNuid in main.network.localNode.GetNodeList())
-                                {
-                                    main.network.SendWeatherUpdate(peerNuid, metar);
-                                }
+                                main.network.SimSender.BroadcastWeather(metar);
                             }
                         }
                     }
@@ -4357,36 +4312,20 @@ namespace JoinFS
                 if (objectList.Find(o => o.owner == Obj.Owner.Me) is Aircraft aircraft)
                 {
                     // check for broadcast
-                    if (main.network.localNode.Connected)
+                    if (main.network.Connected)
                     {
                         try
                         {
                             // check if entered another aircraft
                             if (aircraft.owner == Obj.Owner.Me && enteredAircraft != null)
                             {
-                                // JFP2 Event if negotiated with the entered aircraft's owner, else the
-                                // unchanged legacy message (docs/protocol-v2-implementation-plan.md
-                                // Phase 5)
-                                if (!main.network.SendEventUpdate(enteredAircraft.ownerNuid, aircraft.netId, eventId, data))
-                                {
-                                    main.network.WriteSimEventMessage(aircraft.netId, eventId, data);
-                                    main.network.localNode.Send(enteredAircraft.ownerNuid);
-                                }
+                                // to the owner of the entered aircraft
+                                main.network.SimSender.SendEvent(aircraft.netId, eventId, data, [enteredAircraft.ownerNuid]);
                             }
                             // check if aircraft is being broadcast
                             else if (IsBroadcast(aircraft) && aircraft.Injected == false)
                             {
-                                // create message (reused below for any peer on the legacy path)
-                                main.network.WriteSimEventMessage(aircraft.netId, eventId, data);
-                                // one send per connected peer instead of one legacy Broadcast() call
-                                // (docs/protocol-v2-implementation-plan.md Phase 5)
-                                foreach (var peerNuid in main.network.localNode.GetNodeList())
-                                {
-                                    if (!main.network.SendEventUpdate(peerNuid, aircraft.netId, eventId, data))
-                                    {
-                                        main.network.localNode.Send(peerNuid);
-                                    }
-                                }
+                                main.network.SimSender.BroadcastEvent(aircraft.netId, eventId, data);
                             }
                         }
                         catch (Exception ex)
@@ -5156,7 +5095,7 @@ namespace JoinFS
         public string MakeAtcId(Aircraft aircraft)
         {
             // get nickname
-            string nickname = aircraft.user ? main.network.GetNodeName(aircraft.ownerNuid) : "";
+            string nickname = aircraft.user ? main.network.Peers.GetNodeName(aircraft.ownerNuid) : "";
             // get callsign depending on option
             string simCallsign = (Settings.Default.ShowNicknames && nickname.Length > 0) ? nickname : aircraft.flightPlan.callsign;
             // truncate string
@@ -5191,7 +5130,7 @@ namespace JoinFS
         /// Set ATC ID for an owner
         /// </summary>
         /// <param name="aircraft">Owner</param>
-        public void SetAtcId(LocalNode.Nuid ownerNuid)
+        public void SetAtcId(NodeId ownerNuid)
         {
             // find user aircraft
             if (objectList.Find(o => o.ownerNuid == ownerNuid && o is Aircraft && (o as Aircraft).user) is Aircraft aircraft)
@@ -5527,7 +5466,7 @@ namespace JoinFS
                 else
                 {
                     // update remote control states
-                    remoteFlightControl = main.network.shareFlightControls.Valid();
+                    remoteFlightControl = main.network.Peers.shareFlightControls.Valid();
                 }
 
                 // check if losing flight control
@@ -5673,14 +5612,14 @@ namespace JoinFS
                                 //    // get distance
                                 //    double distance = Vector.GeodesicDistance(localObject.simPosition.longitude, localObject.simPosition.latitude, remoteObject.netPosition.longitude, remoteObject.netPosition.latitude);
                                 //    // check if outside activity circle
-                                //    if (distance * 0.00053995680346 > mainForm.network.GetNodeActivityCircle(remoteObject.ownerNuid))
+                                //    if (distance * 0.00053995680346 > mainForm.network.Peers.GetNodeActivityCircle(remoteObject.ownerNuid))
                                 //    {
                                 //        intervalMask.mask = 0xf;
                                 //    }
                                 //}
 
                                 // check for remote node
-                                if (main.network.localNode.lowBandwidth || main.network.localNode.NodeLowBandwidth(remoteObject.ownerNuid))
+                                if (main.network.LowBandwidth || main.network.NodeLowBandwidth(remoteObject.ownerNuid))
                                 {
                                     // double the interval
                                     intervalMask.mask <<= 1;
@@ -5742,18 +5681,13 @@ namespace JoinFS
                     if (obj.variableSet != null && obj.variableStartTime < main.ElapsedTime)
                     {
                         // check for network
-                        if (main.network.localNode.Connected)
+                        if (main.network.Connected)
                         {
                             // check for shared cockpit
                             if (obj.owner == Obj.Owner.Me && enteredAircraft != null)
                             {
-                                // send identity (JFP2 only, no-op for a legacy peer - see
-                                // Network.SendJfp2IdentityIfNeeded) and variables (JFP2 VariableSync if
-                                // negotiated, else the unchanged legacy Integer/Float/String8Variables
-                                // messages - see Network.SendVariableUpdate). docs/protocol-v2-
-                                // implementation-plan.md Phase 3.
-                                main.network.SendJfp2IdentityIfNeeded(enteredAircraft.ownerNuid, obj);
-                                main.network.SendVariableUpdate(enteredAircraft.ownerNuid, uint.MaxValue, obj.variableSet.integers, obj.variableSet.floats, obj.variableSet.string8s, main.network.localNode.GetLocalNuid());
+                                // our variables for the entered (shared-cockpit) aircraft
+                                main.network.SimSender.SendVariables(uint.MaxValue, obj.variableSet.integers, obj.variableSet.floats, obj.variableSet.string8s, [enteredAircraft.ownerNuid]);
                             }
                             // check if aircraft is being broadcast
                             else if (IsBroadcast(obj) && obj.Injected == false)
@@ -5766,17 +5700,7 @@ namespace JoinFS
                                 }
                                 main.MonitorVariables("BROADCAST FLOATS - " + obj.ModelTitle + " - " + floatsDump);
 
-                                // one send per connected peer instead of one legacy Broadcast() call,
-                                // so each peer can independently get JFP2 Identity/VariableSync or the
-                                // unchanged legacy messages - wire-identical to the old broadcast for
-                                // any peer that ends up on the legacy path (docs/protocol-v2-
-                                // implementation-plan.md Phase 3; same split-send pattern Position's
-                                // own call sites already use elsewhere in this file).
-                                foreach (var peerNuid in main.network.localNode.GetNodeList())
-                                {
-                                    main.network.SendJfp2IdentityIfNeeded(peerNuid, obj);
-                                    main.network.SendVariableUpdate(peerNuid, obj.netId, obj.variableSet.integers, obj.variableSet.floats, obj.variableSet.string8s, main.network.localNode.GetLocalNuid());
-                                }
+                                main.network.SimSender.BroadcastVariables(obj.netId, obj.variableSet.integers, obj.variableSet.floats, obj.variableSet.string8s);
                             }
                         }
 
@@ -5801,9 +5725,8 @@ namespace JoinFS
                     // if object is being broadcast
                     if (IsBroadcast(obj) && obj is Aircraft aircraft)
                     {
-                        // send flight plan (JFP2 FlightPlan for negotiated peers, unchanged legacy
-                        // message for the rest - docs/protocol-v2-implementation-plan.md Phase 5)
-                        main.network.BroadcastFlightPlanUpdate(obj.netId, aircraft.flightPlan);
+                        // send flight plan
+                        main.network.SimSender.BroadcastFlightPlanUpdate(obj.netId, aircraft.flightPlan);
                     }
                 }
             }

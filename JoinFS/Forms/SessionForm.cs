@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using System.Net;
 using System.Globalization;
 using JoinFS.Properties;
+using JoinFS.Net;
 
 namespace JoinFS
 {
@@ -16,10 +17,20 @@ namespace JoinFS
         /// <summary>
         /// Item
         /// </summary>
+        /// <summary>Which wire protocol carries traffic to a node (display only).</summary>
+        enum ProtocolState
+        {
+            Negotiating,
+            Legacy,
+            Negotiated,
+            Relayed,
+            NotApplicable,
+        }
+
         class Item
         {
             public Guid guid;
-            public LocalNode.Nuid nuid;
+            public NodeId nuid;
             public IPEndPoint endPoint;
             public string nickname;
             public string version;
@@ -39,11 +50,11 @@ namespace JoinFS
             public float latency;
             public string latencyText;
             public int versionValue;
-            public LocalNode.Jfp2PeerState jfp2State;
+            public ProtocolState jfp2State;
             public string protocol;
             public int protocolValue;
 
-            public Item(Guid guid, LocalNode.Nuid nuid, IPEndPoint endPoint, string nickname, string version, string simulator, string callsign, int aircraftCount, int objectCount, string share, bool save, bool ignore, int port, bool receiveEstablished, bool sendEstablished, bool direct, float latency, LocalNode.Jfp2PeerState jfp2State)
+            public Item(Guid guid, NodeId nuid, IPEndPoint endPoint, string nickname, string version, string simulator, string callsign, int aircraftCount, int objectCount, string share, bool save, bool ignore, int port, bool receiveEstablished, bool sendEstablished, bool direct, float latency, ProtocolState jfp2State)
             {
                 this.guid = guid;
                 this.nuid = nuid;
@@ -79,20 +90,20 @@ namespace JoinFS
                 }
 
                 // network (transport) protocol indicator - distinct from the application `version`
-                // above. See LocalNode.Jfp2PeerState.
+                // above.
                 this.jfp2State = jfp2State;
                 switch (jfp2State)
                 {
-                    case LocalNode.Jfp2PeerState.Negotiated:
+                    case ProtocolState.Negotiated:
                         protocol = "JFP2";
                         break;
-                    case LocalNode.Jfp2PeerState.Relayed:
+                    case ProtocolState.Relayed:
                         protocol = "JFP2 (relayed)";
                         break;
-                    case LocalNode.Jfp2PeerState.Legacy:
+                    case ProtocolState.Legacy:
                         protocol = "Legacy";
                         break;
-                    case LocalNode.Jfp2PeerState.NotApplicable:
+                    case ProtocolState.NotApplicable:
                         protocol = "";
                         break;
                     default:
@@ -206,12 +217,12 @@ namespace JoinFS
         /// Get selected user
         /// </summary>
         /// <returns></returns>
-        public LocalNode.Nuid GetSelectedNuid()
+        public NodeId GetSelectedNuid()
         {
             // get selected item
             Item item = GetSelectedItem();
             // check for valid item
-            return item != null ? item.nuid : new LocalNode.Nuid();
+            return item != null ? item.nuid : new NodeId();
         }
 
         /// <summary>
@@ -278,12 +289,12 @@ namespace JoinFS
         void AddMe()
         {
             // callsign
-            string callsign = main.network.GetLocalCallsign();
+            string callsign = main.network.Peers.GetLocalCallsign();
             int aircraftCount = 0;
             int objectCount = 0;
             // connected to node
             bool connected = false;
-            LocalNode.Nuid nuid;
+            NodeId nuid;
 
             // check for sim
             if (main.sim != null)
@@ -295,11 +306,11 @@ namespace JoinFS
             }
 
             // connected to node
-            connected = main.network.localNode.Connected;
-            nuid = main.network.localNode.GetLocalNuid();
+            connected = main.network.Connected;
+            nuid = main.network.LocalId;
 
             // create new item
-            Item item = new(main.guid, nuid, new IPEndPoint(0, 0), main.settingsNickname, Main.Version, main.sim != null ? main.sim.GetSimulatorName() : "", callsign, aircraftCount, objectCount, "", false, false, main.network.localNode.GetLocalNuid().port, connected, connected, true, 0.0f, LocalNode.Jfp2PeerState.NotApplicable);
+            Item item = new(main.guid, nuid, new IPEndPoint(0, 0), main.settingsNickname, Main.Version, main.sim != null ? main.sim.GetSimulatorName() : "", callsign, aircraftCount, objectCount, "", false, false, main.network.LocalId.port, connected, connected, true, 0.0f, ProtocolState.NotApplicable);
             // add to list
             itemList.Add(item);
         }
@@ -309,7 +320,7 @@ namespace JoinFS
         /// </summary>
         /// <param name="nuid">Nuid</param>
         /// <param name="address">IP Address</param>
-        void AddNode(LocalNode.Nuid nuid, string nickname)
+        void AddNode(NodeId nuid, string nickname)
         {
             int aircraftCount = 0;
             int objectCount = 0;
@@ -321,12 +332,12 @@ namespace JoinFS
             float latency = 0.0f;
 
             // get guid
-            Guid guid = main.network.GetNodeGuid(nuid);
+            Guid guid = main.network.Peers.GetNodeGuid(nuid);
 
             // get network data
-            string version = main.network.GetNodeVersion(nuid);
-            string simulator = main.network.GetNodeSimulator(nuid);
-            string callsign = main.network.GetNodeCallsign(nuid);
+            string version = main.network.Peers.GetNodeVersion(nuid);
+            string simulator = main.network.Peers.GetNodeSimulator(nuid);
+            string callsign = main.network.Peers.GetNodeCallsign(nuid);
 
             // check for sim
             if (main.sim != null)
@@ -348,28 +359,29 @@ namespace JoinFS
             {
                 share += "C";
 
-                if (main.network.shareFlightControls == nuid)
+                if (main.network.Peers.shareFlightControls == nuid)
                 {
                     share += Resources.Strings.ShareFlightSuffix;
                 }
-                if (main.network.shareAncillaryControls == nuid)
+                if (main.network.Peers.shareAncillaryControls == nuid)
                 {
                     share += Resources.Strings.ShareAncillarySuffix;
                 }
-                if (main.network.shareNavControls == nuid)
+                if (main.network.Peers.shareNavControls == nuid)
                 {
                     share += Resources.Strings.ShareNavSuffix;
                 }
             }
 
-            // get node endpoint
-            main.network.localNode.GetNodeEndPoint(nuid, out IPEndPoint endPoint);
+            // transport state of the node
+            PeerSnapshot peer = main.network.Snapshot.Peer(nuid);
+            IPEndPoint endPoint = peer?.EndPoint ?? new IPEndPoint(0, 0);
 
             // save
 #if NO_HUBS
             bool save = main.addressBook.entries.Find(f => f.endPoint.Equals(endPoint)) != null;
 #else
-            bool save = main.addressBook.entries.Find(f => f.uuid == Network.MakeUuid(guid)) != null;
+            bool save = main.addressBook.entries.Find(f => f.uuid == UserDirectory.MakeUuid(guid)) != null;
 #endif
             // ignore
             bool ignore = main.log.IgnoreNode(nuid);
@@ -377,16 +389,21 @@ namespace JoinFS
             // port
             port = endPoint.Port;
             // route
-            bool direct = main.network.localNode.NodeDirect(nuid);
+            bool direct = peer?.Direct ?? false;
             // connected to node
-            receiveEstablished = main.network.localNode.NodeReceiveEstablished(nuid);
-            sendEstablished = main.network.localNode.NodeSendEstablished(nuid);
+            receiveEstablished = peer?.ReceiveEstablished ?? false;
+            sendEstablished = peer?.SendEstablished ?? false;
 
             // latency
-            latency = main.network.localNode.GetNodeRTT(nuid);
+            latency = main.network.GetNodeRTT(nuid);
 
-            // network protocol state (legacy vs JFP2 - see LocalNode.Jfp2PeerState)
-            LocalNode.Jfp2PeerState jfp2State = main.network.localNode.GetNodeJfp2State(nuid);
+            // network protocol state (legacy vs JFP2), as described by the protocol plugins
+            ProtocolState jfp2State = peer?.LinkState switch
+            {
+                "JFP2" => ProtocolState.Negotiated,
+                "Legacy" => ProtocolState.Legacy,
+                _ => ProtocolState.Negotiating,
+            };
 
             // add item
             Item item = new(guid, nuid, endPoint, nickname, version, simulator, callsign, aircraftCount, objectCount, share, save, ignore, port, receiveEstablished, sendEstablished, direct, latency, jfp2State);
@@ -397,7 +414,7 @@ namespace JoinFS
         /// <summary>
         /// temporary user list
         /// </summary>
-        List<Network.HubUser> tempHubUserList = [];
+        List<HubDirectory.HubUser> tempHubUserList = [];
 
         /// <summary>
         /// Refresher
@@ -424,7 +441,7 @@ namespace JoinFS
         {
             // selected item
             Item selectedItem = GetSelectedItem();
-            LocalNode.Nuid selectedNuid = (selectedItem != null) ? selectedItem.nuid : new LocalNode.Nuid();
+            NodeId selectedNuid = (selectedItem != null) ? selectedItem.nuid : new NodeId();
 
             // clear list
             itemList.Clear();
@@ -432,14 +449,14 @@ namespace JoinFS
             lock (main.conch)
             {
                 // check if connected
-                if (main.network.localNode.Connected)
+                if (main.network.Connected)
                 {
                     // add this node to the list
                     AddMe();
                 }
 
                 // for each node
-                foreach (var node in main.network.nodeList)
+                foreach (var node in main.network.Peers.Nodes)
                 {
                     // add node to window list
                     AddNode(node.Key, node.Value.nickname);
@@ -553,16 +570,16 @@ namespace JoinFS
                 // node's own row (NotApplicable, blank text) is left at the default style.
                 switch (itemList[index].jfp2State)
                 {
-                    case LocalNode.Jfp2PeerState.Negotiated:
-                    case LocalNode.Jfp2PeerState.Relayed:
+                    case ProtocolState.Negotiated:
+                    case ProtocolState.Relayed:
                         DataGrid_UserList.Rows[index].Cells[12].Style.BackColor = Settings.Default.ColourActiveBackground;
                         DataGrid_UserList.Rows[index].Cells[12].Style.ForeColor = Settings.Default.ColourActiveText;
                         break;
-                    case LocalNode.Jfp2PeerState.Negotiating:
+                    case ProtocolState.Negotiating:
                         DataGrid_UserList.Rows[index].Cells[12].Style.BackColor = Settings.Default.ColourWaitingBackground;
                         DataGrid_UserList.Rows[index].Cells[12].Style.ForeColor = Settings.Default.ColourWaitingText;
                         break;
-                    case LocalNode.Jfp2PeerState.Legacy:
+                    case ProtocolState.Legacy:
                         DataGrid_UserList.Rows[index].Cells[12].Style.BackColor = Settings.Default.ColourInactiveBackground;
                         DataGrid_UserList.Rows[index].Cells[12].Style.ForeColor = Settings.Default.ColourInactiveText;
                         break;
@@ -611,7 +628,7 @@ namespace JoinFS
             removeLines.Clear();
 
             // check if connected
-            if (main.network.localNode.Connected)
+            if (main.network.Connected)
             {
                 lock (main.conch)
                 {
@@ -879,7 +896,7 @@ namespace JoinFS
                                     AddressBook.AddressBookEntry entry = main.addressBook.entries.Find(f => f.endPoint.Equals(item.endPoint));
 #else
                                     // find entry
-                                    AddressBook.AddressBookEntry entry = main.addressBook.entries.Find(f => f.uuid == Network.MakeUuid(item.guid));
+                                    AddressBook.AddressBookEntry entry = main.addressBook.entries.Find(f => f.uuid == UserDirectory.MakeUuid(item.guid));
 #endif
 
                                     // check for existing entry
@@ -909,7 +926,7 @@ namespace JoinFS
                                         {
                                             entry = new AddressBook.AddressBookEntry
                                             {
-                                                name = item.nickname.Length > 0 ? item.nickname : Network.UuidToString(Network.MakeUuid(item.guid))
+                                                name = item.nickname.Length > 0 ? item.nickname : UserDirectory.UuidToString(UserDirectory.MakeUuid(item.guid))
                                             };
 
                                             // check for valid data
@@ -917,13 +934,13 @@ namespace JoinFS
                                             {
 #if NO_HUBS
                                                 // set address
-                                                entry.address = Network.EncodeIP(item.endPoint.ToString());
+                                                entry.address = AddressCodec.EncodeIP(item.endPoint.ToString());
                                                 entry.endPoint = item.endPoint;
 #else
                                                 // set uuid
-                                                entry.uuid = Network.MakeUuid(item.guid);
+                                                entry.uuid = UserDirectory.MakeUuid(item.guid);
                                                 // set address
-                                                entry.address = Network.UuidToString(entry.uuid);
+                                                entry.address = UserDirectory.UuidToString(entry.uuid);
 #endif
                                                 // add entry
                                                 main.addressBook.entries.Add(entry);
@@ -1022,9 +1039,9 @@ namespace JoinFS
                 lock (main.conch)
                 {
                     cockpit = main.log.ShareCockpit(item.nuid);
-                    flight = main.network.shareFlightControls == item.nuid;
-                    ancillary = main.network.shareAncillaryControls == item.nuid;
-                    nav = main.network.shareNavControls == item.nuid;
+                    flight = main.network.Peers.shareFlightControls == item.nuid;
+                    ancillary = main.network.Peers.shareAncillaryControls == item.nuid;
+                    nav = main.network.Peers.shareNavControls == item.nuid;
                     multiple = main.log.MultipleObjects(item.nuid);
                 }
 
@@ -1050,31 +1067,31 @@ namespace JoinFS
                         // update share flight controls
                         if (permissionsForm.shareFlight)
                         {
-                            main.network.shareFlightControls = item.nuid;
+                            main.network.Peers.shareFlightControls = item.nuid;
                         }
-                        else if (main.network.shareFlightControls == item.nuid)
+                        else if (main.network.Peers.shareFlightControls == item.nuid)
                         {
-                            main.network.shareFlightControls = new LocalNode.Nuid();
+                            main.network.Peers.shareFlightControls = new NodeId();
                         }
 
                         // update share engine controls
                         if (permissionsForm.shareEngine)
                         {
-                            main.network.shareAncillaryControls = item.nuid;
+                            main.network.Peers.shareAncillaryControls = item.nuid;
                         }
-                        else if (main.network.shareAncillaryControls == item.nuid)
+                        else if (main.network.Peers.shareAncillaryControls == item.nuid)
                         {
-                            main.network.shareAncillaryControls = new LocalNode.Nuid();
+                            main.network.Peers.shareAncillaryControls = new NodeId();
                         }
 
                         // update share other controls
                         if (permissionsForm.shareOther)
                         {
-                            main.network.shareNavControls = item.nuid;
+                            main.network.Peers.shareNavControls = item.nuid;
                         }
-                        else if (main.network.shareNavControls == item.nuid)
+                        else if (main.network.Peers.shareNavControls == item.nuid)
                         {
-                            main.network.shareNavControls = new LocalNode.Nuid();
+                            main.network.Peers.shareNavControls = new NodeId();
                         }
 
                         // update multiple objects
@@ -1088,7 +1105,7 @@ namespace JoinFS
                         }
 
                         // update shared data
-                        main.network.ScheduleSharedDataMessage(item.nuid);
+                        main.network.Peers.SchedulePeerInfo(item.nuid);
                     }
 
                     // update
@@ -1126,7 +1143,7 @@ namespace JoinFS
             Item item = GetSelectedItem();
 
             // check for selection
-            if (item != null && item.nuid != main.network.localNode.GetLocalNuid())
+            if (item != null && item.nuid != main.network.LocalId)
             {
                 // allow permissions
                 Context_User_Permissions.Enabled = true;
@@ -1183,7 +1200,7 @@ namespace JoinFS
                     lock (main.conch)
                     {
                         // check if connected to a session
-                        if (main.network.localNode.Connected)
+                        if (main.network.Connected)
                         {
                             main.notes.PostCommsNote(Notes.SESSION_CHANNEL, Text_Transmit.Text);
                         }

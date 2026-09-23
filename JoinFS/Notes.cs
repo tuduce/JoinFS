@@ -289,7 +289,7 @@ namespace JoinFS
                 // add the note to the list
                 userNotesList[main.guid].commsList.Add(noteId, new CommsNote(main.ElapsedTime, channel, text, expireTime));
                 // send note message
-                main.network.SendCommsNoteMessage(main.guid, nickname, callsign, noteId, 0.0f, channel, text);
+                main.network.Comms.SendCommsNoteMessage(main.guid, nickname, callsign, noteId, 0.0f, channel, text);
 #if !CONSOLE
                 // check for comms window
                 if (main.sessionForm.Visible)
@@ -325,7 +325,7 @@ namespace JoinFS
                 if (channel == GLOBAL_CHANNEL && main.settingsHub)
                 {
                     // pass on the new note
-                    main.network.SendCommsNoteMessage(guid, nickname, callsign, noteId, age, channel, text);
+                    main.network.Comms.SendCommsNoteMessage(guid, nickname, callsign, noteId, age, channel, text);
                 }
             }
 #if !CONSOLE
