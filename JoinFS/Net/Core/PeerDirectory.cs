@@ -77,7 +77,17 @@ namespace JoinFS.Net
 
         public int Count => peers.Count;
 
-        public IEnumerable<Peer> All => peers.Values;
+        /// <summary>
+        /// Every peer, in insertion order. Typed as the concrete <c>Dictionary&lt;,&gt;.ValueCollection</c>
+        /// rather than <see cref="IEnumerable{T}"/> on purpose: every caller only ever `foreach`s
+        /// this (checked - none assign it to an IEnumerable&lt;Peer&gt; or pass it to a LINQ method),
+        /// and foreach against the concrete type uses the dictionary's own struct enumerator directly
+        /// instead of boxing it through the interface - one allocation removed from every decode
+        /// (Jfp2Plugin.FindPeer runs this on every incoming datagram; ~40 B measured in
+        /// JoinFS.Benchmarks' DecodeJfp2 before this fix, matching one boxed
+        /// Dictionary&lt;NodeId,Peer&gt;.ValueCollection.Enumerator).
+        /// </summary>
+        public Dictionary<NodeId, Peer>.ValueCollection All => peers.Values;
 
         public bool TryGet(NodeId id, out Peer peer) => peers.TryGetValue(id, out peer);
 

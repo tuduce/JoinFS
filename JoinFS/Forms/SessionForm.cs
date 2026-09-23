@@ -17,16 +17,6 @@ namespace JoinFS
         /// <summary>
         /// Item
         /// </summary>
-        /// <summary>Which wire protocol carries traffic to a node (display only).</summary>
-        enum ProtocolState
-        {
-            Negotiating,
-            Legacy,
-            Negotiated,
-            Relayed,
-            NotApplicable,
-        }
-
         class Item
         {
             public Guid guid;
@@ -50,11 +40,12 @@ namespace JoinFS
             public float latency;
             public string latencyText;
             public int versionValue;
-            public ProtocolState jfp2State;
+            /// <summary>Null for the local node's own row, which has no link to describe.</summary>
+            public PeerLinkState? jfp2State;
             public string protocol;
             public int protocolValue;
 
-            public Item(Guid guid, NodeId nuid, IPEndPoint endPoint, string nickname, string version, string simulator, string callsign, int aircraftCount, int objectCount, string share, bool save, bool ignore, int port, bool receiveEstablished, bool sendEstablished, bool direct, float latency, ProtocolState jfp2State)
+            public Item(Guid guid, NodeId nuid, IPEndPoint endPoint, string nickname, string version, string simulator, string callsign, int aircraftCount, int objectCount, string share, bool save, bool ignore, int port, bool receiveEstablished, bool sendEstablished, bool direct, float latency, PeerLinkState? jfp2State)
             {
                 this.guid = guid;
                 this.nuid = nuid;
@@ -92,25 +83,16 @@ namespace JoinFS
                 // network (transport) protocol indicator - distinct from the application `version`
                 // above.
                 this.jfp2State = jfp2State;
-                switch (jfp2State)
+                protocol = jfp2State?.ToDisplay() ?? "";
+                // own row sorts first; then negotiated, legacy, negotiating - matching the old
+                // (unused) enum's relative order, not the new enum's declaration order
+                protocolValue = jfp2State switch
                 {
-                    case ProtocolState.Negotiated:
-                        protocol = "JFP2";
-                        break;
-                    case ProtocolState.Relayed:
-                        protocol = "JFP2 (relayed)";
-                        break;
-                    case ProtocolState.Legacy:
-                        protocol = "Legacy";
-                        break;
-                    case ProtocolState.NotApplicable:
-                        protocol = "";
-                        break;
-                    default:
-                        protocol = "Pending";
-                        break;
-                }
-                protocolValue = (int)jfp2State;
+                    null => 3,
+                    PeerLinkState.Negotiated => 2,
+                    PeerLinkState.Legacy => 1,
+                    _ => 0,
+                };
             }
         }
 
@@ -310,7 +292,7 @@ namespace JoinFS
             nuid = main.network.LocalId;
 
             // create new item
-            Item item = new(main.guid, nuid, new IPEndPoint(0, 0), main.settingsNickname, Main.Version, main.sim != null ? main.sim.GetSimulatorName() : "", callsign, aircraftCount, objectCount, "", false, false, main.network.LocalId.port, connected, connected, true, 0.0f, ProtocolState.NotApplicable);
+            Item item = new(main.guid, nuid, new IPEndPoint(0, 0), main.settingsNickname, Main.Version, main.sim != null ? main.sim.GetSimulatorName() : "", callsign, aircraftCount, objectCount, "", false, false, main.network.LocalId.port, connected, connected, true, 0.0f, null);
             // add to list
             itemList.Add(item);
         }
@@ -397,13 +379,11 @@ namespace JoinFS
             // latency
             latency = main.network.GetNodeRTT(nuid);
 
-            // network protocol state (legacy vs JFP2), as described by the protocol plugins
-            ProtocolState jfp2State = peer?.LinkState switch
-            {
-                "JFP2" => ProtocolState.Negotiated,
-                "Legacy" => ProtocolState.Legacy,
-                _ => ProtocolState.Negotiating,
-            };
+            // network protocol state (legacy vs JFP2), as described by the protocol plugins.
+            // This row is always a real peer (unlike AddMe's own row, which passes null on purpose),
+            // so a snapshot that doesn't have it yet (the app's node list can be a tick ahead of the
+            // ~100ms-old snapshot) reads as "Pending", not as the blank "no link to describe" state.
+            PeerLinkState? jfp2State = peer?.LinkState ?? PeerLinkState.Negotiating;
 
             // add item
             Item item = new(guid, nuid, endPoint, nickname, version, simulator, callsign, aircraftCount, objectCount, share, save, ignore, port, receiveEstablished, sendEstablished, direct, latency, jfp2State);
@@ -567,19 +547,18 @@ namespace JoinFS
 
                 // colour the Protocol cell the same way the Connected cell above is coloured -
                 // Negotiated/Negotiating/Legacy reuse the Active/Waiting/Inactive scheme. The local
-                // node's own row (NotApplicable, blank text) is left at the default style.
+                // node's own row (null, blank text) is left at the default style.
                 switch (itemList[index].jfp2State)
                 {
-                    case ProtocolState.Negotiated:
-                    case ProtocolState.Relayed:
+                    case PeerLinkState.Negotiated:
                         DataGrid_UserList.Rows[index].Cells[12].Style.BackColor = Settings.Default.ColourActiveBackground;
                         DataGrid_UserList.Rows[index].Cells[12].Style.ForeColor = Settings.Default.ColourActiveText;
                         break;
-                    case ProtocolState.Negotiating:
+                    case PeerLinkState.Negotiating:
                         DataGrid_UserList.Rows[index].Cells[12].Style.BackColor = Settings.Default.ColourWaitingBackground;
                         DataGrid_UserList.Rows[index].Cells[12].Style.ForeColor = Settings.Default.ColourWaitingText;
                         break;
-                    case ProtocolState.Legacy:
+                    case PeerLinkState.Legacy:
                         DataGrid_UserList.Rows[index].Cells[12].Style.BackColor = Settings.Default.ColourInactiveBackground;
                         DataGrid_UserList.Rows[index].Cells[12].Style.ForeColor = Settings.Default.ColourInactiveText;
                         break;

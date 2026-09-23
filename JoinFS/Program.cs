@@ -1870,7 +1870,7 @@ namespace JoinFS
                     line += " " + network.Peers.GetNodeSimulator(node.Key);
                     // network (transport) protocol indicator - distinct from the application
                     // GetNodeVersion above, as described by the protocol plugins
-                    line += " " + (network.Snapshot.Peer(node.Key)?.LinkState ?? "Pending");
+                    line += " " + (network.Snapshot.Peer(node.Key)?.LinkState.ToDisplay() ?? "Pending");
                     MonitorEvent(line);
                 }
                 MonitorEvent("Total " + (1 + network.Peers.Nodes.Count) + " user(s)");

@@ -177,15 +177,15 @@ namespace JoinFS.Net.Jfp2
             return id;
         }
 
-        public string DescribeLink(Peer peer)
+        public PeerLinkState? DescribeLink(Peer peer)
         {
             if (sessions.TryGetValue(peer.Id, out PeerSession session))
             {
-                if (session.HandshakeComplete && !session.AssumedLegacy) return "JFP2";
-                if (session.AssumedLegacy) return "Legacy";
-                return "Negotiating";
+                if (session.HandshakeComplete && !session.AssumedLegacy) return PeerLinkState.Negotiated;
+                if (session.AssumedLegacy) return PeerLinkState.Legacy;
+                return PeerLinkState.Negotiating;
             }
-            return peer.RouteIsOwnEndPoint ? "Negotiating" : "Legacy";
+            return peer.RouteIsOwnEndPoint ? PeerLinkState.Negotiating : PeerLinkState.Legacy;
         }
 
         /// <summary>For tests and diagnostics.</summary>

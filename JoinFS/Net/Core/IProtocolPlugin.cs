@@ -55,8 +55,39 @@ namespace JoinFS.Net
     /// <summary>Optional: a plugin that can describe its per-peer link state for the UI.</summary>
     public interface IDescribesLinks
     {
-        /// <summary>Short status such as "JFP2", "JFP2 (negotiating)", or null when the plugin has nothing to say.</summary>
-        string DescribeLink(Peer peer);
+        /// <summary>This plugin's status for the peer, or null when it has nothing to say (a plugin
+        /// that never negotiates, like legacy, has no reason to implement this interface at all).</summary>
+        PeerLinkState? DescribeLink(Peer peer);
+    }
+
+    /// <summary>
+    /// Which protocol actually carries traffic to a peer, for display (docs/network-plugin-
+    /// architecture.md §2.11 item 4: this replaces matching literal strings such as "JFP2"/"Legacy"
+    /// in the UI). Reported by whichever plugin implements <see cref="IDescribesLinks"/>;
+    /// <see cref="NetworkSnapshot"/> defaults untracked peers to <see cref="Legacy"/>, since with no
+    /// negotiating plugin registered at all, legacy is the only thing a peer could be talking.
+    /// </summary>
+    public enum PeerLinkState
+    {
+        /// <summary>Definitely on the legacy wire (negotiation not started, gave up, or no
+        /// negotiating plugin exists).</summary>
+        Legacy,
+        /// <summary>A newer protocol is trying to negotiate with this peer.</summary>
+        Negotiating,
+        /// <summary>Negotiation with a newer protocol completed.</summary>
+        Negotiated,
+    }
+
+    public static class PeerLinkStateExtensions
+    {
+        /// <summary>The one place that decides the human-readable label for each state, so the GUI
+        /// (SessionForm) and the CONSOLE monitor dump (Main.MonitorSessionDetails) can't drift.</summary>
+        public static string ToDisplay(this PeerLinkState state) => state switch
+        {
+            PeerLinkState.Negotiated => "JFP2",
+            PeerLinkState.Legacy => "Legacy",
+            _ => "Pending",
+        };
     }
 
     public enum NetLogLevel

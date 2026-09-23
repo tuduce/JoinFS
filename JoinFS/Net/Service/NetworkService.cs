@@ -238,7 +238,7 @@ namespace JoinFS.Net
             var list = new List<PeerSnapshot>(Core.Peers.Count);
             foreach (Peer peer in Core.Peers.All)
             {
-                string linkState = null;
+                PeerLinkState? linkState = null;
                 foreach (IProtocolPlugin plugin in Core.Plugins)
                 {
                     if (plugin is IDescribesLinks describer && (linkState = describer.DescribeLink(peer)) != null) break;
@@ -255,7 +255,8 @@ namespace JoinFS.Net
                     LowBandwidth = peer.LowBandwidth,
                     Rtt = peer.Rtt,
                     PositionProtocol = Core.Route(peer.Id, MessageKind.Position)?.Name,
-                    LinkState = linkState,
+                    // no plugin had an opinion: with nothing else registered to negotiate, it's legacy
+                    LinkState = linkState ?? PeerLinkState.Legacy,
                 };
                 peers[peer.Id] = p;
                 list.Add(p);

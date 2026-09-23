@@ -17,8 +17,8 @@ namespace JoinFS.Net
         public float Rtt { get; init; }
         /// <summary>Name of the plugin that carries positions to this peer (e.g. "Legacy", "JFP2").</summary>
         public string PositionProtocol { get; init; }
-        /// <summary>Human-readable protocol link state for the session window (plugin-provided).</summary>
-        public string LinkState { get; init; }
+        /// <summary>Protocol link state for the session window (plugin-provided; Legacy if none negotiates).</summary>
+        public PeerLinkState LinkState { get; init; }
     }
 
     /// <summary>

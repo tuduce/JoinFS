@@ -316,7 +316,10 @@ The protocol boundary is intact — plugins never see the app, and the session l
    - **Deleted, confirmed dead:** `MessageMeta.DataVersion` (write-only in both readers, `HubDirectory.Hub.dataVersion`/`PeerTable.Node.dataVersion`, themselves also deleted — grepped the whole app and test tree, zero reads) and `FlightPlanUpdate.FormatVersion` (its receive-side gating in `ReadFlightPlan` all keys off the envelope's `dataVersion`, never off this field; its one consumer, `Sim.Aircraft.flightPlanVersion`, was itself write-only everywhere, including two UI increment sites, and is deleted too). Both wire bytes are still written/read by `LegacyPlugin` for byte fidelity (`FlightPlanFormatVersion` is now a named `LegacyWire` constant) - only the canonical-model propagation and the dead app-side fields are gone.
    - **Deleted, high confidence:** `VariableSyncUpdate.Owner`. Every other per-object canonical message (Position, ObjectPosition, Identity, Event, RemoveObject) identifies the owner purely via `MessageMeta.Sender`, which the core's translation path already preserves as the true origin through a relay (§2.6). Checked before removing: this codebase's only sender (`SimSender`) always set `Owner` to its own id (trivially equal to `Sender`); the one place `Owner` could plausibly have diverged - shared cockpit - already ignored the wire value and re-derived the owner separately; no golden fixture exercised `Owner != Sender`; and JFP2's own decode path already discarded the wire value in favor of `meta.Sender` before this change, so JFP2 never actually carried it. The one scenario asked about specifically, broadcasting a recorded aircraft's variables (`Sim.UpdateAircraft`'s `IsBroadcast` rebroadcast path), doesn't create a divergence either - `BroadcastVariables` never threads the aircraft's true `ownerNuid` through at all, so the rebroadcasting node's own id is what goes out regardless, same as `Sender` would be. `LegacyPlugin` still reads/writes the wire's Owner field (byte fidelity), and its decoder logs (`NetLogLevel.Event`, so it's visible without enabling network monitoring) if a received value ever disagrees with `meta.Sender`, as insurance against a sender this codebase hasn't seen.
    - **Not touched, on reflection not actually vocabulary contamination:** `CommsScope.All`. It genuinely models a real (if currently unserved) legacy request kind for `CommsRequest.Scope` - `Session`/`Global`/`All` map 1:1 to three distinct legacy message ids. Its reuse on `NotesBundle.Scope` to pick between two length-field formulas is confirmed dead (the field it selects is never read by any decoder, including this codebase's own - the source comment says so directly: "two historical formulas for a length field nobody reads"), and a golden fixture (`app_notes_all.hex`, via `BulkNotes`) pins the exact byte-for-byte output of the `All` case, so collapsing the two formulas would break a legitimate wire-fidelity guarantee for zero behavioral gain. Left as documented, deliberate dead weight rather than restructured.
-4. **The UI maps plugin names.** `SessionForm` colours its protocol column from the strings `"JFP2"` and `"Legacy"`.
+4. **Resolved (2026-09-23): the UI matched plugin-name strings.** `SessionForm` compared the literal strings `"JFP2"`/`"Legacy"` against `PeerSnapshot.LinkState` to pick its own local display enum.
+   - `IDescribesLinks.DescribeLink` and `PeerSnapshot.LinkState` are now a proper `PeerLinkState` enum (`Legacy`/`Negotiating`/`Negotiated`) instead of a free-form string, defined once in `Net/Core/IProtocolPlugin.cs` next to the interface that reports it. `NetworkService.BuildSnapshot` defaults untracked peers to `Legacy` (correct: with no negotiating plugin registered, legacy is the only thing a peer could be talking - previously this showed as `null`, which the UI's `default` case misread as "Pending").
+   - `SessionForm`'s own `ProtocolState` enum (a hand-matched mirror of the string, plus a `Relayed` case no code path had produced since the rewrite - JFP2 no longer originates relayed traffic, per §2.10 item 12) is deleted; it now uses `PeerLinkState?` directly (`null` = the local node's own row).
+   - A shared `PeerLinkStateExtensions.ToDisplay()` gives the one human-readable label per state, used by both `SessionForm` and `Main.MonitorSessionDetails` (the CONSOLE monitor dump), which previously duplicated the same three labels independently.
 
 
 ---
@@ -470,18 +473,37 @@ Pre-existing bugs fixed along the way (most have a regression test in `JoinFS.Te
   | EncodeLegacy | 209 ns | 0 B |
   | EncodeJfp2 | 77 ns | 0 B |
   | DecodeLegacy | 560 ns | 352 B |
-  | DecodeJfp2 | 64 ns | 40 B |
+  | DecodeJfp2 | 59 ns | 0 B |
   | RouteLookup | 11 ns | 0 B |
 
   Encode matches the design's "zero allocations in steady state" target for both protocols, and
   JFP2 encodes about 2.7x faster than legacy (a simpler envelope + no guaranteed-delivery
   bookkeeping on a non-guaranteed send, versus legacy's multi-field writer). Route lookup is the
-  expected single array read. **Decode is not allocation-free for either protocol** - legacy's 352 B
-  is the likelier one to matter (it inlines identity, with several `BinaryReader.ReadString()`
-  calls, into every position datagram by design); JFP2's smaller but still nonzero 40 B for a bare
-  Position decode (no identity involved) is worth a closer look before trusting it's irreducible.
-  This contradicts §5's "zero allocations per datagram" receive-path target as stated and is worth
-  investigating, not just noting.
+  expected single array read.
+
+  **Decode allocations, investigated (2026-09-23):**
+  - **JFP2's 40 B - fixed, genuinely was a bug.** `PositionV1Codec.Decode` is entirely
+    `Span`/`BinaryPrimitives`-based and allocates nothing; the 40 B came from
+    `Jfp2Plugin.Receive`'s `FindPeer` (called on every incoming datagram, not just Position) doing
+    `foreach (Peer peer in host.Peers.All)` against `PeerDirectory.All`, which was typed
+    `IEnumerable<Peer>` - an interface return type forces `foreach` to box the dictionary's own
+    struct enumerator into a heap object every call. Every call site was a plain `foreach` (checked -
+    none needed the interface), so `All`'s return type is now the concrete
+    `Dictionary<NodeId, Peer>.ValueCollection`: `foreach` resolves `GetEnumerator()` against that
+    directly, no boxing. Re-measured: `DecodeJfp2` is now 0 B (and ~8% faster: 64 ns → 59 ns).
+  - **Legacy's 352 B - confirmed inherent, not a bug.** `ReadAircraftPosition` inlines identity into
+    every position datagram by design (§7's `LegacyPlugin` entry): nine `string`-typed identity
+    fields (`Callsign`, `Model`, `Livery`, `IcaoType`, `IcaoAirline`, `Registration`, `FlightNumber`,
+    `ClassCode`, `Wtc`), each a `BinaryReader.ReadString()`/`OptionalString()` call, and decoding
+    wire bytes into a `System.String` is unavoidably an allocation. Unaffected by the `PeerDirectory`
+    fix (legacy identifies the sender from the wire header's `NodeId` directly, never looks the peer
+    up by endpoint). Not fixable without representing identity fields as something other than
+    `string` end-to-end (`Sim.Obj.ModelTitle` and friends are `string` too), which isn't worth it for
+    a frozen, wire-compatible protocol.
+
+  Corrected §5's "zero allocations per datagram" claim for the receive path: true for JFP2 as designed
+  (now literally true, not just intended); legacy was never going to be zero-allocation given its
+  inlined-identity wire shape, and that's fine - it's the protocol JFP2 exists to improve on.
 
   The 50-simulated-peer system tests (§5's other half: CPU and wake latency under load) are not yet
   built.

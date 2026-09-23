@@ -74,7 +74,7 @@ namespace JoinFS.Tests.Net
 
             Assert.False(Jfp2Of(a).IsNegotiated(hub.Id));
             Assert.Equal("Legacy", a.Core.Route(hub.Id, MessageKind.Position)!.Name);
-            Assert.Equal("Legacy", Jfp2Of(a).DescribeLink(a.Core.Peers.All.Single()));
+            Assert.Equal(PeerLinkState.Legacy, Jfp2Of(a).DescribeLink(a.Core.Peers.All.Single()));
 
             SendPosition(a, hub, 3, "LG1", 7);
             mesh.Run(0.1);
