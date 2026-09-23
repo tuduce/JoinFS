@@ -1474,13 +1474,6 @@ namespace JoinFS
                     // create flight plan form
                     if (new FlightPlanForm(main, targetAircraft, targetAircraft.flightPlan).ShowDialog() == DialogResult.OK)
                     {
-                        lock (main.conch)
-                        {
-                            // update version
-                            targetAircraft.flightPlanVersion++;
-                            if (targetAircraft.flightPlanVersion == 0) targetAircraft.flightPlanVersion = 1;
-                        }
-
                         // refresh
                         RefreshWindow();
                     }

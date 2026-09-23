@@ -465,7 +465,7 @@ namespace JoinFS.Net.Jfp2
                     for (int offset = 0; offset < m.Entries.Count; offset += VariableSyncChunkSize)
                     {
                         int count = Math.Min(VariableSyncChunkSize, m.Entries.Count - offset);
-                        var chunk = new VariableSyncUpdate { Owner = m.Owner, ObjectId = m.ObjectId, Entries = m.Entries.GetRange(offset, count) };
+                        var chunk = new VariableSyncUpdate { ObjectId = m.ObjectId, Entries = m.Entries.GetRange(offset, count) };
                         int length = codec.Encode(chunk, p.payloadBuffer);
                         p.SendApplication(peer, session, MessageClasses.VariableSync, p.payloadBuffer.AsSpan(0, length), false);
                     }
@@ -681,11 +681,7 @@ namespace JoinFS.Net.Jfp2
                     host.Deliver(meta, CodecRegistry.Resolve<IdentityUpdate>(messageClass, version).Decode(payload));
                     break;
                 case MessageClasses.VariableSync:
-                    {
-                        VariableSyncUpdate m = CodecRegistry.Resolve<VariableSyncUpdate>(messageClass, version).Decode(payload);
-                        m.Owner = meta.Sender;
-                        host.Deliver(meta, m);
-                    }
+                    host.Deliver(meta, CodecRegistry.Resolve<VariableSyncUpdate>(messageClass, version).Decode(payload));
                     break;
                 case MessageClasses.Event:
                     host.Deliver(meta, CodecRegistry.Resolve<EventUpdate>(messageClass, version).Decode(payload));
@@ -694,7 +690,6 @@ namespace JoinFS.Net.Jfp2
                     {
                         FlightPlanUpdate m = CodecRegistry.Resolve<FlightPlanUpdate>(messageClass, version).Decode(payload);
                         m.Owner = meta.Sender;
-                        m.FormatVersion = 1;
                         host.Deliver(meta, m);
                     }
                     break;

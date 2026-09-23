@@ -49,9 +49,6 @@ namespace JoinFS
 
         readonly MainSessionHost host;
 
-        /// <summary>A session command has been issued and not yet left (the snapshot can lag it by ~100 ms).</summary>
-        bool sessionActive = false;
-
         public Network(Main main)
         {
             host = new MainSessionHost(main);
@@ -109,17 +106,12 @@ namespace JoinFS
         /// <summary>Open (or move to) the UDP port.</summary>
         public bool Open(int port)
         {
-            bool moving = service.Port != 0 && service.Port != port;
             if (!service.Open(port, out string error))
             {
                 host.Event(error);
                 return false;
             }
-            if (moving)
-            {
-                // the network thread left the session on the old port
-                sessionActive = false;
-            }
+            // moving to a new port: the network thread already left any session on the old one
             Bootstrap.SetPort((ushort)service.Port);
             return true;
         }
@@ -309,7 +301,6 @@ namespace JoinFS
 #if DEBUG
                 host.Event("Joining '" + AddressCodec.EncodeIP(endPoint.ToString()) + "'");
 #endif
-                sessionActive = true;
                 service.Post(start);
                 host.SessionChanged(5);
             }
@@ -323,13 +314,19 @@ namespace JoinFS
 
         void Login(IPEndPoint endPoint, string email, uint hash, bool verify) => StartSession(endPoint, core => core.Mesh.Login(endPoint, email, hash, verify));
 
-        /// <summary>Leave the session (if in one).</summary>
+        /// <summary>
+        /// Leave the session. Always posted - MeshManager.Leave() is a cheap no-op with nothing to
+        /// leave (docs/network-plugin-architecture.md §2.11 item 2), so there's no need for a local
+        /// "are we in a session" flag that could disagree with the network thread's own answer while
+        /// the snapshot catches up. The event/refresh are still gated on the snapshot, since skipping
+        /// them once in the rare race right after a Join is harmless; skipping the actual Leave
+        /// wouldn't be.
+        /// </summary>
         public void Leave()
         {
-            if (sessionActive || Snapshot.State != SessionState.Unconnected)
+            service.Post(core => core.Mesh.Leave());
+            if (Snapshot.State != SessionState.Unconnected)
             {
-                sessionActive = false;
-                service.Post(core => core.Mesh.Leave());
                 host.Event("Left the session");
                 host.SessionChanged(1);
             }
@@ -343,7 +340,6 @@ namespace JoinFS
                 LowBandwidth = host.LowBandwidth;
                 uint passwordHash = NetHash.HashPassword(host.Password.TrimStart(' ').TrimEnd(' '));
                 string folder = host.DocumentsPath;
-                sessionActive = true;
                 service.Post(core => core.Mesh.Create(globalSession, passwordHash, loginRequired: false, folder));
                 host.Event(globalSession ? "Joined global session" : "Created session");
                 host.SessionChanged(5);

@@ -206,18 +206,12 @@ namespace JoinFS
             Sim sim = main.sim;
             if (sim == null) return;
             SimMessageMapper.CopyTo(flightPlan, sim.userFlightPlan);
-            if (sim.userAircraft != null)
-            {
-                sim.userAircraft.flightPlanVersion++;
-                if (sim.userAircraft.flightPlanVersion == 0) sim.userAircraft.flightPlanVersion = 1;
-            }
         }
 
         public void UpdateAircraftFlightPlan(NodeId owner, uint netId, in FlightPlanUpdate flightPlan)
         {
             if (main.sim?.objectList.Find(o => o.ownerNuid == owner && o.netId == netId) is Sim.Aircraft aircraft)
             {
-                aircraft.flightPlanVersion = flightPlan.FormatVersion;
                 SimMessageMapper.CopyTo(flightPlan, aircraft.flightPlan);
             }
         }

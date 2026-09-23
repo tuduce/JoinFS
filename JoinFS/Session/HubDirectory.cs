@@ -87,7 +87,6 @@ namespace JoinFS
             public DateTime dateTime;
             public Guid guid = Guid.Empty;
             public string appVersion = "0.0.0";
-            public ushort dataVersion = 0;
             public string name = "";
             public string about = "";
             public string voip = "";
@@ -349,8 +348,6 @@ namespace JoinFS
                     hub.dateTime = DateTime.Now;
                     hub.guid = status.Guid;
                     hub.appVersion = status.AppVersion;
-                    // diagnostic only (never read); 0 when the sender's protocol doesn't convey one
-                    hub.dataVersion = (ushort)meta.DataVersion;
                     hub.online = true;
                     hub.offlineTime = clock.Now + OFFLINE_TIME;
                     hub.users = status.Users;

@@ -67,9 +67,8 @@ namespace JoinFS
             if (update.Entries.Count > 0) outbox.Broadcast(update);
         }
 
-        // our own objects (and objects we re-broadcast) are ours as far as receivers are concerned
         VariableSyncUpdate BuildVariables(uint netId, Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> string8s) =>
-            new() { Owner = session.LocalId, ObjectId = netId, Entries = SimMessageMapper.ToVariableEntries(integers, floats, string8s) };
+            new() { ObjectId = netId, Entries = SimMessageMapper.ToVariableEntries(integers, floats, string8s) };
 
         /// <summary>We stopped showing one of our objects.</summary>
         public void SendRemoveObjectMessage(uint netId) => outbox.Broadcast(new RemoveObject { ObjectId = netId }, guaranteed: true);

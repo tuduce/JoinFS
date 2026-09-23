@@ -129,11 +129,15 @@ namespace JoinFS.Net
         public static MessageKind Kind => MessageKind.VariableSync;
         public void Dispatch(IMessageHandler h, in MessageMeta meta) => h.Handle(in meta, in this);
 
-        /// <summary>
-        /// The node that owns the object. Usually the sender; differs when a node re-broadcasts an
-        /// object it is showing on someone else's behalf (the legacy protocol carries it explicitly).
-        /// </summary>
-        public NodeId Owner;
+        // No Owner field: unlike legacy's wire encoding, every other canonical object message
+        // (Position, ObjectPosition, Identity, Event, RemoveObject) identifies the owner purely via
+        // MessageMeta.Sender, which the core's translation path already preserves as the true
+        // origin through a relay (docs/reference/joinfs-architecture.md §6). Confirmed redundant
+        // for VariableSync too: this codebase's only sender always sets it to its own id (trivially
+        // equal to what Sender reads as), JFP2's own codec never puts it on the wire at all, and no
+        // golden fixture exercises a divergent value - see docs/network-plugin-architecture.md
+        // §2.11 item 3. LegacyPlugin still reads/writes the wire's Owner field (for byte fidelity)
+        // but logs if a received value ever disagrees with meta.Sender, as insurance.
         public uint ObjectId;
         public List<VariableEntry> Entries;
     }
@@ -163,11 +167,9 @@ namespace JoinFS.Net
         public static MessageKind Kind => MessageKind.FlightPlan;
         public void Dispatch(IMessageHandler h, in MessageMeta meta) => h.Handle(in meta, in this);
 
-        /// <summary>The node that owns the aircraft (see <see cref="VariableSyncUpdate.Owner"/>).</summary>
+        /// <summary>The node that owns the aircraft.</summary>
         public NodeId Owner;
         public uint ObjectId;
-        /// <summary>Flight-plan format version carried by the legacy message (always 1 so far).</summary>
-        public byte FormatVersion;
         public string IcaoType;
         public string Departure;
         public string Destination;

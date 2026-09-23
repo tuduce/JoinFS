@@ -148,7 +148,7 @@ namespace JoinFS.Tests.Session
             var rig = WithPeer();
             var sync = new VariableSyncUpdate
             {
-                Owner = Peer, ObjectId = 7,
+                ObjectId = 7,
                 Entries = [
                     new VariableEntry { Vuid = 1, Kind = VariableKind.Int32, IntValue = 5 },
                     new VariableEntry { Vuid = 2, Kind = VariableKind.Float32, FloatValue = 2.5f },

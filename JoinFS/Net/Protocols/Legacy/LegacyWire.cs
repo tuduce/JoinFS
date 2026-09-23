@@ -45,6 +45,15 @@ namespace JoinFS.Net.Legacy
         /// <summary>Oldest data version whose application messages are accepted.</summary>
         public const short MinDataVersion = 10014;
 
+        /// <summary>
+        /// The FlightPlan message's own version byte (distinct from <see cref="DataVersion"/>).
+        /// Frozen at 1 since the field was introduced; no reader (this codebase's or, as far as
+        /// known, any released build's) branches on it - see
+        /// docs/network-plugin-architecture.md §2.11 item 3. Kept only for byte-for-byte wire
+        /// fidelity; the canonical FlightPlanUpdate no longer carries it.
+        /// </summary>
+        public const byte FlightPlanFormatVersion = 1;
+
         /// <summary>Largest payload per guaranteed segment.</summary>
         public const int MaxGuaranteedData = 1000;
 

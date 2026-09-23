@@ -1830,7 +1830,6 @@ namespace JoinFS
             /// button) has something live to read back - same reasoning as originalCallsign.
             /// </summary>
             public string originalIcaoType = "";
-            public byte flightPlanVersion = 0;
             public FlightPlan flightPlan = new();
             public byte cockpitShare = 0;
             public string airport = "";

@@ -1627,12 +1627,6 @@ namespace JoinFS
 
         void CommitUserFlightPlanChange()
         {
-            // bump flight plan version, same as the scheduled flight-plan-form flow
-            if (main.sim.userAircraft != null)
-            {
-                main.sim.userAircraft.flightPlanVersion++;
-                if (main.sim.userAircraft.flightPlanVersion == 0) main.sim.userAircraft.flightPlanVersion = 1;
-            }
             RefreshFlightPlanButtons();
             // AircraftForm's grid reads flightPlan.callsign live but only redraws when its own refresher
             // fires - unlike opening FlightPlanForm from AircraftForm's own context menu (which calls

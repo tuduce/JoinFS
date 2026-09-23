@@ -10,3 +10,11 @@
 /JoinFS/.vs
 **/bin/
 **/obj/
+ProtocolV2Reference/**
+Claude.md
+# Wire-format verification evidence (docs/network-plugin-architecture.md §4 step 1): raw packet
+# captures, potentially large and containing real IP/hub addresses - never committed.
+docs/captures/*.pcapng
+docs/captures/*.pcap
+# BenchmarkDotNet run output (JoinFS.Benchmarks): lands wherever `dotnet run` was invoked from.
+BenchmarkDotNet.Artifacts/

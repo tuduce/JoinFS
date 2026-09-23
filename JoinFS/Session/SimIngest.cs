@@ -114,7 +114,7 @@ namespace JoinFS
             {
                 return;
             }
-            NodeId owner = sync.Owner;
+            NodeId owner = meta.Sender;
             uint netId = sync.ObjectId;
             bool sharedCockpit = netId == uint.MaxValue;
             // shared cockpit: the sender's variables for our own aircraft

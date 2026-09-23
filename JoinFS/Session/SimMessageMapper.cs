@@ -179,7 +179,6 @@ namespace JoinFS
         {
             Owner = owner,
             ObjectId = netId,
-            FormatVersion = 1,
             IcaoType = flightPlan.icaoType,
             Departure = flightPlan.departure,
             Destination = flightPlan.destination,

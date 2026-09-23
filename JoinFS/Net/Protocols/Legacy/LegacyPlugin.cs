@@ -367,13 +367,15 @@ namespace JoinFS.Net.Legacy
             public void Handle(in MessageMeta meta, in VariableSyncUpdate m)
             {
                 // one legacy message type per value kind, each chunked; the empty trailing
-                // ushort is the (unused) "change times" count
-                WriteVariables(m, VariableKind.Int32, LegacyWire.AppId.IntegerVariables, LegacyWire.MaxIntegerVariables);
-                WriteVariables(m, VariableKind.Float32, LegacyWire.AppId.FloatVariables, LegacyWire.MaxFloatVariables);
-                WriteVariables(m, VariableKind.String8, LegacyWire.AppId.String8Variables, LegacyWire.MaxString8Variables);
+                // ushort is the (unused) "change times" count. The wire's Owner slot (legacy-only;
+                // the canonical VariableSyncUpdate no longer carries a separate one, see its own
+                // comment) gets the message's true origin, same as every other message's header.
+                WriteVariables(meta.Sender, m, VariableKind.Int32, LegacyWire.AppId.IntegerVariables, LegacyWire.MaxIntegerVariables);
+                WriteVariables(meta.Sender, m, VariableKind.Float32, LegacyWire.AppId.FloatVariables, LegacyWire.MaxFloatVariables);
+                WriteVariables(meta.Sender, m, VariableKind.String8, LegacyWire.AppId.String8Variables, LegacyWire.MaxString8Variables);
             }
 
-            void WriteVariables(in VariableSyncUpdate m, VariableKind kind, LegacyWire.AppId id, int max)
+            void WriteVariables(NodeId owner, in VariableSyncUpdate m, VariableKind kind, LegacyWire.AppId id, int max)
             {
                 BinaryWriter w = null;
                 long countPosition = 0;
@@ -387,7 +389,7 @@ namespace JoinFS.Net.Legacy
                     if (w == null)
                     {
                         w = p.BeginApp(id, false);
-                        m.Owner.Write(w);
+                        owner.Write(w);
                         w.Write(m.ObjectId);
                         countPosition = w.BaseStream.Position;
                         count = 0;
@@ -441,7 +443,7 @@ namespace JoinFS.Net.Legacy
                 BinaryWriter w = p.BeginApp(LegacyWire.AppId.FlightPlan, false);
                 m.Owner.Write(w);
                 w.Write(m.ObjectId);
-                w.Write(m.FormatVersion);
+                w.Write(LegacyWire.FlightPlanFormatVersion);
                 w.Write(m.IcaoType);
                 w.Write(m.Departure);
                 w.Write(m.Destination);
@@ -787,7 +789,7 @@ namespace JoinFS.Net.Legacy
             }
             else
             {
-                ReceiveApp(ref meta, length);
+                ReceiveApp(meta, length);
             }
         }
 
@@ -904,14 +906,13 @@ namespace JoinFS.Net.Legacy
 
         string OptionalString() => More ? reader.ReadString() : "";
 
-        void ReceiveApp(ref MessageMeta meta, int length)
+        void ReceiveApp(in MessageMeta meta, int length)
         {
             short dataVersion = reader.ReadInt16();
             if (dataVersion < LegacyWire.MinDataVersion)
             {
                 return;
             }
-            meta.DataVersion = dataVersion;
             var id = (LegacyWire.AppId)reader.ReadInt16();
             try
             {
@@ -1131,7 +1132,17 @@ namespace JoinFS.Net.Legacy
                 _ => VariableKind.String8,
             };
             (kind switch { VariableKind.Int32 => Stats.IntegerVariables, VariableKind.Float32 => Stats.FloatVariables, _ => Stats.String8Variables }).Record(length);
-            var m = new VariableSyncUpdate { Owner = NodeId.Read(reader), ObjectId = reader.ReadUInt32() };
+            NodeId wireOwner = NodeId.Read(reader);
+            // Insurance for docs/network-plugin-architecture.md §2.11 item 3's redundancy claim: no
+            // known sender (this codebase's, or any released build's, as far as could be confirmed)
+            // sets this to anything but its own id, which meta.Sender already carries - but if one
+            // ever does, this is the only place that would notice, since the canonical
+            // VariableSyncUpdate no longer carries the wire's Owner field at all.
+            if (wireOwner != meta.Sender)
+            {
+                host.Log(NetLogLevel.Event, "LEGACY: VariableSync wire Owner " + wireOwner + " disagrees with sender " + meta.Sender + " - investigate before trusting Sender here");
+            }
+            var m = new VariableSyncUpdate { ObjectId = reader.ReadUInt32() };
             int count = reader.ReadUInt16();
             m.Entries = new List<VariableEntry>(count);
             for (int i = 0; i < count; i++)
@@ -1275,8 +1286,8 @@ namespace JoinFS.Net.Legacy
             {
                 Owner = NodeId.Read(reader),
                 ObjectId = reader.ReadUInt32(),
-                FormatVersion = reader.ReadByte(),
             };
+            reader.ReadByte(); // the message's own format-version byte - never gates anything, discarded (LegacyWire.FlightPlanFormatVersion)
             m.IcaoType = reader.ReadString();
             m.Departure = reader.ReadString();
             m.Destination = reader.ReadString();

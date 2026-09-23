@@ -84,7 +84,7 @@ namespace JoinFS.Tests.Net
             var (mesh, a, b) = Pair();
             var m = new VariableSyncUpdate
             {
-                Owner = a.Id, ObjectId = 3,
+                ObjectId = 3,
                 Entries =
                 [
                     new VariableEntry { Vuid = 1, Kind = VariableKind.Int32, IntValue = -5 },
@@ -95,12 +95,14 @@ namespace JoinFS.Tests.Net
             a.Core.SendTo(b.Id, m, false);
             mesh.Run(0.1);
 
-            var received = b.Messages<VariableSyncUpdate>().ToList();
+            var received = b.MessagesWithMeta<VariableSyncUpdate>().ToList();
             Assert.Equal(3, received.Count);
-            Assert.Equal(-5, received[0].Entries.Single().IntValue);
-            Assert.Equal(2.5f, received[1].Entries.Single().FloatValue);
-            Assert.Equal("abc", received[2].Entries.Single().StringValue);
-            Assert.All(received, r => Assert.Equal(a.Id, r.Owner));
+            Assert.Equal(-5, received[0].Message.Entries.Single().IntValue);
+            Assert.Equal(2.5f, received[1].Message.Entries.Single().FloatValue);
+            Assert.Equal("abc", received[2].Message.Entries.Single().StringValue);
+            // no payload-level Owner any more (docs/network-plugin-architecture.md §2.11 item 3) -
+            // the envelope's Sender is the owner
+            Assert.All(received, r => Assert.Equal(a.Id, r.Meta.Sender));
         }
 
         [Fact] public void Event() => AssertRoundTrip(new EventUpdate { ObjectId = 1, EventId = 2, Data = 3 }, true);
@@ -110,7 +112,7 @@ namespace JoinFS.Tests.Net
         [Fact]
         public void FlightPlan() => AssertRoundTrip(new FlightPlanUpdate
         {
-            Owner = new NodeId(9, 8, 7), ObjectId = 6, FormatVersion = 1, IcaoType = "B738", Departure = "EDDF", Destination = "EGLL",
+            Owner = new NodeId(9, 8, 7), ObjectId = 6, IcaoType = "B738", Departure = "EDDF", Destination = "EGLL",
             Rules = "IFR", Route = "R", Remarks = "RMK", Alternate = "EGKK", Speed = "N0450", Altitude = "F350", Callsign = "DLH2",
             Registration = "D-X", IcaoAirline = "DLH", FlightNumber = "2",
         });

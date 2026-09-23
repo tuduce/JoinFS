@@ -104,12 +104,6 @@ namespace JoinFS.Net
         /// <summary>Inbound: the message reached us through a relay rather than directly from the sender.</summary>
         public bool Forwarded;
 
-        /// <summary>
-        /// The sender's application data-model version, when its protocol conveys one (the legacy
-        /// protocol prefixes every application message with it; diagnostic only).
-        /// </summary>
-        public short DataVersion;
-
         public static MessageMeta To(NodeId recipient, bool guaranteed = false) =>
             new() { Recipient = recipient, Guaranteed = guaranteed };
 

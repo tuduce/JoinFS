@@ -301,22 +301,21 @@ These refine §2.1–§2.7. The code is authoritative; each point says what chan
 
 ### 2.11 Known structural debts
 
-The protocol boundary is intact — plugins never see the app, and the session layer has no wire code. Four things were weaker than they should be; the first two are now resolved:
+The protocol boundary is intact — plugins never see the app, and the session layer has no wire code. Four things were weaker than they should be; all four are now resolved or substantially so:
 1. **Resolved (2026-09-23): `Network.cs` was one large class** (about 3,500 lines) mixing six jobs (hub directory, online users, the per-peer info table, DNS, the ingest into `Sim`/`Recorder`/`Notes`, the send helpers). It depended on `Main`, forms and `Settings` directly, so it couldn't be tested.
    - It is now a facade of about 420 lines (session commands, message routing, the tick order) plus eight parts in `JoinFS/Session/`: `NetBootstrap`, `PeerTable`, `SimSender`, `SimIngest`, `HubDirectory`, `HubHost`, `UserDirectory`, `SessionComms`.
    - The parts depend on narrow interfaces (`SessionInterfaces.cs`, plus `INetworkOutbox` on `NetworkService`). `MainSessionHost` is the one adapter over `Main`, the forms and `Settings`.
    - They are covered by `JoinFS.Tests/Session`, including end-to-end runs from the in-memory mesh into `SimIngest`.
    - Behaviour and tick order are unchanged. One latent bug was fixed along the way: a failed `hubs.dat` save left its hubs in the shared temporary list, so the next hubs tick would have removed them from the hub list.
    - See `docs/reference/joinfs-architecture.md` §7.
-2. **Mostly resolved: some facts had two owners.**
+2. **Resolved (2026-09-23): some facts had two owners.**
    - The local addresses and `LocalId` now have one decider, `NetBootstrap`. It keeps an app-side `LocalIdentity` (the same class, so there's one `NodeId` rule and one shared-NAT endpoint rule) and hands every change to the network thread's copy. The two copies are the unavoidable cross-thread handoff, not two owners.
    - `DetectLocalAddress` exists once, on `LocalIdentity`.
-   - The `sessionActive` flag remains, set only by the session commands in `Network`, because the snapshot can lag the mesh by up to 100 ms.
-3. **Legacy vocabulary in the canonical model:**
-   - `MessageMeta.DataVersion` (a diagnostic only legacy fills in);
-   - `CommsScope.All`, which partly selects between legacy's two notes length formulas;
-   - `FlightPlanUpdate.FormatVersion`;
-   - `VariableSyncUpdate.Owner`.
+   - The `sessionActive` flag is deleted. `MeshManager.Leave()` was already a cheap no-op with nothing to leave (checked: it only broadcasts to an already-empty peer list and resets already-default state), so `Network.Leave()` now always posts it unconditionally instead of trying to locally track "are we in a session" — there's no longer any app-thread state that could disagree with the network thread while the snapshot catches up. The observable side effects (the `MonitorEvent`/UI refresh) are still gated, but on `Snapshot.State` alone.
+3. **Mostly resolved: legacy vocabulary in the canonical model.**
+   - **Deleted, confirmed dead:** `MessageMeta.DataVersion` (write-only in both readers, `HubDirectory.Hub.dataVersion`/`PeerTable.Node.dataVersion`, themselves also deleted — grepped the whole app and test tree, zero reads) and `FlightPlanUpdate.FormatVersion` (its receive-side gating in `ReadFlightPlan` all keys off the envelope's `dataVersion`, never off this field; its one consumer, `Sim.Aircraft.flightPlanVersion`, was itself write-only everywhere, including two UI increment sites, and is deleted too). Both wire bytes are still written/read by `LegacyPlugin` for byte fidelity (`FlightPlanFormatVersion` is now a named `LegacyWire` constant) - only the canonical-model propagation and the dead app-side fields are gone.
+   - **Deleted, high confidence:** `VariableSyncUpdate.Owner`. Every other per-object canonical message (Position, ObjectPosition, Identity, Event, RemoveObject) identifies the owner purely via `MessageMeta.Sender`, which the core's translation path already preserves as the true origin through a relay (§2.6). Checked before removing: this codebase's only sender (`SimSender`) always set `Owner` to its own id (trivially equal to `Sender`); the one place `Owner` could plausibly have diverged - shared cockpit - already ignored the wire value and re-derived the owner separately; no golden fixture exercised `Owner != Sender`; and JFP2's own decode path already discarded the wire value in favor of `meta.Sender` before this change, so JFP2 never actually carried it. The one scenario asked about specifically, broadcasting a recorded aircraft's variables (`Sim.UpdateAircraft`'s `IsBroadcast` rebroadcast path), doesn't create a divergence either - `BroadcastVariables` never threads the aircraft's true `ownerNuid` through at all, so the rebroadcasting node's own id is what goes out regardless, same as `Sender` would be. `LegacyPlugin` still reads/writes the wire's Owner field (byte fidelity), and its decoder logs (`NetLogLevel.Event`, so it's visible without enabling network monitoring) if a received value ever disagrees with `meta.Sender`, as insurance against a sender this codebase hasn't seen.
+   - **Not touched, on reflection not actually vocabulary contamination:** `CommsScope.All`. It genuinely models a real (if currently unserved) legacy request kind for `CommsRequest.Scope` - `Session`/`Global`/`All` map 1:1 to three distinct legacy message ids. Its reuse on `NotesBundle.Scope` to pick between two length-field formulas is confirmed dead (the field it selects is never read by any decoder, including this codebase's own - the source comment says so directly: "two historical formulas for a length field nobody reads"), and a golden fixture (`app_notes_all.hex`, via `BulkNotes`) pins the exact byte-for-byte output of the `All` case, so collapsing the two formulas would break a legitimate wire-fidelity guarantee for zero behavioral gain. Left as documented, deliberate dead weight rather than restructured.
 4. **The UI maps plugin names.** `SessionForm` colours its protocol column from the strings `"JFP2"` and `"Legacy"`.
 
 
@@ -357,7 +356,11 @@ Pre-existing bugs fixed along the way (most have a regression test in `JoinFS.Te
      - **How they were captured:** a harness drove the pre-rewrite implementation. It called the application and request writers directly, and injected crafted datagrams into a real `LocalNode` to capture its replies: JoinReply/JoinFail/LoginFail, AddNode, GuaranteedDone, PulseResponse, PathfinderResponse, `FLAG_FORWARD` relay, and the UserNuid reply. Capture used a fixed loopback port (46112), with the Pulse timestamp zeroed.
      - **Now that the old code is deleted**, the capture tests are gone too. The fixtures are the frozen specification of the legacy wire, and `LegacyPluginGoldenTests` checks the new plugin against them.
      - **Not pinned on purpose:** the LoginFail sent for an unparsable email address. It writes into a stale send buffer (a known bug, fixed by the rewrite).
-     - **Still open:** v26.5 pcaps from a live session.
+     - **Done (2026-09-23):** v26.5 pcaps from a live session. See `docs/captures/README.md` — an
+       unmodified v26.5 client's own `AircraftPosition` traffic (`DataVersion=21007`) is confirmed
+       identical in shape whether it's talking to the live public hub network or to this branch's new
+       hub, and the new hub's JFP2 Hello correctly gives up after 5 attempts against it and falls back
+       to legacy for the rest of the session.
      - **Baseline:** the fixtures pin the *current* branch's writers. Their wire is a byte superset of v26.5: class code, WTC and `staticCgToGround` were appended as trailing fields that older peers ignore.
 2. `Net/Core` types and `Net/Messages` (moving the JFP2 DTOs), `IDatagramTransport` plus `InMemoryTransport` for tests.
    - **Status: done.** Canonical types live in `JoinFS/Net/Messages` (namespace `JoinFS.Net`). The JFP2 codecs and the old `Network.cs` now use them. `WeatherReport` became `WeatherReply` and `WeatherUpdate`. Transport: `IDatagramTransport`, `UdpTransport` (receive thread), `InMemoryNetwork`.
@@ -413,15 +416,75 @@ Pre-existing bugs fixed along the way (most have a regression test in `JoinFS.Te
 **Still open after the rewrite:**
 - **Live interop.** Test against an unmodified v26.5 build and a real simulator:
   - legacy direct
-  - through a new hub
-  - JFP2 pair
+  - **through a new hub — done (2026-09-23).** Behavioral (following another aircraft, correct
+    protocol labels) and wire-level (`docs/captures/legacy-v26.5-client-vs-new-hub.pcapng`, see
+    `docs/captures/README.md`) confirmation.
+  - JFP2 pair — a new-build↔new-build capture exists (`docs/captures/
+    jfp2-new-client-vs-new-hub.pcapng`) but doesn't involve v26.5, so this specific item (v26.5
+    coexisting with a JFP2 pair) is still open.
   - mixed hub
   - X-Plane plugin link
 
   This could not be run in the development sandbox: the built app fails to load its own assembly there, and yesterday's unmodified build fails the same way, so the cause is environmental.
-- **v26.5 pcaps** as a second wire reference.
+- **v26.5 pcaps as a second wire reference — done.** See `docs/captures/README.md`.
 - **`SendPolicy`** out of `Sim` (§2.10 item 4).
-- **Performance measurements** (§5).
+- **Performance measurements (§5) - the Position micro-benchmark is done, with real numbers.**
+  `JoinFS.Benchmarks` (BenchmarkDotNet, `[MemoryDiagnoser]`, in-process toolchain) benchmarks
+  encode/route/decode of Position for both plugins in isolation - two two-node pairs built directly
+  against `NetworkCore` (bypassing `MeshManager`; JFP2 negotiation only needs
+  `Peer.RouteIsOwnEndPoint`, per §2.4), with a transport that goes silent after capturing one real
+  datagram so each `[Benchmark]` measures only the plugin's own allocation, not a paired node's
+  receive pipeline too. Run with `dotnet run -c CONSOLE --project JoinFS.Benchmarks`.
+
+  **Correction to an earlier version of this note:** it previously reported this couldn't be run at
+  all, attributing a `FileNotFoundException` to the same environmental block as the live-interop
+  item above (a plausible-looking match: it reproduced identically on real hardware too, not just
+  the sandbox). That diagnosis was wrong. The real cause: `JoinFS.csproj`'s CONSOLE `PropertyGroup`
+  hardcodes `<PlatformTarget>ARM64</PlatformTarget>` unconditionally - contradicting CLAUDE.md's
+  documented "CONSOLE targets x64" and every other CONSOLE-building path's assumption. CI's
+  `build-test.yml` masks it (passes `/p:PlatformTarget=${{ matrix.arch }}` externally, which wins
+  over the in-file value), but **`JoinFS/util/buildAll.ps1` does not** - it runs `dotnet build
+  .\JoinFS.csproj -c $config` with no arch override at all, so on any non-ARM64 machine it silently
+  produces an ARM64 `JoinFS-CONSOLE.dll` today. The Dockerfile's `-r linux-musl-x64` publish wasn't
+  checked and may or may not be immune - worth confirming separately. `JoinFS.Benchmarks.csproj`
+  works around it by passing `PlatformTarget=x64` explicitly in its `ProjectReference`'s
+  `AdditionalProperties`, but **`JoinFS.csproj` line ~133 itself is unfixed** - flagging rather than
+  changing it, since shared build configuration is outside this benchmark task's scope and the
+  ARM64 value might be someone's unfinished work rather than a plain mistake.
+
+  Two bugs in the benchmark harness itself surfaced once the above was fixed and it could actually
+  run: `SwitchableTransport.Capture` was wired to the receiving side's transport instead of the
+  sending side's (capture only ever fires inside `Send()`), and calling a plugin's `Send()` directly
+  (bypassing `NetworkCore.Send`, which normally auto-fills `MessageMeta.Sender` when unset) left
+  `Sender` invalid, so the legacy encoder's identity lookup (keyed by `Sender`) silently found
+  nothing and sent nothing. Both fixed; a third (JFP2 negotiation never completing) was `Peer`'s
+  `ExpireTime` defaulting to 0, so `MeshManager.Tick()` expired the hand-added peer before the
+  Hello/HelloAck loop finished - same thing `LegacyPluginGoldenTests`' `Stack.AddPeer` already works
+  around by setting `ExpireTime = 1e9`.
+
+  **Results** (`ShortRun`, this development machine - not a substitute for a real run on production-
+  class hardware, but the shape is informative):
+
+  | Method | Mean | Allocated |
+  |---|---:|---:|
+  | EncodeLegacy | 209 ns | 0 B |
+  | EncodeJfp2 | 77 ns | 0 B |
+  | DecodeLegacy | 560 ns | 352 B |
+  | DecodeJfp2 | 64 ns | 40 B |
+  | RouteLookup | 11 ns | 0 B |
+
+  Encode matches the design's "zero allocations in steady state" target for both protocols, and
+  JFP2 encodes about 2.7x faster than legacy (a simpler envelope + no guaranteed-delivery
+  bookkeeping on a non-guaranteed send, versus legacy's multi-field writer). Route lookup is the
+  expected single array read. **Decode is not allocation-free for either protocol** - legacy's 352 B
+  is the likelier one to matter (it inlines identity, with several `BinaryReader.ReadString()`
+  calls, into every position datagram by design); JFP2's smaller but still nonzero 40 B for a bare
+  Position decode (no identity involved) is worth a closer look before trusting it's irreducible.
+  This contradicts §5's "zero allocations per datagram" receive-path target as stated and is worth
+  investigating, not just noting.
+
+  The 50-simulated-peer system tests (§5's other half: CPU and wake latency under load) are not yet
+  built.
 
 ---
 

@@ -101,7 +101,7 @@ namespace JoinFS.Tests.Legacy
 
         static FlightPlanUpdate SampleFlightPlan() => new()
         {
-            Owner = Self, ObjectId = 0x0102, FormatVersion = 1,
+            Owner = Self, ObjectId = 0x0102,
             Callsign = "BAW123", Registration = "G-ABCD", IcaoType = "A320", IcaoAirline = "BAW",
             FlightNumber = "123", Departure = "EGLL", Destination = "LFPG", Rules = "IFR",
             Route = "DVR UL9 KONAN", Remarks = "TCAS", Alternate = "LFPO", Speed = "N0450", Altitude = "FL350",
@@ -218,7 +218,7 @@ namespace JoinFS.Tests.Legacy
         public void IntegerVariables_Chunked()
         {
             var s = new Stack();
-            var m = new VariableSyncUpdate { Owner = Self, ObjectId = 0x0102, Entries = [] };
+            var m = new VariableSyncUpdate { ObjectId = 0x0102, Entries = [] };
             for (uint i = 0; i < 101; i++) m.Entries.Add(new VariableEntry { Vuid = 0x1000 + i, Kind = VariableKind.Int32, IntValue = (int)(i * 3) - 50 });
             s.Core.SendTo(Peer, m, false);
             AssertMatches("app_integer_variables_chunked", s.Drain());
@@ -230,7 +230,7 @@ namespace JoinFS.Tests.Legacy
             var s = new Stack();
             var m = new VariableSyncUpdate
             {
-                Owner = Self, ObjectId = 0x0102,
+                ObjectId = 0x0102,
                 Entries =
                 [
                     new VariableEntry { Vuid = 0xAAAA0001, Kind = VariableKind.Float32, FloatValue = 1.5f },
@@ -246,7 +246,7 @@ namespace JoinFS.Tests.Legacy
         public void String8Variables_Chunked()
         {
             var s = new Stack();
-            var m = new VariableSyncUpdate { Owner = Self, ObjectId = 0x0102, Entries = [] };
+            var m = new VariableSyncUpdate { ObjectId = 0x0102, Entries = [] };
             for (uint i = 0; i < 81; i++) m.Entries.Add(new VariableEntry { Vuid = 0x2000 + i, Kind = VariableKind.String8, StringValue = "S" + i });
             s.Core.SendTo(Peer, m, false);
             AssertMatches("app_string8_variables_chunked", s.Drain());

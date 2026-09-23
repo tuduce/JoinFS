@@ -16,7 +16,6 @@ namespace JoinFS
         /// <summary>A node in the session, as it describes itself.</summary>
         public class Node
         {
-            public ushort dataVersion = 0;
             public string nickname = "";
             public Guid guid = Guid.Empty;
             public bool hub = false;
@@ -174,7 +173,6 @@ namespace JoinFS
             {
                 return;
             }
-            node.dataVersion = (ushort)meta.DataVersion;
             if (info.Nickname.Equals(node.nickname) == false)
             {
                 node.nickname = info.Nickname;

@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!-- The SDK's default for $(Optimize) is Configuration=='Release', not "anything but Debug" -
+         CONSOLE (borrowed from JoinFS.csproj, matched so the ProjectReference above doesn't need a
+         second, differently-configured build) doesn't trip that default, so pin it explicitly:
+         benchmark numbers from an unoptimized build are meaningless. -->
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Release build of the CONSOLE configuration: no Windows Forms/SimConnect to drag in, and the
+      Net/Session code these benchmarks exercise isn't gated by simulator #if symbols, so the
+      numbers are identical to any other release configuration. See docs/network-plugin-architecture.md
+      §5 ("Performance targets") - this project is the "BenchmarkDotNet micro-benchmark" it asks for,
+      for the send/receive path's encode, route and decode of Position.
+
+      PlatformTarget=x64 is pinned explicitly: JoinFS.csproj's CONSOLE PropertyGroup hardcodes
+      <PlatformTarget>ARM64</PlatformTarget> unconditionally (JoinFS/JoinFS.csproj line ~133) -
+      contradicts CLAUDE.md's documented "CONSOLE targets x64" and produces an ARM64
+      JoinFS-CONSOLE.dll whenever nothing external overrides it (CI's build-test.yml does, via
+      /p:PlatformTarget=..., which is why this has stayed unnoticed there; JoinFS/util/buildAll.ps1
+      does not, so it hits the same bug this comment works around). Without this override, any
+      referencing exe fails to load JoinFS-CONSOLE.dll at runtime with a misleading
+      FileNotFoundException (the real cause is an architecture mismatch) - this was reported as
+      "worked in the design, fails identically on real hardware," not sandbox-specific.
+    -->
+    <ProjectReference Include="..\JoinFS\JoinFS.csproj" AdditionalProperties="Configuration=CONSOLE;PlatformTarget=x64" />
+  </ItemGroup>
+
+</Project>
