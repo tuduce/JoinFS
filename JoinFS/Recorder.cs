@@ -1337,6 +1337,13 @@ namespace JoinFS
                 // check if object is playing
                 if (obj.playing)
                 {
+                    // A jump can move the playback position arbitrarily far in time (both forwards and
+                    // backwards), so whatever InterpolateAngles had been continuously unwrapping toward is
+                    // no longer relevant to where playback is about to resume - keeping it would splice an
+                    // unrelated old reference onto a freshly wrapped keyframe on the very next interpolated
+                    // frame, via the same continuity math this is meant to protect. Starting over here means
+                    // that math re-bases itself from this jump's own recentFrame instead.
+                    obj.playbackAnglesValid = false;
                     // recent position frame
                     Frame recentFrame = null;
                     // reset frame index
@@ -1419,6 +1426,27 @@ namespace JoinFS
                 angles.y = obj.playbackAngles.y + Vector.AngleDelta(obj.playbackAngles.y, angles.y);
                 angles.z = obj.playbackAngles.z + Vector.AngleDelta(obj.playbackAngles.z, angles.z);
             }
+
+            // Re-wrap into (-PI, PI] before storing. The line above deliberately keeps adding whole
+            // revolutions so a heading crossing the 0/360 boundary mid-turn does not jump - but nothing
+            // ever wrapped it back down, so on a track with many turns (a glider thermalling for tens of
+            // minutes) this grows without bound, tick after tick, for as long as the object keeps playing.
+            // AngleDelta only ever returns the shortest signed distance regardless of either side's
+            // magnitude (see its own comment re the 2*PI-multiple case this method's caller already had to
+            // survive once), so nothing downstream needs the raw magnitude to keep growing - the *value*
+            // reaching ObjectEuler/EulerToQuat only needs to be correct modulo 2*PI. It is not, once this
+            // reaches a large enough magnitude for float32 to lose meaningful precision on it: ObjectEuler
+            // stores pitch/heading/bank as float, and EulerToQuat's CreateFromYawPitchRoll takes float too -
+            // both need their own internal argument reduction mod 2*PI to turn the angle into sin/cos, and
+            // that reduction is only as accurate as the float itself is at that magnitude. Once corrupted
+            // this does not recover on its own: in level flight the added delta each tick is near zero, so
+            // the (already too large) accumulator just stays large instead of shrinking back down - matching
+            // the reported symptom of heading jitter that starts during a sustained turn and then persists
+            // for the rest of the flight, until something (e.g. Jump(), or re-entering the cockpit) discards
+            // this state and starts fresh from a freshly wrapped keyframe.
+            angles.x = Vector.AngleDelta(0, angles.x);
+            angles.y = Vector.AngleDelta(0, angles.y);
+            angles.z = Vector.AngleDelta(0, angles.z);
 
             obj.playbackAngles = angles;
             obj.playbackAnglesValid = true;
