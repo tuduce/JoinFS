@@ -1570,6 +1570,51 @@ namespace JoinFS
         /// Update object velocity in the simulator
         /// </summary>
         /// <param name="aircraft"></param>
+        /// <summary>
+        /// Convert Euler angles (pitch, heading, bank in radians) to a quaternion.
+        /// The convention matches SimConnect: pitch = X, heading/yaw = Y, bank/roll = Z.
+        /// </summary>
+        internal static System.Numerics.Quaternion EulerToQuat(Vector angles)
+        {
+            // System.Numerics uses yaw=Y, pitch=X, roll=Z
+            return System.Numerics.Quaternion.CreateFromYawPitchRoll(
+                (float)angles.y,
+                (float)angles.x,
+                (float)angles.z);
+        }
+
+        /// <summary>
+        /// Convert a quaternion back to Euler angles (pitch, heading, bank in radians) - the inverse of
+        /// EulerToQuat. This has to match CreateFromYawPitchRoll's actual rotation order (intrinsic
+        /// yaw(Y)-then-pitch(X)-then-roll(Z), i.e. R = Ry(yaw)*Rx(pitch)*Rz(roll)) exactly, or the two
+        /// functions are not inverses of each other and every non-trivial round trip corrupts the angles -
+        /// verified against EulerQuaternionTests.RoundTrip_PreservesEulerAngles, which caught exactly that
+        /// mismatch in an earlier, differently-derived version of this method (it round-tripped 0/0/0
+        /// correctly, since that case can't expose an axis-order error, but returned bank=180 degrees for a
+        /// pure 90-degree heading turn). Derived by expanding R = Ry*Rx*Rz symbolically and reading off the
+        /// standard quaternion-to-matrix terms - see the PR description for the worked derivation.
+        /// </summary>
+        internal static Vector QuatToEuler(System.Numerics.Quaternion q)
+        {
+            // Normalise to avoid numerical drift
+            q = System.Numerics.Quaternion.Normalize(q);
+            double x = q.X, y = q.Y, z = q.Z, w = q.W;
+
+            // Pitch (X) - asin() of the single matrix term that isolates it in this axis order
+            double sinp = 2.0 * (w * x - y * z);
+            double pitch = Math.Abs(sinp) >= 1.0
+                ? Math.CopySign(Math.PI / 2.0, sinp)
+                : Math.Asin(sinp);
+
+            // Heading (yaw, Y)
+            double heading = Math.Atan2(2.0 * (x * z + w * y), 1.0 - 2.0 * (x * x + y * y));
+
+            // Bank (roll, Z)
+            double bank = Math.Atan2(2.0 * (x * y + w * z), 1.0 - 2.0 * (x * x + z * z));
+
+            return new Vector(pitch, heading, bank);
+        }
+
         void UpdateSimObjectVelocity(Obj obj)
         {
             try
@@ -1585,9 +1630,15 @@ namespace JoinFS
                         // zero sim velocity
                         simconnect.SetData(Definitions.OBJECT_VELOCITY, obj.simId, new ObjectVelocity());
 #if (FS2020 || FS2024)
-                        // set orientation
-                        simconnect.SetData(Definitions.OBJECT_EULER, obj.simId, new ObjectEuler(obj.netPosition.angles));
-                        obj.simPosition.angles = obj.netPosition.angles.Clone();
+                        // set orientation - quaternion SLERP (t=1: paused snaps straight to the target,
+                        // there is nothing to catch up to) instead of direct Euler assignment, which has a
+                        // discontinuity at the pitch/bank singularities (see EulerToQuat/QuatToEuler)
+                        var qPausedSim = EulerToQuat(obj.simPosition.angles);
+                        var qPausedNet = EulerToQuat(obj.netPosition.angles);
+                        var qPausedResult = System.Numerics.Quaternion.Slerp(qPausedSim, qPausedNet, 1.0f);
+                        Vector pausedAngles = QuatToEuler(qPausedResult);
+                        simconnect.SetData(Definitions.OBJECT_EULER, obj.simId, new ObjectEuler(pausedAngles));
+                        obj.simPosition.angles = pausedAngles;
 #endif
                     }
                     else
@@ -1721,9 +1772,14 @@ namespace JoinFS
                             // update sim velocity
                             simconnect.SetData(Definitions.OBJECT_VELOCITY, obj.simId, new ObjectVelocity(netVelocity.linear, netVelocity.angular, netVelocity.acc));
 #if (FS2020 || FS2024)
-                            // set orientation
-                            simconnect.SetData(Definitions.OBJECT_EULER, obj.simId, new ObjectEuler(netPosition.angles));
-                            obj.simPosition.angles = netPosition.angles.Clone();
+                            // set orientation - snap via SLERP (t=1), same reasoning as the paused branch:
+                            // we are already teleporting the position, so there is no partial catch-up to blend
+                            var qResetSim = EulerToQuat(obj.simPosition.angles);
+                            var qResetNet = EulerToQuat(netPosition.angles);
+                            var qResetResult = System.Numerics.Quaternion.Slerp(qResetSim, qResetNet, 1.0f);
+                            Vector resetAngles = QuatToEuler(qResetResult);
+                            simconnect.SetData(Definitions.OBJECT_EULER, obj.simId, new ObjectEuler(resetAngles));
+                            obj.simPosition.angles = resetAngles;
                             }
 #endif
                         }
@@ -1858,25 +1914,45 @@ namespace JoinFS
                                     netVelocity.angular += deltaAngles * 1.5;
                                 }
 #if (FS2020 || FS2024)
-                                // set orientation
+                                // set orientation - still gated by sendGroundEuler (unchanged: don't restart the
+                                // sim's own settle animation for an unchanged value) and still targets
+                                // groundAngles (unchanged: ordinary ground holds pitch/bank from the sim, only
+                                // heading is network-driven) - the only change is SLERP instead of a hard Euler
+                                // snap for computing that target, same reasoning as the paused/reset branches
+                                // above: a hard snap is a discontinuity at the Euler singularities this branch's
+                                // own attitude guard exists to dodge, and independently, any sender that cannot
+                                // supply angular velocity (recorder files written before that field was
+                                // populated) gets no smoothing at all between position updates otherwise -
+                                // orientation freezes, then snaps straight to the next one, repeatedly.
                                 if (sendGroundEuler)
                                 {
-                                    simconnect.SetData(Definitions.OBJECT_EULER, obj.simId, new ObjectEuler(groundAngles));
-                                    obj.simPosition.angles = groundAngles.Clone();
+                                    var qSoftSim = EulerToQuat(simPosition.angles);
+                                    var qSoftNet = EulerToQuat(groundAngles);
+                                    var qSoftResult = System.Numerics.Quaternion.Slerp(qSoftSim, qSoftNet, 0.5f);
+                                    Vector softAngles = QuatToEuler(qSoftResult);
+                                    simconnect.SetData(Definitions.OBJECT_EULER, obj.simId, new ObjectEuler(softAngles));
+                                    obj.simPosition.angles = softAngles;
                                 }
 #endif
                             }
                             else
                             {
+                                // set orientation - same SLERP smoothing as the branch above, blended a little faster (t=0.7)
+                                // since this branch is already in a high pitch/bank attitude and has no
+                                // angular-velocity catch-up term to help it converge. Target is groundAngles on
+                                // FS2020/FS2024 (unchanged from before - ordinary ground still holds pitch/bank
+                                // from the sim), netPosition.angles elsewhere, since groundAngles doesn't exist
+                                // on builds without the ground-substitute handling above.
 #if (FS2020 || FS2024)
-                                // set orientation
-                                simconnect.SetData(Definitions.OBJECT_EULER, obj.simId, new ObjectEuler(groundAngles));
-                                obj.simPosition.angles = groundAngles.Clone();
+                                var qAeroNet = EulerToQuat(groundAngles);
 #else
-                                // set orientation
-                                simconnect.SetData(Definitions.OBJECT_EULER, obj.simId, new ObjectEuler(netPosition.angles));
-                                obj.simPosition.angles = netPosition.angles.Clone();
+                                var qAeroNet = EulerToQuat(netPosition.angles);
 #endif
+                                var qAeroSim = EulerToQuat(simPosition.angles);
+                                var qAeroResult = System.Numerics.Quaternion.Slerp(qAeroSim, qAeroNet, 0.7f);
+                                Vector aeroAngles = QuatToEuler(qAeroResult);
+                                simconnect.SetData(Definitions.OBJECT_EULER, obj.simId, new ObjectEuler(aeroAngles));
+                                obj.simPosition.angles = aeroAngles;
                             }
 
                             // update sim velocity
