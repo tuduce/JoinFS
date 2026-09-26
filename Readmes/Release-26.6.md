@@ -73,6 +73,18 @@ in 26.6.
   `raw.githubusercontent.com`, which had started returning HTTP 404.
 - **Fixed yaw trembling after crossing the 2*PI heading boundary** in a recorded
   plane the user entered the cockpit of.
+- **Optimized angular velocity interpolation.** A recorded aircraft's orientation
+  is now blended with quaternion SLERP instead of being snapped to `OBJECT_EULER`
+  every tick, and playback's internal heading/pitch/bank accumulator is kept
+  bounded instead of growing without limit across many turns. Together these fix
+  a heading/tail "jitter" that could start during a sustained turn (e.g. a
+  glider thermalling in tight circles) and then persist for the rest of the
+  replay, only clearing if the recorded plane's cockpit was re-entered. This
+  also depends on the recording actually carrying real angular velocity, not
+  the zero every `.jfs` writer used to send - see
+  [joinfs-gpx-to-jfs-webcomponent](https://github.com/joeherwig/joinfs-gpx-to-jfs-webcomponent)'s
+  own changelog for the writer-side half of this fix if you generate recordings
+  from a GPX track.
 
 ## Limitations
 
