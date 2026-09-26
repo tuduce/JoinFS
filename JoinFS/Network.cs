@@ -4511,17 +4511,29 @@ namespace JoinFS
         /// <param name="aircraft">Aircraft to identify</param>
         public Guid GetAircraftIdentityGuid(Sim.Aircraft aircraft)
         {
-            // locally-owned (Owner.Me / Owner.Recorder / Owner.Sim) objects all share an invalid
-            // ownerNuid - disambiguate by simId instead of colliding on this node's own guid
-            if (aircraft.ownerNuid.Invalid())
+            // base per-owner identity: this node's own guid for a locally-owned object
+            // (Owner.Me / Owner.Recorder, both using an invalid ownerNuid), or the owning peer's
+            // guid for a network object, falling back to a simId-derived guid only if that peer
+            // isn't recognised at all
+            Guid baseGuid = GetNodeGuid(aircraft.ownerNuid);
+            if (baseGuid == Guid.Empty)
             {
-                return new Guid(aircraft.simId, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                baseGuid = new Guid(aircraft.simId, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
             }
 
-            // genuine network aircraft - key by the owning node's guid, falling back to simId
-            // if the node isn't recognised
-            Guid guid = GetNodeGuid(aircraft.ownerNuid);
-            return guid == Guid.Empty ? new Guid(aircraft.simId, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) : guid;
+            // a single owner - this node, or one remote peer - can have several aircraft at
+            // once (their own aircraft plus one or more replayed/AI aircraft, or multiple
+            // aircraft from one recording), so the owner's guid alone collapses them onto one
+            // key. Fold in netId - the same field Sim.cs itself pairs with ownerNuid everywhere
+            // to distinguish individual aircraft objects - to get a distinct, stable identity
+            // per aircraft rather than per owner.
+            byte[] bytes = baseGuid.ToByteArray();
+            byte[] netIdBytes = BitConverter.GetBytes(aircraft.netId);
+            for (int i = 0; i < 4; i++)
+            {
+                bytes[12 + i] ^= netIdBytes[i];
+            }
+            return new Guid(bytes);
         }
 
         public string GetNodeCallsign(LocalNode.Nuid nuid)
