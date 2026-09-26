@@ -4506,6 +4506,30 @@ namespace JoinFS
             return Guid.Empty;
         }
 
+        /// <summary>
+        /// Get a stable identity guid for an aircraft, suitable for keying per-aircraft state
+        /// (websocket feed, webhook change-detection, etc). GetNodeGuid() maps every invalid
+        /// ownerNuid to this node's own guid, which collapses the user's own aircraft together
+        /// with every Recorder-replayed aircraft (all created with an invalid ownerNuid) onto a
+        /// single key - so any locally-owned object falls back to a simId-derived guid instead,
+        /// matching the existing Guid.Empty fallback already used for unrecognised network nodes.
+        /// </summary>
+        /// <param name="aircraft">Aircraft to identify</param>
+        public Guid GetAircraftIdentityGuid(Sim.Aircraft aircraft)
+        {
+            // locally-owned (Owner.Me / Owner.Recorder / Owner.Sim) objects all share an invalid
+            // ownerNuid - disambiguate by simId instead of colliding on this node's own guid
+            if (aircraft.ownerNuid.Invalid())
+            {
+                return new Guid(aircraft.simId, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+            }
+
+            // genuine network aircraft - key by the owning node's guid, falling back to simId
+            // if the node isn't recognised
+            Guid guid = GetNodeGuid(aircraft.ownerNuid);
+            return guid == Guid.Empty ? new Guid(aircraft.simId, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) : guid;
+        }
+
         public string GetNodeCallsign(LocalNode.Nuid nuid)
         {
             // check for ATC

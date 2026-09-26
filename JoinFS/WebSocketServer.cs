@@ -172,7 +172,7 @@ namespace JoinFS
         AircraftSnapshot SnapshotFromAircraft(Sim.Aircraft aircraft)
         {
             var snap = new AircraftSnapshot();
-            snap.guid = main.network.GetNodeGuid(aircraft.ownerNuid).ToString();
+            snap.guid = main.network.GetAircraftIdentityGuid(aircraft).ToString();
             snap.callsign = aircraft.flightPlan.callsign;
             snap.registration = aircraft.flightPlan.registration;
             snap.icaoAirline = aircraft.flightPlan.icaoAirline;
@@ -315,8 +315,7 @@ namespace JoinFS
                 {
                     if (obj is not Sim.Aircraft aircraft) continue;
 
-                    Guid key = main.network.GetNodeGuid(aircraft.ownerNuid);
-                    if (key == Guid.Empty) key = new Guid(aircraft.simId, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                    Guid key = main.network.GetAircraftIdentityGuid(aircraft);
 
                     var snap = SnapshotFromAircraft(aircraft);
 
