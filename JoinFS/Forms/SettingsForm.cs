@@ -243,7 +243,7 @@ namespace JoinFS
                 lock (main.conch)
                 {
                     // remove all controlled aircraft
-                    main.sim.RemoveInjectedObjects();
+                    main.SimCommand(sim => sim.RemoveInjectedObjects());
                 }
             }
             // update nickname
@@ -312,7 +312,7 @@ namespace JoinFS
                 lock (main.conch)
                 {
                     // remove all controlled aircraft
-                    main.sim.RemoveInjectedObjects();
+                    main.SimCommand(sim => sim.RemoveInjectedObjects());
                 }
                 // update settings
                 main.settingsAtc = atcMode;

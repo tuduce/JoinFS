@@ -1167,6 +1167,37 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// A UI command for the simulator: run <paramref name="command"/> on the sim thread, then
+        /// publish a new snapshot and refresh the windows that show it. Does nothing without a sim.
+        /// </summary>
+        public void SimCommand(Action<Sim> command)
+        {
+            Sim target = sim;
+            if (target == null) return;
+            PostToSim(() =>
+            {
+                command(target);
+                target.MarkViewDirty();
+#if !SERVER && !CONSOLE
+                // twice: the first may run before the new snapshot is published
+                aircraftForm?.refresher.Schedule(2);
+                objectsForm?.refresher.Schedule(2);
+#endif
+            });
+        }
+
+        /// <summary>
+        /// Ask the sim thread for something and wait for the answer (UI code; never while holding conch)
+        /// </summary>
+        public T InvokeOnSim<T>(Func<Sim, T> query)
+        {
+            Sim target = sim;
+            if (target == null) return default;
+            SimService service = simService;
+            return service != null ? service.Invoke(() => query(target)) : query(target);
+        }
+
+        /// <summary>
         /// Run an action on the sim thread (the work loop if the sim thread isn't running yet)
         /// </summary>
         public void PostToSim(Action action)

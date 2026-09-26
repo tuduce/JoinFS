@@ -224,7 +224,7 @@ namespace JoinFS
                     if (main.sim != null)
                     {
                         // for each object
-                        foreach (var obj in main.sim.objectList)
+                        foreach (var obj in main.sim.View.Objects)
                         {
                             // check for network object
                             if (main.sim.IsBroadcast(obj) || obj.owner == Sim.Obj.Owner.Network)

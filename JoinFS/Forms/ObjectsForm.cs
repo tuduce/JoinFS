@@ -233,7 +233,7 @@ namespace JoinFS
                 lock (main.conch)
                 {
                     // get user position
-                    Sim.Pos userPosition = main.sim ?. userAircraft ?. Position;
+                    Sim.Pos userPosition = main.sim ?. View.UserAircraft ?. Position;
                     // get object position
                     Sim.Pos objPosition = obj.Position;
                     // check for single object
@@ -316,7 +316,7 @@ namespace JoinFS
                     if (Settings.Default.GroupObjects)
                     {
                         // add objects
-                        foreach (var obj in main.sim.objectList)
+                        foreach (var obj in main.sim.View.Objects)
                         {
                             // check for base object
                             if ((obj is Sim.Aircraft) == false)
@@ -352,7 +352,7 @@ namespace JoinFS
                     else
                     {
                         // add objects
-                        foreach (var obj in main.sim.objectList)
+                        foreach (var obj in main.sim.View.Objects)
                         {
                             // check for base object
                             if ((obj is Sim.Aircraft) == false)
@@ -531,16 +531,22 @@ namespace JoinFS
                                 {
                                     lock (main.conch)
                                     {
-                                        // get object
-                                        Sim.Obj obj = main.sim.objectList.Find(o => o.simId == item.simId);
+                                        // get object (snapshot copy)
+                                        Sim.Obj obj = null;
+                                        foreach (var o in main.sim.View.Objects)
+                                        {
+                                            if (o.simId == item.simId) { obj = o; break; }
+                                        }
                                         // check if object found
                                         if (obj != null)
                                         {
                                             // check for single selection
                                             if (Settings.Default.GroupObjects == false)
                                             {
-                                                // update object broadcast
-                                                obj.broadcast = broadcastForm.broadcastObject;
+                                                // update object broadcast (on the sim thread)
+                                                Sim.Obj live = obj.Source;
+                                                bool broadcast = broadcastForm.broadcastObject;
+                                                main.SimCommand(sim => live.broadcast = broadcast);
                                             }
                                             // update model broadcast
                                             if (broadcastForm.broadcastModel)

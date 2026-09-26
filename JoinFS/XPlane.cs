@@ -498,7 +498,7 @@ namespace JoinFS
             if (MessageBox.Show(Resources.Strings.InstallPlugin, Main.Name, MessageBoxButtons.YesNo) == DialogResult.Yes)
             {
                 // close simulator
-                main.sim ?. Close();
+                main.SimCommand(sim => sim.Close());
                 // show dialog for installing plugin
                 XPlaneForm xplaneForm = new XPlaneForm(main, Settings.Default.XPlaneFolder);
                 // open dialog

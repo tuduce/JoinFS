@@ -146,12 +146,14 @@ namespace JoinFS
             ListBox_Sets.Items.Clear();
 
             // check for sim
-            if (main.sim != null && main.sim.Connected)
+            if (main.sim != null && main.sim.View.Connected)
             {
-                lock (main.conch)
+                // the sim thread owns the model variable lists
+                string title = Text_Title.Text;
+                List<string> files = main.InvokeOnSim(sim => new List<string>(sim.GetModelVariables(title))) ?? [];
                 {
                     // for each file
-                    foreach (var filename in main.sim.GetModelVariables(Text_Title.Text))
+                    foreach (var filename in files)
                     {
                         // check if not already listed
                         if (ListBox_Sets.Items.Contains(filename) == false)
@@ -306,7 +308,7 @@ namespace JoinFS
         private void Button_Add_Click(object sender, EventArgs e)
         {
             // check for sim and model
-            if (main.sim != null && main.sim.Connected && Text_Title.Text.Length > 0)
+            if (main.sim != null && main.sim.View.Connected && Text_Title.Text.Length > 0)
             {
                 // open dialog to choose jfs file
                 OpenFileDialog dialog = new()
@@ -318,12 +320,8 @@ namespace JoinFS
                 };
                 if (dialog.ShowDialog() == DialogResult.OK)
                 {
-                    // check for list not existing
-                    if (main.sim.modelVariables.ContainsKey(Text_Title.Text) == false)
-                    {
-                        // add default files
-                        main.sim.modelVariables[Text_Title.Text] = main.sim.GetModelDefaultVariables(Text_Title.Text);
-                    }
+                    string title = Text_Title.Text;
+                    List<string> added = [];
                     // for each file
                     foreach (var path in dialog.FileNames)
                     {
@@ -331,12 +329,23 @@ namespace JoinFS
                         if (path.Substring(0, dialog.InitialDirectory.Length).ToLower() == dialog.InitialDirectory.ToLower())
                         {
                             // add variable file
-                            main.sim.modelVariables[Text_Title.Text].Add(path.Substring(dialog.InitialDirectory.Length + 1));
+                            added.Add(path.Substring(dialog.InitialDirectory.Length + 1));
                         }
                     }
 
-                    // save changes
-                    main.sim.SaveModelVaribles();
+                    // change and save the lists on the sim thread, which owns them
+                    main.SimCommand(sim =>
+                    {
+                        // check for list not existing
+                        if (sim.modelVariables.ContainsKey(title) == false)
+                        {
+                            // add default files
+                            sim.modelVariables[title] = sim.GetModelDefaultVariables(title);
+                        }
+                        sim.modelVariables[title].AddRange(added);
+                        // save changes
+                        sim.SaveModelVaribles();
+                    });
                     // update buttons
                     UpdateButtons();
                     // update variable list
@@ -359,21 +368,26 @@ namespace JoinFS
                 // check for sim
                 if (main.sim != null)
                 {
-                    // check for default model variables
-                    if (main.sim.modelVariables.ContainsKey(Text_Title.Text) == false)
+                    // change and save the lists on the sim thread, which owns them
+                    string title = Text_Title.Text;
+                    main.SimCommand(sim =>
                     {
-                        // add default files
-                        main.sim.modelVariables[Text_Title.Text] = main.sim.GetModelDefaultVariables(Text_Title.Text);
-                    }
-                    // check index
-                    if (listIndex < main.sim.modelVariables[Text_Title.Text].Count)
-                    {
-                        // remove file
-                        main.sim.modelVariables[Text_Title.Text].RemoveAt(listIndex);
-                    }
+                        // check for default model variables
+                        if (sim.modelVariables.ContainsKey(title) == false)
+                        {
+                            // add default files
+                            sim.modelVariables[title] = sim.GetModelDefaultVariables(title);
+                        }
+                        // check index
+                        if (listIndex < sim.modelVariables[title].Count)
+                        {
+                            // remove file
+                            sim.modelVariables[title].RemoveAt(listIndex);
+                        }
 
-                    // save changes
-                    main.sim.SaveModelVaribles();
+                        // save changes
+                        sim.SaveModelVaribles();
+                    });
                     // update buttons
                     UpdateButtons();
                     // update variable list
@@ -406,14 +420,14 @@ namespace JoinFS
         private void Button_OK_Click(object sender, EventArgs e)
         {
             // check for sim
-            if (main.sim != null && main.sim.Connected)
+            if (main.sim != null && main.sim.View.Connected)
             {
-                lock (main.conch)
+                // reconnect, on the sim thread
+                main.SimCommand(sim =>
                 {
-                    // reconnect
-                    main.sim.Close();
-                    main.sim.Connect();
-                }
+                    sim.Close();
+                    sim.Connect();
+                });
             }
         }
     }

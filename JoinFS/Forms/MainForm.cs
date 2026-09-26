@@ -754,7 +754,7 @@ namespace JoinFS
                 // reset flag
                 main.scheduleFlightPlan = false;
                 // file flight plan
-                if (new FlightPlanForm(main, main.sim.userAircraft, main.sim.userFlightPlan).ShowDialog() == DialogResult.OK)
+                if (new FlightPlanForm(main, main.sim.View.UserAircraft, main.sim.View.UserFlightPlan).ShowDialog() == DialogResult.OK)
                 {
                     CommitUserFlightPlanChange();
                 }
@@ -1468,16 +1468,16 @@ namespace JoinFS
                 Color backColor = Settings.Default.ColourInactiveBackground;
                 Color foreColor = Settings.Default.ColourInactiveText;
 
-                lock (main.conch)
+                SimSnapshot view = main.sim.View;
                 {
                     // check if FS connected
-                    if (main.sim.Connected)
+                    if (view.Connected)
                     {
                         // update label
                         backColor = Settings.Default.ColourActiveBackground;
                         foreColor = Settings.Default.ColourActiveText;
                     }
-                    else if (main.sim.Connecting)
+                    else if (view.Connecting)
                     {
                         // update label
                         backColor = Settings.Default.ColourWaitingBackground;
@@ -1557,7 +1557,7 @@ namespace JoinFS
                 return;
             }
 
-            Sim.FlightPlan plan = main.sim.userFlightPlan;
+            Sim.FlightPlan plan = main.sim.View.UserFlightPlan;
             bool hasPlan = plan.departure.Length > 0 || plan.destination.Length > 0;
 
             Button_FlightPlan.Text = hasPlan ? plan.departure + "   ➜   " + plan.destination : Resources.Strings.MainForm_FlightPlanButtonDefaultText;
@@ -1638,11 +1638,15 @@ namespace JoinFS
 
         void BroadcastUserFlightPlanNow()
         {
-            // main-screen source buttons commit and broadcast immediately - no dialog/Save step
-            if (main.sim.userAircraft != null)
+            // main-screen source buttons commit and broadcast immediately - no dialog/Save step.
+            // On the sim thread, which owns the plan (after any edit posted before it).
+            main.SimCommand(sim =>
             {
-                main.network.SimSender.BroadcastFlightPlanUpdate(main.sim.userAircraft.netId, main.sim.userFlightPlan);
-            }
+                if (sim.userAircraft != null)
+                {
+                    main.network.SimSender.BroadcastFlightPlanUpdate(sim.userAircraft.netId, sim.userFlightPlan);
+                }
+            });
         }
 
         private void Button_FlightPlan_Click(object sender, EventArgs e)
@@ -1652,7 +1656,7 @@ namespace JoinFS
                 return;
             }
 
-            if (new FlightPlanForm(main, main.sim.userAircraft, main.sim.userFlightPlan).ShowDialog() == DialogResult.OK)
+            if (new FlightPlanForm(main, main.sim.View.UserAircraft, main.sim.View.UserFlightPlan).ShowDialog() == DialogResult.OK)
             {
                 CommitUserFlightPlanChange();
             }
@@ -1668,7 +1672,7 @@ namespace JoinFS
             if (string.IsNullOrWhiteSpace(Settings.Default.SimBriefUsername))
             {
                 // nothing configured yet - land the pilot on the field where they'd set it
-                if (new FlightPlanForm(main, main.sim.userAircraft, main.sim.userFlightPlan) { FocusSimBriefUsername = true }.ShowDialog() == DialogResult.OK)
+                if (new FlightPlanForm(main, main.sim.View.UserAircraft, main.sim.View.UserFlightPlan) { FocusSimBriefUsername = true }.ShowDialog() == DialogResult.OK)
                 {
                     CommitUserFlightPlanChange();
                 }
@@ -1980,7 +1984,7 @@ namespace JoinFS
         {
             // check if no simulator connected
 #if !XPLANE
-            if (main.sim != null && main.sim.Connected == false)
+            if (main.sim != null && main.sim.View.Connected == false)
             {
                 MessageBox.Show(Resources.Strings.EditMatchingWarning, Main.Name + ": " + Resources.Strings.EditModelMatching);
             }
@@ -2065,14 +2069,14 @@ namespace JoinFS
         {
 #if !SERVER
             // check if no simulator connected
-            if (main.sim != null && main.sim.Connected == false)
+            if (main.sim != null && main.sim.View.Connected == false)
             {
                 MessageBox.Show(Resources.Strings.AssignVariablesWarning, Main.Name);
             }
             else
             {
                 // show dialog for assigning variables
-                new VariablesForm(main, main.sim ?. userAircraft ?. ownerModel).ShowDialog();
+                new VariablesForm(main, main.sim ?. View.UserAircraft ?. ownerModel).ShowDialog();
             }
 #endif
         }

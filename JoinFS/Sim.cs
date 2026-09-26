@@ -4716,9 +4716,10 @@ namespace JoinFS
 #region Height Adjustment
 
         /// <summary>
-        /// list of height adjustments
+        /// list of height adjustments. Concurrent: the sim thread applies them while the UI edits
+        /// them (HeightForm, AircraftForm).
         /// </summary>
-        readonly Dictionary<string, int> heightAdjustments = [];
+        readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> heightAdjustments = new();
 
         /// <summary>
         /// get the height adjustment for a model
@@ -4752,7 +4753,7 @@ namespace JoinFS
                 if (adjustment == 0)
                 {
                     // check for model
-                    heightAdjustments.Remove(model.longType);
+                    heightAdjustments.TryRemove(model.longType, out _);
                 }
                 else
                 {

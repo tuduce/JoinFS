@@ -175,7 +175,7 @@ namespace JoinFS
             lock (main.conch)
             {
                 // set simulator name and version
-                Label_Simulator.Text = main.sim != null ? main.sim.GetSimulatorName() : "";
+                Label_Simulator.Text = main.sim != null ? main.sim.View.SimulatorName : "";
             }
 
             // selected model

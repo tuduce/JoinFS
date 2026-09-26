@@ -85,6 +85,9 @@ namespace JoinFS
         Aircraft viewUserAircraft;
         bool viewConnected;
 
+        /// <summary>The object is still in the list (sim thread): a command's object may have gone since it was posted</summary>
+        public bool IsLive(Obj obj) => obj != null && objectList.Contains(obj);
+
         /// <summary>Publish a new snapshot at the next opportunity (sim thread)</summary>
         public void MarkViewDirty()
         {

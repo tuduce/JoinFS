@@ -664,3 +664,13 @@ likely causes of stalls.
   - SimBrief fetches into a copy, then applies it on the sim thread.
   - `PeerTable.Nodes` is a `ConcurrentDictionary`, and the three share fields swap a boxed id.
   - Mailbox metric (§2.8), with a warning over 20 ms.
+- **Phase 2b: done.**
+  - Forms read `Sim.View`, and their commands go to the sim thread through `Main.SimCommand`,
+    which runs the command, publishes a snapshot and refreshes the aircraft and objects windows.
+    Commands act on the copy's `Source`, checked with `Sim.IsLive`. This covers weather, broadcast,
+    record, follow, enter cockpit, tracking, show on radar, remove injected objects and reconnect.
+  - `FlightPlanForm` edits a copy, and OK applies it to the live plan on the sim thread.
+    `MainForm`'s flight-plan broadcast is posted after it.
+  - `VariablesForm` changes the model variable lists on the sim thread, and reads them back with
+    `Main.InvokeOnSim`. That call waits synchronously and must never be made while holding `conch`.
+  - Height adjustments are a `ConcurrentDictionary`, edited directly by the UI.

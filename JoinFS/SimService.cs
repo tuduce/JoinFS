@@ -88,6 +88,36 @@ namespace JoinFS
             wake.Set();
         }
 
+        /// <summary>
+        /// Run <paramref name="func"/> on the sim thread and wait for its result (at most
+        /// <paramref name="timeoutMs"/>; then default). Runs it directly when already on the sim
+        /// thread or when the thread isn't running. For UI code only - never call it while holding
+        /// <c>sync</c>, which the sim thread may need first.
+        /// </summary>
+        public T Invoke<T>(Func<T> func, int timeoutMs = 2000)
+        {
+            if (!running || IsSimThread)
+            {
+                return func();
+            }
+            T result = default;
+            using ManualResetEventSlim done = new(false);
+            Exception failure = null;
+            Post(() =>
+            {
+                try { result = func(); }
+                catch (Exception ex) { failure = ex; }
+                finally { done.Set(); }
+            });
+            if (!done.Wait(timeoutMs))
+            {
+                log("ERROR - Sim thread did not answer in time");
+                return default;
+            }
+            if (failure != null) throw new InvalidOperationException("Sim thread: " + failure.Message, failure);
+            return result;
+        }
+
         /// <summary>Wake the sim thread to run its work now.</summary>
         public void Wake() => wake.Set();
 

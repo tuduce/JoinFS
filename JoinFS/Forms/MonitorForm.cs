@@ -107,7 +107,7 @@ namespace JoinFS
             if (main.sim != null)
             {
                 // get total frames since last update
-                int totalFrames = main.sim.frameCount - previousFrameCount;
+                int totalFrames = main.sim.View.FrameCount - previousFrameCount;
                 string fpsText = "FPS: " + (totalFrames / Math.Max(0.1, main.ElapsedTime - previousTime)).ToString("N0");
 
                 if (Label_FPS.Text.Equals(fpsText) == false)
@@ -116,7 +116,7 @@ namespace JoinFS
                 }
 
                 // update frame count
-                previousFrameCount = main.sim.frameCount;
+                previousFrameCount = main.sim.View.FrameCount;
                 previousTime = main.ElapsedTime;
             }
 #endif

@@ -282,9 +282,9 @@ namespace JoinFS
             if (main.sim != null)
             {
                 // get aircraft count
-                aircraftCount = main.sim.objectList.FindAll(o => o is Sim.Aircraft && main.sim.IsBroadcast(o)).Count;
+                aircraftCount = main.sim.View.FindAll(o => o is Sim.Aircraft && main.sim.IsBroadcast(o)).Count;
                 // get object count
-                objectCount = main.sim.objectList.FindAll(o => (o is Sim.Aircraft) == false && o.owner == Sim.Obj.Owner.Sim).Count;
+                objectCount = main.sim.View.FindAll(o => (o is Sim.Aircraft) == false && o.owner == Sim.Obj.Owner.Sim).Count;
             }
 
             // connected to node
@@ -292,7 +292,7 @@ namespace JoinFS
             nuid = main.network.LocalId;
 
             // create new item
-            Item item = new(main.guid, nuid, new IPEndPoint(0, 0), main.settingsNickname, Main.Version, main.sim != null ? main.sim.GetSimulatorName() : "", callsign, aircraftCount, objectCount, "", false, false, main.network.LocalId.port, connected, connected, true, 0.0f, null);
+            Item item = new(main.guid, nuid, new IPEndPoint(0, 0), main.settingsNickname, Main.Version, main.sim != null ? main.sim.View.SimulatorName : "", callsign, aircraftCount, objectCount, "", false, false, main.network.LocalId.port, connected, connected, true, 0.0f, null);
             // add to list
             itemList.Add(item);
         }
@@ -325,9 +325,9 @@ namespace JoinFS
             if (main.sim != null)
             {
                 // get aircraft count
-                aircraftCount = main.sim.objectList.FindAll(o => o.ownerNuid == nuid && o is Sim.Aircraft).Count;
+                aircraftCount = main.sim.View.FindAll(o => o.ownerNuid == nuid && o is Sim.Aircraft).Count;
                 // get object count
-                objectCount = main.sim.objectList.FindAll(o => o.ownerNuid == nuid && (o is Sim.Aircraft) == false).Count;
+                objectCount = main.sim.View.FindAll(o => o.ownerNuid == nuid && (o is Sim.Aircraft) == false).Count;
             }
 
             // multiple objects permission
