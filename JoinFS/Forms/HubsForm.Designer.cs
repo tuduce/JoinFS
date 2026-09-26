@@ -71,7 +71,7 @@
             resources.ApplyResources(this.DataGrid_HubList, "DataGrid_HubList");
             this.DataGrid_HubList.AllowUserToAddRows = false;
             this.DataGrid_HubList.AllowUserToDeleteRows = false;
-            this.DataGrid_HubList.AllowUserToResizeColumns = false;
+            this.DataGrid_HubList.AllowUserToResizeColumns = true;
             this.DataGrid_HubList.AllowUserToResizeRows = false;
             this.DataGrid_HubList.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.AllCells;
             this.DataGrid_HubList.CausesValidation = false;
@@ -217,7 +217,7 @@
             resources.ApplyResources(this.DataGrid_Hub, "DataGrid_Hub");
             this.DataGrid_Hub.AllowUserToAddRows = false;
             this.DataGrid_Hub.AllowUserToDeleteRows = false;
-            this.DataGrid_Hub.AllowUserToResizeColumns = false;
+            this.DataGrid_Hub.AllowUserToResizeColumns = true;
             this.DataGrid_Hub.AllowUserToResizeRows = false;
             this.DataGrid_Hub.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.AllCells;
             this.DataGrid_Hub.CausesValidation = false;

@@ -87,7 +87,7 @@
             resources.ApplyResources(this.DataGrid_Folders, "DataGrid_Folders");
             this.DataGrid_Folders.AllowUserToAddRows = false;
             this.DataGrid_Folders.AllowUserToDeleteRows = false;
-            this.DataGrid_Folders.AllowUserToResizeColumns = false;
+            this.DataGrid_Folders.AllowUserToResizeColumns = true;
             this.DataGrid_Folders.AllowUserToResizeRows = false;
             this.DataGrid_Folders.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.AllCells;
             this.DataGrid_Folders.AutoSizeRowsMode = System.Windows.Forms.DataGridViewAutoSizeRowsMode.AllCells;
@@ -152,7 +152,7 @@
             resources.ApplyResources(this.DataGrid_AddOns, "DataGrid_AddOns");
             this.DataGrid_AddOns.AllowUserToAddRows = false;
             this.DataGrid_AddOns.AllowUserToDeleteRows = false;
-            this.DataGrid_AddOns.AllowUserToResizeColumns = false;
+            this.DataGrid_AddOns.AllowUserToResizeColumns = true;
             this.DataGrid_AddOns.AllowUserToResizeRows = false;
             this.DataGrid_AddOns.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.AllCells;
             this.DataGrid_AddOns.AutoSizeRowsMode = System.Windows.Forms.DataGridViewAutoSizeRowsMode.AllCells;

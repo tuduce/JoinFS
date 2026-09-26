@@ -59,7 +59,7 @@
             // 
             this.DataGrid_Substitutions.AllowUserToAddRows = false;
             this.DataGrid_Substitutions.AllowUserToDeleteRows = false;
-            this.DataGrid_Substitutions.AllowUserToResizeColumns = false;
+            this.DataGrid_Substitutions.AllowUserToResizeColumns = true;
             this.DataGrid_Substitutions.AllowUserToResizeRows = false;
             this.DataGrid_Substitutions.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.AllCells;
             this.DataGrid_Substitutions.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
