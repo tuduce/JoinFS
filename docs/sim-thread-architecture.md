@@ -674,3 +674,14 @@ likely causes of stalls.
   - `VariablesForm` changes the model variable lists on the sim thread, and reads them back with
     `Main.InvokeOnSim`. That call waits synchronously and must never be made while holding `conch`.
   - Height adjustments are a `ConcurrentDictionary`, edited directly by the UI.
+- **Phase 2c: done.**
+  - The Recorder's `recording`, `playing` and `paused` flags are volatile. It publishes
+    `EndTimeView` and its object ids (`Exists`) at the end of each pass.
+  - `RecorderForm`'s commands (record, play/pause, stop, overdub, jump, trim) and `AircraftForm`'s
+    remove run on the sim thread through `Main.InvokeOnSim`. The `conch` locks around them are gone:
+    a synchronous call made while holding `conch` would deadlock until Phase 2e.
+  - Loading: `Recorder.Parse` reads a file into objects on any thread, and `Recorder.Load` applies
+    them on the sim thread, with the append offset taken there.
+  - Saving: `CopyForSave` (sim thread) copies the objects and frame lists, and `Write(writer,
+    objects)` writes them on the caller's thread.
+  - `MainForm.CheckRecording` no longer holds `conch` while it shows the save dialog and saves.

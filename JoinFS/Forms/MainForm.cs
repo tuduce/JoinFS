@@ -1025,11 +1025,13 @@ namespace JoinFS
             {
                 if ((stream = dialog.OpenFile()) != null)
                 {
-                    lock (main.conch)
+                    // copy on the sim thread (which owns the recording), write here
+                    List<Recorder.Obj> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
+                    if (objects != null)
                     {
-                        main.recorder.Write(new BinaryWriter(stream));
-                        stream.Close();
+                        main.recorder.Write(new BinaryWriter(stream), objects);
                     }
+                    stream.Close();
                     // save folder
                     Settings.Default.RecordingFolder = Path.GetDirectoryName(dialog.FileName);
                     // now saved
@@ -1050,10 +1052,8 @@ namespace JoinFS
                 DialogResult result = MessageBox.Show(Resources.Strings.SaveCurrentRecording, Main.Name + ": " + Resources.Strings.UnsavedRecording, MessageBoxButtons.YesNo);
                 if (result == DialogResult.Yes)
                 {
-                    lock (main.conch)
-                    {
-                        SaveRecording();
-                    }
+                    // not under conch: SaveRecording shows a dialog and waits for the sim thread
+                    SaveRecording();
                 }
             }
         }

@@ -547,6 +547,14 @@ namespace JoinFS
             /// List of frames
             /// </summary>
             public List<Frame> frames = [];
+
+            /// <summary>Copy with its own frame list (the frames themselves are shared)</summary>
+            public Obj CopyForSave()
+            {
+                Obj copy = (Obj)MemberwiseClone();
+                copy.frames = new(frames);
+                return copy;
+            }
             public int frameIndex = 0;
             /// <summary>
             /// Object owner
@@ -867,14 +875,36 @@ namespace JoinFS
         List<Obj> objList = [];
 
         /// <summary>
-        /// Is the recorder currently recording
+        /// Is the recorder currently recording. The recorder runs on the sim thread; other threads
+        /// may read the flags and <see cref="EndTimeView"/>/<see cref="Exists"/>, and send
+        /// commands through Main.InvokeOnSim / Main.SimCommand.
         /// </summary>
-        public bool recording;
+        public volatile bool recording;
 
         /// <summary>
         /// Is the recorder currently playing
         /// </summary>
-        public bool playing;
+        public volatile bool playing;
+
+        /// <summary>
+        /// End time and object ids as of the last pass, for other threads
+        /// </summary>
+        double endTimeView;
+        volatile uint[] idsView = [];
+
+        /// <summary>
+        /// <see cref="EndTime"/> as of the sim thread's last pass (any thread)
+        /// </summary>
+        public double EndTimeView => System.Threading.Volatile.Read(ref endTimeView);
+
+        /// <summary>
+        /// Publish what other threads read (sim thread)
+        /// </summary>
+        public void PublishStatus()
+        {
+            System.Threading.Volatile.Write(ref endTimeView, EndTime);
+            idsView = objList.ConvertAll(o => o.id).ToArray();
+        }
 
         /// <summary>
         /// Is the recorder recording or playing
@@ -1227,7 +1257,8 @@ namespace JoinFS
         /// <returns></returns>
         public bool Exists(uint id)
         {
-            return objList.Exists(o => o.id == id);
+            // any thread: the ids as of the sim thread's last pass
+            return Array.IndexOf(idsView, id) >= 0;
         }
 
         /// <summary>
@@ -1271,7 +1302,7 @@ namespace JoinFS
         /// <summary>
         /// Is the recorder currently paused
         /// </summary>
-        public bool paused;
+        public volatile bool paused;
 
         /// <summary>
         /// Time at which paused occurred
@@ -1687,6 +1718,9 @@ namespace JoinFS
                     }
                 }
             }
+
+            // publish what other threads read
+            PublishStatus();
         }
 
         /// <summary>
@@ -1694,6 +1728,24 @@ namespace JoinFS
         /// </summary>
         /// <param name="writer"></param>
         public void Write(BinaryWriter writer)
+        {
+            // sim thread (or before it starts)
+            Write(writer, objList);
+        }
+
+        /// <summary>
+        /// Copies of the objects with their own frame lists, so a recording can be written on
+        /// another thread while this one goes on (sim thread)
+        /// </summary>
+        public List<Obj> CopyForSave()
+        {
+            return objList.ConvertAll(o => o.CopyForSave());
+        }
+
+        /// <summary>
+        /// Write <paramref name="objList"/> (from <see cref="CopyForSave"/>) - any thread
+        /// </summary>
+        public void Write(BinaryWriter writer, List<Obj> objList)
         {
             // write header
             writer.Write(FileVersion);
@@ -1738,10 +1790,14 @@ namespace JoinFS
 #region Reader
 
         /// <summary>
-        /// Append existing recording
+        /// Where Read1 puts what it parses (only while <see cref="Parse"/> runs)
         /// </summary>
-        bool append = false;
-        double appendTime = 0.0;
+        List<Obj> readTarget;
+
+        /// <summary>
+        /// One parse at a time
+        /// </summary>
+        readonly object parseLock = new();
 
         /// <summary>
         /// Read recording from a stream VERSION 1
@@ -1754,12 +1810,6 @@ namespace JoinFS
             int loadedObjects = 0;
             int loadedFrames = 0;
 
-            // check for append
-            if (append == false)
-            {
-                // clear all aircraft
-                objList.Clear();
-            }
 
             // read aircraft count
             int count = reader.ReadInt32();
@@ -1807,19 +1857,8 @@ namespace JoinFS
                     main.MonitorEvent("Recorder: warning - aircraft '" + aircraft.callsign + "' has no ObjectPosition/AircraftPosition frames.");
                 }
 
-                // check for append
-                if (append)
-                {
-                    // for each frame
-                    foreach (var frame in aircraft.frames)
-                    {
-                        // adjust time
-                        frame.time += appendTime;
-                    }
-                }
-
                 // add to list
-                objList.Add(aircraft);
+                readTarget.Add(aircraft);
                 loadedAircraft++;
                 loadedFrames += aircraft.frames.Count;
             }
@@ -1837,26 +1876,15 @@ namespace JoinFS
                     obj.Read(version, reader);
 
 
-                    // check for append
-                    if (append)
-                    {
-                        // for each frame
-                        foreach (var frame in obj.frames)
-                        {
-                            // adjust time
-                            frame.time += appendTime;
-                        }
-                    }
-
                     // add to list
-                    objList.Add(obj);
+                    readTarget.Add(obj);
                     loadedObjects++;
                     loadedFrames += obj.frames.Count;
                 }
             }
 
             // log load summary
-            main.MonitorEvent("Recorder: loaded " + loadedAircraft + " aircraft, " + loadedObjects + " objects, " + loadedFrames + " frames" + (append ? " (append)" : "") + ".");
+            main.MonitorEvent("Recorder: loaded " + loadedAircraft + " aircraft, " + loadedObjects + " objects, " + loadedFrames + " frames.");
         }
 
         /// <summary>
@@ -1870,35 +1898,83 @@ namespace JoinFS
         /// <param name="reader">Reader</param>
         public void Read(BinaryReader reader)
         {
-            // get version
-            short version = reader.ReadInt16();
-            // log version
-            main.MonitorEvent("Recorder: reading recording stream (version " + version + (append ? ", append mode" : "") + ").");
-            // check version
-            if (version < 10022)
-            {
-                // warning
-                main.ShowMessage(Resources.Strings.OldRecording);
-                return;
-            }
-            // read correct version
-            Sim.Read(version, readVersions, reader);
+            // sim thread (or before it starts)
+            Load(Parse(reader), false);
         }
 
         /// <summary>
-        /// Append data
+        /// Append data (sim thread)
         /// </summary>
         /// <param name="reader">Reader</param>
         public void Append(BinaryReader reader)
         {
-            // enable append
-            append = true;
-            appendTime = EndTime;
-            main.MonitorEvent("Recorder: appending recording from " + appendTime.ToString("0.00") + "s.");
-            // read data
-            Read(reader);
-            // finish append
-            append = false;
+            Load(Parse(reader), true);
+        }
+
+        /// <summary>
+        /// Parse a recording into objects without touching the recorder, so a file can be read on
+        /// any thread and then applied on the sim thread with <see cref="Load"/>. Null when the
+        /// recording can't be used.
+        /// </summary>
+        public List<Obj> Parse(BinaryReader reader)
+        {
+            lock (parseLock)
+            {
+                readTarget = [];
+                try
+                {
+                    // get version
+                    short version = reader.ReadInt16();
+                    // log version
+                    main.MonitorEvent("Recorder: reading recording stream (version " + version + ").");
+                    // check version
+                    if (version < 10022)
+                    {
+                        // warning
+                        main.ShowMessage(Resources.Strings.OldRecording);
+                        return null;
+                    }
+                    // read correct version
+                    Sim.Read(version, readVersions, reader);
+                    return readTarget;
+                }
+                finally
+                {
+                    readTarget = null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Replace the recording with parsed objects, or append them after its end (sim thread)
+        /// </summary>
+        public void Load(List<Obj> objects, bool append)
+        {
+            if (objects == null)
+            {
+                return;
+            }
+            if (append)
+            {
+                double appendTime = EndTime;
+                main.MonitorEvent("Recorder: appending recording from " + appendTime.ToString("0.00") + "s.");
+                // for each frame
+                foreach (var obj in objects)
+                {
+                    foreach (var frame in obj.frames)
+                    {
+                        // adjust time
+                        frame.time += appendTime;
+                    }
+                }
+            }
+            else
+            {
+                // clear all aircraft
+                objList.Clear();
+            }
+            objList.AddRange(objects);
+            PublishStatus();
         }
 
 #endregion

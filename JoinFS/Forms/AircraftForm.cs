@@ -1108,8 +1108,9 @@ namespace JoinFS
                 // check for confirmation
                 if (result == DialogResult.Yes)
                 {
-                    // remove object from the recorder
-                    main.recorder.Remove(selectedItem.netId);
+                    // remove object from the recorder (on the sim thread)
+                    uint id = selectedItem.netId;
+                    main.InvokeOnSim(sim => { main.recorder.Remove(id); main.recorder.PublishStatus(); return true; });
                     // update window
                     RefreshWindow();
                 }
