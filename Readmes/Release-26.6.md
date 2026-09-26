@@ -85,12 +85,16 @@ in 26.6.
   [joinfs-gpx-to-jfs-webcomponent](https://github.com/joeherwig/joinfs-gpx-to-jfs-webcomponent)'s
   own changelog for the writer-side half of this fix if you generate recordings
   from a GPX track.
-- **The WebSocket map feed and the COM webhook no longer confuse a replayed
-  aircraft with your own.** Both keyed each aircraft's identity in a way that
-  collapsed your own aircraft and every Recorder-replayed aircraft onto the
-  same key, so their positions/COM changes could overwrite each other instead
-  of being tracked separately. Live peer-to-peer multiplayer was not affected.
-  See the [Recorder Playback: Broadcasting Replayed Tracks as AI Traffic](https://github.com/joeherwig/JoinFS/wiki/Recorder-Broadcast-and-AI-Visibility)
+- **The WebSocket map feed and the COM webhook no longer confuse one
+  aircraft with another.** Each aircraft's identity key is now derived from
+  both its owner and its own network ID, rather than from its owner alone -
+  previously any owner with more than one aircraft at once (your own
+  aircraft plus a replayed one, several replayed aircraft from one
+  recording, or a peer flying while also broadcasting replayed traffic) had
+  all of them collapse onto a single key, so the map rendered/moved one
+  marker between their positions instead of one marker per aircraft, and
+  COM changes could be misattributed. Live peer-to-peer multiplayer was not
+  affected. See the [Recorder Playback: Broadcasting Replayed Tracks as AI Traffic](https://github.com/joeherwig/JoinFS/wiki/Recorder-Broadcast-and-AI-Visibility)
   wiki page for how to make a replayed track visible to other connected
   pilots as AI traffic (requires the receiving pilot to enable "Allow
   Multiple Objects" for your node).
