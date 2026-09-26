@@ -136,7 +136,7 @@ namespace JoinFS
                     if (main.sim != null)
                     {
                         // for all objects
-                        foreach (var obj in main.sim.objectList)
+                        foreach (var obj in main.sim.View.Objects)
                         {
                             // check for aircraft
                             if (obj is Sim.Aircraft aircraft && aircraft.variableSet != null)

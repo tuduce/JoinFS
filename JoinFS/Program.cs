@@ -1285,8 +1285,8 @@ namespace JoinFS
                     // check for scheduled height adjustment load
                     if (scheduleHeightAdjustmentLoad)
                     {
-                        // load
-                        sim ?. LoadHeightAdjustments();
+                        // load (on the sim thread, which owns the adjustments)
+                        PostToSim(() => sim?.LoadHeightAdjustments());
                         // reset
                         scheduleHeightAdjustmentLoad = false;
                     }
@@ -1294,8 +1294,8 @@ namespace JoinFS
                     // check for scheduled model match save
                     if (scheduleHeightAdjustmentSave)
                     {
-                        // save
-                        sim ?. SaveHeightAdjustments();
+                        // save (on the sim thread, which owns the adjustments)
+                        PostToSim(() => sim?.SaveHeightAdjustments());
                         // reset
                         scheduleHeightAdjustmentSave = false;
                     }
@@ -1820,7 +1820,8 @@ namespace JoinFS
             // check for sim
             if (sim != null)
             {
-                lock (conch)
+                // on the sim thread, which owns the connection
+                PostToSim(() =>
                 {
                     // check if simulator connected
                     if (sim.Connected || sim.Connecting)
@@ -1831,7 +1832,7 @@ namespace JoinFS
                     {
                         sim.Connect();
                     }
-                }
+                });
             }
         }
 
@@ -1876,8 +1877,8 @@ namespace JoinFS
                 line += " " + network.Peers.GetLocalCallsign();
                 line += " " + network.Connected;
                 line += " " + 0.0f;
-                line += " " + sim.objectList.FindAll(o => o is Sim.Aircraft && sim.IsBroadcast(o)).Count;
-                line += " " + sim.objectList.FindAll(o => (o is Sim.Aircraft) == false && o.owner == Sim.Obj.Owner.Sim).Count;
+                line += " " + sim.View.FindAll(o => o is Sim.Aircraft && sim.IsBroadcast(o)).Count;
+                line += " " + sim.View.FindAll(o => (o is Sim.Aircraft) == false && o.owner == Sim.Obj.Owner.Sim).Count;
                 line += " " + version;
                 line += " " + (sim != null ? sim.GetSimulatorName() : "");
                 line += " " + "-"; // network (transport) protocol doesn't apply to the local node itself
@@ -1891,8 +1892,8 @@ namespace JoinFS
                     line += " " + network.Peers.GetNodeCallsign(node.Key);
                     line += " " + (network.Snapshot.Peer(node.Key)?.ReceiveEstablished ?? false);
                     line += " " + network.GetNodeRTT(node.Key);
-                    line += " " + sim.objectList.FindAll(o => o.ownerNuid == node.Key && o is Sim.Aircraft).Count;
-                    line += " " + sim.objectList.FindAll(o => o.ownerNuid == node.Key && (o is Sim.Aircraft) == false).Count;
+                    line += " " + sim.View.FindAll(o => o.ownerNuid == node.Key && o is Sim.Aircraft).Count;
+                    line += " " + sim.View.FindAll(o => o.ownerNuid == node.Key && (o is Sim.Aircraft) == false).Count;
                     line += " " + network.Peers.GetNodeVersion(node.Key);
                     line += " " + network.Peers.GetNodeSimulator(node.Key);
                     // network (transport) protocol indicator - distinct from the application
@@ -1911,7 +1912,7 @@ namespace JoinFS
         public void MonitorAircraft(Sim.Aircraft aircraft)
         {
             // get user position
-            Sim.Pos userPosition = sim ?. userAircraft ?. Position;
+            Sim.Pos userPosition = sim ?. View.UserAircraft ?. Position;
             // get aircraft position
             Sim.Pos aircraftPosition = aircraft.Position;
             string distance = "-";
@@ -1954,7 +1955,7 @@ namespace JoinFS
         public void MonitorAircraftDetails()
         {
             // check if connected
-            if (sim != null && sim.Connected)
+            if (sim != null && sim.View.Connected)
             {
                 MonitorEvent("Aircraft:");
                 MonitorEvent("  CALLSIGN OWNER DISTANCE HEADING ALTITUDE SPEED SUBMODEL BROADCAST");
@@ -1962,7 +1963,7 @@ namespace JoinFS
                 // total aircraft
                 int total = 0;
                 // add user aircraft
-                foreach (var obj in sim.objectList)
+                foreach (var obj in sim.View.Objects)
                 {
                     if (obj.owner == Sim.Obj.Owner.Me)
                     {
@@ -1972,7 +1973,7 @@ namespace JoinFS
                 }
 
                 // add network aircraft
-                foreach (var obj in sim.objectList)
+                foreach (var obj in sim.View.Objects)
                 {
                     if (obj is Sim.Aircraft && obj.owner == Sim.Obj.Owner.Network)
                     {
@@ -1986,7 +1987,7 @@ namespace JoinFS
                 }
 
                 // add recorder aircraft
-                foreach (var obj in sim.objectList)
+                foreach (var obj in sim.View.Objects)
                 {
                     if (obj is Sim.Aircraft && obj.owner == Sim.Obj.Owner.Recorder)
                     {
@@ -1999,7 +2000,7 @@ namespace JoinFS
                 if (Settings.Default.IncludeSimulatorAircraft)
                 {
                     // add any other aircraft
-                    foreach (var obj in sim.objectList)
+                    foreach (var obj in sim.View.Objects)
                     {
                         if (obj is Sim.Aircraft && obj.owner == Sim.Obj.Owner.Sim)
                         {

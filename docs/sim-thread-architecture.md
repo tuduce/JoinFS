@@ -652,3 +652,15 @@ likely causes of stalls.
   - `Sim`'s `Schedule*` setters wake the thread, so UI requests don't wait for the next timer.
   - Checked with a headless CONSOLE run (x64 build, `-xplane`): the thread starts, looks for the
     plugin, and idles.
+- **Phase 2a: done.**
+  - `SimSnapshot` (`Sim.View.cs`): copies of the objects, made by `Obj.CloneView` (positions,
+    flight plan and variable values are copied), each with a `Source` reference back to its live
+    object. The sim thread publishes it every 100 ms, and at once after structural changes. Any
+    thread reads it through `Sim.View`.
+  - `MainSessionHost`: `ISimSink` changes are posted to the sim thread, and `ISimView` and the
+    `ISimSink` queries read the snapshot.
+  - Whazzup, Euroscope, Notes, the CONSOLE services and the `Program` monitor dumps read the
+    snapshot. `Log`'s removals, `ToggleSimulator` and the height-adjustment load/save are posted.
+  - SimBrief fetches into a copy, then applies it on the sim thread.
+  - `PeerTable.Nodes` is a `ConcurrentDictionary`, and the three share fields swap a boxed id.
+  - Mailbox metric (§2.8), with a warning over 20 ms.

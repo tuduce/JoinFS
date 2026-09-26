@@ -373,7 +373,7 @@ namespace JoinFS
             // add node to ignore list
             AddToNodeList(ignoreList, nuid);
             // remove objects from simulator
-            main.sim ?. RemoveObjectsFromSim(nuid);
+            main.PostToSim(() => main.sim?.RemoveObjectsFromSim(nuid));
             // save log
             Save();
         }
@@ -531,7 +531,7 @@ namespace JoinFS
             // add name to list
             ignoreNameList.Add(name);
             // remove objects from simulator
-            main.sim ?. RemoveObjectsFromSim(name);
+            main.PostToSim(() => main.sim?.RemoveObjectsFromSim(name));
             // save log
             Save();
         }

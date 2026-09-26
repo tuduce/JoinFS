@@ -278,7 +278,7 @@ namespace JoinFS
             // get callsign
             string callsign = "";
             // get callsign
-            callsign = main.sim != null ? main.sim.userFlightPlan.callsign : "";
+            callsign = main.sim != null ? main.sim.View.UserFlightPlan.callsign : "";
             // register user
             RegisterUser(main.guid, nickname, callsign);
             // check that note is note already stored

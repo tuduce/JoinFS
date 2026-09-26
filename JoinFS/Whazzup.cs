@@ -190,7 +190,7 @@ namespace JoinFS
                     if (main.sim != null)
                     {
                         // for each object
-                        foreach (var obj in main.sim.objectList)
+                        foreach (var obj in main.sim.View.Objects)
                         {
                             // check for aircraft
                             if (obj is Sim.Aircraft aircraft && aircraft.showOnRadar)
@@ -198,10 +198,10 @@ namespace JoinFS
                                 // nickname
                                 string nickname = "";
                                 // check for node
-                                if (main.network.Peers.Nodes.ContainsKey(aircraft.ownerNuid))
+                                if (main.network.Peers.Nodes.TryGetValue(aircraft.ownerNuid, out var node))
                                 {
                                     // get nickname
-                                    nickname = main.network.Peers.Nodes[aircraft.ownerNuid].nickname;
+                                    nickname = node.nickname;
                                 }
 
                                 // default info

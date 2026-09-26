@@ -21,6 +21,8 @@ namespace JoinFS.Tests
             public void DoWork() => Interlocked.Increment(ref DoWorkCount);
             public double NextDue(double now) => Due;
             public void Close() => ClosedOnThread = Environment.CurrentManagedThreadId;
+            public readonly ConcurrentQueue<MailboxStats> Published = new();
+            public bool Publish(double now, MailboxStats mailbox) { Published.Enqueue(mailbox); return true; }
         }
 
         static (SimService Service, FakeWork Work, ConcurrentQueue<string> Log) Start()
@@ -103,6 +105,30 @@ namespace JoinFS.Tests
             work.Message.Set();
             WaitFor(() => work.DoWorkCount > before);
             service.Stop();
+        }
+
+        [Fact]
+        public void Mailbox_ReportsHowLongWorkWaited_AndWarnsWhenSlow()
+        {
+            var work = new FakeWork();
+            var log = new ConcurrentQueue<string>();
+            double clock = 1.0;
+            var service = new SimService(work, new object(), () => Volatile.Read(ref clock), log.Enqueue);
+            service.Start();
+
+            // hold the sim thread in one item while another is posted, then advance the clock
+            using var gate = new ManualResetEventSlim(false);
+            bool blocked = false, ran = false;
+            service.Post(() => { blocked = true; gate.Wait(); });
+            WaitFor(() => blocked);
+            service.Post(() => ran = true);          // posted at 1.0
+            Volatile.Write(ref clock, 1.5);          // it will have waited 500 ms
+            gate.Set();
+            WaitFor(() => ran);
+            WaitFor(() => work.Published.Any(m => m.MaxAge >= 0.5));
+            service.Stop();
+
+            Assert.Contains(log, l => l.Contains("WARNING - Sim thread mailbox"));
         }
 
         [Theory]

@@ -20,7 +20,17 @@ namespace JoinFS
 
         /// <summary>Close the simulator link (on the sim thread, at shutdown).</summary>
         void Close();
+
+        /// <summary>After each pass: publish what other threads read (Sim.View) if due, with the mailbox figures. True when published.</summary>
+        bool Publish(double now, MailboxStats mailbox);
     }
+
+    /// <summary>
+    /// Sim thread mailbox load (docs/sim-thread-architecture.md §2.8): items waiting when last
+    /// drained, the most waiting at once since the previous publish, and the longest any item
+    /// waited since then (seconds).
+    /// </summary>
+    public readonly record struct MailboxStats(int Depth, int Peak, double MaxAge);
 
     /// <summary>
     /// The sim thread (docs/sim-thread-architecture.md). It runs Sim and the Recorder, woken by:
@@ -41,11 +51,20 @@ namespace JoinFS
         /// <summary>Longest sleep, whatever the timers say</summary>
         public const double MaxWait = 0.1;
 
+        /// <summary>A posted item waiting longer than this is reported (seconds)</summary>
+        public const double SlowItemAge = 0.020;
+
+        /// <summary>Shortest time between two slow-mailbox reports (seconds)</summary>
+        const double SlowReportInterval = 10.0;
+
         readonly ISimThreadWork work;
         readonly object sync;
         readonly Func<double> now;
         readonly Action<string> log;
-        readonly ConcurrentQueue<Action> mailbox = new();
+        readonly ConcurrentQueue<(Action Action, double Posted)> mailbox = new();
+        int peakDepth;
+        double maxAge;
+        double nextSlowReport;
         readonly AutoResetEvent wake = new(false);
         Thread thread;
         volatile bool running;
@@ -65,7 +84,7 @@ namespace JoinFS
         /// <summary>Run <paramref name="action"/> on the sim thread (in order, as soon as possible).</summary>
         public void Post(Action action)
         {
-            mailbox.Enqueue(action);
+            mailbox.Enqueue((action, now()));
             wake.Set();
         }
 
@@ -138,9 +157,13 @@ namespace JoinFS
                 lock (sync)
                 {
                     // posted work first: calls deferred from other threads, plugin datagrams
-                    while (mailbox.TryDequeue(out Action action))
+                    int depth = mailbox.Count;
+                    peakDepth = Math.Max(peakDepth, depth);
+                    while (mailbox.TryDequeue(out var item))
                     {
-                        Execute(action);
+                        double age = now() - item.Posted;
+                        maxAge = Math.Max(maxAge, age);
+                        Execute(item.Action);
                     }
 
                     if (!running)
@@ -153,6 +176,20 @@ namespace JoinFS
                     Execute(work.DoWork);
 
                     double current = now();
+                    if (maxAge > SlowItemAge && current >= nextSlowReport)
+                    {
+                        log("WARNING - Sim thread mailbox: work waited " + (maxAge * 1000.0).ToString("F0") + " ms (" + peakDepth + " items queued)");
+                        nextSlowReport = current + SlowReportInterval;
+                    }
+                    MailboxStats stats = new(depth, peakDepth, maxAge);
+                    bool published = false;
+                    Execute(() => published = work.Publish(current, stats));
+                    if (published)
+                    {
+                        peakDepth = 0;
+                        maxAge = 0.0;
+                    }
+
                     double next = double.MaxValue;
                     Execute(() => next = work.NextDue(current));
                     milliseconds = WaitMilliseconds(next, current);
@@ -188,5 +225,7 @@ namespace JoinFS
             Math.Min(main.sim?.NextDue(now) ?? double.MaxValue, main.recorder?.NextDue(now) ?? double.MaxValue);
 
         public void Close() => main.sim?.Close();
+
+        public bool Publish(double now, MailboxStats mailbox) => main.sim?.PublishViewIfDue(now, mailbox.Depth, mailbox.Peak, mailbox.MaxAge) ?? true;
     }
 }

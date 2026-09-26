@@ -1,8 +1,10 @@
 using JoinFS.Net;
 using JoinFS.Properties;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
+using System.Runtime.CompilerServices;
 
 namespace JoinFS
 {
@@ -29,13 +31,22 @@ namespace JoinFS
             public bool simulatorConnected = false;
         }
 
-        /// <summary>Nodes in the session (not including this one).</summary>
-        public readonly Dictionary<NodeId, Node> Nodes = [];
+        /// <summary>
+        /// Nodes in the session (not including this one). Changed on the app thread; concurrent so
+        /// the sim thread can look nodes up (GetNodeName, GetNodeSimulatorConnected).
+        /// </summary>
+        public readonly ConcurrentDictionary<NodeId, Node> Nodes = new();
 
-        /// <summary>Who has which of our controls (shared cockpit).</summary>
-        public NodeId shareFlightControls = new();
-        public NodeId shareAncillaryControls = new();
-        public NodeId shareNavControls = new();
+        /// <summary>
+        /// Who has which of our controls (shared cockpit). Each is swapped as one reference so the
+        /// sim thread never reads a half-written id.
+        /// </summary>
+        public NodeId shareFlightControls { get => shareFlight.Value; set => shareFlight = new(value); }
+        public NodeId shareAncillaryControls { get => shareAncillary.Value; set => shareAncillary = new(value); }
+        public NodeId shareNavControls { get => shareNav.Value; set => shareNav = new(value); }
+        volatile StrongBox<NodeId> shareFlight = new(new NodeId());
+        volatile StrongBox<NodeId> shareAncillary = new(new NodeId());
+        volatile StrongBox<NodeId> shareNav = new(new NodeId());
 
         /// <summary>A node told us it is a hub (the endpoint to check it on).</summary>
         public event Action<IPEndPoint> HubAnnounced;
@@ -94,7 +105,7 @@ namespace JoinFS
 
         public void OnPeerLeft(NodeId nuid)
         {
-            Nodes.Remove(nuid);
+            Nodes.TryRemove(nuid, out _);
             log.Event("Removed node '" + nuid + "'");
         }
 

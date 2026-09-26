@@ -63,26 +63,35 @@ namespace JoinFS
         public void RemoveAtc(string airport, int level, int frequency) => main.euroscope?.RemoveAtc(airport, level, frequency);
 
         // ------------------------------------------------------------------ ISimView
+        // Read from the sim thread's snapshot (Sim.View): this runs on the app thread.
 
         public bool Available => main.sim != null;
 
-        public string SimulatorName => main.sim?.GetSimulatorName();
+        public string SimulatorName => main.sim?.View.SimulatorName;
 
-        public bool SimulatorConnected => main.sim != null && main.sim.Connected;
+        public bool SimulatorConnected => main.sim != null && main.sim.View.Connected;
 
-        public string UserCallsign => main.sim != null ? main.sim.userFlightPlan.callsign : "";
+        public string UserCallsign => main.sim != null ? main.sim.View.UserFlightPlan.callsign : "";
 
-        public Sim.Aircraft UserAircraft => main.sim?.userAircraft;
+        public Sim.Aircraft UserAircraft => main.sim?.View.UserAircraft;
 
-        public Sim.Aircraft FindUserAircraft(NodeId owner) =>
-            main.sim?.objectList.Find(o => o.ownerNuid == owner && o is Sim.Aircraft aircraft && aircraft.user) as Sim.Aircraft;
+        public Sim.Aircraft FindUserAircraft(NodeId owner)
+        {
+            Sim sim = main.sim;
+            if (sim == null) return null;
+            foreach (var obj in sim.View.Objects)
+            {
+                if (obj.ownerNuid == owner && obj is Sim.Aircraft aircraft && aircraft.user) return aircraft;
+            }
+            return null;
+        }
 
         public void CountObjects(out ushort planes, out ushort helicopters, out ushort boats, out ushort vehicles)
         {
             planes = helicopters = boats = vehicles = 0;
             Sim sim = main.sim;
             if (sim == null) return;
-            foreach (var obj in sim.objectList)
+            foreach (var obj in sim.View.Objects)
             {
                 if (obj.owner == Sim.Obj.Owner.Network || sim.IsBroadcast(obj))
                 {
@@ -97,132 +106,169 @@ namespace JoinFS
         public bool TryGetAirport(string code, out Main.Airport airport) => main.airportList.TryGetValue(code, out airport);
 
         // ------------------------------------------------------------------ ISimSink
+        // Queries read the snapshot; everything that changes the simulator or the recorder is
+        // posted to the sim thread, in arrival order (docs/sim-thread-architecture.md §2.5).
 
         public bool TryGetOwnAircraft(out NodeId owner, out uint netId)
         {
-            Sim.Aircraft aircraft = main.sim?.userAircraft;
+            Sim.Aircraft aircraft = main.sim?.View.UserAircraft;
             owner = aircraft?.ownerNuid ?? new NodeId();
             netId = aircraft?.netId ?? 0;
             return aircraft != null;
         }
 
-        public string CurrentMetar => main.sim?.scheduleMetar;
+        public string CurrentMetar => main.sim?.View.CurrentMetar;
 
+        /// <summary>Run <paramref name="action"/> on the sim thread, if there is a simulator</summary>
+        void Post(Action<Sim> action)
+        {
+            if (main.sim == null) return;
+            main.PostToSim(() =>
+            {
+                Sim sim = main.sim;
+                if (sim != null) action(sim);
+            });
+        }
+
+        // sim thread
         bool Recording(Sim.Obj obj) => obj != null && main.recorder.recording && obj.record;
 
         public void ChangeIdentity(NodeId owner, in IdentityUpdate identity)
         {
-            Sim sim = main.sim;
-            uint objectId = identity.ObjectId;
-            Sim.Obj obj = sim?.objectList.Find(o => o.ownerNuid == owner && o.netId == objectId);
-            if (obj == null) return;
-            bool modelChanged = identity.Model != obj.ownerModel;
-            sim.UpdateObject(obj, identity.Model, identity.Livery, identity.IcaoType, identity.IcaoAirline, identity.ClassCode, identity.Wtc, identity.ClassCodeConfirmed, identity.TypeRole);
-            if (modelChanged)
+            IdentityUpdate update = identity;
+            Post(sim =>
             {
-                // respawn under the new model
-                sim.RemoveObjectFromSim(obj);
-            }
+                uint objectId = update.ObjectId;
+                Sim.Obj obj = sim.objectList.Find(o => o.ownerNuid == owner && o.netId == objectId);
+                if (obj == null) return;
+                bool modelChanged = update.Model != obj.ownerModel;
+                sim.UpdateObject(obj, update.Model, update.Livery, update.IcaoType, update.IcaoAirline, update.ClassCode, update.Wtc, update.ClassCodeConfirmed, update.TypeRole);
+                if (modelChanged)
+                {
+                    // respawn under the new model
+                    sim.RemoveObjectFromSim(obj);
+                }
+            });
         }
 
         public void UpdateAircraft(NodeId owner, in IdentityUpdate identity, bool user, string nickname, in PositionUpdate position, double receivedAt)
         {
-            Sim sim = main.sim;
-            if (sim == null) return;
-            Sim.AircraftPosition aircraftPosition = SimMessageMapper.ToAircraftPosition(position);
-            Sim.Aircraft aircraft = sim.UpdateAircraft(owner, position.ObjectId, user, identity.IsPlane, identity.Callsign, identity.Registration, nickname,
-                identity.Model, identity.Livery, identity.IcaoType, identity.IcaoAirline, identity.FlightNumber, identity.ClassCode, identity.Wtc,
-                identity.ClassCodeConfirmed, identity.TypeRole, position.NetTime, ref aircraftPosition, receivedAt);
-            if (aircraft != null)
+            IdentityUpdate id = identity;
+            PositionUpdate update = position;
+            Post(sim =>
             {
-                aircraft.paused = (position.StateFlags & PositionStateFlags.Paused) != 0;
-                if (Recording(aircraft))
+                Sim.AircraftPosition aircraftPosition = SimMessageMapper.ToAircraftPosition(update);
+                Sim.Aircraft aircraft = sim.UpdateAircraft(owner, update.ObjectId, user, id.IsPlane, id.Callsign, id.Registration, nickname,
+                    id.Model, id.Livery, id.IcaoType, id.IcaoAirline, id.FlightNumber, id.ClassCode, id.Wtc,
+                    id.ClassCodeConfirmed, id.TypeRole, update.NetTime, ref aircraftPosition, receivedAt);
+                if (aircraft != null)
                 {
-                    main.recorder.Record(aircraft.recorderObj, position.NetTime, ref aircraftPosition);
+                    aircraft.paused = (update.StateFlags & PositionStateFlags.Paused) != 0;
+                    if (Recording(aircraft))
+                    {
+                        main.recorder.Record(aircraft.recorderObj, update.NetTime, ref aircraftPosition);
+                    }
                 }
-            }
+            });
         }
 
         public void UpdateOwnAircraft(in PositionUpdate position, double receivedAt)
         {
-            Sim sim = main.sim;
-            if (sim?.userAircraft == null) return;
-            sim.UpdateAircraft(sim.userAircraft, position.NetTime, SimMessageMapper.ToAircraftPosition(position), receivedAt);
+            PositionUpdate update = position;
+            Post(sim =>
+            {
+                if (sim.userAircraft == null) return;
+                sim.UpdateAircraft(sim.userAircraft, update.NetTime, SimMessageMapper.ToAircraftPosition(update), receivedAt);
+            });
         }
 
         public void UpdateObject(NodeId owner, in IdentityUpdate identity, in ObjectPositionUpdate position, double receivedAt)
         {
-            Sim sim = main.sim;
-            if (sim == null) return;
-            Sim.ObjectPositionVelocity positionVelocity = SimMessageMapper.ToPositionVelocity(position);
-            Sim.Obj simObject = sim.UpdateObject(owner, position.ObjectId, identity.Model, identity.Livery, identity.IcaoType, identity.IcaoAirline,
-                identity.ClassCode, identity.Wtc, identity.ClassCodeConfirmed, identity.TypeRole, position.NetTime, ref positionVelocity, receivedAt);
-            if (simObject != null)
+            IdentityUpdate id = identity;
+            ObjectPositionUpdate update = position;
+            Post(sim =>
             {
-                simObject.paused = (position.StateFlags & PositionStateFlags.Paused) != 0;
-                if (Recording(simObject))
+                Sim.ObjectPositionVelocity positionVelocity = SimMessageMapper.ToPositionVelocity(update);
+                Sim.Obj simObject = sim.UpdateObject(owner, update.ObjectId, id.Model, id.Livery, id.IcaoType, id.IcaoAirline,
+                    id.ClassCode, id.Wtc, id.ClassCodeConfirmed, id.TypeRole, update.NetTime, ref positionVelocity, receivedAt);
+                if (simObject != null)
                 {
-                    main.recorder.Record(simObject.recorderObj, position.NetTime, ref positionVelocity);
+                    simObject.paused = (update.StateFlags & PositionStateFlags.Paused) != 0;
+                    if (Recording(simObject))
+                    {
+                        main.recorder.Record(simObject.recorderObj, update.NetTime, ref positionVelocity);
+                    }
                 }
-            }
+            });
         }
 
         public void UpdateVariables(NodeId owner, uint netId, Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> string8s, bool record)
         {
-            Sim sim = main.sim;
-            if (sim == null) return;
-            if (integers != null)
+            Post(sim =>
             {
-                Sim.Aircraft aircraft = sim.UpdateAircraft(owner, netId, integers);
-                if (record && Recording(aircraft)) main.recorder.Record(aircraft.recorderObj, integers);
-            }
-            if (floats != null)
-            {
-                Sim.Aircraft aircraft = sim.UpdateAircraft(owner, netId, floats);
-                if (record && Recording(aircraft)) main.recorder.Record(aircraft.recorderObj, floats);
-            }
-            if (string8s != null)
-            {
-                Sim.Aircraft aircraft = sim.UpdateAircraft(owner, netId, string8s);
-                if (record && Recording(aircraft)) main.recorder.Record(aircraft.recorderObj, string8s);
-            }
+                if (integers != null)
+                {
+                    Sim.Aircraft aircraft = sim.UpdateAircraft(owner, netId, integers);
+                    if (record && Recording(aircraft)) main.recorder.Record(aircraft.recorderObj, integers);
+                }
+                if (floats != null)
+                {
+                    Sim.Aircraft aircraft = sim.UpdateAircraft(owner, netId, floats);
+                    if (record && Recording(aircraft)) main.recorder.Record(aircraft.recorderObj, floats);
+                }
+                if (string8s != null)
+                {
+                    Sim.Aircraft aircraft = sim.UpdateAircraft(owner, netId, string8s);
+                    if (record && Recording(aircraft)) main.recorder.Record(aircraft.recorderObj, string8s);
+                }
+            });
         }
 
         public void ApplyEvent(NodeId owner, uint netId, uint eventId, uint data, bool flightControls, bool record)
         {
-            Sim.Aircraft aircraft = main.sim?.UpdateAircraft(owner, netId, eventId, data, flightControls);
-            if (record && Recording(aircraft))
+            Post(sim =>
             {
-                main.recorder.Record(aircraft.recorderObj, eventId, data);
-            }
+                Sim.Aircraft aircraft = sim.UpdateAircraft(owner, netId, eventId, data, flightControls);
+                if (record && Recording(aircraft))
+                {
+                    main.recorder.Record(aircraft.recorderObj, eventId, data);
+                }
+            });
         }
 
-        public void RemoveObject(NodeId owner, uint netId) => main.sim?.RemoveObject(owner, netId);
+        public void RemoveObject(NodeId owner, uint netId) => Post(sim => sim.RemoveObject(owner, netId));
 
-        public void RemoveObjects(NodeId owner) => main.sim?.RemoveObject(owner);
+        public void RemoveObjects(NodeId owner) => Post(sim => sim.RemoveObject(owner));
 
         public void UpdateUserFlightPlan(in FlightPlanUpdate flightPlan)
         {
-            Sim sim = main.sim;
-            if (sim == null) return;
-            SimMessageMapper.CopyTo(flightPlan, sim.userFlightPlan);
+            FlightPlanUpdate update = flightPlan;
+            Post(sim =>
+            {
+                SimMessageMapper.CopyTo(update, sim.userFlightPlan);
+                sim.MarkViewDirty();
+            });
         }
 
         public void UpdateAircraftFlightPlan(NodeId owner, uint netId, in FlightPlanUpdate flightPlan)
         {
-            if (main.sim?.objectList.Find(o => o.ownerNuid == owner && o.netId == netId) is Sim.Aircraft aircraft)
+            FlightPlanUpdate update = flightPlan;
+            Post(sim =>
             {
-                SimMessageMapper.CopyTo(flightPlan, aircraft.flightPlan);
-            }
+                if (sim.objectList.Find(o => o.ownerNuid == owner && o.netId == netId) is Sim.Aircraft aircraft)
+                {
+                    SimMessageMapper.CopyTo(update, aircraft.flightPlan);
+                }
+            });
         }
 
-        public void SetWeather(string metar) => main.sim?.SetWeatherObservation(metar);
+        public void SetWeather(string metar) => Post(sim => sim.SetWeatherObservation(metar));
 
-        public void SetWeather(NodeId from, string metar) => main.sim?.SetWeatherObservation(from, metar);
+        public void SetWeather(NodeId from, string metar) => Post(sim => sim.SetWeatherObservation(from, metar));
 
-        public void ShareCockpit(NodeId nuid, ShareCockpitFlags share) => main.sim?.ShareCockpit(nuid, (byte)share);
+        public void ShareCockpit(NodeId nuid, ShareCockpitFlags share) => Post(sim => sim.ShareCockpit(nuid, (byte)share));
 
-        public void NicknameChanged(NodeId nuid) => main.sim?.SetAtcId(nuid);
+        public void NicknameChanged(NodeId nuid) => Post(sim => sim.SetAtcId(nuid));
 
         // ------------------------------------------------------------------ ISessionUi
 

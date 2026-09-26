@@ -590,6 +590,14 @@ namespace JoinFS
             /// </summary>
             public Pos Clone() => new(geo.Clone(), angles.Clone(), elevation, ground, radarHeight);
 
+            /// <summary>Full copy, including staticCgToGround (for snapshot copies)</summary>
+            public Pos CloneAll()
+            {
+                Pos copy = Clone();
+                copy.staticCgToGround = staticCgToGround;
+                return copy;
+            }
+
             /// <summary>
             /// Extrapolate a position using velocity and time
             /// </summary>
@@ -847,6 +855,30 @@ namespace JoinFS
 
             public string ModelTitle { get { return subModel != null ? subModel.title : ownerModel; } }
             public string ModelLivery { get { return subModel != null ? subModel.variation : ownerLivery; } }
+
+            /// <summary>
+            /// For a snapshot copy (<see cref="SimSnapshot"/>): the live object it was copied from.
+            /// Only the sim thread may touch it, so other threads pass it back in a posted command
+            /// (<see cref="Main.PostToSim"/>). Null for live objects.
+            /// </summary>
+            public Obj Source { get; private set; }
+
+            /// <summary>
+            /// Copy for a snapshot. The copy shares nothing the sim thread goes on changing: positions,
+            /// flight plan and variable values are copied; models and recorder objects are shared
+            /// references, as they are not changed in place by the sim thread.
+            /// </summary>
+            public virtual Obj CloneView()
+            {
+                Obj view = (Obj)MemberwiseClone();
+                view.Source = this;
+                view.simPosition = simPosition?.CloneAll();
+                view.netPosition = netPosition?.CloneAll();
+                view.netVelocity = netVelocity?.Clone();
+                view.oldEuler = oldEuler?.Clone();
+                view.variableSet = variableSet?.CloneView();
+                return view;
+            }
 
             /// <summary>
             /// Object position
@@ -1765,6 +1797,9 @@ namespace JoinFS
             public const int MAX_ROUTE = 512;
             public const int MAX_REMARKS = 512;
 
+            /// <summary>Copy (every field is a value or a string)</summary>
+            public FlightPlan Clone() => (FlightPlan)MemberwiseClone();
+
             public string callsign = "";
             /// <summary>
             /// True once callsign has been explicitly set via SimBrief import or manual FlightPlanForm
@@ -1799,27 +1834,61 @@ namespace JoinFS
         /// <summary>
         /// Result of the most recent SimBrief fetch attempt, for the main-screen SimBrief button's coloring
         /// </summary>
-        public SimBriefFetchState simBriefFetchState = SimBriefFetchState.NotTriggered;
+        public volatile SimBriefFetchState simBriefFetchState = SimBriefFetchState.NotTriggered;
 
 #if !CONSOLE
         /// <summary>
-        /// Fetch the pilot's latest SimBrief OFP and apply it to the user's flight plan if found
+        /// Fetch the pilot's latest SimBrief OFP and apply it to the user's flight plan if found.
+        /// Any thread: the OFP is fetched into a copy and applied on the sim thread, which owns the
+        /// flight plan; the task completes once it has been applied.
         /// </summary>
         public async Task<bool> RefreshUserFlightPlanFromSimBriefAsync()
         {
             simBriefFetchState = SimBriefFetchState.Fetching;
-            bool ok = await JoinFS.SimBrief.FetchAsync(Settings.Default.SimBriefUsername, userFlightPlan, main);
-            simBriefFetchState = ok ? SimBriefFetchState.Success : SimBriefFetchState.Failed;
+            FlightPlan fetched = new();
+            bool ok = await JoinFS.SimBrief.FetchAsync(Settings.Default.SimBriefUsername, fetched, main);
             if (ok)
             {
-                main.MonitorEvent("SimBrief flight plan imported: " + userFlightPlan.departure + " -> " + userFlightPlan.destination);
-                // don't lock out the SimConnect fallback if SimBrief didn't actually provide a callsign
-                if (userFlightPlan.callsign.Length > 0)
+                TaskCompletionSource applied = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                main.PostToSim(() =>
                 {
-                    userFlightPlan.callsignSetByUser = true;
-                }
+                    try
+                    {
+                        ApplySimBrief(fetched);
+                    }
+                    finally
+                    {
+                        applied.SetResult();
+                    }
+                });
+                await applied.Task;
             }
+            simBriefFetchState = ok ? SimBriefFetchState.Success : SimBriefFetchState.Failed;
             return ok;
+        }
+
+        /// <summary>
+        /// Copy what SimBrief provides (SimBrief.FetchAsync) into the user's flight plan (sim thread)
+        /// </summary>
+        void ApplySimBrief(FlightPlan fetched)
+        {
+            userFlightPlan.callsign = fetched.callsign;
+            userFlightPlan.registration = fetched.registration;
+            userFlightPlan.icaoType = fetched.icaoType;
+            userFlightPlan.departure = fetched.departure;
+            userFlightPlan.destination = fetched.destination;
+            userFlightPlan.alternate = fetched.alternate;
+            userFlightPlan.route = fetched.route;
+            userFlightPlan.remarks = fetched.remarks;
+            userFlightPlan.rules = fetched.rules;
+            userFlightPlan.altitude = fetched.altitude;
+            main.MonitorEvent("SimBrief flight plan imported: " + userFlightPlan.departure + " -> " + userFlightPlan.destination);
+            // don't lock out the SimConnect fallback if SimBrief didn't actually provide a callsign
+            if (userFlightPlan.callsign.Length > 0)
+            {
+                userFlightPlan.callsignSetByUser = true;
+            }
+            MarkViewDirty();
         }
 #endif
 
@@ -1930,6 +1999,13 @@ namespace JoinFS
             /// </summary>
             public bool CockpitShared { get { return (cockpitShare & 0x01) != 0; } }
             public bool FlightControlsShared { get { return (cockpitShare & 0x02) != 0; } }
+
+            public override Obj CloneView()
+            {
+                Aircraft view = (Aircraft)base.CloneView();
+                view.flightPlan = flightPlan?.Clone();
+                return view;
+            }
         }
 
         /// <summary>

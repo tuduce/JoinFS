@@ -48,6 +48,21 @@ namespace JoinFS
             public Dictionary<uint, double> startTimes = [];
 
             /// <summary>
+            /// Copy of the values for a snapshot (<see cref="Sim.Obj.CloneView"/>). Read it only:
+            /// changes go to the live set, on the sim thread.
+            /// </summary>
+            public Set CloneView()
+            {
+                Set view = (Set)MemberwiseClone();
+                view.integers = new(integers);
+                view.floats = new(floats);
+                view.string8s = new(string8s);
+                view.startTimes = new(startTimes);
+                view.scRequests = new(scRequests);
+                return view;
+            }
+
+            /// <summary>
             /// Main instance
             /// </summary>
             readonly Main main;
