@@ -54,8 +54,7 @@ namespace JoinFS
                 {
                     if (obj is not Sim.Aircraft aircraft) continue;
 
-                    Guid guid = main.network.GetNodeGuid(aircraft.ownerNuid);
-                    if (guid == Guid.Empty) guid = new Guid(aircraft.simId, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                    Guid guid = main.network.GetAircraftIdentityGuid(aircraft);
 
                     string com1 = "", com2 = "";
                     if (aircraft.variableSet != null)
