@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Net;
 
 // Ported from ProtocolV2Reference/Negotiation.cs (docs/reference/jfp2-protocol.md §5) as part of
 // docs/protocol-v2-implementation-plan.md Phase 1. PeerSession gained two fields
@@ -93,6 +94,9 @@ namespace JoinFS.Net.Jfp2
     /// </summary>
     public sealed class HandshakeMessage
     {
+        /// <summary>Extension tag carrying the sender's own node id (<see cref="Node"/>).</summary>
+        public const ushort NodeTag = 1;
+
         public byte ProtoMajorMin;
         public byte ProtoMajorMax;
         public ulong Capabilities;
@@ -100,6 +104,15 @@ namespace JoinFS.Net.Jfp2
         public List<SchemaOffer> Offers = new();
         public byte Result; // HelloAck only: 0 = Accepted, 1 = NoCompatibleProtoMajor. Ignored on Hello.
         public Dictionary<ushort, byte[]> Extensions = new();
+
+        /// <summary>
+        /// Who is speaking: the sending node's own id (in a HelloAck, the node that actually answered).
+        /// The one thing an endpoint cannot tell you when several nodes share it (two nodes behind one
+        /// NAT port forward, a hub and a client), so a receiver binds a session to this and never to
+        /// the datagram's source. Travels as an extension so a build that does not know it still parses
+        /// the message; a peer that omits it is treated as legacy-only.
+        /// </summary>
+        public RelayNuid? Node;
 
         public byte[] Serialize()
         {
@@ -123,9 +136,15 @@ namespace JoinFS.Net.Jfp2
                 bytes.Add(offer.MinVersion);
                 bytes.Add(offer.MaxVersion);
             }
+            if (Node.HasValue)
+            {
+                Span<byte> node = stackalloc byte[RelayNuid.WireSize];
+                Node.Value.WriteTo(node);
+                Tlv.Write(bytes, NodeTag, node);
+            }
             foreach (var kv in Extensions)
             {
-                Tlv.Write(bytes, kv.Key, kv.Value);
+                if (kv.Key != NodeTag) Tlv.Write(bytes, kv.Key, kv.Value);
             }
             return bytes.ToArray();
         }
@@ -149,6 +168,10 @@ namespace JoinFS.Net.Jfp2
                 msg.Offers.Add(new SchemaOffer(isInternal, messageClass, min, max));
             }
             msg.Extensions = Tlv.ReadAll(src.Slice(i));
+            if (msg.Extensions.Remove(NodeTag, out byte[] node) && node.Length == RelayNuid.WireSize)
+            {
+                msg.Node = RelayNuid.ReadFrom(node);
+            }
             return msg;
         }
     }
@@ -162,20 +185,51 @@ namespace JoinFS.Net.Jfp2
     /// </summary>
     public sealed class PeerSession
     {
+        /// <summary>The neighbor this session is with: the node whose datagrams carry
+        /// <see cref="RemoteAssignedId"/>. Not necessarily the node a Hello was aimed at.</summary>
+        public NodeId Peer;
+
         public ushort LocalAssignedId; // what WE call ourselves to this peer (goes in SenderPeerId when we send to them)
         public ushort RemoteAssignedId; // what THEY call themselves (goes in RecipientPeerId when we send to them)
         public ulong AgreedCapabilities;
         public readonly byte[] AgreedAppVersion = new byte[256];
         public readonly byte[] AgreedInternalVersion = new byte[256];
+
+        /// <summary>
+        /// We know the peer's id and schema offers (its Hello arrived, or it answered ours), so we can
+        /// decode what it sends. Says nothing about whether OUR datagrams reach it - that is
+        /// <see cref="Verified"/>.
+        /// </summary>
         public bool HandshakeComplete;
+
+        /// <summary>
+        /// The endpoint at which the peer itself answered one of our Hellos, or null. Only a peer that
+        /// answered can be sent to: receiving its Hello proves its datagrams reach us, not ours it.
+        /// </summary>
+        public IPEndPoint Endpoint;
+
+        public bool Verified => Endpoint != null;
+
+        /// <summary>IClock.Now of the last HelloAck from the peer; the session is dropped to unverified
+        /// when it gets too old (see Jfp2Plugin's keepalive).</summary>
+        public double LastAck;
+
+        /// <summary>When the next keepalive Hello is due (verified sessions).</summary>
+        public double NextKeepAlive;
+
+        /// <summary>The endpoint the outstanding Hello was sent to; becomes <see cref="Endpoint"/> when answered.</summary>
+        public IPEndPoint ProbeEndPoint;
 
         /// <summary>
         /// True once a Hello has gone unanswered past a short timeout (a few retransmits of the
         /// Hello, same cadence as the legacy Pulse retry loop) - this peer is treated as legacy-only
-        /// for the rest of the session and reached through the legacy plugin instead. No capability of this peer is ever assumed beyond what the legacy protocol
-        /// already provides.
+        /// until <see cref="RetryAt"/> and reached through the legacy plugin instead. No capability of
+        /// this peer is ever assumed beyond what the legacy protocol already provides.
         /// </summary>
         public bool AssumedLegacy;
+
+        /// <summary>When an <see cref="AssumedLegacy"/> peer is tried again (a peer may upgrade, or the route may change).</summary>
+        public double RetryAt;
 
         /// <summary>
         /// How many Hello attempts have been made to this peer so far. Not part of the original

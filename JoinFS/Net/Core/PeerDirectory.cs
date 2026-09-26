@@ -24,9 +24,21 @@ namespace JoinFS.Net
         /// </summary>
         public bool Direct => EndPoint.Address.Equals(RouteEndPoint.Address);
 
-        /// <summary>Route is exactly the node's own endpoint (address and port). Stricter than
-        /// <see cref="Direct"/>; what protocol negotiation requires (JFP2 Finding 7).</summary>
-        public bool RouteIsOwnEndPoint => RouteEndPoint.Equals(EndPoint);
+        /// <summary>
+        /// The relay node this peer is reached through, or invalid when it is reached directly. Set
+        /// when the pathfinder picks a relay; unlike <see cref="RouteEndPoint"/> it stays correct when
+        /// the relay and the peer share an endpoint (two nodes behind one NAT port forward).
+        /// </summary>
+        public NodeId RouteVia;
+
+        /// <summary>The peer is reached through another node.</summary>
+        public bool Relayed => RouteVia.Valid();
+
+        /// <summary>
+        /// Route is exactly the node's own endpoint (address and port) and no relay is involved.
+        /// Stricter than <see cref="Direct"/>; what a relay needs before it forwards to a peer.
+        /// </summary>
+        public bool RouteIsOwnEndPoint => !Relayed && RouteEndPoint.Equals(EndPoint);
 
         /// <summary>We have heard from the node.</summary>
         public bool ReceiveEstablished;

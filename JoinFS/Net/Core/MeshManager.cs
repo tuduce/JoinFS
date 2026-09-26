@@ -208,10 +208,13 @@ namespace JoinFS.Net
                 // anyone routed through the departed node has to find a new route
                 foreach (Peer peer in core.Peers.All)
                 {
-                    if (peer.RouteEndPoint.Equals(gone.EndPoint))
+                    // routed through the departed node: by relay identity, or (legacy relay choice) by
+                    // its endpoint - but a peer that merely shares the endpoint is not routed through it
+                    if (peer.RouteVia == gone.Id || (!peer.RouteEndPoint.Equals(peer.EndPoint) && peer.RouteEndPoint.Equals(gone.EndPoint)))
                     {
                         peer.SendEstablished = false;
                         peer.RouteEndPoint = peer.EndPoint;
+                        peer.RouteVia = default;
                         peer.InvalidateRoutes();
                     }
                 }
@@ -537,6 +540,7 @@ namespace JoinFS.Net
                 {
                     // the responder itself: it's directly reachable
                     peer.RouteEndPoint = peer.EndPoint;
+                    peer.RouteVia = default;
                     Responded(peer, now);
                     peer.InvalidateRoutes();
                     core.Log(NetLogLevel.Network, "NETWORK: PathFinderResponse Direct " + meta.Sender + " " + peer.EndPoint);
@@ -545,6 +549,7 @@ namespace JoinFS.Net
                 {
                     // reach it through the responder
                     peer.RouteEndPoint = meta.EndPoint;
+                    peer.RouteVia = meta.Sender;
                     Responded(peer, now);
                     peer.InvalidateRoutes();
                     core.Log(NetLogLevel.Network, "NETWORK: PathFinderResponse Indirect " + meta.Sender + " " + meta.EndPoint);

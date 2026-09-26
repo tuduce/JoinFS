@@ -103,8 +103,8 @@ All multi-byte integers are little-endian. Strings are UTF-8 with a **u16 length
 | 0 | 1 | Magic | Always `0xFA`. |
 | 1 | 1 | ProtoMajor | `2`. A future breaking redesign would branch on this byte. |
 | 2 | 1 | Flags | §4.2. |
-| 3 | 2 | SenderPeerId | u16, negotiated at handshake time (§5.2). `0` in relayed datagrams. |
-| 5 | 2 | RecipientPeerId | u16. `0` in relayed datagrams. |
+| 3 | 2 | SenderPeerId | u16, assigned at handshake time (§5.2): the sender's own id for the session between the two nodes exchanging *this datagram*. |
+| 5 | 2 | RecipientPeerId | u16: the receiver's id for that session. A receiver finds the session by this id alone, never by source endpoint (§5.7). |
 | 7 | 1 | RawMessageClass | §4.3. |
 
 The optional extensions follow in this order: guaranteed (§4.4), then relay (§4.5), then the
@@ -177,7 +177,8 @@ Behaviour, as implemented:
   time; ids are remembered for **30 s** for duplicate suppression, keyed by the true origin.
 - When the acknowledged datagram arrived relayed (§4.5), the `GuaranteedDone` is itself sent
   `Forwarded`, with origin = the acknowledging node and target = the true sender, so it travels back
-  through the relay end to end.
+  through the relay end to end. A relay that re-sent the message on the origin's behalf (translation
+  or a different schema version) acknowledges upstream itself, and consumes the downstream ack.
 
 ### 4.5 Relay extension (Forwarded)
 
@@ -190,25 +191,34 @@ When `Forwarded` is set, 14 bytes follow the (optional) guaranteed extension:
 
 Each node id has the legacy `Nuid` layout: `ip` (u32), `port` (u16), `local` (u8). Every mesh member
 already knows every other member's node id through the legacy mesh, so no new synchronization is
-needed. PeerIds are zero in a relayed datagram because they are only meaningful between two
-negotiating neighbours.
+needed.
+
+**Two levels of addressing.** Origin and Target are end to end. SenderPeerId and RecipientPeerId in
+the fixed header stay *hop-scoped*, exactly as on a direct datagram: they name the session between
+the two nodes that exchange this datagram (sender to relay, then relay to target). The receiver
+therefore finds the neighbour session by id and never guesses it from the source endpoint. A relay
+rewrites the two ids, which sit at fixed offsets, when it passes a datagram on.
 
 Receiving rule, identical on every node:
-- **TargetNode is me:** consume it, attributing it to OriginNode.
-- **Otherwise:** relay it, but only if TargetNode is a *direct* neighbour and the node's relay budget
-  (10 concurrent senders, shared with legacy relaying) allows it. That caps relaying at one hop.
-  - If the target negotiated this class (or it is internal), forward the bytes unchanged.
-  - If it did not — for example a legacy-only target — decode and hand the message to the
-    translation path (§7.7).
+- **TargetNode is me:** consume it, attributing it to OriginNode and decoding it with the schema
+  agreed with the neighbour it came from.
+- **Otherwise:** relay it, but only if TargetNode is a *direct* neighbour (no relay involved in
+  reaching it) and the node's relay budget (10 concurrent senders, shared with legacy relaying)
+  allows it. That caps relaying at one hop.
+  - If the target has a verified session with the relay and agreed the **same schema version** for
+    the class as the sender's hop used (or the datagram is internal), forward the bytes with the hop
+    ids rewritten.
+  - Otherwise — a legacy-only target, or a different version — decode the message and hand it to the
+    translation path (§7.7), which re-sends it in the target's own terms. The translation path is
+    thereby also a per-hop version adapter.
 
 Both fields are always present. A single field whose meaning flips by direction was rejected: in
 neither role would that field equal the receiver's own id, so a node could not tell "relay further"
 from "consume".
 
-Current builds only *receive and relay* Forwarded application messages. They no longer *originate*
-them: a node sends to an indirect peer over the legacy relay, because the sender cannot know whether
-the final target speaks JFP2 (§7.2). Builds from before the plugin architecture do originate them,
-and the rules above keep interoperating with those builds.
+**Origination.** A node sends to a peer it does not reach directly through the neighbour that carries
+that peer's traffic (§5.7), in the schema agreed with that neighbour, as a Forwarded datagram. It does
+not need to know whether the final target speaks JFP2: the relay either forwards or translates.
 
 ### 4.6 `Extended` escape hatch — *specified, not implemented*
 
@@ -238,8 +248,11 @@ no coupling between the decisions.
 
 ### 5.2 Hello / HelloAck
 
-Internal-partition messages. A node sends `Hello` to each peer the mesh knows and reaches directly
-(route = the peer's own endpoint), addressed to that endpoint. The reply goes back to the UDP source.
+Internal-partition messages. A node sends `Hello` to the route endpoint of each peer the mesh knows
+and does not reach through a relay. The reply goes back to the UDP source. Both messages say who is
+speaking (the `Node` extension, §5.5): a Hello names its sender, and a HelloAck names the node that
+actually answered, which is what tells a node whether the peer it asked for, or another node sharing
+that endpoint, replied.
 
 Payload (same shape for both; `Result` is meaningful only in HelloAck):
 
@@ -255,13 +268,19 @@ Payload (same shape for both; `Result` is meaningful only in HelloAck):
 | Extensions | rest | TLV records, §5.5. |
 
 Behaviour, as implemented (`Jfp2Plugin`):
-- A Hello from an endpoint that isn't a known mesh peer is ignored. The legacy Join always happens
-  first.
+- A Hello without a `Node`, or naming a node that isn't a known mesh peer, is ignored. The legacy
+  Join always happens first, and a build that doesn't say who it is stays on legacy.
 - An unanswered Hello is retried every **2 s**. After **5** attempts the peer is marked
-  `AssumedLegacy` for the rest of the session.
-- If the peer stops being directly reachable before the handshake completes, the half-built session
-  is dropped. Negotiation starts again if the peer becomes direct.
+  `AssumedLegacy` (legacy only) and is tried again after **30 s**, or at once if it sends a Hello
+  itself.
+- Only one Hello is outstanding per endpoint. Each Hello tells the node that answers which id to use
+  for us, so two in flight to one endpoint would leave that node holding the wrong one.
+- A HelloAck is matched to the session by the id it is addressed to, and must name the node the Hello
+  was for. If another node answers, that node owns the endpoint (see §5.7) and the peer we asked for
+  is not there.
 - A HelloAck with `Result != 0` marks the peer `AssumedLegacy`.
+- Receiving a peer's Hello lets us *decode* what it sends. It does not make the session usable for
+  *sending*: only the ack of our own Hello proves our datagrams reach that node.
 
 Current offers: every application class 0–9 at version range [1, 1]; no internal classes.
 
@@ -295,13 +314,44 @@ of both sides'. Current builds advertise none.
 ### 5.5 Extension area (TLV)
 
 `(Tag: u16, Length: u16, Value)` records after the offer list. Unknown tags are skipped by length,
-so the handshake can grow without a new envelope version. None are defined yet.
+so the handshake can grow without a new envelope version.
+
+| Tag | Name | Value |
+|---|---|---|
+| 1 | Node | 7 bytes, the legacy `Nuid` layout: the speaking node's own id. In a HelloAck, the node that answered. Required: a handshake message without it is treated as coming from a legacy-only peer. |
 
 ### 5.6 Peers that don't speak JFP2
 
 A peer that never answers Hello, or rejects it, is `AssumedLegacy`. Everything to it goes through
-the legacy plugin. A peer that is not directly reachable never gets a Hello and is also reached over
-legacy. No JFP2 capability is ever assumed beyond what negotiation established.
+the legacy plugin, unless a neighbour that does speak JFP2 carries its traffic (§5.7), in which case
+that neighbour translates. No JFP2 capability is ever assumed beyond what negotiation established.
+
+### 5.7 Sessions, next hop and health
+
+**A session is with a neighbour.** It is bound to the node id the peer stated in the handshake, and
+never to the endpoint the datagram came from: two nodes can share one public endpoint (a hub and a
+client behind one router that forwards a port to the hub, both known by the same public IP and port),
+and a source address cannot tell them apart. Datagrams are matched to a session by the two ids in the
+envelope. Ids are random, not sequential, so a datagram meant for another node cannot match a session
+by coincidence.
+
+**Next hop.** JFP2 datagrams for a peer go to the first of these that has a verified session:
+1. the peer itself, if it answered our Hello at the endpoint we currently reach it on;
+2. the relay the mesh routes it through (`Peer.RouteVia`, set by the pathfinder);
+3. another node that answered at the peer's own endpoint: the peer shares the endpoint and is behind
+   that node.
+
+The datagram is unaddressed when the hop is the peer itself, and Forwarded (§4.5) otherwise. If none
+applies, the legacy plugin carries everything for the peer. The protocol is therefore a property of
+each hop, and a hub may speak JFP2 to one side of a relay and legacy to the other.
+
+**Verified, and kept verified.** A session becomes usable for sending when our own Hello is answered
+by the right node. Afterwards a keepalive Hello goes to the verified endpoint every **5 s**; the
+answer must name the same node. A session that has not been answered for **15 s**, or whose
+endpoint is now answered by another node (the network steers it elsewhere), or whose route moved,
+stops being verified and the peer falls back to legacy until it is verified again. A peer that
+restarts, or forgets its sessions, is recovered by the next keepalive: a Hello always refreshes the
+receiver's view of the sender's id, and the ack refreshes ours.
 
 ## 6. Message catalog
 
@@ -387,12 +437,11 @@ anything else is parsed. Both protocols share the socket and port indefinitely.
 
 **7.2 Per peer and per message kind.** The choice between JFP2 and legacy is made per peer and per
 message kind, not per mesh:
-- JFP2 is used for a kind when the peer negotiated it (§5.3) **and** is directly reachable.
+- JFP2 is used for a kind when the peer's next hop (§5.7) negotiated it (§5.3).
 - Everything else goes over legacy: kinds JFP2 doesn't carry (§6.4), `AssumedLegacy` peers, and
-  peers reached through a relay.
+  sessions that are not (or no longer) verified.
 - Because every node speaks legacy, falling back is always possible.
-- The choice is re-evaluated when a peer's route changes, so a peer that goes indirect falls back
-  to legacy automatically.
+- The choice is re-evaluated when a peer's route or a session's state changes.
 
 **7.3 Independent versions per class.** No class's version is coupled to another's (§5.1).
 
@@ -407,8 +456,10 @@ Simulator build symbols (`FS2020`, `FS2024`, `XPLANE`, `CONSOLE`, ...) never cha
 **7.6 IPv6 is additive**, through `PeerKey` (§4.8), once the mesh runs over JFP2.
 
 **7.7 Relaying and translation.**
-- **Two JFP2 neighbours of a relaying node that agree on a class:** the relay forwards the datagram
-  byte-for-byte (§4.5), like legacy `FLAG_FORWARD`.
+- **Two JFP2 neighbours of a relaying node that agree on a class *and its schema version*:** the
+  relay forwards the datagram (§4.5) with the hop ids rewritten, like legacy `FLAG_FORWARD`.
+- **The target agreed a different version:** the relay decodes with the sender's version, and the
+  core re-sends it encoded for the target's.
 - **The target doesn't speak JFP2 for that class:** the relaying node decodes the message into its
   canonical form and hands it to the application's network core. The core sends it to the target
   with whichever protocol reaches it — legacy, in practice — keeping the true sender:
@@ -432,14 +483,14 @@ recordings (explicit per-record-type versions instead of EOF-sensing) remains a 
 ## 9. Status and future work
 
 **Implemented:**
-- the envelope with its guaranteed and relay extensions;
-- Hello/HelloAck with per-class negotiation;
+- the envelope with its guaranteed and relay extensions, hop-scoped ids on relayed datagrams;
+- Hello/HelloAck with per-class negotiation, node identity, and verified sessions with a keepalive;
+- next-hop origination of relayed traffic, and relay or translation at the hop;
 - single-datagram guaranteed delivery;
-- the v1 codecs for all ten application classes;
-- byte relay and translation.
+- the v1 codecs for all ten application classes.
 
-JFP2 carries application traffic between directly reachable peers. It was field-tested against
-MSFS 2024 before the plugin architecture; see the implementation plan.
+It was first field-tested against MSFS 2024 before the plugin architecture; the shared-endpoint
+topology in `JoinFS.Tests/Net/Jfp2RelayTests.cs` reproduces the failure of the next field test.
 
 **Specified, not implemented:**
 - PositionV2
@@ -447,7 +498,6 @@ MSFS 2024 before the plugin architecture; see the implementation plan.
 - the `Extended` escape hatch
 - `PeerKey`
 - capability bits
-- TLV extensions
 - multi-segment guaranteed delivery
 - JFP2 mesh messages
 
@@ -455,8 +505,10 @@ MSFS 2024 before the plugin architecture; see the implementation plan.
 - **A JFP2-native mesh:** carrying Join/Pulse/Pathfinder over JFP2. It needs multi-segment
   guaranteed delivery and a pre-Join bootstrap. It is worth doing only for authentication, IPv6, NAT
   hole punching or retiring legacy; see `docs/network-plugin-architecture.md` §2.4.1.
-- **Originating relayed JFP2 again:** this needs the sender to learn the *target's* JFP2 support, for
-  example through a capability field propagated by the hub.
+- **Relay fan-out:** one datagram to a hub for "all your other neighbours" instead of one per peer,
+  which would cut the uplink of a node behind a hub. It needs relay budgets and amplification limits.
+- **Limits of verification behind a shared endpoint:** a node whose replies are steered to another
+  node cannot verify the path back, so that direction stays on legacy (§5.7).
 - **Selective acknowledgement** and **coalescing policy** (batch window, eligible classes).
 - **Governance for ProtoMajor 3+:** a future breaking version should keep the magic/version-byte
   dispatch before anything else is parsed.

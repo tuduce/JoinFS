@@ -17,7 +17,7 @@ namespace JoinFS.Benchmarks
     /// Two independent two-node pairs are built once in [GlobalSetup]: a legacy-only pair (no
     /// negotiation needed) and a JFP2 pair (real Hello/HelloAck handshake, bypassing MeshManager
     /// entirely via Mesh.Create() + Peers.Add() directly - JFP2 negotiation only needs
-    /// Peer.RouteIsOwnEndPoint, not an established mesh). Both sides call Mesh.Create() so
+    /// a known peer, not an established mesh). Both sides call Mesh.Create() so
     /// NetworkCore.Deliver's session gate (RequiresSession) doesn't silently drop the decoded
     /// Position - see the same gate's effect in JoinFS.Tests/Legacy/LegacyPluginGoldenTests.cs's
     /// ForceSession() calls, which this mirrors via the public Create() API instead of the internal
@@ -140,7 +140,7 @@ namespace JoinFS.Benchmarks
             jfp2PeerCore.Mesh.Create(false, 0, false, "");
 
             jfp2PeerId = jfp2PeerCore.Identity.Id;
-            // JFP2 negotiation only needs Peer.RouteIsOwnEndPoint (true here since RouteEndPoint
+            // JFP2 negotiation only needs a peer the mesh knows (so its Hellos are answered; RouteEndPoint
             // defaults to EndPoint) - no Join/Pulse round trip required. ExpireTime defaults to 0,
             // so without setting it MeshManager.Tick() (run below to drive JFP2's handshake) would
             // expire this hand-added peer on its very first tick - same fix LegacyPluginGoldenTests'

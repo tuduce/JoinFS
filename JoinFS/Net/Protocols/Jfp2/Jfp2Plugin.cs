@@ -10,26 +10,34 @@ namespace JoinFS.Net.Jfp2
     /// <summary>
     /// The JFP2 protocol as a plugin (docs/reference/jfp2-protocol.md): an 8-byte envelope starting with
     /// magic 0xFA, a Hello/HelloAck handshake that agrees a schema version per message class with
-    /// each directly reachable peer, versioned codecs, single-datagram guaranteed delivery, and relay
-    /// of Forwarded envelopes.
+    /// each neighbor, versioned codecs, single-datagram guaranteed delivery, and relay of Forwarded
+    /// envelopes.
     ///
-    /// JFP2 is a "link upgrader" (docs/network-plugin-architecture.md §2.4): it only negotiates with
-    /// peers the mesh already knows and reaches directly (RouteIsOwnEndPoint, Finding 7), and it
-    /// carries only the kinds it negotiated; everything else, and every indirect peer, goes through
-    /// the legacy plugin. When a Forwarded JFP2 message has to reach a node that doesn't speak JFP2
-    /// for that class, this plugin decodes it and hands it to the core, which re-sends it with the
-    /// target's protocol (the generic translation path, design §2.6).
+    /// JFP2 is a per-hop "link upgrader" (docs/network-plugin-architecture.md §2.4). A session is
+    /// with a NEIGHBOR: a node we exchange datagrams with directly, identified by the node id it
+    /// states in the handshake and never by the endpoint it answers from (two nodes can share one
+    /// public endpoint). A peer that is not a neighbor is reached through the neighbor that carries
+    /// its traffic (<see cref="NextHop"/>): the datagram goes to that hop in the hop's negotiated
+    /// schema, addressed end to end with Forwarded Origin/Target, and the hop either forwards it
+    /// byte for byte (the target agreed the same schema) or decodes it and lets the core re-send it in
+    /// the target's own terms (the generic translation path, design §2.6). Whatever a peer's hop
+    /// cannot carry goes through the legacy plugin.
     ///
-    /// Ported from the JFP2 regions of Node.cs and Network.cs, with two behaviour changes:
-    /// relayed-JFP2 is no longer *originated* (the old sender only checked its hub's JFP2 support,
-    /// not the target's, and silently lost guaranteed/unsupported classes at the hub - a peer
-    /// reached through a hub now uses the legacy relay, as the CLAUDE.md notes describe); and
-    /// guaranteed messages translated to legacy are now delivered hop-by-hop instead of dropped.
+    /// Sessions stay honest with a keepalive: a Hello every few seconds to the verified endpoint,
+    /// whose answer must again name the same node. A session that stops answering, or is answered by
+    /// someone else (the network now steers the endpoint elsewhere), falls back to legacy until it is
+    /// verified again.
+    ///
+    /// Ported from the JFP2 regions of Node.cs and Network.cs.
     /// </summary>
     public sealed class Jfp2Plugin : IProtocolPlugin, IDescribesLinks
     {
         const int HelloMaxAttempts = 5;
         const double HelloRetryInterval = 2.0;
+        const double HelloCooldown = 30.0;
+        const double KeepAliveInterval = 5.0;
+        const double SessionTimeout = 15.0;
+        const double OccupantTtl = 30.0;
         const double GuaranteedRetryInterval = 2.0;
         const int GuaranteedMaxAttempts = 5;
         const double GuaranteedDedupWindow = 30.0;
@@ -88,10 +96,17 @@ namespace JoinFS.Net.Jfp2
             public byte MessageClass;
             public ushort SenderPeerId;
             public ushort RecipientPeerId;
+            public RelayNuid Origin;
+            public RelayNuid Target;
+            /// <summary>The neighbor the datagram went to (differs from the key's peer when relayed).</summary>
+            public NodeId Hop;
             public byte[] Payload;
             public int Attempts;
             public double NextRetry;
         }
+
+        /// <summary>A node seen answering at an endpoint, so other nodes claiming that endpoint are known to be behind it.</summary>
+        readonly record struct Occupant(NodeId Node, double Expire);
 
         sealed class IdentitySent
         {
@@ -102,6 +117,9 @@ namespace JoinFS.Net.Jfp2
         IProtocolHost host;
         readonly Encoder encoder;
         readonly Dictionary<NodeId, PeerSession> sessions = [];
+        readonly Dictionary<ushort, PeerSession> sessionsById = [];
+        readonly Dictionary<IPEndPoint, Occupant> occupants = [];
+        readonly Random random = new();
         readonly Dictionary<(NodeId Peer, ushort Id), Pending> pending = [];
         readonly Dictionary<(NodeId Peer, ushort Id), double> recentlySeen = [];
         readonly Dictionary<(uint ObjectId, NodeId Peer), IdentitySent> identitySent = [];
@@ -109,8 +127,9 @@ namespace JoinFS.Net.Jfp2
         readonly List<(NodeId, ushort)> scratchKeys = [];
         readonly byte[] payloadBuffer = new byte[16384];
         readonly byte[] datagramBuffer = new byte[16384 + 64];
-        ushort nextPeerId = 1;
         ushort nextGuaranteedId = 1;
+        /// <summary>Who a send is on behalf of: this node, or (translation at a relay) the message's author.</summary>
+        NodeId sendOrigin;
         double nextDedupSweep;
 
         public Jfp2Plugin()
@@ -131,44 +150,83 @@ namespace JoinFS.Net.Jfp2
         static NodeId ToNodeId(RelayNuid r) => new(r.Ip, r.Port, r.Local);
         static RelayNuid ToRelay(NodeId n) => new(n.ip, n.port, n.local);
 
-        // ================================================================== negotiation state
+        // ================================================================== sessions and next hop
 
-        bool TryGetSession(NodeId peer, out Peer p, out PeerSession session)
+        PeerSession CreateSession(NodeId peer)
         {
-            session = null;
-            return host.Peers.TryGet(peer, out p) && p.RouteIsOwnEndPoint
-                && sessions.TryGetValue(peer, out session) && session.HandshakeComplete && !session.AssumedLegacy;
-        }
-
-        byte AgreedVersion(NodeId peer, int messageClass, out Peer p, out PeerSession session)
-        {
-            if (messageClass >= 0 && TryGetSession(peer, out p, out session))
+            ushort id;
+            do
             {
-                return session.AgreedAppVersion[messageClass];
+                // random, not sequential: every node counts from 1, so a datagram meant for another
+                // node would otherwise match a session here by coincidence
+                id = (ushort)random.Next(1, 65536);
             }
-            p = null;
-            session = null;
-            return 0;
+            while (sessionsById.ContainsKey(id));
+            var session = new PeerSession { Peer = peer, LocalAssignedId = id };
+            sessions[peer] = session;
+            sessionsById[id] = session;
+            return session;
         }
 
-        public bool CanCarry(NodeId peer, MessageKind kind) => peer.Valid() && AgreedVersion(peer, ClassFor(kind), out _, out _) > 0;
-
-        /// <summary>The session peer a datagram came from: whose own or route endpoint it is.</summary>
-        Peer FindPeer(IPEndPoint endPoint)
+        void RemoveSession(NodeId peer)
         {
-            foreach (Peer peer in host.Peers.All)
+            if (sessions.Remove(peer, out PeerSession session))
             {
-                if (peer.EndPoint.Equals(endPoint) || peer.RouteEndPoint.Equals(endPoint)) return peer;
+                sessionsById.Remove(session.LocalAssignedId);
+            }
+        }
+
+        /// <summary>The session can carry datagrams to <paramref name="route"/>: its peer answered there, and the route has not moved.</summary>
+        static bool IsUsable(PeerSession session, IPEndPoint route) => session.Verified && session.HandshakeComplete && session.Endpoint.Equals(route);
+
+        /// <summary>
+        /// The session through which datagrams for <paramref name="target"/> go, or null when JFP2 has
+        /// no way to reach it (then the legacy plugin carries everything for it).
+        /// </summary>
+        PeerSession NextHop(NodeId target, out Peer targetPeer)
+        {
+            if (!host.Peers.TryGet(target, out targetPeer))
+            {
+                return null;
+            }
+            IPEndPoint route = targetPeer.RouteEndPoint;
+            // the peer itself answered at the endpoint we currently reach it on
+            if (sessions.TryGetValue(target, out PeerSession session) && IsUsable(session, route))
+            {
+                return session;
+            }
+            // the relay the mesh routes it through
+            if (targetPeer.Relayed && host.Peers.TryGet(targetPeer.RouteVia, out Peer via)
+                && sessions.TryGetValue(via.Id, out session) && IsUsable(session, via.RouteEndPoint))
+            {
+                return session;
+            }
+            // some other node answered at this very endpoint: the target shares it and is behind that node
+            foreach (PeerSession other in sessions.Values)
+            {
+                if (other.Peer != target && IsUsable(other, route))
+                {
+                    return other;
+                }
             }
             return null;
         }
 
-        ushort NextPeerId()
+        byte AgreedVersion(NodeId target, int messageClass, out Peer peer, out PeerSession hop)
         {
-            ushort id = nextPeerId++;
-            if (nextPeerId == 0) nextPeerId = 1;
-            return id;
+            peer = null;
+            hop = null;
+            if (messageClass < 0)
+            {
+                return 0;
+            }
+            hop = NextHop(target, out peer);
+            return hop == null ? (byte)0 : hop.AgreedAppVersion[messageClass];
         }
+
+        public bool CanCarry(NodeId peer, MessageKind kind) => peer.Valid() && AgreedVersion(peer, ClassFor(kind), out _, out _) > 0;
+
+        static IPEndPoint Copy(IPEndPoint endPoint) => new(endPoint.Address, endPoint.Port);
 
         ushort NextGuaranteedId()
         {
@@ -179,17 +237,30 @@ namespace JoinFS.Net.Jfp2
 
         public PeerLinkState? DescribeLink(Peer peer)
         {
-            if (sessions.TryGetValue(peer.Id, out PeerSession session))
-            {
-                if (session.HandshakeComplete && !session.AssumedLegacy) return PeerLinkState.Negotiated;
-                if (session.AssumedLegacy) return PeerLinkState.Legacy;
-                return PeerLinkState.Negotiating;
-            }
-            return peer.RouteIsOwnEndPoint ? PeerLinkState.Negotiating : PeerLinkState.Legacy;
+            if (NextHop(peer.Id, out _) != null) return PeerLinkState.Negotiated;
+            if (sessions.TryGetValue(peer.Id, out PeerSession session) && session.AssumedLegacy) return PeerLinkState.Legacy;
+            if (peer.Relayed && sessions.TryGetValue(peer.RouteVia, out session) && session.AssumedLegacy) return PeerLinkState.Legacy;
+            return PeerLinkState.Negotiating;
         }
 
-        /// <summary>For tests and diagnostics.</summary>
-        public bool IsNegotiated(NodeId peer) => TryGetSession(peer, out _, out _);
+        /// <summary>For tests and diagnostics: some hop carries JFP2 to the peer.</summary>
+        public bool IsNegotiated(NodeId peer) => NextHop(peer, out _) != null;
+
+        /// <summary>For tests and diagnostics: the neighbor JFP2 datagrams for the peer go to (invalid when JFP2 cannot reach it).</summary>
+        public NodeId NextHopNode(NodeId peer) => NextHop(peer, out _)?.Peer ?? default;
+
+        /// <summary>For tests and diagnostics: the ids of the session with a neighbor.</summary>
+        public bool TryGetHopIds(NodeId neighbor, out ushort local, out ushort remote)
+        {
+            if (sessions.TryGetValue(neighbor, out PeerSession session))
+            {
+                local = session.LocalAssignedId;
+                remote = session.RemoteAssignedId;
+                return session.HandshakeComplete;
+            }
+            local = remote = 0;
+            return false;
+        }
 
         // ================================================================== periodic
 
@@ -202,43 +273,115 @@ namespace JoinFS.Net.Jfp2
         void DoHandshake()
         {
             double now = Now;
-            scratchKeys.Clear();
             foreach (Peer peer in host.Peers.All)
             {
-                if (!sessions.TryGetValue(peer.Id, out PeerSession session))
+                sessions.TryGetValue(peer.Id, out PeerSession session);
+                if (session != null && session.Verified)
                 {
-                    // negotiation is two-party and direct-only: a Hello to an indirect peer would land
-                    // on its relay (see the Finding 7 notes in the implementation review)
-                    if (!peer.RouteIsOwnEndPoint) continue;
-                    session = new PeerSession { LocalAssignedId = NextPeerId(), HelloAttempts = 1, NextHelloAttempt = now + HelloRetryInterval };
-                    sessions[peer.Id] = session;
-                    SendHello(peer, session);
+                    KeepAlive(peer, session, now);
+                    continue;
                 }
-                else if (!session.HandshakeComplete && !session.AssumedLegacy)
+                // negotiation is with a neighbor: a peer behind a relay is served by the relay's session,
+                // and a peer sharing an endpoint with a node that answers there is behind that node
+                if (peer.Relayed || IsBehindOccupant(peer, now))
                 {
-                    if (!peer.RouteIsOwnEndPoint)
-                    {
-                        // went indirect mid-negotiation: forget it; negotiation resumes if it comes back
-                        scratchKeys.Add((peer.Id, 0));
-                    }
-                    else if (now > session.NextHelloAttempt)
-                    {
-                        if (session.HelloAttempts >= HelloMaxAttempts)
-                        {
-                            session.AssumedLegacy = true;
-                            host.LinkChanged(peer.Id);
-                            host.Log(NetLogLevel.Network, "JFP2: " + peer.Id + " did not answer Hello after " + session.HelloAttempts + " attempts - assuming legacy-only peer");
-                        }
-                        else
-                        {
-                            session.HelloAttempts++;
-                            session.NextHelloAttempt = now + HelloRetryInterval;
-                            SendHello(peer, session);
-                        }
-                    }
+                    continue;
+                }
+                // one Hello at a time per endpoint: each Hello tells the node that answers which id to
+                // address us by, so two in flight to one endpoint would leave it holding the wrong one
+                if (now >= (session?.NextHelloAttempt ?? 0) && EndPointBusy(peer))
+                {
+                    continue;
+                }
+                session ??= CreateSession(peer.Id);
+                if (session.AssumedLegacy && now < session.RetryAt)
+                {
+                    continue;
+                }
+                if (now < session.NextHelloAttempt)
+                {
+                    continue;
+                }
+                if (session.HelloAttempts >= HelloMaxAttempts)
+                {
+                    bool first = !session.AssumedLegacy;
+                    session.AssumedLegacy = true;
+                    session.RetryAt = now + HelloCooldown;
+                    session.HelloAttempts = 0;
+                    host.Log(NetLogLevel.Network, "JFP2: " + peer.Id + " did not answer Hello after " + HelloMaxAttempts + " attempts - assuming legacy-only peer" + (first ? "" : " (again)"));
+                    continue;
+                }
+                session.HelloAttempts++;
+                session.NextHelloAttempt = now + HelloRetryInterval;
+                session.ProbeEndPoint = Copy(peer.RouteEndPoint);
+                SendHello(session.ProbeEndPoint, session);
+                host.Log(NetLogLevel.Network, "JFP2: Send Hello to " + peer.Id + " at " + session.ProbeEndPoint + " (attempt " + session.HelloAttempts + ")");
+            }
+        }
+
+        /// <summary>Another peer reached at the same endpoint has a Hello outstanding there.</summary>
+        bool EndPointBusy(Peer peer)
+        {
+            foreach (Peer other in host.Peers.All)
+            {
+                if (other != peer && other.RouteEndPoint.Equals(peer.RouteEndPoint)
+                    && sessions.TryGetValue(other.Id, out PeerSession session)
+                    && !session.Verified && !session.AssumedLegacy && session.ProbeEndPoint != null && session.HelloAttempts > 0)
+                {
+                    return true;
                 }
             }
-            foreach (var (id, _) in scratchKeys) sessions.Remove(id);
+            return false;
+        }
+
+        /// <summary>A verified session must keep being answered, by the same node, at the same endpoint.</summary>
+        void KeepAlive(Peer peer, PeerSession session, double now)
+        {
+            if (!session.Endpoint.Equals(peer.RouteEndPoint))
+            {
+                Demote(session, "its route moved to " + peer.RouteEndPoint);
+            }
+            else if (now > session.LastAck + SessionTimeout)
+            {
+                Demote(session, "no answer for " + SessionTimeout + " s");
+            }
+            else if (now >= session.NextKeepAlive)
+            {
+                session.NextKeepAlive = now + KeepAliveInterval;
+                session.ProbeEndPoint = session.Endpoint;
+                SendHello(session.Endpoint, session);
+            }
+        }
+
+        /// <summary>The session no longer proves that our datagrams reach the peer: send it through legacy until verified again.</summary>
+        void Demote(PeerSession session, string reason)
+        {
+            host.Log(NetLogLevel.Event, "JFP2: session with " + session.Peer + " is no longer verified: " + reason);
+            if (occupants.TryGetValue(session.Endpoint, out Occupant occupant) && occupant.Node == session.Peer)
+            {
+                occupants.Remove(session.Endpoint);
+            }
+            session.Endpoint = null;
+            session.ProbeEndPoint = null;
+            session.HelloAttempts = 0;
+            session.NextHelloAttempt = 0;
+            host.LinkChanged(session.Peer);
+        }
+
+        /// <summary>Another node answers at this peer's endpoint, so the peer is not there.</summary>
+        bool IsBehindOccupant(Peer peer, double now)
+        {
+            IPEndPoint route = peer.RouteEndPoint;
+            if (!occupants.TryGetValue(route, out Occupant occupant))
+            {
+                return false;
+            }
+            if (now > occupant.Expire)
+            {
+                occupants.Remove(route);
+                return false;
+            }
+            return occupant.Node != peer.Id;
         }
 
         void DoGuaranteedRetry()
@@ -259,7 +402,7 @@ namespace JoinFS.Net.Jfp2
                     }
                     p.Attempts++;
                     p.NextRetry = now + GuaranteedRetryInterval;
-                    SendDatagram(p.EndPoint, p.Flags, p.MessageClass, p.SenderPeerId, p.RecipientPeerId, p.Payload, kv.Key.Id, 0, 1);
+                    SendDatagram(p.EndPoint, p.Flags, p.MessageClass, p.SenderPeerId, p.RecipientPeerId, p.Payload, kv.Key.Id, 0, 1, p.Origin, p.Target);
                 }
                 foreach (var key in scratchKeys) pending.Remove(key);
             }
@@ -277,18 +420,19 @@ namespace JoinFS.Net.Jfp2
 
         public void OnPeerRemoved(Peer peer)
         {
-            sessions.Remove(peer.Id);
-            RemoveWhere(pending, k => k.Peer == peer.Id);
-            RemoveWhere(recentlySeen, k => k.Peer == peer.Id);
-            RemoveWhere(identitySent, k => k.Peer == peer.Id);
+            RemoveSession(peer.Id);
+            RemoveWhere(pending, (k, p) => k.Peer == peer.Id || p.Hop == peer.Id);
+            RemoveWhere(recentlySeen, (k, _) => k.Peer == peer.Id);
+            RemoveWhere(identitySent, (k, _) => k.Peer == peer.Id);
+            RemoveWhere(occupants, (_, o) => o.Node == peer.Id);
         }
 
-        static void RemoveWhere<TKey, TValue>(Dictionary<TKey, TValue> map, Func<TKey, bool> predicate)
+        static void RemoveWhere<TKey, TValue>(Dictionary<TKey, TValue> map, Func<TKey, TValue, bool> predicate)
         {
             List<TKey> doomed = null;
-            foreach (TKey key in map.Keys)
+            foreach (var kv in map)
             {
-                if (predicate(key)) (doomed ??= []).Add(key);
+                if (predicate(kv.Key, kv.Value)) (doomed ??= []).Add(kv.Key);
             }
             if (doomed != null) foreach (TKey key in doomed) map.Remove(key);
         }
@@ -296,6 +440,8 @@ namespace JoinFS.Net.Jfp2
         public void OnSessionReset()
         {
             sessions.Clear();
+            sessionsById.Clear();
+            occupants.Clear();
             pending.Clear();
             recentlySeen.Clear();
             identitySent.Clear();
@@ -313,70 +459,74 @@ namespace JoinFS.Net.Jfp2
             host.Transport.Send(endPoint, datagramBuffer.AsSpan(0, header + payload.Length));
         }
 
-        void SendHello(Peer peer, PeerSession session)
+        HandshakeMessage MakeHandshake(PeerSession session, byte result) => new()
         {
-            var hello = new HandshakeMessage
-            {
-                ProtoMajorMin = Envelope.ProtoMajor,
-                ProtoMajorMax = Envelope.ProtoMajor,
-                Capabilities = LocalCapabilities,
-                SelfAssignedId = session.LocalAssignedId,
-                Offers = new List<SchemaOffer>(LocalOffers),
-            };
-            SendDatagram(peer.RouteEndPoint, EnvelopeFlags.Internal, MessageClasses.Hello, session.LocalAssignedId, session.RemoteAssignedId, hello.Serialize());
-            host.Log(NetLogLevel.Network, "JFP2: Send Hello to " + peer.Id + " (attempt " + session.HelloAttempts + ")");
-        }
+            ProtoMajorMin = Envelope.ProtoMajor,
+            ProtoMajorMax = Envelope.ProtoMajor,
+            Capabilities = LocalCapabilities,
+            SelfAssignedId = session.LocalAssignedId,
+            Result = result,
+            Node = ToRelay(Local),
+            Offers = new List<SchemaOffer>(LocalOffers),
+        };
 
-        void SendHelloAck(IPEndPoint endPoint, PeerSession session, byte result)
-        {
-            var ack = new HandshakeMessage
-            {
-                ProtoMajorMin = Envelope.ProtoMajor,
-                ProtoMajorMax = Envelope.ProtoMajor,
-                Capabilities = LocalCapabilities,
-                SelfAssignedId = session.LocalAssignedId,
-                Result = result,
-                Offers = new List<SchemaOffer>(LocalOffers),
-            };
-            SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.HelloAck, session.LocalAssignedId, session.RemoteAssignedId, ack.Serialize());
-        }
+        void SendHello(IPEndPoint endPoint, PeerSession session) =>
+            SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.Hello, session.LocalAssignedId, session.RemoteAssignedId, MakeHandshake(session, 0).Serialize());
 
-        /// <summary>Send one application message to a negotiated peer, reliably if asked.</summary>
-        void SendApplication(Peer peer, PeerSession session, byte messageClass, ReadOnlySpan<byte> payload, bool guaranteed)
+        void SendHelloAck(IPEndPoint endPoint, PeerSession session, byte result) =>
+            SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.HelloAck, session.LocalAssignedId, session.RemoteAssignedId, MakeHandshake(session, result).Serialize());
+
+        /// <summary>
+        /// Send one application message toward <paramref name="target"/> through <paramref name="hop"/>,
+        /// reliably if asked: unaddressed when the hop is the target itself, otherwise (or when relaying
+        /// for the message's author) Forwarded with Origin and Target, to be passed on or translated.
+        /// </summary>
+        void SendApplication(Peer target, PeerSession hop, byte messageClass, ReadOnlySpan<byte> payload, bool guaranteed)
         {
+            bool forwarded = hop.Peer != target.Id || sendOrigin != Local;
+            EnvelopeFlags flags = forwarded ? EnvelopeFlags.Forwarded : EnvelopeFlags.None;
+            RelayNuid origin = forwarded ? ToRelay(sendOrigin) : default;
+            RelayNuid destination = forwarded ? ToRelay(target.Id) : default;
             if (!guaranteed)
             {
-                SendDatagram(peer.RouteEndPoint, EnvelopeFlags.None, messageClass, session.LocalAssignedId, session.RemoteAssignedId, payload);
+                SendDatagram(hop.Endpoint, flags, messageClass, hop.LocalAssignedId, hop.RemoteAssignedId, payload, origin: origin, target: destination);
                 return;
             }
             ushort id = NextGuaranteedId();
-            SendDatagram(peer.RouteEndPoint, EnvelopeFlags.Guaranteed, messageClass, session.LocalAssignedId, session.RemoteAssignedId, payload, id, 0, 1);
-            pending[(peer.Id, id)] = new Pending
+            flags |= EnvelopeFlags.Guaranteed;
+            SendDatagram(hop.Endpoint, flags, messageClass, hop.LocalAssignedId, hop.RemoteAssignedId, payload, id, 0, 1, origin, destination);
+            pending[(target.Id, id)] = new Pending
             {
-                EndPoint = peer.RouteEndPoint,
-                Flags = EnvelopeFlags.Guaranteed,
+                EndPoint = hop.Endpoint,
+                Flags = flags,
                 MessageClass = messageClass,
-                SenderPeerId = session.LocalAssignedId,
-                RecipientPeerId = session.RemoteAssignedId,
+                SenderPeerId = hop.LocalAssignedId,
+                RecipientPeerId = hop.RemoteAssignedId,
+                Origin = origin,
+                Target = destination,
+                Hop = hop.Peer,
                 Payload = payload.ToArray(),
                 Attempts = 1,
                 NextRetry = Now + GuaranteedRetryInterval,
             };
         }
 
-        void SendGuaranteedDone(IPEndPoint endPoint, PeerSession session, ushort guaranteedId, NodeId? relayTrueOrigin)
+        /// <summary>
+        /// Acknowledge a guaranteed datagram to the neighbor it came from. When it was relayed to us the
+        /// ack is addressed to the true sender and travels back through that neighbor.
+        /// </summary>
+        void SendGuaranteedDone(IPEndPoint endPoint, PeerSession hop, ushort guaranteedId, NodeId? relayTrueOrigin)
         {
             Span<byte> payload = stackalloc byte[2];
             BinaryPrimitives.WriteUInt16LittleEndian(payload, guaranteedId);
             if (relayTrueOrigin.HasValue)
             {
-                // the acked message came through a relay: route the ack back through it to the true sender
-                SendDatagram(endPoint, EnvelopeFlags.Internal | EnvelopeFlags.Forwarded, MessageClasses.GuaranteedDone, 0, 0, payload,
+                SendDatagram(endPoint, EnvelopeFlags.Internal | EnvelopeFlags.Forwarded, MessageClasses.GuaranteedDone, hop.LocalAssignedId, hop.RemoteAssignedId, payload,
                     origin: ToRelay(Local), target: ToRelay(relayTrueOrigin.Value));
             }
             else
             {
-                SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.GuaranteedDone, session.LocalAssignedId, session.RemoteAssignedId, payload);
+                SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.GuaranteedDone, hop.LocalAssignedId, hop.RemoteAssignedId, payload);
             }
         }
 
@@ -385,9 +535,10 @@ namespace JoinFS.Net.Jfp2
         public void Send<T>(in MessageMeta meta, in T message, ReadOnlySpan<NodeId> recipients) where T : struct, IMessage
         {
             targets.Clear();
+            sendOrigin = meta.Sender.Valid() ? meta.Sender : Local;
             if (meta.EndPoint != null)
             {
-                NodeId known = meta.Recipient.Valid() ? meta.Recipient : FindPeer(meta.EndPoint)?.Id ?? default;
+                NodeId known = meta.Recipient.Valid() ? meta.Recipient : host.Peers.FindByEndPoint(meta.EndPoint)?.Id ?? default;
                 if (known.Valid()) targets.Add(known);
             }
             else
@@ -516,85 +667,113 @@ namespace JoinFS.Net.Jfp2
             Envelope envelope = Envelope.ReadFrom(datagram, out int consumed);
             ReadOnlySpan<byte> payload = datagram[consumed..];
 
-            if (envelope.IsForwarded && ToNodeId(envelope.TargetNuid) != Local)
+            // the handshake is the only traffic that has no session yet; it says who is speaking itself
+            if (envelope.IsInternal && envelope.RawMessageClass == MessageClasses.Hello)
             {
-                Relay(from, envelope, datagram, payload);
+                HandleHello(from, payload);
+                return;
+            }
+            if (envelope.IsInternal && envelope.RawMessageClass == MessageClasses.HelloAck)
+            {
+                HandleHelloAck(envelope, payload);
                 return;
             }
 
-            Peer sessionPeer = FindPeer(from);
-            if (envelope.IsGuaranteed && !AckGuaranteed(from, sessionPeer, envelope))
+            // everything else names our end of the hop's session, and the neighbor's end; the source
+            // endpoint plays no part (several nodes can share one)
+            if (!sessionsById.TryGetValue(envelope.RecipientPeerId, out PeerSession hop) || !hop.HandshakeComplete || hop.RemoteAssignedId != envelope.SenderPeerId)
+            {
+                host.Log(NetLogLevel.Network, "JFP2: datagram from " + from + " belongs to no session here (ids " + envelope.SenderPeerId + " -> " + envelope.RecipientPeerId + ") - ignored");
+                return;
+            }
+
+            if (envelope.IsForwarded && ToNodeId(envelope.TargetNuid) != Local)
+            {
+                Relay(from, hop, envelope, datagram, payload);
+                return;
+            }
+
+            if (envelope.IsGuaranteed && !AckGuaranteed(from, hop, envelope))
             {
                 return; // duplicate of something already delivered
             }
 
-            if (!envelope.IsInternal)
+            if (envelope.IsInternal)
             {
-                if (sessionPeer == null || !sessions.TryGetValue(sessionPeer.Id, out PeerSession session) || !session.HandshakeComplete)
+                if (envelope.RawMessageClass == MessageClasses.GuaranteedDone && payload.Length >= 2)
                 {
-                    host.Log(NetLogLevel.Network, "JFP2: application message from " + from + " with no completed handshake - ignored");
-                    return;
+                    ClearPending(hop, envelope, BinaryPrimitives.ReadUInt16LittleEndian(payload));
                 }
-                byte version = session.AgreedAppVersion[envelope.RawMessageClass];
-                if (version == 0)
-                {
-                    host.Log(NetLogLevel.Network, "JFP2: class " + envelope.RawMessageClass + " from " + sessionPeer.Id + " was never agreed on - ignored");
-                    return;
-                }
-                var meta = new MessageMeta
-                {
-                    Sender = envelope.IsForwarded ? ToNodeId(envelope.OriginNuid) : sessionPeer.Id,
-                    Recipient = Local,
-                    EndPoint = sessionPeer.SendEstablished ? sessionPeer.RouteEndPoint : from,
-                    Guaranteed = envelope.IsGuaranteed,
-                    Forwarded = envelope.IsForwarded,
-                };
-                Decode(meta, envelope.RawMessageClass, version, payload);
                 return;
             }
 
-            switch (envelope.RawMessageClass)
+            byte version = hop.AgreedAppVersion[envelope.RawMessageClass];
+            if (version == 0)
             {
-                case MessageClasses.Hello: HandleHello(from, payload); break;
-                case MessageClasses.HelloAck: HandleHelloAck(from, payload); break;
-                case MessageClasses.GuaranteedDone:
-                    if (sessionPeer != null && payload.Length >= 2)
-                    {
-                        pending.Remove((sessionPeer.Id, BinaryPrimitives.ReadUInt16LittleEndian(payload)));
-                    }
-                    break;
+                host.Log(NetLogLevel.Network, "JFP2: class " + envelope.RawMessageClass + " from " + hop.Peer + " was never agreed on - ignored");
+                return;
             }
+            NodeId sender = envelope.IsForwarded ? ToNodeId(envelope.OriginNuid) : hop.Peer;
+            var meta = new MessageMeta
+            {
+                Sender = sender,
+                Recipient = Local,
+                EndPoint = host.Peers.TryGet(sender, out Peer senderPeer) && senderPeer.SendEstablished ? senderPeer.RouteEndPoint : from,
+                Guaranteed = envelope.IsGuaranteed,
+                Forwarded = envelope.IsForwarded,
+            };
+            Decode(meta, envelope.RawMessageClass, version, payload);
+        }
+
+        /// <summary>An ack arrived: from the node that received the message, or (relayed on our behalf, translated) from the neighbor that took it over.</summary>
+        void ClearPending(PeerSession hop, in Envelope envelope, ushort guaranteedId)
+        {
+            NodeId acker = envelope.IsForwarded ? ToNodeId(envelope.OriginNuid) : hop.Peer;
+            if (pending.Remove((acker, guaranteedId)))
+            {
+                return;
+            }
+            if (envelope.IsForwarded)
+            {
+                return;
+            }
+            scratchKeys.Clear();
+            foreach (var kv in pending)
+            {
+                if (kv.Key.Id == guaranteedId && kv.Value.Hop == hop.Peer) scratchKeys.Add(kv.Key);
+            }
+            foreach (var key in scratchKeys) pending.Remove(key);
         }
 
         /// <summary>Ack a guaranteed datagram (always - a duplicate means our ack was lost); false if already delivered.</summary>
-        bool AckGuaranteed(IPEndPoint from, Peer sessionPeer, in Envelope envelope)
+        bool AckGuaranteed(IPEndPoint from, PeerSession hop, in Envelope envelope)
         {
-            if (sessionPeer == null || !sessions.TryGetValue(sessionPeer.Id, out PeerSession session))
-            {
-                return true;
-            }
-            NodeId dedup = envelope.IsForwarded ? ToNodeId(envelope.OriginNuid) : sessionPeer.Id;
+            NodeId dedup = envelope.IsForwarded ? ToNodeId(envelope.OriginNuid) : hop.Peer;
             var key = (dedup, envelope.GuaranteedId);
             bool duplicate = recentlySeen.ContainsKey(key);
             recentlySeen[key] = Now;
-            SendGuaranteedDone(from, session, envelope.GuaranteedId, envelope.IsForwarded ? dedup : null);
+            SendGuaranteedDone(from, hop, envelope.GuaranteedId, envelope.IsForwarded ? dedup : null);
             return !duplicate;
         }
 
         void HandleHello(IPEndPoint from, ReadOnlySpan<byte> payload)
         {
             HandshakeMessage hello = HandshakeMessage.Deserialize(payload);
-            // only peers the mesh already knows (the legacy Join always happens first)
-            Peer peer = FindPeer(from);
-            if (peer == null)
+            if (!hello.Node.HasValue)
             {
-                host.Log(NetLogLevel.Network, "JFP2: Hello from unknown endpoint " + from + " - ignored");
+                host.Log(NetLogLevel.Network, "JFP2: Hello from " + from + " does not say who it is - ignored (legacy-only peer)");
                 return;
             }
-            if (!sessions.TryGetValue(peer.Id, out PeerSession session))
+            NodeId sender = ToNodeId(hello.Node.Value);
+            // only nodes the mesh already knows (the legacy Join always happens first)
+            if (!host.Peers.Contains(sender))
             {
-                session = new PeerSession { LocalAssignedId = NextPeerId() };
-                sessions[peer.Id] = session;
+                host.Log(NetLogLevel.Network, "JFP2: Hello from unknown node " + sender + " at " + from + " - ignored");
+                return;
+            }
+            if (!sessions.TryGetValue(sender, out PeerSession session))
+            {
+                session = CreateSession(sender);
             }
             session.RemoteAssignedId = hello.SelfAssignedId;
             if (hello.ProtoMajorMin > Envelope.ProtoMajor || hello.ProtoMajorMax < Envelope.ProtoMajor)
@@ -603,44 +782,94 @@ namespace JoinFS.Net.Jfp2
                 return;
             }
             Negotiator.Resolve(session, LocalCapabilities, LocalOffers, hello.Capabilities, hello.Offers);
+            // we can decode what it sends; whether ours reaches it is for our own Hello to prove
             session.HandshakeComplete = true;
-            session.AssumedLegacy = false;
+            if (session.AssumedLegacy)
+            {
+                session.RetryAt = 0; // it speaks JFP2 after all: try it now
+            }
             SendHelloAck(from, session, result: 0);
-            host.LinkChanged(peer.Id);
-            host.Log(NetLogLevel.Network, "JFP2: Hello from " + peer.Id + " - handshake complete");
+            host.Log(NetLogLevel.Network, "JFP2: Hello from " + sender + " at " + from + " - answered");
         }
 
-        void HandleHelloAck(IPEndPoint from, ReadOnlySpan<byte> payload)
+        void HandleHelloAck(in Envelope envelope, ReadOnlySpan<byte> payload)
         {
             HandshakeMessage ack = HandshakeMessage.Deserialize(payload);
-            Peer peer = FindPeer(from);
-            if (peer == null || !sessions.TryGetValue(peer.Id, out PeerSession session))
+            // addressed to the id we gave the peer the Hello was aimed at
+            if (!sessionsById.TryGetValue(envelope.RecipientPeerId, out PeerSession session) || session.ProbeEndPoint == null)
             {
                 return;
             }
-            if (ack.Result != 0)
+            double now = Now;
+            if (ack.Result != 0 || !ack.Node.HasValue)
             {
                 session.AssumedLegacy = true;
-                host.LinkChanged(peer.Id);
+                session.RetryAt = now + HelloCooldown;
+                session.HelloAttempts = 0;
+                host.Log(NetLogLevel.Network, "JFP2: " + session.Peer + " refused or cannot identify itself - assuming legacy-only peer");
+                return;
+            }
+            NodeId responder = ToNodeId(ack.Node.Value);
+            if (!host.Peers.Contains(responder))
+            {
+                host.Log(NetLogLevel.Network, "JFP2: HelloAck from unknown node " + responder + " - ignored");
+                return;
+            }
+            IPEndPoint probe = session.ProbeEndPoint;
+            occupants[probe] = new Occupant(responder, now + OccupantTtl);
+            if (responder != session.Peer)
+            {
+                // the node at that endpoint is not the one we asked for: two nodes share the endpoint
+                // (or the network now steers it elsewhere). The datagrams for our peer go through that
+                // node, which negotiates for itself (see NextHop).
+                host.Log(NetLogLevel.Network, "JFP2: " + session.Peer + " is not the node answering at " + probe + " - " + responder + " is");
+                if (session.Verified)
+                {
+                    Demote(session, "its endpoint " + probe + " is now answered by " + responder);
+                }
+                session.ProbeEndPoint = null;
+                session.HelloAttempts = 0;
+                if (sessions.TryGetValue(responder, out PeerSession occupantSession))
+                {
+                    occupantSession.NextHelloAttempt = 0;
+                    occupantSession.NextKeepAlive = 0;
+                    occupantSession.RetryAt = 0;
+                }
+                host.LinkChanged(session.Peer);
                 return;
             }
             session.RemoteAssignedId = ack.SelfAssignedId;
             Negotiator.Resolve(session, LocalCapabilities, LocalOffers, ack.Capabilities, ack.Offers);
+            bool wasVerified = session.Verified;
             session.HandshakeComplete = true;
-            host.LinkChanged(peer.Id);
-            host.Log(NetLogLevel.Network, "JFP2: HelloAck from " + peer.Id + " - handshake complete");
+            session.Endpoint = probe;
+            session.LastAck = now;
+            session.NextKeepAlive = now + KeepAliveInterval;
+            session.HelloAttempts = 0;
+            session.AssumedLegacy = false;
+            if (!wasVerified)
+            {
+                host.LinkChanged(session.Peer);
+                host.Log(NetLogLevel.Network, "JFP2: HelloAck from " + session.Peer + " at " + probe + " - verified");
+            }
         }
 
         /// <summary>
-        /// A Forwarded envelope for another node. If the target speaks JFP2 for this class (or it's
-        /// internal, e.g. a relayed ack), forward the bytes unchanged. Otherwise decode it and let the
-        /// core re-send it in the target's protocol - the one place translation actually happens,
-        /// since every node speaks legacy.
+        /// A Forwarded envelope for another node. Only a direct neighbor of ours can be relayed to. If
+        /// that neighbor agreed the same schema as the sender's hop used (or the datagram is internal,
+        /// e.g. a relayed ack), pass the datagram on with the two hop ids rewritten. Otherwise - a
+        /// legacy-only target, or a different schema version - decode it and let the core re-send it in
+        /// the target's terms, the one place translation happens since every node speaks legacy.
         /// </summary>
-        void Relay(IPEndPoint from, in Envelope envelope, ReadOnlySpan<byte> datagram, ReadOnlySpan<byte> payload)
+        void Relay(IPEndPoint from, PeerSession hop, in Envelope envelope, ReadOnlySpan<byte> datagram, ReadOnlySpan<byte> payload)
         {
             NodeId target = ToNodeId(envelope.TargetNuid);
             NodeId origin = ToNodeId(envelope.OriginNuid);
+            if (envelope.IsInternal && envelope.RawMessageClass == MessageClasses.GuaranteedDone && payload.Length >= 2
+                && pending.Remove((origin, BinaryPrimitives.ReadUInt16LittleEndian(payload))))
+            {
+                return; // the ack of a message this node re-sent on the origin's behalf ends here
+            }
             if (!host.Peers.TryGet(target, out Peer targetPeer) || !targetPeer.RouteIsOwnEndPoint)
             {
                 host.Log(NetLogLevel.Network, "JFP2: relay target " + target + " is not a direct neighbor - dropped");
@@ -651,23 +880,29 @@ namespace JoinFS.Net.Jfp2
                 host.Log(NetLogLevel.Network, "JFP2: relay capacity reached - dropped datagram from " + origin);
                 return;
             }
-            if (envelope.IsInternal || AgreedVersion(target, envelope.RawMessageClass, out _, out _) > 0)
+            byte messageClass = envelope.RawMessageClass;
+            byte version = envelope.IsInternal ? (byte)0 : hop.AgreedAppVersion[messageClass];
+            if (sessions.TryGetValue(target, out PeerSession targetSession) && IsUsable(targetSession, targetPeer.RouteEndPoint)
+                && (envelope.IsInternal || (version > 0 && targetSession.AgreedAppVersion[messageClass] == version)))
             {
-                host.Transport.Send(targetPeer.RouteEndPoint, datagram);
+                datagram.CopyTo(datagramBuffer);
+                BinaryPrimitives.WriteUInt16LittleEndian(datagramBuffer.AsSpan(3, 2), targetSession.LocalAssignedId);
+                BinaryPrimitives.WriteUInt16LittleEndian(datagramBuffer.AsSpan(5, 2), targetSession.RemoteAssignedId);
+                host.Transport.Send(targetSession.Endpoint, datagramBuffer.AsSpan(0, datagram.Length));
                 return;
             }
-            if (!sessions.TryGetValue(origin, out PeerSession originSession) || originSession.AgreedAppVersion[envelope.RawMessageClass] == 0)
+            if (envelope.IsInternal || version == 0)
             {
-                host.Log(NetLogLevel.Network, "JFP2: relay origin " + origin + " has no agreed class " + envelope.RawMessageClass + " with me - dropped");
+                host.Log(NetLogLevel.Network, "JFP2: relay from " + origin + " to " + target + " cannot be carried (class " + messageClass + ") - dropped");
                 return;
             }
             if (envelope.IsGuaranteed)
             {
                 // this hop is complete once we have it; the downstream protocol takes over delivery
-                SendGuaranteedDone(from, originSession, envelope.GuaranteedId, null);
+                SendGuaranteedDone(from, hop, envelope.GuaranteedId, null);
             }
             var meta = new MessageMeta { Sender = origin, Recipient = target, Guaranteed = envelope.IsGuaranteed, Forwarded = true };
-            Decode(meta, envelope.RawMessageClass, originSession.AgreedAppVersion[envelope.RawMessageClass], payload);
+            Decode(meta, messageClass, version, payload);
         }
 
         void Decode(in MessageMeta meta, byte messageClass, byte version, ReadOnlySpan<byte> payload)

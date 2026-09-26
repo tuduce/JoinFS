@@ -291,8 +291,10 @@ receives canonical mesh messages through the router; today only the legacy plugi
 - **`PeerDirectory`** (`Net/Core/PeerDirectory.cs`) is the single peer table. It is keyed by
   `NodeId` in insertion order, which the legacy broadcast byte order depends on. Each `Peer` holds:
   - `EndPoint` (where it is) and `RouteEndPoint` (where we send);
-  - `Direct` (same address; the legacy notion) and `RouteIsOwnEndPoint` (same address and port; what
-    JFP2 requires);
+  - `RouteVia`, the relay node the pathfinder routes it through (invalid when direct);
+  - `Direct` (same address; the legacy notion) and `RouteIsOwnEndPoint` (no relay, and the route is
+    exactly its own endpoint; what a relay requires before forwarding to it). Two nodes behind one
+    NAT can share an endpoint, so endpoint equality alone never identifies a node;
   - receive/send established, low-bandwidth, RTT, expiry time, and the route cache.
 - **`LocalIdentity`** holds our LAN address, public address (from a my-IP lookup) and port, which
   make up our `NodeId`. `MakeEndPoint` reaches a peer that shares our public IP (same NAT) on its
@@ -352,29 +354,35 @@ public interface IProtocolPlugin
 
 **`Jfp2Plugin`** (`Net/Protocols/Jfp2/`) — the newer protocol (`docs/reference/jfp2-protocol.md`):
 - **Envelope:** an 8-byte header (magic `0xFA`), optional guaranteed and relay extensions.
-- **Handshake:** Hello/HelloAck with each directly reachable peer the mesh knows, agreeing a schema
-  version per message class (`Negotiation.cs`). Retries every 2 s; after 5 attempts the peer is
-  `AssumedLegacy`.
+- **Sessions:** with a *neighbour*, bound to the node id it states in Hello/HelloAck, never to the
+  endpoint it answers from; datagrams find their session by the ids in the envelope. Hello/HelloAck
+  agree a schema version per message class (`Negotiation.cs`). Retries every 2 s; after 5 attempts
+  the peer is `AssumedLegacy` (tried again after 30 s). A session is usable for sending only once
+  our own Hello was answered by the right node, and a keepalive Hello every 5 s keeps it verified.
+- **Next hop:** JFP2 datagrams for a peer go to the neighbour that carries its traffic - the peer
+  itself, the relay in `Peer.RouteVia`, or the node that answered at the peer's shared endpoint -
+  as unaddressed datagrams to a neighbour, or Forwarded ones for anyone behind it.
 - **Codecs:** versioned per class (`Codecs/`), resolved through `CodecRegistry`.
 - **Identity before position:** before a peer's first position of an object, and whenever its
   identity changes or 4 s have passed, it sends Identity first.
 - **Guaranteed delivery:** single datagram, retry every 2 s, up to 5 attempts, 30 s duplicate window.
-- **Relay:** Forwarded envelopes for a direct neighbour are forwarded byte-for-byte when that
-  neighbour negotiated the class, and translated otherwise (§6).
+- **Relay:** Forwarded envelopes for a direct neighbour are forwarded (hop ids rewritten) when that
+  neighbour agreed the same schema version, and decoded and translated otherwise (§6).
 
 ## 6. Relaying and protocol translation
 
 Relaying and translation are generic: there is no code specific to a pair of protocols.
 
-1. **Every node speaks legacy.** A node that can only reach another through a hub sends to it with
-   legacy, and the hub's legacy plugin relays the datagram unchanged. JFP2 is only used between
-   direct neighbours.
-2. **Same protocol at both ends:** relaying stays inside the plugin, byte for byte (legacy
-   `FLAG_FORWARD`, JFP2 Forwarded envelopes).
-3. **The target doesn't speak the incoming protocol for that kind.** This happens when a JFP2
-   Forwarded envelope from an older build is meant for a legacy-only node. The plugin decodes the
-   message and calls `Deliver` with `Recipient` = the target and `Sender` = the original author.
-   The core then:
+1. **The protocol is a property of each hop.** A node sends to a peer behind a hub with whatever it
+   negotiated *with the hub* (JFP2 if the hub's session is verified, legacy otherwise), addressed to
+   the final target. Every node speaks legacy, so the legacy fallback always exists, and the hub's
+   legacy plugin relays a legacy datagram unchanged even to a JFP2 target.
+2. **Same protocol and schema at both ends:** relaying stays inside the plugin (legacy
+   `FLAG_FORWARD` unchanged, JFP2 Forwarded envelopes with the hop ids rewritten).
+3. **The target doesn't speak the incoming protocol (or schema version) for that kind.** This
+   happens when a JFP2 Forwarded envelope is meant for a legacy-only node, or for a node that agreed
+   a different version. The plugin decodes the message with the sender's version and calls `Deliver`
+   with `Recipient` = the target and `Sender` = the original author. The core then:
    - updates the identity cache (Identity itself is not forwarded; it goes out inline with the next
      position);
    - routes everything else to the target's plugin, keeping `Sender`, so it is credited to the true

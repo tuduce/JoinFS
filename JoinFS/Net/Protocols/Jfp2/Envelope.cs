@@ -22,20 +22,24 @@ namespace JoinFS.Net.Jfp2
         /// <summary>A 14-byte extension follows immediately after the (optional) Guaranteed
         /// extension: OriginNuid (7 bytes, who this really came from) then TargetNuid (7 bytes, who
         /// it's ultimately meant for) - always both, regardless of which leg of a relay hop this
-        /// datagram is on. SenderPeerId/RecipientPeerId are unused (0) whenever this bit is set -
-        /// addressing rides on Origin/TargetNuid instead, since PeerIds are session-scoped and not
-        /// portable across a hub's independent sessions with each side.
+        /// datagram is on. SenderPeerId/RecipientPeerId are HOP-scoped: they name the session
+        /// between the two nodes that exchange THIS datagram (sender to relay, then relay to
+        /// target), exactly as on a direct datagram, so the receiver finds the neighbor session by id
+        /// and never by source endpoint. A relay rewrites the two ids (they sit at fixed offsets) when
+        /// it passes the datagram on; OriginNuid/TargetNuid are the end-to-end addressing.
         ///
         /// Any node receiving a Forwarded datagram applies one uniform rule regardless of whether
         /// it's acting as the hub or the final recipient for this particular message (there is no
         /// separate "hub mode" - every node runs identical logic): if TargetNuid is this node's own
         /// Nuid, consume it, attributing the payload to OriginNuid instead of the physical sender's
-        /// endpoint; otherwise, forward the datagram's bytes unchanged to TargetNuid, but only if
+        /// endpoint; otherwise, forward the datagram to TargetNuid, but only if
         /// TargetNuid is itself a direct neighbor of this node (RouteIsOwnEndPoint) - refuse (drop)
         /// otherwise. That direct-neighbor check is what caps relay at exactly one hop, matching the
         /// legacy mesh's own FLAG_FORWARD policy: a second hub would have to find its own direct
         /// route to TargetNuid, which by construction it doesn't have if the original sender needed
-        /// this hub's relay in the first place. See docs/reference/jfp2-protocol.md §7.7.
+        /// this hub's relay in the first place. The payload is forwarded byte for byte only when the
+        /// target agreed the same schema version as the origin's hop used; otherwise the relay
+        /// decodes it and the core re-sends it in the target's own terms. See docs/reference/jfp2-protocol.md §7.7.
         ///
         /// A single Nuid field whose meaning flips by direction was considered and rejected: it
         /// leaves the receiving node unable to tell, from the datagram alone, whether it should relay

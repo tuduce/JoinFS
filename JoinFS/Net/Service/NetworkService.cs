@@ -250,6 +250,7 @@ namespace JoinFS.Net
                     RouteEndPoint = new IPEndPoint(peer.RouteEndPoint.Address, peer.RouteEndPoint.Port),
                     Direct = peer.Direct,
                     RouteIsOwnEndPoint = peer.RouteIsOwnEndPoint,
+                    RouteVia = peer.RouteVia,
                     ReceiveEstablished = peer.ReceiveEstablished,
                     SendEstablished = peer.SendEstablished,
                     LowBandwidth = peer.LowBandwidth,

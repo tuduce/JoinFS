@@ -11,14 +11,15 @@ namespace JoinFS.Tests.Net
         public readonly IPEndPoint EndPoint;
         public readonly List<(MessageMeta Meta, object Message)> Received = [];
         public readonly List<NetworkEvent> Events = [];
+        public readonly List<string> Logs = [];
 
-        public TestNode(TestMesh mesh, string ip, ushort port, params IProtocolPlugin[] plugins)
+        public TestNode(TestMesh mesh, string ip, ushort port, string publicIp, params IProtocolPlugin[] plugins)
         {
             EndPoint = new IPEndPoint(IPAddress.Parse(ip), port);
             InMemoryTransport transport = mesh.Network.Attach(EndPoint, (from, data) => Core!.OnDatagram(from, data));
             Core = new NetworkCore(transport, mesh.Clock, this) { IsOpen = true };
             Core.Identity.LocalAddress = EndPoint.Address;
-            Core.Identity.InternetAddress = EndPoint.Address;
+            Core.Identity.InternetAddress = publicIp == null ? EndPoint.Address : IPAddress.Parse(publicIp);
             Core.Identity.Port = port;
             foreach (IProtocolPlugin plugin in plugins.Length > 0 ? plugins : [new LegacyPlugin()])
             {
@@ -32,7 +33,7 @@ namespace JoinFS.Tests.Net
 
         public void OnEvent(in NetworkEvent e)
         {
-            if (e.Kind != NetworkEventKind.Log) Events.Add(e);
+            if (e.Kind != NetworkEventKind.Log) Events.Add(e); else Logs.Add(e.Text);
         }
 
         public IEnumerable<T> Messages<T>() => Received.Where(r => r.Message is T).Select(r => (T)r.Message);
@@ -52,7 +53,15 @@ namespace JoinFS.Tests.Net
 
         public TestNode Add(string ip, ushort port = 6112, params IProtocolPlugin[] plugins)
         {
-            var node = new TestNode(this, ip, port, plugins);
+            var node = new TestNode(this, ip, port, null, plugins);
+            Nodes.Add(node);
+            return node;
+        }
+
+        /// <summary>A node on a LAN address whose public address (what its id says) is <paramref name="publicIp"/>.</summary>
+        public TestNode AddBehindNat(string lanIp, string publicIp, ushort port = 6112, params IProtocolPlugin[] plugins)
+        {
+            var node = new TestNode(this, lanIp, port, publicIp, plugins);
             Nodes.Add(node);
             return node;
         }

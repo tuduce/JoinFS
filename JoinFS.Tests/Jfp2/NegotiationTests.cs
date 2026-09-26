@@ -97,7 +97,7 @@ namespace JoinFS.Tests.Jfp2
                 SelfAssignedId = 1001,
                 Offers = new List<SchemaOffer>(OffersA()),
             };
-            hello.Extensions[0x0001] = Encoding.UTF8.GetBytes("JoinFS-26.6-dev");
+            hello.Extensions[0x0100] = Encoding.UTF8.GetBytes("JoinFS-26.6-dev");
 
             byte[] wire = hello.Serialize();
             HandshakeMessage back = HandshakeMessage.Deserialize(wire);
@@ -107,7 +107,26 @@ namespace JoinFS.Tests.Jfp2
             Assert.Equal(hello.Capabilities, back.Capabilities);
             Assert.Equal(hello.SelfAssignedId, back.SelfAssignedId);
             Assert.Equal(hello.Offers.Count, back.Offers.Count);
-            Assert.Equal("JoinFS-26.6-dev", Encoding.UTF8.GetString(back.Extensions[0x0001]));
+            Assert.Equal("JoinFS-26.6-dev", Encoding.UTF8.GetString(back.Extensions[0x0100]));
+        }
+
+        [Fact]
+        public void HandshakeMessage_NodeIdentity_RoundTripsAndIsNotLeftInExtensions()
+        {
+            var hello = new HandshakeMessage { SelfAssignedId = 5, Node = new RelayNuid(0xCB007101, 6112, 20) };
+            hello.Extensions[0x0100] = new byte[] { 9 };
+
+            HandshakeMessage back = HandshakeMessage.Deserialize(hello.Serialize());
+
+            Assert.Equal(hello.Node, back.Node);
+            Assert.DoesNotContain(HandshakeMessage.NodeTag, back.Extensions.Keys);
+            Assert.Equal(new byte[] { 9 }, back.Extensions[0x0100]);
+        }
+
+        [Fact]
+        public void HandshakeMessage_WithoutNodeIdentity_HasNone()
+        {
+            Assert.Null(HandshakeMessage.Deserialize(new HandshakeMessage { SelfAssignedId = 5 }.Serialize()).Node);
         }
 
         [Fact]
@@ -115,7 +134,7 @@ namespace JoinFS.Tests.Jfp2
         {
             var hello = new HandshakeMessage { SelfAssignedId = 1 };
             hello.Extensions[0x00FF] = new byte[] { 1, 2, 3 };
-            hello.Extensions[0x0001] = Encoding.UTF8.GetBytes("known");
+            hello.Extensions[0x0100] = Encoding.UTF8.GetBytes("known");
 
             byte[] wire = hello.Serialize();
             HandshakeMessage back = HandshakeMessage.Deserialize(wire);
@@ -123,7 +142,7 @@ namespace JoinFS.Tests.Jfp2
             // A reader that doesn't recognize tag 0x00FF still parses the rest of the message
             // correctly - it just never looks the tag up (docs/reference/jfp2-protocol.md §5.5).
             Assert.Equal(2, back.Extensions.Count);
-            Assert.Equal("known", Encoding.UTF8.GetString(back.Extensions[0x0001]));
+            Assert.Equal("known", Encoding.UTF8.GetString(back.Extensions[0x0100]));
         }
     }
 }

@@ -154,7 +154,7 @@ JFP2 has none of this. It negotiates only after the legacy Join, on peers the le
 - **Mesh messages become canonical `MessageKind`s:** `Join`, `JoinReply`, `JoinFail`, `Login`, `LoginFail`, `AddNode`, `Leave`, `Pulse`, `PulseResponse`, `Pathfinder`, `PathfinderResponse`. They go through the router like any other kind.
 - **The legacy plugin is reduced to framing, reliability, `FLAG_FORWARD` relay and codecs.** Its mesh codecs are pinned by golden-byte tests. `MeshManager` is a faithful port of legacy timings and rules, so v26.5 peers see identical behaviour.
 - **Today, only legacy advertises the mesh kinds,** so all mesh traffic goes over legacy, exactly as now.
-- **JFP2 stays a "link upgrader".** For directly reachable peers (`RouteIsOwnEndPoint`, Finding 7), it negotiates and reports per-kind capability through `GetLink`.
+- **JFP2 stays a "link upgrader".** It negotiates with neighbours and reports per-kind capability through `CanCarry` for the neighbour that carries a peer's traffic (§2.12, which supersedes the direct-only rule of Finding 7).
 
 This costs about the same as porting the mesh into the legacy plugin, and the rewrite has to port it anyway. It avoids two problems: the mesh would otherwise be the one subsystem locked to a protocol, and the peer table would have two owners.
 
@@ -293,9 +293,8 @@ These refine §2.1–§2.7. The code is authoritative; each point says what chan
     - One `BlockingCollection` mailbox wakes the network thread for both received datagrams and app commands; `System.Threading.Channels` wasn't needed.
     - The snapshot is published every 100 ms and carries transport state only (item 1). There is no `PublishObject` API: `Sim` calls `Network.SendAircraftPosition` and similar helpers (item 4).
 12. **Router scope** (refines §2.5):
-    - JFP2 never claims an indirect peer, and the target-capability propagation through `PeerInfo` was not built.
-    - Instead, current builds don't originate relayed JFP2 at all: indirect peers use the legacy relay, which is always correct because every node speaks legacy.
-    - Relayed JFP2 from older builds is still forwarded or translated.
+    - **Superseded by §2.12.** As first built, JFP2 never claimed an indirect peer, and current builds didn't originate relayed JFP2 at all: indirect peers used the legacy relay.
+    - The target-capability propagation through `PeerInfo` was never built, and §2.12 shows it isn't needed.
 13. **Guardrails not built yet** (§2.8): codec fidelity masks, and downgrade rules for kinds a protocol can't carry. Neither is needed until a protocol carries a field or kind that legacy can't.
 14. **Recorder** (refines §6): the version split and moving the `Record` calls to the ingest are done. `Sim.Write/Read` stayed in `Sim` rather than moving to a recorder-owned serializer; the network no longer uses them.
 
@@ -320,6 +319,27 @@ The protocol boundary is intact — plugins never see the app, and the session l
    - `IDescribesLinks.DescribeLink` and `PeerSnapshot.LinkState` are now a proper `PeerLinkState` enum (`Legacy`/`Negotiating`/`Negotiated`) instead of a free-form string, defined once in `Net/Core/IProtocolPlugin.cs` next to the interface that reports it. `NetworkService.BuildSnapshot` defaults untracked peers to `Legacy` (correct: with no negotiating plugin registered, legacy is the only thing a peer could be talking - previously this showed as `null`, which the UI's `default` case misread as "Pending").
    - `SessionForm`'s own `ProtocolState` enum (a hand-matched mirror of the string, plus a `Relayed` case no code path had produced since the rewrite - JFP2 no longer originates relayed traffic, per §2.10 item 12) is deleted; it now uses `PeerLinkState?` directly (`null` = the local node's own row).
    - A shared `PeerLinkStateExtensions.ToDisplay()` gives the one human-readable label per state, used by both `SessionForm` and `Main.MonitorSessionDetails` (the CONSOLE monitor dump), which previously duplicated the same three labels independently.
+
+### 2.12 JFP2 as a per-hop protocol (2026-09-26, after the first shared-NAT field test)
+
+This reverses three earlier decisions: §2.10 item 12 (no relayed JFP2 origination), Finding 7's direct-only negotiation, and the assumption behind both that a source endpoint identifies a node.
+
+**The field failure.** A hub and an MSFS client shared one LAN and one public `IP:6112` (the router forwarded the port to the hub); a friend joined from the internet. The friend reached both nodes at the same endpoint, so the hub answered the JFP2 Hello meant for the client, and `FindPeer(endpoint)` credited the ack to the client. The friend then sent the client's traffic to the hub, which consumed it. The client saw the friend as "legacy" and never saw his aircraft, while the friend saw the client's. With the client on port 6113 the endpoints were distinct and everything worked.
+
+**Decisions.**
+1. **A session is with a neighbour and is bound to a node id stated in the handshake**, never to the datagram's source endpoint. HelloAck names the node that answered, so a node learns whether the peer it asked for or another node at that endpoint replied. Datagrams are matched to a session by the two ids in the envelope (random, not sequential).
+2. **Receiving a Hello is not proof that our datagrams arrive.** A session is usable for sending only once our own Hello was answered by the right node.
+3. **The protocol is a property of each hop.** A node sends to a peer behind a relay through the neighbour that carries its traffic (`Peer.RouteVia`, or the node answering at the peer's shared endpoint), in the schema agreed with that neighbour, addressed end to end. The relay forwards it (same schema version, hop ids rewritten) or decodes it and lets the core re-send it in the target's terms. The sender never needs to know what the final target speaks, which is why the target-capability propagation of §2.5 isn't needed.
+4. **Hop-scoped ids on Forwarded envelopes.** Origin/Target stay end to end; the fixed header's ids name the session of the hop, so the receiver finds the neighbour by id. This also lets the relay compare schema versions, which the byte-forwarding rule did not (it would have broken at the first v2 codec).
+5. **`Peer.RouteVia` lives in the core**, set by the pathfinder, so "reached through a relay" no longer depends on comparing endpoints; `RouteIsOwnEndPoint` means "no relay and the route is its own endpoint".
+6. **Sessions are kept honest.** A keepalive Hello every 5 s to the verified endpoint must be answered by the same node within 15 s; otherwise the peer falls back to legacy until verified again. This covers a router that steers the endpoint elsewhere, a peer that restarts and a dead path, none of which a handshake alone can see. A peer that gives up is retried after 30 s.
+
+**Known limits.**
+- A node whose replies are steered to another node cannot verify the path back, so that direction stays on legacy. This is correct but not optimal: in the field-test topology the client's traffic to the friend stays legacy if the router forwards the friend's replies to the hub.
+- Relayed JFP2 shares the relay budget (10 concurrent senders) with legacy relaying; a dedicated hub relaying for many players needs a larger budget.
+- Anyone who knows a peer's node id can send a Hello claiming it, as with the legacy header's sender field; the protocol has no authentication yet.
+
+**Tests:** `JoinFS.Tests/Net/Jfp2RelayTests.cs` (shared endpoint, both links JFP2 with the hub relaying, a steering flip and recovery, translation both ways, restart recovery, silence fallback), plus `TestMesh.AddBehindNat` and `InMemoryNetwork.Nat`.
 
 
 ---

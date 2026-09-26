@@ -149,11 +149,12 @@ namespace JoinFS.Tests.Net
             Assert.True(Jfp2Of(hub).IsNegotiated(a.Id));
             Assert.False(Jfp2Of(hub).IsNegotiated(b.Id));
 
-            // hand-built Forwarded envelopes, as an older JFP2 build originates them
+            // hand-built Forwarded envelopes (hop ids of a's session with the hub, end-to-end Origin/Target)
+            Assert.True(Jfp2Of(a).TryGetHopIds(hub.Id, out ushort hopLocal, out ushort hopRemote));
             void Relayed(byte messageClass, ReadOnlySpan<byte> payload, bool guaranteed, ushort id)
             {
                 var flags = EnvelopeFlags.Forwarded | (guaranteed ? EnvelopeFlags.Guaranteed : 0);
-                var envelope = new Envelope(flags, 0, 0, messageClass, id, 0, (byte)(guaranteed ? 1 : 0),
+                var envelope = new Envelope(flags, hopLocal, hopRemote, messageClass, id, 0, (byte)(guaranteed ? 1 : 0),
                     new RelayNuid(a.Id.ip, a.Id.port, a.Id.local), new RelayNuid(b.Id.ip, b.Id.port, b.Id.local));
                 byte[] data = new byte[envelope.WireSize + payload.Length];
                 int header = envelope.WriteTo(data);

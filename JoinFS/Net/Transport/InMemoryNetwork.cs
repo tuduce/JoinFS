@@ -19,6 +19,13 @@ namespace JoinFS.Net
         /// <summary>Return false to drop a datagram (loss/partition injection).</summary>
         public Func<IPEndPoint, IPEndPoint, byte[], bool> Filter;
 
+        /// <summary>
+        /// Rewrites a datagram's endpoints on its way from sender to receiver (after <see cref="Filter"/>,
+        /// which sees the sender's own addresses): a stand-in for NAT and port forwarding, including the
+        /// awkward cases such as two nodes behind one public endpoint. Return the pair to deliver with.
+        /// </summary>
+        public Func<IPEndPoint, IPEndPoint, (IPEndPoint From, IPEndPoint To)> Nat;
+
         /// <summary>Every datagram ever sent, in order (for assertions and debugging).</summary>
         public readonly List<(IPEndPoint From, IPEndPoint To, byte[] Data)> Log = [];
 
@@ -49,6 +56,10 @@ namespace JoinFS.Net
                 if (Filter != null && !Filter(from, to, data))
                 {
                     continue;
+                }
+                if (Nat != null)
+                {
+                    (from, to) = Nat(from, to);
                 }
                 if (transports.TryGetValue(to, out InMemoryTransport target))
                 {

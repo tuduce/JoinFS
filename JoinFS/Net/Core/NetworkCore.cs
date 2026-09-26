@@ -283,7 +283,9 @@ namespace JoinFS.Net
 
         public void LinkChanged(NodeId peer)
         {
-            if (Peers.TryGet(peer, out Peer p))
+            // a link change alters what every peer routed through that node can use, and link changes
+            // are rare, so drop every cached route rather than work out who depends on whom
+            foreach (Peer p in Peers.All)
             {
                 p.InvalidateRoutes();
             }

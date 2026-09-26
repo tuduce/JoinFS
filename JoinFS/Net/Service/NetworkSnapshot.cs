@@ -11,6 +11,8 @@ namespace JoinFS.Net
         public IPEndPoint RouteEndPoint { get; init; }
         public bool Direct { get; init; }
         public bool RouteIsOwnEndPoint { get; init; }
+        /// <summary>The relay node this peer is reached through (invalid when reached directly).</summary>
+        public NodeId RouteVia { get; init; }
         public bool ReceiveEstablished { get; init; }
         public bool SendEstablished { get; init; }
         public bool LowBandwidth { get; init; }
