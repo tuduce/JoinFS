@@ -39,6 +39,9 @@ namespace JoinFS
         struct AircraftSnapshot
         {
             public string callsign, nickname, guid;
+            // "pilot" (a real connected pilot), "recorded" (Recorder-replayed) or "ai" (other
+            // non-pilot traffic) - mirrors the desktop Aircraft Dialog's (R)/(A) distinction
+            public string trafficType;
             public string registration, icaoAirline, flightNumber;
             public double altitude, speed, latitude, longitude;
             public int heading;
@@ -178,6 +181,9 @@ namespace JoinFS
             snap.icaoAirline = aircraft.flightPlan.icaoAirline;
             snap.flightNumber = aircraft.flightPlan.flightNumber;
             snap.nickname = main.network.GetNodeName(aircraft.ownerNuid);
+            // mirrors the desktop Aircraft Dialog's (R)/(A) distinction, so a map consumer can
+            // distinguish a replayed/AI aircraft from a real pilot without a separate lookup
+            snap.trafficType = aircraft.user ? "pilot" : (aircraft.owner == Sim.Obj.Owner.Recorder ? "recorded" : "ai");
 
             var pos = aircraft.Position;
             if (pos != null)
@@ -233,6 +239,8 @@ namespace JoinFS
             snap.icaoAirline = user.flightPlan.icaoAirline;
             snap.flightNumber = user.flightPlan.flightNumber;
             snap.nickname = user.nickname;
+            // global hub users are always real connected pilots
+            snap.trafficType = "pilot";
             snap.latitude  = user.latitude;
             snap.longitude = user.longitude;
             snap.altitude  = user.altitude;
@@ -253,7 +261,7 @@ namespace JoinFS
         }
 
         static bool SnapshotsEqual(in AircraftSnapshot a, in AircraftSnapshot b) =>
-            a.callsign == b.callsign && a.nickname == b.nickname &&
+            a.callsign == b.callsign && a.nickname == b.nickname && a.trafficType == b.trafficType &&
             a.registration == b.registration && a.icaoAirline == b.icaoAirline && a.flightNumber == b.flightNumber &&
             a.altitude == b.altitude && a.speed == b.speed &&
             a.latitude == b.latitude && a.longitude == b.longitude &&
@@ -279,6 +287,7 @@ namespace JoinFS
             icaoAirline = s.icaoAirline,
             flightNumber = s.flightNumber,
             nickname = s.nickname,
+            trafficType = s.trafficType,
             guid     = s.guid,
             altitude = Math.Round(s.altitude, 0),
             speed    = Math.Round(s.speed, 1),
