@@ -4506,6 +4506,42 @@ namespace JoinFS
             return Guid.Empty;
         }
 
+        /// <summary>
+        /// Get a stable identity guid for an aircraft, suitable for keying per-aircraft state
+        /// (websocket feed, webhook change-detection, etc). GetNodeGuid() maps every invalid
+        /// ownerNuid to this node's own guid, which collapses the user's own aircraft together
+        /// with every Recorder-replayed aircraft (all created with an invalid ownerNuid) onto a
+        /// single key - so any locally-owned object falls back to a simId-derived guid instead,
+        /// matching the existing Guid.Empty fallback already used for unrecognised network nodes.
+        /// </summary>
+        /// <param name="aircraft">Aircraft to identify</param>
+        public Guid GetAircraftIdentityGuid(Sim.Aircraft aircraft)
+        {
+            // base per-owner identity: this node's own guid for a locally-owned object
+            // (Owner.Me / Owner.Recorder, both using an invalid ownerNuid), or the owning peer's
+            // guid for a network object, falling back to a simId-derived guid only if that peer
+            // isn't recognised at all
+            Guid baseGuid = GetNodeGuid(aircraft.ownerNuid);
+            if (baseGuid == Guid.Empty)
+            {
+                baseGuid = new Guid(aircraft.simId, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+            }
+
+            // a single owner - this node, or one remote peer - can have several aircraft at
+            // once (their own aircraft plus one or more replayed/AI aircraft, or multiple
+            // aircraft from one recording), so the owner's guid alone collapses them onto one
+            // key. Fold in netId - the same field Sim.cs itself pairs with ownerNuid everywhere
+            // to distinguish individual aircraft objects - to get a distinct, stable identity
+            // per aircraft rather than per owner.
+            byte[] bytes = baseGuid.ToByteArray();
+            byte[] netIdBytes = BitConverter.GetBytes(aircraft.netId);
+            for (int i = 0; i < 4; i++)
+            {
+                bytes[12 + i] ^= netIdBytes[i];
+            }
+            return new Guid(bytes);
+        }
+
         public string GetNodeCallsign(LocalNode.Nuid nuid)
         {
             // check for ATC
