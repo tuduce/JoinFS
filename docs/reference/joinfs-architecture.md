@@ -95,6 +95,9 @@ graph TB
 **Rule:** never touch `NetworkCore`, `MeshManager`, `PeerDirectory` or a plugin from outside the
 network thread. Use the mailbox to change things and the snapshot to read them.
 
+**Proposed, not implemented:** moving `Sim` and the Recorder onto their own event-driven thread
+with the same mailbox + snapshot model. See `docs/sim-thread-architecture.md`.
+
 ## 3. Application subsystems
 
 | Subsystem | File(s) | Role |
