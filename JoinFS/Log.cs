@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Text;
@@ -30,18 +31,19 @@ namespace JoinFS
         #region Node List
 
         /// <summary>
-        /// Generic list of nodes
+        /// Generic list of nodes. Concurrent: the sim thread checks the lists (ignore, broadcast)
+        /// while the UI changes them.
         /// </summary>
         class NodeList
         {
             /// <summary>
             /// List of guids
             /// </summary>
-            public Dictionary<Guid, bool> guidList = [];
+            public ConcurrentDictionary<Guid, bool> guidList = new();
             /// <summary>
             /// List of addresses
             /// </summary>
-            public Dictionary<IPAddress, bool> addressList = [];
+            public ConcurrentDictionary<IPAddress, bool> addressList = new();
 
             /// <summary>
             /// Clear node list
@@ -66,7 +68,7 @@ namespace JoinFS
                 {
                     // read guid
                     byte[] guidBytes = reader.ReadBytes(16);
-                    guidList.Add(new Guid(guidBytes), false);
+                    guidList.TryAdd(new Guid(guidBytes), false);
                 }
 
                 // read size of address list
@@ -76,7 +78,7 @@ namespace JoinFS
                 {
                     // read address
                     byte[] addressBytes = reader.ReadBytes(4);
-                    addressList.Add(new IPAddress(addressBytes), false);
+                    addressList.TryAdd(new IPAddress(addressBytes), false);
                 }
             }
 
@@ -119,13 +121,13 @@ namespace JoinFS
             if (guid.Equals(Guid.Empty) == false && nodeList.guidList.ContainsKey(guid) == false)
             {
                 // add guid to list
-                nodeList.guidList.Add(guid, false);
+                nodeList.guidList.TryAdd(guid, false);
             }
             // get address
             if (main.network.Connected && main.network.Snapshot.Peer(nuid)?.EndPoint is IPEndPoint endPoint && nodeList.addressList.ContainsKey(endPoint.Address) == false)
             {
                 // add address to list
-                nodeList.addressList.Add(endPoint.Address, false);
+                nodeList.addressList.TryAdd(endPoint.Address, false);
             }
         }
 
@@ -140,7 +142,7 @@ namespace JoinFS
             if (guid.Equals(Guid.Empty) == false && nodeList.guidList.ContainsKey(guid) == false)
             {
                 // add guid to list
-                nodeList.guidList.Add(guid, false);
+                nodeList.guidList.TryAdd(guid, false);
             }
         }
 
@@ -154,7 +156,7 @@ namespace JoinFS
             if (nodeList.addressList.ContainsKey(address) == false)
             {
                 // add address to list
-                nodeList.addressList.Add(address, false);
+                nodeList.addressList.TryAdd(address, false);
             }
         }
 
@@ -171,7 +173,7 @@ namespace JoinFS
             if (nodeList.guidList.ContainsKey(guid))
             {
                 // remove from guid list
-                nodeList.guidList.Remove(guid);
+                nodeList.guidList.TryRemove(guid, out _);
             }
             // get address
             if (main.network.Connected && main.network.Snapshot.Peer(nuid)?.EndPoint is IPEndPoint endPoint)
@@ -179,7 +181,7 @@ namespace JoinFS
                 if (nodeList.addressList.ContainsKey(endPoint.Address))
                 {
                     // remove from address list
-                    nodeList.addressList.Remove(endPoint.Address);
+                    nodeList.addressList.TryRemove(endPoint.Address, out _);
                 }
             }
         }
@@ -195,7 +197,7 @@ namespace JoinFS
             if (nodeList.guidList.ContainsKey(guid))
             {
                 // remove from guid list
-                nodeList.guidList.Remove(guid);
+                nodeList.guidList.TryRemove(guid, out _);
             }
         }
 
@@ -209,7 +211,7 @@ namespace JoinFS
             if (nodeList.addressList.ContainsKey(address))
             {
                 // remove from address list
-                nodeList.addressList.Remove(address);
+                nodeList.addressList.TryRemove(address, out _);
             }
         }
 
@@ -272,7 +274,7 @@ namespace JoinFS
             /// <summary>
             /// List of names
             /// </summary>
-            public Dictionary<string, bool> nameList = [];
+            public ConcurrentDictionary<string, bool> nameList = new();
 
             /// <summary>
             /// Clear name list
@@ -295,7 +297,7 @@ namespace JoinFS
                 for (int count = 0; count < listLength; count++)
                 {
                     // add name to list
-                    nameList.Add(reader.ReadString(), false);
+                    nameList.TryAdd(reader.ReadString(), false);
                 }
             }
 
@@ -325,7 +327,7 @@ namespace JoinFS
                 if (Contains(name) == false)
                 {
                     // add to list
-                    nameList.Add(name, false);
+                    nameList.TryAdd(name, false);
                 }
             }
 
@@ -339,7 +341,7 @@ namespace JoinFS
                 if (Contains(name))
                 {
                     // remove from list
-                    nameList.Remove(name);
+                    nameList.TryRemove(name, out _);
                 }
             }
 

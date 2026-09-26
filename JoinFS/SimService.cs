@@ -43,8 +43,9 @@ namespace JoinFS
     /// Sim.CheckConnection), and calls from other threads are re-posted here by
     /// SimConnectInterface.
     ///
-    /// Phase 1: the thread still holds Main.conch (<c>sync</c>) while it works, so state shared
-    /// with the app thread and the UI stays consistent.
+    /// The thread owns Sim and the Recorder and takes no lock (in particular not Main.conch):
+    /// other threads change them only through <see cref="Post"/>/<see cref="Invoke"/> and read the
+    /// snapshot Sim publishes (Sim.View).
     /// </summary>
     public sealed class SimService
     {
@@ -58,7 +59,6 @@ namespace JoinFS
         const double SlowReportInterval = 10.0;
 
         readonly ISimThreadWork work;
-        readonly object sync;
         readonly Func<double> now;
         readonly Action<string> log;
         readonly ConcurrentQueue<(Action Action, double Posted)> mailbox = new();
@@ -70,13 +70,11 @@ namespace JoinFS
         volatile bool running;
 
         /// <param name="work">What the thread runs</param>
-        /// <param name="sync">Held while the thread works (Main.conch)</param>
         /// <param name="now">Clock, in seconds (Main.ElapsedTime)</param>
         /// <param name="log">Error log</param>
-        public SimService(ISimThreadWork work, object sync, Func<double> now, Action<string> log)
+        public SimService(ISimThreadWork work, Func<double> now, Action<string> log)
         {
             this.work = work;
-            this.sync = sync;
             this.now = now;
             this.log = log;
         }
@@ -91,8 +89,8 @@ namespace JoinFS
         /// <summary>
         /// Run <paramref name="func"/> on the sim thread and wait for its result (at most
         /// <paramref name="timeoutMs"/>; then default). Runs it directly when already on the sim
-        /// thread or when the thread isn't running. For UI code only - never call it while holding
-        /// <c>sync</c>, which the sim thread may need first.
+        /// thread or when the thread isn't running. For UI code: the caller waits for up to one pass
+        /// of the sim thread, so don't use it on the app thread's hot path - post instead.
         /// </summary>
         public T Invoke<T>(Func<T> func, int timeoutMs = 2000)
         {
@@ -134,8 +132,7 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Close the simulator link on the sim thread, then stop the thread. Don't call while
-        /// holding <c>sync</c>: the sim thread needs it to finish.
+        /// Close the simulator link on the sim thread, then stop the thread.
         /// </summary>
         public void Stop()
         {
@@ -184,7 +181,6 @@ namespace JoinFS
                     // the connection closed while we waited
                 }
 
-                lock (sync)
                 {
                     // posted work first: calls deferred from other threads, plugin datagrams
                     int depth = mailbox.Count;

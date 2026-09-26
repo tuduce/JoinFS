@@ -29,7 +29,7 @@ namespace JoinFS.Tests
         {
             var work = new FakeWork();
             var log = new ConcurrentQueue<string>();
-            var service = new SimService(work, new object(), () => 0.0, log.Enqueue);
+            var service = new SimService(work, () => 0.0, log.Enqueue);
             service.Start();
             return (service, work, log);
         }
@@ -90,7 +90,7 @@ namespace JoinFS.Tests
         public void Stop_BeforeStart_ClosesOnTheCaller()
         {
             var work = new FakeWork();
-            var service = new SimService(work, new object(), () => 0.0, _ => { });
+            var service = new SimService(work, () => 0.0, _ => { });
             service.Stop();
             Assert.Equal(Environment.CurrentManagedThreadId, work.ClosedOnThread);
         }
@@ -113,7 +113,7 @@ namespace JoinFS.Tests
             var work = new FakeWork();
             var log = new ConcurrentQueue<string>();
             double clock = 1.0;
-            var service = new SimService(work, new object(), () => Volatile.Read(ref clock), log.Enqueue);
+            var service = new SimService(work, () => Volatile.Read(ref clock), log.Enqueue);
             service.Start();
 
             // hold the sim thread in one item while another is posted, then advance the clock

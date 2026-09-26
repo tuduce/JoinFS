@@ -1008,7 +1008,7 @@ namespace JoinFS
 
                 // start work thread
                 // start the sim thread (Sim and Recorder), then the work thread
-                simService = new SimService(new MainSimWork(this), conch, () => ElapsedTime, MonitorEvent);
+                simService = new SimService(new MainSimWork(this), () => ElapsedTime, MonitorEvent);
                 simService.Start();
                 _workThread = new Thread(new ThreadStart(DoWork));
                 _workThread.Start();
@@ -1187,7 +1187,7 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Ask the sim thread for something and wait for the answer (UI code; never while holding conch)
+        /// Ask the sim thread for something and wait for the answer (UI code)
         /// </summary>
         public T InvokeOnSim<T>(Func<Sim, T> query)
         {

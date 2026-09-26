@@ -703,3 +703,15 @@ likely causes of stalls.
     background build and does without the index for that object.
   - `ApplyMasquerade` runs on the sim thread. Every `main.conch` lock inside Substitution is gone.
   - Tests: `SubstitutionConcurrencyTests`.
+- **Phase 2e: done. The sim thread owns Sim and the Recorder and takes no lock.**
+  - `SimService` no longer takes `conch`. `Main.InvokeOnSim` is now safe from any thread except
+    the sim thread itself. It waits for up to one sim pass, so the UI uses it and the app thread
+    posts instead.
+  - `Log`'s lists are `ConcurrentDictionary`s: the sim thread checks ignore and broadcast names
+    while the UI edits them.
+  - The variable manager is used only on the sim thread; UI copies read their own copied values.
+  - Accepted, not changed: the sim thread reads a few plain values the app thread sets rarely, such
+    as `LocalId` (set once the public address is known), `main.settings*` and `Settings.Default`.
+  - Checked with a headless CONSOLE run against a fake X-Plane plugin
+    (`fake_xplane_plugin.py`-style UDP stub): the link connects, the user aircraft is listed,
+    heartbeats go out every 2 s and variable definitions are exchanged, all on the sim thread.
