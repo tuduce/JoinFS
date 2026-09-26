@@ -863,6 +863,59 @@ namespace JoinFS
             }
         }
 
+        /// <summary>
+        /// Have the simulator send an object's data every visual frame, or every second, until
+        /// <see cref="UnsubscribeData"/>. Visual rather than simulation frames: they keep coming
+        /// while the simulation is paused.
+        /// </summary>
+        public void SubscribeData(Sim.Requests request, Sim.Definitions def, uint simId, bool everyFrame)
+        {
+            if (!OnOwnerThread(() => SubscribeData(request, def, simId, everyFrame))) return;
+            Action subscribe = () =>
+            {
+                try
+                {
+                    sc.RequestDataOnSimObject(request, def, simId, everyFrame ? SIMCONNECT_PERIOD.VISUAL_FRAME : SIMCONNECT_PERIOD.SECOND, SIMCONNECT_DATA_REQUEST_FLAG.DEFAULT, 0, 0, 0);
+                }
+                catch (COMException ex)
+                {
+                    HandleException(ex);
+                }
+                catch (Exception ex)
+                {
+                    main.MonitorEvent("ERROR - " + ex.Message);
+                }
+            };
+            if (_isSimOpen)
+            {
+                subscribe();
+            }
+            else
+            {
+                _pendingRequests.Add(subscribe);
+            }
+        }
+
+        /// <summary>
+        /// Stop a feed started with <see cref="SubscribeData"/>
+        /// </summary>
+        public void UnsubscribeData(Sim.Requests request, Sim.Definitions def, uint simId)
+        {
+            if (!OnOwnerThread(() => UnsubscribeData(request, def, simId))) return;
+            try
+            {
+                sc.RequestDataOnSimObject(request, def, simId, SIMCONNECT_PERIOD.NEVER, SIMCONNECT_DATA_REQUEST_FLAG.DEFAULT, 0, 0, 0);
+            }
+            catch (COMException ex)
+            {
+                HandleException(ex);
+            }
+            catch (Exception ex)
+            {
+                main.MonitorEvent("ERROR - " + ex.Message);
+            }
+        }
+
         public void StopRequest(Enum scRequest, Enum scDefinition, uint simId)
         {
             if (!OnOwnerThread(() => StopRequest(scRequest, scDefinition, simId))) return;

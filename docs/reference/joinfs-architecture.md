@@ -48,11 +48,12 @@ graph TB
         FORMS[Forms]
     end
     subgraph APP["App work thread - Main.DoWork, ~5 ms, under Main.conch"]
-        SIM[Sim + SimConnect polling]
         NET[Network - session layer]
-        REC[Recorder]
         OTHERS[Notes, Whazzup, Euroscope, CONSOLE services]
-        XPL[XPlane + XPlaneLink]
+    end
+    subgraph ST["Sim thread - SimService (no lock)"]
+        SIM[Sim + SimConnect / XPlane link]
+        REC[Recorder]
     end
     subgraph NT["Network thread - NetworkService"]
         CORE[NetworkCore, MeshManager, plugins]
@@ -60,6 +61,11 @@ graph TB
     RX["UDP receive thread"]
 
     FORMS -- "commands / reads under conch" --> NET
+    FORMS -- "SimCommand / InvokeOnSim" --> SIM
+    NET -- "ISimSink: posts" --> SIM
+    SIM -- "SimSnapshot (Sim.View)" --> FORMS
+    SIM -- "SimSnapshot" --> NET
+    SIM -- "SimSender: outbox" --> CORE
     NET -- "mailbox: Post / Send / Broadcast" --> CORE
     CORE -- "inbound queue: messages + events" --> NET
     CORE -- "NetworkSnapshot (immutable)" --> FORMS
@@ -69,14 +75,25 @@ graph TB
 
 - **`Main`** (`Program.cs`) owns every subsystem as a public field. It runs one work loop,
   `DoWork()`, about every 5 ms, holding one lock, `Main.conch`. Each tick it runs, in order:
-  1. `sim.DoWork()` — polls SimConnect, which is where simulator callbacks run;
-  2. `network.DoWork()`;
-  3. `recorder.DoWork()`;
-  4. `euroscope.DoWork()`, `whazzup.DoWork()`, `notes.DoWork()`;
-  5. in `CONSOLE` builds, the webhook and WebSocket services;
-  6. queued `Main.EnqueueCommand` actions and `schedule*` flags.
+  1. `network.DoWork()`;
+  2. `euroscope.DoWork()`, `whazzup.DoWork()`, `notes.DoWork()`;
+  3. in `CONSOLE` builds, the webhook and WebSocket services;
+  4. queued `Main.EnqueueCommand` actions and `schedule*` flags.
 - **UI code** reads application state under `conch` from WinForms timers. Other threads ask for work
   by setting a `volatile schedule*` flag or calling `EnqueueCommand`.
+- **`Sim` and the `Recorder` run on their own thread** inside `SimService` (`JoinFS/SimService.cs`;
+  design and history in `docs/sim-thread-architecture.md`):
+  - It sleeps until the simulator has something (SimConnect's message event, or a datagram from
+    the X-Plane plugin), work is posted, or a timer is due, and it takes no lock.
+  - Every SimConnect call happens on it. `SimConnectInterface` re-posts calls made from other
+    threads.
+  - Others change Sim through `Main.SimCommand`/`PostToSim` (and `Main.InvokeOnSim` when the UI
+    needs an answer). They read the immutable `SimSnapshot` it publishes as `Sim.View`: copies of
+    the objects, each with a `Source` back to its live object.
+  - The session reaches it through `ISimSink` (posts) and `ISimView` (the snapshot).
+  - With SimConnect, positions come from per-object subscriptions (every visual frame for
+    objects it steers, broadcasts or records). They go out to the network and the recorder at
+    20 Hz (`Sim.PositionSendInterval`).
 - **The network stack runs on its own thread** inside `NetworkService` (`JoinFS/Net/Service`):
   - It owns the socket, the protocol plugins, the peer table and the mesh.
   - Nothing inside it takes a lock, because only that thread touches it.
@@ -95,8 +112,9 @@ graph TB
 **Rule:** never touch `NetworkCore`, `MeshManager`, `PeerDirectory` or a plugin from outside the
 network thread. Use the mailbox to change things and the snapshot to read them.
 
-**Proposed, not implemented:** moving `Sim` and the Recorder onto their own event-driven thread
-with the same mailbox + snapshot model. See `docs/sim-thread-architecture.md`.
+**Rule:** never touch `Sim`'s objects or the `Recorder` from outside the sim thread. Post to
+change them and read `Sim.View`. Substitution is shared between threads and is copy-on-write:
+read it freely; writers publish new collections.
 
 ## 3. Application subsystems
 
@@ -587,6 +605,8 @@ received into a session part through `IMessage.Dispatch`.
 | `JoinFS/Network.cs` | Session facade: commands, message routing, the tick order (§7) |
 | `JoinFS/Session/` | The session parts (§7), their interfaces (`SessionInterfaces.cs`), the adapter over `Main` (`MainSessionHost`), and `SimMessageMapper` |
 | `JoinFS/Sim.cs` | Simulator abstraction, rate policy, sends via `network.SimSender` |
+| `JoinFS/SimService.cs` | The sim thread: mailbox, scheduler, `MainSimWork` (runs Sim and the Recorder) |
+| `JoinFS/Sim.View.cs` | `SimSnapshot`: what other threads read of the simulator (`Sim.View`) |
 | `JoinFS/Net/Core/` | `NetworkCore`, `MeshManager`, `PeerDirectory`, `LocalIdentity`, `ObjectStateCache`, `CredentialStore`, `NodeId`, `NetHash`, `AddressCodec`, `Clock`, `IProtocolPlugin`/`IProtocolHost`, `INetworkSink` |
 | `JoinFS/Net/Messages/` | Canonical messages, `MessageKind`, `MessageMeta`, `IMessageHandler` |
 | `JoinFS/Net/Service/` | `NetworkService`, `INetworkOutbox`, `NetworkSnapshot`, pooled queue items |

@@ -157,6 +157,31 @@ namespace JoinFS
         /// set) - safe from colliding with either for the lifetime of any realistic session.
         /// </summary>
         const int PositionPollRequestIdBase = 1_000_000_000;
+
+        /// <summary>
+        /// Positions go out to the network and the recorder at most this often (seconds) - the rate
+        /// they were polled at before the simulator fed them every frame
+        /// </summary>
+        public const double PositionSendInterval = 0.05;
+
+        /// <summary>
+        /// Whether a position received now is due out to the network and the recorder. Keeps an
+        /// average of one per <see cref="PositionSendInterval"/>, on the first report after each
+        /// interval; after a gap it restarts from now instead of catching up.
+        /// </summary>
+        internal static bool SendDue(Obj obj, double now)
+        {
+            if (now < obj.nextSendTime)
+            {
+                return false;
+            }
+            obj.nextSendTime += PositionSendInterval;
+            if (obj.nextSendTime <= now)
+            {
+                obj.nextSendTime = now + PositionSendInterval;
+            }
+            return true;
+        }
         int nextPositionPollRequestId = PositionPollRequestIdBase;
         int NextPositionPollRequestId() { return nextPositionPollRequestId++; }
 
@@ -787,6 +812,28 @@ namespace JoinFS
             /// object's position poll to a different object - see the ground-jitter-on-model-mismatch fix.
             /// </summary>
             public int positionRequestId = -1;
+
+            /// <summary>
+            /// SimConnect position feed (docs/sim-thread-architecture.md, Phase 3): the subscription made
+            /// on <see cref="positionRequestId"/> - which data, whether every frame (else every second),
+            /// and for which sim ID. Null definition when there is none.
+            /// </summary>
+            public Definitions? positionFeedDefinition;
+            public bool positionFeedEveryFrame;
+            public uint positionFeedSimId = uint.MaxValue;
+
+            /// <summary>
+            /// Request ID for a one-off poll when the feed goes quiet (polling on the feed's own ID would
+            /// replace the subscription), and when the next such poll may be made
+            /// </summary>
+            public int positionFallbackRequestId = -1;
+            public double nextPositionFallbackTime;
+
+            /// <summary>
+            /// When this object's position is next due out to the network and the recorder: they stay
+            /// at <see cref="PositionSendInterval"/> however often the simulator reports it
+            /// </summary>
+            public double nextSendTime;
             public string ownerModel = "";
             public string ownerLivery = "";
             public string ownerIcaoType = "";
@@ -964,8 +1011,8 @@ namespace JoinFS
                 // remove from xplane
                 xplane.RemoveAircraft(obj.simId);
 #elif SIMCONNECT
-                // check for simconnect
-                // remove from simconnect
+                // stop its position feed, then remove from simconnect
+                CancelPositionFeed(obj);
                 simconnect?.RemoveObject(obj.simId, Requests.REMOVE_OBJECT);
 #endif
 
@@ -1019,6 +1066,10 @@ namespace JoinFS
                     main.MonitorEvent("Delisting object - User '" + ((obj.owner == Obj.Owner.Network) ? obj.ownerNuid.ToString() : "Me") + "' - Model '" + obj.ownerModel + "'");
                 }
 
+#if SIMCONNECT
+                // stop its position feed
+                CancelPositionFeed(obj);
+#endif
                 // remove object from the list
                 objectList.Remove(obj);
 
@@ -2584,6 +2635,10 @@ namespace JoinFS
                 aircraft.simPosition = new Pos(ref aircraftPosition);
                 // store current time
                 aircraft.simTime = simTime;
+                // positions may arrive every frame; the network and the recorder get them at the usual
+                // rate. Gated on the current time, not simTime: the X-Plane link re-sends an old sample
+                // (with its old time) to keep peers alive when the plugin goes quiet
+                bool sendDue = SendDue(aircraft, main.ElapsedTime);
 
                 // TEMPORARY diagnostic (ground-jitter/model-mismatch investigation) - raw SimConnect read for
                 // whichever aircraft this is (own aircraft or a locally-simulated one being broadcast), before
@@ -2612,7 +2667,7 @@ namespace JoinFS
                     }
 
                     // check if broadcasting
-                    if (main.network.Connected)
+                    if (sendDue && main.network.Connected)
                     {
                         try
                         {
@@ -2667,7 +2722,7 @@ namespace JoinFS
                 }
 
                 // check if recording
-                if (main.recorder.recording && aircraft.record && aircraft.Injected == false)
+                if (sendDue && main.recorder.recording && aircraft.record && aircraft.Injected == false)
                 {
                     // record position and velocity
                     main.recorder.Record(aircraft.recorderObj, main.ElapsedTime, ref aircraftPosition);
@@ -3057,10 +3112,6 @@ namespace JoinFS
 #endif
         }
 
-#if SIMCONNECT
-        int requestPositionCount = 0;
-#endif
-
         /// <summary>
         /// Request position of network aircraft in the sim
         /// </summary>
@@ -3072,62 +3123,89 @@ namespace JoinFS
             // check for FS connection
             if (simconnect != null)
             {
+                double now = main.ElapsedTime;
                 // for each object
                 foreach (var obj in objectList)
                 {
-                    // check if object needs to be broadcast or recorded by this node
-                    if (obj.Created)
+                    if (obj.Created == false)
                     {
-                        // check if object is injected
-                        if (obj.Injected)
+                        continue;
+                    }
+
+                    // the feed this object needs now: every frame for objects we steer (injected),
+                    // broadcast or record; every second for the rest
+                    Definitions definition;
+                    bool everyFrame = true;
+                    if (obj.Injected)
+                    {
+                        definition = obj is Aircraft ? Definitions.AIRCRAFT_POSITION : Definitions.OBJECT_POSITION;
+                    }
+                    else if (obj.owner == Obj.Owner.Me || IsBroadcast(obj) || main.recorder.recording && obj.record)
+                    {
+                        definition = obj is Aircraft ? Definitions.AIRCRAFT_POSITION : Definitions.OBJECT_POSITION_VELOCITY;
+                    }
+                    else
+                    {
+                        definition = Definitions.OBJECT_POSITION;
+                        everyFrame = false;
+                    }
+
+                    // own persistent request ID per object - see PositionPollRequestIdBase
+                    if (obj.positionRequestId < 0)
+                    {
+                        obj.positionRequestId = NextPositionPollRequestId();
+                    }
+
+                    // (re)subscribe when what's needed changed
+                    if (obj.positionFeedDefinition != definition || obj.positionFeedEveryFrame != everyFrame || obj.positionFeedSimId != obj.simId)
+                    {
+                        CancelPositionFeed(obj);
+                        simconnect.SubscribeData((Requests)obj.positionRequestId, definition, obj.simId, everyFrame);
+                        obj.positionFeedDefinition = definition;
+                        obj.positionFeedEveryFrame = everyFrame;
+                        obj.positionFeedSimId = obj.simId;
+                        // give the feed time to start before falling back to polling
+                        obj.nextPositionFallbackTime = now + 1.0;
+                    }
+
+                    // safety net: when the feed goes quiet (frames not being drawn, the sim busy loading,
+                    // etc.) poll as before, so positions keep flowing
+                    double quiet = everyFrame ? 0.25 : 2.5;
+                    if (now - obj.simTime > quiet && now >= obj.nextPositionFallbackTime)
+                    {
+                        if (obj.positionFallbackRequestId < 0)
                         {
-                            if (obj is Aircraft)
-                            {
-                                // request full aircraft position - own persistent request ID per object,
-                                // not the shared Requests.AIRCRAFT_POSITION value, see PositionPollRequestIdBase
-                                if (obj.positionRequestId < 0)
-                                {
-                                    obj.positionRequestId = NextPositionPollRequestId();
-                                }
-                                simconnect.RequestData((Requests)obj.positionRequestId, Definitions.AIRCRAFT_POSITION, obj.simId);
-                            }
-                            else
-                            {
-                                // request position
-                                simconnect.RequestData(Requests.OBJECT_POSITION, Definitions.OBJECT_POSITION, obj.simId);
-                            }
+                            obj.positionFallbackRequestId = NextPositionPollRequestId();
                         }
-                        // check if object needs to be broadcast or recorded by this node
-                        else if (obj.owner == Obj.Owner.Me || IsBroadcast(obj) || main.recorder.recording && obj.record)
-                        {
-                            if (obj is Aircraft)
-                            {
-                                // request full aircraft position - own persistent request ID per object,
-                                // not the shared Requests.AIRCRAFT_POSITION value, see PositionPollRequestIdBase
-                                if (obj.positionRequestId < 0)
-                                {
-                                    obj.positionRequestId = NextPositionPollRequestId();
-                                }
-                                simconnect.RequestData((Requests)obj.positionRequestId, Definitions.AIRCRAFT_POSITION, obj.simId);
-                            }
-                            else
-                            {
-                                // request full object position
-                                simconnect.RequestData(Requests.OBJECT_POSITION_VELOCITY, Definitions.OBJECT_POSITION_VELOCITY, obj.simId);
-                            }
-                        }
-                        else if ((requestPositionCount & 0xf) == 0)
-                        {
-                            // request position
-                            simconnect.RequestData(Requests.OBJECT_POSITION, Definitions.OBJECT_POSITION, obj.simId);
-                        }
+                        simconnect.RequestData((Requests)obj.positionFallbackRequestId, definition, obj.simId);
+                        obj.nextPositionFallbackTime = now + (everyFrame ? PositionSendInterval : 0.8);
                     }
                 }
-
-                // increment count
-                requestPositionCount++;
             }
 #endif
+        }
+
+#if SIMCONNECT
+        /// <summary>
+        /// Stop an object's position feed (when it leaves the sim or needs a different one)
+        /// </summary>
+        void CancelPositionFeed(Obj obj)
+        {
+            if (obj.positionFeedDefinition is Definitions definition && obj.positionFeedSimId != uint.MaxValue)
+            {
+                simconnect?.UnsubscribeData((Requests)obj.positionRequestId, definition, obj.positionFeedSimId);
+            }
+            ForgetPositionFeed(obj);
+        }
+#endif
+
+        /// <summary>
+        /// Forget an object's feed without cancelling it (the connection or the object is already gone)
+        /// </summary>
+        static void ForgetPositionFeed(Obj obj)
+        {
+            obj.positionFeedDefinition = null;
+            obj.positionFeedSimId = uint.MaxValue;
         }
 
 
@@ -3284,6 +3362,11 @@ namespace JoinFS
             // close simconnect
             simconnect?.Dispose();
             simconnect = null;
+            // the feeds went with the connection
+            foreach (var obj in objectList)
+            {
+                ForgetPositionFeed(obj);
+            }
 #endif
             simulatorName = "";
             // set connection attempts
@@ -4172,111 +4255,35 @@ namespace JoinFS
 
                     case Requests.OBJECT_POSITION_VELOCITY:
                         {
-                            // get object
-                            Obj obj = objectList.Find(o => o.simId == objectId);
-                            if (obj != null)
-                            {
-                                // get sim state
-                                ObjectPositionVelocity positionVelocity = (ObjectPositionVelocity)data;
-
-                                // update position
-                                obj.simPosition = new Pos(ref positionVelocity);
-                                // store current time
-                                obj.simTime = main.ElapsedTime;
-
-                                // check if user or broadcasting this aircraft
-                                if (obj.owner == Obj.Owner.Me || main.network.Connected && IsBroadcast(obj))
-                                {
-                                    // check if not under remote control
-                                    if (obj.remoteFlightControl == false)
-                                    {
-                                        // update velocity
-                                        obj.netVelocity = new Vel(ref positionVelocity);
-                                        // store current time
-                                        obj.netSimTime = main.ElapsedTime;
-                                    }
-
-                                    // check if broadcasting
-                                    if (main.network.Connected)
-                                    {
-                                        try
-                                        {
-                                            if (IsBroadcast(obj))
-                                            {
-                                                // get nodes
-                                                NodeId[] nodeList = main.network.PeerIds();
-                                                // the nodes due an update this tick
-                                                Span<NodeId> due = stackalloc NodeId[nodeList.Length];
-                                                int dueCount = 0;
-                                                // for each node
-                                                foreach (var nuid in nodeList)
-                                                {
-                                                    // get remote object
-                                                    Obj remoteObject = objectList.Find(o => o.ownerNuid == nuid && o is Aircraft && (o as Aircraft).user);
-                                                    // get interval mask
-                                                    int intervalMask = GetIntervalMask(obj, remoteObject);
-                                                    // check if node's simulator is not connected
-                                                    if (main.network.Peers.GetNodeSimulatorConnected(nuid) == false)
-                                                    {
-                                                        // increase interval (every 32)
-                                                        intervalMask = 0x1f;
-                                                    }
-
-                                                    // check send interval
-                                                    if ((obj.positionCount & intervalMask) == 0)
-                                                    {
-                                                        due[dueCount++] = nuid;
-                                                    }
-                                                }
-                                                main.network.SimSender.SendObjectPosition(obj, ref positionVelocity, due[..dueCount]);
-                                            }
-                                            // increment count
-                                            obj.positionCount++;
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            main.MonitorEvent("ERROR - Failed to write position/velocity message: " + ex.Message);
-                                        }
-                                    }
-                                }
-
-                                // check if recording
-                                if (main.recorder.recording && obj.record && obj.Injected == false)
-                                {
-                                    // record position and velocity
-                                    main.recorder.Record(obj.recorderObj, main.ElapsedTime, ref positionVelocity);
-                                }
-                            }
+                            ObjectPositionVelocity positionVelocity = (ObjectPositionVelocity)data;
+                            ProcessObjectPositionVelocity(objectId, ref positionVelocity);
                         }
                         break;
 
                     case Requests.OBJECT_POSITION:
                         {
-                            // get object
-                            Obj obj = objectList.Find(o => o.simId == objectId);
-                            if (obj != null)
-                            {
-                                // check if user object is no longer entered
-                                if (obj.owner != Obj.Owner.Me || enteredAircraft != null)
-                                {
-                                    // get sim position
-                                    ObjectPosition objPosition = (ObjectPosition)data;
-
-                                    // update position
-                                    obj.simPosition = new Pos(ref objPosition);
-                                    // store current time
-                                    obj.simTime = main.ElapsedTime;
-                                }
-                            }
+                            ObjectPosition objPosition = (ObjectPosition)data;
+                            ProcessObjectPosition(objectId, ref objPosition);
                         }
                         break;
 
                     default:
                         if (requestId >= (uint)PositionPollRequestIdBase)
                         {
-                            // per-object AIRCRAFT_POSITION poll response - see PositionPollRequestIdBase
-                            AircraftPosition aircraftPosition = (AircraftPosition)data;
-                            ProcessAircraftPosition(objectId, main.ElapsedTime, ref aircraftPosition);
+                            // per-object position feed or poll (see PositionPollRequestIdBase) - the data's
+                            // type says which definition it was requested with
+                            switch (data)
+                            {
+                                case AircraftPosition aircraftPosition:
+                                    ProcessAircraftPosition(objectId, main.ElapsedTime, ref aircraftPosition);
+                                    break;
+                                case ObjectPositionVelocity positionVelocity:
+                                    ProcessObjectPositionVelocity(objectId, ref positionVelocity);
+                                    break;
+                                case ObjectPosition objPosition:
+                                    ProcessObjectPosition(objectId, ref objPosition);
+                                    break;
+                            }
                         }
                         else if (requestId < (uint)VariableMgr.ScDefinition.ID0)
                         {
@@ -4294,6 +4301,109 @@ namespace JoinFS
                         // update variable
                         aircraft.variableSet ?. DetectSimconnect((VariableMgr.ScRequest)requestId, data);
                     }
+                }
+            }
+        }
+
+        /// <summary>
+        /// A non-aircraft object's position and velocity (our own or one we broadcast)
+        /// </summary>
+        void ProcessObjectPositionVelocity(uint objectId, ref ObjectPositionVelocity positionVelocity)
+        {
+            // get object
+            Obj obj = objectList.Find(o => o.simId == objectId);
+            if (obj == null)
+            {
+                return;
+            }
+
+            // update position
+            obj.simPosition = new Pos(ref positionVelocity);
+            // store current time
+            obj.simTime = main.ElapsedTime;
+            // positions may arrive every frame; the network and the recorder get them at the usual rate
+            bool sendDue = SendDue(obj, obj.simTime);
+
+            // check if user or broadcasting this aircraft
+            if (obj.owner == Obj.Owner.Me || main.network.Connected && IsBroadcast(obj))
+            {
+                // check if not under remote control
+                if (obj.remoteFlightControl == false)
+                {
+                    // update velocity
+                    obj.netVelocity = new Vel(ref positionVelocity);
+                    // store current time
+                    obj.netSimTime = main.ElapsedTime;
+                }
+
+                // check if broadcasting
+                if (sendDue && main.network.Connected)
+                {
+                    try
+                    {
+                        if (IsBroadcast(obj))
+                        {
+                            // get nodes
+                            NodeId[] nodeList = main.network.PeerIds();
+                            // the nodes due an update this tick
+                            Span<NodeId> due = stackalloc NodeId[nodeList.Length];
+                            int dueCount = 0;
+                            // for each node
+                            foreach (var nuid in nodeList)
+                            {
+                                // get remote object
+                                Obj remoteObject = objectList.Find(o => o.ownerNuid == nuid && o is Aircraft && (o as Aircraft).user);
+                                // get interval mask
+                                int intervalMask = GetIntervalMask(obj, remoteObject);
+                                // check if node's simulator is not connected
+                                if (main.network.Peers.GetNodeSimulatorConnected(nuid) == false)
+                                {
+                                    // increase interval (every 32)
+                                    intervalMask = 0x1f;
+                                }
+
+                                // check send interval
+                                if ((obj.positionCount & intervalMask) == 0)
+                                {
+                                    due[dueCount++] = nuid;
+                                }
+                            }
+                            main.network.SimSender.SendObjectPosition(obj, ref positionVelocity, due[..dueCount]);
+                        }
+                        // increment count
+                        obj.positionCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        main.MonitorEvent("ERROR - Failed to write position/velocity message: " + ex.Message);
+                    }
+                }
+            }
+
+            // check if recording
+            if (sendDue && main.recorder.recording && obj.record && obj.Injected == false)
+            {
+                // record position and velocity
+                main.recorder.Record(obj.recorderObj, main.ElapsedTime, ref positionVelocity);
+            }
+    }
+
+        /// <summary>
+        /// An object's position (injected, or not ours to broadcast)
+        /// </summary>
+        void ProcessObjectPosition(uint objectId, ref ObjectPosition objPosition)
+        {
+            // get object
+            Obj obj = objectList.Find(o => o.simId == objectId);
+            if (obj != null)
+            {
+                // check if user object is no longer entered
+                if (obj.owner != Obj.Owner.Me || enteredAircraft != null)
+                {
+                    // update position
+                    obj.simPosition = new Pos(ref objPosition);
+                    // store current time
+                    obj.simTime = main.ElapsedTime;
                 }
             }
         }
@@ -4394,6 +4504,8 @@ namespace JoinFS
                     Obj obj = objectList.Find(o => o.simId == data);
                     if (obj != null)
                     {
+                        // the simulator removed it, and its feed with it
+                        ForgetPositionFeed(obj);
                         // remove object
                         RemoveObjectFromList(obj);
                     }
@@ -5516,11 +5628,15 @@ namespace JoinFS
             simconnect?.ReceiveMsg();
 #endif
 
-            // check for a close requested by a callback
+            // check for a close requested by a callback (once: calls made while closing a broken
+            // connection can ask for another)
             if (scheduleClose)
             {
                 scheduleClose = false;
-                Close();
+                if (Connected)
+                {
+                    Close();
+                }
             }
 #if SIMCONNECT
             else

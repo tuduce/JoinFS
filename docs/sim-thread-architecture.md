@@ -1,8 +1,9 @@
 # Simulator thread: an event-driven home for `Sim`
 
-> **What this document is:** a design proposal (status: **proposed, not implemented**, 2026-09-26).
-> It covers the problem, the design chosen, the alternatives rejected, the corner cases, and a
-> phased migration.
+> **What this document is:** the design and decision record of the simulator thread (status:
+> **implemented**, all phases, 2026-09-26). It covers the problem, the design chosen, the
+> alternatives rejected, the corner cases, and the phased migration. §9 records what was built in
+> each phase and where it differs from this design.
 > - For how the system works today, read `docs/reference/joinfs-architecture.md`.
 > - This proposal copies the threading model of the network stack (`NetworkService`, §5.1 there):
 >   one owning thread, a mailbox for commands, and an immutable snapshot for reads.
@@ -713,5 +714,28 @@ likely causes of stalls.
   - Accepted, not changed: the sim thread reads a few plain values the app thread sets rarely, such
     as `LocalId` (set once the public address is known), `main.settings*` and `Settings.Default`.
   - Checked with a headless CONSOLE run against a fake X-Plane plugin
-    (`fake_xplane_plugin.py`-style UDP stub): the link connects, the user aircraft is listed,
+    (`JoinFS/util/fake_xplane_plugin.py`): the link connects, the user aircraft is listed,
     heartbeats go out every 2 s and variable definitions are exchanged, all on the sim thread.
+- **Phase 3: done (SimConnect builds).**
+  - `RequestPosition` no longer polls. It reconciles one subscription per created object, on the
+    object's own request id (`positionRequestId`), through `SimConnectInterface.SubscribeData`:
+    - every visual frame for objects JoinFS steers (injected), broadcasts or records;
+    - every second for the rest.
+  - Visual frames rather than simulation frames, so positions keep coming while the simulation is
+    paused. No CHANGED flag, so a stationary broadcast object still reports.
+  - Subscriptions change when what an object needs changes. They are cancelled when it leaves the
+    sim or the list, and forgotten when the sim removes it or the connection closes.
+  - Replies are dispatched by data type (`AircraftPosition`, `ObjectPositionVelocity`,
+    `ObjectPosition`).
+  - The network send and the recorder stay at 20 Hz (`Sim.SendDue`, `PositionSendInterval`).
+    So bandwidth, `positionCount` and the `IntervalMask` cadence are unchanged, while `simPosition`
+    and `simTime` now update every frame for the steering (the formation-flying gain in §8's
+    analysis).
+  - Safety net: when an object's feed goes quiet (0.25 s for frame feeds, 2.5 s for per-second
+    feeds), it is polled as before on a separate request id until the feed resumes.
+  - **Decided, not changed: `RequestInfo` stays a 2 s by-type sweep.** It is what applies the
+    10 km radius and keeps simulator-owned objects from expiring, and `ObjectAdded` fires for
+    objects at any distance, so replacing the sweep would list far-away AI traffic.
+  - Also fixed: a deferred close only runs while still connected, so calls failing during the
+    close of a broken connection can't close it twice.
+  - Tests: `PositionSendRateTests`. Needs a field test with MSFS for the feeds themselves (§7).
