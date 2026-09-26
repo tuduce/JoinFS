@@ -52,7 +52,7 @@
             resources.ApplyResources(this.DataGrid_AtcList, "DataGrid_AtcList");
             this.DataGrid_AtcList.AllowUserToAddRows = false;
             this.DataGrid_AtcList.AllowUserToDeleteRows = false;
-            this.DataGrid_AtcList.AllowUserToResizeColumns = false;
+            this.DataGrid_AtcList.AllowUserToResizeColumns = true;
             this.DataGrid_AtcList.AllowUserToResizeRows = false;
             this.DataGrid_AtcList.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.AllCells;
             this.DataGrid_AtcList.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;

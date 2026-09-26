@@ -3533,6 +3533,29 @@ namespace JoinFS
             Read<AircraftPosition>(version, aircraftPositionVersions, reader, ref aircraftPosition);
         }
 
+        // Latitude/longitude/pitch/bank/heading are radians at this layer; altitude is metres.
+        // A decode that landed on the wrong byte boundary (e.g. a peer/hub on a different wire
+        // format, or a corrupt/incompatible recording file) produces non-finite or absurd values -
+        // callers use these to drop the frame/packet and keep the last good state instead of
+        // publishing/relaying/applying garbage.
+        public static bool PlausibleAircraftPosition(in AircraftPosition p)
+        {
+            return double.IsFinite(p.latitude) && double.IsFinite(p.longitude) && double.IsFinite(p.altitude)
+                && float.IsFinite(p.pitch) && float.IsFinite(p.bank) && float.IsFinite(p.heading)
+                && float.IsFinite(p.velocityX) && float.IsFinite(p.velocityY) && float.IsFinite(p.velocityZ)
+                && Math.Abs(p.latitude) <= 3.2 && Math.Abs(p.longitude) <= 6.4
+                && p.altitude >= -2000.0 && p.altitude <= 200000.0;
+        }
+
+        public static bool PlausibleObjectPositionVelocity(in ObjectPositionVelocity p)
+        {
+            return double.IsFinite(p.latitude) && double.IsFinite(p.longitude) && double.IsFinite(p.altitude)
+                && float.IsFinite(p.pitch) && float.IsFinite(p.bank) && float.IsFinite(p.heading)
+                && float.IsFinite(p.velocityX) && float.IsFinite(p.velocityY) && float.IsFinite(p.velocityZ)
+                && Math.Abs(p.latitude) <= 3.2 && Math.Abs(p.longitude) <= 6.4
+                && p.altitude >= -2000.0 && p.altitude <= 200000.0;
+        }
+
         /// <summary>
         /// Write integer variables to a stream
         /// </summary>

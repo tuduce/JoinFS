@@ -41,7 +41,7 @@
             resources.ApplyResources(this.DataGrid_Options, "DataGrid_Options");
             this.DataGrid_Options.AllowUserToAddRows = false;
             this.DataGrid_Options.AllowUserToDeleteRows = false;
-            this.DataGrid_Options.AllowUserToResizeColumns = false;
+            this.DataGrid_Options.AllowUserToResizeColumns = true;
             this.DataGrid_Options.AllowUserToResizeRows = false;
             this.DataGrid_Options.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.AllCells;
             this.DataGrid_Options.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
