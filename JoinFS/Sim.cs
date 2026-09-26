@@ -4585,6 +4585,10 @@ namespace JoinFS
         readonly HashSet<Requests> pendingModelListRequests = [];
         public void ProcessModelList(SIMCONNECT_RECV_ENUMERATE_SIMOBJECT_AND_LIVERY_LIST data)
         {
+            // copy the entries out of the message. Submitting them reads each model's aircraft.cfg
+            // from disk, so it runs in Substitution's background queue, never on the sim thread
+            Substitution substitution = main.substitution;
+            List<(string title, string livery)> entries = new((int)data.dwArraySize);
             for (int i = 0; i < data.dwArraySize; ++i)
 	        {
 		        SIMCONNECT_ENUMERATE_SIMOBJECT_LIVERY element = (SIMCONNECT_ENUMERATE_SIMOBJECT_LIVERY) data.rgData[i];
@@ -4594,9 +4598,18 @@ namespace JoinFS
                     // This is not totally correct in MSFS2024, since variation
                     // is "Passengers" or "Cargo" and not the livery.
                     // In MSFS2024 the variation is embedded in the model name.
-                    main.substitution.SubmitModel(element.AircraftTitle, "", element.AircraftTitle, element.LiveryName, 0, "MSFS2024");
-                    // main.MonitorEvent("Model " + element.AircraftTitle + " livery " + element.LiveryName);
+                    entries.Add((element.AircraftTitle, element.LiveryName));
                 }
+            }
+            if (substitution != null && entries.Count > 0)
+            {
+                substitution.RunInBackground(() =>
+                {
+                    foreach (var (title, livery) in entries)
+                    {
+                        substitution.SubmitModel(title, "", title, livery, 0, "MSFS2024");
+                    }
+                });
             }
             // main.MonitorEvent("Read " + data.dwArraySize + " models from the simulator.");
             if (data.dwEntryNumber + 1 == data.dwOutOf)
@@ -4608,8 +4621,6 @@ namespace JoinFS
                     // still waiting on the other enumeration calls
                     return;
                 }
-
-                main.MonitorEvent("All models from the simulator ingested.");
 
                 // TODO: cleanup code
                 //if (main.settingsUseAIFeatures)
@@ -4623,28 +4634,43 @@ namespace JoinFS
                 //    });
                 //}
 
-                requestModelListInProgress = false;
+                bool verbose = requestModelListIsVerbose;
+                requestModelListIsVerbose = false;
 
-                if (requestModelListIsVerbose)
+                // after every submission queued before it
+                void Finish()
                 {
-                    // check for models scanned
-                    if (main.substitution.models.Count > 0)
+                    main.MonitorEvent("All models from the simulator ingested.");
+                    requestModelListInProgress = false;
+
+                    if (verbose)
                     {
-                        main.scheduleShowMessage = Resources.Strings.FoundPrefix + " " + main.substitution.models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
+                        // check for models scanned
+                        if (main.substitution.models.Count > 0)
+                        {
+                            main.scheduleShowMessage = Resources.Strings.FoundPrefix + " " + main.substitution.models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
+                        }
+                        else
+                        {
+                            main.scheduleShowMessage = "No models found";
+                        }
                     }
-                    else
+                    // rebuild ICAO indexes now that all three enumeration requests have populated models[]
+                    main.substitution?.MakeIcaoIndex();
+                    // at the very end
+                    main.EnqueueCommand(() =>
                     {
-                        main.scheduleShowMessage = "No models found";
-                    }
-                    requestModelListIsVerbose = false;
+                        main.substitution?.Match();
+                    });
                 }
-                // rebuild ICAO indexes now that all three enumeration requests have populated models[]
-                main.substitution?.MakeIcaoIndex();
-                // at the very end
-                main.EnqueueCommand(() =>
+                if (substitution != null)
                 {
-                    main.substitution?.Match();
-                });
+                    substitution.RunInBackground(Finish);
+                }
+                else
+                {
+                    requestModelListInProgress = false;
+                }
             }
         }
 #endif

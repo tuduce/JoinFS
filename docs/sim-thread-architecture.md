@@ -685,3 +685,21 @@ likely causes of stalls.
   - Saving: `CopyForSave` (sim thread) copies the objects and frame lists, and `Write(writer,
     objects)` writes them on the caller's thread.
   - `MainForm.CheckRecording` no longer holds `conch` while it shows the save dialog and saves.
+- **Phase 2d: done.**
+  - Substitution's collections are copy-on-write: `models`, the ICAO indexes (one `ModelIndexes`
+    object), `matches`, `masquerades`, `prefixList`, `modelBanList`, and the package and title
+    folder indexes. Readers take no lock. Writers build a new collection (or a copy) under the short
+    `writeLock` and swap the reference.
+  - Deviation from §2.4: rather than a separate overlay, a live addition outside a scan copies the
+    list and publishes it at once. Readers still never block, and one copy per added model is cheap
+    at these sizes.
+  - `Scan` holds `scanLock` for its run. It builds a private list, published before FS2024's model
+    enumeration is requested, and owns the `scan*` fields. `SubmitModel` calls from other threads
+    during a scan are queued and applied when it ends.
+  - The FS2024 model enumeration (`Sim.ProcessModelList`) hands its entries to Substitution's
+    background serial queue, so the per-model aircraft.cfg reads and the completion work run off the
+    sim thread.
+  - The sim thread never builds or waits for the folder indexes: when one isn't ready, it queues a
+    background build and does without the index for that object.
+  - `ApplyMasquerade` runs on the sim thread. Every `main.conch` lock inside Substitution is gone.
+  - Tests: `SubstitutionConcurrencyTests`.
