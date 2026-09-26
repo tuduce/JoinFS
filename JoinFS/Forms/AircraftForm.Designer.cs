@@ -86,7 +86,7 @@
             resources.ApplyResources(this.DataGrid_AircraftList, "DataGrid_AircraftList");
             this.DataGrid_AircraftList.AllowUserToAddRows = false;
             this.DataGrid_AircraftList.AllowUserToDeleteRows = false;
-            this.DataGrid_AircraftList.AllowUserToResizeColumns = false;
+            this.DataGrid_AircraftList.AllowUserToResizeColumns = true;
             this.DataGrid_AircraftList.AllowUserToResizeRows = false;
             this.DataGrid_AircraftList.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.AllCells;
             this.DataGrid_AircraftList.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
