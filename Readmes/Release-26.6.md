@@ -102,6 +102,11 @@ in 26.6.
 - **Every list/grid dialog's columns can now be resized manually.** Previously
   every grid in the app disabled manual column resizing, so a column driven
   too wide by any cause had no way to be shrunk back.
+- **The WebSocket feed now marks replayed/AI traffic.** Each aircraft record
+  carries a new `trafficType` field (`pilot` | `recorded` | `ai`), mirroring
+  the desktop Aircraft Dialog's existing `(R)`/`(A)` distinction, so a map
+  consumer can tell a Recorder-replayed or other non-pilot aircraft apart
+  from a real pilot's.
 
 ## Limitations
 
