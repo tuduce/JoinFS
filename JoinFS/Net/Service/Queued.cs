@@ -151,13 +151,15 @@ namespace JoinFS.Net
         System.Net.IPEndPoint from;
         byte[] buffer;
         int length;
+        double receivedAt;
 
-        public static DatagramWork Rent(System.Net.IPEndPoint from, byte[] buffer, int length)
+        public static DatagramWork Rent(System.Net.IPEndPoint from, byte[] buffer, int length, double receivedAt)
         {
             if (!pool.TryDequeue(out DatagramWork item)) item = new DatagramWork();
             item.from = from;
             item.buffer = buffer;
             item.length = length;
+            item.receivedAt = receivedAt;
             return item;
         }
 
@@ -165,7 +167,7 @@ namespace JoinFS.Net
         {
             try
             {
-                core.OnDatagram(from, buffer.AsSpan(0, length));
+                core.OnDatagram(from, buffer.AsSpan(0, length), receivedAt);
             }
             finally
             {

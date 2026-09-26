@@ -104,6 +104,14 @@ namespace JoinFS.Net
         /// <summary>Inbound: the message reached us through a relay rather than directly from the sender.</summary>
         public bool Forwarded;
 
+        /// <summary>
+        /// Inbound: when the datagram carrying this message arrived here, in the network clock's
+        /// seconds (<see cref="IClock.Now"/>); 0 when unknown. The app uses it so the time a message
+        /// waits in queues before it is applied doesn't distort position extrapolation. In-process
+        /// only - never on the wire.
+        /// </summary>
+        public double ReceivedAt;
+
         public static MessageMeta To(NodeId recipient, bool guaranteed = false) =>
             new() { Recipient = recipient, Guaranteed = guaranteed };
 

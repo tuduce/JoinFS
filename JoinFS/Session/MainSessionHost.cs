@@ -125,14 +125,14 @@ namespace JoinFS
             }
         }
 
-        public void UpdateAircraft(NodeId owner, in IdentityUpdate identity, bool user, string nickname, in PositionUpdate position)
+        public void UpdateAircraft(NodeId owner, in IdentityUpdate identity, bool user, string nickname, in PositionUpdate position, double receivedAt)
         {
             Sim sim = main.sim;
             if (sim == null) return;
             Sim.AircraftPosition aircraftPosition = SimMessageMapper.ToAircraftPosition(position);
             Sim.Aircraft aircraft = sim.UpdateAircraft(owner, position.ObjectId, user, identity.IsPlane, identity.Callsign, identity.Registration, nickname,
                 identity.Model, identity.Livery, identity.IcaoType, identity.IcaoAirline, identity.FlightNumber, identity.ClassCode, identity.Wtc,
-                identity.ClassCodeConfirmed, identity.TypeRole, position.NetTime, ref aircraftPosition);
+                identity.ClassCodeConfirmed, identity.TypeRole, position.NetTime, ref aircraftPosition, receivedAt);
             if (aircraft != null)
             {
                 aircraft.paused = (position.StateFlags & PositionStateFlags.Paused) != 0;
@@ -143,20 +143,20 @@ namespace JoinFS
             }
         }
 
-        public void UpdateOwnAircraft(in PositionUpdate position)
+        public void UpdateOwnAircraft(in PositionUpdate position, double receivedAt)
         {
             Sim sim = main.sim;
             if (sim?.userAircraft == null) return;
-            sim.UpdateAircraft(sim.userAircraft, position.NetTime, SimMessageMapper.ToAircraftPosition(position));
+            sim.UpdateAircraft(sim.userAircraft, position.NetTime, SimMessageMapper.ToAircraftPosition(position), receivedAt);
         }
 
-        public void UpdateObject(NodeId owner, in IdentityUpdate identity, in ObjectPositionUpdate position)
+        public void UpdateObject(NodeId owner, in IdentityUpdate identity, in ObjectPositionUpdate position, double receivedAt)
         {
             Sim sim = main.sim;
             if (sim == null) return;
             Sim.ObjectPositionVelocity positionVelocity = SimMessageMapper.ToPositionVelocity(position);
             Sim.Obj simObject = sim.UpdateObject(owner, position.ObjectId, identity.Model, identity.Livery, identity.IcaoType, identity.IcaoAirline,
-                identity.ClassCode, identity.Wtc, identity.ClassCodeConfirmed, identity.TypeRole, position.NetTime, ref positionVelocity);
+                identity.ClassCode, identity.Wtc, identity.ClassCodeConfirmed, identity.TypeRole, position.NetTime, ref positionVelocity, receivedAt);
             if (simObject != null)
             {
                 simObject.paused = (position.StateFlags & PositionStateFlags.Paused) != 0;

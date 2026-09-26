@@ -95,6 +95,10 @@ namespace JoinFS
     /// <summary>
     /// What network data does to the simulator and the recorder. Every method is a no-op when no
     /// simulator is running.
+    ///
+    /// <c>receivedAt</c> on the position methods is when the datagram arrived
+    /// (<see cref="MessageMeta.ReceivedAt"/>; 0 when unknown), so position extrapolation doesn't
+    /// count the time the update spent in queues.
     /// </summary>
     public interface ISimSink
     {
@@ -111,13 +115,13 @@ namespace JoinFS
         void ChangeIdentity(NodeId owner, in IdentityUpdate identity);
 
         /// <summary>Create or move a remote aircraft (and record it if it's being recorded).</summary>
-        void UpdateAircraft(NodeId owner, in IdentityUpdate identity, bool user, string nickname, in PositionUpdate position);
+        void UpdateAircraft(NodeId owner, in IdentityUpdate identity, bool user, string nickname, in PositionUpdate position, double receivedAt);
 
         /// <summary>Move our own aircraft (shared cockpit: someone else has the flight controls).</summary>
-        void UpdateOwnAircraft(in PositionUpdate position);
+        void UpdateOwnAircraft(in PositionUpdate position, double receivedAt);
 
         /// <summary>Create or move a remote non-aircraft object (and record it if it's being recorded).</summary>
-        void UpdateObject(NodeId owner, in IdentityUpdate identity, in ObjectPositionUpdate position);
+        void UpdateObject(NodeId owner, in IdentityUpdate identity, in ObjectPositionUpdate position, double receivedAt);
 
         void UpdateVariables(NodeId owner, uint netId, Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> string8s, bool record);
 

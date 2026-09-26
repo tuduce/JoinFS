@@ -133,6 +133,8 @@ namespace JoinFS.Tests.Session
         public readonly List<string> Weather = [];
         public readonly List<(NodeId Node, ShareCockpitFlags Share)> Shares = [];
         public readonly List<NodeId> NicknameChanges = [];
+        /// <summary>The receivedAt passed with each position (aircraft, own aircraft and objects), in order.</summary>
+        public readonly List<double> PositionReceivedAt = [];
 
         public bool TryGetOwnAircraft(out NodeId owner, out uint netId)
         {
@@ -142,9 +144,21 @@ namespace JoinFS.Tests.Session
         }
 
         public void ChangeIdentity(NodeId owner, in IdentityUpdate identity) => IdentityChanges.Add((owner, identity));
-        public void UpdateAircraft(NodeId owner, in IdentityUpdate identity, bool user, string nickname, in PositionUpdate position) => Aircraft.Add((owner, identity, user, nickname, position));
-        public void UpdateOwnAircraft(in PositionUpdate position) => OwnAircraftPositions.Add(position);
-        public void UpdateObject(NodeId owner, in IdentityUpdate identity, in ObjectPositionUpdate position) => Objects.Add((owner, identity, position));
+        public void UpdateAircraft(NodeId owner, in IdentityUpdate identity, bool user, string nickname, in PositionUpdate position, double receivedAt)
+        {
+            Aircraft.Add((owner, identity, user, nickname, position));
+            PositionReceivedAt.Add(receivedAt);
+        }
+        public void UpdateOwnAircraft(in PositionUpdate position, double receivedAt)
+        {
+            OwnAircraftPositions.Add(position);
+            PositionReceivedAt.Add(receivedAt);
+        }
+        public void UpdateObject(NodeId owner, in IdentityUpdate identity, in ObjectPositionUpdate position, double receivedAt)
+        {
+            Objects.Add((owner, identity, position));
+            PositionReceivedAt.Add(receivedAt);
+        }
         public void UpdateVariables(NodeId owner, uint netId, Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> string8s, bool record) =>
             Variables.Add((owner, netId, integers, floats, string8s, record));
         public void ApplyEvent(NodeId owner, uint netId, uint eventId, uint data, bool flightControls, bool record) => Events.Add((owner, netId, eventId, data, flightControls, record));

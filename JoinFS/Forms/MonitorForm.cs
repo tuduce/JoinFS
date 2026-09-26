@@ -79,31 +79,22 @@ namespace JoinFS
             // check for monitor
             if (main.monitor != null)
             {
-                lock (main.conch)
-                {
-                    // check for more than 50 lines
-                    if (main.monitor.lines.Count > 50)
-                    {
-                        // add line to window
-                        Text_Events.Text += "[Click 'View Logs' to see full log files]" + "\r\n";
-                        Text_Events.Text += "..." + "\r\n";
+                // copy the last 50 lines
+                string[] lines = main.monitor.CopyLines(50, out int total);
 
-                        // for each line
-                        for (int count = 0; count < 50; count++)
-                        {
-                            // add line to window
-                            Text_Events.Text += main.monitor.lines[main.monitor.lines.Count - 50 + count] + "\r\n";
-                        }
-                    }
-                    else
-                    {
-                        // for each line
-                        foreach (var line in main.monitor.lines)
-                        {
-                            // add line to window
-                            Text_Events.Text += line + "\r\n";
-                        }
-                    }
+                // check for more than 50 lines
+                if (total > 50)
+                {
+                    // add line to window
+                    Text_Events.Text += "[Click 'View Logs' to see full log files]" + "\r\n";
+                    Text_Events.Text += "..." + "\r\n";
+                }
+
+                // for each line
+                foreach (var line in lines)
+                {
+                    // add line to window
+                    Text_Events.Text += line + "\r\n";
                 }
             }
 

@@ -40,9 +40,13 @@ namespace JoinFS.Tests.Legacy
         public void Receive_DeliversPayloadAfterHeader()
         {
             var link = new XPlaneLink(lanOctet: 1);
+            // datagrams are handed to the owner thread (the sim thread in the app); here, this test's thread
+            var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+            link.post = posted.Enqueue;
             Assert.True(link.Open(49102));
             string? got = null;
-            link.receiveNotify = (_, _, reader) => { reader.ReadInt16(); got = reader.ReadString(); };
+            int? handledOn = null;
+            link.receiveNotify = (_, _, reader) => { reader.ReadInt16(); got = reader.ReadString(); handledOn = Environment.CurrentManagedThreadId; };
 
             using var plugin = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
             byte[] datagram = LegacyDatagrams.Build(default, default, false, false, 0, w => { w.Write((short)5); w.Write("hello"); });
@@ -50,11 +54,12 @@ namespace JoinFS.Tests.Legacy
             var deadline = DateTime.UtcNow.AddSeconds(2);
             while (got == null && DateTime.UtcNow < deadline)
             {
-                link.DoWork();
+                while (posted.TryDequeue(out Action? handle)) handle();
                 Thread.Sleep(5);
             }
             link.Close();
             Assert.Equal("hello", got);
+            Assert.Equal(Environment.CurrentManagedThreadId, handledOn);
         }
     }
 }

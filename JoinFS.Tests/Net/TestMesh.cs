@@ -13,10 +13,13 @@ namespace JoinFS.Tests.Net
         public readonly List<NetworkEvent> Events = [];
         public readonly List<string> Logs = [];
 
+        /// <summary>Arrival time to pass with each datagram (null: let the core use its clock).</summary>
+        public Func<double>? ReceiveTime;
+
         public TestNode(TestMesh mesh, string ip, ushort port, string publicIp, params IProtocolPlugin[] plugins)
         {
             EndPoint = new IPEndPoint(IPAddress.Parse(ip), port);
-            InMemoryTransport transport = mesh.Network.Attach(EndPoint, (from, data) => Core!.OnDatagram(from, data));
+            InMemoryTransport transport = mesh.Network.Attach(EndPoint, (from, data) => Core!.OnDatagram(from, data, ReceiveTime?.Invoke() ?? 0));
             Core = new NetworkCore(transport, mesh.Clock, this) { IsOpen = true };
             Core.Identity.LocalAddress = EndPoint.Address;
             Core.Identity.InternetAddress = publicIp == null ? EndPoint.Address : IPAddress.Parse(publicIp);

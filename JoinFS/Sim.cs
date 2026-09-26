@@ -1152,6 +1152,7 @@ namespace JoinFS
         {
             // set schedule
             scheduleRemoveObjects = true;
+            WakeSimThread();
         }
 
         /// <summary>
@@ -1187,6 +1188,7 @@ namespace JoinFS
         {
             // set schedule
             scheduleRemove ??= model;
+            WakeSimThread();
         }
 
         /// <summary>
@@ -1370,8 +1372,13 @@ namespace JoinFS
         /// </summary>
         /// <param name="obj">Object</param>
         /// <param name="netTime">Network time</param>
-        public void UpdateObject(Obj obj, double netTime)
+        /// <param name="receivedAt">Local time (ElapsedTime) the update arrived; 0 when it did not come
+        /// off the network (recorder playback, local updates), meaning "now". Using the arrival time
+        /// instead of the time the update is processed keeps queueing delays out of the extrapolation.</param>
+        public void UpdateObject(Obj obj, double netTime, double receivedAt = 0.0)
         {
+            // local time of this update - never before the previous one, so time only moves forward
+            double localTime = receivedAt > 0.0 ? Math.Max(receivedAt, obj.netSimTime) : main.ElapsedTime;
             // store remote state time
             obj.netStateTime = netTime;
             // check for first update
@@ -1385,14 +1392,14 @@ namespace JoinFS
             else
             {
                 // update estimated network time
-                obj.netRealTime += main.ElapsedTime - obj.netSimTime;
+                obj.netRealTime += localTime - obj.netSimTime;
                 // calculate error between network update and estimated time
                 double error = obj.netStateTime - obj.netRealTime;
                 // gradually merge to remove error over time
                 obj.netRealTime += error * TIME_ERROR_RATE;
             }
             // store local time at which state was updated
-            obj.netSimTime = main.ElapsedTime;
+            obj.netSimTime = localTime;
         }
 
         /// <summary>
@@ -1401,7 +1408,7 @@ namespace JoinFS
         /// <param name="obj">Object</param>
         /// <param name="netTime">Network time</param>
         /// <param name="positionVelocity">Position and Velocity</param>
-        public void UpdateObject(Obj obj, double netTime, ref ObjectPositionVelocity positionVelocity)
+        public void UpdateObject(Obj obj, double netTime, ref ObjectPositionVelocity positionVelocity, double receivedAt = 0.0)
         {
             // check for first update and reject old updates
             if (obj.NetValid == false || netTime > obj.netStateTime)
@@ -1414,7 +1421,7 @@ namespace JoinFS
                 obj.netVelocity = new Vel(ref positionVelocity);
 
                 // update network time
-                UpdateObject(obj, netTime);
+                UpdateObject(obj, netTime, receivedAt);
             }
         }
 
@@ -1424,7 +1431,7 @@ namespace JoinFS
         /// <param name="ownerGuid">Owner of the object</param>
         /// <param name="netId">Owner's sim ID</param>
         /// <param name="engine">Aircraft engine</param>
-        public Obj UpdateObject(NodeId ownerNuid, uint netId, string model, string livery, string icaoType, string icaoAirline, string classCode, string wtc, bool classCodeConfirmed, int typerole, double netTime, ref ObjectPositionVelocity positionVelocity)
+        public Obj UpdateObject(NodeId ownerNuid, uint netId, string model, string livery, string icaoType, string icaoAirline, string classCode, string wtc, bool classCodeConfirmed, int typerole, double netTime, ref ObjectPositionVelocity positionVelocity, double receivedAt = 0.0)
         {
             // get object
             Obj obj = objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId);
@@ -1439,7 +1446,7 @@ namespace JoinFS
                 // model
                 UpdateObject(obj, model, livery, icaoType, icaoAirline, classCode, wtc, classCodeConfirmed, typerole);
                 // update position and velocity
-                UpdateObject(obj, netTime, ref positionVelocity);
+                UpdateObject(obj, netTime, ref positionVelocity, receivedAt);
                 // create variables
                 CreateModelVariables(obj);
                 // add to object list
@@ -1468,7 +1475,7 @@ namespace JoinFS
                 else
                 {
                     // update position and velocity
-                    UpdateObject(obj, netTime, ref positionVelocity);
+                    UpdateObject(obj, netTime, ref positionVelocity, receivedAt);
                 }
 
                 return obj;
@@ -2020,7 +2027,7 @@ namespace JoinFS
         /// <param name="aircraft">Aircraft</param>
         /// <param name="netTime">Network time</param>
         /// <param name="positionVelocity">Position and Velocity</param>
-        public void UpdateAircraft(Aircraft aircraft, double netTime, AircraftPosition aircraftPosition)
+        public void UpdateAircraft(Aircraft aircraft, double netTime, AircraftPosition aircraftPosition, double receivedAt = 0.0)
         {
             // set expire time - mirrors the other UpdateAircraft overload (used by the legacy
             // AircraftPosition receive path), which refreshes this unconditionally on every position
@@ -2219,7 +2226,7 @@ namespace JoinFS
                     aircraft.netVelocity = new Vel(ref aircraftPosition);
 
                     // update network time
-                    UpdateObject(aircraft, netTime);
+                    UpdateObject(aircraft, netTime, receivedAt);
 
 #if XPLANE || CONSOLE
                     // update simulator
@@ -2275,7 +2282,7 @@ namespace JoinFS
         /// <param name="ownerGuid">Owner of the aircraft</param>
         /// <param name="netId">Owner's sim ID</param>
         /// <param name="engine">Aircraft engine</param>
-        public Aircraft UpdateAircraft(NodeId ownerNuid, uint netId, bool user, bool plane, string callsign, string registration, string nickname, string model, string livery, string icaoType, string icaoAirline, string flightNumber, string classCode, string wtc, bool classCodeConfirmed, int typerole, double netTime, ref AircraftPosition aircraftPosition)
+        public Aircraft UpdateAircraft(NodeId ownerNuid, uint netId, bool user, bool plane, string callsign, string registration, string nickname, string model, string livery, string icaoType, string icaoAirline, string flightNumber, string classCode, string wtc, bool classCodeConfirmed, int typerole, double netTime, ref AircraftPosition aircraftPosition, double receivedAt = 0.0)
         {
             // check for valid aircraft
             if ((objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId) is not Aircraft aircraft))
@@ -2366,7 +2373,7 @@ namespace JoinFS
                     aircraft.flightPlan.registration = registration;
                     aircraft.flightPlan.flightNumber = flightNumber;
                     // update position and velocity
-                    UpdateAircraft(GetControlledObject(aircraft) as Aircraft, netTime, aircraftPosition);
+                    UpdateAircraft(GetControlledObject(aircraft) as Aircraft, netTime, aircraftPosition, receivedAt);
                 }
             }
 
@@ -2607,6 +2614,7 @@ namespace JoinFS
             // check if not scheduled
             // set scheduled follow
             followAircraft ??= aircraft;
+            WakeSimThread();
         }
 
         /// <summary>
@@ -2667,6 +2675,7 @@ namespace JoinFS
             // check if not scheduled
             // schedule
             enterAircraft ??= aircraft;
+            WakeSimThread();
         }
 
         /// <summary>
@@ -2752,6 +2761,7 @@ namespace JoinFS
         {
             // leave
             leaveAircraft = true;
+            WakeSimThread();
         }
 
         /// <summary>
@@ -2896,6 +2906,7 @@ namespace JoinFS
         {
             // schedule metar change
             scheduleMetar ??= metar;
+            WakeSimThread();
         }
 
         /// <summary>
@@ -3092,6 +3103,46 @@ namespace JoinFS
 #endif
 
         /// <summary>
+        /// Signalled when the simulator has messages waiting (null when there is nothing to wait on)
+        /// </summary>
+#if SIMCONNECT
+        public System.Threading.WaitHandle MessageEvent => simconnect?.MessageEvent;
+#else
+        public System.Threading.WaitHandle MessageEvent => null;
+#endif
+
+        /// <summary>
+        /// Periodic work, polled by DoWork
+        /// </summary>
+        Timer[] scheduledTimers;
+
+        /// <summary>
+        /// When DoWork next has timed work to do (ElapsedTime). The sim thread sleeps until then
+        /// unless the simulator, a post or a datagram wakes it first.
+        /// </summary>
+        public double NextDue(double now)
+        {
+            scheduledTimers ??= [objectProcessTimer, requestInfoTimer, requestPositionTimer, requestWeatherTimer, trackingTimer, variablesTimer, flightPlanTimer, updateIntervalsTimer];
+            double next = double.MaxValue;
+            foreach (Timer timer in scheduledTimers)
+            {
+                next = Math.Min(next, timer.Due);
+            }
+            if (checkConnectionCount < CHECK_CONNECTION_ATTEMPTS)
+            {
+                next = Math.Min(next, checkConnectionTimer.Due);
+            }
+            if (creatingObject != null)
+            {
+                next = Math.Min(next, creatingObjectExpireTime);
+            }
+#if XPLANE || CONSOLE
+            next = Math.Min(next, xplane.NextDue());
+#endif
+            return next;
+        }
+
+        /// <summary>
         /// Is a simulator currently connecting
         /// </summary>
         public bool Connecting { get { return Connected == false && checkConnectionCount < CHECK_CONNECTION_ATTEMPTS; } }
@@ -3104,6 +3155,28 @@ namespace JoinFS
             // reset connection attempts
             checkConnectionCount = 0;
             checkConnectionTimer.Reset();
+        }
+
+        /// <summary>
+        /// Run DoWork on the sim thread now, for work scheduled from another thread
+        /// </summary>
+        void WakeSimThread()
+        {
+            main.simService?.Wake();
+        }
+
+        /// <summary>
+        /// Close requested from inside a simulator callback (lost connection, quit)
+        /// </summary>
+        volatile bool scheduleClose = false;
+
+        /// <summary>
+        /// Close the connection once the current dispatch has finished. Closing inside a
+        /// SimConnect callback would dispose the connection while it is still dispatching.
+        /// </summary>
+        public void ScheduleClose()
+        {
+            scheduleClose = true;
         }
 
         /// <summary>
@@ -3133,6 +3206,7 @@ namespace JoinFS
             xplane.Close();
 #elif SIMCONNECT
             // close simconnect
+            simconnect?.Dispose();
             simconnect = null;
 #endif
             simulatorName = "";
@@ -3183,6 +3257,7 @@ namespace JoinFS
                     else
                     {
                         // delete simconnect
+                        simconnect.Dispose();
                         simconnect = null;
                     }
                 }
@@ -3770,10 +3845,6 @@ namespace JoinFS
             main.objectsForm ?. refresher.Schedule(3);
 #endif
 
-#if SIMCONNECT
-            // close simconnect
-            simconnect = null;
-#endif
             // reset variable manager
             main.variableMgr.Reset();
             // load model variables
@@ -4259,6 +4330,11 @@ namespace JoinFS
         /// </summary>
         public int frameCount = 0;
 
+        /// <summary>
+        /// A FRAME event arrived during the current dispatch
+        /// </summary>
+        bool frameDue = false;
+
         public void ProcessEventFrame(uint eventId)
         {
             switch ((Event)eventId)
@@ -4266,19 +4342,33 @@ namespace JoinFS
                 case Event.FRAME:
                     // increment update counter
                     frameCount++;
-
-                    // for each object
-                    foreach (var obj in objectList)
-                    {
-                        // check for aerobatics
-//                        if (Math.Abs(obj.simPosition.angles.x) > Math.PI * 0.25 || Math.Abs(obj.simPosition.angles.z) > Math.PI * 0.5)
-                        {
-                            // update object velocity
-                            UpdateSimObjectVelocity(obj);
-                        }
-                    }
-
+                    // steer once the dispatch has finished (ProcessFrame), so several FRAME events
+                    // queued during a stall produce one pass, using the freshest sim positions
+                    frameDue = true;
                     break;
+            }
+        }
+
+        /// <summary>
+        /// Per-frame work, once per dispatch that contained a FRAME event
+        /// </summary>
+        void ProcessFrame()
+        {
+            if (frameDue == false)
+            {
+                return;
+            }
+            frameDue = false;
+
+            // for each object
+            foreach (var obj in objectList)
+            {
+                // check for aerobatics
+//                if (Math.Abs(obj.simPosition.angles.x) > Math.PI * 0.25 || Math.Abs(obj.simPosition.angles.z) > Math.PI * 0.5)
+                {
+                    // update object velocity
+                    UpdateSimObjectVelocity(obj);
+                }
             }
         }
 
@@ -4411,8 +4501,8 @@ namespace JoinFS
         }
 
 #if FS2024
-        public bool requestModelListInProgress = false;
-        public bool requestModelListIsVerbose = false;
+        public volatile bool requestModelListInProgress = false;
+        public volatile bool requestModelListIsVerbose = false;
         /// <summary>
         /// Enumeration requests (aircraft/helicopter/balloon) still awaiting completion
         /// </summary>
@@ -4485,8 +4575,8 @@ namespace JoinFS
 
         public void ProcessQuit()
         {
-            // close
-            Close();
+            // close once the dispatch has finished
+            ScheduleClose();
         }
 
         public void ProcessException(uint exception)
@@ -5321,6 +5411,20 @@ namespace JoinFS
 #if SIMCONNECT
             // process messages
             simconnect?.ReceiveMsg();
+#endif
+
+            // check for a close requested by a callback
+            if (scheduleClose)
+            {
+                scheduleClose = false;
+                Close();
+            }
+#if SIMCONNECT
+            else
+            {
+                // steer objects once for the frames just received
+                ProcessFrame();
+            }
 #endif
 
             // default user location

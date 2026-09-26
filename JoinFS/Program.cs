@@ -81,6 +81,11 @@ namespace JoinFS
 
         // modules
         public Sim sim;
+
+        /// <summary>
+        /// The sim thread: runs Sim and the Recorder (docs/sim-thread-architecture.md)
+        /// </summary>
+        public SimService simService;
         public Network network;
         public Substitution substitution;
         public Recorder recorder;
@@ -180,6 +185,16 @@ namespace JoinFS
                 _workThread.Join(5000);
             }
 
+            // stop the sim thread - it closes the simulator link on its own thread
+            if (simService != null)
+            {
+                simService.Stop();
+            }
+            else
+            {
+                sim?.Close();
+            }
+
             // close systems
             if (network != null)
             {
@@ -188,7 +203,6 @@ namespace JoinFS
                 // monitor
                 MonitorEvent("Closed UDP port " + network.LocalId.port);
             }
-            sim ?. Close();
 #if CONSOLE
             webSocketServer?.Close();
 #endif
@@ -196,15 +210,16 @@ namespace JoinFS
             Settings.Default.Save();
         }
 
-        // record time at launch
-        readonly Stopwatch stopwatch;
+        // ElapsedTime at launch
+        public double StartTime { get; private set; }
 
-        // get time since launch
+        // local time in seconds. Same clock as the network stack (SystemClock), so times stamped
+        // on the network side (MessageMeta.ReceivedAt) compare directly with this.
         public double ElapsedTime
         {
             get
             {
-                return (double)stopwatch.ElapsedTicks / (double)Stopwatch.Frequency;
+                return SystemClock.Instance.Now;
             }
         }
 
@@ -697,8 +712,8 @@ namespace JoinFS
                     }
                 }
 
-                // create stopwatch
-                stopwatch = Stopwatch.StartNew();
+                // record launch time
+                StartTime = ElapsedTime;
 
                 // get all JoinFS instances
                 Process[] instances = System.Diagnostics.Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetEntryAssembly().Location));
@@ -992,6 +1007,9 @@ namespace JoinFS
                 MonitorEvent("Start complete");
 
                 // start work thread
+                // start the sim thread (Sim and Recorder), then the work thread
+                simService = new SimService(new MainSimWork(this), conch, () => ElapsedTime, MonitorEvent);
+                simService.Start();
                 _workThread = new Thread(new ThreadStart(DoWork));
                 _workThread.Start();
 #if CONSOLE
@@ -1149,6 +1167,22 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Run an action on the sim thread (the work loop if the sim thread isn't running yet)
+        /// </summary>
+        public void PostToSim(Action action)
+        {
+            SimService service = simService;
+            if (service != null)
+            {
+                service.Post(action);
+            }
+            else
+            {
+                EnqueueCommand(action);
+            }
+        }
+
+        /// <summary>
         /// Work thread
         /// </summary>
         void DoWork()
@@ -1163,9 +1197,8 @@ namespace JoinFS
 
                 lock (conch)
                 {
-                    sim?.DoWork();
+                    // Sim and the Recorder run on the sim thread (SimService)
                     network.DoWork();
-                    recorder.DoWork();
                     euroscope.DoWork();
                     whazzup.DoWork();
                     notes.DoWork();
@@ -1289,10 +1322,8 @@ namespace JoinFS
         {
             if (monitor != null)
             {
-                lock (conch)
-                {
-                    monitor.Write(s);
-                }
+                // the monitor has its own lock, so logging never waits for conch
+                monitor.Write(s);
             }
         }
 
@@ -1304,10 +1335,8 @@ namespace JoinFS
         {
             if (monitor != null && monitor.network)
             {
-                lock (conch)
-                {
-                    monitor.Write(s);
-                }
+                // the monitor has its own lock, so logging never waits for conch
+                monitor.Write(s);
             }
         }
 
@@ -1319,10 +1348,8 @@ namespace JoinFS
         {
             if (monitor != null && monitor.variables)
             {
-                lock (conch)
-                {
-                    monitor.Write(s);
-                }
+                // the monitor has its own lock, so logging never waits for conch
+                monitor.Write(s);
             }
         }
 

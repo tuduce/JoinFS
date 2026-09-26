@@ -523,7 +523,7 @@ namespace JoinFS
             refreshActive = true;
 
             // check for first iterations
-            if (main.ElapsedTime < 6.0)
+            if (main.ElapsedTime - main.StartTime < 6.0)
             {
                 // force a refresh
                 refreshForce = true;

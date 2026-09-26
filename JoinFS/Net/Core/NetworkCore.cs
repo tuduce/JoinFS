@@ -64,7 +64,11 @@ namespace JoinFS.Net
 
         // ------------------------------------------------------------------ receive
 
-        public void OnDatagram(IPEndPoint from, ReadOnlySpan<byte> datagram)
+        /// <summary>Arrival time of the datagram being decoded (0 outside <see cref="OnDatagram"/>).</summary>
+        double datagramReceivedAt;
+
+        /// <param name="receivedAt">When the datagram arrived (<see cref="IClock.Now"/>); 0 means now.</param>
+        public void OnDatagram(IPEndPoint from, ReadOnlySpan<byte> datagram, double receivedAt = 0)
         {
             if (datagram.IsEmpty || banList.Contains(from.Address))
             {
@@ -74,7 +78,16 @@ namespace JoinFS.Net
             {
                 if (plugin.Accepts(datagram))
                 {
-                    plugin.OnDatagram(from, datagram);
+                    // every message decoded from this datagram is stamped with its arrival time
+                    datagramReceivedAt = receivedAt > 0 ? receivedAt : Clock.Now;
+                    try
+                    {
+                        plugin.OnDatagram(from, datagram);
+                    }
+                    finally
+                    {
+                        datagramReceivedAt = 0;
+                    }
                     return;
                 }
             }
@@ -104,6 +117,13 @@ namespace JoinFS.Net
             }
             if (!Connected && RequiresSession(kind))
             {
+                return;
+            }
+            if (meta.ReceivedAt == 0 && datagramReceivedAt != 0)
+            {
+                MessageMeta stamped = meta;
+                stamped.ReceivedAt = datagramReceivedAt;
+                sink.Deliver(stamped, message);
                 return;
             }
             sink.Deliver(meta, message);

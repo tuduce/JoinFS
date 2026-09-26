@@ -168,7 +168,9 @@ namespace JoinFS
             {
                 // notifications
                 nodeError = main.MonitorEvent,
-                receiveNotify = ReceiveMsg
+                receiveNotify = ReceiveMsg,
+                // datagrams from the plugin are handled on the sim thread as soon as they arrive
+                post = main.PostToSim
             };
         }
 
@@ -350,9 +352,23 @@ namespace JoinFS
                     aircraftList[0].resendTime = main.ElapsedTime + 1.0;
                 }
             }
+        }
 
-            // process node
-            link.DoWork();
+        /// <summary>
+        /// When DoWork next has timed work (heartbeat, user position resend)
+        /// </summary>
+        public double NextDue()
+        {
+            double next = double.MaxValue;
+            if (IsOpen)
+            {
+                next = heartbeatTime;
+            }
+            if (IsConnected && aircraftList[0].inUse)
+            {
+                next = Math.Min(next, aircraftList[0].resendTime);
+            }
+            return next;
         }
 
         /// <summary>

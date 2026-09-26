@@ -610,3 +610,45 @@ likely causes of stalls.
 | B. Per-frame tick datagram | Would let JoinFS do per-frame work for X-Plane. | 60–144 loopback datagrams per second for no current use. A `DATA_VERSION` bump, a plugin rebuild, and testing on an under-maintained variant. |
 
 **Decision: A. The question is closed.**
+
+---
+
+## 9. Implementation status
+
+- **Phase 0: done.**
+  - `SimConnectInterface` records its owner thread and logs each off-thread caller once
+    (`THREAD - ...` in the Monitor).
+  - `XPlaneLink` does the same for message building; its owner is the first thread that sends.
+  - `Monitor` has its own lock, so `Main.MonitorEvent` no longer takes `conch`.
+  - `Substitution.ScanSimForModels` goes through `EnqueueCommand`.
+  - SimConnect is disposed on close.
+  - The dead `#if SIMCONNECT` in `XPlaneConnected` is removed.
+  - Deviation: the **deferred close** (`Sim.ScheduleClose`, planned for Phase 1) landed here,
+    because disposing safely needs it. A lost connection or `OnRecvQuit` now closes after
+    `ReceiveMsg` returns, never inside the dispatch.
+- **Phase 0b: done.**
+  - `NetworkService` stamps each datagram with the network clock on the UDP receive thread.
+  - `NetworkCore.OnDatagram` stamps every message decoded from that datagram into
+    `MessageMeta.ReceivedAt`, so the plugins needed no change.
+  - `SimIngest` passes the stamp with each position through `ISimSink`, and `Sim.UpdateObject`
+    uses it for `netSimTime` and for advancing `netRealTime`. The stamp is clamped so local time
+    never goes backwards.
+  - `Main.ElapsedTime` now reads `SystemClock.Instance`. The startup check in `MainForm` uses
+    `Main.StartTime`.
+  - Tests: `ReceiveTimestampTests`.
+- **Phase 1: done.**
+  - `SimService` (`JoinFS/SimService.cs`) runs Sim and the Recorder on `JoinFS-Sim`, holding
+    `conch` while it works. It runs the loop in §2.1 through a small `ISimThreadWork` interface
+    (`MainSimWork` in the app, a fake in `SimServiceTests`).
+  - `Main.DoWork` no longer runs Sim or the Recorder. `Main.Close` stops the sim thread, which
+    closes the simulator link on itself, before the network shuts down.
+  - **SC:** SimConnect is created with an `EventWaitHandle`, and the thread waits on it. FRAME is
+    coalesced (`Sim.ProcessFrame`). `SimConnectInterface` re-posts calls made from other threads to
+    the sim thread; the first one per method is logged to the Monitor's network log.
+  - **XP:** `XPlaneLink` sits on `UdpTransport`, and its datagrams are posted to the sim thread.
+    `XPlane.DoWork` no longer polls the socket.
+  - Scheduler: `Timer.Due`, plus `Sim.NextDue`, `XPlane.NextDue` and `Recorder.NextDue`
+    (5 ms while playing back), capped at `SimService.MaxWait` (100 ms).
+  - `Sim`'s `Schedule*` setters wake the thread, so UI requests don't wait for the next timer.
+  - Checked with a headless CONSOLE run (x64 build, `-xplane`): the thread starts, looks for the
+    plugin, and idles.

@@ -73,7 +73,7 @@ namespace JoinFS
             {
                 if (peers.shareFlightControls == nuid)
                 {
-                    sim.UpdateOwnAircraft(update);
+                    sim.UpdateOwnAircraft(update, meta.ReceivedAt);
                 }
                 return;
             }
@@ -90,7 +90,7 @@ namespace JoinFS
                 return;
             }
 
-            sim.UpdateAircraft(nuid, identity, user, user ? peers.GetNodeName(nuid) : "", update);
+            sim.UpdateAircraft(nuid, identity, user, user ? peers.GetNodeName(nuid) : "", update, meta.ReceivedAt);
         }
 
         public void Handle(in MessageMeta meta, in ObjectPositionUpdate update)
@@ -102,7 +102,7 @@ namespace JoinFS
             }
             if (identities.TryGetValue((nuid, update.ObjectId), out IdentityUpdate identity))
             {
-                sim.UpdateObject(nuid, identity, update);
+                sim.UpdateObject(nuid, identity, update, meta.ReceivedAt);
             }
         }
 

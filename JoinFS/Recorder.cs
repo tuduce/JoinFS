@@ -1563,6 +1563,19 @@ namespace JoinFS
         /// <summary>
         /// Do work
         /// </summary>
+        /// <summary>
+        /// How often playback advances while playing (seconds)
+        /// </summary>
+        const double PlaybackInterval = 0.005;
+
+        /// <summary>
+        /// When DoWork next has timed work (playback); the sim thread sleeps until then
+        /// </summary>
+        public double NextDue(double now)
+        {
+            return playing ? now + PlaybackInterval : double.MaxValue;
+        }
+
         public void DoWork()
         {
             // check if playing

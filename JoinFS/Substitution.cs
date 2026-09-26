@@ -1800,7 +1800,9 @@ namespace JoinFS
         /// </summary>
         public void ScanSimForModels()
         {
-            main.sim.RequestSimulatorModels();
+            // Scan() can run on a thread-pool thread, and SimConnect may only be called from the
+            // sim thread, so hand the request to it
+            main.PostToSim(() => main.sim?.RequestSimulatorModels());
         }
 
         /// <summary>
