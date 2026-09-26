@@ -1362,16 +1362,30 @@ namespace JoinFS
                         {
                             // aircraft
                             Aircraft aircraft = obj as Aircraft;
+                            AircraftPositionFrame aircraftFrame = recentFrame as AircraftPositionFrame;
+                            // drop a garbage/corrupt recording frame instead of applying it - same guard
+                            // as the interpolated playback path
+                            if (Sim.PlausibleAircraftPosition(in aircraftFrame.data) == false)
+                            {
+                                WarnImplausibleRecordedPosition();
+                                continue;
+                            }
                             // update position
                             // recordings don't currently capture classCode/wtc (a Phase 3 network-only
                             // addition) - pass empty/unconfirmed so replay falls back to local re-derivation
                             // from icaoType, same as before this feature existed
-                            main.sim ?. UpdateAircraft(new LocalNode.Nuid(), obj.id, false, aircraft.plane, aircraft.callsign, "", aircraft.nickname, aircraft.model, aircraft.livery, aircraft.icaoType, aircraft.icaoAirline, "", "", "", false, aircraft.typerole, recentFrame.time, ref (recentFrame as AircraftPositionFrame).data);
+                            main.sim ?. UpdateAircraft(new LocalNode.Nuid(), obj.id, false, aircraft.plane, aircraft.callsign, "", aircraft.nickname, aircraft.model, aircraft.livery, aircraft.icaoType, aircraft.icaoAirline, "", "", "", false, aircraft.typerole, recentFrame.time, ref aircraftFrame.data);
                         }
                         else
                         {
+                            ObjectPositionFrame objectFrame = recentFrame as ObjectPositionFrame;
+                            if (Sim.PlausibleObjectPositionVelocity(in objectFrame.data) == false)
+                            {
+                                WarnImplausibleRecordedPosition();
+                                continue;
+                            }
                             // update position
-                            main.sim?.UpdateObject(new LocalNode.Nuid(), obj.id, obj.model, obj.livery, obj.icaoType, obj.icaoAirline, "", "", false, obj.typerole, recentFrame.time, ref (recentFrame as ObjectPositionFrame).data);
+                            main.sim?.UpdateObject(new LocalNode.Nuid(), obj.id, obj.model, obj.livery, obj.icaoType, obj.icaoAirline, "", "", false, obj.typerole, recentFrame.time, ref objectFrame.data);
                         }
                         // reset object
                         main.sim ?. ResetObject(new LocalNode.Nuid(), obj.id);
@@ -1534,6 +1548,15 @@ namespace JoinFS
                     double t = Blend(from, to, time);
                     Vector angles = InterpolateAngles(obj, from.data.pitch, from.data.heading, from.data.bank, to.data.pitch, to.data.heading, to.data.bank, t);
                     Sim.AircraftPosition data = Interpolate(from, to, t, angles);
+                    // drop a garbage/corrupt recording frame instead of applying it - without this,
+                    // an out-of-range value can drive UI (e.g. the Aircraft Dialog's Altitude column)
+                    // to an unbounded width with no way to recover, mirroring the same guard already
+                    // applied to incoming network positions
+                    if (Sim.PlausibleAircraftPosition(in data) == false)
+                    {
+                        WarnImplausibleRecordedPosition();
+                        return;
+                    }
                     main.sim?.UpdateAircraft(new LocalNode.Nuid(), obj.id, false, aircraft.plane, aircraft.callsign, "", aircraft.nickname, aircraft.model, aircraft.livery, aircraft.icaoType, aircraft.icaoAirline, "", "", "", false, aircraft.typerole, time, ref data);
                 }
             }
@@ -1546,9 +1569,30 @@ namespace JoinFS
                     double t = Blend(from, to, time);
                     Vector angles = InterpolateAngles(obj, from.data.pitch, from.data.heading, from.data.bank, to.data.pitch, to.data.heading, to.data.bank, t);
                     Sim.ObjectPositionVelocity data = Interpolate(from, to, t, angles);
+                    if (Sim.PlausibleObjectPositionVelocity(in data) == false)
+                    {
+                        WarnImplausibleRecordedPosition();
+                        return;
+                    }
                     main.sim?.UpdateObject(new LocalNode.Nuid(), obj.id, obj.model, obj.livery, obj.icaoType, obj.icaoAirline, "", "", false, obj.typerole, time, ref data);
                 }
             }
+        }
+
+        /// <summary>
+        /// Throttled warning for a corrupt/out-of-range recorded position - one line per 5s so a
+        /// stuck bad frame at playback tick-rate can't drown the monitor.
+        /// </summary>
+        double lastImplausibleRecordedPositionWarnTime = 0.0;
+
+        void WarnImplausibleRecordedPosition()
+        {
+            if (main.ElapsedTime - lastImplausibleRecordedPositionWarnTime < 5.0)
+            {
+                return;
+            }
+            lastImplausibleRecordedPositionWarnTime = main.ElapsedTime;
+            main.MonitorEvent("Recorder: discarding implausible position from a recorded frame - the recording may be corrupt or from an incompatible version");
         }
 
         /// <summary>
