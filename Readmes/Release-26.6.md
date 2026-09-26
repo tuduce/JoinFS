@@ -85,6 +85,23 @@ in 26.6.
   [joinfs-gpx-to-jfs-webcomponent](https://github.com/joeherwig/joinfs-gpx-to-jfs-webcomponent)'s
   own changelog for the writer-side half of this fix if you generate recordings
   from a GPX track.
+- **The WebSocket map feed and the COM webhook no longer confuse a replayed
+  aircraft with your own.** Both keyed each aircraft's identity in a way that
+  collapsed your own aircraft and every Recorder-replayed aircraft onto the
+  same key, so their positions/COM changes could overwrite each other instead
+  of being tracked separately. Live peer-to-peer multiplayer was not affected.
+  See the [Recorder Playback: Broadcasting Replayed Tracks as AI Traffic](https://github.com/joeherwig/JoinFS/wiki/Recorder-Broadcast-and-AI-Visibility)
+  wiki page for how to make a replayed track visible to other connected
+  pilots as AI traffic (requires the receiving pilot to enable "Allow
+  Multiple Objects" for your node).
+- **A corrupt or incompatible `.jfs` recording frame is now discarded during
+  playback instead of applied**, using the same plausibility check already
+  used for incoming network positions. Previously an out-of-range value could
+  drive a dialog column (e.g. the Aircraft window's Altitude column) to an
+  unrecoverable width.
+- **Every list/grid dialog's columns can now be resized manually.** Previously
+  every grid in the app disabled manual column resizing, so a column driven
+  too wide by any cause had no way to be shrunk back.
 
 ## Limitations
 
