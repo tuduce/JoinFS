@@ -433,6 +433,43 @@ namespace JoinFS
         /// </summary>
         public volatile List<Model> models = [];
 
+        /// <summary>
+        /// Title index for <see cref="GetModel(string)"/> - copy-on-write like <see cref="models"/>
+        /// itself, rebuilt whole by <see cref="RebuildTitleIndex"/> at every point <see cref="models"/>
+        /// is reassigned, so it always reflects the current list exactly (some callers, e.g.
+        /// RemoveModel, need GetModel accurate immediately, not eventually - unlike the lazy
+        /// icaoIndexDirty scheme below, which some models-reassignment sites don't trigger).
+        /// </summary>
+        volatile Dictionary<string, Model> modelsByTitle = new(StringComparer.Ordinal);
+#if FS2024
+        /// <summary>Title+variation index for <see cref="GetModel(string, string)"/> - see <see cref="modelsByTitle"/>.</summary>
+        volatile Dictionary<(string title, string variation), Model> modelsByTitleVariation = [];
+#endif
+
+        /// <summary>
+        /// Rebuild <see cref="modelsByTitle"/>/<see cref="modelsByTitleVariation"/> from the current
+        /// <see cref="models"/> - call after every reassignment of that field. The first model per
+        /// key wins (TryAdd, not an indexer set), matching List&lt;T&gt;.Find's first-match semantics.
+        /// </summary>
+        void RebuildTitleIndex()
+        {
+            Dictionary<string, Model> byTitle = new(StringComparer.Ordinal);
+#if FS2024
+            Dictionary<(string, string), Model> byTitleVariation = [];
+#endif
+            foreach (var model in models)
+            {
+                byTitle.TryAdd(model.title, model);
+#if FS2024
+                byTitleVariation.TryAdd((model.title, model.variation), model);
+#endif
+            }
+            modelsByTitle = byTitle;
+#if FS2024
+            modelsByTitleVariation = byTitleVariation;
+#endif
+        }
+
         // ---- Concurrency (docs/sim-thread-architecture.md §2.4, §8.3) ----
         // Substitution is read from several threads (the sim thread matches and masquerades as
         // objects appear; the UI shows lists) while it is rebuilt on others (Load/Scan on the thread
@@ -1503,7 +1540,19 @@ namespace JoinFS
         /// <returns>Model exists</returns>
         public Model GetModel(string title)
         {
-            return FindModel(models, title);
+            // FS2024: "title[+]variation" also accepted - mirrors FindModel(models, title) exactly,
+            // just via the O(1) title index (see RebuildTitleIndex) instead of an O(model count) scan
+#if FS2024
+            string[] separator = [ "[+]" ];
+            string[] parts = title.Split(separator, StringSplitOptions.None);
+            if (parts.Length == 2)
+            {
+                return modelsByTitleVariation.GetValueOrDefault((parts[0], parts[1]));
+            }
+            return modelsByTitle.GetValueOrDefault(parts[0]);
+#else
+            return modelsByTitle.GetValueOrDefault(title);
+#endif
         }
 
         /// <summary>
@@ -1512,7 +1561,11 @@ namespace JoinFS
         /// <returns>Model exists</returns>
         public Model GetModel(string title, string variation)
         {
+#if FS2024
+            return modelsByTitleVariation.GetValueOrDefault((title, variation));
+#else
             return FindModel(models, title, variation);
+#endif
         }
 
         /// <summary>
@@ -1844,6 +1897,7 @@ namespace JoinFS
                 if (scanWork == null)
                 {
                     models = target;
+                    RebuildTitleIndex();
                 }
                 }
             }
@@ -1970,6 +2024,7 @@ namespace JoinFS
                     updated.Remove(model);
                     models = updated;
                 }
+                RebuildTitleIndex();
                 // save
                 main.ScheduleSubstitutionSave();
             }
@@ -2582,6 +2637,7 @@ namespace JoinFS
                     }
                     scanWork = null;
                     MakeIcaoIndex();
+                    RebuildTitleIndex();
 
                     if (simulatorName == "Microsoft Flight Simulator 2020")
                     {
@@ -3055,6 +3111,7 @@ namespace JoinFS
                         {
                             models = loaded;
                         }
+                        RebuildTitleIndex();
 
                         // message
                         main.MonitorEvent("Loaded " + models.Count + ((models.Count == 1) ? " model" : " models"));
@@ -3879,6 +3936,7 @@ namespace JoinFS
                 masquerades = [];
             }
             MakeIcaoIndex();
+            RebuildTitleIndex();
 
 #if !SERVER && !CONSOLE
             main.matchingForm ?. refresher.Schedule();

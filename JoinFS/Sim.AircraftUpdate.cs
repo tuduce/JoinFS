@@ -138,12 +138,16 @@ namespace JoinFS
                     if (netTime >= aircraft.nextRawDiagLogTime)
                     {
                         aircraft.nextRawDiagLogTime = netTime + 0.2;
-                        main.MonitorNetwork("RawPos '" + aircraft.flightPlan.callsign + "' rawGround=" + aircraftPosition.ground +
-                            " altitude=" + aircraftPosition.altitude.ToString("F1") + "m elevation=" + aircraftPosition.elevation.ToString("F1") + "m" +
-                            " senderStaticCgToGround=" + (aircraftPosition.staticCgToGround * 0.3048).ToString("F2") + "m" +
-                            " localElevation=" + aircraft.simPosition.elevation.ToString("F1") + "m" +
-                            " localStaticCgToGround=" + (double.IsNaN(aircraft.simPosition.staticCgToGround) ? "n/a" : aircraft.simPosition.staticCgToGround.ToString("F2") + "m") +
-                            " netTime=" + netTime.ToString("F1"));
+                        // only build the string when the monitor is actually showing it
+                        if (main.monitor != null && main.monitor.network)
+                        {
+                            main.MonitorNetwork("RawPos '" + aircraft.flightPlan.callsign + "' rawGround=" + aircraftPosition.ground +
+                                " altitude=" + aircraftPosition.altitude.ToString("F1") + "m elevation=" + aircraftPosition.elevation.ToString("F1") + "m" +
+                                " senderStaticCgToGround=" + (aircraftPosition.staticCgToGround * 0.3048).ToString("F2") + "m" +
+                                " localElevation=" + aircraft.simPosition.elevation.ToString("F1") + "m" +
+                                " localStaticCgToGround=" + (double.IsNaN(aircraft.simPosition.staticCgToGround) ? "n/a" : aircraft.simPosition.staticCgToGround.ToString("F2") + "m") +
+                                " netTime=" + netTime.ToString("F1"));
+                        }
                     }
                     aircraft.trustingPlatformElevation = trustPlatformElevation;
                     aircraft.trustingPlatformGround = trustPlatformGround;
@@ -327,13 +331,18 @@ namespace JoinFS
                 if (netTime >= aircraft.nextRawDiagLogTime)
                 {
                     aircraft.nextRawDiagLogTime = netTime + 0.2;
-                    main.MonitorNetwork("RawPosRelay '" + aircraft.flightPlan.callsign + "' rawGround=" + aircraftPosition.ground +
-                        " altitude=" + aircraftPosition.altitude.ToString("F1") + "m elevation=" + aircraftPosition.elevation.ToString("F1") + "m" +
-                        " senderStaticCgToGround=" + (aircraftPosition.staticCgToGround * 0.3048).ToString("F2") + "m" +
-                        " netTime=" + netTime.ToString("F1"));
+                    // only build the string when the monitor is actually showing it
+                    if (main.monitor != null && main.monitor.network)
+                    {
+                        main.MonitorNetwork("RawPosRelay '" + aircraft.flightPlan.callsign + "' rawGround=" + aircraftPosition.ground +
+                            " altitude=" + aircraftPosition.altitude.ToString("F1") + "m elevation=" + aircraftPosition.elevation.ToString("F1") + "m" +
+                            " senderStaticCgToGround=" + (aircraftPosition.staticCgToGround * 0.3048).ToString("F2") + "m" +
+                            " netTime=" + netTime.ToString("F1"));
+                    }
                 }
-                // send to every node; each gets it in the protocol it negotiated
-                main.network.SimSender.SendAircraftPosition(aircraft, ref aircraftPosition, netTime, main.network.PeerIds());
+                // send to every node; each gets it in the protocol it negotiated (peer ids cached
+                // once per tick - see RefreshTickCaches)
+                main.network.SimSender.SendAircraftPosition(aircraft, ref aircraftPosition, netTime, tickPeerIds);
             }
 
             // check if type has changed
@@ -524,11 +533,15 @@ namespace JoinFS
                 if (simTime >= aircraft.nextRawPosSendDiagLogTime)
                 {
                     aircraft.nextRawPosSendDiagLogTime = simTime + 0.2;
-                    main.MonitorNetwork("RawPosSend '" + aircraft.flightPlan.callsign + "' owner=" + aircraft.owner +
-                        " rawGround=" + aircraftPosition.ground + " altitude=" + aircraftPosition.altitude.ToString("F1") + "m" +
-                        " elevation=" + aircraftPosition.elevation.ToString("F1") + "m" +
-                        " ownStaticCgToGround=" + (aircraftPosition.staticCgToGround * 0.3048).ToString("F2") + "m" +
-                        " simTime=" + simTime.ToString("F1"));
+                    // only build the string when the monitor is actually showing it
+                    if (main.monitor != null && main.monitor.network)
+                    {
+                        main.MonitorNetwork("RawPosSend '" + aircraft.flightPlan.callsign + "' owner=" + aircraft.owner +
+                            " rawGround=" + aircraftPosition.ground + " altitude=" + aircraftPosition.altitude.ToString("F1") + "m" +
+                            " elevation=" + aircraftPosition.elevation.ToString("F1") + "m" +
+                            " ownStaticCgToGround=" + (aircraftPosition.staticCgToGround * 0.3048).ToString("F2") + "m" +
+                            " simTime=" + simTime.ToString("F1"));
+                    }
                 }
 
                 // check if user or broadcasting this aircraft

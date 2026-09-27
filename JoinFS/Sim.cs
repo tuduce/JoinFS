@@ -627,8 +627,17 @@ namespace JoinFS
             }
             else if (Connected)
             {
-                // find object that needs creating
-                creatingObject = objectList.Find(o => o.owner != Obj.Owner.Me && o.Created == false && o.failed == false && main.log.IgnoreNode(o.ownerNuid) == false && main.log.IgnoreName(o.ownerModel) == false && o != enteredAircraft && o.distance * 0.00053995680346 < activityCircle);
+                // find object that needs creating (plain loop, not Find(lambda), so this doesn't
+                // allocate a closure every tick - it captures activityCircle, a per-call parameter)
+                creatingObject = null;
+                foreach (var o in objectList)
+                {
+                    if (o.owner != Obj.Owner.Me && o.Created == false && o.failed == false && main.log.IgnoreNode(o.ownerNuid) == false && main.log.IgnoreName(o.ownerModel) == false && o != enteredAircraft && o.distance * 0.00053995680346 < activityCircle)
+                    {
+                        creatingObject = o;
+                        break;
+                    }
+                }
 
                 // check for object
                 if (creatingObject != null)
@@ -963,13 +972,19 @@ namespace JoinFS
                             // check if aircraft is being broadcast
                             else if (IsBroadcast(obj) && obj.Injected == false)
                             {
-                                // diagnostic - dump float vuids/values actually being broadcast
-                                string floatsDump = "";
-                                foreach (var kv in obj.variableSet.floats)
+                                // diagnostic - dump float vuids/values actually being broadcast (only build the
+                                // string when the monitor is actually showing it - MonitorVariables checks the
+                                // same flag internally, but the string would still be built for nothing if we
+                                // only guarded there)
+                                if (main.monitor != null && main.monitor.variables)
                                 {
-                                    floatsDump += kv.Key + "=" + kv.Value + ", ";
+                                    string floatsDump = "";
+                                    foreach (var kv in obj.variableSet.floats)
+                                    {
+                                        floatsDump += kv.Key + "=" + kv.Value + ", ";
+                                    }
+                                    main.MonitorVariables("BROADCAST FLOATS - " + obj.ModelTitle + " - " + floatsDump);
                                 }
-                                main.MonitorVariables("BROADCAST FLOATS - " + obj.ModelTitle + " - " + floatsDump);
 
                                 main.network.SimSender.BroadcastVariables(obj.netId, obj.variableSet.integers, obj.variableSet.floats, obj.variableSet.string8s);
                             }
