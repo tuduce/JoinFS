@@ -201,6 +201,7 @@
 	<!-- shared references -->
 	<ItemGroup>
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+		<PackageReference Include="DnsClient" Version="1.8.0" />
 	</ItemGroup>
 
 	<!-- CONSOLE references -->

@@ -1,8 +1,10 @@
+using DnsClient;
 using JoinFS.Net;
 using JoinFS.Properties;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -17,7 +19,7 @@ namespace JoinFS
     public sealed class NetBootstrap : IEndPointResolver
     {
         const string SeedHubsUrl = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/seedhubs.txt";
-        const string SeedHubsFallbackUrl = "https://drive.google.com/uc?export=download&id=0Byn9605PQfMecnhwdUtITi1yYlk";
+        const string SeedHubsDnsTxtHost = "joinfshubs.famtuduce.com";
         const string BanListUrl = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/banlist.txt";
         const string BanListFallbackUrl = "https://drive.google.com/uc?export=download&id=1yhrHsv8s0_vnBhzyy7hgSv0Yw_31eJLu";
         const string MyIpUrl = "https://checkip.amazonaws.com/";
@@ -41,7 +43,6 @@ namespace JoinFS
         volatile string[] seedHubs = null;
         volatile string[] banList = null;
         bool myipFallback = false;
-        bool seedHubsFallback = false;
         bool banListFallback = false;
 
         readonly Dictionary<string, IPAddress> dnsLookups = [];
@@ -147,15 +148,25 @@ namespace JoinFS
             catch (Exception ex)
             {
                 log.Event("Error downloading seedhubs from " + url + ": " + ex.Message);
-                if (!seedHubsFallback)
-                {
-                    seedHubsFallback = true;
-                    await DownloadSeedHubsAsync(SeedHubsFallbackUrl);
-                }
-                else
-                {
-                    seedHubs = [""];
-                }
+                await LookupSeedHubsDnsAsync();
+            }
+        }
+
+        /// <summary>Last-resort seed hubs: the TXT record is a comma-separated IP list.</summary>
+        async Task LookupSeedHubsDnsAsync()
+        {
+            try
+            {
+                var lookup = new LookupClient();
+                IDnsQueryResponse response = await lookup.QueryAsync(SeedHubsDnsTxtHost, QueryType.TXT);
+                string text = string.Concat(response.Answers.TxtRecords().SelectMany(record => record.Text));
+                seedHubs = text.Split(',').Select(entry => entry.Trim()).ToArray();
+                log.Event("Seedhubs resolved from DNS TXT record " + SeedHubsDnsTxtHost);
+            }
+            catch (Exception ex)
+            {
+                log.Event("Error resolving seedhubs DNS TXT record " + SeedHubsDnsTxtHost + ": " + ex.Message);
+                seedHubs = [""];
             }
         }
 
