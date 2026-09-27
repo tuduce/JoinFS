@@ -14,8 +14,8 @@
 `Main.conch` and calls, in order, `sim.DoWork()`, `network.DoWork()`, `recorder.DoWork()`,
 `euroscope.DoWork()`, `whazzup.DoWork()` and the queued commands. Then it sleeps whatever is left of
 5 ms. SimConnect messages are pulled inside `sim.DoWork()` by one `simconnect.ReceiveMsg()` call
-(`Sim.cs`, in `DoWork`). That call dispatches every queued message (FRAME events, data replies,
-assigned ids, exceptions) into `Sim`'s callbacks on the app thread.
+(`Sim.PumpSimMessages`, in `Sim.cs`). That call dispatches every queued message (FRAME events, data
+replies, assigned ids, exceptions) into `Sim`'s callbacks on the app thread.
 
 This has three consequences:
 
@@ -117,7 +117,9 @@ reference.
 
 ### 1.4 Timers in `Sim.DoWork`
 
-Each timer is polled once per 5 ms tick (the timer fields and the checks in `Sim.DoWork`, both in `Sim.cs`):
+Each timer is polled once per 5 ms tick (the timer fields are in `Sim.cs`; `Sim.DoWork` there now
+delegates each check to its own step method - `ProcessTimedRequests`, `RebuildIntervalMasks`,
+`ProcessTracking`, `BroadcastObjectVariables`, `BroadcastFlightPlans` - also in `Sim.cs`):
 
 | Work | Interval | Link |
 |---|---|---|

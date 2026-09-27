@@ -347,6 +347,41 @@ namespace JoinFS
         /// </summary>
         public void DoWork()
         {
+            ProcessScheduledWork();
+            PollConnectionTimer();
+            PumpSimMessages();
+
+            var (userLatitude, userLongitude, activityCircle) = ComputeUserLocation();
+            UpdateCreatingObject(userLatitude, userLongitude, activityCircle);
+
+            // get elapsed time
+            double time = main.ElapsedTime;
+
+            UpdateRemoteControl();
+            ProcessObjectList(time, userLatitude, userLongitude, activityCircle);
+            ProcessTimedRequests(time);
+            RebuildIntervalMasks(time);
+            ProcessTracking(time);
+            BroadcastObjectVariables(time);
+            BroadcastFlightPlans(time);
+
+#if XPLANE || CONSOLE
+            // process xplane
+            xplane.DoWork();
+#endif
+
+            // increment count
+            workCount++;
+
+            TryAutoNetworkJoin();
+        }
+
+        /// <summary>
+        /// Scheduled work posted from another thread (ScheduleFollow, ScheduleEnterAircraft,
+        /// ScheduleLeave, SetWeatherObservation, ScheduleRemoveModel, ScheduleRemoveObjects)
+        /// </summary>
+        void ProcessScheduledWork()
+        {
             // check for scheduled weather change
             if (scheduleMetar != null)
             {
@@ -408,7 +443,14 @@ namespace JoinFS
                 // reset
                 scheduleRemoveObjects = false;
             }
+        }
 
+        /// <summary>
+        /// Check connection to the simulator, once per checkConnectionTimer interval, up to
+        /// CHECK_CONNECTION_ATTEMPTS
+        /// </summary>
+        void PollConnectionTimer()
+        {
             // check connection
             if (checkConnectionTimer.Elapsed(main.ElapsedTime) && checkConnectionCount < CHECK_CONNECTION_ATTEMPTS)
             {
@@ -417,7 +459,15 @@ namespace JoinFS
                 // update attempts
                 checkConnectionCount++;
             }
+        }
 
+        /// <summary>
+        /// Pull queued SimConnect messages (dispatched into Sim's callbacks on this thread - see
+        /// docs/sim-thread-architecture.md), then either close a connection a callback asked to
+        /// close, or steer objects once for the frames just received
+        /// </summary>
+        void PumpSimMessages()
+        {
 #if SIMCONNECT
             // process messages
             simconnect?.ReceiveMsg();
@@ -440,7 +490,14 @@ namespace JoinFS
                 ProcessFrame();
             }
 #endif
+        }
 
+        /// <summary>
+        /// The user's (or, in ATC mode with no user aircraft, the configured airport's) location,
+        /// used to gate object creation and activity-circle expiry this tick
+        /// </summary>
+        (double userLatitude, double userLongitude, double activityCircle) ComputeUserLocation()
+        {
             // default user location
             double userLatitude = 0.0;
             double userLongitude = 0.0;
@@ -475,6 +532,15 @@ namespace JoinFS
                 }
             }
 
+            return (userLatitude, userLongitude, activityCircle);
+        }
+
+        /// <summary>
+        /// Inject (SimConnect) or spawn (X-Plane) the next eligible object one at a time, and time
+        /// out an injection that never got a response
+        /// </summary>
+        void UpdateCreatingObject(double userLatitude, double userLongitude, double activityCircle)
+        {
 #if XPLANE || SIMCONNECT || CONSOLE
             // check for new object being created
             if (creatingObject != null)
@@ -521,19 +587,8 @@ namespace JoinFS
                         UpdateObject(creatingObject, creatingObject.ownerModel, creatingObject.ownerLivery, creatingObject.ownerIcaoType, creatingObject.ownerIcaoAirline, creatingObject.ownerClassCode, creatingObject.ownerWtc, creatingObject.ownerClassCodeConfirmed, creatingObject.typerole);
                         // create variables
                         CreateModelVariables(creatingObject);
-                        // check for aircraft
-                        if (creatingObject is Aircraft)
-                        {
-                            // aircraft
-                            Aircraft aircraft = creatingObject as Aircraft;
-                            // show event
-                            main.MonitorEvent("Injecting aircraft '" + aircraft.flightPlan.callsign + "' - User '" + ((aircraft.owner == Obj.Owner.Network) ? aircraft.ownerNuid.ToString() : "Me") + "' - Model '" + creatingObject.ownerModel + "' - Sub '" + creatingObject.ModelTitle + "'");
-                        }
-                        else
-                        {
-                            // show event
-                            main.MonitorEvent("Injecting object - User '" + ((creatingObject.owner == Obj.Owner.Network) ? creatingObject.ownerNuid.ToString() : "Me") + "' - Model '" + creatingObject.ownerModel + "' - Sub '" + creatingObject.ModelTitle + "'");
-                        }
+                        // show event
+                        LogInjecting(creatingObject);
                     }
                     // finished injection
                     creatingObject = null;
@@ -545,19 +600,8 @@ namespace JoinFS
                         creatingObjectExpireTime = main.ElapsedTime + NEW_OBJECT_EXPIRE_TIME;
                         // update model
                         UpdateObject(creatingObject, creatingObject.ownerModel, creatingObject.ownerLivery, creatingObject.ownerIcaoType, creatingObject.ownerIcaoAirline, creatingObject.ownerClassCode, creatingObject.ownerWtc, creatingObject.ownerClassCodeConfirmed, creatingObject.typerole);
-                        // check for aircraft
-                        if (creatingObject is Aircraft)
-                        {
-                            // aircraft
-                            Aircraft aircraft = creatingObject as Aircraft;
-                            // show event
-                            main.MonitorEvent("Injecting aircraft '" + aircraft.flightPlan.callsign + "' - User '" + ((aircraft.owner == Obj.Owner.Network) ? aircraft.ownerNuid.ToString() : "Me") + "' - Model '" + creatingObject.ownerModel + "' - Sub '" + creatingObject.ModelTitle + "'");
-                        }
-                        else
-                        {
-                            // show event
-                            main.MonitorEvent("Injecting object - User '" + ((creatingObject.owner == Obj.Owner.Network) ? creatingObject.ownerNuid.ToString() : "Me") + "' - Model '" + creatingObject.ownerModel + "' - Sub '" + creatingObject.ModelTitle + "'");
-                        }
+                        // show event
+                        LogInjecting(creatingObject);
 
                         simconnect.CreateObject(creatingObject);
                     }
@@ -565,9 +609,31 @@ namespace JoinFS
                     }
             }
 #endif // XPLANE || SIMCONNECT
-            // get elapsed time
-            double time = main.ElapsedTime;
+        }
 
+        /// <summary>
+        /// Log an object about to be injected/created in the simulator - shared by the X-Plane
+        /// (synchronous) and SimConnect (async, awaiting ProcessAssignedObjectId) injection paths,
+        /// which used to carry an identical copy of this message each
+        /// </summary>
+        void LogInjecting(Obj obj)
+        {
+            if (obj is Aircraft aircraft)
+            {
+                main.MonitorEvent("Injecting aircraft '" + aircraft.flightPlan.callsign + "' - User '" + ((aircraft.owner == Obj.Owner.Network) ? aircraft.ownerNuid.ToString() : "Me") + "' - Model '" + obj.ownerModel + "' - Sub '" + obj.ModelTitle + "'");
+            }
+            else
+            {
+                main.MonitorEvent("Injecting object - User '" + ((obj.owner == Obj.Owner.Network) ? obj.ownerNuid.ToString() : "Me") + "' - Model '" + obj.ownerModel + "' - Sub '" + obj.ModelTitle + "'");
+            }
+        }
+
+        /// <summary>
+        /// Update whether the user aircraft is under remote control (shared cockpit, or another
+        /// node's rebroadcast), and reset its network positioning when it just lost that control
+        /// </summary>
+        void UpdateRemoteControl()
+        {
             // update remote control
             if (userAircraft != null)
             {
@@ -596,7 +662,15 @@ namespace JoinFS
                 // update remote control states
                 userAircraft.remoteFlightControl = remoteFlightControl;
             }
+        }
 
+        /// <summary>
+        /// Once per objectProcessTimer interval: expire stale objects, and for the rest, take
+        /// control of objects the simulator handed back, update distance, drop injected objects that
+        /// left the activity circle, and hide aircraft the log is set to ignore
+        /// </summary>
+        void ProcessObjectList(double time, double userLatitude, double userLongitude, double activityCircle)
+        {
             // object process
             if (objectProcessTimer.Elapsed(time))
             {
@@ -669,7 +743,13 @@ namespace JoinFS
 
                 DoRemove();
             }
+        }
 
+        /// <summary>
+        /// Timer-driven requests to the simulator: object info, position polling, weather
+        /// </summary>
+        void ProcessTimedRequests(double time)
+        {
             // info request
             if (requestInfoTimer.Elapsed(time))
             {
@@ -697,7 +777,14 @@ namespace JoinFS
                 // local states request
 //                RequestLocalStates();
             }
+        }
 
+        /// <summary>
+        /// Rebuild the per-pair send-interval masks (SendPolicy), once per updateIntervalsTimer
+        /// interval
+        /// </summary>
+        void RebuildIntervalMasks(double time)
+        {
             // check for next time to update intervals
             if (updateIntervalsTimer.Elapsed(time))
             {
@@ -750,7 +837,14 @@ namespace JoinFS
                     }
                 }
             }
+        }
 
+        /// <summary>
+        /// Drive the user aircraft's heading/bearing autopilot variable from the tracked object,
+        /// once per trackingTimer interval
+        /// </summary>
+        void ProcessTracking(double time)
+        {
             // tracking
             if (trackingTimer.Elapsed(time))
             {
@@ -787,7 +881,13 @@ namespace JoinFS
                     }
                 }
             }
+        }
 
+        /// <summary>
+        /// Broadcast and/or record each object's variables, once per variablesTimer interval
+        /// </summary>
+        void BroadcastObjectVariables(double time)
+        {
             // update variables
             if (variablesTimer.Elapsed(time))
             {
@@ -832,7 +932,13 @@ namespace JoinFS
                     }
                 }
             }
+        }
 
+        /// <summary>
+        /// Broadcast flight plan updates for broadcast aircraft, once per flightPlanTimer interval
+        /// </summary>
+        void BroadcastFlightPlans(double time)
+        {
             // update flight plans
             if (flightPlanTimer.Elapsed(time))
             {
@@ -847,15 +953,13 @@ namespace JoinFS
                     }
                 }
             }
+        }
 
-#if XPLANE || CONSOLE
-            // process xplane
-            xplane.DoWork();
-#endif
-
-            // increment count
-            workCount++;
-
+        /// <summary>
+        /// Once per connection, try the configured auto-join address (Connect on Launch)
+        /// </summary>
+        void TryAutoNetworkJoin()
+        {
             // detect connection state transitions to trigger auto network join
             bool connectedNow = Connected;
             if (!previousConnected && connectedNow)
