@@ -47,19 +47,6 @@ namespace JoinFS
                 // add default model
                 defaultModels.Add(name.Key, Resources.Strings.Default + " " + name.Value);
             }
-
-// TODO: cleanup code
-//            enrichModelService = new EnrichModelService(
-//                jsonlFilePath: main.storagePath + Path.DirectorySeparatorChar + "model-data.jsonl",
-//                httpClient: null,
-//                main: main);
-//#if X64
-//            embeddingService = new EmbeddingService(
-//                modelPath: "AIModel" + Path.DirectorySeparatorChar + "model.onnx",
-//                vocabPath: "AIModel" + Path.DirectorySeparatorChar + "vocab.txt",
-//                main: main // Pass main for logging
-//            );
-//#endif
         }
 
         /// <summary>
@@ -327,8 +314,6 @@ namespace JoinFS
             public string folder;
             public int typerole;
             public int smokeCount;
-            // TODO: cleanup code
-            // public EnrichedAircraftData enrichedData = null;
             public float[] embedding = null;
 
             /// <summary>
@@ -1493,12 +1478,6 @@ namespace JoinFS
             return leafName.Length > 0 && packageFolderIndex.TryGetValue(leafName, out var folder) ? folder : null;
         }
 #endif
-
-        // TODO: cleanup code
-        //        public EnrichModelService enrichModelService = null;
-        //#if X64
-        //        public EmbeddingService embeddingService = null;
-        //#endif
 
         /// <summary>
         /// Does a model exist
@@ -2711,19 +2690,6 @@ namespace JoinFS
                     // check for models scanned
                     if (models.Count > 0)
                     {
-// TODO: cleanup code
-//                        if(main.settingsUseAIFeatures)
-//                        {
-//                            main.EnqueueCommand(async () =>
-//                            {
-//                                await main.substitution.enrichModelService.EnrichModelsWithDetailsAsync(models);
-//                                main.MonitorEvent("Model data enriched");
-//#if X64
-//                                await main.substitution.embeddingService.GenerateEmbeddingsFromModelsAsync(models);
-//                                main.MonitorEvent("Model data enriched");
-//#endif
-//                            });
-//                        }
                         main.MonitorEvent("Scan found " + models.Count + ((models.Count == 1) ? " model" : " models") + " in the community folder(s)");
                     }
                     else

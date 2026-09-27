@@ -17,8 +17,6 @@ public static class Substitution
         public string folder;
         public int typerole;
         public int smokeCount;
-        // TODO: cleanup code
-        //public EnrichedAircraftData? enrichedData = null;
         public float[]? embedding = null;
 
         public Model(string title, string manufacturer, string type, string variation, int index, string typerole, string smoke, string folder)

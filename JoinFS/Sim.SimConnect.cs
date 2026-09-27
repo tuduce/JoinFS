@@ -680,18 +680,6 @@ namespace JoinFS
                     return;
                 }
 
-                // TODO: cleanup code
-                //if (main.settingsUseAIFeatures)
-                //{
-                //    main.EnqueueCommand(async () =>
-                //    {
-                //        await main.substitution.enrichModelService.EnrichModelsWithDetailsAsync(main.substitution.models);
-                //        main.MonitorEvent("Model data enriched");
-                //        await main.substitution.embeddingService.GenerateEmbeddingsFromModelsAsync(main.substitution.models);
-                //        main.MonitorEvent("Model data embedded");
-                //    });
-                //}
-
                 bool verbose = requestModelListIsVerbose;
                 requestModelListIsVerbose = false;
 
