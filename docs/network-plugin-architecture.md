@@ -9,7 +9,7 @@
 JFP2 works, but it is woven into the legacy code rather than encapsulated.
 - **~440 JFP2 references** sit inside `Node.cs` (210) and `Network.cs` (227).
 - **The per-peer "try JFP2 direct, then JFP2 relay, else legacy" block is copy-pasted ~10 times.** It appears at `Network.cs:2349, 2370, 2862, 3023, 3259, 3420, 3519, 3578, 3612, 4208`.
-- **Callers depend on a hidden shared-buffer contract.** `Write*Message` prepares `LocalNode.sendBuffer` before a per-peer loop in `Sim.cs:2326/2420/2581/4380`, and the loop assumes nothing touches the buffer in between. `MainForm.BroadcastUserFlightPlanNow` already breaks that contract, because it runs off-lock on the UI thread.
+- **Callers depend on a hidden shared-buffer contract.** `Write*Message` prepares `LocalNode.sendBuffer` before a per-peer loop, and the loop assumes nothing touches the buffer in between. `MainForm.BroadcastUserFlightPlanNow` already breaks that contract, because it runs off-lock on the UI thread. (`LocalNode.sendBuffer` no longer exists under this name - this citation predates a refactor and needs re-deriving against the current legacy send path, not Sim.cs.)
 - **Receive logic is duplicated.** `HandleJfp2Position` repeats legacy `AircraftPosition`, and `ApplyJfp2Variables` repeats the three variable cases.
 - **Per-peer JFP2 state is split across three classes.** Sessions live in `LocalNode`; identity send and bridge caches live in `Network`; `Sim` has to know that Identity must be sent before Position.
 - **Translation is pairwise, ad hoc, and has bugs.** The staged Tier 3 bridge sits in `Network.cs:3670+`:
@@ -89,7 +89,7 @@ JFP2 works, but it is woven into the legacy code rather than encapsulated.
    - `PeerDirectory`: the single peer table. It replaces `LocalNode.nodes`, `Network.nodeList` and `jfp2Sessions`-as-peer-list.
    - `Router`
    - `ObjectStateCache`: the latest Identity per `(origin, objectId)`, which translation uses.
-   - `SendPolicy`: per-peer rate masks, low bandwidth, "peer sim disconnected ⇒ every 32nd tick". This logic moves out of `Sim.cs:2577-2610` and `5683`.
+   - `SendPolicy`: per-peer rate masks, low bandwidth, "peer sim disconnected ⇒ every 32nd tick". This logic moves out of `Sim.ProcessAircraftPosition` (`Sim.AircraftUpdate.cs`) and `Sim.ProcessObjectPositionVelocity` (`Sim.SimConnect.cs`).
    - `NetworkService`: the facade and the thread.
 4. **Directory services** (`Net/Directory`)
    - Hub list and `hubs.dat`, online users / uuid, address-book pings, DNS cache, seed/myip/banlist HTTP, credentials file watchers.
@@ -543,7 +543,7 @@ Pre-existing bugs fixed along the way (most have a regression test in `JoinFS.Te
 *Status: done, except that `Sim.Write/Read` stayed in `Sim` (§2.10 item 14).*
 
 - **Today, Recorder stores Sim state, not packets.** However:
-  - it reuses the **legacy wire serializers** (`Sim.Write/Read`, `Sim.cs:3401-3690`);
+  - it reuses the **legacy wire serializers** (`Sim.Write`/`Sim.Read`, now in `Sim.Streaming.cs`);
   - it shares the **wire's version counter** (`Sim.VERSION` = 21008, which gates file reads, `Recorder.cs:1849`);
   - `Network`'s receive handlers call `recorder.Record` directly for network aircraft.
 - **Recommendation: keep the `.jfs` format byte-identical and just cut the coupling.**
@@ -551,7 +551,7 @@ Pre-existing bugs fixed along the way (most have a regression test in `JoinFS.Te
   - Split the version into `LegacyWire.DataVersion` and `Recorder.FileVersion`. Both start at 21008.
   - Move the `Record` calls into `NetworkIngest`.
   - Old recordings keep working, and a protocol change can never again change the recording version.
-- There is also an existing doc/code mismatch: `StaticCgToGround` is commented out in the frames (`Sim.cs:3521/3563`). Log it for a decision; it is out of scope here.
+- There is also an existing doc/code mismatch: `StaticCgToGround` is commented out in the frames (`Sim.Streaming.cs`, the `AircraftPosition` `Write`/`Read` pair). Log it for a decision; it is out of scope here.
 
 ---
 

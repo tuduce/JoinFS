@@ -440,7 +440,7 @@ light changing blocks all the others sharing it.**
   toggling any one of them re-arms the 3-second block for all four.
 - Confirmed reachable by both receive paths identically: legacy `IntegerVariables`
   (`Network.cs:5218-5265`) and JFP2 `VariableSync` both terminate in `Sim.UpdateAircraft(ownerNuid,
-  netId, Dictionary<uint,int>)` (`Sim.cs:2440`), which calls
+  netId, Dictionary<uint,int>)` (`Sim.AircraftUpdate.cs`), which calls
   `controlledAircraft.variableSet.UpdateIntegers(variables)` unconditionally — this is not a
   JFP2-specific code path.
 - **Observed effect, field-tested 2026-09-15** (see `docs/protocol-v2-implementation-plan.md`'s

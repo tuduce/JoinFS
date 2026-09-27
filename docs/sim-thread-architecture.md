@@ -14,14 +14,14 @@
 `Main.conch` and calls, in order, `sim.DoWork()`, `network.DoWork()`, `recorder.DoWork()`,
 `euroscope.DoWork()`, `whazzup.DoWork()` and the queued commands. Then it sleeps whatever is left of
 5 ms. SimConnect messages are pulled inside `sim.DoWork()` by one `simconnect.ReceiveMsg()` call
-(`Sim.cs:5323`). That call dispatches every queued message (FRAME events, data replies, assigned
-ids, exceptions) into `Sim`'s callbacks on the app thread.
+(`Sim.cs`, in `DoWork`). That call dispatches every queued message (FRAME events, data replies,
+assigned ids, exceptions) into `Sim`'s callbacks on the app thread.
 
 This has three consequences:
 
-- **Latency and jitter on the hot path.** `UpdateSimObjectVelocity` (the per-frame steering of every
-  remote or recorded object, see `docs/positioning-improvements.md`) runs from the FRAME callback
-  (`Sim.cs:4262`).
+- **Latency and jitter on the hot path.** `UpdateSimObjectVelocity` (`Sim.Steering.cs`; the per-frame
+  steering of every remote or recorded object, see `docs/positioning-improvements.md`) runs from the
+  FRAME callback (`Sim.ProcessFrame` in `Sim.SimConnect.cs`).
   - A FRAME waits for the next tick, and also for any of the other subsystems that happen to be holding `conch`, including the UI timers.
   - At 60 fps a frame lasts 16 ms, so being up to 5 ms late (sometimes more) is a large share of it.
   - FRAMEs that pile up during a stall are dispatched back to back, and each one steers every object again.
@@ -38,7 +38,9 @@ This has three consequences:
   Holding `conch` stops two calls from overlapping, but it does not keep SimConnect on one thread.
   The thread-pool call does neither.
 - **The SimConnect object is never disposed.** `Close()` and `XPlaneConnected` just set
-  `simconnect = null` (`Sim.cs:3136, 3775`).
+  `simconnect = null` (`Sim.Connection.cs`). (This claim is now stale: current `Close()` calls
+  `simconnect?.Dispose()` before nulling it, and `XPlaneConnected` - `Sim.XPlane.cs` - doesn't
+  reference `simconnect` at all. Needs re-verifying against current code, not re-citing.)
 
 **Goal:**
 - Put the simulator subsystem on its own thread.
@@ -115,7 +117,7 @@ reference.
 
 ### 1.4 Timers in `Sim.DoWork`
 
-Each timer is polled once per 5 ms tick (`Sim.cs:2930`, `5231`):
+Each timer is polled once per 5 ms tick (the timer fields and the checks in `Sim.DoWork`, both in `Sim.cs`):
 
 | Work | Interval | Link |
 |---|---|---|
@@ -289,7 +291,7 @@ See §3.
 ### 2.7 Receive timestamps for network positions
 
 **The problem (it exists today too).** When a network position is applied,
-`Sim.UpdateObject(obj, netTime)` stamps `obj.netSimTime = main.ElapsedTime` (`Sim.cs:1395`). That
+`Sim.UpdateObject(obj, netTime)` stamps `obj.netSimTime = main.ElapsedTime` (`Sim.ObjectLifecycle.cs`). That
 is the time the update is *processed*, not the time the datagram *arrived*. The steering then
 extrapolates from that stamp (`UpdateSimObjectVelocity`: `... + main.ElapsedTime - obj.netSimTime`).
 Any delay between arrival and processing therefore becomes extrapolation error:
@@ -397,9 +399,10 @@ one mostly idle thread.
 `Link::NODE_VERSION` and the native code are untouched, and nothing needs rebuilding on the
 X-Plane side.
 
-**Cleanup found along the way.** `XPlaneConnected` contains `#if SIMCONNECT simconnect = null; #endif`
-(`Sim.cs:3773`). The X-Plane builds never define `SIMCONNECT`, so this is dead code and should be
-removed.
+**Cleanup found along the way - already resolved.** This noted that `XPlaneConnected` contained
+`#if SIMCONNECT simconnect = null; #endif`, dead code since X-Plane builds never define
+`SIMCONNECT`. Current `XPlaneConnected` (`Sim.XPlane.cs`) has no `simconnect` reference at all, so
+this has already been cleaned up since this note was written.
 
 **No per-frame tick from the plugin (decided, §8.4).** XPMP2 already does the per-frame work on the
 X-Plane side, so a tick would add loopback traffic and a plugin release for no benefit.
