@@ -540,18 +540,22 @@ Pre-existing bugs fixed along the way (most have a regression test in `JoinFS.Te
 
 ## 6. Recorder
 
-*Status: done, except that `Sim.Write/Read` stayed in `Sim` (§2.10 item 14).*
+*Status: partly done. `Sim.Write/Read` no longer lives on `Sim` - it moved to the standalone
+`JfsFrames` serializer this recommendation asked for - but the version split and the `NetworkIngest`
+move below are still open (§2.10 item 14).*
 
 - **Today, Recorder stores Sim state, not packets.** However:
-  - it reuses the **legacy wire serializers** (`Sim.Write`/`Sim.Read`, now in `Sim.Streaming.cs`);
+  - it reuses the **legacy wire serializers** (`JfsFrames.Write`/`JfsFrames.Read`, in `JfsFrames.cs`);
   - it shares the **wire's version counter** (`Sim.VERSION` = 21008, which gates file reads, `Recorder.cs:1849`);
   - `Network`'s receive handlers call `recorder.Record` directly for network aircraft.
 - **Recommendation: keep the `.jfs` format byte-identical and just cut the coupling.**
-  - Move `Sim.Write/Read` into a Recorder-owned, frozen `JfsFrames` serializer.
+  - ~~Move `Sim.Write/Read` into a Recorder-owned, frozen `JfsFrames` serializer.~~ Done - though it's
+    its own top-level class rather than Recorder-owned, since Recorder isn't its only caller (XPlane
+    also uses it for the plugin IPC format).
   - Split the version into `LegacyWire.DataVersion` and `Recorder.FileVersion`. Both start at 21008.
   - Move the `Record` calls into `NetworkIngest`.
   - Old recordings keep working, and a protocol change can never again change the recording version.
-- There is also an existing doc/code mismatch: `StaticCgToGround` is commented out in the frames (`Sim.Streaming.cs`, the `AircraftPosition` `Write`/`Read` pair). Log it for a decision; it is out of scope here.
+- There is also an existing doc/code mismatch: `StaticCgToGround` is commented out in the frames (`JfsFrames.cs`, the `AircraftPosition` `Write`/`Read` pair). Log it for a decision; it is out of scope here.
 
 ---
 

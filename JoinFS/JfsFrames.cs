@@ -1,29 +1,18 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using System.IO;
-using System.Globalization;
-using System.Threading.Tasks;
 using JoinFS.Properties;
-using JoinFS.Net;
-
-
-
-
-#if SIMCONNECT
-#if P3D
-//using LockheedMartin.Prepar3D.SimConnect;
-using Microsoft.FlightSimulator.SimConnect;
-#else
-using Microsoft.FlightSimulator.SimConnect;
-#endif
-#endif
 
 namespace JoinFS
 {
-    public partial class Sim
+    /// <summary>
+    /// The legacy wire's binary codec for the frame types Recorder stores in .jfs files and XPlane
+    /// exchanges with the native plugin (docs/network-plugin-architecture.md §6 calls this
+    /// "Sim.Write/Read"; it used to live on Sim itself). This message format is frozen - the same
+    /// rule as LegacyPlugin's codecs (see CLAUDE.md's networking rules): never add fields here, only
+    /// to JFP2.
+    /// </summary>
+    public static class JfsFrames
     {
         /// <summary>
         /// Method for reading specific data versions
@@ -95,11 +84,21 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Converts a control axis value to/from its wire representation. Deliberately separate from
+        /// Sim's own ConvertToAxis/ConvertFromAxis (used for live control events, not serialization)
+        /// and from PositionCodec's identical pair (the JFP2 wire) - each frozen wire format owns its
+        /// own byte-level encoding rather than sharing an implementation across formats that must be
+        /// able to evolve independently.
+        /// </summary>
+        static short ConvertToAxis(float input) { return (short)(input * 16384.0); }
+        static float ConvertFromAxis(short input) { return (float)(int)input * (1.0f / 16384.0f); }
+
+        /// <summary>
         /// Write position/velocity to a stream
         /// </summary>
         /// <param name="writer">Binary writer</param>
         /// <param name="simPositionVelocity">Position and Velocity</param>
-        public static void Write(BinaryWriter writer, ref ObjectPositionVelocity positionVelocity)
+        public static void Write(BinaryWriter writer, ref Sim.ObjectPositionVelocity positionVelocity)
         {
             // add position
             writer.Write(positionVelocity.latitude);
@@ -130,7 +129,7 @@ namespace JoinFS
         /// Read position and velocity from a stream
         /// </summary>
         /// <param name="reader">Binary reader</param>
-        public static void ReadPositionVelocity1(short version, BinaryReader reader, ref ObjectPositionVelocity positionVelocity)
+        public static void ReadPositionVelocity1(short version, BinaryReader reader, ref Sim.ObjectPositionVelocity positionVelocity)
         {
             // update position
             positionVelocity.latitude = reader.ReadDouble();
@@ -158,7 +157,7 @@ namespace JoinFS
         /// <summary>
         /// Version table for reading position and velocity
         /// </summary>
-        static readonly Dictionary<short, ReadVersion<ObjectPositionVelocity>> positionVelocityVersions = new()
+        static readonly Dictionary<short, ReadVersion<Sim.ObjectPositionVelocity>> positionVelocityVersions = new()
         {
             { 10022, ReadPositionVelocity1 },
         };
@@ -169,9 +168,9 @@ namespace JoinFS
         /// <param name="versions">List of versions</param>
         /// <param name="version">Version to read</param>
         /// <param name="reader">Reader</param>
-        public static void Read(short version, BinaryReader reader, ref ObjectPositionVelocity positionVelocity)
+        public static void Read(short version, BinaryReader reader, ref Sim.ObjectPositionVelocity positionVelocity)
         {
-            Read<ObjectPositionVelocity>(version, positionVelocityVersions, reader, ref positionVelocity);
+            Read(version, positionVelocityVersions, reader, ref positionVelocity);
         }
 
         /// <summary>
@@ -179,7 +178,7 @@ namespace JoinFS
         /// </summary>
         /// <param name="writer">Binary writer</param>
         /// <param name="simPositionVelocity">Position and Velocity</param>
-        public static void Write(BinaryWriter writer, ref AircraftPosition aircraftPosition)
+        public static void Write(BinaryWriter writer, ref Sim.AircraftPosition aircraftPosition)
         {
             // add position
             writer.Write(aircraftPosition.latitude);
@@ -226,7 +225,7 @@ namespace JoinFS
         /// Read aircraft position and velocity from a stream
         /// </summary>
         /// <param name="reader">Binary reader</param>
-        public static void ReadAircraftPosition1(short version, BinaryReader reader, ref AircraftPosition aircraftPosition)
+        public static void ReadAircraftPosition1(short version, BinaryReader reader, ref Sim.AircraftPosition aircraftPosition)
         {
             // update position
             aircraftPosition.latitude = reader.ReadDouble();
@@ -267,7 +266,7 @@ namespace JoinFS
         /// <summary>
         /// Version table for reading position and velocity
         /// </summary>
-        static readonly Dictionary<short, ReadVersion<AircraftPosition>> aircraftPositionVersions = new()
+        static readonly Dictionary<short, ReadVersion<Sim.AircraftPosition>> aircraftPositionVersions = new()
         {
             { 10022, ReadAircraftPosition1 },
         };
@@ -278,9 +277,9 @@ namespace JoinFS
         /// <param name="versions">List of versions</param>
         /// <param name="version">Version to read</param>
         /// <param name="reader">Reader</param>
-        public static void Read(short version, BinaryReader reader, ref AircraftPosition aircraftPosition)
+        public static void Read(short version, BinaryReader reader, ref Sim.AircraftPosition aircraftPosition)
         {
-            Read<AircraftPosition>(version, aircraftPositionVersions, reader, ref aircraftPosition);
+            Read(version, aircraftPositionVersions, reader, ref aircraftPosition);
         }
 
         /// <summary>

@@ -183,7 +183,7 @@ namespace JoinFS
                         // get ATC level
                         int level = Settings.Default.AtcLevel;
                         // write client entry for ATC
-                        clientList.Add(WriteClient(true, Sim.MakeAtcCallsign(main.settingsAtcAirport, level), main.settingsNickname, Settings.Default.AtcFrequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, level, main.settingsActivityCircle, true, 0));
+                        clientList.Add(WriteClient(true, Atc.MakeAtcCallsign(main.settingsAtcAirport, level), main.settingsNickname, Settings.Default.AtcFrequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, level, main.settingsActivityCircle, true, 0));
                     }
 
                     // check for simulator
@@ -262,7 +262,7 @@ namespace JoinFS
                                     longitude = Math.Min(180.0, Math.Max(-180.0, main.airportList[node.Value.atcAirport].longitude));
                                 }
                                 // write client entry for ATC
-                                clientList.Add(WriteClient(true, Sim.MakeAtcCallsign(node.Value.atcAirport, node.Value.atcLevel), node.Value.nickname, node.Value.atcFrequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, node.Value.atcLevel, node.Value.activityCircle, true, 0));
+                                clientList.Add(WriteClient(true, Atc.MakeAtcCallsign(node.Value.atcAirport, node.Value.atcLevel), node.Value.nickname, node.Value.atcFrequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, node.Value.atcLevel, node.Value.activityCircle, true, 0));
                             }
                         }
                     }
@@ -294,7 +294,7 @@ namespace JoinFS
                                             longitude = Math.Min(180.0, Math.Max(-180.0, main.airportList[user.flightPlan.departure].longitude));
                                         }
                                         // write client entry for ATC
-                                        clientList.Add(WriteClient(true, Sim.MakeAtcCallsign(user.flightPlan.departure, user.level), user.nickname, user.frequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, user.level, user.range, true, 0));
+                                        clientList.Add(WriteClient(true, Atc.MakeAtcCallsign(user.flightPlan.departure, user.level), user.nickname, user.frequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, user.level, user.range, true, 0));
                                     }
                                     else
                                     {

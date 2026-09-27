@@ -38,7 +38,7 @@ namespace JoinFS
             this.main = main;
 
             // read versions
-            readVersions = new Dictionary<short, Sim.ReadVersion>()
+            readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
             {
                 { 10022, Read1 },
             };
@@ -85,7 +85,7 @@ namespace JoinFS
             public Frame()
             {
                 // versions
-                readVersions = new Dictionary<short,Sim.ReadVersion>()
+                readVersions = new Dictionary<short,JfsFrames.ReadVersion>()
                 {
                     { 10022, Read1 },
                 };
@@ -118,7 +118,7 @@ namespace JoinFS
             /// <summary>
             /// Version table for reading data
             /// </summary>
-            protected Dictionary<short, Sim.ReadVersion> readVersions;
+            protected Dictionary<short, JfsFrames.ReadVersion> readVersions;
 
             /// <summary>
             /// Read data
@@ -128,7 +128,7 @@ namespace JoinFS
             public void Read(short version, BinaryReader reader)
             {
                 // read correct version
-                Sim.Read(version, readVersions, reader);
+                JfsFrames.Read(version, readVersions, reader);
             }
         }
 
@@ -162,7 +162,7 @@ namespace JoinFS
             public ObjectPositionFrame()
             {
                 // versions
-                readVersions = new Dictionary<short, Sim.ReadVersion>()
+                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
                 {
                     { 10022, Read1 },
                 };
@@ -176,7 +176,7 @@ namespace JoinFS
                 // write frame
                 base.Write(writer);
                 // write position velocity
-                Sim.Write(writer, ref data);
+                JfsFrames.Write(writer, ref data);
             }
 
             /// <summary>
@@ -186,7 +186,7 @@ namespace JoinFS
             public override void Read1(short version, BinaryReader reader)
             {
                 // read position velocity
-                Sim.Read(version, reader, ref data);
+                JfsFrames.Read(version, reader, ref data);
             }
         }
 
@@ -220,7 +220,7 @@ namespace JoinFS
             public AircraftPositionFrame()
             {
                 // versions
-                readVersions = new Dictionary<short, Sim.ReadVersion>()
+                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
                 {
                     { 10022, Read1 },
                 };
@@ -234,7 +234,7 @@ namespace JoinFS
                 // write frame
                 base.Write(writer);
                 // write position velocity
-                Sim.Write(writer, ref data);
+                JfsFrames.Write(writer, ref data);
             }
 
             /// <summary>
@@ -244,7 +244,7 @@ namespace JoinFS
             public override void Read1(short version, BinaryReader reader)
             {
                 // read position velocity
-                Sim.Read(version, reader, ref data);
+                JfsFrames.Read(version, reader, ref data);
             }
         }
 
@@ -280,7 +280,7 @@ namespace JoinFS
             public SimEventFrame()
             {
                 // versions
-                readVersions = new Dictionary<short, Sim.ReadVersion>()
+                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
                 {
                     { 10022, Read1 },
                 };
@@ -347,7 +347,7 @@ namespace JoinFS
             public IntegerVariablesFrame()
             {
                 // versions
-                readVersions = new Dictionary<short, Sim.ReadVersion>()
+                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
                 {
                     { 10022, Read1 },
                 };
@@ -364,7 +364,7 @@ namespace JoinFS
                 // write frame
                 base.Write(writer);
                 // write variables
-                Sim.Write(writer, variables);
+                JfsFrames.Write(writer, variables);
             }
 
             /// <summary>
@@ -376,7 +376,7 @@ namespace JoinFS
                 // clear variables
                 variables.Clear();
                 // read variables
-                Sim.Read(version, reader, variables);
+                JfsFrames.Read(version, reader, variables);
             }
         }
 
@@ -414,7 +414,7 @@ namespace JoinFS
             public FloatVariablesFrame()
             {
                 // versions
-                readVersions = new Dictionary<short, Sim.ReadVersion>()
+                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
                 {
                     { 10022, Read1 },
                 };
@@ -431,7 +431,7 @@ namespace JoinFS
                 // write frame
                 base.Write(writer);
                 // write variables
-                Sim.Write(writer, variables);
+                JfsFrames.Write(writer, variables);
             }
 
             /// <summary>
@@ -443,7 +443,7 @@ namespace JoinFS
                 // clear variables
                 variables.Clear();
                 // read variables
-                Sim.Read(version, reader, variables);
+                JfsFrames.Read(version, reader, variables);
             }
         }
 
@@ -481,7 +481,7 @@ namespace JoinFS
             public String8VariablesFrame()
             {
                 // versions
-                readVersions = new Dictionary<short, Sim.ReadVersion>()
+                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
                 {
                     { 10022, Read1 },
                 };
@@ -498,7 +498,7 @@ namespace JoinFS
                 // write frame
                 base.Write(writer);
                 // write variables
-                Sim.Write(writer, variables);
+                JfsFrames.Write(writer, variables);
             }
 
             /// <summary>
@@ -510,7 +510,7 @@ namespace JoinFS
                 // clear variables
                 variables.Clear();
                 // read variables
-                Sim.Read(version, reader, variables);
+                JfsFrames.Read(version, reader, variables);
             }
         }
 
@@ -596,7 +596,7 @@ namespace JoinFS
                 this.livery = livery;
 
                 // versions
-                readVersions = new Dictionary<short, Sim.ReadVersion>()
+                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
                 {
                     { 10022, Read1 },
                 };
@@ -612,7 +612,7 @@ namespace JoinFS
                 this.owner = Sim.Obj.Owner.Recorder;
 
                 // versions
-                readVersions = new Dictionary<short, Sim.ReadVersion>()
+                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
                 {
                     { 10022, Read1 },
                 };
@@ -720,7 +720,7 @@ namespace JoinFS
             /// <summary>
             /// Version table for reading data
             /// </summary>
-            protected Dictionary<short, Sim.ReadVersion> readVersions;
+            protected Dictionary<short, JfsFrames.ReadVersion> readVersions;
 
             /// <summary>
             /// Read data
@@ -730,7 +730,7 @@ namespace JoinFS
             public void Read(short version, BinaryReader reader)
             {
                 // read correct version
-                Sim.Read(version, readVersions, reader);
+                JfsFrames.Read(version, readVersions, reader);
             }
         }
 
@@ -766,7 +766,7 @@ namespace JoinFS
                 this.livery = livery;
 
                 // versions
-                readVersions = new Dictionary<short, Sim.ReadVersion>()
+                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
                 {
                     { 10022, Read1 },
                 };
@@ -778,7 +778,7 @@ namespace JoinFS
             public Aircraft()
             {
                 // versions
-                readVersions = new Dictionary<short, Sim.ReadVersion>()
+                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
                 {
                     { 10022, Read1 },
                 };
@@ -1890,7 +1890,7 @@ namespace JoinFS
         /// <summary>
         /// Version table for reading data
         /// </summary>
-        readonly Dictionary<short, Sim.ReadVersion> readVersions;
+        readonly Dictionary<short, JfsFrames.ReadVersion> readVersions;
 
         /// <summary>
         /// Read data
@@ -1935,7 +1935,7 @@ namespace JoinFS
                         return null;
                     }
                     // read correct version
-                    Sim.Read(version, readVersions, reader);
+                    JfsFrames.Read(version, readVersions, reader);
                     return readTarget;
                 }
                 finally

@@ -334,18 +334,7 @@ namespace JoinFS
                     }
 
                     // change and save the lists on the sim thread, which owns them
-                    main.SimCommand(sim =>
-                    {
-                        // check for list not existing
-                        if (sim.modelVariables.ContainsKey(title) == false)
-                        {
-                            // add default files
-                            sim.modelVariables[title] = sim.GetModelDefaultVariables(title);
-                        }
-                        sim.modelVariables[title].AddRange(added);
-                        // save changes
-                        sim.SaveModelVaribles();
-                    });
+                    main.SimCommand(sim => sim.modelVariableStore.AddFiles(title, added));
                     // update buttons
                     UpdateButtons();
                     // update variable list
@@ -370,24 +359,7 @@ namespace JoinFS
                 {
                     // change and save the lists on the sim thread, which owns them
                     string title = Text_Title.Text;
-                    main.SimCommand(sim =>
-                    {
-                        // check for default model variables
-                        if (sim.modelVariables.ContainsKey(title) == false)
-                        {
-                            // add default files
-                            sim.modelVariables[title] = sim.GetModelDefaultVariables(title);
-                        }
-                        // check index
-                        if (listIndex < sim.modelVariables[title].Count)
-                        {
-                            // remove file
-                            sim.modelVariables[title].RemoveAt(listIndex);
-                        }
-
-                        // save changes
-                        sim.SaveModelVaribles();
-                    });
+                    main.SimCommand(sim => sim.modelVariableStore.RemoveFileAt(title, listIndex));
                     // update buttons
                     UpdateButtons();
                     // update variable list

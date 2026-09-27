@@ -236,7 +236,7 @@ namespace JoinFS
         {
             if (GetNodeAtc(nuid, out string airport, out int level))
             {
-                return Sim.MakeAtcCallsign(airport, level);
+                return Atc.MakeAtcCallsign(airport, level);
             }
             return simView.FindUserAircraft(nuid)?.flightPlan.callsign ?? "";
         }
@@ -324,7 +324,7 @@ namespace JoinFS
         {
             if (GetNodeAtc(new NodeId(), out string airport, out int level))
             {
-                return Sim.MakeAtcCallsign(airport, level);
+                return Atc.MakeAtcCallsign(airport, level);
             }
             return simView.UserCallsign;
         }

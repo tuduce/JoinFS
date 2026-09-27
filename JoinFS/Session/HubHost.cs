@@ -167,7 +167,7 @@ namespace JoinFS
                 double longitude = Math.Min(180.0, Math.Max(-180.0, airport.longitude));
                 Sim.FlightPlan flightPlan = new()
                 {
-                    callsign = Sim.MakeAtcCallsign(airportCode, level),
+                    callsign = Atc.MakeAtcCallsign(airportCode, level),
                     departure = airportCode
                 };
                 LocalUsers.Add(new HubDirectory.HubUser(guid, true, nickname, frequency, latitude, longitude, 0.0, null, flightPlan, 0, level, range, true, 0));

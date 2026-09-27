@@ -188,7 +188,7 @@ namespace JoinFS
                         // write time
                         newSample.lines.Add("[" + DateTime.UtcNow.ToString("HH:mm:ss") + " >>>> *A]");
                         // write ATC
-                        newSample.lines.Add("#DA" + Sim.MakeAtcCallsign(airport, Settings.Default.AtcLevel) + ":" + airport);
+                        newSample.lines.Add("#DA" + JoinFS.Atc.MakeAtcCallsign(airport, Settings.Default.AtcLevel) + ":" + airport);
                         // update flag
                         localAtc = false;
                     }
@@ -207,7 +207,7 @@ namespace JoinFS
                             // write time
                             newSample.lines.Add("[" + DateTime.UtcNow.ToString("HH:mm:ss") + " >>>> *A]");
                             // write ATC
-                            newSample.lines.Add("%" + Sim.MakeAtcCallsign(atc.airport, atc.level) + ":" + atc.frequency + ":6:0:3:" + latitude + ":" + longitude + ":5");
+                            newSample.lines.Add("%" + JoinFS.Atc.MakeAtcCallsign(atc.airport, atc.level) + ":" + atc.frequency + ":6:0:3:" + latitude + ":" + longitude + ":5");
                         }
                         else
                         {
@@ -226,7 +226,7 @@ namespace JoinFS
                         // write time
                         newSample.lines.Add("[" + DateTime.UtcNow.ToString("HH:mm:ss") + " >>>> *A]");
                         // write ATC
-                        newSample.lines.Add("#DA" + Sim.MakeAtcCallsign(atc.airport, atc.level) + ":" + atc.airport);
+                        newSample.lines.Add("#DA" + JoinFS.Atc.MakeAtcCallsign(atc.airport, atc.level) + ":" + atc.airport);
                     }
                     // clear list
                     removeList.Clear();

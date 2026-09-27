@@ -326,7 +326,7 @@ namespace JoinFS
             // write level
             Settings.Default.AtcLevel = Combo_Level.SelectedIndex;
             // write frequency
-            Settings.Default.AtcFrequency = Sim.FrequencyStringToInt(Text_Frequency.Text);
+            Settings.Default.AtcFrequency = Atc.FrequencyStringToInt(Text_Frequency.Text);
             // update Euroscope
             Settings.Default.Euroscope = Check_Euroscope.CheckState == CheckState.Checked;
 
@@ -570,7 +570,7 @@ namespace JoinFS
             // get ATC level
             Combo_Level.SelectedIndex = Math.Min(4, Math.Max(0, Settings.Default.AtcLevel));
             // get ATC frequency
-            Text_Frequency.Text = Sim.FrequencyIntToString(Settings.Default.AtcFrequency);
+            Text_Frequency.Text = Atc.FrequencyIntToString(Settings.Default.AtcFrequency);
             // get Euroscope
             Check_Euroscope.CheckState = Settings.Default.Euroscope ? CheckState.Checked : CheckState.Unchecked;
             // get hub mode

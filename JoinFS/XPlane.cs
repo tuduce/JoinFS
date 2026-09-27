@@ -667,7 +667,7 @@ namespace JoinFS
                                         aircraftList[index].simTime = reader.ReadDouble();
                                         // read position
                                         Sim.AircraftPosition position = new Sim.AircraftPosition();
-                                        Sim.Read(dataVersion, reader, ref position);
+                                        JfsFrames.Read(dataVersion, reader, ref position);
                                         // read plane state
                                         position.latitude *= Math.PI / 180.0;
                                         position.longitude *= Math.PI / 180.0;
@@ -779,7 +779,7 @@ namespace JoinFS
                     }
                 }
             }
-            catch (Sim.ReadException ex)
+            catch (JfsFrames.ReadException ex)
             {
                 // message
                 main.MonitorEvent(ex.Message);
@@ -1045,7 +1045,7 @@ namespace JoinFS
                     // write time
                     message.Write(netTime);
                     // write position
-                    Sim.Write(message, ref position);
+                    JfsFrames.Write(message, ref position);
                     // send message
                     link.Send(pluginEndPoint);
                 }
