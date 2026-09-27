@@ -26,28 +26,11 @@ namespace JoinFS
     public partial class Sim
     {
         /// <summary>
-        /// Interval mask for a pair of objects
+        /// Interval mask per (local, remote) object pair, keyed by object reference rather than
+        /// scanned linearly - see RebuildIntervalMasks (rebuild, once per updateIntervalsTimer
+        /// interval) for how entries are populated.
         /// </summary>
-        class IntervalMask
-        {
-            /// <summary>
-            /// Object on this node
-            /// </summary>
-            public Obj localObject;
-            /// <summary>
-            /// object on remote node
-            /// </summary>
-            public Obj remoteObject;
-            /// <summary>
-            /// Interval mask
-            /// </summary>
-            public int mask = 0;
-        }
-
-        /// <summary>
-        /// List of interval masks between pair of objects
-        /// </summary>
-        readonly List<IntervalMask> intervalMasks = [];
+        readonly Dictionary<(Obj localObject, Obj remoteObject), int> intervalMasks = [];
 
         /// <summary>
         /// Get the interval mask for a pair of objects
@@ -57,19 +40,8 @@ namespace JoinFS
         /// <returns>Interval mask value</returns>
         int GetIntervalMask(Obj localObject, Obj remoteObject)
         {
-            // get interval
-            IntervalMask intervalMask = intervalMasks.Find(i => i.localObject == localObject && i.remoteObject == remoteObject);
-            // check if interval found
-            if (intervalMask != null)
-            {
-                // return mask
-                return intervalMask.mask;
-            }
-            else
-            {
-                // always process
-                return 0;
-            }
+            // return the mask for this pair, or 0 (always process) if there isn't one
+            return intervalMasks.TryGetValue((localObject, remoteObject), out int mask) ? mask : 0;
         }
 
         /// <summary>
@@ -78,13 +50,12 @@ namespace JoinFS
         /// <param name="object"></param>
         void RemoveIntervalMask(Obj obj)
         {
-            // get all masks referencing object
-            List<IntervalMask> list = intervalMasks.FindAll(i => i.localObject == obj || i.remoteObject == obj);
-            // for each interval mask
-            foreach (var intervalMask in list)
+            // object removal is rare (not per-tick), so a scan here costs no more than the
+            // List.FindAll this replaced
+            List<(Obj, Obj)> keys = intervalMasks.Keys.Where(k => k.localObject == obj || k.remoteObject == obj).ToList();
+            foreach (var key in keys)
             {
-                // remove
-                intervalMasks.Remove(intervalMask);
+                intervalMasks.Remove(key);
             }
         }
     }

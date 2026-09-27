@@ -289,7 +289,7 @@ namespace JoinFS
         public Aircraft UpdateAircraft(NodeId ownerNuid, uint netId, bool user, bool plane, string callsign, string registration, string nickname, string model, string livery, string icaoType, string icaoAirline, string flightNumber, string classCode, string wtc, bool classCodeConfirmed, int typerole, double netTime, ref AircraftPosition aircraftPosition, double receivedAt = 0.0)
         {
             // check for valid aircraft
-            if ((objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId) is not Aircraft aircraft))
+            if ((FindObject(ownerNuid, netId) is not Aircraft aircraft))
             {
                 // create new aircraft
                 if (plane)
@@ -312,7 +312,7 @@ namespace JoinFS
                 // create variables
                 CreateModelVariables(aircraft);
                 // add aircraft
-                objectList.Add(aircraft);
+                AddObjectToList(aircraft);
                 // message
                 main.MonitorEvent("Listing aircraft '" + aircraft.flightPlan.callsign + "' from '" + ((aircraft.owner == Obj.Owner.Network) ? aircraft.ownerNuid.ToString() : "Me") + "' - Model '" + aircraft.ownerModel + "'");
             }
@@ -394,7 +394,7 @@ namespace JoinFS
         public Aircraft UpdateAircraft(NodeId ownerNuid, uint netId, uint eventId, uint data, bool flight)
         {
             // get aircraft
-            Aircraft aircraft = objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is Aircraft) as Aircraft;
+            Aircraft aircraft = FindObject(ownerNuid, netId) as Aircraft;
             if (aircraft != null)
             {
                 // get controlled aircraft
@@ -428,7 +428,7 @@ namespace JoinFS
         public Aircraft UpdateAircraft(NodeId ownerNuid, uint netId, Dictionary<uint, int> variables)
         {
             // get aircraft
-            Aircraft aircraft = objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is Aircraft) as Aircraft;
+            Aircraft aircraft = FindObject(ownerNuid, netId) as Aircraft;
             if (aircraft != null)
             {
                 // get controlled aircraft
@@ -454,7 +454,7 @@ namespace JoinFS
         public Aircraft UpdateAircraft(NodeId ownerNuid, uint netId, Dictionary<uint, float> variables)
         {
             // get aircraft
-            Aircraft aircraft = objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is Aircraft) as Aircraft;
+            Aircraft aircraft = FindObject(ownerNuid, netId) as Aircraft;
             if (aircraft != null)
             {
                 // get controlled aircraft
@@ -480,7 +480,7 @@ namespace JoinFS
         public Aircraft UpdateAircraft(NodeId ownerNuid, uint netId, Dictionary<uint, string> variables)
         {
             // get aircraft
-            Aircraft aircraft = objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is Aircraft) as Aircraft;
+            Aircraft aircraft = FindObject(ownerNuid, netId) as Aircraft;
             if (aircraft != null)
             {
                 // get controlled aircraft
@@ -560,16 +560,16 @@ namespace JoinFS
                             }
                             else if (IsBroadcast(aircraft) && aircraft.Injected == false)
                             {
-                                // get nodes
-                                NodeId[] nodeList = main.network.PeerIds();
+                                // get nodes (cached once per tick - see RefreshTickCaches)
+                                NodeId[] nodeList = tickPeerIds;
                                 // the nodes due an update this tick
                                 Span<NodeId> due = stackalloc NodeId[nodeList.Length];
                                 int dueCount = 0;
                                 // for each node
                                 foreach (var nuid in nodeList)
                                 {
-                                    // get remote object
-                                    Obj remoteObject = objectList.Find(o => o.ownerNuid == nuid && o is Aircraft && (o as Aircraft).user);
+                                    // get remote object (cached once per tick - see RefreshTickCaches)
+                                    Obj remoteObject = tickUserAircraftByNode.GetValueOrDefault(nuid);
                                     // get interval mask
                                     int intervalMask = GetIntervalMask(aircraft, remoteObject);
                                     // check if node's simulator is not connected

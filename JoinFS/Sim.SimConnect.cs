@@ -179,7 +179,7 @@ namespace JoinFS
                                     // create variables
                                     CreateModelVariables(obj);
                                     // add new object to list
-                                    objectList.Add(obj);
+                                    AddObjectToList(obj);
                                     // check for user aircraft
                                     if (obj.owner == Obj.Owner.Me && obj is Aircraft)
                                     {
@@ -351,16 +351,16 @@ namespace JoinFS
                     {
                         if (IsBroadcast(obj))
                         {
-                            // get nodes
-                            NodeId[] nodeList = main.network.PeerIds();
+                            // get nodes (cached once per tick - see RefreshTickCaches)
+                            NodeId[] nodeList = tickPeerIds;
                             // the nodes due an update this tick
                             Span<NodeId> due = stackalloc NodeId[nodeList.Length];
                             int dueCount = 0;
                             // for each node
                             foreach (var nuid in nodeList)
                             {
-                                // get remote object
-                                Obj remoteObject = objectList.Find(o => o.ownerNuid == nuid && o is Aircraft && (o as Aircraft).user);
+                                // get remote object (cached once per tick - see RefreshTickCaches)
+                                Obj remoteObject = tickUserAircraftByNode.GetValueOrDefault(nuid);
                                 // get interval mask
                                 int intervalMask = GetIntervalMask(obj, remoteObject);
                                 // check if node's simulator is not connected

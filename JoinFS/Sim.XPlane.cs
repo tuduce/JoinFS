@@ -53,7 +53,7 @@ namespace JoinFS
                 // create variables
                 CreateModelVariables(obj);
                 // add new object to list
-                objectList.Add(obj);
+                AddObjectToList(obj);
 
                 // check for aircraft
                 if (obj is Aircraft aircraft)

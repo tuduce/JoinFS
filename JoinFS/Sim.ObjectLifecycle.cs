@@ -99,6 +99,7 @@ namespace JoinFS
 #endif
                 // remove object from the list
                 objectList.Remove(obj);
+                objectsByOwnerNetId.Remove((obj.ownerNuid, obj.netId));
 
                 // check for aircraft
                 if (obj is Aircraft)
@@ -348,7 +349,7 @@ namespace JoinFS
         public void ResetObject(NodeId ownerNuid, uint netId)
         {
             // get object
-            ResetObject(objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId));
+            ResetObject(FindObject(ownerNuid, netId));
         }
 
         /// <summary>
@@ -531,7 +532,7 @@ namespace JoinFS
         public Obj UpdateObject(NodeId ownerNuid, uint netId, string model, string livery, string icaoType, string icaoAirline, string classCode, string wtc, bool classCodeConfirmed, int typerole, double netTime, ref ObjectPositionVelocity positionVelocity, double receivedAt = 0.0)
         {
             // get object
-            Obj obj = objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId);
+            Obj obj = FindObject(ownerNuid, netId);
             if (obj == null)
             {
                 // create new object in list
@@ -547,7 +548,7 @@ namespace JoinFS
                 // create variables
                 CreateModelVariables(obj);
                 // add to object list
-                objectList.Add(obj);
+                AddObjectToList(obj);
 
                 // message
                 main.MonitorEvent("Listing object - User '" + ((obj.owner == Obj.Owner.Network) ? obj.ownerNuid.ToString() : "Me") + "' - Model '" + obj.ownerModel + "'");
@@ -588,7 +589,7 @@ namespace JoinFS
         public void PauseObject(NodeId ownerNuid, uint netId, bool pause)
         {
             // check for valid object
-            if (objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is not null) is Obj obj)
+            if (FindObject(ownerNuid, netId) is Obj obj)
             {
                 // update state
                 obj.paused = pause;
@@ -603,7 +604,7 @@ namespace JoinFS
         public void TouchObject(NodeId ownerNuid, uint netId)
         {
             // check for valid object
-            if (objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId && o is not null) is Obj obj)
+            if (FindObject(ownerNuid, netId) is Obj obj)
             {
                 // set expire time
                 obj.expireTime = main.ElapsedTime + OBJECT_EXPIRE_TIME;

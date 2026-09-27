@@ -139,7 +139,7 @@ namespace JoinFS
             Post(sim =>
             {
                 uint objectId = update.ObjectId;
-                Sim.Obj obj = sim.objectList.Find(o => o.ownerNuid == owner && o.netId == objectId);
+                Sim.Obj obj = sim.FindObject(owner, objectId);
                 if (obj == null) return;
                 bool modelChanged = update.Model != obj.ownerModel;
                 sim.UpdateObject(obj, update.Model, update.Livery, update.IcaoType, update.IcaoAirline, update.ClassCode, update.Wtc, update.ClassCodeConfirmed, update.TypeRole);
@@ -255,7 +255,7 @@ namespace JoinFS
             FlightPlanUpdate update = flightPlan;
             Post(sim =>
             {
-                if (sim.objectList.Find(o => o.ownerNuid == owner && o.netId == netId) is Sim.Aircraft aircraft)
+                if (sim.FindObject(owner, netId) is Sim.Aircraft aircraft)
                 {
                     SimMessageMapper.CopyTo(update, aircraft.flightPlan);
                 }

@@ -73,6 +73,29 @@ namespace JoinFS
         /// </summary>
         public List<Obj> objectList = [];
 
+        /// <summary>
+        /// Index of <see cref="objectList"/> by (ownerNuid, netId), the network identity of an
+        /// object - both fields are set once at construction and never reassigned, so this stays
+        /// in sync purely by being updated wherever objectList is added to/removed from. Avoids an
+        /// O(N) List.Find (plus a per-call closure allocation) on the network-message-receive path.
+        /// </summary>
+        readonly Dictionary<(NodeId, uint), Obj> objectsByOwnerNetId = [];
+
+        /// <summary>
+        /// The object owned by <paramref name="ownerNuid"/> with network id <paramref name="netId"/>, or null
+        /// </summary>
+        public Obj FindObject(NodeId ownerNuid, uint netId) => objectsByOwnerNetId.GetValueOrDefault((ownerNuid, netId));
+
+        /// <summary>
+        /// Add an object to <see cref="objectList"/>, keeping <see cref="objectsByOwnerNetId"/> in sync.
+        /// The only way an object should be added to the list.
+        /// </summary>
+        void AddObjectToList(Obj obj)
+        {
+            objectList.Add(obj);
+            objectsByOwnerNetId[(obj.ownerNuid, obj.netId)] = obj;
+        }
+
         // create remove object list
         readonly List<Obj> removeList = [];
 
@@ -165,6 +188,20 @@ namespace JoinFS
         /// count of DoWork()
         /// </summary>
         int workCount = 0;
+
+        /// <summary>
+        /// Session peer ids for this tick, refreshed once at the top of <see cref="DoWork"/>
+        /// instead of once per broadcasting aircraft in <see cref="ProcessAircraftPosition"/> -
+        /// tolerates being up to one tick stale, same as <see cref="Network.Snapshot"/> itself.
+        /// </summary>
+        NodeId[] tickPeerIds = [];
+
+        /// <summary>
+        /// Each node's user aircraft (the one with <see cref="Aircraft.user"/> set) for this tick,
+        /// refreshed once at the top of <see cref="DoWork"/> instead of an O(objectList) Find per
+        /// peer per broadcasting aircraft in <see cref="ProcessAircraftPosition"/>.
+        /// </summary>
+        readonly Dictionary<NodeId, Aircraft> tickUserAircraftByNode = [];
 
         /// <summary>
         /// Timers
@@ -347,6 +384,7 @@ namespace JoinFS
         /// </summary>
         public void DoWork()
         {
+            RefreshTickCaches();
             ProcessScheduledWork();
             PollConnectionTimer();
             PumpSimMessages();
@@ -374,6 +412,26 @@ namespace JoinFS
             workCount++;
 
             TryAutoNetworkJoin();
+        }
+
+        /// <summary>
+        /// Refresh <see cref="tickPeerIds"/> and <see cref="tickUserAircraftByNode"/> for this
+        /// tick. Done first, before <see cref="PumpSimMessages"/>/<c>xplane.DoWork</c> can call
+        /// <see cref="ProcessAircraftPosition"/> (SimConnect and X-Plane fire it from different
+        /// points within DoWork), so both are ready however this tick's position updates arrive.
+        /// </summary>
+        void RefreshTickCaches()
+        {
+            tickPeerIds = main.network.PeerIds();
+
+            tickUserAircraftByNode.Clear();
+            foreach (var obj in objectList)
+            {
+                if (obj is Aircraft aircraft && aircraft.user)
+                {
+                    tickUserAircraftByNode[aircraft.ownerNuid] = aircraft;
+                }
+            }
         }
 
         /// <summary>
@@ -803,12 +861,8 @@ namespace JoinFS
                             // check for valid pair combination
                             if (localObject.Injected == false && remoteObject.owner == Aircraft.Owner.Network && remoteObject is Aircraft && (remoteObject as Aircraft).user)
                             {
-                                // create new interval mask
-                                IntervalMask intervalMask = new()
-                                {
-                                    localObject = localObject,
-                                    remoteObject = remoteObject
-                                };
+                                // interval mask for this pair
+                                int mask = 0;
 
                                 // check for valid position
                                 //if (localObject.simValid && remoteObject.netValid)
@@ -818,7 +872,7 @@ namespace JoinFS
                                 //    // check if outside activity circle
                                 //    if (distance * 0.00053995680346 > mainForm.network.Peers.GetNodeActivityCircle(remoteObject.ownerNuid))
                                 //    {
-                                //        intervalMask.mask = 0xf;
+                                //        mask = 0xf;
                                 //    }
                                 //}
 
@@ -826,12 +880,12 @@ namespace JoinFS
                                 if (main.network.LowBandwidth || main.network.NodeLowBandwidth(remoteObject.ownerNuid))
                                 {
                                     // double the interval
-                                    intervalMask.mask <<= 1;
-                                    intervalMask.mask += 1;
+                                    mask <<= 1;
+                                    mask += 1;
                                 }
 
-                                // add to list
-                                intervalMasks.Add(intervalMask);
+                                // add to index
+                                intervalMasks[(localObject, remoteObject)] = mask;
                             }
                         }
                     }
