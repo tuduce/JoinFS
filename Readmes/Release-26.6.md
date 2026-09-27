@@ -10,6 +10,7 @@
 - Fixed yaw trembling after crossing the 2*PI heading boundary in a recorded plane the user entered cockpit.
 - Fixed position messages generated with v26.5 could not be interpreted by older versions.
 - Fixed guaranteed-message delivery broken for any relayed peer.
+- Fixed expensive data-structure lookups. Replaced linear objectList.Find scans (plus their per-call closure allocations) on the network-message-receive path with an O(1) dictionary lookup, and removed the O(objects x peers) rescans in the position broadcast fan-out.
 
 ## Limitations
 
