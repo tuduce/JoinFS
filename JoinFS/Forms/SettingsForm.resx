@@ -465,36 +465,6 @@
   <data name="&gt;&gt;Track_Circle.ZOrder" xml:space="preserve">
     <value>17</value>
   </data>
-  <data name="Check_UseAIFeatures.AutoSize" type="System.Boolean, mscorlib">
-    <value>True</value>
-  </data>
-  <data name="Check_UseAIFeatures.CheckAlign" type="System.Drawing.ContentAlignment, System.Drawing">
-    <value>MiddleRight</value>
-  </data>
-  <data name="Check_UseAIFeatures.Location" type="System.Drawing.Point, System.Drawing">
-    <value>7, 191</value>
-  </data>
-  <data name="Check_UseAIFeatures.Size" type="System.Drawing.Size, System.Drawing">
-    <value>150, 19</value>
-  </data>
-  <data name="Check_UseAIFeatures.TabIndex" type="System.Int32, mscorlib">
-    <value>39</value>
-  </data>
-  <data name="Check_UseAIFeatures.Text" xml:space="preserve">
-    <value>Use AI Model Matching</value>
-  </data>
-  <data name="&gt;&gt;Check_UseAIFeatures.Name" xml:space="preserve">
-    <value>Check_UseAIFeatures</value>
-  </data>
-  <data name="&gt;&gt;Check_UseAIFeatures.Type" xml:space="preserve">
-    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="&gt;&gt;Check_UseAIFeatures.Parent" xml:space="preserve">
-    <value>GroupBox_Simulator</value>
-  </data>
-  <data name="&gt;&gt;Check_UseAIFeatures.ZOrder" xml:space="preserve">
-    <value>0</value>
-  </data>
   <data name="Label_FollowText.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
   </data>

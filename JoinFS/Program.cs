@@ -125,7 +125,6 @@ namespace JoinFS
         public bool settingsXplane = false;
         public bool settingsTcas = false;
         public bool settingsScan = false;
-        public bool settingsUseAIFeatures = false;
 
         // elevated platform (helipad/ship deck/rooftop) ground-trust feature - command-line only, not persisted
         public bool settingsElevatedPlatformRecognition = true;
@@ -262,7 +261,6 @@ namespace JoinFS
                 settingsXplane = Settings.Default.XPlane;
                 settingsTcas = Settings.Default.TCAS;
                 settingsScan = Settings.Default.ModelScanOnConnection;
-                settingsUseAIFeatures = Settings.Default.UseAIFeatures;
 #if XPLANE || CONSOLE
                 settingsGenerateCsl = Settings.Default.GenerateCsl;
                 settingsSkipCsl = Settings.Default.SkipCsl;

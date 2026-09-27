@@ -42,7 +42,6 @@
             Label_Circle = new System.Windows.Forms.Label();
             Track_Circle = new System.Windows.Forms.TrackBar();
             GroupBox_Simulator = new System.Windows.Forms.GroupBox();
-            Check_UseAIFeatures = new System.Windows.Forms.CheckBox();
             Label_FollowText = new System.Windows.Forms.Label();
             Check_Connect = new System.Windows.Forms.CheckBox();
             Button_LabelColour = new System.Windows.Forms.Button();
@@ -201,7 +200,6 @@
             // 
             // GroupBox_Simulator
             // 
-            GroupBox_Simulator.Controls.Add(Check_UseAIFeatures);
             GroupBox_Simulator.Controls.Add(Label_FollowText);
             GroupBox_Simulator.Controls.Add(Check_Connect);
             GroupBox_Simulator.Controls.Add(Button_LabelColour);
@@ -223,13 +221,7 @@
             resources.ApplyResources(GroupBox_Simulator, "GroupBox_Simulator");
             GroupBox_Simulator.Name = "GroupBox_Simulator";
             GroupBox_Simulator.TabStop = false;
-            // 
-            // Check_UseAIFeatures
-            // 
-            resources.ApplyResources(Check_UseAIFeatures, "Check_UseAIFeatures");
-            Check_UseAIFeatures.Name = "Check_UseAIFeatures";
-            Check_UseAIFeatures.UseVisualStyleBackColor = true;
-            // 
+            //
             // Label_FollowText
             // 
             resources.ApplyResources(Label_FollowText, "Label_FollowText");
@@ -785,7 +777,6 @@
         private System.Windows.Forms.Button Button_Reset;
         private System.Windows.Forms.CheckBox Check_EarlyUpdate;
         private System.Windows.Forms.CheckBox Check_TCAS;
-        private System.Windows.Forms.CheckBox Check_UseAIFeatures;
         private System.Windows.Forms.GroupBox GroupBox_SimBrief;
         private System.Windows.Forms.Label Label_SimBriefUsername;
         private System.Windows.Forms.TextBox Text_SimBriefUsername;
