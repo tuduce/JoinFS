@@ -4506,6 +4506,44 @@ namespace JoinFS
             return Guid.Empty;
         }
 
+        /// <summary>
+        /// Is <paramref name="ownerNuid"/> allowed to own a newly-created network object right now -
+        /// either a locally-owned object (Owner.Me / Owner.Recorder, invalid nuid), or a peer this
+        /// instance has actually completed its join handshake with. A position message for any other
+        /// nuid is most often the first packet(s) of a peer's reconnect racing ahead of its own
+        /// registration (RegisterNode/nodeJoin, Node.cs) - creating an object for it would leave a
+        /// "ghost" with an unresolvable owner (GetNodeGuid above falls through to Guid.Empty, and
+        /// callers building an identity from that fall back to something simId-derived) alongside the
+        /// same aircraft's properly-owned copy once the join catches up.
+        /// Confirmed live: a peer repeatedly disconnected/reconnected (desktop "Network" button)
+        /// while broadcasting a Recorder replay produced exactly this - two short-lived duplicate
+        /// aircraft, each a burst of a few stray packets, then never recurring once registered.
+        /// </summary>
+        public bool IsKnownOwner(LocalNode.Nuid ownerNuid) => IsKnownOwner(ownerNuid, nodeList);
+
+        /// <summary>Pure, dependency-free form of <see cref="IsKnownOwner(LocalNode.Nuid)"/> for testing.</summary>
+        public static bool IsKnownOwner(LocalNode.Nuid ownerNuid, Dictionary<LocalNode.Nuid, Node> nodeList)
+        {
+            return ownerNuid.Invalid() || nodeList.ContainsKey(ownerNuid);
+        }
+
+        /// <summary>
+        /// Throttle for the "unknown owner" warning below - one line per sender per 30 s so a
+        /// reconnecting peer streaming garbage at 10 Hz can't drown the monitor.
+        /// </summary>
+        readonly Dictionary<LocalNode.Nuid, double> unknownOwnerLogTime = new();
+
+        public void WarnUnknownOwner(LocalNode.Nuid ownerNuid, string what)
+        {
+            if (unknownOwnerLogTime.TryGetValue(ownerNuid, out double last) && main.ElapsedTime - last < 30.0)
+            {
+                return;
+            }
+            unknownOwnerLogTime[ownerNuid] = main.ElapsedTime;
+            main.MonitorEvent("Discarding " + what + " from unregistered owner '" + ownerNuid
+                + "' - likely a reconnect racing its own join registration");
+        }
+
         public string GetNodeCallsign(LocalNode.Nuid nuid)
         {
             // check for ATC

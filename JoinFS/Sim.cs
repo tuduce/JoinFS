@@ -1429,6 +1429,14 @@ namespace JoinFS
             Obj obj = objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId);
             if (obj == null)
             {
+                // refuse to create an object for an owner this instance hasn't (yet) registered via
+                // its own join handshake - see Network.IsKnownOwner for why
+                if (main.network.IsKnownOwner(ownerNuid) == false)
+                {
+                    main.network.WarnUnknownOwner(ownerNuid, "ObjectPosition");
+                    return null;
+                }
+
                 // create new object in list
                 obj = new(ownerNuid, netId)
                 {
@@ -2268,6 +2276,14 @@ namespace JoinFS
             // check for valid aircraft
             if ((objectList.Find(o => o.ownerNuid == ownerNuid && o.netId == netId) is not Aircraft aircraft))
             {
+                // refuse to create an aircraft for an owner this instance hasn't (yet) registered via
+                // its own join handshake - see Network.IsKnownOwner for why
+                if (main.network.IsKnownOwner(ownerNuid) == false)
+                {
+                    main.network.WarnUnknownOwner(ownerNuid, "AircraftPosition");
+                    return null;
+                }
+
                 // create new aircraft
                 if (plane)
                 {
