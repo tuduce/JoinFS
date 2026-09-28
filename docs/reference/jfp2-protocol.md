@@ -9,7 +9,7 @@ Related reading:
 - `docs/reference/joinfs-architecture.md` — how JFP2 fits into the application as one protocol
   plugin next to the legacy one.
 - `docs/network-protocol.md` — the legacy wire protocol that JFP2 coexists with.
-- `docs/recording-protocol.md` and `docs/protocol-changes-v26.4-v26.5.md` — the audits that
+- `docs/recording-protocol.md` and `73b203d^:docs/protocol-changes-v26.4-v26.5.md` (removed; read it with `git show`) — the audits that
   motivated JFP2 (cited in §1).
 - `docs/protocol-v2-implementation-plan.md` and `docs/protocol-v2-implementation-review.md` —
   historical record of how JFP2 was first built and field-tested, including Findings 1–9.
@@ -23,14 +23,14 @@ rather than another incremental patch:
 single number every application message is implicitly validated against. When any one message's shape
 changes, the version moves for the whole protocol, and every receiver has to reason about "what does
 dataVersion N mean for message X" for every X. The v26.4→v26.5 change
-(docs/protocol-changes-v26.4-v26.5.md §1.1) needed an intermediate version (21006) purely as a
+(the v26.4→v26.5 audit, §1.1) needed an intermediate version (21006) purely as a
 migration step for fields on two unrelated messages, and the version number carries no structured
 information about which fields are actually present.
 
 **1.2 Version gates that don't match compile-time gates.** The recorder gated the
 Livery/IcaoType/IcaoAirline tail with `#if FS2024` (compile time) while the network gated the same
 fields with a runtime `dataVersion` check, so an FS2020 build and an FS2024 build produced different
-shapes for "the same version" (docs/protocol-changes-v26.4-v26.5.md §2). Any design that mixes
+shapes for "the same version" (the v26.4→v26.5 audit, §2). Any design that mixes
 compile-time and runtime gating of wire fields reproduces this class of bug.
 
 **1.3 EOF-sensing as the extension mechanism.** Messages are extended by appending fields and having

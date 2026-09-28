@@ -1023,15 +1023,23 @@ namespace JoinFS
             };
             if (dialog.ShowDialog() == DialogResult.OK)
             {
+                // copy on the sim thread (which owns the recording) before opening the file, which
+                // truncates it - a failed copy must not leave an empty file marked as saved
+                List<Recorder.Obj> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
+                if (objects == null)
+                {
+                    string message = "ERROR - Recording not saved: the simulator thread did not respond. Please try again.";
+                    MessageBox.Show(message, Main.Name + ": " + Resources.Strings.RecorderStr);
+                    main.MonitorEvent(message);
+                    return;
+                }
                 if ((stream = dialog.OpenFile()) != null)
                 {
-                    // copy on the sim thread (which owns the recording), write here
-                    List<Recorder.Obj> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
-                    if (objects != null)
+                    // write here
+                    using (stream)
                     {
                         main.recorder.Write(new BinaryWriter(stream), objects);
                     }
-                    stream.Close();
                     // save folder
                     Settings.Default.RecordingFolder = Path.GetDirectoryName(dialog.FileName);
                     // now saved

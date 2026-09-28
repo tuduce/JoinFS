@@ -3,9 +3,9 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 
 // docs/protocol-v2-implementation-plan.md Phase 5: a mechanical port of the legacy FlightPlan message
-// (docs/network-protocol.md §8.5, docs/protocol-changes-v26.4-v26.5.md §1.4). Every field is always
+// (docs/network-protocol.md §8.5, 73b203d^:docs/protocol-changes-v26.4-v26.5.md §1.4). Every field is always
 // present (no dataVersion>=21003/21006 conditional reads - the legacy write side already writes all
-// 13 fields unconditionally on any current build, per protocol-changes-v26.4-v26.5.md §1.4, so this
+// 13 fields unconditionally on any current build, per that audit's §1.4, so this
 // simply collapses the version gate the same way Phase 2/3's codecs already did for Status/Identity).
 //
 // No separate OwnerNuid field - matching the precedent already set by VariableSync/Position/Identity

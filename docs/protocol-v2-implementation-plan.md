@@ -228,7 +228,7 @@ Legacy behavior must be provably unchanged throughout this phase.
 
 ## Phase 3 — Migrate Identity and VariableSync (design doc §9 step 3) — DONE (scoped) 2026-09-13
 
-This closes the specific bugs documented in `docs/protocol-changes-v26.4-v26.5.md` §1.2 and
+This closes the specific bugs documented in `73b203d^:docs/protocol-changes-v26.4-v26.5.md` §1.2 and
 `docs/recording-protocol.md` §7.1/§7.2, for **direct JFP2↔JFP2 peer pairs**. `Jfp2Bridge` (hub-role
 translation) was deliberately **not** implemented this phase — see the dedicated note below for why,
 and what that does and doesn't limit.
@@ -292,7 +292,7 @@ and what that does and doesn't limit.
          `IntegerVariables`/`FloatVariables`/`String8Variables` cases in `Network.ReceiveMsg` route
          through `main.sim?.UpdateAircraft(...)` — the null-conditional means **received variables are
          dropped outright when `main.sim == null`** (a sim-less `CONSOLE` hub). The sim-less-hub
-         *write*-side cache described in `docs/protocol-changes-v26.4-v26.5.md` §1.6 lives inside
+         *write*-side cache described in `73b203d^:docs/protocol-changes-v26.4-v26.5.md` §1.6 lives inside
          `VariableMgr.Set.Update*` (`JoinFS/VariableMgr.Set.cs` ~lines 504/632/730: `main.sim == null`
          is one of the conditions that stores a value directly instead of pushing it through
          SimConnect) — but the actual call path that reaches those methods on a sim-less hub was not

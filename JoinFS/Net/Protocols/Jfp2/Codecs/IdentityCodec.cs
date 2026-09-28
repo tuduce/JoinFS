@@ -6,7 +6,7 @@ using System.Collections.Generic;
 // ProtocolV2Reference/Codecs.cs's IdentityV1Codec, with the identity fields sourced for real from
 // JoinFS/Sim.cs's Obj/Aircraft (see Network.BuildIdentity) instead of the reference
 // demo's hand-written sample values. Splitting these fields out of the hot Position message is the
-// fix for the v26.4/v26.5 livery bug (docs/protocol-changes-v26.4-v26.5.md §1.2) and its recording-
+// fix for the v26.4/v26.5 livery bug (73b203d^:docs/protocol-changes-v26.4-v26.5.md §1.2) and its recording-
 // format mirror (docs/recording-protocol.md §7.1) - see docs/reference/jfp2-protocol.md §6.2.
 
 using JoinFS.Net;

@@ -572,6 +572,6 @@ move below are still open (§2.10 item 14).*
   - guaranteed delivery under drops
   - Findings 7/8/9 scenarios
   - leave/rejoin state
-- **Interop:** live test against an unmodified **v26.5** binary (both legacy direct and via a new hub), following `docs/protocol-v2-manual-test-guide.md` and the mixed-version section of the implementation plan. Compare Wireshark captures against the golden pcaps.
+- **Interop:** live test against an unmodified **v26.5** binary (both legacy direct and via a new hub), following `73b203d^:docs/protocol-v2-manual-test-guide.md` and the mixed-version section of the implementation plan. Compare Wireshark captures against the golden pcaps.
 - **Builds:** `dotnet build JoinFS\JoinFS.csproj -c <cfg>` for all configurations (`JoinFS/util/buildAll.ps1`), especially `CONSOLE` (no forms) and `XPLANE`. For X-Plane, run a live plugin-link smoke test, since `XPlaneLink` replaces the private `LocalNode`.
 - **Recorder:** play back an existing `.jfs` recorded with v26.5 and the current branch, record a new one, and replay it.

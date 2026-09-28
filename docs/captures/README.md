@@ -31,7 +31,7 @@ anything under test.
 - **Verified:** every one of the 5,071 datagrams starts with the legacy magic bytes `0x0B 0x52`
   (`0x520B` little-endian) — zero JFP2 traffic, as expected for a build with no JFP2 code at all.
 - **Verified:** `AircraftPosition` (`MessageId=1`) messages decode with `DataVersion=21007` — v26.5's
-  actual documented `DataVersion` (`docs/protocol-changes-v26.4-v26.5.md`) — and lengths ranging
+  actual documented `DataVersion` (`73b203d^:docs/protocol-changes-v26.4-v26.5.md`) — and lengths ranging
   170–223 bytes (variable, from callsign/registration/livery string lengths).
 
 Use it to sanity-check `JoinFS.Tests/Legacy/Fixtures/*.hex` (captured mechanically from the

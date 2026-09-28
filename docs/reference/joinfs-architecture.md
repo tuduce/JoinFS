@@ -121,7 +121,7 @@ read it freely; writers publish new collections.
 | Subsystem | File(s) | Role |
 |---|---|---|
 | `Main` | `Program.cs` | Composition root, work loop, settings, command-line options, shutdown. |
-| `Sim` | `Sim.cs` | Simulator abstraction: SimConnect lifecycle, the object list, and per-frame reconciliation that moves each remote or recorded object toward its latest known position (`UpdateSimObjectVelocity`, see `docs/positioning-improvements.md`). Decides *which peers* get *which updates* and how often (per-peer rate masks), then hands one canonical message per tick to `Network`. |
+| `Sim` | `Sim.cs` | Simulator abstraction: SimConnect lifecycle, the object list, and per-frame reconciliation that moves each remote or recorded object toward its latest known position (`UpdateSimObjectVelocity` in `Sim.Steering.cs`; original design: `git show 73b203d^:docs/positioning-improvements.md`). Decides *which peers* get *which updates* and how often (per-peer rate masks), then hands one canonical message per tick to `Network`. |
 | `VariableMgr` | `Variables.cs`, `VariableMgr.*.cs` | Declares every simulator variable JoinFS syncs, each identified on the network by a 32-bit `vuid` hash of its name. |
 | `Substitution` | `Substitution.cs` | Matches remote aircraft types to locally installed models. |
 | `Recorder` | `Recorder.cs` | Records to and plays back `.jfs` files. Played-back objects feed the same `Sim.Obj` path as network ones (owner *Recorder*). File version `Recorder.FileVersion`, independent of any wire version. |

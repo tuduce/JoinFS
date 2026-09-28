@@ -20,7 +20,7 @@ replies, assigned ids, exceptions) into `Sim`'s callbacks on the app thread.
 This has three consequences:
 
 - **Latency and jitter on the hot path.** `UpdateSimObjectVelocity` (`Sim.Steering.cs`; the per-frame
-  steering of every remote or recorded object, see `docs/positioning-improvements.md`) runs from the
+  steering of every remote or recorded object; original design: `git show 73b203d^:docs/positioning-improvements.md`) runs from the
   FRAME callback (`Sim.ProcessFrame` in `Sim.SimConnect.cs`).
   - A FRAME waits for the next tick, and also for any of the other subsystems that happen to be holding `conch`, including the UI timers.
   - At 60 fps a frame lasts 16 ms, so being up to 5 ms late (sometimes more) is a large share of it.
@@ -567,7 +567,7 @@ Each phase ships and field-tests on its own.
   distance between each object's steered sim position and its extrapolated network position. Do
   this before Phase 0b, after it, after Phase 1 and after Phase 3.
 - **Manual testing:**
-  - two MSFS 2020/2024 instances (`docs/protocol-v2-manual-test-guide.md`), comparing remote-aircraft smoothness and CPU against the current build;
+  - two MSFS 2020/2024 instances in one session, comparing remote-aircraft smoothness and CPU against the current build;
   - X-Plane on Windows;
   - the CONSOLE hub in Docker on Linux.
 

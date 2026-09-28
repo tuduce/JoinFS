@@ -12,7 +12,7 @@ namespace JoinFS.Net.Jfp2.Codecs
     /// classes can evolve on entirely separate timelines (see docs/reference/jfp2-protocol.md §5). This is
     /// the structural fix for the legacy protocol's single global DataVersion, which forced every
     /// message on the wire to be re-validated whenever ANY one message's shape changed
-    /// (docs/protocol-changes-v26.4-v26.5.md §1.1).
+    /// (73b203d^:docs/protocol-changes-v26.4-v26.5.md §1.1).
     /// </summary>
     public interface ICodec<T>
     {

@@ -71,7 +71,7 @@ A third, softer gap remains: VariableSync/Event/FlightPlan/Notes/Weather still h
 confirmation (only Position/Identity do now) — see §3. This is no longer a blocker on its own (the
 highest-frequency, highest-risk class per the design doc's own §6.1 framing is proven), but the
 remaining classes should get the same live confirmation before being trusted as a default. See
-`docs/protocol-v2-manual-test-guide.md` for a step-by-step procedure to exercise each of them —
+`73b203d^:docs/protocol-v2-manual-test-guide.md` (removed; read it with `git show`) for a step-by-step procedure to exercise each of them —
 that guide's §4 (tolerate one-off drops for Event/Notes/WeatherReply) is now stale given the Finding 1
 fix and should be revisited once these are live-tested again.
 
@@ -124,7 +124,7 @@ byte-correct (the unit tests already cover that).
 | Field | Wire type | Assessment |
 |---|---|---|
 | `ObjectId` | `uint` | Belongs — identifies which aircraft this tick describes; `uint.MaxValue` shared-cockpit sentinel correctly preserved from legacy. |
-| `NetTime` | `double` | Belongs — per-tick clock value needed for the receiver's RTT/jitter-compensated position reconciliation (`Sim.cs`'s `UpdateSimObjectVelocity`, per `docs/positioning-improvements.md`). This is exactly the kind of value that has to travel on the hot path; correctly not deferred to Identity. |
+| `NetTime` | `double` | Belongs — per-tick clock value needed for the receiver's RTT/jitter-compensated position reconciliation (`Sim.cs`'s `UpdateSimObjectVelocity`, per `73b203d^:docs/positioning-improvements.md`). This is exactly the kind of value that has to travel on the hot path; correctly not deferred to Identity. |
 | `Latitude/Longitude/Altitude` | `double×3` | Belongs on the hot path by definition. |
 | `Pitch/Bank/Heading`, velocity/angular-velocity/acceleration ×3 each | `float` | Belongs — all genuinely per-tick motion state. |
 | `Rudder/Elevator/Aileron/BrakeLeft/BrakeRight` | `int16` fixed-point | Belongs — control-surface state changes every tick for a user-controlled aircraft; encoding matches `Sim.ConvertToAxis/ConvertFromAxis` exactly (same quantization the legacy wire already uses, not a JFP2-introduced precision change). |
@@ -143,7 +143,7 @@ direct inspection of the struct.
 |---|---|---|
 | `ObjectId` | `uint` | Belongs — same object-scoping role as on Position. |
 | `IsAircraft`, `IsPlane` | 2 bits in a flags byte | Belongs here specifically *because* Position no longer implies object type via which legacy message class was used (`ObjectPosition` vs. `AircraftPosition`) — moving this distinction into Identity is the correct consequence of collapsing those two message types' data into one `PositionUpdate` shape. |
-| `Callsign`, `Model`, `Livery`, `IcaoType`, `IcaoAirline`, `Registration`, `FlightNumber`, `ClassCode`, `Wtc` | length-prefixed UTF8 | All belong — every one changes only on join/livery-change/flight-change, exactly Identity's stated scope, and every one is a field the v26.4/v26.5 bug (`docs/protocol-changes-v26.4-v26.5.md` §1.2) was caused by conditionally appending to a hot message. `FlightNumber` was a Phase-3 omission fixed in Phase 4 — now present and tested. |
+| `Callsign`, `Model`, `Livery`, `IcaoType`, `IcaoAirline`, `Registration`, `FlightNumber`, `ClassCode`, `Wtc` | length-prefixed UTF8 | All belong — every one changes only on join/livery-change/flight-change, exactly Identity's stated scope, and every one is a field the v26.4/v26.5 bug (`73b203d^:docs/protocol-changes-v26.4-v26.5.md` §1.2) was caused by conditionally appending to a hot message. `FlightNumber` was a Phase-3 omission fixed in Phase 4 — now present and tested. |
 | `ClassCodeConfirmed` | 1 bit | Belongs — a rarely-changing confirmation flag paired with `ClassCode`/`Wtc`, correctly grouped with them rather than left on Position. |
 | `TypeRole` | `byte` | Belongs — model-substitution category, changes only with `Model`, correctly co-located. |
 
@@ -177,7 +177,7 @@ being delivered reliably when it moved to JFP2 — see Finding 1.
 | Field | Wire type | Assessment |
 |---|---|---|
 | `ObjectId` | `uint` | Belongs. |
-| `IcaoType`, `Departure`, `Destination`, `Rules`, `Route`, `Remarks`, `Alternate`, `Speed`, `Altitude`, `Callsign`, `Registration`, `IcaoAirline`, `FlightNumber` | length-prefixed UTF8 | All 13 belong — every one is a genuine flight-plan attribute, matching the legacy shape field-for-field. Collapsing the legacy `dataVersion≥21003`/`≥21006` conditional tail into always-present fields is a correct, low-risk simplification: the legacy *sender* already writes all 13 unconditionally on any current build (per `docs/protocol-changes-v26.4-v26.5.md` §1.4), so nothing that used to be conditionally absent becomes newly present. |
+| `IcaoType`, `Departure`, `Destination`, `Rules`, `Route`, `Remarks`, `Alternate`, `Speed`, `Altitude`, `Callsign`, `Registration`, `IcaoAirline`, `FlightNumber` | length-prefixed UTF8 | All 13 belong — every one is a genuine flight-plan attribute, matching the legacy shape field-for-field. Collapsing the legacy `dataVersion≥21003`/`≥21006` conditional tail into always-present fields is a correct, low-risk simplification: the legacy *sender* already writes all 13 unconditionally on any current build (per `73b203d^:docs/protocol-changes-v26.4-v26.5.md` §1.4), so nothing that used to be conditionally absent becomes newly present. |
 
 No `OwnerNuid` field — correctly omitted, consistent with the same-sender-identity precedent already
 established by Position/Identity/VariableSync (the JFP2 envelope's sender *is* the owner until a hub

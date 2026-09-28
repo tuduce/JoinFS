@@ -7,7 +7,7 @@
 > The wire-format and sequence diagrams here are still accurate for JFP2 itself; the component and file-layout sections are historical.
 
 This document is a companion to `docs/reference/jfp2-protocol.md` (the protocol specification and
-rationale) and `docs/protocol-changes-v26.4-v26.5.md`/`docs/recording-protocol.md` (the prior audits
+rationale) and `73b203d^:docs/protocol-changes-v26.4-v26.5.md` (removed; read it with `git show`)/`docs/recording-protocol.md` (the prior audits
 that motivated it). It does not repeat the wire-format spec or the reasoning behind it — see those
 documents for that — it only diagrams **how JFP2 would be structured as code inside `JoinFS/`** and
 how the pieces talk to each other at runtime. Section numbers in parentheses (e.g. "§5.3") refer to
