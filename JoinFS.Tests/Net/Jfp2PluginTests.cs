@@ -103,8 +103,8 @@ namespace JoinFS.Tests.Net
             Assert.Equal(0, Jfp2DatagramsBetween(mesh, hub, old));
         }
 
-        [Fact]
-        public void Jfp2Guaranteed_SurvivesLoss()
+        /// <summary>A hub and a node A, both JFP2, with their session negotiated and verified.</summary>
+        static (TestMesh Mesh, TestNode Hub, TestNode A) TwoNegotiated()
         {
             var mesh = new TestMesh();
             TestNode hub = Jfp2Node(mesh, "203.0.113.1");
@@ -112,6 +112,26 @@ namespace JoinFS.Tests.Net
             hub.Core.Mesh.Create(false, 0, false, "");
             a.Core.Mesh.Join(hub.EndPoint, 0);
             mesh.Run(3);
+            Assert.True(Jfp2Of(a).IsNegotiated(hub.Id));
+            return (mesh, hub, a);
+        }
+
+        /// <summary>A hand-built, unforwarded JFP2 datagram from <paramref name="from"/> to its neighbor <paramref name="to"/>, in their session.</summary>
+        static void SendRaw(TestNode from, TestNode to, EnvelopeFlags flags, byte messageClass, ReadOnlySpan<byte> payload, ushort guaranteedId = 0)
+        {
+            Assert.True(Jfp2Of(from).TryGetHopIds(to.Id, out ushort local, out ushort remote));
+            bool guaranteed = (flags & EnvelopeFlags.Guaranteed) != 0;
+            var envelope = new Envelope(flags, local, remote, messageClass, guaranteedId, 0, (byte)(guaranteed ? 1 : 0));
+            byte[] datagram = new byte[envelope.WireSize + payload.Length];
+            int header = envelope.WriteTo(datagram);
+            payload.CopyTo(datagram.AsSpan(header));
+            from.Core.Transport.Send(to.EndPoint, datagram);
+        }
+
+        [Fact]
+        public void Jfp2Guaranteed_SurvivesLoss()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
 
             int dropped = 0;
             mesh.Network.Filter = (from, to, data) =>
@@ -132,13 +152,7 @@ namespace JoinFS.Tests.Net
         [Fact]
         public void Jfp2Guaranteed_LongerThanOneSegment_IsSentUnsegmented()
         {
-            var mesh = new TestMesh();
-            TestNode hub = Jfp2Node(mesh, "203.0.113.1");
-            TestNode a = Jfp2Node(mesh, "198.51.100.2");
-            hub.Core.Mesh.Create(false, 0, false, "");
-            a.Core.Mesh.Join(hub.EndPoint, 0);
-            mesh.Run(3);
-            Assert.True(Jfp2Of(a).IsNegotiated(hub.Id));
+            var (mesh, hub, a) = TwoNegotiated();
 
             string text = new('x', 2500);
             mesh.Network.Log.Clear();
@@ -157,12 +171,7 @@ namespace JoinFS.Tests.Net
         [Fact]
         public void Jfp2Guaranteed_AckWithoutSegmentIndex_StopsRetransmission()
         {
-            var mesh = new TestMesh();
-            TestNode hub = Jfp2Node(mesh, "203.0.113.1");
-            TestNode a = Jfp2Node(mesh, "198.51.100.2");
-            hub.Core.Mesh.Create(false, 0, false, "");
-            a.Core.Mesh.Join(hub.EndPoint, 0);
-            mesh.Run(3);
+            var (mesh, hub, a) = TwoNegotiated();
 
             // drop the hub's own (3-byte) acks
             mesh.Network.Filter = (from, to, data) => !(from.Equals(hub.EndPoint) && IsGuaranteedDone(data));
@@ -174,15 +183,116 @@ namespace JoinFS.Tests.Net
             // from here a retry would be acked normally, so any retransmission shows the short ack was ignored
             mesh.Network.Filter = null;
 
-            Assert.True(Jfp2Of(hub).TryGetHopIds(a.Id, out ushort hubLocal, out ushort hubRemote));
-            var ack = new Envelope(EnvelopeFlags.Internal, hubLocal, hubRemote, MessageClasses.GuaranteedDone);
-            byte[] datagram = new byte[ack.WireSize + 2];
-            int header = ack.WriteTo(datagram);
-            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(datagram.AsSpan(header), id);
-            hub.Core.Transport.Send(a.EndPoint, datagram);
+            byte[] shortAck = new byte[2];
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(shortAck, id);
+            SendRaw(hub, a, EnvelopeFlags.Internal, MessageClasses.GuaranteedDone, shortAck);
             mesh.Run(8);
 
             Assert.Equal(1, mesh.Network.Log.Count(d => d.From.Equals(a.EndPoint) && IsGuaranteedApplication(d.Data)));
+        }
+
+        /// <summary>
+        /// Longer than the session timeout: the session is demoted to legacy meanwhile, and the message
+        /// waits for JFP2 to reach the hub again instead of being given up (or handed to legacy).
+        /// </summary>
+        [Fact]
+        public void Jfp2Guaranteed_SurvivesOutageLongerThanTheSessionTimeout()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+
+            bool down = true;
+            mesh.Network.Filter = (from, to, data) => !(down && from.Equals(a.EndPoint));
+            a.Core.SendTo(hub.Id, Note("hi"), true);
+            mesh.Run(25);
+            Assert.Contains(a.Logs, l => l.Contains("no longer verified"));
+            Assert.Empty(hub.Messages<NotesBundle>());
+
+            // unanswered Hellos meanwhile put the hub on the 30 s legacy-only cooldown: JFP2 comes back after it
+            down = false;
+            mesh.Run(45);
+
+            Assert.True(Jfp2Of(a).IsNegotiated(hub.Id));
+            Assert.Equal("hi", Assert.Single(hub.Messages<NotesBundle>()).Users[0].Notes[0].Text);
+            Assert.Equal(0, Jfp2Of(a).GuaranteedPendingCount);
+        }
+
+        /// <summary>
+        /// A peer that restarts with a build offering fewer classes: routes cached for the old agreement
+        /// are dropped, or messages of a class it no longer takes would be routed to JFP2 and go nowhere.
+        /// </summary>
+        [Fact]
+        public void Handshake_WithFewerOffers_RefreshesCachedRoutes()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            Assert.Equal("JFP2", hub.Core.Route(a.Id, MessageKind.Notes)!.Name);
+
+            Assert.True(Jfp2Of(a).TryGetHopIds(hub.Id, out ushort aId, out _));
+            var hello = new HandshakeMessage
+            {
+                ProtoMajorMin = Envelope.ProtoMajor, ProtoMajorMax = Envelope.ProtoMajor, SelfAssignedId = aId,
+                Node = new RelayNuid(a.Id.ip, a.Id.port, a.Id.local),
+                Offers = [new SchemaOffer(false, MessageClasses.Position, 1, 1)],
+            };
+            SendRaw(a, hub, EnvelopeFlags.Internal, MessageClasses.Hello, hello.Serialize());
+            mesh.Run(0.1);
+
+            Assert.Equal("Legacy", hub.Core.Route(a.Id, MessageKind.Notes)!.Name);
+            Assert.Equal("JFP2", hub.Core.Route(a.Id, MessageKind.Position)!.Name);
+        }
+
+        /// <summary>A peer must not take a guaranteed message we cannot read (a class never agreed) as delivered.</summary>
+        [Fact]
+        public void Jfp2Guaranteed_ClassNeverAgreed_IsNotAcknowledged()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            const byte unknownClass = 200; // offered by no build
+
+            mesh.Network.Log.Clear();
+            SendRaw(a, hub, EnvelopeFlags.Guaranteed, unknownClass, [1, 2, 3, 4], guaranteedId: 77);
+            mesh.Run(1);
+
+            Assert.DoesNotContain(mesh.Network.Log, d => d.From.Equals(hub.EndPoint) && IsGuaranteedDone(d.Data));
+        }
+
+        /// <summary>Variables go out in datagrams that fit a safe UDP MTU, like legacy's, however many an object has.</summary>
+        [Fact]
+        public void VariableSync_ManyVariables_SplitIntoDatagramsUnderTheMtu()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            var entries = new List<VariableEntry>();
+            for (uint vuid = 1; vuid <= 300; vuid++) entries.Add(new VariableEntry { Vuid = vuid, Kind = VariableKind.Int32, IntValue = (int)vuid });
+
+            mesh.Network.Log.Clear();
+            a.Core.SendTo(hub.Id, new VariableSyncUpdate { ObjectId = 3, Entries = entries }, false);
+            mesh.Run(0.1);
+
+            var datagrams = mesh.Network.Log.Where(d => d.From.Equals(a.EndPoint) && d.Data[0] == Envelope.Magic
+                && (d.Data[2] & (byte)EnvelopeFlags.Internal) == 0 && d.Data[7] == MessageClasses.VariableSync).ToList();
+            Assert.True(datagrams.Count > 1);
+            Assert.All(datagrams, d => Assert.True(d.Data.Length <= 1024, d.Data.Length + " bytes"));
+            Assert.Equal(300, hub.Messages<VariableSyncUpdate>().Sum(m => m.Entries.Count));
+        }
+
+        /// <summary>
+        /// Objects come and go; what was sent about one that is no longer sent is forgotten, and if it
+        /// comes back its identity goes out first again.
+        /// </summary>
+        [Fact]
+        public void Identity_OfAnObjectNoLongerSent_IsForgottenAndResentFirst()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            SendPosition(a, hub, 3, "ID1", 1);
+            mesh.Run(0.1);
+            Assert.Equal(1, Jfp2Of(a).IdentitySentCount);
+
+            mesh.Run(61);
+            Assert.Equal(0, Jfp2Of(a).IdentitySentCount);
+
+            hub.Received.Clear();
+            SendPosition(a, hub, 3, "ID1", 2);
+            mesh.Run(0.1);
+            Assert.Equal("ID1", Assert.Single(hub.Messages<IdentityUpdate>()).Callsign);
+            Assert.Equal(2, Assert.Single(hub.Messages<PositionUpdate>()).Latitude);
         }
 
         static bool IsGuaranteedApplication(byte[] data) =>

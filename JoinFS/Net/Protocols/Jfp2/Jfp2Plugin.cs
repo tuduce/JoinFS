@@ -39,8 +39,10 @@ namespace JoinFS.Net.Jfp2
         const double SessionTimeout = 15.0;
         const double OccupantTtl = 30.0;
         const double IdentityHeartbeatInterval = 4.0;
+        const double IdentityForgetAfter = 30.0;
         const int GuaranteedDoneSize = 3;
-        const int VariableSyncChunkSize = 200;
+        /// <summary>VariableSync payload budget per datagram, to stay under a safe UDP MTU like legacy's variable messages (about 850 bytes).</summary>
+        const int VariableSyncMaxPayload = 1000;
         const ulong LocalCapabilities = (ulong)Capability.None;
 
         static readonly List<SchemaOffer> LocalOffers =
@@ -103,15 +105,19 @@ namespace JoinFS.Net.Jfp2
         readonly Dictionary<ushort, PeerSession> sessionsById = [];
         readonly Dictionary<IPEndPoint, Occupant> occupants = [];
         readonly Random random = new();
-        readonly Dictionary<(uint ObjectId, NodeId Peer), IdentitySent> identitySent = [];
+        readonly Dictionary<(NodeId Owner, uint ObjectId, NodeId Peer), IdentitySent> identitySent = [];
         readonly List<NodeId> targets = [];
         readonly byte[] payloadBuffer = new byte[16384];
         readonly byte[] datagramBuffer = new byte[16384 + 64];
         /// <summary>Who a send is on behalf of: this node, or (translation at a relay) the message's author.</summary>
         NodeId sendOrigin;
+        readonly ushort firstGuaranteedId;
+        double nextIdentitySweep;
 
-        public Jfp2Plugin()
+        /// <param name="firstGuaranteedId">Where guaranteed ids start; production seeds it from the clock (see <see cref="Jfp2Reliability"/>).</param>
+        public Jfp2Plugin(ushort firstGuaranteedId = 1)
         {
+            this.firstGuaranteedId = firstGuaranteedId;
             encoder = new Encoder(this);
         }
 
@@ -121,8 +127,14 @@ namespace JoinFS.Net.Jfp2
         public void Attach(IProtocolHost host)
         {
             this.host = host;
-            reliability = new Jfp2Reliability(host, SendDatagram);
+            reliability = new Jfp2Reliability(host, TransmitGuaranteed, firstGuaranteedId);
         }
+
+        /// <summary>For tests and diagnostics: guaranteed segments not yet acknowledged.</summary>
+        public int GuaranteedPendingCount => reliability.PendingCount;
+
+        /// <summary>For tests and diagnostics: (owner, object, peer) identities remembered as sent.</summary>
+        public int IdentitySentCount => identitySent.Count;
 
         public bool Accepts(ReadOnlySpan<byte> datagram) => datagram[0] == Envelope.Magic;
 
@@ -243,6 +255,23 @@ namespace JoinFS.Net.Jfp2
         {
             DoHandshake();
             reliability.Tick();
+            ForgetIdleIdentities();
+        }
+
+        /// <summary>
+        /// Objects come and go (AI traffic) and nothing on this path is told when one is removed, so a
+        /// record not refreshed for a while is dropped: were the object to be sent again, its identity
+        /// simply goes out first, as for a new one.
+        /// </summary>
+        void ForgetIdleIdentities()
+        {
+            double now = Now;
+            if (now < nextIdentitySweep || identitySent.Count == 0)
+            {
+                return;
+            }
+            nextIdentitySweep = now + IdentityForgetAfter;
+            identitySent.RemoveWhere((_, sent) => now - sent.Time >= IdentityForgetAfter);
         }
 
         void DoHandshake()
@@ -363,7 +392,7 @@ namespace JoinFS.Net.Jfp2
         {
             RemoveSession(peer.Id);
             reliability.RemovePeer(peer.Id);
-            identitySent.RemoveWhere((k, _) => k.Peer == peer.Id);
+            identitySent.RemoveWhere((k, _) => k.Peer == peer.Id || k.Owner == peer.Id);
             occupants.RemoveWhere((_, o) => o.Node == peer.Id);
         }
 
@@ -406,24 +435,51 @@ namespace JoinFS.Net.Jfp2
             SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.HelloAck, session.LocalAssignedId, session.RemoteAssignedId, MakeHandshake(session, result).Serialize());
 
         /// <summary>
-        /// Send one application message toward <paramref name="target"/> through <paramref name="hop"/>,
-        /// reliably if asked: unaddressed when the hop is the target itself, otherwise (or when relaying
-        /// for the message's author) Forwarded with Origin and Target, to be passed on or translated.
+        /// Send one application message toward <paramref name="target"/> through <paramref name="hop"/>:
+        /// unreliably, or handed to <see cref="Jfp2Reliability"/>, which makes every attempt through
+        /// <see cref="TransmitGuaranteed"/>.
         /// </summary>
         void SendApplication(Peer target, PeerSession hop, byte messageClass, ReadOnlySpan<byte> payload, bool guaranteed)
         {
-            bool forwarded = hop.Peer != target.Id || sendOrigin != Local;
-            EnvelopeFlags flags = forwarded ? EnvelopeFlags.Forwarded : EnvelopeFlags.None;
-            RelayNuid origin = forwarded ? ToRelay(sendOrigin) : default;
-            RelayNuid destination = forwarded ? ToRelay(target.Id) : default;
             if (guaranteed)
             {
-                reliability.Send(target.Id, hop.Peer, hop.Endpoint, flags, messageClass, hop.LocalAssignedId, hop.RemoteAssignedId, payload, origin, destination);
+                reliability.Send(target.Id, sendOrigin, messageClass, hop.AgreedAppVersion[messageClass], payload);
             }
             else
             {
-                SendDatagram(hop.Endpoint, flags, messageClass, hop.LocalAssignedId, hop.RemoteAssignedId, payload, origin: origin, target: destination);
+                SendVia(hop, target.Id, sendOrigin, EnvelopeFlags.None, messageClass, payload, 0, 0, 0);
             }
+        }
+
+        /// <summary>One attempt at a guaranteed segment, through the target's next hop as it is now.</summary>
+        bool TransmitGuaranteed(NodeId target, NodeId origin, byte messageClass, byte version, ReadOnlySpan<byte> payload,
+            ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount, out NodeId hop)
+        {
+            PeerSession session = NextHop(target, out _);
+            if (session == null || session.AgreedAppVersion[messageClass] != version)
+            {
+                hop = default;
+                return false;
+            }
+            hop = session.Peer;
+            SendVia(session, target, origin, EnvelopeFlags.Guaranteed, messageClass, payload, guaranteedId, guaranteedIndex, guaranteedCount);
+            return true;
+        }
+
+        /// <summary>
+        /// An application datagram to <paramref name="hop"/>: unaddressed when the hop is the target and
+        /// we are the author, otherwise Forwarded with Origin and Target, to be passed on or translated.
+        /// </summary>
+        void SendVia(PeerSession hop, NodeId target, NodeId origin, EnvelopeFlags flags, byte messageClass, ReadOnlySpan<byte> payload,
+            ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount)
+        {
+            bool forwarded = hop.Peer != target || origin != Local;
+            if (forwarded)
+            {
+                flags |= EnvelopeFlags.Forwarded;
+            }
+            SendDatagram(hop.Endpoint, flags, messageClass, hop.LocalAssignedId, hop.RemoteAssignedId, payload, guaranteedId, guaranteedIndex, guaranteedCount,
+                forwarded ? ToRelay(origin) : default, forwarded ? ToRelay(target) : default);
         }
 
         /// <summary>
@@ -502,7 +558,7 @@ namespace JoinFS.Net.Jfp2
             {
                 return true;
             }
-            var key = (objectId, peer.Id);
+            var key = (owner, objectId, peer.Id);
             double now = Now;
             if (identitySent.TryGetValue(key, out IdentitySent sent) && sent.Last.SameAs(identity) && now - sent.Time < IdentityHeartbeatInterval)
             {
@@ -542,19 +598,46 @@ namespace JoinFS.Net.Jfp2
             public void Handle(in MessageMeta meta, in VariableSyncUpdate m)
             {
                 if (m.Entries == null || m.Entries.Count == 0) return;
+                List<VariableSyncUpdate> chunks = null;
                 foreach (NodeId target in p.targets)
                 {
                     byte version = p.AgreedVersion(target, MessageClasses.VariableSync, out Peer peer, out PeerSession session);
                     if (version == 0) continue;
+                    chunks ??= Chunk(m);
                     ICodec<VariableSyncUpdate> codec = CodecRegistry.Resolve<VariableSyncUpdate>(MessageClasses.VariableSync, version);
-                    for (int offset = 0; offset < m.Entries.Count; offset += VariableSyncChunkSize)
+                    foreach (VariableSyncUpdate chunk in chunks)
                     {
-                        int count = Math.Min(VariableSyncChunkSize, m.Entries.Count - offset);
-                        var chunk = new VariableSyncUpdate { ObjectId = m.ObjectId, Entries = m.Entries.GetRange(offset, count) };
                         int length = codec.Encode(chunk, p.payloadBuffer);
                         p.SendApplication(peer, session, MessageClasses.VariableSync, p.payloadBuffer.AsSpan(0, length), false);
                     }
                 }
+            }
+
+            /// <summary>
+            /// Split into messages whose payload fits <see cref="VariableSyncMaxPayload"/>: at least one
+            /// entry each, at most 255 (the count is one byte). Sizes are v1's, the only VariableSync schema.
+            /// </summary>
+            static List<VariableSyncUpdate> Chunk(in VariableSyncUpdate m)
+            {
+                var chunks = new List<VariableSyncUpdate>(1);
+                int start = 0;
+                while (start < m.Entries.Count)
+                {
+                    int end = start;
+                    int size = VariableSyncV1Codec.HeaderSize;
+                    while (end < m.Entries.Count && end - start < byte.MaxValue)
+                    {
+                        int entry = VariableSyncV1Codec.EntrySize(m.Entries[end]);
+                        if (end > start && size + entry > VariableSyncMaxPayload) break;
+                        size += entry;
+                        end++;
+                    }
+                    chunks.Add(start == 0 && end == m.Entries.Count
+                        ? m
+                        : new VariableSyncUpdate { ObjectId = m.ObjectId, Entries = m.Entries.GetRange(start, end - start) });
+                    start = end;
+                }
+                return chunks;
             }
 
             public void Handle(in MessageMeta meta, in EventUpdate m) => SendSimple(MessageClasses.Event, m, true);
@@ -628,6 +711,22 @@ namespace JoinFS.Net.Jfp2
             }
 
             NodeId sender = envelope.IsForwarded ? ToNodeId(envelope.OriginNuid) : hop.Peer;
+            if (envelope.IsInternal)
+            {
+                if (envelope.RawMessageClass == MessageClasses.GuaranteedDone && TryReadGuaranteedDone(payload, out ushort id, out byte index))
+                {
+                    reliability.Acknowledge(sender, hop.Peer, envelope.IsForwarded ? Local : null, id, index);
+                }
+                return;
+            }
+
+            // checked before acking: a sender must not take a message we cannot read as delivered
+            byte version = hop.AgreedAppVersion[envelope.RawMessageClass];
+            if (version == 0)
+            {
+                host.Log(NetLogLevel.Network, "JFP2: class " + envelope.RawMessageClass + " from " + hop.Peer + " was never agreed on - ignored");
+                return;
+            }
             if (envelope.IsGuaranteed)
             {
                 // ack every copy: a duplicate means our ack was lost
@@ -636,22 +735,6 @@ namespace JoinFS.Net.Jfp2
                 {
                     return;
                 }
-            }
-
-            if (envelope.IsInternal)
-            {
-                if (envelope.RawMessageClass == MessageClasses.GuaranteedDone && TryReadGuaranteedDone(payload, out ushort id, out byte index))
-                {
-                    reliability.Acknowledge(sender, hop.Peer, envelope.IsForwarded, id, index);
-                }
-                return;
-            }
-
-            byte version = hop.AgreedAppVersion[envelope.RawMessageClass];
-            if (version == 0)
-            {
-                host.Log(NetLogLevel.Network, "JFP2: class " + envelope.RawMessageClass + " from " + hop.Peer + " was never agreed on - ignored");
-                return;
             }
             if (!TryComplete(sender, envelope, payload, out ReadOnlySpan<byte> message))
             {
@@ -704,7 +787,10 @@ namespace JoinFS.Net.Jfp2
                 SendHelloAck(from, session, result: 1);
                 return;
             }
-            Negotiator.Resolve(session, LocalCapabilities, LocalOffers, hello.Capabilities, hello.Offers);
+            if (Negotiator.Resolve(session, LocalCapabilities, LocalOffers, hello.Capabilities, hello.Offers) && session.HandshakeComplete)
+            {
+                host.LinkChanged(sender); // it restarted with different offers: cached routes are stale
+            }
             // we can decode what it sends; whether ours reaches it is for our own Hello to prove
             session.HandshakeComplete = true;
             if (session.AssumedLegacy)
@@ -762,7 +848,7 @@ namespace JoinFS.Net.Jfp2
                 return;
             }
             session.RemoteAssignedId = ack.SelfAssignedId;
-            Negotiator.Resolve(session, LocalCapabilities, LocalOffers, ack.Capabilities, ack.Offers);
+            bool agreementChanged = Negotiator.Resolve(session, LocalCapabilities, LocalOffers, ack.Capabilities, ack.Offers);
             bool wasVerified = session.Verified;
             session.HandshakeComplete = true;
             session.Endpoint = probe;
@@ -774,6 +860,10 @@ namespace JoinFS.Net.Jfp2
             {
                 host.LinkChanged(session.Peer);
                 host.Log(NetLogLevel.Network, "JFP2: HelloAck from " + session.Peer + " at " + probe + " - verified");
+            }
+            else if (agreementChanged)
+            {
+                host.LinkChanged(session.Peer);
             }
         }
 
@@ -789,7 +879,7 @@ namespace JoinFS.Net.Jfp2
             NodeId target = ToNodeId(envelope.TargetNuid);
             NodeId origin = ToNodeId(envelope.OriginNuid);
             if (envelope.IsInternal && envelope.RawMessageClass == MessageClasses.GuaranteedDone && TryReadGuaranteedDone(payload, out ushort id, out byte index)
-                && reliability.Acknowledge(origin, hop.Peer, ackWasForwarded: true, id, index))
+                && reliability.Acknowledge(origin, hop.Peer, ackFor: target, id, index))
             {
                 return; // the ack of a message this node re-sent on the origin's behalf ends here
             }

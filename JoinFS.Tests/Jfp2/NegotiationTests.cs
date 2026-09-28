@@ -48,6 +48,21 @@ namespace JoinFS.Tests.Jfp2
             Assert.Equal(0, peerA.AgreedAppVersion[MessageClasses.VariableSync]);
         }
 
+        /// <summary>Resolving again starts from scratch, and says whether the agreement changed.</summary>
+        [Fact]
+        public void Resolve_Again_KeepsNothingFromTheLastAgreement()
+        {
+            var session = new PeerSession();
+            Assert.True(Negotiator.Resolve(session, 0, OffersA(), 0, OffersA()));
+            Assert.Equal(1, session.AgreedAppVersion[MessageClasses.VariableSync]);
+
+            // neither side offers VariableSync any more
+            Assert.True(Negotiator.Resolve(session, 0, OffersB(), 0, OffersB()));
+            Assert.Equal(0, session.AgreedAppVersion[MessageClasses.VariableSync]);
+
+            Assert.False(Negotiator.Resolve(session, 0, OffersB(), 0, OffersB()));
+        }
+
         [Fact]
         public void Resolve_IsSymmetric_BothSidesAgreeOnSameVersions()
         {

@@ -222,6 +222,38 @@ namespace JoinFS.Tests.Net
             Assert.Equal(2, Jfp2Datagrams(mesh, hub.EndPoint, b.EndPoint));
         }
 
+        /// <summary>
+        /// A relayed ack belongs to the origin it is addressed to. B's ack of A's message, relayed by the
+        /// hub, must not clear the hub's own message to B that happens to carry the same id (each node
+        /// counts its own ids), or the hub never retransmits it.
+        /// </summary>
+        [Fact]
+        public void RelayedAckForAnotherOrigin_DoesNotClearTheHubsOwnMessage()
+        {
+            var (mesh, hub, a, b) = HubWithTwoBehindIt(aJfp2: true, bJfp2: true);
+            int hubToB = 0;
+            var partition = mesh.Network.Filter;
+            mesh.Network.Filter = (from, to, data) => partition(from, to, data)
+                && !(from.Equals(hub.EndPoint) && to.Equals(b.EndPoint) && IsGuaranteedApplication(data) && hubToB++ == 0);
+            mesh.Network.Log.Clear();
+
+            hub.Core.SendTo(b.Id, new EventUpdate { ObjectId = 1, EventId = 11 }, true); // lost on the way
+            a.Core.SendTo(b.Id, new EventUpdate { ObjectId = 2, EventId = 22 }, true);   // relayed by the hub
+            mesh.Run(0.5);
+            ushort GuaranteedIdFrom(IPEndPoint from) =>
+                Envelope.ReadFrom(mesh.Network.Log.First(d => d.From.Equals(from) && IsGuaranteedApplication(d.Data)).Data, out _).GuaranteedId;
+            Assert.Equal(GuaranteedIdFrom(hub.EndPoint), GuaranteedIdFrom(a.EndPoint)); // the collision this test is about
+
+            mesh.Run(10);
+            Assert.Contains(b.Messages<EventUpdate>(), e => e.EventId == 11);
+            Assert.Contains(b.Messages<EventUpdate>(), e => e.EventId == 22);
+            Assert.Equal(0, Jfp2Of(hub).GuaranteedPendingCount);
+            Assert.Equal(0, Jfp2Of(a).GuaranteedPendingCount);
+        }
+
+        static bool IsGuaranteedApplication(byte[] data) =>
+            data[0] == Envelope.Magic && (data[2] & (byte)EnvelopeFlags.Guaranteed) != 0 && (data[2] & (byte)EnvelopeFlags.Internal) == 0;
+
         [Fact]
         public void HelloWithoutNodeIdentity_IsIgnored()
         {

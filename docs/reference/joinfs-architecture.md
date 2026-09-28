@@ -386,7 +386,8 @@ public interface IProtocolPlugin
 - **Codecs:** versioned per class (`Codecs/`), resolved through `CodecRegistry`.
 - **Identity before position:** before a peer's first position of an object, and whenever its
   identity changes or 4 s have passed, it sends Identity first.
-- **Guaranteed delivery:** single datagram, retry every 2 s, up to 5 attempts, 30 s duplicate window.
+- **Guaranteed delivery** (`Jfp2Reliability`): single datagram, retried every 2 s through the
+  target's current next hop for up to 180 s, never handed to legacy; 30 s duplicate window.
 - **Relay:** Forwarded envelopes for a direct neighbour are forwarded (hop ids rewritten) when that
   neighbour agreed the same schema version, and decoded and translated otherwise (§6).
 

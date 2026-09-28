@@ -174,16 +174,27 @@ Behaviour, as implemented:
   is sent as one datagram and logged; a received datagram with count > 1 is logged and dropped.
   `Jfp2Reliability` holds this logic: pending segments and acks already carry the index, and
   `Send`/`Reassemble` are where segmentation goes.
-- The sender retransmits every **2 s** until acknowledged, giving up after **5** attempts.
+- The sender retransmits every **2 s** until acknowledged, giving up after **180 s** (as legacy
+  does). Each attempt goes through the target's next hop as it is then (§5.7), so a route change or
+  a session that is demoted and verified again does not strand the message. While JFP2 has no hop
+  to the target that agreed the message's schema version, the message waits; it is never handed to
+  legacy.
+- Ids count up from a start taken from the clock, so a node that restarts does not reuse the ids
+  its peers still remember from before.
 - The receiver answers every guaranteed datagram, including duplicates, with an internal
   `GuaranteedDone` whose payload is the u16 `GuaranteedId` and the u8 `GuaranteedIndex` of the
   segment it acknowledges (3 bytes, like legacy's; a 2-byte ack from an earlier build acknowledges
   segment 0). It delivers the message only the first
   time; ids are remembered for **30 s** for duplicate suppression, keyed by the true origin.
+  A message of a class that was never agreed with the neighbor is neither acknowledged nor
+  delivered, so the sender does not take it as delivered.
 - When the acknowledged datagram arrived relayed (§4.5), the `GuaranteedDone` is itself sent
   `Forwarded`, with origin = the acknowledging node and target = the true sender, so it travels back
   through the relay end to end. A relay that re-sent the message on the origin's behalf (translation
   or a different schema version) acknowledges upstream itself, and consumes the downstream ack.
+  A relay consumes a Forwarded ack only if it sent the acknowledged message on behalf of the ack's
+  target; every other Forwarded ack is passed on. (Ids are only unique per sender, so an ack of the
+  origin's message can carry the id of one of the relay's own.)
 
 ### 4.5 Relay extension (Forwarded)
 
@@ -304,6 +315,10 @@ flat 256-entry arrays, `AgreedAppVersion[]` and `AgreedInternalVersion[]`. Sendi
 one array read plus a codec lookup. The application-level router caches the choice per (peer, kind)
 too (`docs/reference/joinfs-architecture.md` §5.3), so the hot path never negotiates.
 
+Every Hello and HelloAck, keepalives included, resolves again from scratch. When the result changes
+(the peer restarted with a build that offers other classes) the router's cached choices are dropped,
+so a class the peer no longer takes goes back to legacy instead of to a JFP2 hop that would drop it.
+
 ### 5.4 Capabilities — *specified, none in use*
 
 A u64 bitset for behaviours not tied to one class's schema. Agreed capabilities are the bitwise AND
@@ -406,7 +421,9 @@ one code path handles every kind (closing docs/recording-protocol.md §7.2's bug
 
 **VariableSyncV1** layout: `ObjectId u32`, `Count u8`, then Count × entries of `Vuid u32`,
 `Kind u8` (0 Int32, 1 Float32, 2 String8), and a value (i32, f32, or u16-prefixed UTF-8 string with
-no length cap). Senders chunk at **200** entries per message. The owner of the object is the sender
+no length cap). Senders split an update into messages of at most **1000** payload bytes (and at
+most 255 entries, the count being one byte), so every datagram stays under a safe UDP MTU, as
+legacy's variable messages do. The owner of the object is the sender
 (or the relayed origin); there is no owner field.
 
 ### 6.4 Other v1 codecs

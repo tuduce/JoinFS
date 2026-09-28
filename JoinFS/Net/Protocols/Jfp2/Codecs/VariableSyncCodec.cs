@@ -9,8 +9,8 @@ using System.Collections.Generic;
 // implying the value type. See docs/reference/jfp2-protocol.md §6.3/§6.5.
 //
 // Entry count is capped at one byte (255) per message, same as the reference. Jfp2Plugin's encoder
-// chunks into multiple VariableSync messages when a single object's combined integer+float+string8
-// set exceeds that (VariableSyncChunkSize).
+// splits an object's combined integer+float+string8 set into messages that fit its payload budget
+// (VariableSyncMaxPayload, measured with EntrySize) and that count cap.
 //
 // String8 wire encoding (docs/protocol-v2-implementation-review.md Finding 5, fixed 2026-09-14):
 // originally encoded as a fixed 8-byte ASCII field, on the assumption that "String8" meant the value

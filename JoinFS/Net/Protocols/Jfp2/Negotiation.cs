@@ -254,10 +254,22 @@ namespace JoinFS.Net.Jfp2
         /// baseline schema every build understands (roughly the wire-compatible equivalent of what
         /// the legacy protocol already carried for that concept) - so an unrecognized/newer class on
         /// either side degrades gracefully instead of failing the whole handshake.
+        ///
+        /// Every handshake (keepalives included) resolves from scratch, so a class the peer stopped
+        /// offering (it restarted with another build) is no longer agreed. Returns true when the result
+        /// differs from the previous one.
         /// </summary>
-        public static void Resolve(PeerSession session, ulong localCapabilities, IEnumerable<SchemaOffer> localOffers,
+        public static bool Resolve(PeerSession session, ulong localCapabilities, IEnumerable<SchemaOffer> localOffers,
                                     ulong remoteCapabilities, IEnumerable<SchemaOffer> remoteOffers)
         {
+            Span<byte> previousApp = stackalloc byte[session.AgreedAppVersion.Length];
+            Span<byte> previousInternal = stackalloc byte[session.AgreedInternalVersion.Length];
+            session.AgreedAppVersion.CopyTo(previousApp);
+            session.AgreedInternalVersion.CopyTo(previousInternal);
+            ulong previousCapabilities = session.AgreedCapabilities;
+            Array.Clear(session.AgreedAppVersion);
+            Array.Clear(session.AgreedInternalVersion);
+
             session.AgreedCapabilities = localCapabilities & remoteCapabilities;
 
             var localByClass = new Dictionary<(bool Internal, byte Class), (byte Min, byte Max)>();
@@ -278,6 +290,10 @@ namespace JoinFS.Net.Jfp2
                 var table = key.Internal ? session.AgreedInternalVersion : session.AgreedAppVersion;
                 table[key.Class] = agreed;
             }
+
+            return session.AgreedCapabilities != previousCapabilities
+                || !previousApp.SequenceEqual(session.AgreedAppVersion)
+                || !previousInternal.SequenceEqual(session.AgreedInternalVersion);
         }
     }
 }
