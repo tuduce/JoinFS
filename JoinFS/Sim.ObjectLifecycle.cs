@@ -98,8 +98,7 @@ namespace JoinFS
                 CancelPositionFeed(obj);
 #endif
                 // remove object from the list
-                objectList.Remove(obj);
-                objectsByOwnerNetId.Remove((obj.ownerNuid, obj.netId));
+                RemoveFromListAndIndex(obj);
 
                 // check for aircraft
                 if (obj is Aircraft)

@@ -74,15 +74,20 @@ namespace JoinFS
         public List<Obj> objectList = [];
 
         /// <summary>
-        /// Index of <see cref="objectList"/> by (ownerNuid, netId), the network identity of an
-        /// object - both fields are set once at construction and never reassigned, so this stays
-        /// in sync purely by being updated wherever objectList is added to/removed from. Avoids an
-        /// O(N) List.Find (plus a per-call closure allocation) on the network-message-receive path.
+        /// Index of the network and recorder objects in <see cref="objectList"/> by (ownerNuid,
+        /// netId), the network identity of an object - both fields, and the owner, are set once at
+        /// construction and never reassigned, so this stays in sync purely by being updated wherever
+        /// objectList is added to/removed from. Avoids an O(N) List.Find (plus a per-call closure
+        /// allocation) on the network-message-receive path.
+        ///
+        /// Simulator objects (Owner.Me/Sim) are not indexed: like recorder objects they have no
+        /// owner node, and their netId is the simulator's id, so they could share a recorder
+        /// object's key. Nothing looks them up by network identity.
         /// </summary>
         readonly Dictionary<(NodeId, uint), Obj> objectsByOwnerNetId = [];
 
         /// <summary>
-        /// The object owned by <paramref name="ownerNuid"/> with network id <paramref name="netId"/>, or null
+        /// The network or recorder object owned by <paramref name="ownerNuid"/> with network id <paramref name="netId"/>, or null
         /// </summary>
         public Obj FindObject(NodeId ownerNuid, uint netId) => objectsByOwnerNetId.GetValueOrDefault((ownerNuid, netId));
 
@@ -93,7 +98,22 @@ namespace JoinFS
         void AddObjectToList(Obj obj)
         {
             objectList.Add(obj);
-            objectsByOwnerNetId[(obj.ownerNuid, obj.netId)] = obj;
+            if (obj.owner == Obj.Owner.Network || obj.owner == Obj.Owner.Recorder)
+            {
+                objectsByOwnerNetId[(obj.ownerNuid, obj.netId)] = obj;
+            }
+        }
+
+        /// <summary>
+        /// Remove an object from <see cref="objectList"/>, and its own entry (only) from <see cref="objectsByOwnerNetId"/>
+        /// </summary>
+        void RemoveFromListAndIndex(Obj obj)
+        {
+            objectList.Remove(obj);
+            if (objectsByOwnerNetId.TryGetValue((obj.ownerNuid, obj.netId), out Obj indexed) && indexed == obj)
+            {
+                objectsByOwnerNetId.Remove((obj.ownerNuid, obj.netId));
+            }
         }
 
         // create remove object list
