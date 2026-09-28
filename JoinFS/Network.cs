@@ -330,6 +330,10 @@ namespace JoinFS
                     scheduleLeave = false;
                 }
 
+                // still reports Connected but has lost every peer (including the hub itself, if
+                // joined directly) - see CheckForOrphanedSession
+                CheckForOrphanedSession();
+
                 // check for scheduled join user
                 if (scheduleJoinUser)
                 {
@@ -1403,6 +1407,84 @@ namespace JoinFS
         public IPEndPoint joinEndPoint = new(0, 0);
 
         /// <summary>
+        /// Password hash used for the current joinEndPoint - kept alongside it so an automatic
+        /// reconnect (see CheckForOrphanedSession) can retry with the same credentials.
+        /// </summary>
+        uint joinPasswordHash = 0;
+
+        /// <summary>
+        /// How often to retry Join() while the session is orphaned (see CheckForOrphanedSession).
+        /// </summary>
+        const double RECONNECT_INTERVAL_S = 10.0;
+
+        /// <summary>
+        /// Progress of the "am I orphaned, and when is the next retry due" decision - separated out
+        /// as plain data so the decision itself (Tick) can be tested without a live LocalNode/Network.
+        /// </summary>
+        public struct ReconnectState
+        {
+            public bool orphaned;
+            public double nextAttempt;
+        }
+        ReconnectState reconnectState;
+
+        /// <summary>
+        /// Pure decision step for CheckForOrphanedSession, exposed for testing: given the current
+        /// signals, does the caller need to retry Join() right now? Requires being continuously
+        /// orphaned for at least one full intervalSeconds before the *first* retry (a single bad
+        /// tick shouldn't trigger an immediate reconnect), then retries every intervalSeconds after
+        /// that, until hasLiveNode or isConnected goes back to true.
+        /// </summary>
+        public static bool Tick(ref ReconnectState state, bool hasJoinTarget, bool isConnected,
+            bool hasLiveNode, double elapsedTime, double intervalSeconds)
+        {
+            bool orphanedNow = hasJoinTarget && isConnected && !hasLiveNode;
+            if (!orphanedNow)
+            {
+                state.orphaned = false;
+                return false;
+            }
+            if (!state.orphaned)
+            {
+                // just noticed - wait one interval before the first retry, in case this is a
+                // momentary blip (e.g. one missed pulse round trip) rather than a real disconnect
+                state.orphaned = true;
+                state.nextAttempt = elapsedTime + intervalSeconds;
+                return false;
+            }
+            if (elapsedTime < state.nextAttempt)
+            {
+                return false;
+            }
+            state.nextAttempt = elapsedTime + intervalSeconds;
+            return true;
+        }
+
+        /// <summary>
+        /// See tuduce/JoinFS#177: LocalNode.CurrentState is purely "do I have a non-zero session id",
+        /// which is only ever cleared by an explicit Leave() - the 30s per-peer pulse-timeout expiry
+        /// (Node.cs) removes a dead peer (including the hub itself, if joined directly) from nodeList
+        /// same as an explicit Leave from that peer would, but never touches the session id. So once
+        /// every peer has expired this way, a client is left reporting Connected with zero live peers
+        /// and no route back to anything, and nothing ever retries the join on its own. Detect that
+        /// and retry the last successful Join() every RECONNECT_INTERVAL_S until it succeeds (a fresh
+        /// JoinReply repopulates nodeList) or the user explicitly leaves.
+        /// </summary>
+        void CheckForOrphanedSession()
+        {
+            bool hasJoinTarget = joinEndPoint.Port != 0;
+            bool isConnected = localNode.CurrentState == LocalNode.State.Connected;
+            bool hasLiveNode = nodeList.Count > 0;
+
+            if (Tick(ref reconnectState, hasJoinTarget, isConnected, hasLiveNode, main.ElapsedTime, RECONNECT_INTERVAL_S))
+            {
+                main.MonitorEvent("Reconnecting to '" + EncodeIP(joinEndPoint.ToString())
+                    + "' after losing every peer while still connected");
+                Join(joinEndPoint, joinPasswordHash);
+            }
+        }
+
+        /// <summary>
         /// A scheduled join
         /// </summary>
         volatile IPEndPoint scheduleJoin = null;
@@ -1476,6 +1558,7 @@ namespace JoinFS
         {
             // save end point
             joinEndPoint = endPoint;
+            joinPasswordHash = passwordHash;
             // low bandwidth
             localNode.lowBandwidth = Settings.Default.LowBandwidth;
 
