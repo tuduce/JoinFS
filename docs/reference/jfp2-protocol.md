@@ -170,10 +170,15 @@ When `Guaranteed` is set, 4 bytes follow the fixed header:
 
 Behaviour, as implemented:
 - JFP2 guaranteed messages are single-datagram: index/count are always 0/1. Multi-segment delivery is
-  reserved by the field layout but not used.
+  reserved by the field layout but not used. A payload over the planned segment size (1000 bytes)
+  is sent as one datagram and logged; a received datagram with count > 1 is logged and dropped.
+  `Jfp2Reliability` holds this logic: pending segments and acks already carry the index, and
+  `Send`/`Reassemble` are where segmentation goes.
 - The sender retransmits every **2 s** until acknowledged, giving up after **5** attempts.
 - The receiver answers every guaranteed datagram, including duplicates, with an internal
-  `GuaranteedDone` whose payload is the u16 `GuaranteedId`. It delivers the message only the first
+  `GuaranteedDone` whose payload is the u16 `GuaranteedId` and the u8 `GuaranteedIndex` of the
+  segment it acknowledges (3 bytes, like legacy's; a 2-byte ack from an earlier build acknowledges
+  segment 0). It delivers the message only the first
   time; ids are remembered for **30 s** for duplicate suppression, keyed by the true origin.
 - When the acknowledged datagram arrived relayed (§4.5), the `GuaranteedDone` is itself sent
   `Forwarded`, with origin = the acknowledging node and target = the true sender, so it travels back
@@ -469,6 +474,8 @@ Simulator build symbols (`FS2020`, `FS2024`, `XPLANE`, `CONSOLE`, ...) never cha
     encoder inlines into the next position.
   - Guaranteed messages are delivered hop by hop: the relaying node acknowledges upstream in JFP2,
     then sends a legacy guaranteed message downstream and consumes the legacy acknowledgement itself.
+    An upstream retransmission (its ack was lost) is acknowledged again but not sent downstream a
+    second time: the relay remembers the (origin, id) pairs it translated, like a receiver does.
 - **The reverse direction (legacy → JFP2)** never needs translation: every JFP2 node understands
   legacy, so the legacy relay carries it unchanged.
 

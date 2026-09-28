@@ -150,10 +150,8 @@ namespace JoinFS.Net.Jfp2
         /// Guaranteed-delivery extension fields (§4.4) - meaningful only when Flags.Guaranteed is set,
         /// in which case WriteTo/ReadFrom read/write 4 extra bytes immediately after the fixed 8-byte
         /// header: GuaranteedId (u16), GuaranteedIndex (u8), GuaranteedCount (u8). JFP2's guaranteed
-        /// messages (see Jfp2Plugin.SendApplication) are never segmented, so
-        /// GuaranteedIndex/Count are always 0/1 in practice - the fields exist because the wire format
-        /// spec's §4.4 reserves room for segmentation the same way the legacy protocol's guaranteed
-        /// messages support it, not because anything in this codebase currently segments a JFP2 message.
+        /// messages are not segmented yet (Jfp2Reliability.Send), so GuaranteedIndex/Count are always
+        /// 0/1 in practice - §4.4 reserves them for segmentation, like the legacy protocol's.
         /// </summary>
         public readonly ushort GuaranteedId;
         public readonly byte GuaranteedIndex;

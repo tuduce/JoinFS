@@ -1,8 +1,7 @@
 using System.Net;
-using JoinFS.Net.Jfp2;
-using JoinFS.Net.Jfp2.Codecs;
 using JoinFS.Net;
 using JoinFS.Net.Jfp2;
+using JoinFS.Net.Jfp2.Codecs;
 using JoinFS.Net.Legacy;
 
 namespace JoinFS.Tests.Net
@@ -116,17 +115,87 @@ namespace JoinFS.Tests.Net
 
             int dropped = 0;
             mesh.Network.Filter = (from, to, data) =>
-                !(from.Equals(a.EndPoint) && data[0] == Envelope.Magic && (data[1] & (byte)EnvelopeFlags.Guaranteed) != 0
-                  && (data[1] & (byte)EnvelopeFlags.Internal) == 0 && dropped++ < 2);
-            a.Core.SendTo(hub.Id, new NotesBundle
-            {
-                Scope = CommsScope.Single,
-                Users = [new NotesUser { Guid = Guid.NewGuid(), Nickname = "n", Callsign = "c", Notes = [new CommsNote { NoteId = 5, Channel = 1, Text = "hi" }] }],
-            }, true);
+                !(from.Equals(a.EndPoint) && IsGuaranteedApplication(data) && dropped++ < 2);
+            a.Core.SendTo(hub.Id, Note("hi"), true);
             mesh.Run(8);
 
+            Assert.Equal(3, dropped); // two attempts lost, the third let through
             Assert.Equal("hi", Assert.Single(hub.Messages<NotesBundle>()).Users[0].Notes[0].Text);
         }
+
+        /// <summary>
+        /// Pins a known limit (docs/reference/jfp2-protocol.md §4.4): a guaranteed message longer than
+        /// one segment still goes out as a single datagram. When segmentation is implemented this
+        /// should expect ceil(size / GuaranteedSegmentSize) segments instead, as
+        /// LegacyPluginGoldenTests.GuaranteedSegmentation does for legacy.
+        /// </summary>
+        [Fact]
+        public void Jfp2Guaranteed_LongerThanOneSegment_IsSentUnsegmented()
+        {
+            var mesh = new TestMesh();
+            TestNode hub = Jfp2Node(mesh, "203.0.113.1");
+            TestNode a = Jfp2Node(mesh, "198.51.100.2");
+            hub.Core.Mesh.Create(false, 0, false, "");
+            a.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(3);
+            Assert.True(Jfp2Of(a).IsNegotiated(hub.Id));
+
+            string text = new('x', 2500);
+            mesh.Network.Log.Clear();
+            a.Core.SendTo(hub.Id, Note(text), true);
+            mesh.Run(1);
+
+            Assert.Equal(text, Assert.Single(hub.Messages<NotesBundle>()).Users[0].Notes[0].Text);
+            byte[] datagram = Assert.Single(mesh.Network.Log, d => d.From.Equals(a.EndPoint) && IsGuaranteedApplication(d.Data)).Data;
+            Envelope envelope = Envelope.ReadFrom(datagram, out int header);
+            Assert.Equal(0, envelope.GuaranteedIndex);
+            Assert.Equal(1, envelope.GuaranteedCount);
+            Assert.True(datagram.Length - header > Jfp2Reliability.GuaranteedSegmentSize);
+        }
+
+        /// <summary>Earlier JFP2 builds ack with the id alone (2 bytes); that still acknowledges segment 0.</summary>
+        [Fact]
+        public void Jfp2Guaranteed_AckWithoutSegmentIndex_StopsRetransmission()
+        {
+            var mesh = new TestMesh();
+            TestNode hub = Jfp2Node(mesh, "203.0.113.1");
+            TestNode a = Jfp2Node(mesh, "198.51.100.2");
+            hub.Core.Mesh.Create(false, 0, false, "");
+            a.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(3);
+
+            // drop the hub's own (3-byte) acks
+            mesh.Network.Filter = (from, to, data) => !(from.Equals(hub.EndPoint) && IsGuaranteedDone(data));
+            mesh.Network.Log.Clear();
+            a.Core.SendTo(hub.Id, Note("hi"), true);
+            mesh.Run(0.1);
+            byte[] sent = Assert.Single(mesh.Network.Log, d => d.From.Equals(a.EndPoint) && IsGuaranteedApplication(d.Data)).Data;
+            ushort id = Envelope.ReadFrom(sent, out _).GuaranteedId;
+            // from here a retry would be acked normally, so any retransmission shows the short ack was ignored
+            mesh.Network.Filter = null;
+
+            Assert.True(Jfp2Of(hub).TryGetHopIds(a.Id, out ushort hubLocal, out ushort hubRemote));
+            var ack = new Envelope(EnvelopeFlags.Internal, hubLocal, hubRemote, MessageClasses.GuaranteedDone);
+            byte[] datagram = new byte[ack.WireSize + 2];
+            int header = ack.WriteTo(datagram);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(datagram.AsSpan(header), id);
+            hub.Core.Transport.Send(a.EndPoint, datagram);
+            mesh.Run(8);
+
+            Assert.Equal(1, mesh.Network.Log.Count(d => d.From.Equals(a.EndPoint) && IsGuaranteedApplication(d.Data)));
+        }
+
+        static bool IsGuaranteedApplication(byte[] data) =>
+            data[0] == Envelope.Magic && (data[2] & (byte)EnvelopeFlags.Guaranteed) != 0 && (data[2] & (byte)EnvelopeFlags.Internal) == 0;
+
+        static bool IsGuaranteedDone(byte[] data) =>
+            data[0] == Envelope.Magic && (data[2] & (byte)EnvelopeFlags.Internal) != 0 && data[7] == MessageClasses.GuaranteedDone;
+
+        static NotesBundle Note(string text) => new()
+        {
+            Scope = CommsScope.Single,
+            Users = [new NotesUser { Guid = Guid.NewGuid(), Nickname = "n", Callsign = "c", Notes = [new CommsNote { NoteId = 5, Channel = 1, Text = text }] }],
+        };
 
         /// <summary>
         /// A JFP2 sender relaying through a JFP2 hub to a legacy-only target (what builds from this
@@ -137,52 +206,87 @@ namespace JoinFS.Tests.Net
         [Fact]
         public void RelayedJfp2_IsTranslatedForLegacyTarget()
         {
-            var mesh = new TestMesh();
-            TestNode hub = Jfp2Node(mesh, "203.0.113.1");
-            TestNode a = Jfp2Node(mesh, "198.51.100.2");
-            TestNode b = LegacyNode(mesh, "192.0.2.3");
-            mesh.Partition(a, b);
-            hub.Core.Mesh.Create(false, 0, false, "");
-            a.Core.Mesh.Join(hub.EndPoint, 0);
-            b.Core.Mesh.Join(hub.EndPoint, 0);
-            mesh.Run(15);
-            Assert.True(Jfp2Of(hub).IsNegotiated(a.Id));
-            Assert.False(Jfp2Of(hub).IsNegotiated(b.Id));
-
-            // hand-built Forwarded envelopes (hop ids of a's session with the hub, end-to-end Origin/Target)
-            Assert.True(Jfp2Of(a).TryGetHopIds(hub.Id, out ushort hopLocal, out ushort hopRemote));
-            void Relayed(byte messageClass, ReadOnlySpan<byte> payload, bool guaranteed, ushort id)
-            {
-                var flags = EnvelopeFlags.Forwarded | (guaranteed ? EnvelopeFlags.Guaranteed : 0);
-                var envelope = new Envelope(flags, hopLocal, hopRemote, messageClass, id, 0, (byte)(guaranteed ? 1 : 0),
-                    new RelayNuid(a.Id.ip, a.Id.port, a.Id.local), new RelayNuid(b.Id.ip, b.Id.port, b.Id.local));
-                byte[] data = new byte[envelope.WireSize + payload.Length];
-                int header = envelope.WriteTo(data);
-                payload.CopyTo(data.AsSpan(header));
-                a.Core.Transport.Send(hub.EndPoint, data);
-            }
+            var t = new HubBetweenJfp2AndLegacy();
             byte[] buffer = new byte[512];
             int n = new IdentityV1Codec().Encode(Identity(8, "RLY1"), buffer);
-            Relayed(MessageClasses.Identity, buffer.AsSpan(0, n), false, 0);
+            t.Relayed(MessageClasses.Identity, buffer.AsSpan(0, n), false, 0);
             n = new PositionV1Codec().Encode(new PositionUpdate { ObjectId = 8, NetTime = 2, Latitude = 33, StateFlags = PositionStateFlags.UserControlled }, buffer);
-            Relayed(MessageClasses.Position, buffer.AsSpan(0, n), false, 0);
+            t.Relayed(MessageClasses.Position, buffer.AsSpan(0, n), false, 0);
             n = new EventV1Codec().Encode(new EventUpdate { ObjectId = 8, EventId = 1234, Data = 1 }, buffer);
-            Relayed(MessageClasses.Event, buffer.AsSpan(0, n), true, 4321);
-            mesh.Run(1);
+            t.Relayed(MessageClasses.Event, buffer.AsSpan(0, n), true, 4321);
+            t.Mesh.Run(1);
 
-            var (meta, position) = Assert.Single(b.MessagesWithMeta<PositionUpdate>());
-            Assert.Equal(a.Id, meta.Sender);
+            var (meta, position) = Assert.Single(t.B.MessagesWithMeta<PositionUpdate>());
+            Assert.Equal(t.A.Id, meta.Sender);
             Assert.Equal(33, position.Latitude);
-            Assert.Equal("RLY1", Assert.Single(b.Messages<IdentityUpdate>()).Callsign);
-            var (eventMeta, evt) = Assert.Single(b.MessagesWithMeta<EventUpdate>());
-            Assert.Equal(a.Id, eventMeta.Sender);
+            Assert.Equal("RLY1", Assert.Single(t.B.Messages<IdentityUpdate>()).Callsign);
+            var (eventMeta, evt) = Assert.Single(t.B.MessagesWithMeta<EventUpdate>());
+            Assert.Equal(t.A.Id, eventMeta.Sender);
             Assert.Equal(1234u, evt.EventId);
 
             // the hub's legacy delivery was acknowledged (and the ack consumed, not relayed back to a)
-            mesh.Run(3);
-            var legacy = hub.Core.Plugins.OfType<LegacyPlugin>().Single();
+            t.Mesh.Run(3);
+            var legacy = t.Hub.Core.Plugins.OfType<LegacyPlugin>().Single();
             Assert.Equal(0, legacy.GuaranteedOutCount);
-            Assert.Single(b.Messages<EventUpdate>());
+            Assert.Single(t.B.Messages<EventUpdate>());
+        }
+
+        /// <summary>
+        /// The hub acks upstream as soon as it has translated. If that ack is lost the sender
+        /// retransmits: the hub must ack again, but not deliver the message downstream a second time.
+        /// </summary>
+        [Fact]
+        public void RelayedJfp2_RetransmittedGuaranteed_IsTranslatedOnce()
+        {
+            var t = new HubBetweenJfp2AndLegacy();
+            byte[] buffer = new byte[64];
+            int n = new EventV1Codec().Encode(new EventUpdate { ObjectId = 8, EventId = 1234, Data = 1 }, buffer);
+            t.Mesh.Network.Log.Clear();
+            t.Relayed(MessageClasses.Event, buffer.AsSpan(0, n), true, 4321);
+            t.Mesh.Run(1);
+            t.Relayed(MessageClasses.Event, buffer.AsSpan(0, n), true, 4321);
+            t.Mesh.Run(3);
+
+            Assert.Single(t.B.Messages<EventUpdate>());
+            Assert.Equal(2, t.Mesh.Network.Log.Count(d => d.From.Equals(t.Hub.EndPoint) && d.To.Equals(t.A.EndPoint) && IsGuaranteedDone(d.Data)));
+        }
+
+        /// <summary>
+        /// A JFP2 node A and a legacy-only node B that reach each other only through a JFP2 hub, and
+        /// A's hand-built Forwarded envelopes for B.
+        /// </summary>
+        sealed class HubBetweenJfp2AndLegacy
+        {
+            public readonly TestMesh Mesh = new();
+            public readonly TestNode Hub, A, B;
+            readonly ushort hopLocal, hopRemote;
+
+            public HubBetweenJfp2AndLegacy()
+            {
+                Hub = Jfp2Node(Mesh, "203.0.113.1");
+                A = Jfp2Node(Mesh, "198.51.100.2");
+                B = LegacyNode(Mesh, "192.0.2.3");
+                Mesh.Partition(A, B);
+                Hub.Core.Mesh.Create(false, 0, false, "");
+                A.Core.Mesh.Join(Hub.EndPoint, 0);
+                B.Core.Mesh.Join(Hub.EndPoint, 0);
+                Mesh.Run(15);
+                Assert.True(Jfp2Of(Hub).IsNegotiated(A.Id));
+                Assert.False(Jfp2Of(Hub).IsNegotiated(B.Id));
+                Assert.True(Jfp2Of(A).TryGetHopIds(Hub.Id, out hopLocal, out hopRemote));
+            }
+
+            /// <summary>Send from A to the hub, addressed to B: hop ids of A's session with the hub, end-to-end Origin/Target.</summary>
+            public void Relayed(byte messageClass, ReadOnlySpan<byte> payload, bool guaranteed, ushort id)
+            {
+                var flags = EnvelopeFlags.Forwarded | (guaranteed ? EnvelopeFlags.Guaranteed : 0);
+                var envelope = new Envelope(flags, hopLocal, hopRemote, messageClass, id, 0, (byte)(guaranteed ? 1 : 0),
+                    new RelayNuid(A.Id.ip, A.Id.port, A.Id.local), new RelayNuid(B.Id.ip, B.Id.port, B.Id.local));
+                byte[] data = new byte[envelope.WireSize + payload.Length];
+                int header = envelope.WriteTo(data);
+                payload.CopyTo(data.AsSpan(header));
+                A.Core.Transport.Send(Hub.EndPoint, data);
+            }
         }
     }
 }

@@ -674,6 +674,10 @@ end
 
 local function decode_jfp2_guaranteed_done(tree, buffer, offset)
     tree:add(buffer(offset, 2), "GuaranteedId: " .. buffer(offset, 2):le_uint())
+    -- builds before the segment-index change sent only the id
+    if buffer:len() > offset + 2 then
+        tree:add(buffer(offset + 2, 1), "GuaranteedIndex: " .. buffer(offset + 2, 1):uint())
+    end
 end
 
 local function decode_jfp2_application(tree, buffer, offset, class)
