@@ -2,6 +2,7 @@
 using System.Windows.Forms;
 using System.Globalization;
 using JoinFS.Properties;
+using JoinFS.Net;
 
 namespace JoinFS
 {
@@ -224,7 +225,7 @@ namespace JoinFS
             if (nickname.Length < 2)
             {
                 // create random nickname, 2 letters
-                nickname = LocalNode.GenerateName(main.storagePath);
+                nickname = NetHash.GenerateName(main.storagePath);
             }
             main.settingsNickname = nickname;
             Settings.Default.Nickname = nickname;
@@ -242,7 +243,7 @@ namespace JoinFS
                 lock (main.conch)
                 {
                     // remove all controlled aircraft
-                    main.sim.RemoveInjectedObjects();
+                    main.SimCommand(sim => sim.RemoveInjectedObjects());
                 }
             }
             // update nickname
@@ -269,9 +270,6 @@ namespace JoinFS
             // update model scan
             main.settingsScan = Check_Scan.CheckState == CheckState.Checked;
             Settings.Default.ModelScanOnConnection = main.settingsScan;
-            // update use AI features
-            main.settingsUseAIFeatures = Check_UseAIFeatures.CheckState == CheckState.Checked;
-            Settings.Default.UseAIFeatures = main.settingsUseAIFeatures;
             // update elevation correction
             Settings.Default.ElevationCorrection = Check_Elevation.CheckState == CheckState.Checked;
 
@@ -311,7 +309,7 @@ namespace JoinFS
                 lock (main.conch)
                 {
                     // remove all controlled aircraft
-                    main.sim.RemoveInjectedObjects();
+                    main.SimCommand(sim => sim.RemoveInjectedObjects());
                 }
                 // update settings
                 main.settingsAtc = atcMode;
@@ -325,7 +323,7 @@ namespace JoinFS
             // write level
             Settings.Default.AtcLevel = Combo_Level.SelectedIndex;
             // write frequency
-            Settings.Default.AtcFrequency = Sim.FrequencyStringToInt(Text_Frequency.Text);
+            Settings.Default.AtcFrequency = Atc.FrequencyStringToInt(Text_Frequency.Text);
             // update Euroscope
             Settings.Default.Euroscope = Check_Euroscope.CheckState == CheckState.Checked;
 
@@ -412,7 +410,7 @@ namespace JoinFS
                 lock (main.conch)
                 {
                     // open the new port
-                    if (main.network.localNode.Open(newPort))
+                    if (main.network.Open(newPort))
                     {
                         // monitor
                         main.MonitorEvent("Closed UDP port " + oldPort);
@@ -538,8 +536,6 @@ namespace JoinFS
             Check_Connect.CheckState = Settings.Default.ConnectOnLaunch ? CheckState.Checked : CheckState.Unchecked;
             // get model scan
             Check_Scan.CheckState = Settings.Default.ModelScanOnConnection ? CheckState.Checked : CheckState.Unchecked;
-            // get AI state
-            Check_UseAIFeatures.CheckState = Settings.Default.UseAIFeatures ? CheckState.Checked : CheckState.Unchecked;
             // get elevation
             Check_Elevation.CheckState = Settings.Default.ElevationCorrection ? CheckState.Checked : CheckState.Unchecked;
             // get local port number
@@ -569,7 +565,7 @@ namespace JoinFS
             // get ATC level
             Combo_Level.SelectedIndex = Math.Min(4, Math.Max(0, Settings.Default.AtcLevel));
             // get ATC frequency
-            Text_Frequency.Text = Sim.FrequencyIntToString(Settings.Default.AtcFrequency);
+            Text_Frequency.Text = Atc.FrequencyIntToString(Settings.Default.AtcFrequency);
             // get Euroscope
             Check_Euroscope.CheckState = Settings.Default.Euroscope ? CheckState.Checked : CheckState.Unchecked;
             // get hub mode

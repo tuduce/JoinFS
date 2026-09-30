@@ -16,6 +16,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using JoinFS.Properties;
 using System.Collections.Concurrent;
+using JoinFS.Net;
 
 namespace JoinFS
 {
@@ -80,6 +81,11 @@ namespace JoinFS
 
         // modules
         public Sim sim;
+
+        /// <summary>
+        /// The sim thread: runs Sim and the Recorder (docs/sim-thread-architecture.md)
+        /// </summary>
+        public SimService simService;
         public Network network;
         public Substitution substitution;
         public Recorder recorder;
@@ -119,7 +125,6 @@ namespace JoinFS
         public bool settingsXplane = false;
         public bool settingsTcas = false;
         public bool settingsScan = false;
-        public bool settingsUseAIFeatures = false;
 
         // elevated platform (helipad/ship deck/rooftop) ground-trust feature - command-line only, not persisted
         public bool settingsElevatedPlatformRecognition = true;
@@ -179,17 +184,24 @@ namespace JoinFS
                 _workThread.Join(5000);
             }
 
+            // stop the sim thread - it closes the simulator link on its own thread
+            if (simService != null)
+            {
+                simService.Stop();
+            }
+            else
+            {
+                sim?.Close();
+            }
+
             // close systems
             if (network != null)
             {
-                // leave session
-                network.Leave();
-                // close network
-                network.localNode.Close();
+                // leave session and stop the network thread
+                network.Shutdown();
                 // monitor
-                MonitorEvent("Closed UDP port " + network.localNode.GetLocalNuid().port);
+                MonitorEvent("Closed UDP port " + network.LocalId.port);
             }
-            sim ?. Close();
 #if CONSOLE
             webSocketServer?.Close();
 #endif
@@ -197,15 +209,16 @@ namespace JoinFS
             Settings.Default.Save();
         }
 
-        // record time at launch
-        readonly Stopwatch stopwatch;
+        // ElapsedTime at launch
+        public double StartTime { get; private set; }
 
-        // get time since launch
+        // local time in seconds. Same clock as the network stack (SystemClock), so times stamped
+        // on the network side (MessageMeta.ReceivedAt) compare directly with this.
         public double ElapsedTime
         {
             get
             {
-                return (double)stopwatch.ElapsedTicks / (double)Stopwatch.Frequency;
+                return SystemClock.Instance.Now;
             }
         }
 
@@ -248,7 +261,6 @@ namespace JoinFS
                 settingsXplane = Settings.Default.XPlane;
                 settingsTcas = Settings.Default.TCAS;
                 settingsScan = Settings.Default.ModelScanOnConnection;
-                settingsUseAIFeatures = Settings.Default.UseAIFeatures;
 #if XPLANE || CONSOLE
                 settingsGenerateCsl = Settings.Default.GenerateCsl;
                 settingsSkipCsl = Settings.Default.SkipCsl;
@@ -698,8 +710,8 @@ namespace JoinFS
                     }
                 }
 
-                // create stopwatch
-                stopwatch = Stopwatch.StartNew();
+                // record launch time
+                StartTime = ElapsedTime;
 
                 // get all JoinFS instances
                 Process[] instances = System.Diagnostics.Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetEntryAssembly().Location));
@@ -778,7 +790,7 @@ namespace JoinFS
 
 #if !NO_HUBS
                 // four byte identifier
-                uuid = Network.MakeUuid(guid);
+                uuid = UserDirectory.MakeUuid(guid);
 #endif
 
                 // create monitor module
@@ -918,7 +930,7 @@ namespace JoinFS
                 // port
                 ushort port = settingsPortEnabled ? settingsPort : Network.DEFAULT_PORT;
                 // open port
-                if (network.localNode.Open(port))
+                if (network.Open(port))
                 {
                     // monitor
                     MonitorEvent("Opened UDP port " + port);
@@ -950,7 +962,7 @@ namespace JoinFS
                 {
                     // join network
 #if NO_HUBS
-                    Join(Network.DecodeIP(doJoin.TrimStart(' ').TrimEnd(' ')));
+                    Join(AddressCodec.DecodeIP(doJoin.TrimStart(' ').TrimEnd(' ')));
 #else
                     Join(doJoin.TrimStart(' ').TrimEnd(' '));
 #endif
@@ -993,6 +1005,9 @@ namespace JoinFS
                 MonitorEvent("Start complete");
 
                 // start work thread
+                // start the sim thread (Sim and Recorder), then the work thread
+                simService = new SimService(new MainSimWork(this), () => ElapsedTime, MonitorEvent);
+                simService.Start();
                 _workThread = new Thread(new ThreadStart(DoWork));
                 _workThread.Start();
 #if CONSOLE
@@ -1150,6 +1165,53 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// A UI command for the simulator: run <paramref name="command"/> on the sim thread, then
+        /// publish a new snapshot and refresh the windows that show it. Does nothing without a sim.
+        /// </summary>
+        public void SimCommand(Action<Sim> command)
+        {
+            Sim target = sim;
+            if (target == null) return;
+            PostToSim(() =>
+            {
+                command(target);
+                target.MarkViewDirty();
+#if !SERVER && !CONSOLE
+                // twice: the first may run before the new snapshot is published
+                aircraftForm?.refresher.Schedule(2);
+                objectsForm?.refresher.Schedule(2);
+#endif
+            });
+        }
+
+        /// <summary>
+        /// Ask the sim thread for something and wait for the answer (UI code)
+        /// </summary>
+        public T InvokeOnSim<T>(Func<Sim, T> query)
+        {
+            Sim target = sim;
+            if (target == null) return default;
+            SimService service = simService;
+            return service != null ? service.Invoke(() => query(target)) : query(target);
+        }
+
+        /// <summary>
+        /// Run an action on the sim thread (the work loop if the sim thread isn't running yet)
+        /// </summary>
+        public void PostToSim(Action action)
+        {
+            SimService service = simService;
+            if (service != null)
+            {
+                service.Post(action);
+            }
+            else
+            {
+                EnqueueCommand(action);
+            }
+        }
+
+        /// <summary>
         /// Work thread
         /// </summary>
         void DoWork()
@@ -1164,9 +1226,8 @@ namespace JoinFS
 
                 lock (conch)
                 {
-                    sim?.DoWork();
+                    // Sim and the Recorder run on the sim thread (SimService)
                     network.DoWork();
-                    recorder.DoWork();
                     euroscope.DoWork();
                     whazzup.DoWork();
                     notes.DoWork();
@@ -1253,8 +1314,8 @@ namespace JoinFS
                     // check for scheduled height adjustment load
                     if (scheduleHeightAdjustmentLoad)
                     {
-                        // load
-                        sim ?. LoadHeightAdjustments();
+                        // load (on the sim thread, which owns the adjustments)
+                        PostToSim(() => sim?.LoadHeightAdjustments());
                         // reset
                         scheduleHeightAdjustmentLoad = false;
                     }
@@ -1262,8 +1323,8 @@ namespace JoinFS
                     // check for scheduled model match save
                     if (scheduleHeightAdjustmentSave)
                     {
-                        // save
-                        sim ?. SaveHeightAdjustments();
+                        // save (on the sim thread, which owns the adjustments)
+                        PostToSim(() => sim?.SaveHeightAdjustments());
                         // reset
                         scheduleHeightAdjustmentSave = false;
                     }
@@ -1290,10 +1351,46 @@ namespace JoinFS
         {
             if (monitor != null)
             {
-                lock (conch)
-                {
-                    monitor.Write(s);
-                }
+                // the monitor has its own lock, so logging never waits for conch
+                monitor.Write(s);
+            }
+        }
+
+        /// <summary>
+        /// Occurrences of each distinct error so far, keyed by context, type and message
+        /// </summary>
+        readonly Dictionary<string, int> errorCounts = [];
+
+        /// <summary>
+        /// Times an error is logged with its stack before only its message is
+        /// </summary>
+        const int ERROR_STACK_LIMIT = 5;
+
+        /// <summary>
+        /// Log an exception with the type and stack, on one line. Each distinct error gets its stack
+        /// only the first few times, so one that fails every frame cannot flood the log.
+        /// </summary>
+        /// <param name="ex">Exception</param>
+        /// <param name="context">What was being done; the calling method when not given</param>
+        public void MonitorError(Exception ex, string context = null, [System.Runtime.CompilerServices.CallerMemberName] string caller = "")
+        {
+            context ??= caller;
+            int count;
+            lock (errorCounts)
+            {
+                string key = context + "|" + ex.GetType().FullName + "|" + ex.Message;
+                errorCounts.TryGetValue(key, out count);
+                errorCounts[key] = ++count;
+            }
+            if (count <= ERROR_STACK_LIMIT)
+            {
+                // ToString() includes the type, the message, the stack and any inner exceptions
+                string detail = ex.ToString().Replace("\r", "").Replace("\n", " | ").Replace("   at ", "at ");
+                MonitorEvent("ERROR - " + context + ": " + detail);
+            }
+            else
+            {
+                MonitorEvent("ERROR - " + context + ": " + ex.Message + " (" + count + " times, stack no longer logged)");
             }
         }
 
@@ -1305,10 +1402,8 @@ namespace JoinFS
         {
             if (monitor != null && monitor.network)
             {
-                lock (conch)
-                {
-                    monitor.Write(s);
-                }
+                // the monitor has its own lock, so logging never waits for conch
+                monitor.Write(s);
             }
         }
 
@@ -1320,10 +1415,8 @@ namespace JoinFS
         {
             if (monitor != null && monitor.variables)
             {
-                lock (conch)
-                {
-                    monitor.Write(s);
-                }
+                // the monitor has its own lock, so logging never waits for conch
+                monitor.Write(s);
             }
         }
 
@@ -1673,10 +1766,10 @@ namespace JoinFS
                     lock (conch)
                     {
                         // convert address to end point
-                        if (network.MakeEndPoint(addressText, Network.DEFAULT_PORT, out IPEndPoint endPoint))
+                        if (network.Bootstrap.MakeEndPoint(addressText, Network.DEFAULT_PORT, out IPEndPoint endPoint))
                         {
                             // submit hub
-                            network.ScheduleSubmitHub(endPoint);
+                            network.Hubs.ScheduleSubmitHub(endPoint);
                         }
                     }
                 }
@@ -1702,7 +1795,7 @@ namespace JoinFS
 #endif
 
             // check for uuid
-            uint uuid = Network.MakeUuid(addressText);
+            uint uuid = UserDirectory.MakeUuid(addressText);
             // check for valid uuid
             if (uuid != 0)
             {
@@ -1713,9 +1806,9 @@ namespace JoinFS
             }
 
             // check for hub
-            Network.Hub hub;
+            HubDirectory.Hub hub;
             // find address in the address book
-            hub = network.hubList.Find(h => h.name.Equals(addressText));
+            hub = network.Hubs.List.Find(h => h.name.Equals(addressText));
             // if hub found
             if (hub != null)
             {
@@ -1772,7 +1865,7 @@ namespace JoinFS
                     bool result = false;
                     lock (conch)
                     {
-                        result = network.DnsLookup(parts[0], out address);
+                        result = network.Bootstrap.DnsLookup(parts[0], out address);
                     }
                     // try DNS lookup
                     if (result)
@@ -1794,7 +1887,8 @@ namespace JoinFS
             // check for sim
             if (sim != null)
             {
-                lock (conch)
+                // on the sim thread, which owns the connection
+                PostToSim(() =>
                 {
                     // check if simulator connected
                     if (sim.Connected || sim.Connecting)
@@ -1805,7 +1899,7 @@ namespace JoinFS
                     {
                         sim.Connect();
                     }
-                }
+                });
             }
         }
 
@@ -1814,7 +1908,7 @@ namespace JoinFS
             lock (conch)
             {
                 // get connected state
-                bool connected = network.localNode.CurrentState != LocalNode.State.Unconnected;
+                bool connected = network.Snapshot.State != SessionState.Unconnected;
 
                 // check if user join scheduled
                 if (network.scheduleJoinUser)
@@ -1840,37 +1934,41 @@ namespace JoinFS
         public void MonitorSessionDetails()
         {
             // check if connected
-            if (network.localNode.Connected)
+            if (network.Connected)
             {
                 MonitorEvent("Session:");
-                MonitorEvent("  ADDRESS NICKNAME CALLSIGN CONNECTED LATENCY AIRCRAFT OBJECTS VERSION SIMULATOR");
+                MonitorEvent("  ADDRESS NICKNAME CALLSIGN CONNECTED LATENCY AIRCRAFT OBJECTS VERSION SIMULATOR PROTOCOL");
                 string line = " ";
-                line += " " + network.localNode.GetLocalNuid();
+                line += " " + network.LocalId;
                 line += " " + settingsNickname;
-                line += " " + network.GetLocalCallsign();
-                line += " " + network.localNode.Connected;
+                line += " " + network.Peers.GetLocalCallsign();
+                line += " " + network.Connected;
                 line += " " + 0.0f;
-                line += " " + sim.objectList.FindAll(o => o is Sim.Aircraft && sim.IsBroadcast(o)).Count;
-                line += " " + sim.objectList.FindAll(o => (o is Sim.Aircraft) == false && o.owner == Sim.Obj.Owner.Sim).Count;
+                line += " " + sim.View.FindAll(o => o is Sim.Aircraft && sim.IsBroadcast(o)).Count;
+                line += " " + sim.View.FindAll(o => (o is Sim.Aircraft) == false && o.owner == Sim.Obj.Owner.Sim).Count;
                 line += " " + version;
                 line += " " + (sim != null ? sim.GetSimulatorName() : "");
+                line += " " + "-"; // network (transport) protocol doesn't apply to the local node itself
                 MonitorEvent(line);
                 // for each node
-                foreach (var node in network.nodeList)
+                foreach (var node in network.Peers.Nodes)
                 {
                     line = " ";
                     line += " " + node.Key;
                     line += " " + node.Value.nickname;
-                    line += " " + network.GetNodeCallsign(node.Key);
-                    line += " " + network.localNode.NodeReceiveEstablished(node.Key);
-                    line += " " + network.localNode.GetNodeRTT(node.Key);
-                    line += " " + sim.objectList.FindAll(o => o.ownerNuid == node.Key && o is Sim.Aircraft).Count;
-                    line += " " + sim.objectList.FindAll(o => o.ownerNuid == node.Key && (o is Sim.Aircraft) == false).Count;
-                    line += " " + network.GetNodeVersion(node.Key);
-                    line += " " + network.GetNodeSimulator(node.Key);
+                    line += " " + network.Peers.GetNodeCallsign(node.Key);
+                    line += " " + (network.Snapshot.Peer(node.Key)?.ReceiveEstablished ?? false);
+                    line += " " + network.GetNodeRTT(node.Key);
+                    line += " " + sim.View.FindAll(o => o.ownerNuid == node.Key && o is Sim.Aircraft).Count;
+                    line += " " + sim.View.FindAll(o => o.ownerNuid == node.Key && (o is Sim.Aircraft) == false).Count;
+                    line += " " + network.Peers.GetNodeVersion(node.Key);
+                    line += " " + network.Peers.GetNodeSimulator(node.Key);
+                    // network (transport) protocol indicator - distinct from the application
+                    // GetNodeVersion above, as described by the protocol plugins
+                    line += " " + (network.Snapshot.Peer(node.Key)?.LinkState.ToDisplay() ?? "Pending");
                     MonitorEvent(line);
                 }
-                MonitorEvent("Total " + (1 + network.nodeList.Count) + " user(s)");
+                MonitorEvent("Total " + (1 + network.Peers.Nodes.Count) + " user(s)");
             }
             else
             {
@@ -1881,7 +1979,7 @@ namespace JoinFS
         public void MonitorAircraft(Sim.Aircraft aircraft)
         {
             // get user position
-            Sim.Pos userPosition = sim ?. userAircraft ?. Position;
+            Sim.Pos userPosition = sim ?. View.UserAircraft ?. Position;
             // get aircraft position
             Sim.Pos aircraftPosition = aircraft.Position;
             string distance = "-";
@@ -1911,7 +2009,7 @@ namespace JoinFS
 
             string line = " ";
             line += " " + aircraft.flightPlan.callsign;
-            line += " " + network.GetNodeName(aircraft.ownerNuid);
+            line += " " + network.Peers.GetNodeName(aircraft.ownerNuid);
             line += " " + distance + "nm";
             line += " " + heading;
             line += " " + altitude + "ft";
@@ -1924,7 +2022,7 @@ namespace JoinFS
         public void MonitorAircraftDetails()
         {
             // check if connected
-            if (sim != null && sim.Connected)
+            if (sim != null && sim.View.Connected)
             {
                 MonitorEvent("Aircraft:");
                 MonitorEvent("  CALLSIGN OWNER DISTANCE HEADING ALTITUDE SPEED SUBMODEL BROADCAST");
@@ -1932,7 +2030,7 @@ namespace JoinFS
                 // total aircraft
                 int total = 0;
                 // add user aircraft
-                foreach (var obj in sim.objectList)
+                foreach (var obj in sim.View.Objects)
                 {
                     if (obj.owner == Sim.Obj.Owner.Me)
                     {
@@ -1942,7 +2040,7 @@ namespace JoinFS
                 }
 
                 // add network aircraft
-                foreach (var obj in sim.objectList)
+                foreach (var obj in sim.View.Objects)
                 {
                     if (obj is Sim.Aircraft && obj.owner == Sim.Obj.Owner.Network)
                     {
@@ -1956,7 +2054,7 @@ namespace JoinFS
                 }
 
                 // add recorder aircraft
-                foreach (var obj in sim.objectList)
+                foreach (var obj in sim.View.Objects)
                 {
                     if (obj is Sim.Aircraft && obj.owner == Sim.Obj.Owner.Recorder)
                     {
@@ -1969,7 +2067,7 @@ namespace JoinFS
                 if (Settings.Default.IncludeSimulatorAircraft)
                 {
                     // add any other aircraft
-                    foreach (var obj in sim.objectList)
+                    foreach (var obj in sim.View.Objects)
                     {
                         if (obj is Sim.Aircraft && obj.owner == Sim.Obj.Owner.Sim)
                         {

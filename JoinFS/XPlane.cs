@@ -67,7 +67,7 @@ namespace JoinFS
         /// <summary>
         /// Is x-plane open
         /// </summary>
-        public bool IsOpen { get { return localNode.IsOpen; } }
+        public bool IsOpen { get { return link.IsOpen; } }
 
         /// <summary>
         /// Is x-plane connected
@@ -103,7 +103,7 @@ namespace JoinFS
         /// <summary>
         /// Local node
         /// </summary>
-        public LocalNode localNode;
+        XPlaneLink link;
 
         /// <summary>
         /// UDP port
@@ -164,11 +164,13 @@ namespace JoinFS
             }
 
             // create node
-            localNode = new LocalNode(main)
+            link = new XPlaneLink
             {
                 // notifications
                 nodeError = main.MonitorEvent,
-                receiveNotify = ReceiveMsg
+                receiveNotify = ReceiveMsg,
+                // datagrams from the plugin are handled on the sim thread as soon as they arrive
+                post = main.PostToSim
             };
         }
 
@@ -212,15 +214,15 @@ namespace JoinFS
         public void Open()
         {
             // check if node is close
-            if (localNode.IsOpen == false)
+            if (link.IsOpen == false)
             {
                 // try different ports
                 int port = CLIENT_PORT;
-                while (localNode.Open(port) == false && port < CLIENT_PORT + 100) port++;
+                while (link.Open(port) == false && port < CLIENT_PORT + 100) port++;
             }
 
             // check port is open
-            if (localNode.IsOpen)
+            if (link.IsOpen)
             {
                 // get plugin address
                 string addressStr = Settings.Default.XPlanePluginAddress;
@@ -236,7 +238,7 @@ namespace JoinFS
                     pluginEndPoint = new IPEndPoint(address, PLUGIN_PORT);
 
                     // prepare message
-                    BinaryWriter message = localNode.PrepareMessage(new LocalNode.Nuid(), false);
+                    BinaryWriter message = link.PrepareMessage();
                     // add header
                     message.Write(DATA_VERSION);
                     // add message ID
@@ -245,7 +247,7 @@ namespace JoinFS
                     byte flags = 1;
                     message.Write(flags);
                     // send message
-                    localNode.Send(pluginEndPoint);
+                    link.Send(pluginEndPoint);
                 }
                 else
                 {
@@ -273,18 +275,18 @@ namespace JoinFS
             }
 
             // check if node is open
-            if (localNode.IsOpen)
+            if (link.IsOpen)
             {
                 // prepare message
-                BinaryWriter message = localNode.PrepareMessage(new LocalNode.Nuid(), false);
+                BinaryWriter message = link.PrepareMessage();
                 // add header
                 message.Write(DATA_VERSION);
                 // add message ID
                 message.Write((byte)MessageId.DISCONNECT);
                 // send message
-                localNode.Send(pluginEndPoint);
+                link.Send(pluginEndPoint);
 
-                localNode.Close();
+                link.Close();
             }
 
             // reset
@@ -308,7 +310,7 @@ namespace JoinFS
             if (IsOpen && main.ElapsedTime > heartbeatTime)
             {
                 // prepare heartbeat message
-                BinaryWriter message = localNode.PrepareMessage(new LocalNode.Nuid(), false);
+                BinaryWriter message = link.PrepareMessage();
                 // add header
                 message.Write(DATA_VERSION);
                 // add message ID
@@ -332,7 +334,7 @@ namespace JoinFS
                 message.Write((byte)(main.settingsTcas ? 1 : 0));
 
                 // send message
-                localNode.Send(pluginEndPoint);
+                link.Send(pluginEndPoint);
 
                 // next heartbeat
                 heartbeatTime = main.ElapsedTime + 2.0;
@@ -350,9 +352,23 @@ namespace JoinFS
                     aircraftList[0].resendTime = main.ElapsedTime + 1.0;
                 }
             }
+        }
 
-            // process node
-            localNode.DoWork();
+        /// <summary>
+        /// When DoWork next has timed work (heartbeat, user position resend)
+        /// </summary>
+        public double NextDue()
+        {
+            double next = double.MaxValue;
+            if (IsOpen)
+            {
+                next = heartbeatTime;
+            }
+            if (IsConnected && aircraftList[0].inUse)
+            {
+                next = Math.Min(next, aircraftList[0].resendTime);
+            }
+            return next;
         }
 
         /// <summary>
@@ -482,7 +498,7 @@ namespace JoinFS
             if (MessageBox.Show(Resources.Strings.InstallPlugin, Main.Name, MessageBoxButtons.YesNo) == DialogResult.Yes)
             {
                 // close simulator
-                main.sim ?. Close();
+                main.SimCommand(sim => sim.Close());
                 // show dialog for installing plugin
                 XPlaneForm xplaneForm = new XPlaneForm(main, Settings.Default.XPlaneFolder);
                 // open dialog
@@ -502,7 +518,7 @@ namespace JoinFS
         /// </summary>
         /// <param name="nuid">Sender nuid</param>
         /// <param name="reader">Message reader</param>
-        void ReceiveMsg(IPEndPoint endPoint, LocalNode.Nuid nuid, BinaryReader reader)
+        void ReceiveMsg(IPEndPoint endPoint, Net.NodeId nuid, BinaryReader reader)
         {
             try
             {
@@ -651,7 +667,7 @@ namespace JoinFS
                                         aircraftList[index].simTime = reader.ReadDouble();
                                         // read position
                                         Sim.AircraftPosition position = new Sim.AircraftPosition();
-                                        Sim.Read(dataVersion, reader, ref position);
+                                        JfsFrames.Read(dataVersion, reader, ref position);
                                         // read plane state
                                         position.latitude *= Math.PI / 180.0;
                                         position.longitude *= Math.PI / 180.0;
@@ -763,7 +779,7 @@ namespace JoinFS
                     }
                 }
             }
-            catch (Sim.ReadException ex)
+            catch (JfsFrames.ReadException ex)
             {
                 // message
                 main.MonitorEvent(ex.Message);
@@ -889,7 +905,7 @@ namespace JoinFS
                     // aircraft no longer in use
                     aircraftList[index].inUse = false;
                     // prepare heartbeat message
-                    BinaryWriter message = localNode.PrepareMessage(new LocalNode.Nuid(), false);
+                    BinaryWriter message = link.PrepareMessage();
                     // add header
                     message.Write(DATA_VERSION);
                     // add message ID
@@ -897,7 +913,7 @@ namespace JoinFS
                     // add index
                     message.Write((byte)SimIdToIndex(simId));
                     // send message
-                    localNode.Send(pluginEndPoint);
+                    link.Send(pluginEndPoint);
                 }
             }
         }
@@ -938,7 +954,7 @@ namespace JoinFS
                 if (simIndex >= 0 && simIndex < aircraftList.Count)
                 {
                     // prepare message
-                    BinaryWriter message = localNode.PrepareMessage(new LocalNode.Nuid(), false);
+                    BinaryWriter message = link.PrepareMessage();
                     // add header
                     message.Write(DATA_VERSION);
                     // add message ID
@@ -983,7 +999,7 @@ namespace JoinFS
                     }
 
                     // send message
-                    localNode.Send(pluginEndPoint);
+                    link.Send(pluginEndPoint);
                 }
             }
         }
@@ -1019,7 +1035,7 @@ namespace JoinFS
                     position.accelerationZ = -position.accelerationZ;
 
                     // prepare message
-                    BinaryWriter message = localNode.PrepareMessage(new LocalNode.Nuid(), false);
+                    BinaryWriter message = link.PrepareMessage();
                     // add header
                     message.Write(DATA_VERSION);
                     // add message ID
@@ -1029,9 +1045,9 @@ namespace JoinFS
                     // write time
                     message.Write(netTime);
                     // write position
-                    Sim.Write(message, ref position);
+                    JfsFrames.Write(message, ref position);
                     // send message
-                    localNode.Send(pluginEndPoint);
+                    link.Send(pluginEndPoint);
                 }
             }
         }
@@ -1062,7 +1078,7 @@ namespace JoinFS
                     xplanePosition.heading *= (float)(180.0 / Math.PI);
 
                     // prepare message
-                    BinaryWriter message = localNode.PrepareMessage(new LocalNode.Nuid(), false);
+                    BinaryWriter message = link.PrepareMessage();
                     // add header
                     message.Write(DATA_VERSION);
                     // add message ID
@@ -1083,7 +1099,7 @@ namespace JoinFS
                     if (Settings.Default.ElevationCorrection) flags |= 0x02;
                     message.Write(flags);
                     // send message
-                    localNode.Send(pluginEndPoint);
+                    link.Send(pluginEndPoint);
                 }
             }
         }
@@ -1114,7 +1130,7 @@ namespace JoinFS
                     xplaneVelocity.accelerationZ = -velocity.accelerationZ;
 
                     // prepare message
-                    BinaryWriter message = localNode.PrepareMessage(new LocalNode.Nuid(), false);
+                    BinaryWriter message = link.PrepareMessage();
                     // add header
                     message.Write(DATA_VERSION);
                     // add message ID
@@ -1132,7 +1148,7 @@ namespace JoinFS
                     message.Write(xplaneVelocity.accelerationY);
                     message.Write(xplaneVelocity.accelerationZ);
                     // send message
-                    localNode.Send(pluginEndPoint);
+                    link.Send(pluginEndPoint);
                 }
             }
         }
@@ -1155,7 +1171,7 @@ namespace JoinFS
                 if (index >= 0)
                 {
                     // prepare message
-                    BinaryWriter message = localNode.PrepareMessage(new LocalNode.Nuid(), false);
+                    BinaryWriter message = link.PrepareMessage();
                     // add header
                     message.Write(DATA_VERSION);
                     // add message ID
@@ -1167,7 +1183,7 @@ namespace JoinFS
                     // write data
                     message.Write(data);
                     // send message
-                    localNode.Send(pluginEndPoint);
+                    link.Send(pluginEndPoint);
                 }
             }
         }
@@ -1185,7 +1201,7 @@ namespace JoinFS
                 if (index >= 0)
                 {
                     // prepare message
-                    BinaryWriter message = localNode.PrepareMessage(new LocalNode.Nuid(), false);
+                    BinaryWriter message = link.PrepareMessage();
                     // add header
                     message.Write(DATA_VERSION);
                     // add message ID
@@ -1197,7 +1213,7 @@ namespace JoinFS
                     // write value
                     message.Write(value);
                     // send message
-                    localNode.Send(pluginEndPoint);
+                    link.Send(pluginEndPoint);
                 }
             }
         }
@@ -1215,7 +1231,7 @@ namespace JoinFS
                 if (index >= 0)
                 {
                     // prepare message
-                    BinaryWriter message = localNode.PrepareMessage(new LocalNode.Nuid(), false);
+                    BinaryWriter message = link.PrepareMessage();
                     // add header
                     message.Write(DATA_VERSION);
                     // add message ID
@@ -1227,7 +1243,7 @@ namespace JoinFS
                     // write value
                     message.Write(value);
                     // send message
-                    localNode.Send(pluginEndPoint);
+                    link.Send(pluginEndPoint);
                 }
             }
         }
@@ -1245,7 +1261,7 @@ namespace JoinFS
                 if (index >= 0)
                 {
                     // prepare message
-                    BinaryWriter message = localNode.PrepareMessage(new LocalNode.Nuid(), false);
+                    BinaryWriter message = link.PrepareMessage();
                     // add header
                     message.Write(DATA_VERSION);
                     // add message ID
@@ -1262,7 +1278,7 @@ namespace JoinFS
                         message.Write('\0');
                     }
                     // send message
-                    localNode.Send(pluginEndPoint);
+                    link.Send(pluginEndPoint);
                 }
             }
         }
@@ -1283,7 +1299,7 @@ namespace JoinFS
                     if (definition.drName.Length > 0)
                     {
                         // prepare message
-                        BinaryWriter message = localNode.PrepareMessage(new LocalNode.Nuid(), false);
+                        BinaryWriter message = link.PrepareMessage();
                         // add header
                         message.Write(DATA_VERSION);
                         // add message ID
@@ -1304,7 +1320,7 @@ namespace JoinFS
                             message.Write('\0');
                         }
                         // send message
-                        localNode.Send(pluginEndPoint);
+                        link.Send(pluginEndPoint);
                     }
                 }
             }
@@ -1331,7 +1347,7 @@ namespace JoinFS
                         if (definition.drName.Length > 0)
                         {
                             // prepare message
-                            BinaryWriter message = localNode.PrepareMessage(new LocalNode.Nuid(), false);
+                            BinaryWriter message = link.PrepareMessage();
                             // add header
                             message.Write(DATA_VERSION);
                             // add message ID
@@ -1354,7 +1370,7 @@ namespace JoinFS
                                 message.Write('\0');
                             }
                             // send message
-                            localNode.Send(pluginEndPoint);
+                            link.Send(pluginEndPoint);
                         }
                     }
                 }

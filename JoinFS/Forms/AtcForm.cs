@@ -110,7 +110,7 @@ namespace JoinFS
             DataGrid_AtcList.DefaultCellStyle.Font = main.dataFont;
         }
 
-        void AddAtc(Network.HubUser user)
+        void AddAtc(HubDirectory.HubUser user)
         {
             // check for existing user
             if (itemList.Exists(u => u.guid.Equals(user.guid)) == false)
@@ -123,7 +123,7 @@ namespace JoinFS
         /// <summary>
         /// temporary user list
         /// </summary>
-        List<Network.HubUser> tempHubUserList = [];
+        List<HubDirectory.HubUser> tempHubUserList = [];
 
         /// <summary>
         /// Refresher
@@ -159,7 +159,7 @@ namespace JoinFS
             lock (main.conch)
             {
                 // add user aircraft
-                foreach (var user in main.network.localUserList)
+                foreach (var user in main.network.HubHost.LocalUsers)
                 {
                     // check for ATC
                     if (user.atc)
@@ -170,7 +170,7 @@ namespace JoinFS
                 }
 
                 // for each hub
-                foreach (var hub in main.network.hubList)
+                foreach (var hub in main.network.Hubs.List)
                 {
                     // check if hub is the one already connected to
                     if (hub.endPoint.Equals(main.network.joinEndPoint) == false)
@@ -388,7 +388,7 @@ namespace JoinFS
             if (item != null)
             {
                 // join address book entry
-                main.Join(Network.UuidToString(Network.MakeUuid(item.guid)));
+                main.Join(UserDirectory.UuidToString(UserDirectory.MakeUuid(item.guid)));
             }
         }
 

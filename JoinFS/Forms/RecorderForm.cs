@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using System.IO;
@@ -42,7 +43,7 @@ namespace JoinFS
             int val = 0;
             bool enabled = false;
 
-            lock (main.conch)
+            // the recorder runs on the sim thread: read its flags and published end time
             {
                 // refresh time
                 if (main.recorder.Active)
@@ -53,7 +54,7 @@ namespace JoinFS
                     if (main.recorder.recording == false)
                     {
                         // update track
-                        max = (int)main.recorder.EndTime;
+                        max = (int)main.recorder.EndTimeView;
                         val = ((int)main.recorder.Time > max) ? max : (int)main.recorder.Time;
                         enabled = true;
                     }
@@ -61,7 +62,7 @@ namespace JoinFS
                 else if (main.recorder.Empty == false)
                 {
                     // update track
-                    max = (int)main.recorder.EndTime;
+                    max = (int)main.recorder.EndTimeView;
                 }
             }
 
@@ -83,7 +84,7 @@ namespace JoinFS
             }
 
             // show recorder end time
-            string endText = new TimeSpan(0, 0, (int)main.recorder.EndTime).ToString();
+            string endText = new TimeSpan(0, 0, (int)main.recorder.EndTimeView).ToString();
             if (Label_EndTime.Text.Equals(endText) == false)
             {
                 Label_EndTime.Text = endText;
@@ -114,7 +115,6 @@ namespace JoinFS
 
             Image playImage;
 
-            lock (main.conch)
             {
                 // check if recorder is active
                 if (main.recorder.playing && main.recorder.paused == false)
@@ -226,21 +226,18 @@ namespace JoinFS
 
         private void Track_Position_Scroll(object sender, EventArgs e)
         {
-            lock (main.conch)
-            {
-                // update recorder time
-                main.recorder.Jump(Track_Position.Value);
-            }
+            // update recorder time (on the sim thread)
+            int time = Track_Position.Value;
+            main.InvokeOnSim(sim => { main.recorder.Jump(time); return true; });
         }
 
         private void Button_Record_Click(object sender, EventArgs e)
         {
             main.mainForm ?. CheckRecording();
 
-            lock (main.conch)
+            // start new recording (on the sim thread)
+            main.InvokeOnSim(sim => { main.recorder.StartRecord(false); return true; });
             {
-                // start new recording
-                main.recorder.StartRecord(false);
                 // check for main form
                 if (main.mainForm != null)
                 {
@@ -254,7 +251,8 @@ namespace JoinFS
 
         private void Button_Play_Click(object sender, EventArgs e)
         {
-            lock (main.conch)
+            // on the sim thread
+            main.InvokeOnSim(sim =>
             {
                 // check if currently playing
                 if (main.recorder.playing)
@@ -265,7 +263,8 @@ namespace JoinFS
                 {
                     main.recorder.StartPlay();
                 }
-            }
+                return true;
+            });
 
             RefreshWindow();
 #if !SERVER
@@ -275,10 +274,7 @@ namespace JoinFS
 
         private void Button_Stop_Click(object sender, EventArgs e)
         {
-            lock (main.conch)
-            {
-                main.recorder.Stop();
-            }
+            main.InvokeOnSim(sim => { main.recorder.Stop(); return true; });
             
             RefreshWindow();
 #if !SERVER
@@ -288,12 +284,13 @@ namespace JoinFS
 
         private void Button_Overdub_Click(object sender, EventArgs e)
         {
-            lock (main.conch)
+            main.InvokeOnSim(sim =>
             {
                 main.recorder.StartPlay();
                 main.recorder.StartRecord(true);
-                if (main.mainForm != null) main.mainForm.unsaved = true;
-            }
+                return true;
+            });
+            if (main.mainForm != null) main.mainForm.unsaved = true;
 
             RefreshWindow();
 #if !SERVER
@@ -356,11 +353,14 @@ namespace JoinFS
                         {
                             using (stream)
                             {
-                                lock (main.conch)
+                                // parse here, then apply and play on the sim thread
+                                List<Recorder.Obj> objects = main.recorder.Parse(new BinaryReader(stream));
+                                main.InvokeOnSim(sim =>
                                 {
-                                    main.recorder.Read(new BinaryReader(stream));
+                                    main.recorder.Load(objects, false);
                                     main.recorder.StartPlay();
-                                }
+                                    return true;
+                                });
                             }
                             // save folder
                             Settings.Default.RecordingFolder = Path.GetDirectoryName(dialog.FileName);
@@ -420,11 +420,14 @@ namespace JoinFS
                         {
                             using (stream)
                             {
-                                lock (main.conch)
+                                // parse here, then apply and play on the sim thread
+                                List<Recorder.Obj> objects = main.recorder.Parse(new BinaryReader(stream));
+                                main.InvokeOnSim(sim =>
                                 {
-                                    main.recorder.Append(new BinaryReader(stream));
+                                    main.recorder.Load(objects, true);
                                     main.recorder.StartPlay();
-                                }
+                                    return true;
+                                });
                             }
                             // save folder
                             Settings.Default.RecordingFolder = Path.GetDirectoryName(dialog.FileName);
@@ -441,7 +444,6 @@ namespace JoinFS
 
         private void RecorderMenu_Edit_TrimFromStart_Click(object sender, EventArgs e)
         {
-            lock (main.conch)
             {
                 if (main.recorder.Time <= 0.0)
                 {
@@ -449,7 +451,7 @@ namespace JoinFS
                 }
                 else
                 {
-                    main.recorder.TrimFromStart();
+                    main.InvokeOnSim(sim => { main.recorder.TrimFromStart(); main.recorder.PublishStatus(); return true; });
                     RefreshWindow();
                 }
             }
@@ -457,15 +459,14 @@ namespace JoinFS
 
         private void RecorderMenu_Edit_TrimToEnd_Click(object sender, EventArgs e)
         {
-            lock (main.conch)
             {
-                if (main.recorder.Time >= main.recorder.EndTime)
+                if (main.recorder.Time >= main.recorder.EndTimeView)
                 {
                     MessageBox.Show("Already at the end of the recording.", Main.Name + ": " + Resources.Strings.RecorderStr);
                 }
                 else
                 {
-                    main.recorder.TrimToEnd();
+                    main.InvokeOnSim(sim => { main.recorder.TrimToEnd(); main.recorder.PublishStatus(); return true; });
                     RefreshWindow();
                 }
             }

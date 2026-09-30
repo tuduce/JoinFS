@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
+using JoinFS.Net;
 
 namespace JoinFS
 {
@@ -117,7 +118,7 @@ namespace JoinFS
         public static uint CreateVuid(string str)
         {
             // create unique id
-            uint vuid = LocalNode.HashString(str);
+            uint vuid = NetHash.HashString(str);
             if (vuid == 0) vuid = 1;
             return vuid;
         }

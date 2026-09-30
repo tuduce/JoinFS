@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using System.Drawing;
 using JoinFS.Properties;
 using System.Linq;
+using JoinFS.Net;
 
 namespace JoinFS
 {
@@ -16,7 +17,7 @@ namespace JoinFS
         /// </summary>
         class Item
         {
-            public LocalNode.Nuid nuid;
+            public NodeId nuid;
             public uint netId = 0;
             public uint simId = 0;
             public Guid guid = Guid.Empty;
@@ -55,7 +56,7 @@ namespace JoinFS
             public double speed = 0.0;
             public bool showOnRadar = true;
 
-            public Item(Guid guid, LocalNode.Nuid nuid, uint netId, uint simId)
+            public Item(Guid guid, NodeId nuid, uint netId, uint simId)
             {
                 this.nuid = nuid;
                 this.netId = netId;
@@ -157,11 +158,25 @@ namespace JoinFS
             return selectedItem;
         }
 
+        /// <summary>
+        /// The snapshot copy of an item's aircraft (Sim.View) - read it; to change the aircraft, post a
+        /// command with its Source (main.SimCommand)
+        /// </summary>
         Sim.Aircraft GetAircraft(Item item)
         {
-            // get aircraft
-            return main.sim ?. objectList.Find(o => o.ownerNuid.Invalid() && o.simId == item.simId || o.ownerNuid.Valid() && o.ownerNuid == item.nuid && o.netId == item.netId && o is Sim.Aircraft) as Sim.Aircraft;
+            if (item == null || main.sim == null) return null;
+            foreach (var o in main.sim.View.Objects)
+            {
+                if (o.ownerNuid.Invalid() && o.simId == item.simId || o.ownerNuid.Valid() && o.ownerNuid == item.nuid && o.netId == item.netId && o is Sim.Aircraft)
+                {
+                    return o as Sim.Aircraft;
+                }
+            }
+            return null;
         }
+
+        /// <summary>Two snapshot copies (or nulls) of the same live object</summary>
+        static bool Same(Sim.Obj a, Sim.Obj b) => a != null && b != null && a.Source == b.Source;
 
         public AircraftForm(Main main)
         {
@@ -201,7 +216,7 @@ namespace JoinFS
         void AddAircraft(Sim.Aircraft aircraft)
         {
             // get guid
-            Guid guid = main.network.GetNodeGuid(aircraft.ownerNuid);
+            Guid guid = main.network.Peers.GetNodeGuid(aircraft.ownerNuid);
             // check for existing aircraft
             if (aircraft.owner != Sim.Obj.Owner.Network || itemList.Exists(u => u.nuid.Equals(aircraft.ownerNuid) && u.netId == aircraft.netId) == false)
             {
@@ -210,7 +225,7 @@ namespace JoinFS
                 itemList.Add(item);
 
                 // get user position
-                Sim.Pos userPosition = main.sim ?. userAircraft ?. Position;
+                Sim.Pos userPosition = main.sim ?. View.UserAircraft ?. Position;
                 // get aircraft position
                 Sim.Pos aircraftPosition = aircraft.Position;
                 // check for user aircraft
@@ -225,7 +240,7 @@ namespace JoinFS
                 }
 
                 // get nickname
-                item.nickname = main.network.GetNodeName(aircraft.ownerNuid);
+                item.nickname = main.network.Peers.GetNodeName(aircraft.ownerNuid);
                 // check for AI
                 if (aircraft.user == false)
                 {
@@ -243,7 +258,7 @@ namespace JoinFS
                 }
 
                 // check if aircraft created
-                if (main.sim != null && main.sim.Connected)
+                if (main.sim != null && main.sim.View.Connected)
                 {
                     // get model
 #if FS2024
@@ -285,9 +300,9 @@ namespace JoinFS
                 // original model
                 item.original = aircraft.ownerModel;
                 // get simulator
-                item.simulator = main.network.GetNodeSimulator(aircraft.ownerNuid);
+                item.simulator = main.network.Peers.GetNodeSimulator(aircraft.ownerNuid);
                 // weather
-                item.weather = aircraft == main.sim ?. weatherAircraft;
+                item.weather = Same(aircraft, main.sim?.View.WeatherAircraft);
                 // broadcast
                 item.broadcast = (main.sim != null) && main.sim.IsBroadcast(aircraft);
                 // record
@@ -386,7 +401,7 @@ namespace JoinFS
         /// Add Hub user
         /// </summary>
         /// <param name="user"></param>
-        void AddAircraft(Network.HubUser user)
+        void AddAircraft(HubDirectory.HubUser user)
         {
             // check for existing user
             if (itemList.Exists(u => u.guid.Equals(user.guid)) == false)
@@ -395,7 +410,7 @@ namespace JoinFS
                 Item item = new(user.guid);
 
                 // get user position
-                Sim.Pos userPosition = main.sim ?. userAircraft ?. Position;
+                Sim.Pos userPosition = main.sim ?. View.UserAircraft ?. Position;
                 // check for user aircraft
                 if (userPosition != null)
                 {
@@ -494,7 +509,7 @@ namespace JoinFS
         /// <summary>
         /// temporary user list
         /// </summary>
-        List<Network.HubUser> tempHubUserList = [];
+        List<HubDirectory.HubUser> tempHubUserList = [];
 
         /// <summary>
         /// Refresh window
@@ -515,8 +530,9 @@ namespace JoinFS
                 // check for simulator
                 if (main.sim != null)
                 {
+                    IReadOnlyList<Sim.Obj> simObjects = main.sim.View.Objects;
                     // add user aircraft
-                    foreach (var obj in main.sim.objectList)
+                    foreach (var obj in simObjects)
                     {
                         if (obj.owner == Sim.Obj.Owner.Me)
                         {
@@ -525,7 +541,7 @@ namespace JoinFS
                     }
 
                     // add network aircraft
-                    foreach (var obj in main.sim.objectList)
+                    foreach (var obj in simObjects)
                     {
                         if (obj is Sim.Aircraft && obj.owner == Sim.Obj.Owner.Network)
                         {
@@ -538,7 +554,7 @@ namespace JoinFS
                     }
 
                     // add recorder aircraft
-                    foreach (var obj in main.sim.objectList)
+                    foreach (var obj in simObjects)
                     {
                         if (obj is Sim.Aircraft && obj.owner == Sim.Obj.Owner.Recorder)
                         {
@@ -550,7 +566,7 @@ namespace JoinFS
                     if (Settings.Default.IncludeSimulatorAircraft)
                     {
                         // add any other aircraft
-                        foreach (var obj in main.sim.objectList)
+                        foreach (var obj in simObjects)
                         {
                             if (obj is Sim.Aircraft && obj.owner == Sim.Obj.Owner.Sim)
                             {
@@ -568,7 +584,7 @@ namespace JoinFS
                 if (Settings.Default.IncludeGlobalAircraft)
                 {
                     // for each hub
-                    foreach (var hub in main.network.hubList)
+                    foreach (var hub in main.network.Hubs.List)
                     {
                         // check if hub is the one already connected to
                         if (hub.endPoint.Equals(main.network.joinEndPoint) == false)
@@ -671,7 +687,8 @@ namespace JoinFS
                 if (aircraft != null && main.sim != null)
                 {
                     // check if aircraft is being tracked
-                    if (main.sim.trackHeadingObject == aircraft || main.sim.trackBearingObject == aircraft)
+                    SimSnapshot view = main.sim.View;
+                    if (Same(view.TrackHeadingObject, aircraft) || Same(view.TrackBearingObject, aircraft))
                     {
                         // highlight aircraft
                         DataGrid_AircraftList.Rows[index].DefaultCellStyle.BackColor = Color.FromArgb(255, 235, 187);
@@ -833,16 +850,20 @@ namespace JoinFS
                                 else if (main.sim != null)
                                 {
                                     // update weather aircraft
-                                    if (main.sim.weatherAircraft == aircraft)
+                                    Sim.Obj live = aircraft.Source;
+                                    main.SimCommand(sim =>
                                     {
-                                        // unset weather object
-                                        main.sim.SetWeatherAircraft(null);
-                                    }
-                                    else
-                                    {
-                                        // set weather object
-                                        main.sim.SetWeatherAircraft(aircraft);
-                                    }
+                                        if (sim.weatherAircraft == live)
+                                        {
+                                            // unset weather object
+                                            sim.SetWeatherAircraft(null);
+                                        }
+                                        else if (sim.IsLive(live))
+                                        {
+                                            // set weather object
+                                            sim.SetWeatherAircraft(live as Sim.Aircraft);
+                                        }
+                                    });
                                     // refresh
                                     refresh = true;
                                 }
@@ -892,7 +913,8 @@ namespace JoinFS
                                         if (aircraft != null)
                                         {
                                             // toggle record flag
-                                            aircraft.record = !aircraft.record;
+                                            Sim.Obj live = aircraft.Source;
+                                            main.SimCommand(sim => live.record = !live.record);
                                         }
                                         // refresh
                                         refresh = true;
@@ -979,7 +1001,9 @@ namespace JoinFS
                             if (aircraft != null)
                             {
                                 // update object broadcast
-                                aircraft.broadcast = broadcastForm.broadcastObject;
+                                Sim.Obj live = aircraft.Source;
+                                bool broadcast = broadcastForm.broadcastObject;
+                                main.SimCommand(sim => live.broadcast = broadcast);
                                 // update model broadcast
                                 if (broadcastForm.broadcastModel)
                                 {
@@ -1084,8 +1108,9 @@ namespace JoinFS
                 // check for confirmation
                 if (result == DialogResult.Yes)
                 {
-                    // remove object from the recorder
-                    main.recorder.Remove(selectedItem.netId);
+                    // remove object from the recorder (on the sim thread)
+                    uint id = selectedItem.netId;
+                    main.InvokeOnSim(sim => { main.recorder.Remove(id); main.recorder.PublishStatus(); return true; });
                     // update window
                     RefreshWindow();
                 }
@@ -1114,7 +1139,7 @@ namespace JoinFS
             lock (main.conch)
             {
                 // check if currently in another cockpit
-                if (main.sim ?. enteredAircraft != null)
+                if (main.sim ?. View.EnteredAircraft != null)
                 {
                     // update button
                     cockpitText = "Leave Cockpit";
@@ -1134,7 +1159,7 @@ namespace JoinFS
                     if (aircraft != null)
                     {
                         // check if simulator connected
-                        if (main.sim != null && main.sim.Connected)
+                        if (main.sim != null && main.sim.View.Connected)
                         {
                             // allow substitution
                             Context_Aircraft_Substitute.Enabled = true;
@@ -1169,7 +1194,7 @@ namespace JoinFS
                             }
 
                             // check if not currently in another cockpit
-                            if (main.sim.enteredAircraft == null)
+                            if (main.sim.View.EnteredAircraft == null)
                             {
                                 // if aircraft is on the network
                                 if (aircraft.owner == Sim.Obj.Owner.Network && aircraft.metar.Length > 0)
@@ -1218,7 +1243,7 @@ namespace JoinFS
             Context_Aircraft_Ignored.CheckState = Settings.Default.IncludeIgnoredAircraft ? CheckState.Checked : CheckState.Unchecked;
 
             // check if tracking is on
-            Context_Aircraft_StopTracking.Enabled = main.sim != null && (main.sim.trackHeadingObject != null || main.sim.trackBearingObject != null);
+            Context_Aircraft_StopTracking.Enabled = main.sim != null && (main.sim.View.TrackHeadingObject != null || main.sim.View.TrackBearingObject != null);
 
 #if NO_HUBS
             Context_Aircraft_Hub.Visible = false;
@@ -1323,7 +1348,8 @@ namespace JoinFS
                 if (aircraft != null)
                 {
                     // follow the selected aircraft
-                    main.sim ?. ScheduleFollow(aircraft);
+                    Sim.Obj live = aircraft.Source;
+                    main.SimCommand(sim => { if (sim.IsLive(live)) sim.ScheduleFollow(live as Sim.Aircraft); });
                 }
             }
         }
@@ -1333,7 +1359,7 @@ namespace JoinFS
             lock (main.conch)
             {
                 // check if currently in another cockpit
-                if (main.sim != null && main.sim.enteredAircraft != null)
+                if (main.sim != null && main.sim.View.EnteredAircraft != null)
                 {
                     // leave aircraft
                     main.sim.ScheduleLeave();
@@ -1354,7 +1380,8 @@ namespace JoinFS
                         else if (aircraft.owner != Sim.Obj.Owner.Me)
                         {
                             // enter cockpit of other aircraft
-                            main.sim ?. ScheduleEnterAircraft(aircraft);
+                            Sim.Obj live = aircraft.Source;
+                            main.SimCommand(sim => { if (sim.IsLive(live)) sim.ScheduleEnterAircraft(live as Sim.Aircraft); });
                         }
                     }
                 }
@@ -1369,8 +1396,12 @@ namespace JoinFS
             if (main.sim != null && aircraft != null)
             {
                 // start tracking aircarft
-                main.sim.trackHeadingObject = aircraft;
-                main.sim.trackBearingObject = null;
+                Sim.Obj live = aircraft.Source;
+                main.SimCommand(sim =>
+                {
+                    sim.trackHeadingObject = sim.IsLive(live) ? live : null;
+                    sim.trackBearingObject = null;
+                });
             }
 
             // refresh
@@ -1385,8 +1416,12 @@ namespace JoinFS
             if (main.sim != null && aircraft != null)
             {
                 // start tracking aircarft
-                main.sim.trackBearingObject = aircraft;
-                main.sim.trackHeadingObject = null;
+                Sim.Obj live = aircraft.Source;
+                main.SimCommand(sim =>
+                {
+                    sim.trackBearingObject = sim.IsLive(live) ? live : null;
+                    sim.trackHeadingObject = null;
+                });
             }
 
             // refresh
@@ -1430,8 +1465,11 @@ namespace JoinFS
             if (main.sim != null)
             {
                 // stop tracking aircraft
-                main.sim.trackHeadingObject = null;
-                main.sim.trackBearingObject = null;
+                main.SimCommand(sim =>
+                {
+                    sim.trackHeadingObject = null;
+                    sim.trackBearingObject = null;
+                });
                 // refresh
                 RefreshWindow();
             }
@@ -1462,7 +1500,7 @@ namespace JoinFS
                 else
                 {
                     // target the user aircraft
-                    targetAircraft = main.sim ?. userAircraft;
+                    targetAircraft = main.sim ?. View.UserAircraft;
                     //callsign = targetAircraft.flightPlan.callsign;
                     //type = targetAircraft.flightPlan.icaoType;
                 }
@@ -1473,13 +1511,6 @@ namespace JoinFS
                     // create flight plan form
                     if (new FlightPlanForm(main, targetAircraft, targetAircraft.flightPlan).ShowDialog() == DialogResult.OK)
                     {
-                        lock (main.conch)
-                        {
-                            // update version
-                            targetAircraft.flightPlanVersion++;
-                            if (targetAircraft.flightPlanVersion == 0) targetAircraft.flightPlanVersion = 1;
-                        }
-
                         // refresh
                         RefreshWindow();
                     }
@@ -1497,7 +1528,7 @@ namespace JoinFS
                 // get selected aircraft
                 Sim.Aircraft aircraft = GetAircraft(item);
                 // check for valid aircraft
-                if (main.sim != null && aircraft != null && main.sim.Connected && aircraft.subModel != null)
+                if (main.sim != null && aircraft != null && main.sim.View.Connected && aircraft.subModel != null)
                 {
                     // height adjustment
                     int adjustment;
@@ -1567,7 +1598,8 @@ namespace JoinFS
             if (aircraft != null)
             {
                 // toggle option
-                aircraft.showOnRadar = !aircraft.showOnRadar;
+                Sim.Obj live = aircraft.Source;
+                main.SimCommand(sim => live.showOnRadar = !live.showOnRadar);
             }
 
             // refresh
@@ -1577,7 +1609,7 @@ namespace JoinFS
         private void Context_Aircraft_Variables_Click(object sender, EventArgs e)
         {
             // check if no simulator connected
-            if (main.sim != null && main.sim.Connected == false)
+            if (main.sim != null && main.sim.View.Connected == false)
             {
                 MessageBox.Show(Resources.Strings.AssignVariablesWarning, Main.Name);
             }

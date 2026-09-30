@@ -19,9 +19,15 @@ namespace JoinFS
         /// <summary>
         /// displayed lines of text
         /// </summary>
-        public List<string> lines = [];
+        readonly List<string> lines = [];
 
         StreamWriter writer;
+
+        /// <summary>
+        /// Guards lines and the log file. The monitor is written from several threads (app, sim,
+        /// network services), so it has its own lock instead of relying on Main.conch.
+        /// </summary>
+        readonly object sync = new();
 
         /// <summary>
         /// Keep track of repeated lines
@@ -42,6 +48,14 @@ namespace JoinFS
         /// Open log file
         /// </summary>
         public void OpenLog()
+        {
+            lock (sync)
+            {
+                OpenLogLocked();
+            }
+        }
+
+        void OpenLogLocked()
         {
             // check that log file is currently closed
             if (writer == null)
@@ -86,9 +100,25 @@ namespace JoinFS
         /// </summary>
         public void CloseLog()
         {
-            // close log file
-            writer?.Close();
-            writer = null;
+            lock (sync)
+            {
+                // close log file
+                writer?.Close();
+                writer = null;
+            }
+        }
+
+        /// <summary>
+        /// Copy of the last <paramref name="max"/> lines, and the total number of lines
+        /// </summary>
+        public string[] CopyLines(int max, out int total)
+        {
+            lock (sync)
+            {
+                total = lines.Count;
+                int count = Math.Min(max, lines.Count);
+                return lines.GetRange(lines.Count - count, count).ToArray();
+            }
         }
 
         /// <summary>
@@ -142,6 +172,14 @@ namespace JoinFS
         /// </summary>
         /// <param name="text">Output text</param>
         public void Write(String text)
+        {
+            lock (sync)
+            {
+                WriteLocked(text);
+            }
+        }
+
+        void WriteLocked(String text)
         {
             // don't display previous line
             if (lines.Count == 0 || lines[lines.Count - 1].Length <= 26 || text.Equals(lines[lines.Count - 1].Substring(26)) == false)

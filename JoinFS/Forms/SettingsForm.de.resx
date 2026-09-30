@@ -187,15 +187,6 @@
   <data name="Label_FollowText.Text" xml:space="preserve">
     <value>Folgeabstand:</value>
   </data>
-  <data name="Check_UseAIFeatures.Location" type="System.Drawing.Point, System.Drawing">
-    <value>4, 205</value>
-  </data>
-  <data name="Check_UseAIFeatures.Size" type="System.Drawing.Size, System.Drawing">
-    <value>180, 19</value>
-  </data>
-  <data name="Check_UseAIFeatures.Text" xml:space="preserve">
-    <value>KI-Modellzuordnung verwenden</value>
-  </data>
   <data name="Check_Connect.Location" type="System.Drawing.Point, System.Drawing">
     <value>64, 167</value>
   </data>

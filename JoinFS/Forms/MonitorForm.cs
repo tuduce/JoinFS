@@ -3,6 +3,7 @@ using System.Windows.Forms;
 using System.IO;
 using System.Drawing;
 using JoinFS.Properties;
+using JoinFS.Net;
 
 namespace JoinFS
 {
@@ -78,31 +79,22 @@ namespace JoinFS
             // check for monitor
             if (main.monitor != null)
             {
-                lock (main.conch)
-                {
-                    // check for more than 50 lines
-                    if (main.monitor.lines.Count > 50)
-                    {
-                        // add line to window
-                        Text_Events.Text += "[Click 'View Logs' to see full log files]" + "\r\n";
-                        Text_Events.Text += "..." + "\r\n";
+                // copy the last 50 lines
+                string[] lines = main.monitor.CopyLines(50, out int total);
 
-                        // for each line
-                        for (int count = 0; count < 50; count++)
-                        {
-                            // add line to window
-                            Text_Events.Text += main.monitor.lines[main.monitor.lines.Count - 50 + count] + "\r\n";
-                        }
-                    }
-                    else
-                    {
-                        // for each line
-                        foreach (var line in main.monitor.lines)
-                        {
-                            // add line to window
-                            Text_Events.Text += line + "\r\n";
-                        }
-                    }
+                // check for more than 50 lines
+                if (total > 50)
+                {
+                    // add line to window
+                    Text_Events.Text += "[Click 'View Logs' to see full log files]" + "\r\n";
+                    Text_Events.Text += "..." + "\r\n";
+                }
+
+                // for each line
+                foreach (var line in lines)
+                {
+                    // add line to window
+                    Text_Events.Text += line + "\r\n";
                 }
             }
 
@@ -115,7 +107,7 @@ namespace JoinFS
             if (main.sim != null)
             {
                 // get total frames since last update
-                int totalFrames = main.sim.frameCount - previousFrameCount;
+                int totalFrames = main.sim.View.FrameCount - previousFrameCount;
                 string fpsText = "FPS: " + (totalFrames / Math.Max(0.1, main.ElapsedTime - previousTime)).ToString("N0");
 
                 if (Label_FPS.Text.Equals(fpsText) == false)
@@ -124,7 +116,7 @@ namespace JoinFS
                 }
 
                 // update frame count
-                previousFrameCount = main.sim.frameCount;
+                previousFrameCount = main.sim.View.FrameCount;
                 previousTime = main.ElapsedTime;
             }
 #endif
@@ -328,15 +320,15 @@ namespace JoinFS
         private void Context_Monitor_Node_Click(object sender, EventArgs e)
         {
             main.MonitorEvent("== NODE STATS ==");
-            main.MonitorEvent("Session ID : " + main.network.localNode.Suid);
-            main.MonitorEvent("Node Count : " + main.network.localNode.NodeCount);
-            main.MonitorEvent("Routing Nodes : " + main.network.localNode.RoutingNodeCount);
-            main.MonitorEvent("Guaranteed Incoming : " + main.network.localNode.GuaranteedInCount);
-            main.MonitorEvent("Guaranteed Outgoing : " + main.network.localNode.GuaranteedOutCount);
+            main.MonitorEvent("Session ID : " + main.network.Snapshot.Suid);
+            main.MonitorEvent("Node Count : " + main.network.Snapshot.PeerCount);
+            main.MonitorEvent("Routing Nodes : " + main.network.Snapshot.RelayCount);
+            main.MonitorEvent("Guaranteed Incoming : " + main.network.Snapshot.GuaranteedInCount);
+            main.MonitorEvent("Guaranteed Outgoing : " + main.network.Snapshot.GuaranteedOutCount);
             // check for hub
             if (main.settingsHub)
             {
-                main.MonitorEvent("Online Users : " + main.network.OnlineUserCount);
+                main.MonitorEvent("Online Users : " + main.network.Users.OnlineUserCount);
             }
             RefreshWindow();
         }

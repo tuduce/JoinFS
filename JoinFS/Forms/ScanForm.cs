@@ -166,7 +166,7 @@ namespace JoinFS
             // remove JoinFS from title
             Text = Text.Replace("JoinFS: ", "");
 
-            this.simulatorName = main.sim.GetSimulatorName();
+            this.simulatorName = main.sim.View.SimulatorName;
             this.initialFolder = simFolder;
 
             // change font

@@ -1,10 +1,17 @@
 ## New Features
 
+- Introduced JFP2, a new network protocol for exchanging aircraft position and state data between JoinFS peers, running alongside the existing protocol. JFP2 messages are significantly smaller than the previous format, especially for the high-frequency position updates that make up most network traffic, reducing bandwidth usage during a session. It also separates rarely-changing aircraft details (livery, registration, aircraft type) from position updates, fixing a class of bug where appearance information could get out of sync mid-session. JFP2 is negotiated automatically between two updated JoinFS instances; sessions involving an older version continue to work exactly as before, unaffected.
+- Reorganized the simulator and network internals. The simulator now runs on its own thread, woken directly by SimConnect or the X-Plane plugin instead of a 5 ms polling loop, and all SimConnect calls come from that thread. On MSFS, FSX and P3D, positions of injected, broadcast and recorded aircraft are now read every rendered frame instead of 20 times per second, reducing steering jitter on remote and recorded aircraft. Network traffic and the recording rate are unchanged. The network stack also got its own thread and a plugin design that lets JFP2 run alongside the existing protocol.
+- Reduced CPU work on the network and simulator hot path: aircraft are found through an index instead of by scanning the object list, peer lists are built once per tick instead of for every aircraft and peer during position broadcasts, object-creation checks no longer allocate memory every tick, and diagnostic text is only built when the matching Monitor option is enabled. Model matching also looks up installed models by title through an index instead of scanning every model. These changes don't alter behavior; sessions with many aircraft and peers use less CPU.
 - Reduced the number of SimConnect requests used to read aircraft variables on MSFS2020/2024, FSX and P3D. Variables that were previously requested individually are now bundled into a single combined request per aircraft, lowering SimConnect overhead - most noticeable with many aircraft nearby. X-Plane and network compatibility are unaffected.
+- If the download of the seedhubs.txt fails over HTTP, the list is fetched from a TXT DNS-record.
+- Added a protocol dissector for Wireshark, allowing users to inspect JoinFS network traffic in detail.
 
 ## Bug Fixes
 
 - Fixed yaw trembling after crossing the 2*PI heading boundary in a recorded plane the user entered cockpit.
+- Fixed position messages generated with v26.5 could not be interpreted by older versions.
+- Fixed guaranteed-message delivery broken for any relayed peer.
 
 ## Limitations
 

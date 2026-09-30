@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using JoinFS.Net;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
@@ -406,7 +407,7 @@ namespace JoinFS
                     {
 #if NO_HUBS
                         // attempt to make end point
-                        main.network.MakeEndPoint(Network.DecodeIP(entry.address), Network.DEFAULT_PORT, out entry.endPoint);
+                        main.network.Bootstrap.MakeEndPoint(AddressCodec.DecodeIP(entry.address), Network.DEFAULT_PORT, out entry.endPoint);
                         // make sure that entry is not already present
                         if (main.addressBook.entries.Find(f => f.endPoint.Equals(entry.endPoint)) != null)
                         {
@@ -430,12 +431,12 @@ namespace JoinFS
                         else
                         {
                             // make uuid
-                            entry.uuid = Network.MakeUuid(entry.address);
+                            entry.uuid = UserDirectory.MakeUuid(entry.address);
                             // check if not uuid
                             if (entry.uuid == 0 && entry.address.Contains("."))
                             {
                                 // attempt to make end point
-                                main.network.MakeEndPoint(entry.address, Network.DEFAULT_PORT, out entry.endPoint);
+                                main.network.Bootstrap.MakeEndPoint(entry.address, Network.DEFAULT_PORT, out entry.endPoint);
                             }
                             // add entry
                             main.addressBook.entries.Add(entry);
@@ -485,7 +486,7 @@ namespace JoinFS
                         {
 #if NO_HUBS
                             // attempt to make end point
-                            main.network.MakeEndPoint(Network.DecodeIP(addressForm.address), Network.DEFAULT_PORT, out IPEndPoint endPoint);
+                            main.network.Bootstrap.MakeEndPoint(AddressCodec.DecodeIP(addressForm.address), Network.DEFAULT_PORT, out IPEndPoint endPoint);
                             // make sure that entry is not already present
                             if (main.addressBook.entries.Find(f => f.endPoint.Equals(endPoint)) != null)
                             {
@@ -514,12 +515,12 @@ namespace JoinFS
                                 entry.name = addressForm.name;
                                 entry.address = addressForm.address;
                                 // make uuid
-                                entry.uuid = Network.MakeUuid(entry.address);
+                                entry.uuid = UserDirectory.MakeUuid(entry.address);
                                 // check if not uuid
                                 if (entry.uuid == 0 && entry.address.Contains("."))
                                 {
                                     // attempt to make end point
-                                    main.network.MakeEndPoint(entry.address, Network.DEFAULT_PORT, out entry.endPoint);
+                                    main.network.Bootstrap.MakeEndPoint(entry.address, Network.DEFAULT_PORT, out entry.endPoint);
                                 }
                             }
 #endif
@@ -585,7 +586,7 @@ namespace JoinFS
             {
                 // join address
 #if NO_HUBS
-                main.Join(Network.DecodeIP(item.address));
+                main.Join(AddressCodec.DecodeIP(item.address));
 #else
                 main.Join(item.address);
 #endif

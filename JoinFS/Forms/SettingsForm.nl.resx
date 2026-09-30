@@ -178,15 +178,6 @@
   <data name="Label_FollowText.Text" xml:space="preserve">
     <value>Volgafstand:</value>
   </data>
-  <data name="Check_UseAIFeatures.Location" type="System.Drawing.Point, System.Drawing">
-    <value>35, 208</value>
-  </data>
-  <data name="Check_UseAIFeatures.Size" type="System.Drawing.Size, System.Drawing">
-    <value>180, 19</value>
-  </data>
-  <data name="Check_UseAIFeatures.Text" xml:space="preserve">
-    <value>AI-modelovereenkomst gebruiken</value>
-  </data>
   <data name="Check_Connect.Location" type="System.Drawing.Point, System.Drawing">
     <value>30, 151</value>
   </data>

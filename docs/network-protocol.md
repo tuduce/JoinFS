@@ -1,14 +1,23 @@
 # JoinFS Network Protocol
 
-This document describes the wire protocol JoinFS instances (simulator-connected clients and hub-only console instances) use to talk to each other over the network. It is derived directly from `JoinFS/Node.cs`, `JoinFS/Network.cs` and `JoinFS/Sim.cs` (current `Sim.VERSION = 21008`). Line numbers referenced below are approximate and will drift as the code evolves; they're accurate as of this writing.
+This document describes the **legacy** wire protocol JoinFS instances (simulator-connected clients and hub-only console instances) use to talk to each other: the protocol every released version up to v26.5 speaks, and that every current build still speaks next to JFP2 (`docs/reference/jfp2-protocol.md`).
+
+**The legacy wire is frozen.** Current builds implement it in `JoinFS/Net/Protocols/Legacy/`:
+- `LegacyWire` holds the constants and message ids.
+- `LegacyPlugin` holds the framing, relay and codecs.
+- `LegacyReliability` implements guaranteed delivery.
+
+The protocol-neutral mesh logic (join, pulse, pathfinder) lives in `JoinFS/Net/Core/MeshManager.cs`. How these pieces fit into the application is described in `docs/reference/joinfs-architecture.md`.
+
+The byte layouts below are pinned by golden fixtures (`JoinFS.Tests/Legacy/Fixtures`) that were captured from the pre-rewrite implementation (`Node.cs`/`Network.cs`, removed in 2026-09). New fields and messages go into JFP2, never here. Where current builds *behave* differently from released ones (sender-side bug fixes that don't change the bytes), this document says so.
 
 ## 1. Overview
 
-JoinFS uses a single UDP socket per running instance to form a peer-to-peer mesh: every node that has joined a "session" (a group of nodes cooperating in the same multiplayer world) can, in principle, exchange datagrams directly with every other node in that session. There is no central server in the traditional sense — a "hub" is just a regular JoinFS instance (usually the `CONSOLE` build with no simulator attached) that other nodes rendezvous through and that offers directory/relay services (session membership propagation, ATC/pilot list aggregation, hub discovery). All simulator variants (FS2020, FS2024, FSX, P3D, X-Plane) and the console/hub build share **exactly the same wire protocol** — there are no `#if SIMCONNECT`/`#if XPLANE`/`#if CONSOLE` branches anywhere in `Node.cs` or `Network.cs`. Simulator-specific code only exists above this layer, translating SimConnect/X-Plane SDK data into the structures described here.
+JoinFS uses a single UDP socket per running instance to form a peer-to-peer mesh: every node that has joined a "session" (a group of nodes cooperating in the same multiplayer world) can, in principle, exchange datagrams directly with every other node in that session. There is no central server in the traditional sense — a "hub" is just a regular JoinFS instance (usually the `CONSOLE` build with no simulator attached) that other nodes rendezvous through and that offers directory/relay services (session membership propagation, ATC/pilot list aggregation, hub discovery). All simulator variants (FS2020, FS2024, FSX, P3D, X-Plane) and the console/hub build share **exactly the same wire protocol** — there are no simulator or build-configuration branches in the protocol code. Simulator-specific code only exists above this layer. The same UDP socket also carries JFP2 datagrams, told apart by their first byte (`0xFA` for JFP2, `0x0B` for legacy).
 
 Key properties:
 
-- **Transport:** plain UDP (`System.Net.Sockets.UdpClient`), IPv4 only, default port **6112** (`Network.DEFAULT_PORT`).
+- **Transport:** plain UDP, IPv4 only, default port **6112** (`Network.DEFAULT_PORT`).
 - **Topology:** full mesh P2P between session members, with best-effort UDP hole-punching/relaying for nodes that can't reach each other directly, and store-and-forward routing through other mesh members as a fallback.
 - **Reliability:** selective, message-by-message. Most high-frequency state (positions) is unreliable/unordered (fire-and-forget UDP); a subset of control messages opt into an in-house "guaranteed" delivery scheme (ACK + retransmit) implemented on top of UDP.
 - **Encoding:** everything is little-endian binary, written with .NET's `BinaryWriter`/`BinaryReader` (which also defines the string encoding: a 7-bit-encoded length prefix followed by UTF-8 bytes, i.e. `BinaryWriter.Write(string)`).
@@ -17,12 +26,12 @@ Key properties:
 
 ## 2. Transport framing
 
-Every UDP datagram JoinFS sends — whether it's an internal housekeeping message (`Join`, `Pulse`, ...) or an application message (`AircraftPosition`, `Notes`, ...) — starts with the same fixed-size 21-byte header, defined by the offsets in `LocalNode` (`Node.cs`):
+Every legacy UDP datagram — whether it's an internal housekeeping message (`Join`, `Pulse`, ...) or an application message (`AircraftPosition`, `Notes`, ...) — starts with the same fixed-size 21-byte header (offsets in `LegacyWire`):
 
 | Offset | Size | Field | Description |
 |---|---|---|---|
 | 0 | 2 | `Version` | Fixed protocol/handshake constant, currently `0x520B`. Not a data/feature version — see §5. Any datagram whose first 2 bytes don't match this value is dropped (`Stats.WrongVersion`) before anything else is parsed. |
-| 2 | 1 | `Flags` | Bit 0 (`0x01`) = `FLAG_INTERNAL` (transport/session-management message, handled inside `LocalNode` and never surfaced to the application). Bit 1 (`0x02`) = `FLAG_GUARANTEED` (this datagram wants an ACK, see §4). Bit 2 (`0x04`) = `FLAG_FORWARD` (this datagram has already been relayed once by an intermediate node — see §6). |
+| 2 | 1 | `Flags` | Bit 0 (`0x01`) = `FLAG_INTERNAL` (transport/session-management message, handled by the mesh and never surfaced to the application). Bit 1 (`0x02`) = `FLAG_GUARANTEED` (this datagram wants an ACK, see §4). Bit 2 (`0x04`) = `FLAG_FORWARD` (this datagram has already been relayed once by an intermediate node — see §6). |
 | 3 | 2 | `GuaranteedId` | `ushort`. Non-zero only when `FLAG_GUARANTEED` is set; identifies the logical guaranteed message this segment belongs to (see §4). |
 | 5 | 1 | `GuaranteedIndex` | `byte`. Zero-based segment index within the guaranteed message. |
 | 6 | 1 | `GuaranteedCount` | `byte`. Total number of segments the guaranteed message was split into. |
@@ -30,13 +39,15 @@ Every UDP datagram JoinFS sends — whether it's an internal housekeeping messag
 | 14 | 7 | `Recipient` (`Nuid`) | The intended final recipient's `Nuid`, or the "null" `Nuid` (`ip == 0`) to mean "everyone in the mesh" / "no specific recipient" (used for broadcasts and most internal replies). |
 | 21 | variable | `Data` | The message payload — see §5 for how its first bytes are interpreted. |
 
-This 21-byte prefix is constructed once per outbound message by `LocalNode.PrepareMessage()` / `PrepareInternalMessage()`, and the recipient field is patched in-place just before the socket send (`Send()` rewrites the 7 bytes at offset 14 so the same buffer can be reused for different recipients without rebuilding the whole message, e.g. when a guaranteed message is queued for one recipient and then must be resent).
+This 21-byte prefix is written once per outbound message (`LegacyPlugin.BeginHeader`), and the recipient field is patched in place for each target before the socket send (`LegacyPlugin.Commit`), so one encoded message is sent to many recipients without re-encoding. A broadcast therefore sends identical bytes, including the same `GuaranteedId`, to every recipient except for the recipient field.
+
+A message sent on another node's behalf — a hub translating a JFP2 message for a legacy-only peer — carries the original sender in `Sender` and has `FLAG_FORWARD` set. That is exactly what a released build's own relay emits, so legacy receivers attribute it correctly.
 
 There is no length field in the header: UDP already delivers a message as one discrete datagram, so `Data` simply runs to the end of the received buffer. There is no checksum/CRC of the JoinFS payload itself (UDP's own 16-bit checksum is the only integrity check in play).
 
 ## 3. Node identity — the `Nuid`
 
-Nodes do not have an application-assigned ID; a node's identity *is* its network address, packed into a 7-byte structure (`LocalNode.Nuid`):
+Nodes do not have an application-assigned ID; a node's identity *is* its network address, packed into a 7-byte structure (historically `LocalNode.Nuid`; `NodeId` in current code, `JoinFS/Net/Core/NodeId.cs`, same layout):
 
 | Size | Field | Description |
 |---|---|---|
@@ -46,17 +57,23 @@ Nodes do not have an application-assigned ID; a node's identity *is* its network
 
 A `Nuid` with `ip == 0` is the sentinel "invalid/none" value, used as a recipient placeholder for broadcasts and for internal replies where the reply is simply sent back to the datagram's source `IPEndPoint` rather than routed by `Nuid`.
 
-**Implication for extensibility:** because `Nuid` is hard-wired to a 4-byte IPv4 address, the protocol has no representation for an IPv6 peer. `AddressFamily.InterNetwork` is asserted at every address-parsing call site in `Network.cs`/`Node.cs`. Adding IPv6 support would require a new, larger identity structure end-to-end (see §9).
+**Implication for extensibility:** because `Nuid` is hard-wired to a 4-byte IPv4 address, the protocol has no representation for an IPv6 peer. IPv4 is assumed at every address-parsing call site. Adding IPv6 support would require a new, larger identity structure end-to-end (see §9).
 
 ## 4. Reliability — the "guaranteed" delivery mechanism
 
-Most traffic (position updates, variable syncs, pulses) is sent once via `udpClient.Send()` and never retried — acceptable because a fresher update follows within a second or two anyway. A smaller set of one-shot/control messages (`Join`, `JoinReply`, `JoinFail`, `Login`, `LoginFail`, `RemoveObject`, `WeatherRequest`/`WeatherReply`, `Notes`, `SessionCommsRequest`/`GlobalCommsRequest`/`CommsListenRequest`, `SimEvent`, `ShowOnRadar`, `UsageLog`, `UserNuid`, ...) are sent with `guaranteed: true`, which engages a lightweight custom ARQ layer. Notably `Leave`, `Pulse`/`PulseResponse`, `Pathfinder`/`PathfinderResponse` and `WeatherUpdate` are *not* guaranteed even though they're control-plane messages — they're either broadcast redundantly on a timer anyway (`Pulse`) or best-effort by design (`Leave` is a courtesy notice; a node that misses it will simply time out the peer after `EXPIRE_TIME`, see §6.2):
+Most traffic (position updates, variable syncs, pulses) is sent once and never retried — acceptable because a fresher update follows within a second or two anyway. A smaller set of one-shot/control messages (`Join`, `JoinReply`, `JoinFail`, `Login`, `LoginFail`, `RemoveObject`, `WeatherRequest`/`WeatherReply`, `Notes`, `SessionCommsRequest`/`GlobalCommsRequest`/`CommsListenRequest`, `SimEvent`, `ShowOnRadar`, `UsageLog`, `UserNuid`, ...) are sent with `guaranteed: true`, which engages a lightweight custom ARQ layer. Notably `Leave`, `Pulse`/`PulseResponse`, `Pathfinder`/`PathfinderResponse` and `WeatherUpdate` are *not* guaranteed even though they're control-plane messages — they're either broadcast redundantly on a timer anyway (`Pulse`) or best-effort by design (`Leave` is a courtesy notice; a node that misses it will simply time out the peer after `EXPIRE_TIME`, see §6.2):
 
-- The sender assigns a new 16-bit `GuaranteedId` (`LocalNode.nextGuaranteedId`, seeded from a high-resolution timestamp and incremented per message — it is **not** reset per-peer, so it can theoretically wrap after 65536 guaranteed sends and collide with an older, not-yet-expired id for the same peer).
+- The sender assigns a new 16-bit `GuaranteedId` (seeded from a high-resolution timestamp and incremented per message — it is **not** reset per-peer, so it can theoretically wrap after 65536 guaranteed sends and collide with an older, not-yet-expired id for the same peer).
 - The payload is split into segments of at most `MAX_GUARANTEED_DATA = 1000` bytes each (so a message up to 255 × 1000 = 255,000 bytes could theoretically be represented, bounded by the 1-byte segment index/count fields), each segment getting its own copy of the 21-byte transport header with `GuaranteedIndex`/`GuaranteedCount` filled in.
-- All not-yet-acknowledged segments are resent unconditionally **every 2 seconds** (`DoGuaranteedMessages()`) until each is acknowledged or the whole message expires **180 seconds** after creation (`GUARANTEED_OUT_EXPIRE_TIME`), at which point it's silently dropped.
-- On the receiving side, each segment is buffered (`GuaranteedIn`, indexed by sender `IPEndPoint` + `GuaranteedId`) until all `GuaranteedCount` segments have arrived, then the segments' data (with headers stripped) is concatenated back into one logical message and dispatched exactly like a normal message. Reassembly state for a given guaranteed message is discarded **240 seconds** after first segment receipt (`GUARANTEED_IN_EXPIRE_TIME`) whether or not it ever completed.
+- All not-yet-acknowledged segments are resent unconditionally **every 2 seconds** until each is acknowledged or the whole message expires **180 seconds** after creation, at which point it's silently dropped.
+- On the receiving side, each segment is buffered (`GuaranteedIn`, indexed by sender `IPEndPoint` + `GuaranteedId`) until all `GuaranteedCount` segments have arrived, then the segments' data (with headers stripped) is concatenated back into one logical message and dispatched exactly like a normal message. Reassembly state for a given guaranteed message is discarded **240 seconds** after first segment receipt whether or not it ever completed; until then a completed message's id suppresses duplicates.
 - Every received segment — even a duplicate of one already marked done — triggers an immediate, unreliable `GuaranteedDone` reply (`{ GuaranteedId: ushort, GuaranteedIndex: byte }`) sent back to the segment's sender, acknowledging that specific segment. There is no cumulative/selective-repeat ACK; each segment is acknowledged individually.
+- **Sender-side differences between released builds and current builds** (the bytes are identical; only *when* and *where* they are sent differs):
+  - *Released builds (≤ v26.5)* queue a guaranteed message and first send it on the next work-loop tick.
+  - *Released builds* resend to the endpoint recorded at queue time, so a peer that is only reachable through a relay never receives guaranteed messages — Finding 8 in `docs/protocol-v2-implementation-review.md`.
+  - *Released builds* match an incoming `GuaranteedDone` by id alone. Because a broadcast shares one id, one recipient's ack can cancel another recipient's still-pending copy — Finding 9.
+  - *Current builds* send immediately, resend to the peer's current route, match acks by (id, acknowledging peer), and drop a departed peer's pending messages.
+  - Receivers of both kinds behave the same, so a released peer's own guaranteed sends through a relay still suffer from Findings 8 and 9.
 - This is a **per-segment stop-and-wait style scheme with blind retransmission**, not a sliding window: all unacked segments of a message are re-sent on every 2-second tick regardless of how many were already acked, which is simple but wastes bandwidth for partially-acked large messages and does not adapt to RTT (the pulse mechanism computes RTT per node, see §7, but the guaranteed-resend timer ignores it).
 
 ## 5. Application-message envelope and versioning
@@ -65,26 +82,22 @@ For a **non-internal** message (`FLAG_INTERNAL` clear — i.e., anything the app
 
 | Offset (relative) | Size | Field |
 |---|---|---|
-| 0 | 2 | `DataVersion` (`short`) — the sender's `Sim.VERSION` constant at build time, currently `21008`. |
-| 2 | 2 | `MessageId` (`short`, cast from the `MESSAGE_ID` enum in `Network.cs`) |
+| 0 | 2 | `DataVersion` (`short`) — the sender's application data-format version, currently `21008` (`LegacyWire.DataVersion`; historically `Sim.VERSION`, which also versioned recordings — the two are now separate). |
+| 2 | 2 | `MessageId` (`short`, `LegacyWire.AppId`) |
 | 4 | variable | message-specific payload, see §8 |
 
-`Network.ReceiveMsg()` reads `DataVersion` first and immediately discards the whole message if `dataVersion < 10014` — that's the oldest data-format baseline the current code still understands. Otherwise every field-level read inside each `case` block is itself conditioned on `dataVersion`, e.g.:
+The receiver (`LegacyPlugin.ReceiveApp`) reads `DataVersion` first and immediately discards the whole message if `dataVersion < 10014` — the oldest data-format baseline still understood. Otherwise individual field reads are conditioned on `dataVersion`, e.g. in `ReadFlightPlan`:
 
 ```csharp
-aircraftPosition.staticCgToGround = version >= 21008 ? reader.ReadSingle() : float.NaN;
+m.Alternate = dataVersion >= 21003 ? reader.ReadString() : "";
 ```
 
 Because `DataVersion` travels with **every individual message** rather than being negotiated once at session join, a mixed-version mesh works cleanly: an old node and a new node can be connected in the same session, and each message the new node sends is self-describing, so the old node's reader (compiled against an older `dataVersion` floor) simply never executes the `if (dataVersion >= X)` branches it doesn't know about — except that in practice the *reader's code* is what decides what to do with a version number, so what really matters is: a receiver only understands version-gated branches that existed in its own build. A newer node talking to an older node must therefore keep its message layout backward-readable (see §9), not the other way around; there's no mechanism for a receiver to tell a sender "please don't send me the new fields."
 
 Two concrete tail-extension patterns are already in production use, both worth reusing for future changes:
 
-1. **Version-table dispatch** (`Sim.cs`, e.g. `positionVelocityVersions`): a `Dictionary<short, ReadVersion<T>>` maps a minimum `dataVersion` to a reader function; `Sim.Read()` picks the highest-keyed entry whose key is `<= dataVersion`. This is used for whole-struct reads (`ObjectPositionVelocity`, `AircraftPosition`) where a version bump changes multiple fields at once.
-2. **Trailing optional fields via EOF sensing** (`Network.cs`, `ObjectPosition`/`AircraftPosition` handlers): several string fields (`variation`, `icaoType`, `icaoAirline`, `classCode`, `wtc`, ...) were added over time simply by appending `message.Write(...)` calls to the end of the sender, and reading them back with:
-   ```csharp
-   string variation = (reader.PeekChar() != -1) ? reader.ReadString() : "";
-   ```
-   i.e. "if there are any bytes left in this datagram, there's another (fixed-order) field to read." This works because a `BinaryReader` over a `MemoryStream` can cheaply peek for end-of-stream, and because UDP delivers each message as a discrete unit (so "end of stream" reliably means "end of this datagram", unlike a TCP byte stream).
+1. **Version-gated blocks**: a version bump that changes several fields at once gates the whole block (e.g. `elevation` and the ground-flags byte of the position structs are read only when `dataVersion >= 10023`). The pre-rewrite code did this through version-table dispatch in `Sim.cs` (`Sim.Read`); the legacy plugin reads the same bytes inline.
+2. **Trailing optional fields via EOF sensing** (`ObjectPosition`/`AircraftPosition`): several fields (`variation`, `icaoType`, `icaoAirline`, `registration`, `flightNumber`, `classCode`, `wtc`, `classCodeConfirmed`, `staticCgToGround`) were added over time by appending them to the sender, and are read back only "if there are any bytes left in this datagram" (`LegacyPlugin.OptionalString()` / `More`). This works because UDP delivers each message as a discrete unit, so "end of stream" reliably means "end of this datagram".
 
 **Internal** messages (`FLAG_INTERNAL` set — `Join`, `JoinReply`, `Leave`, `AddNode`, `Pulse`, `PulseResponse`, `GuaranteedDone`, `AddNodes`, `Pathfinder`, `PathfinderResponse`, `JoinFail`, `Login`, `LoginFail`) do **not** carry a `DataVersion` field — only `MessageId` (`short`) follows the 21-byte transport header directly. Their format is pinned to the fixed transport `Version` constant (`0x520B`); there is currently no mechanism to version internal/session-management messages independently of application messages (see §9).
 
@@ -92,7 +105,7 @@ Two concrete tail-extension patterns are already in production use, both worth r
 
 ### 6.1 Joining a session
 
-- The node that starts a session calls `LocalNode.Create()`, generating a random 32-bit session id (`suid`) and, if a password was configured, storing `HashPassword(password)` (see §7 for the hash algorithm — it is **not** cryptographically strong).
+- The node that starts a session (`MeshManager.Create`) generates a 32-bit session id (`suid`) from a high-resolution timestamp (`1` means the global session) and, if a password was configured, storing `HashPassword(password)` (see §7 for the hash algorithm — it is **not** cryptographically strong).
 - A node that wants to join sends an internal `Join` message (password hash + nothing else) directly to a known peer's `IPEndPoint` (obtained via manual address entry, the address book, a hub's `Status` broadcast, or hub discovery — §6.4).
 - The receiver validates the password hash (if any) and login requirement (if any — see §7), and replies with `JoinReply`: the session id (`suid`) plus the full list of `Nuid`+port pairs of every node it currently has an established *receive* link with. This is how a newly joined node learns about everyone already in the mesh in one shot, without having to be told about each one individually.
 - The joining node registers every peer from that list (without yet having exchanged a single packet with most of them) and starts sending them `Pulse` messages directly — this is what actually establishes bidirectional connectivity/NAT bindings with each mesh member (see 6.2).
@@ -103,13 +116,13 @@ Two concrete tail-extension patterns are already in production use, both worth r
 Every connected node broadcasts a `Pulse` message to every other known node once per second (`PULSE_INTERVAL = 1`): `{ Suid: uint, Time: long (high-res timestamp), Flags: byte (bit0 = low-bandwidth mode) }`. The recipient replies (unicast, unreliable) with `PulseResponse`: `{ Time: long (echoed back) }`. Two effects follow from this exchange:
 
 - The sender computes round-trip time from the echoed timestamp (`Node.rtt`), though — as noted in §4 — this RTT is not currently fed back into the guaranteed-retransmit timer.
-- A link is only considered `sendEstablished` once a `PulseResponse` (or any other reply, e.g. `JoinReply`) has actually been received back from that peer; only then does the application get the `nodeEstablished` callback and only then does JoinFS start sending that peer full simulation traffic. A node that has sent a `Pulse` but never received anything back is a suspected-dead link. Nodes that haven't refreshed within `EXPIRE_TIME = 30s` are dropped from the mesh locally; a link that stops responding gets **re-established** (falls back to indirect routing) after `REESTABLISH_TIME = 3s` of silence.
+- A link is only considered `sendEstablished` once a `PulseResponse` (or any other reply, e.g. `JoinReply`) has actually been received back from that peer; only then does the application get the `nodeEstablished` callback and only then does JoinFS start sending that peer full simulation traffic. A node that has sent a `Pulse` but never received anything back is a suspected-dead link. Nodes that haven't answered within `EXPIRE_TIME = 30s` are dropped from the mesh locally, and any other peer routed through a dropped node loses its route (it becomes not-established again, so Pathfinder looks for a new route). *(Earlier versions of this document mentioned a 3 s `REESTABLISH_TIME`; that constant existed but was never used.)*
 
 ### 6.3 Store-and-forward relay and hole-punching — `Pathfinder`
 
 Direct UDP connectivity between two arbitrary peers behind different NATs is not guaranteed. JoinFS addresses this two ways simultaneously:
 
-1. **Relay through the mesh.** If node A cannot reach node C directly but both are connected to node B, a datagram addressed to C (`Recipient` `Nuid` != local, but not the sender's own) that arrives at B gets its `FLAG_FORWARD` bit set and is resent verbatim to C's registered endpoint (`ReceiveMsg`, direct/forward branch). Relaying is capped at `MAX_ROUTING_NODES = 10` concurrently-routed peers per node and disabled entirely when the node has set `lowBandwidth`. A message is only forwarded once (the `FLAG_FORWARD` bit prevents forwarding an already-forwarded message a second hop), so the mesh's usable relay depth is exactly one intermediate hop.
+1. **Relay through the mesh.** If node A cannot reach node C directly but both are connected to node B, a datagram addressed to C (`Recipient` `Nuid` != local, but not the sender's own) that arrives at B gets its `FLAG_FORWARD` bit set and is resent verbatim to C's registered endpoint (`LegacyPlugin.Receive`), provided C is a direct neighbour of B. Relaying is capped at `MAX_ROUTING_NODES = 10` concurrently-relayed senders per node — a budget current builds share between legacy and JFP2 relaying — and disabled entirely when the node has set `lowBandwidth`. A message is only forwarded once (the `FLAG_FORWARD` bit prevents forwarding an already-forwarded message a second hop), so the mesh's usable relay depth is exactly one intermediate hop.
 2. **Active hole-punching via `Pathfinder`.** Every 5 seconds (`PATHFINDER_INTERVAL`), each node sends every other node it doesn't yet have `sendEstablished` for (or, on roughly every 8th cycle, *every* node, even established ones, to opportunistically detect a newly-available direct path) a `Pathfinder` message listing the `Nuid`s of the peers it wants a direct/rendezvous path to (up to `MAX_PATHFINDER_NODES = 100`). Any recipient that is itself connected to one of the listed target `Nuid`s answers with `PathfinderResponse`, which either causes the requester to talk to that target directly (if the responder *is* the target — `Direct`) or to route via the responder's endpoint as a rendezvous point (if the responder merely knows the target). This is effectively an application-level NAT traversal / DHT-lite discovery mechanism layered on top of the plain relay in (1).
 
 ### 6.4 Hub discovery and directory services
@@ -118,19 +131,19 @@ A "hub" is simply a node with `settingsHub = true`; it periodically broadcasts i
 
 ## 7. Session security
 
-- **Password gate:** optional. `Join` carries a 32-bit hash of the session password (`HashPassword`), compared server-side against the creator's stored hash. The hash function is a hand-rolled DJB2-style 32-bit string hash (`HashString`, `Node.cs`) — it is fast, unsalted, has no cryptographic collision/preimage resistance, and is trivially brute-forceable offline from a captured `Join` packet. The password itself, and this hash, are never encrypted in transit (there is no transport encryption at all).
-- **Login gate:** optional, independent of the password gate. `Login` carries a plaintext email address, a 32-bit password hash (same weak hash function), and a `verify` flag. The session creator checks the email against a locally-stored credentials table (first-use = trust-on-first-use: if `verify` is set the presented hash becomes the stored hash for that address) and returns `LoginFail` with a `LoginResult` (`InvalidAddress` / `VerifyPassword` / `InvalidPassword`) or folds straight into the same `JoinReply` flow as a successful `Join`.
-- **No sender authentication.** A node's identity on the wire is nothing more than the `Nuid` embedded in the packet by the sender itself — there is no signature, token, or address verification tying a `Nuid` to the actual source `IPEndPoint` of a datagram (`ReceiveMsg` does cross-check that a message's *claimed* sender isn't the local node, and routes based on the registered node's known endpoint once established, but nothing stops a third party from spoofing another node's claimed `Nuid` in an unsolicited packet, or, since this is UDP, from spoofing the source IP itself).
+- **Password gate:** optional. `Join` carries a 32-bit hash of the session password (`HashPassword`), compared server-side against the creator's stored hash. The hash function is a hand-rolled DJB2-style 32-bit string hash (`NetHash.HashString`) — it is fast, unsalted, has no cryptographic collision/preimage resistance, and is trivially brute-forceable offline from a captured `Join` packet. The password itself, and this hash, are never encrypted in transit (there is no transport encryption at all).
+- **Login gate:** optional, independent of the password gate. `Login` carries a plaintext email address, a 32-bit password hash (same weak hash function), and a `verify` flag. The session creator checks the email against a locally-stored credentials table (`password.txt`, `CredentialStore`) (first-use = trust-on-first-use: if `verify` is set the presented hash becomes the stored hash for that address) and returns `LoginFail` with a `LoginResult` (`InvalidAddress` / `VerifyPassword` / `InvalidPassword`) or folds straight into the same `JoinReply` flow as a successful `Join`.
+- **No sender authentication.** A node's identity on the wire is nothing more than the `Nuid` embedded in the packet by the sender itself — there is no signature, token, or address verification tying a `Nuid` to the actual source `IPEndPoint` of a datagram (the receiver does cross-check that a message's *claimed* sender isn't the local node, and routes based on the registered node's known endpoint once established, but nothing stops a third party from spoofing another node's claimed `Nuid` in an unsolicited packet, or, since this is UDP, from spoofing the source IP itself).
 - **No replay protection.** Beyond `GuaranteedId`/`GuaranteedIndex` de-duplicating retransmits of the *same* logical guaranteed message, there is no nonce, sequence number, or timestamp validation that would prevent a captured `Join`/`Login` datagram from being replayed later.
-- **IP ban list.** The only access control beyond the above is a simple in-memory list of banned source IPs (`BanIP`), checked before any other parsing.
+- **IP ban list.** The only access control beyond the above is a simple in-memory list of banned source IPs (`NetworkCore.BanIP`, fed from a downloaded ban list), checked before any other parsing — for both protocols.
 
 None of this is unusual for a hobby/community flight-sim P2P protocol operating over UDP, but it's worth stating plainly for anyone evaluating what the protocol does and doesn't protect against — see §9.4 for concrete suggestions.
 
 ## 8. Message catalog
 
-`MESSAGE_ID` is a 16-bit enum (`Network.cs`); values are assigned by declaration order (i.e. they are **not** explicit `= N` literals), so the numeric value of every entry is determined purely by its position in the list. **Reordering or inserting into the middle of this enum silently breaks wire compatibility** — see §9.1.
+`MESSAGE_ID` is a 16-bit enum (`LegacyWire.AppId`); values are assigned by declaration order (i.e. they are **not** explicit `= N` literals), so the numeric value of every entry is determined purely by its position in the list. **Reordering or inserting into the middle of this enum silently breaks wire compatibility** — see §9.1.
 
-### 8.1 Internal / session-management messages (`LocalNode.MESSAGE_ID`, separate 16-bit space from the application enum)
+### 8.1 Internal / session-management messages (`LegacyWire.InternalId`, separate 16-bit space from the application enum)
 
 | Message | Guaranteed? | Payload |
 |---|---|---|
@@ -150,7 +163,7 @@ None of this is unusual for a hobby/community flight-sim P2P protocol operating 
 
 ### 8.2 Position / state messages
 
-**`ObjectPosition`** (unreliable) — a non-user-controlled AI/static object's position. Sent by `Network.WriteObjectPositionVelocityMessage`:
+**`ObjectPosition`** (unreliable) — a non-aircraft object's position (boat, vehicle, ...):
 
 | Field | Type |
 |---|---|
@@ -171,7 +184,7 @@ None of this is unusual for a hobby/community flight-sim P2P protocol operating 
 | `ClassCode`, `Wtc` | `string, string` |
 | `ClassCodeConfirmed` | `bool` |
 
-**`AircraftPosition`** (unreliable) — a user-flown or AI aircraft. Sent by `Network.WriteAircraftPositionMessage`; superset of `ObjectPosition` plus control-surface and identity fields:
+**`AircraftPosition`** (unreliable) — a user-flown or AI aircraft; superset of `ObjectPosition` plus control-surface and identity fields. Current builds decode it into two canonical messages (identity + position) and re-merge them on encode:
 
 | Field | Type |
 |---|---|
@@ -201,13 +214,13 @@ Both messages are unreliable and sent at simulator update rate; they carry the b
 
 **`RemoveObject`** (guaranteed, broadcast) — despawn notice: `{ NetId: uint }`.
 
-**`ShowOnRadar`** (guaranteed, broadcast) — `{ OwnerNuid: 7 bytes, NetId: uint, Show: bool }`. Declared and sent by `SendShowOnRadarMessage`, but there is currently **no receive-side handler** for it in `ReceiveMsg` — it's produced but not yet consumed anywhere in this codebase (reserved/in-progress feature).
+**`ShowOnRadar`** (guaranteed, broadcast) — `{ OwnerNuid: 7 bytes, NetId: uint, Show: bool }`. Current builds can encode and decode it, but nothing in the application sends it or acts on it (reserved feature).
 
-**`IntegerVariables` / `FloatVariables` / `String8Variables`** (unreliable) — generic key/value sync for simulator "L:var"-style custom variables, used e.g. for animation state. All three share one shape: `{ OwnerNuid: 7 bytes, NetId: uint, Count: ushort, then Count × (VariableId: uint, Value: <int32|float|string>) }`. `NetId == 0xFFFFFFFF` again means "the sender's own user aircraft" (shared cockpit). Sends are automatically split into multiple messages if the variable count would exceed `MAX_INTEGER_VARIABLES`/`MAX_FLOAT_VARIABLES` (100) or `MAX_STRING8_VARIABLES` (80).
+**`IntegerVariables` / `FloatVariables` / `String8Variables`** (unreliable) — generic key/value sync for simulator "L:var"-style custom variables, used e.g. for animation state. All three share one shape: `{ OwnerNuid: 7 bytes, NetId: uint, Count: ushort, then Count × (VariableId: uint, Value: <int32|float|string>) }`. `NetId == 0xFFFFFFFF` again means "the sender's own user aircraft" (shared cockpit). Sends are automatically split into multiple messages if the variable count would exceed 100 (integer, float) or 80 (string8). *Current builds put their own node id in `OwnerNuid` for every object they broadcast, including objects they re-broadcast during recording playback; released builds used the original owner there.*
 
 ### 8.3 Identity / presence — `SharedData`
 
-Sent unreliably, unicast to each known peer individually (not via the mesh-wide `Broadcast()` helper), immediately when a link is newly established and again to every peer every 5 seconds thereafter (`sharedDataTimer`, `DoSharedData()`). This is the message that tells the rest of the mesh who you are:
+Sent unreliably, unicast to each known peer individually, immediately when a link is newly established and again to every peer every 5 seconds thereafter (`Network.DoSharedData`). Canonical name in current code: `PeerInfo`. This is the message that tells the rest of the mesh who you are:
 
 | Field | Type |
 |---|---|
@@ -246,7 +259,7 @@ Unreliable, chunked into groups of `MAX_HUB_LIST_MESSAGE = 25` entries per datag
 
 ### 8.9 Text / comms — `Notes`
 
-A generic, extensible, nested container used for chat text (only "type 0 = Comms" is implemented today, but the wire format was clearly designed to carry other note types): `{ repeat { EndOfUsers: byte(0=more,1=stop); Guid: 16 bytes; Nickname, Callsign: string×2; repeat { EndOfNotes: byte(0=more,1=stop); NoteId: uint; Type: ushort; Expire: ushort; Length: ushort; <Type-specific payload, currently only Comms: Age: float, Channel: ushort, Text: string> } } }`. An unrecognized `Type` is skipped using the `Length` prefix (`reader.ReadBytes(length)`), which is the one place in the protocol that already supports forward-compatible "unknown extension, skip it" semantics for free — see §9.2. `SessionCommsRequest`/`GlobalCommsRequest`/`CommsListenRequest` (all guaranteed, no payload) are the corresponding pull requests for session-scoped, global, and live-update comms feeds; only `SessionCommsRequest` currently has a receive-side handler (it triggers a `Notes` reply back to the requester) — `GlobalCommsRequest` and `CommsListenRequest` have producers (`SendGlobalCommsRequestMessage`, `SendCommsListenRequestMessage`) but no matching `case` in `ReceiveMsg` yet. `AllNotesRequest` is declared in the enum with neither a producer nor a consumer anywhere in the current codebase (fully reserved, like `KeyLog`).
+A generic, extensible, nested container used for chat text (only "type 0 = Comms" is implemented today, but the wire format was clearly designed to carry other note types): `{ repeat { EndOfUsers: byte(0=more,1=stop); Guid: 16 bytes; Nickname, Callsign: string×2; repeat { EndOfNotes: byte(0=more,1=stop); NoteId: uint; Type: ushort; Expire: ushort; Length: ushort; <Type-specific payload, currently only Comms: Age: float, Channel: ushort, Text: string> } } }`. An unrecognized `Type` is skipped using the `Length` prefix (`reader.ReadBytes(length)`), which is the one place in the protocol that already supports forward-compatible "unknown extension, skip it" semantics for free — see §9.2. `SessionCommsRequest`/`GlobalCommsRequest`/`CommsListenRequest` (all guaranteed, no payload) are the corresponding pull requests for session-scoped, global, and live-update comms feeds; only `SessionCommsRequest` is answered (with a `Notes` reply back to the requester). The other two are decoded but ignored, and nothing sends them. `AllNotesRequest` is declared in the enum with neither a producer nor a consumer anywhere in the current codebase (fully reserved, like `KeyLog`).
 
 ### 8.10 Online-user rendezvous
 
@@ -254,20 +267,22 @@ A generic, extensible, nested container used for chat text (only "type 0 = Comms
 
 ### 8.11 Diagnostics / operational
 
-`UsageLog` (guaranteed): `{ Version: string, Guid: 16 bytes }` — anonymous install ping. `Shutdown` (guaranteed, `DEBUG` builds only): `{ Reason: int32 }`. `KeyLog` is declared in the enum but has no producer or consumer anywhere in the current codebase (fully reserved).
+`UsageLog` (guaranteed): `{ Version: string, Guid: 16 bytes }` — anonymous install ping. `Shutdown` (guaranteed, historically `DEBUG` builds only): `{ Reason: int32 }`. Neither is sent or handled by current builds. `KeyLog` is declared in the enum but was never produced or consumed (fully reserved).
 
 ### 8.12 Declared but unimplemented placeholders
 
-The following `MESSAGE_ID` values exist in the enum with **no** producer and **no** consumer anywhere in `Network.cs`/`Sim.cs` today: `PlaneState`, `HelicopterState`, `AircraftState`, `PistonEngineState`, `TurbineEngineState`, `AircraftFuel`, `AircraftPayload`, `ObjectSmoke`. They read as reserved slots for a more granular systems-state sync than the current catch-all `IntegerVariables`/`FloatVariables`/`String8Variables` messages provide (e.g. so a receiver could subscribe to just engine state without pulling arbitrary L:vars). Anyone picking these up should confirm with the maintainers before assuming their intended layout, since none exists in code yet.
+The following `MESSAGE_ID` values exist in the enum with **no** producer and **no** consumer: `PlaneState`, `HelicopterState`, `AircraftState`, `PistonEngineState`, `TurbineEngineState`, `AircraftFuel`, `AircraftPayload`, `ObjectSmoke`. They read as reserved slots for a more granular systems-state sync than the current catch-all `IntegerVariables`/`FloatVariables`/`String8Variables` messages provide (e.g. so a receiver could subscribe to just engine state without pulling arbitrary L:vars). Anyone picking these up should confirm with the maintainers before assuming their intended layout, since none exists in code yet.
 
 ## 9. Extending the protocol without breaking older clients
+
+> **Current policy: the legacy protocol is frozen.** New fields, messages and capabilities go into JFP2 (`docs/reference/jfp2-protocol.md`), which addresses the problems below by design. A peer that only speaks legacy keeps working through translation (`docs/reference/joinfs-architecture.md` §6). This section is kept as the analysis that motivated JFP2 and as guidance if the legacy wire ever *must* change.
 
 The codebase already demonstrates several backward-compatible extension idioms (documented inline in §5); the recommendations below generalize those patterns and flag the places where the current design would make an easy mistake hard to avoid.
 
 ### 9.1 Keep using additive, tail-only changes — and protect the enum
 
 - **Application message fields:** keep appending new fields at the end of a message and gate every new read with `if (dataVersion >= N) ... else <safe default>`, exactly as `staticCgToGround`, `registration`/`flightNumber`, and the `SharedData` `Flags` bit 2 already do. Never insert a field in the middle, never remove or resize an existing field, and never change a field's on-wire type — all three would silently desync every reader compiled against the old layout (there's no length-prefixing to make a parser resilient to a mismatched field width).
-- **`MESSAGE_ID` enum:** because values are implicit (declaration order), **new message types must always be appended at the end of the enum**, never inserted or reordered — inserting shifts every subsequent value and instantly breaks the wire format for any two peers built from enum definitions that disagree on ordering. Given how easy this mistake is to make in a future PR, it's worth switching the enum to explicit values (`ObjectPosition = 0, AircraftPosition = 1, ...`) so an accidental reorder becomes a compile-time-visible diff instead of a silent runtime incompatibility. The same applies to `LocalNode.MESSAGE_ID` and `JoinResult`/`LoginResult`.
+- **`MESSAGE_ID` enum:** because values are implicit (declaration order), **new message types must always be appended at the end of the enum**, never inserted or reordered — inserting shifts every subsequent value and instantly breaks the wire format for any two peers built from enum definitions that disagree on ordering. Given how easy this mistake is to make in a future PR, it's worth switching the enum to explicit values (`ObjectPosition = 0, AircraftPosition = 1, ...`) so an accidental reorder becomes a compile-time-visible diff instead of a silent runtime incompatibility. The same applies to `LegacyWire.InternalId` and `JoinResult`/`LoginResult`.
 - There is effectively unbounded room to grow: `MESSAGE_ID` is a 16-bit value with roughly 40 of 65536 slots used, and eight enum values (§8.12) are already reserved-but-unused, so there's no pressure to reuse or overload existing IDs.
 
 ### 9.2 Prefer length-prefixed/TLV extensions over EOF-sensing for new *optional* fields
@@ -282,7 +297,7 @@ The `reader.PeekChar() != -1` idiom (§5) is fine for a message that only ever g
 
 `Join`, `SharedData`-adjacent identity data, and friends currently rely on the fixed transport `Version` (`0x520B`) for compatibility and have no per-message `DataVersion` the way application messages do (§5). Concretely:
 
-- Add a `DataVersion` (or even just reuse `Sim.VERSION`) to the `Join`/`JoinReply` payload so version can be negotiated **before** either side has committed to full mesh membership, instead of the current approach where a node only learns a peer's version indirectly, later, from the first `SharedData` broadcast (`node.dataVersion`) — which today is stored but not actually used to gate anything.
+- Add a `DataVersion` to the `Join`/`JoinReply` payload so version can be negotiated **before** either side has committed to full mesh membership, instead of the current approach where a node only learns a peer's version indirectly, later, from the first `SharedData` broadcast (`node.dataVersion`) — which today is stored but not actually used to gate anything.
 - More generally, consider a small bitmask "capabilities" field in `Join`/`JoinReply`/`SharedData` (a few spare bytes now costs nothing and headroom is cheap) so future optional features can be negotiated explicitly (e.g. "I understand the new engine-state messages", "I support IPv6 Nuids") rather than inferred from a single monotonic version number, which forces every feature to be strictly ordered along one timeline even when two features are actually independent.
 
 ### 9.4 Security hardening (independent of wire-format compatibility, but worth planning alongside it)
@@ -295,22 +310,22 @@ These aren't strict "extend the protocol" changes, but any protocol version bump
 
 ### 9.5 IPv4-only `Nuid`
 
-Supporting IPv6 peers is the one change on this list that can't be done as a pure tail-append, because `Nuid` (§3) is embedded by value, twice, in the fixed 21-byte transport header that *every* datagram starts with — there's no spare room to widen it in place without breaking the fixed header offsets every existing build assumes (`DATA_OFFSET = 21` is relied on throughout `Node.cs`). The realistic compatible path is a new transport header version: bump the fixed `Version` constant (`0x520B` → something else) to mean "this datagram uses the wider/variable-length address header", have `ReceiveMsg` branch on that constant to pick the header layout, and keep emitting the legacy `0x520B` header (IPv4-only) by default until a session's members have all advertised IPv6 support via the capabilities mechanism in §9.3. This is a substantial change and should be scoped as its own project rather than folded into an incremental field addition.
+Supporting IPv6 peers is the one change on this list that can't be done as a pure tail-append, because `Nuid` (§3) is embedded by value, twice, in the fixed 21-byte transport header that *every* datagram starts with — there's no spare room to widen it in place without breaking the fixed header offsets every existing build assumes (`LegacyWire.DataOffset = 21` is relied on by every released build). The realistic compatible path is a new transport header version: bump the fixed `Version` constant (`0x520B` → something else) to mean "this datagram uses the wider/variable-length address header", have the receiver branch on that constant to pick the header layout, and keep emitting the legacy `0x520B` header (IPv4-only) by default until a session's members have all advertised IPv6 support via the capabilities mechanism in §9.3. This is a substantial change and should be scoped as its own project rather than folded into an incremental field addition.
 
 ## 10. Quick reference — constants
 
 | Constant | Value | Meaning |
 |---|---|---|
 | `Network.DEFAULT_PORT` | 6112 | Default UDP port |
-| `LocalNode.VERSION` | `0x520B` | Fixed transport/handshake constant (first 2 bytes of every datagram) |
-| `Sim.VERSION` | 21008 | Current application data-format version, sent in every non-internal message |
+| `LegacyWire.Version` | `0x520B` | Fixed transport/handshake constant (first 2 bytes of every datagram; also the X-Plane plugin link's header) |
+| `LegacyWire.DataVersion` | 21008 | Application data-format version, sent in every non-internal message |
 | Minimum accepted `dataVersion` | 10014 | Messages tagged below this are dropped outright |
 | `MAX_GUARANTEED_DATA` | 1000 bytes | Max payload per guaranteed-delivery segment |
 | Guaranteed resend interval | 2 s | `DoGuaranteedMessages()` |
 | Guaranteed out/in expiry | 180 s / 240 s | `GUARANTEED_OUT_EXPIRE_TIME` / `GUARANTEED_IN_EXPIRE_TIME` |
 | `PULSE_INTERVAL` | 1 s | Keepalive broadcast interval |
 | `PATHFINDER_INTERVAL` | 5 s | NAT-traversal/routing discovery interval |
-| Node expire / reestablish | 30 s / 3 s | `EXPIRE_TIME` / `REESTABLISH_TIME` |
+| Node expire | 30 s | `MeshManager.ExpireTime` |
 | `MAX_NODES_PER_DEVICE` | 32 | Per-device join limit |
 | `MAX_ROUTING_NODES` | 10 | Concurrent relayed peers per node |
 | `MAX_PATHFINDER_NODES` | 100 | Targets per `Pathfinder` request |
@@ -322,6 +337,10 @@ Supporting IPv6 peers is the one change on this list that can't be done as a pur
 
 | Concern | File |
 |---|---|
-| Transport framing, `Nuid`, guaranteed delivery, Join/Pulse/Pathfinder mesh logic | `JoinFS/Node.cs` (`LocalNode` class) |
-| Application `MESSAGE_ID` enum, all `Send*`/`Write*Message` producers, `ReceiveMsg` application dispatch, hub/session/discovery logic | `JoinFS/Network.cs` |
-| Wire structs and version-gated field readers for position/velocity and variable dictionaries (`Sim.Read`/`Sim.Write`) | `JoinFS/Sim.cs` |
+| Header layout, flags, message id enums, data version | `JoinFS/Net/Protocols/Legacy/LegacyWire.cs` |
+| Framing, `FLAG_FORWARD` relay, every message's encoder and decoder | `JoinFS/Net/Protocols/Legacy/LegacyPlugin.cs` |
+| Guaranteed delivery (segmentation, acks, retransmission, reassembly) | `JoinFS/Net/Protocols/Legacy/LegacyReliability.cs` |
+| Join / Login / AddNode / Leave / Pulse / Pathfinder logic (protocol-neutral) | `JoinFS/Net/Core/MeshManager.cs` |
+| `Nuid` (`NodeId`), password/string hash | `JoinFS/Net/Core/NodeId.cs`, `NetHash.cs` |
+| Byte-for-byte fixtures of every message | `JoinFS.Tests/Legacy/Fixtures/*.hex`, checked by `LegacyPluginGoldenTests` |
+| Hub / session / discovery logic (what to send, and what to do with what arrives) | `JoinFS/Network.cs` and `JoinFS/Session/` (`HubDirectory`, `HubHost`, `UserDirectory`, `PeerTable`, `SimIngest`) |

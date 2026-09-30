@@ -1582,17 +1582,5 @@ namespace JoinFS.Properties {
                 this["SkipCsl"] = value;
             }
         }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("True")]
-        public bool UseAIFeatures {
-            get {
-                return ((bool)(this["UseAIFeatures"]));
-            }
-            set {
-                this["UseAIFeatures"] = value;
-            }
-        }
     }
 }

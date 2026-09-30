@@ -175,7 +175,7 @@ namespace JoinFS
             lock (main.conch)
             {
                 // set simulator name and version
-                Label_Simulator.Text = main.sim != null ? main.sim.GetSimulatorName() : "";
+                Label_Simulator.Text = main.sim != null ? main.sim.View.SimulatorName : "";
             }
 
             // selected model
@@ -387,7 +387,7 @@ namespace JoinFS
                     lock (main.conch)
                     {
                         // remove this model match
-                        main.substitution.matches.Remove(model);
+                        main.substitution.RemoveMatch(model);
                         main.ScheduleSubstitutionSave();
                         // remove aircraft using the selected model
                         main.sim ?. ScheduleRemoveModel(model);

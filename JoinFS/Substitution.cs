@@ -47,19 +47,6 @@ namespace JoinFS
                 // add default model
                 defaultModels.Add(name.Key, Resources.Strings.Default + " " + name.Value);
             }
-
-// TODO: cleanup code
-//            enrichModelService = new EnrichModelService(
-//                jsonlFilePath: main.storagePath + Path.DirectorySeparatorChar + "model-data.jsonl",
-//                httpClient: null,
-//                main: main);
-//#if X64
-//            embeddingService = new EmbeddingService(
-//                modelPath: "AIModel" + Path.DirectorySeparatorChar + "model.onnx",
-//                vocabPath: "AIModel" + Path.DirectorySeparatorChar + "vocab.txt",
-//                main: main // Pass main for logging
-//            );
-//#endif
         }
 
         /// <summary>
@@ -96,7 +83,7 @@ namespace JoinFS
 #if FS2024
         readonly Dictionary<string, (string typeRoleName, string compareType)> typeroleClassifier = [];
 #endif
-        readonly List<string> modelBanList = [];
+        volatile List<string> modelBanList = [];
 
         /// <summary>
         /// Count of models excluded by the ban list during the most recent scan/load pass - surfaced in
@@ -327,8 +314,6 @@ namespace JoinFS
             public string folder;
             public int typerole;
             public int smokeCount;
-            // TODO: cleanup code
-            // public EnrichedAircraftData enrichedData = null;
             public float[] embedding = null;
 
             /// <summary>
@@ -446,7 +431,152 @@ namespace JoinFS
         /// <summary>
         /// List of valid models in the sim
         /// </summary>
-        public List<Model> models = [];
+        public volatile List<Model> models = [];
+
+        /// <summary>
+        /// Title index for <see cref="GetModel(string)"/> - copy-on-write like <see cref="models"/>
+        /// itself, rebuilt whole by <see cref="RebuildTitleIndex"/> at every point <see cref="models"/>
+        /// is reassigned, so it always reflects the current list exactly (some callers, e.g.
+        /// RemoveModel, need GetModel accurate immediately, not eventually - unlike the lazy
+        /// icaoIndexDirty scheme below, which some models-reassignment sites don't trigger).
+        /// </summary>
+        volatile Dictionary<string, Model> modelsByTitle = new(StringComparer.Ordinal);
+#if FS2024
+        /// <summary>Title+variation index for <see cref="GetModel(string, string)"/> - see <see cref="modelsByTitle"/>.</summary>
+        volatile Dictionary<(string title, string variation), Model> modelsByTitleVariation = [];
+#endif
+
+        /// <summary>
+        /// Rebuild <see cref="modelsByTitle"/>/<see cref="modelsByTitleVariation"/> from the current
+        /// <see cref="models"/> - call after every reassignment of that field. The first model per
+        /// key wins (TryAdd, not an indexer set), matching List&lt;T&gt;.Find's first-match semantics.
+        /// </summary>
+        void RebuildTitleIndex()
+        {
+            Dictionary<string, Model> byTitle = new(StringComparer.Ordinal);
+#if FS2024
+            Dictionary<(string, string), Model> byTitleVariation = [];
+#endif
+            foreach (var model in models)
+            {
+                byTitle.TryAdd(model.title, model);
+#if FS2024
+                byTitleVariation.TryAdd((model.title, model.variation), model);
+#endif
+            }
+            modelsByTitle = byTitle;
+#if FS2024
+            modelsByTitleVariation = byTitleVariation;
+#endif
+        }
+
+        // ---- Concurrency (docs/sim-thread-architecture.md §2.4, §8.3) ----
+        // Substitution is read from several threads (the sim thread matches and masquerades as
+        // objects appear; the UI shows lists) while it is rebuilt on others (Load/Scan on the thread
+        // pool, Match on the app thread, the edit dialogs on the UI thread). So its collections -
+        // models, the ICAO indexes, matches, masquerades, prefixList, modelBanList - are copy-on-write:
+        // a published collection is never changed; a writer builds a new one (or a copy) and swaps
+        // the reference. Readers take no lock. Writers take writeLock, briefly - never across a scan,
+        // a file read or a download. Model objects themselves are still updated in place (single
+        // fields, e.g. a live-learned ICAO type), which readers tolerate.
+
+        /// <summary>
+        /// Serializes writers of the published collections (short holds only)
+        /// </summary>
+        readonly object writeLock = new();
+
+        /// <summary>
+        /// Held by a scan for its whole run: it owns the scan* fields and its working list
+        /// </summary>
+        readonly object scanLock = new();
+
+        /// <summary>
+        /// The list a running scan builds; published when it is complete
+        /// </summary>
+        List<Model> scanWork;
+
+        /// <summary>
+        /// Submissions made from other threads while a scan was running, applied when it ends
+        /// </summary>
+        readonly System.Collections.Concurrent.ConcurrentQueue<Action> pendingSubmits = new();
+
+        /// <summary>
+        /// Background work in submission order (model enumeration from the sim thread, which must
+        /// not wait on disk reads or locks)
+        /// </summary>
+        Task backgroundTail = Task.CompletedTask;
+        readonly object backgroundSync = new();
+
+        /// <summary>
+        /// Run <paramref name="action"/> on a background thread, after everything queued before it
+        /// </summary>
+        public void RunInBackground(Action action)
+        {
+            lock (backgroundSync)
+            {
+                backgroundTail = backgroundTail.ContinueWith(_ =>
+                {
+                    try
+                    {
+                        action();
+                    }
+                    catch (Exception ex)
+                    {
+                        main.MonitorEvent("ERROR - Model matching: " + ex.Message);
+                    }
+                }, TaskScheduler.Default);
+            }
+        }
+
+        /// <summary>
+        /// Apply submissions queued while a scan was running
+        /// </summary>
+        void DrainPendingSubmits()
+        {
+            while (pendingSubmits.TryDequeue(out Action submit))
+            {
+                submit();
+            }
+        }
+
+        /// <summary>
+        /// The model with this title in <paramref name="list"/> (FS2024: "title[+]variation" also accepted)
+        /// </summary>
+        static Model FindModel(List<Model> list, string title)
+        {
+#if FS2024
+            string[] separator = [ "[+]" ];
+            string[] parts = title.Split(separator, StringSplitOptions.None);
+            if (parts.Length == 2)
+            {
+                return list.Find(m => m.title.Equals(parts[0]) && m.variation.Equals(parts[1]));
+            }
+            return list.Find(m => m.title.Equals(parts[0]));
+#else
+            return list.Find(m => m.title.Equals(title));
+#endif
+        }
+
+        /// <summary>
+        /// The model with this title and variation in <paramref name="list"/>
+        /// </summary>
+        static Model FindModel(List<Model> list, string title, string variation)
+        {
+            return list.Find(m => m.title.Equals(title) && m.variation.Equals(variation));
+        }
+
+        /// <summary>
+        /// Remove a match (any thread)
+        /// </summary>
+        public void RemoveMatch(string title)
+        {
+            lock (writeLock)
+            {
+                Dictionary<string, Model> updated = new(matches);
+                updated.Remove(title);
+                matches = updated;
+            }
+        }
 
         /// <summary>
         /// ICAO Doc8643 reference data: icaoType -> (classCode, wtc), first entry for a designator wins
@@ -599,26 +729,37 @@ namespace JoinFS
         /// <summary>
         /// Indexes over models keyed by ICAO type, exact classification code, and loose platform+engine-type category
         /// </summary>
-        readonly Dictionary<string, List<Model>> icaoIndex = new(StringComparer.OrdinalIgnoreCase);
-        readonly Dictionary<string, List<Model>> classCodeIndex = new(StringComparer.OrdinalIgnoreCase);
-        readonly Dictionary<string, List<Model>> categoryIndex = new(StringComparer.OrdinalIgnoreCase);
-        readonly Dictionary<int, List<Model>> typeroleIndex = [];
+        sealed class ModelIndexes
+        {
+            public readonly Dictionary<string, List<Model>> icao = new(StringComparer.OrdinalIgnoreCase);
+            public readonly Dictionary<string, List<Model>> classCode = new(StringComparer.OrdinalIgnoreCase);
+            public readonly Dictionary<string, List<Model>> category = new(StringComparer.OrdinalIgnoreCase);
+            public readonly Dictionary<int, List<Model>> typerole = [];
+        }
+
+        /// <summary>
+        /// The published indexes (copy-on-write: rebuilt whole, never changed)
+        /// </summary>
+        volatile ModelIndexes indexes = new();
 
         /// <summary>
         /// Set when a model's ICAO tag has been learned live and the ICAO indexes need rebuilding
         /// before the next Match()
         /// </summary>
-        bool icaoIndexDirty = false;
+        volatile bool icaoIndexDirty = false;
 
         /// <summary>
-        /// Rebuild the ICAO-based lookup indexes from the current model list
+        /// Rebuild the ICAO-based lookup indexes from the current model list (any thread)
         /// </summary>
         public void MakeIcaoIndex()
         {
-            icaoIndex.Clear();
-            classCodeIndex.Clear();
-            categoryIndex.Clear();
-            typeroleIndex.Clear();
+            // cleared first, so a tag learned while this runs asks for another rebuild
+            icaoIndexDirty = false;
+            ModelIndexes built = new();
+            var icaoIndex = built.icao;
+            var classCodeIndex = built.classCode;
+            var categoryIndex = built.category;
+            var typeroleIndex = built.typerole;
 
             foreach (var model in models)
             {
@@ -657,7 +798,7 @@ namespace JoinFS
                 }
             }
 
-            icaoIndexDirty = false;
+            indexes = built;
         }
 
 #if FS2024
@@ -873,11 +1014,36 @@ namespace JoinFS
         /// base_container references that a plain relative-path lookup can't reach, since MSFS merges
         /// package content into one virtual namespace rather than nesting them physically on disk.
         /// </summary>
-        readonly Dictionary<string, string> packageFolderIndex = new(StringComparer.OrdinalIgnoreCase);
+        volatile Dictionary<string, string> packageFolderIndex = new(StringComparer.OrdinalIgnoreCase);
         /// <summary>True once a build has actually succeeded (found a valid sim folder) - distinct from
         /// packageFolderIndex being empty, so a failed attempt (sim folder not set yet) can retry on the
         /// next call instead of being stuck empty for the rest of the session.</summary>
-        bool packageFolderIndexBuilt = false;
+        volatile bool packageFolderIndexBuilt = false;
+
+        /// <summary>A background build of the folder indexes has been queued (see <see cref="OnSimThread"/>)</summary>
+        volatile bool folderIndexBuildQueued = false;
+
+        /// <summary>
+        /// Called on the sim thread, which must never walk the sim's folders or wait for a build that
+        /// is: queue a background build instead (once), and carry on without the index this time
+        /// </summary>
+        bool OnSimThread()
+        {
+            if (main.simService == null || main.simService.IsSimThread == false)
+            {
+                return false;
+            }
+            if (folderIndexBuildQueued == false)
+            {
+                folderIndexBuildQueued = true;
+                RunInBackground(() =>
+                {
+                    BuildTitleFolderIndexIfNeeded();
+                    folderIndexBuildQueued = false;
+                });
+            }
+            return true;
+        }
         /// <summary>Guards packageFolderIndex/titleFolderIndex builds against concurrent mutation - these
         /// are plain Dictionaries with no synchronization of their own, and unlike their historical sole
         /// caller (the live LIVERY FOLDER read, always serialized under main.conch on the SimConnect
@@ -890,6 +1056,7 @@ namespace JoinFS
         void BuildPackageFolderIndexIfNeeded()
         {
             if (packageFolderIndexBuilt) return;
+            if (OnSimThread()) return;
             lock (packageFolderIndexLock)
             {
                 if (packageFolderIndexBuilt) return;
@@ -901,7 +1068,7 @@ namespace JoinFS
         {
             if (Directory.Exists(simFolder) == false)
             {
-                if (packageFolderIndexDiagLogged.Add(simFolder ?? ""))
+                if (LogOnce(packageFolderIndexDiagLogged, simFolder ?? ""))
                 {
                     main.MonitorEvent("DIAG: package folder index not built - configured sim folder '" + simFolder + "' does not exist (or isn't set yet). Will retry next time it's needed.");
                 }
@@ -909,6 +1076,8 @@ namespace JoinFS
             }
 
             int packageFolderCount = 0;
+            // build a new index, published only when complete (readers use the previous one meanwhile)
+            Dictionary<string, string> built = new(StringComparer.OrdinalIgnoreCase);
             try
             {
                 // simFolder is the sim's base install folder (e.g. "H:\MSFS2024"), which itself only
@@ -919,13 +1088,13 @@ namespace JoinFS
                 // grouping folder like Community.
                 foreach (var groupFolder in Directory.GetDirectories(simFolder))
                 {
-                    packageFolderCount += IndexPackageFolder(groupFolder);
+                    packageFolderCount += IndexPackageFolder(groupFolder, built);
 
                     try
                     {
                         foreach (var packageFolder in Directory.GetDirectories(groupFolder))
                         {
-                            packageFolderCount += IndexPackageFolder(packageFolder);
+                            packageFolderCount += IndexPackageFolder(packageFolder, built);
                         }
                     }
                     catch (Exception ex)
@@ -942,12 +1111,13 @@ namespace JoinFS
                 return;
             }
 
+            packageFolderIndex = built;
             main.MonitorEvent("DIAG: package folder index built from sim folder '" + simFolder + "' - " + packageFolderCount + " candidate package folder(s) scanned, " + packageFolderIndex.Count + " installed aircraft/rotorcraft folder(s) indexed.");
             packageFolderIndexBuilt = true;
         }
 
         /// <summary>Indexes a single package folder's SimObjects\Airplanes|Rotorcraft subfolders, if any. Returns 1 (counted as scanned) so the caller can tally how many folders were checked.</summary>
-        int IndexPackageFolder(string packageFolder)
+        static int IndexPackageFolder(string packageFolder, Dictionary<string, string> index)
         {
             foreach (var kind in new[] { "Airplanes", "Rotorcraft" })
             {
@@ -957,7 +1127,7 @@ namespace JoinFS
                 foreach (var modelFolder in Directory.GetDirectories(simObjectsPath))
                 {
                     string name = Path.GetFileName(modelFolder);
-                    packageFolderIndex.TryAdd(name, modelFolder);
+                    index.TryAdd(name, modelFolder);
                 }
             }
             return 1;
@@ -1146,7 +1316,7 @@ namespace JoinFS
                 // in-one-aircraft.cfg packages that never had a livery.cfg at all (still very common
                 // among freeware/community add-ons). Fall back to a lazily-built title->folder index
                 // instead of giving up, since the real aircraft.cfg is still on disk somewhere.
-                if (liveryFolderDiagLogged.Add("<blank:" + modelTitle + ">"))
+                if (LogOnce(liveryFolderDiagLogged, "<blank:" + modelTitle + ">"))
                 {
                     main.MonitorEvent("DIAG: LIVERY FOLDER was blank/not reported by SimConnect for model '" + modelTitle + "' - trying the title->folder index instead.");
                 }
@@ -1162,11 +1332,11 @@ namespace JoinFS
                     main.MonitorEvent("Error resolving LIVERY FOLDER '" + liveryFolder + "': " + ex.Message);
                 }
 
-                if (resolvedFolder == null && liveryFolderDiagLogged.Add(liveryFolder))
+                if (resolvedFolder == null && LogOnce(liveryFolderDiagLogged, liveryFolder))
                 {
                     main.MonitorEvent("DIAG: could not resolve LIVERY FOLDER '" + liveryFolder + "' to an existing directory (tried as-is, relative to the configured sim folder '" + simFolder + "', and by leaf folder name) - trying the title->folder index instead.");
                 }
-                else if (resolvedFolder != null && liveryFolderDiagLogged.Add(liveryFolder))
+                else if (resolvedFolder != null && LogOnce(liveryFolderDiagLogged, liveryFolder))
                 {
                     main.MonitorEvent("DIAG: LIVERY FOLDER '" + liveryFolder + "' resolved to '" + resolvedFolder + "'.");
                 }
@@ -1175,11 +1345,13 @@ namespace JoinFS
             if (resolvedFolder == null)
             {
                 BuildTitleFolderIndexIfNeeded();
-                if (titleFolderIndex.TryGetValue(modelTitle, out resolvedFolder) == false)
+                // null when not built yet (the sim thread doesn't build it - see OnSimThread)
+                Dictionary<string, string> titles = titleFolderIndex;
+                if (titles == null || titles.TryGetValue(modelTitle, out resolvedFolder) == false)
                 {
                     return false;
                 }
-                if (liveryFolderDiagLogged.Add("<titleindex:" + modelTitle + ">"))
+                if (LogOnce(liveryFolderDiagLogged, "<titleindex:" + modelTitle + ">"))
                 {
                     main.MonitorEvent("DIAG: title->folder index resolved model '" + modelTitle + "' to '" + resolvedFolder + "'.");
                 }
@@ -1231,11 +1403,12 @@ namespace JoinFS
         /// already walks. Only built (and only needed) the first time LIVERY FOLDER comes back blank or
         /// unresolvable for some model - the common case (a real LIVERY FOLDER value) never touches this.
         /// </summary>
-        Dictionary<string, string> titleFolderIndex;
+        volatile Dictionary<string, string> titleFolderIndex;
 
         void BuildTitleFolderIndexIfNeeded()
         {
             if (titleFolderIndex != null) return;
+            if (OnSimThread()) return;
             // same dedicated lock as BuildPackageFolderIndexIfNeeded (see packageFolderIndexLock) - this
             // method also assigns titleFolderIndex before it's fully populated, so without a lock a second
             // thread's `titleFolderIndex != null` check above could observe a still-being-built dictionary
@@ -1343,12 +1516,6 @@ namespace JoinFS
         }
 #endif
 
-        // TODO: cleanup code
-        //        public EnrichModelService enrichModelService = null;
-        //#if X64
-        //        public EmbeddingService embeddingService = null;
-        //#endif
-
         /// <summary>
         /// Does a model exist
         /// </summary>
@@ -1373,16 +1540,18 @@ namespace JoinFS
         /// <returns>Model exists</returns>
         public Model GetModel(string title)
         {
+            // FS2024: "title[+]variation" also accepted - mirrors FindModel(models, title) exactly,
+            // just via the O(1) title index (see RebuildTitleIndex) instead of an O(model count) scan
 #if FS2024
             string[] separator = [ "[+]" ];
             string[] parts = title.Split(separator, StringSplitOptions.None);
             if (parts.Length == 2)
             {
-                return models.Find(m => m.title.Equals(parts[0]) && m.variation.Equals(parts[1]));
+                return modelsByTitleVariation.GetValueOrDefault((parts[0], parts[1]));
             }
-            return models.Find(m => m.title.Equals(parts[0]));
+            return modelsByTitle.GetValueOrDefault(parts[0]);
 #else
-            return models.Find(m => m.title.Equals(title));
+            return modelsByTitle.GetValueOrDefault(title);
 #endif
         }
 
@@ -1392,7 +1561,11 @@ namespace JoinFS
         /// <returns>Model exists</returns>
         public Model GetModel(string title, string variation)
         {
-            return models.Find(m => m.title.Equals(title) && m.variation.Equals(variation));
+#if FS2024
+            return modelsByTitleVariation.GetValueOrDefault((title, variation));
+#else
+            return FindModel(models, title, variation);
+#endif
         }
 
         /// <summary>
@@ -1442,12 +1615,12 @@ namespace JoinFS
         /// <summary>
         /// Model matches
         /// </summary>
-        public readonly Dictionary<string, Model> matches = [];
+        public volatile Dictionary<string, Model> matches = [];
 
         /// <summary>
         /// Model masquerades
         /// </summary>
-        public readonly Dictionary<string, Model> masquerades = [];
+        public volatile Dictionary<string, Model> masquerades = [];
 
         /// <summary>
         /// Trim white space and quote characters
@@ -1541,12 +1714,12 @@ namespace JoinFS
                     return;
                 }
 
-                // brief lock around the actual models mutation only - Scan() itself deliberately
-                // does NOT hold this lock for its whole (potentially many-seconds) duration, so
-                // other conch-protected readers/writers (Match/Save/UI dialogs) only ever wait a
-                // few microseconds per model found, not the whole scan
-                lock (main.conch)
+                // brief lock around the actual models change only. Inside a scan the model goes into
+                // the scan's own list (published when the scan completes); otherwise into a copy of
+                // the published list, published straight away (copy-on-write)
+                lock (writeLock)
                 {
+                List<Model> target = scanWork ?? new List<Model>(models);
                 // check for quotes
                 if (scanTitle.StartsWith('\"'))
                 {
@@ -1614,7 +1787,7 @@ namespace JoinFS
 
                 // check if model is already listed
 #if FS2024
-                Model model = GetModel(scanTitle, scanVariation);
+                Model model = FindModel(target, scanTitle, scanVariation);
 
                 // check if the typerole is "MSFS2024"
                 // we only get this for MSFS2024
@@ -1677,7 +1850,7 @@ namespace JoinFS
                     target.RefreshIcaoDerived(doc8643Lookup);
                 }
 #else
-                Model model = GetModel(scanTitle);
+                Model model = FindModel(target, scanTitle);
 #endif
 
                 if (model != null)
@@ -1717,7 +1890,14 @@ namespace JoinFS
 #if FS2024
                     ApplyIcaoResult(newModel);
 #endif
-                    models.Add(newModel);
+                    target.Add(newModel);
+                }
+
+                // publish (a scan publishes its whole list when it completes)
+                if (scanWork == null)
+                {
+                    models = target;
+                    RebuildTitleIndex();
                 }
                 }
             }
@@ -1756,6 +1936,28 @@ namespace JoinFS
         /// </summary>
         /// <param name="title">Name of the Model</param>
         public void SubmitModel(string title, string manufacturer, string type, string variation, int index, string typerole)
+        {
+            // a running scan owns the scan* fields: from another thread, queue until it ends
+            bool owned = System.Threading.Monitor.IsEntered(scanLock);
+            if (owned == false && System.Threading.Monitor.TryEnter(scanLock) == false)
+            {
+                pendingSubmits.Enqueue(() => SubmitModel(title, manufacturer, type, variation, index, typerole));
+                return;
+            }
+            try
+            {
+                SubmitModelLocked(title, manufacturer, type, variation, index, typerole);
+            }
+            finally
+            {
+                if (owned == false)
+                {
+                    System.Threading.Monitor.Exit(scanLock);
+                }
+            }
+        }
+
+        void SubmitModelLocked(string title, string manufacturer, string type, string variation, int index, string typerole)
         {
             if (IsModelBanned(title, variation))
             {
@@ -1800,7 +2002,9 @@ namespace JoinFS
         /// </summary>
         public void ScanSimForModels()
         {
-            main.sim.RequestSimulatorModels();
+            // Scan() can run on a thread-pool thread, and SimConnect may only be called from the
+            // sim thread, so hand the request to it
+            main.PostToSim(() => main.sim?.RequestSimulatorModels());
         }
 
         /// <summary>
@@ -1813,8 +2017,14 @@ namespace JoinFS
             Model model = GetModel(title);
             if (model != null)
             {
-                // remove model
-                models.Remove(model);
+                // remove model (copy-on-write)
+                lock (writeLock)
+                {
+                    List<Model> updated = new(models);
+                    updated.Remove(model);
+                    models = updated;
+                }
+                RebuildTitleIndex();
                 // save
                 main.ScheduleSubstitutionSave();
             }
@@ -1881,6 +2091,23 @@ namespace JoinFS
         /// otherwise depend on a live connection.
         /// </summary>
         public bool Scan(bool interactive, string simulatorNameOverride = null)
+        {
+            // one scan at a time; it owns the scan* fields and its working list until it ends
+            System.Threading.Monitor.Enter(scanLock);
+            try
+            {
+                return ScanLocked(interactive, simulatorNameOverride);
+            }
+            finally
+            {
+                scanWork = null;
+                System.Threading.Monitor.Exit(scanLock);
+                // submissions from other threads that arrived during the scan
+                DrainPendingSubmits();
+            }
+        }
+
+        bool ScanLocked(bool interactive, string simulatorNameOverride)
         {
             // name to branch on below - the real connected name, unless overridden by a caller
             // that already knows it (because the sim isn't connected yet)
@@ -2010,11 +2237,8 @@ namespace JoinFS
                         }
                     }
 
-                    // clear current models
-                    lock (main.conch)
-                    {
-                        models.Clear();
-                    }
+                    // build the new model list privately; readers keep the current one until it is complete
+                    scanWork = [];
 
 #if XPLANE || CONSOLE
                     // create path list
@@ -2186,7 +2410,7 @@ namespace JoinFS
 
                         // track the maximum smoke entry
                         int smokeCount = 0;
-                        int startIndex = models.Count;
+                        int startIndex = scanWork.Count;
                         StreamReader reader = null;
 
                         // one broken/inaccessible file (permission denied, locked by another
@@ -2316,13 +2540,13 @@ namespace JoinFS
                         // submit the current scan
                         SubmitScan();
 
-                        // exclude boats and ground vehicles from the models found in this file - keep permissive
+                        // exclude boats and ground vehicles from the scanWork found in this file - keep permissive
                         // for "Airplane"/"Helicopter"/empty (many legitimate aircraft.cfg files omit category)
                         if (generalCategory.Equals("Boat", StringComparison.OrdinalIgnoreCase) || generalCategory.Equals("GroundVehicle", StringComparison.OrdinalIgnoreCase))
                         {
-                            if (models.Count > startIndex)
+                            if (scanWork.Count > startIndex)
                             {
-                                models.RemoveRange(startIndex, models.Count - startIndex);
+                                scanWork.RemoveRange(startIndex, scanWork.Count - startIndex);
                             }
                         }
                         else
@@ -2347,33 +2571,33 @@ namespace JoinFS
                             bool fileConfirmed = fileIcaoType.Length > 0;
 #endif
                             // for each new model
-                            for (int index = startIndex; index < models.Count; index++)
+                            for (int index = startIndex; index < scanWork.Count; index++)
                             {
                                 // set smoke count
-                                models[index].smokeCount = smokeCount;
+                                scanWork[index].smokeCount = smokeCount;
 #if FS2024
-                                if (models[index].icaoType.Length == 0 && fileConfirmed)
+                                if (scanWork[index].icaoType.Length == 0 && fileConfirmed)
                                 {
-                                    models[index].icaoType = fileIcaoType;
-                                    models[index].icaoGuessed = false;
-                                    models[index].classCode = fileClassCode;
-                                    models[index].classCodeConfirmed = true;
-                                    models[index].configConfirmed = true;
-                                    if (fileWtc.Length > 0) models[index].wtc = fileWtc;
-                                    if (fileIcaoAirline.Length > 0) { models[index].icaoAirline = fileIcaoAirline; models[index].icaoAirlineGuessed = false; }
-                                    if (fileAtcId.Length > 0) models[index].atcId = fileAtcId;
-                                    models[index].RefreshIcaoDerived(doc8643Lookup);
+                                    scanWork[index].icaoType = fileIcaoType;
+                                    scanWork[index].icaoGuessed = false;
+                                    scanWork[index].classCode = fileClassCode;
+                                    scanWork[index].classCodeConfirmed = true;
+                                    scanWork[index].configConfirmed = true;
+                                    if (fileWtc.Length > 0) scanWork[index].wtc = fileWtc;
+                                    if (fileIcaoAirline.Length > 0) { scanWork[index].icaoAirline = fileIcaoAirline; scanWork[index].icaoAirlineGuessed = false; }
+                                    if (fileAtcId.Length > 0) scanWork[index].atcId = fileAtcId;
+                                    scanWork[index].RefreshIcaoDerived(doc8643Lookup);
                                 }
 #else
                                 if (generalIcaoType.Length > 0)
                                 {
                                     // some add-ons put the real designator in icao_model instead of
                                     // icao_type_designator - prefer whichever field is actually recognized
-                                    models[index].icaoType = IsRecognizedIcaoType(generalIcaoType) ? generalIcaoType
+                                    scanWork[index].icaoType = IsRecognizedIcaoType(generalIcaoType) ? generalIcaoType
                                         : IsRecognizedIcaoType(generalIcaoModel) ? generalIcaoModel
                                         : generalIcaoType;
-                                    if (generalWtc.Length > 0) models[index].wtc = generalWtc;
-                                    models[index].RefreshIcaoDerived(doc8643Lookup);
+                                    if (generalWtc.Length > 0) scanWork[index].wtc = generalWtc;
+                                    scanWork[index].RefreshIcaoDerived(doc8643Lookup);
                                 }
 #endif
                             }
@@ -2388,9 +2612,9 @@ namespace JoinFS
                             // discard any model(s) already added from this file before the
                             // failure - a file that misbehaved partway through can't be trusted
                             // to have parsed correctly up to that point
-                            if (models.Count > startIndex)
+                            if (scanWork.Count > startIndex)
                             {
-                                models.RemoveRange(startIndex, models.Count - startIndex);
+                                scanWork.RemoveRange(startIndex, scanWork.Count - startIndex);
                             }
                             // a failure mid-read can leave an in-progress [fltsim.N] block's
                             // fields (scanTitle etc.) sitting in the method-level scan* fields
@@ -2406,8 +2630,14 @@ namespace JoinFS
                         }
                     }
 
-                    // rebuild ICAO indexes now that models[] has been populated by the scan
+                    // publish the scanned list, then rebuild the ICAO indexes from it
+                    lock (writeLock)
+                    {
+                        models = scanWork;
+                    }
+                    scanWork = null;
                     MakeIcaoIndex();
+                    RebuildTitleIndex();
 
                     if (simulatorName == "Microsoft Flight Simulator 2020")
                     {
@@ -2415,7 +2645,6 @@ namespace JoinFS
                         {
                             try
                             {
-                                lock (main.conch)
                                 {
 
                                     string lastaddon = "";
@@ -2517,19 +2746,6 @@ namespace JoinFS
                     // check for models scanned
                     if (models.Count > 0)
                     {
-// TODO: cleanup code
-//                        if(main.settingsUseAIFeatures)
-//                        {
-//                            main.EnqueueCommand(async () =>
-//                            {
-//                                await main.substitution.enrichModelService.EnrichModelsWithDetailsAsync(models);
-//                                main.MonitorEvent("Model data enriched");
-//#if X64
-//                                await main.substitution.embeddingService.GenerateEmbeddingsFromModelsAsync(models);
-//                                main.MonitorEvent("Model data enriched");
-//#endif
-//                            });
-//                        }
                         main.MonitorEvent("Scan found " + models.Count + ((models.Count == 1) ? " model" : " models") + " in the community folder(s)");
                     }
                     else
@@ -2718,15 +2934,26 @@ namespace JoinFS
         /// <summary>
         /// List of model prefixes
         /// </summary>
-        readonly Dictionary<string, string> prefixList = [];
+        volatile Dictionary<string, string> prefixList = [];
+
+        /// <summary>
+        /// True the first time <paramref name="key"/> is seen (diagnostics sets, used from several threads)
+        /// </summary>
+        static bool LogOnce(HashSet<string> seen, string key)
+        {
+            lock (seen)
+            {
+                return seen.Add(key);
+            }
+        }
 
         /// <summary>
         /// Make a list of model prefix strings
         /// </summary>
         void MakePrefixList()
         {
-            // clear list
-            prefixList.Clear();
+            // build a new list, then publish it
+            Dictionary<string, string> prefixList = [];
 
             // for each model
 
@@ -2745,6 +2972,8 @@ namespace JoinFS
                     }
                 }
             }
+
+            this.prefixList = prefixList;
         }
 
         /// <summary>
@@ -2804,8 +3033,9 @@ namespace JoinFS
                         // read all models from file
                         string[] lines = File.ReadAllLines(filename);
                         string[] separator = [ "|" ];
+                        // build a new list (the current models plus these), then publish it
+                        List<Model> loaded = new(models);
                         // for all lines
-                        lock (main.conch)
                         {
                         foreach (string line in lines)
                         {
@@ -2833,31 +3063,31 @@ namespace JoinFS
                             }
                             // check that model is not already present
 #if FS2024
-                            if (ModelExists(parts[0], parts[3]) == false)
+                            if (FindModel(loaded, parts[0], parts[3]) == null)
 #else
-                            if (ModelExists(parts[0]) == false)
+                            if (FindModel(loaded, parts[0]) == null)
 #endif
                             {
                                 // check for correct parts
                                 if (parts.Length == 4)
                                 {
                                     // add model
-                                    models.Add(new Model(parts[0], parts[1], parts[2], parts[3], 0, "SingleProp", "1", ""));
+                                    loaded.Add(new Model(parts[0], parts[1], parts[2], parts[3], 0, "SingleProp", "1", ""));
                                 }
                                 else if (parts.Length == 5)
                                 {
                                     // add model
-                                    models.Add(new Model(parts[0], parts[1], parts[2], parts[3], 0, parts[4], "1", ""));
+                                    loaded.Add(new Model(parts[0], parts[1], parts[2], parts[3], 0, parts[4], "1", ""));
                                 }
                                 else if (parts.Length == 6)
                                 {
                                     // add model
-                                    models.Add(new Model(parts[0], parts[1], parts[2], parts[3], 0, parts[4], parts[5], ""));
+                                    loaded.Add(new Model(parts[0], parts[1], parts[2], parts[3], 0, parts[4], parts[5], ""));
                                 }
                                 else if (parts.Length == 7)
                                 {
                                     // add model
-                                    models.Add(new Model(parts[0], parts[1], parts[2], parts[3], 0, parts[4], parts[5], parts[6]));
+                                    loaded.Add(new Model(parts[0], parts[1], parts[2], parts[3], 0, parts[4], parts[5], parts[6]));
                                 }
                                 else if (parts.Length >= 8)
                                 {
@@ -2871,11 +3101,17 @@ namespace JoinFS
                                     // add model
                                     Model model = new(parts[0], parts[1], parts[2], parts[3], index, parts[5], parts[6], parts[7], icaoType, wtc, icaoAirline, classCode, classCodeConfirmed);
                                     model.RefreshIcaoDerived(doc8643Lookup);
-                                    models.Add(model);
+                                    loaded.Add(model);
                                 }
                             }
                         }
                         }
+
+                        lock (writeLock)
+                        {
+                            models = loaded;
+                        }
+                        RebuildTitleIndex();
 
                         // message
                         main.MonitorEvent("Loaded " + models.Count + ((models.Count == 1) ? " model" : " models"));
@@ -2983,8 +3219,8 @@ namespace JoinFS
                     // check for matching file
                     if (File.Exists(filename))
                     {
-                        // clear list
-                        matches.Clear();
+                        // build a new list, then publish it
+                        Dictionary<string, Model> loaded = [];
 
                         // open file
                         StreamReader reader = File.OpenText(filename);
@@ -3026,7 +3262,7 @@ namespace JoinFS
                                 if (model != null)
                                 {
                                     // add model match
-                                    matches[parts[0]] = model;
+                                    loaded[parts[0]] = model;
                                 }
                                 else
                                 {
@@ -3039,6 +3275,11 @@ namespace JoinFS
                             }
                         }
                         reader.Close();
+
+                        lock (writeLock)
+                        {
+                            matches = loaded;
+                        }
 
                         main.MonitorEvent("Loaded " + matches.Count + " match substitutions");
                     }
@@ -3138,8 +3379,8 @@ namespace JoinFS
                     // check for matching file
                     if (File.Exists(filename))
                     {
-                        // clear list
-                        masquerades.Clear();
+                        // build a new list, then publish it
+                        Dictionary<string, Model> loaded = [];
 
                         // open file
                         StreamReader reader = File.OpenText(filename);
@@ -3160,7 +3401,7 @@ namespace JoinFS
                                 if (model != null)
                                 {
                                     // add model match
-                                    masquerades[modelTitle] = model;
+                                    loaded[modelTitle] = model;
                                 }
                                 else
                                 {
@@ -3173,6 +3414,11 @@ namespace JoinFS
                             }
                         }
                         reader.Close();
+
+                        lock (writeLock)
+                        {
+                            masquerades = loaded;
+                        }
 
                         main.MonitorEvent("Loaded " + masquerades.Count + " masquerade substitutions");
                     }
@@ -3569,6 +3815,7 @@ namespace JoinFS
                 if (File.Exists(banListFile))
                 {
                     // open file
+                    List<string> loaded = [];
                     StreamReader reader = new(banListFile);
                     // read ban list
                     string line;
@@ -3577,11 +3824,13 @@ namespace JoinFS
                         if (line != "" && !line.StartsWith('#'))
                         {
                             // add to ban list
-                            modelBanList.Add(line);
+                            loaded.Add(line);
                         }
                     }
                     // close file
                     reader.Close();
+                    // publish
+                    modelBanList = loaded;
                 }
             }
         }
@@ -3678,11 +3927,16 @@ namespace JoinFS
         /// </summary>
         public void Clear()
         {
-            // clear all lists
-            models.Clear();
-            prefixList.Clear();
-            matches.Clear();
-            masquerades.Clear();
+            // clear all lists (publish empty ones)
+            lock (writeLock)
+            {
+                models = [];
+                prefixList = [];
+                matches = [];
+                masquerades = [];
+            }
+            MakeIcaoIndex();
+            RebuildTitleIndex();
 
 #if !SERVER && !CONSOLE
             main.matchingForm ?. refresher.Schedule();
@@ -3699,7 +3953,10 @@ namespace JoinFS
             {
                 // check for models
                 if (models.Count > 0)
+                lock (writeLock)
                 {
+                    // change a copy, publish it at the end
+                    Dictionary<string, Model> matches = new(this.matches);
                     // changed flag
                     bool changed = false;
 
@@ -3759,6 +4016,8 @@ namespace JoinFS
                         }
                     }
 
+                    this.matches = matches;
+
                     // check if changed
                     if (changed)
                     {
@@ -3778,11 +4037,11 @@ namespace JoinFS
         /// </summary>
         void ApplyMasquerade(string replaceModel, Model model)
         {
-            // check for sim
-            if (main.sim != null)
+            // on the sim thread, which owns the objects
+            main.SimCommand(sim =>
             {
                 // for all objects in the sim
-                foreach (var obj in main.sim.objectList)
+                foreach (var obj in sim.objectList)
                 {
                     // check if replace model
                     if (obj.Injected == false && obj.ownerModel.Equals(replaceModel))
@@ -3792,7 +4051,7 @@ namespace JoinFS
                         obj.subType = (model != null) ? Type.Substitute : Type.Original;
                     }
                 }
-            }
+            });
 
 #if !SERVER && !CONSOLE
             // refresh
@@ -3827,7 +4086,7 @@ namespace JoinFS
                     switch (substitutionForm.ShowDialog())
                     {
                         case System.Windows.Forms.DialogResult.OK:
-                            lock (main.conch)
+                            lock (writeLock)
                             {
                                 // find replace with model
 #if FS2024
@@ -3837,8 +4096,10 @@ namespace JoinFS
 #endif
                                 if (model != null)
                                 {
-                                    // update model match
-                                    matches[substitutionForm.GetReplaceModel()] = model;
+                                    // update model match (copy-on-write)
+                                    Dictionary<string, Model> updated = new(matches);
+                                    updated[substitutionForm.GetReplaceModel()] = model;
+                                    matches = updated;
                                     main.ScheduleSubstitutionSave();
                                     // remove aircraft using the selected model
                                     main.sim ?. ScheduleRemoveModel(substitutionForm.GetReplaceModel());
@@ -3849,10 +4110,12 @@ namespace JoinFS
                             return true;
 
                         case System.Windows.Forms.DialogResult.No:
-                            lock (main.conch)
+                            lock (writeLock)
                             {
-                                // remove this model match
-                                matches.Remove(modelTitle);
+                                // remove this model match (copy-on-write)
+                                Dictionary<string, Model> updated = new(matches);
+                                updated.Remove(modelTitle);
+                                matches = updated;
                                 main.ScheduleSubstitutionSave();
                                 // remove aircraft using the selected model
                                 main.sim ?. ScheduleRemoveModel(modelTitle);
@@ -3904,7 +4167,7 @@ namespace JoinFS
                     switch (substitutionForm.ShowDialog())
                     {
                         case System.Windows.Forms.DialogResult.OK:
-                            lock (main.conch)
+                            lock (writeLock)
                             {
                                 // find replace with model
 #if FS2024
@@ -3914,8 +4177,10 @@ namespace JoinFS
 #endif
                                 if (model != null)
                                 {
-                                    // update model masquerade
-                                    masquerades[modelTitle] = model;
+                                    // update model masquerade (copy-on-write)
+                                    Dictionary<string, Model> updated = new(masquerades);
+                                    updated[modelTitle] = model;
+                                    masquerades = updated;
                                     main.ScheduleSubstitutionSave();
                                     // apply
                                     ApplyMasquerade(modelTitle, model);
@@ -3924,10 +4189,12 @@ namespace JoinFS
                             return true;
 
                         case System.Windows.Forms.DialogResult.No:
-                            lock (main.conch)
+                            lock (writeLock)
                             {
-                                // remove this model match
-                                masquerades.Remove(modelTitle);
+                                // remove this model match (copy-on-write)
+                                Dictionary<string, Model> updated = new(masquerades);
+                                updated.Remove(modelTitle);
+                                masquerades = updated;
                                 main.ScheduleSubstitutionSave();
                                 // apply
                                 ApplyMasquerade(modelTitle, null);
@@ -4362,23 +4629,23 @@ namespace JoinFS
                 string remoteRegistrationAlnum = AlnumOnly(registration);
 
                 HashSet<Model> candidatePool = [];
-                if (icaoType.Length > 0 && icaoIndex.TryGetValue(icaoType, out var icaoCandidates))
+                if (icaoType.Length > 0 && indexes.icao.TryGetValue(icaoType, out var icaoCandidates))
                 {
                     candidatePool.UnionWith(icaoCandidates);
                 }
                 if (remoteClassCode.Length == 3)
                 {
-                    if (classCodeIndex.TryGetValue(remoteClassCode, out var classCandidates))
+                    if (indexes.classCode.TryGetValue(remoteClassCode, out var classCandidates))
                     {
                         candidatePool.UnionWith(classCandidates);
                     }
                     string looseKey = remoteClassCode[0] + "*" + remoteClassCode[2];
-                    if (categoryIndex.TryGetValue(looseKey, out var looseCandidates))
+                    if (indexes.category.TryGetValue(looseKey, out var looseCandidates))
                     {
                         candidatePool.UnionWith(looseCandidates);
                     }
                 }
-                if (typeroleIndex.TryGetValue(typerole, out var typeroleCandidates))
+                if (indexes.typerole.TryGetValue(typerole, out var typeroleCandidates))
                 {
                     candidatePool.UnionWith(typeroleCandidates);
                 }

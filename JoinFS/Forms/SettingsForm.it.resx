@@ -184,15 +184,6 @@
   <data name="Label_FollowText.Text" xml:space="preserve">
     <value>Distanza di inseguimento:</value>
   </data>
-  <data name="Check_UseAIFeatures.Location" type="System.Drawing.Point, System.Drawing">
-    <value>7, 209</value>
-  </data>
-  <data name="Check_UseAIFeatures.Size" type="System.Drawing.Size, System.Drawing">
-    <value>180, 19</value>
-  </data>
-  <data name="Check_UseAIFeatures.Text" xml:space="preserve">
-    <value>Usa corrispondenza modelli AI</value>
-  </data>
   <data name="Check_Connect.Location" type="System.Drawing.Point, System.Drawing">
     <value>52, 153</value>
   </data>

@@ -35,6 +35,11 @@
         }
 
         /// <summary>
+        /// Time after which the timer next elapses
+        /// </summary>
+        public double Due => elapseTime;
+
+        /// <summary>
         /// Check if timer has elapsed
         /// </summary>
         /// <param name="now"></param>

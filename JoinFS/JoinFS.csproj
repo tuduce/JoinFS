@@ -120,7 +120,7 @@
 		<OutputType>Exe</OutputType>
 		<TargetFramework>net8.0</TargetFramework>
 		<UseWindowsForms>false</UseWindowsForms>
-		<PlatformTarget>x64</PlatformTarget>
+		<PlatformTarget>ARM64</PlatformTarget>
 		<DefineConstants>DEBUG;TRACE;CONSOLE</DefineConstants>
 		<OutputPath>bin\CONSOLE-Debug\</OutputPath>
 	</PropertyGroup>
@@ -130,7 +130,7 @@
 		<OutputType>Exe</OutputType>
 		<TargetFramework>net8.0</TargetFramework>
 		<UseWindowsForms>false</UseWindowsForms>
-		<PlatformTarget>x64</PlatformTarget>
+		<PlatformTarget>ARM64</PlatformTarget>
 		<TargetFramework>net8.0</TargetFramework>
 		<UseWindowsForms>false</UseWindowsForms>
 		<DefineConstants>TRACE;CONSOLE</DefineConstants>
@@ -201,6 +201,7 @@
 	<!-- shared references -->
 	<ItemGroup>
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+		<PackageReference Include="DnsClient" Version="1.8.0" />
 	</ItemGroup>
 
 	<!-- CONSOLE references -->

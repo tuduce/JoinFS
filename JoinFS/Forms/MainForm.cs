@@ -9,6 +9,7 @@ using System.Globalization;
 using JoinFS.Properties;
 using System.Net.Http;
 using System.Threading.Tasks;
+using JoinFS.Net;
 
 
 namespace JoinFS
@@ -134,13 +135,13 @@ namespace JoinFS
                 Combo_Join.Text = Settings.Default.JoinAddress;
 
 #if NO_HUBS
-                Combo_Join.Text = Network.EncodeIP(Settings.Default.JoinAddress);
+                Combo_Join.Text = AddressCodec.EncodeIP(Settings.Default.JoinAddress);
                 Menu_View_Hubs.Visible = false;
                 Menu_View_Atc.Visible = false;
                 Settings.Default.AtcFormOpen = false;
                 Settings.Default.HubsFormOpen = false;
 #else
-                Text_MyIP.Text = Network.UuidToString(main.uuid);
+                Text_MyIP.Text = UserDirectory.UuidToString(main.uuid);
 #endif
 
                 Tool_Version.Text = Main.Version;
@@ -429,7 +430,7 @@ namespace JoinFS
                     if (main.sessionForm != null)
                     {
                         // get selected user
-                        LocalNode.Nuid nuid = main.sessionForm.GetSelectedNuid();
+                        NodeId nuid = main.sessionForm.GetSelectedNuid();
                         // check for valid user
                         if (nuid.Valid())
                         {
@@ -459,22 +460,22 @@ namespace JoinFS
                     if (main.sessionForm != null)
                     {
                         // get selected user
-                        LocalNode.Nuid nuid = main.sessionForm.GetSelectedNuid();
+                        NodeId nuid = main.sessionForm.GetSelectedNuid();
                         // check for valid user
                         if (nuid.Valid())
                         {
                             // get current hand over state
-                            bool handOver = main.network.shareFlightControls == nuid;
+                            bool handOver = main.network.Peers.shareFlightControls == nuid;
                             // check state
                             if (handOver)
                             {
                                 // disable
-                                main.network.shareFlightControls = new LocalNode.Nuid();
+                                main.network.Peers.shareFlightControls = new NodeId();
                             }
                             else
                             {
                                 // enable
-                                main.network.shareFlightControls = nuid;
+                                main.network.Peers.shareFlightControls = nuid;
                             }
                             // refresh
                             main.sessionForm ?. usersRefresher.Schedule();
@@ -522,7 +523,7 @@ namespace JoinFS
             refreshActive = true;
 
             // check for first iterations
-            if (main.ElapsedTime < 6.0)
+            if (main.ElapsedTime - main.StartTime < 6.0)
             {
                 // force a refresh
                 refreshForce = true;
@@ -715,7 +716,7 @@ namespace JoinFS
                     if (main.settingsNickname.Length < 2)
                     {
                         // create hash nickname
-                        main.settingsNickname = LocalNode.GenerateName(main.storagePath);
+                        main.settingsNickname = NetHash.GenerateName(main.storagePath);
                     }
                     // get nickname
                     Settings.Default.Nickname = main.settingsNickname;
@@ -753,7 +754,7 @@ namespace JoinFS
                 // reset flag
                 main.scheduleFlightPlan = false;
                 // file flight plan
-                if (new FlightPlanForm(main, main.sim.userAircraft, main.sim.userFlightPlan).ShowDialog() == DialogResult.OK)
+                if (new FlightPlanForm(main, main.sim.View.UserAircraft, main.sim.View.UserFlightPlan).ShowDialog() == DialogResult.OK)
                 {
                     CommitUserFlightPlanChange();
                 }
@@ -786,7 +787,7 @@ namespace JoinFS
             {
 #if NO_HUBS
                 // get myip
-                string myip = Network.EncodeIP(Settings.Default.MyIp);
+                string myip = AddressCodec.EncodeIP(Settings.Default.MyIp);
 
                 // get port
                 if (main.settingsPortEnabled)
@@ -813,10 +814,10 @@ namespace JoinFS
                     lock (main.conch)
                     {
                         // check if connected
-                        if (main.network.localNode.CurrentState != LocalNode.State.Unconnected)
+                        if (main.network.Snapshot.State != SessionState.Unconnected)
                         {
                             // check if connected to global session
-                            if (main.network.localNode.GlobalSession)
+                            if (main.network.Snapshot.GlobalSession)
                             {
                                 // global session
                                 joinText = Resources.Strings.Global;
@@ -831,7 +832,7 @@ namespace JoinFS
                                 else
                                 {
                                     // find entry
-                                    Network.Hub hub = main.network.hubList.Find(h => h.endPoint.Equals(main.network.joinEndPoint));
+                                    HubDirectory.Hub hub = main.network.Hubs.List.Find(h => h.endPoint.Equals(main.network.joinEndPoint));
                                     if (hub != null)
                                     {
                                         joinText = hub.name;
@@ -865,20 +866,20 @@ namespace JoinFS
                     if (main.settingsHub)
                     {
                         // check for global session
-                        if (main.network.localNode.GlobalSession)
+                        if (main.network.Snapshot.GlobalSession)
                         {
                             // update maximum
-                            maxGlobal = main.network.localNode.NodeCount + 1;
+                            maxGlobal = main.network.Snapshot.PeerCount + 1;
                         }
                         else
                         {
                             // add to total
-                            publicCount += main.network.localNode.NodeCount + 1;
+                            publicCount += main.network.Snapshot.PeerCount + 1;
                         }
                     }
 
                     // for each hub
-                    foreach (var hub in main.network.hubList)
+                    foreach (var hub in main.network.Hubs.List)
                     {
                         // check for global hub
                         if (hub.globalSession)
@@ -900,7 +901,7 @@ namespace JoinFS
                     // add global users
                     publicCount += maxGlobal;
 
-                    int sessionCount = main.network.nodeList.Count + (main.network.localNode.Connected ? 1 : 0);
+                    int sessionCount = main.network.Peers.Nodes.Count + (main.network.Connected ? 1 : 0);
 
                     // get user count as string
 #if NO_HUBS
@@ -1022,12 +1023,22 @@ namespace JoinFS
             };
             if (dialog.ShowDialog() == DialogResult.OK)
             {
+                // copy on the sim thread (which owns the recording) before opening the file, which
+                // truncates it - a failed copy must not leave an empty file marked as saved
+                List<Recorder.Obj> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
+                if (objects == null)
+                {
+                    string message = "ERROR - Recording not saved: the simulator thread did not respond. Please try again.";
+                    MessageBox.Show(message, Main.Name + ": " + Resources.Strings.RecorderStr);
+                    main.MonitorEvent(message);
+                    return;
+                }
                 if ((stream = dialog.OpenFile()) != null)
                 {
-                    lock (main.conch)
+                    // write here
+                    using (stream)
                     {
-                        main.recorder.Write(new BinaryWriter(stream));
-                        stream.Close();
+                        main.recorder.Write(new BinaryWriter(stream), objects);
                     }
                     // save folder
                     Settings.Default.RecordingFolder = Path.GetDirectoryName(dialog.FileName);
@@ -1049,10 +1060,8 @@ namespace JoinFS
                 DialogResult result = MessageBox.Show(Resources.Strings.SaveCurrentRecording, Main.Name + ": " + Resources.Strings.UnsavedRecording, MessageBoxButtons.YesNo);
                 if (result == DialogResult.Yes)
                 {
-                    lock (main.conch)
-                    {
-                        SaveRecording();
-                    }
+                    // not under conch: SaveRecording shows a dialog and waits for the sim thread
+                    SaveRecording();
                 }
             }
         }
@@ -1144,10 +1153,10 @@ namespace JoinFS
             {
 #if !SERVER
                 // check if password failed
-                if (main.network.localNode.CurrentState == LocalNode.State.Connecting)
+                if (main.network.Snapshot.State == SessionState.Connecting)
                 {
                     // check for password fail
-                    if (main.network.localNode.ActiveJoinResult == LocalNode.JoinResult.PasswordRequired)
+                    if (main.network.Snapshot.JoinResult == JoinResult.PasswordRequired)
                     {
                         // leave existing network
                         main.network.ScheduleLeave();
@@ -1182,7 +1191,7 @@ namespace JoinFS
                             if (passwordForm.ShowDialog() == DialogResult.OK)
                             {
                                 // get hashed password
-                                passwordHash = LocalNode.HashPassword(passwordForm.password.TrimStart(' ').TrimEnd(' '));
+                                passwordHash = NetHash.HashPassword(passwordForm.password.TrimStart(' ').TrimEnd(' '));
 
                                 lock (main.conch)
                                 {
@@ -1199,7 +1208,7 @@ namespace JoinFS
                         }
                     }
                     // check for login required
-                    else if (main.network.localNode.ActiveJoinResult == LocalNode.JoinResult.LoginRequired)
+                    else if (main.network.Snapshot.JoinResult == JoinResult.LoginRequired)
                     {
                         // leave existing network
                         main.network.ScheduleLeave();
@@ -1291,12 +1300,12 @@ namespace JoinFS
                             lock (main.conch)
                             {
                                 // join session
-                                main.network.ScheduleLogin(main.network.joinEndPoint, loginForm.email, LocalNode.HashString(loginForm.password), false);
+                                main.network.ScheduleLogin(main.network.joinEndPoint, loginForm.email, NetHash.HashString(loginForm.password), false);
                             }
                         }
                     }
                     // check for verify required
-                    else if (main.network.localNode.ActiveLoginResult == LocalNode.LoginResult.VerifyPassword)
+                    else if (main.network.Snapshot.LoginResult == LoginResult.VerifyPassword)
                     {
                         // leave existing network
                         main.network.ScheduleLeave();
@@ -1307,7 +1316,7 @@ namespace JoinFS
                         if (loginForm.ShowDialog() == DialogResult.OK)
                         {
                             // get password hash
-                            uint hash = LocalNode.HashString(loginForm.password);
+                            uint hash = NetHash.HashString(loginForm.password);
                             if (hash == 0) hash = 1;
                             // verify password
                             if (hash == main.network.ScheduleLoginHash)
@@ -1326,7 +1335,7 @@ namespace JoinFS
                         }
                     }
                     // check for invalid email
-                    else if (main.network.localNode.ActiveLoginResult == LocalNode.LoginResult.InvalidAddress)
+                    else if (main.network.Snapshot.LoginResult == LoginResult.InvalidAddress)
                     {
                         // leave existing network
                         main.network.ScheduleLeave();
@@ -1334,7 +1343,7 @@ namespace JoinFS
                         main.ShowMessage(Resources.Strings.InvalidEmail);
                     }
                     // check for invalid password
-                    else if (main.network.localNode.ActiveLoginResult == LocalNode.LoginResult.InvalidPassword)
+                    else if (main.network.Snapshot.LoginResult == LoginResult.InvalidPassword)
                     {
                         // leave existing network
                         main.network.ScheduleLeave();
@@ -1360,7 +1369,7 @@ namespace JoinFS
                         // update button text
                         createText = "Hub";
                     }
-                    else if (main.network.localNode.CurrentState != LocalNode.State.Unconnected)
+                    else if (main.network.Snapshot.State != SessionState.Unconnected)
                     {
                         // update create button
                         createEnabled = false;
@@ -1406,20 +1415,20 @@ namespace JoinFS
                 lock (main.conch)
                 {
                     // check connection state
-                    switch (main.network.localNode.CurrentState)
+                    switch (main.network.Snapshot.State)
                     {
-                        case LocalNode.State.Connected:
+                        case SessionState.Connected:
                             // update label
                             backColor = Settings.Default.ColourActiveBackground;
                             foreColor = Settings.Default.ColourActiveText;
                             // check for password
-                            if (main.network.localNode.Password)
+                            if (main.network.Snapshot.PasswordProtected)
                             {
                                 buttonText = Resources.Strings.Password;
                             }
                             break;
 
-                        case LocalNode.State.Unconnected:
+                        case SessionState.Unconnected:
                             // check not auto joining
                             if (main.network.scheduleJoinUser == false)
                             {
@@ -1467,16 +1476,16 @@ namespace JoinFS
                 Color backColor = Settings.Default.ColourInactiveBackground;
                 Color foreColor = Settings.Default.ColourInactiveText;
 
-                lock (main.conch)
+                SimSnapshot view = main.sim.View;
                 {
                     // check if FS connected
-                    if (main.sim.Connected)
+                    if (view.Connected)
                     {
                         // update label
                         backColor = Settings.Default.ColourActiveBackground;
                         foreColor = Settings.Default.ColourActiveText;
                     }
-                    else if (main.sim.Connecting)
+                    else if (view.Connecting)
                     {
                         // update label
                         backColor = Settings.Default.ColourWaitingBackground;
@@ -1534,7 +1543,7 @@ namespace JoinFS
         {
             // join
 #if NO_HUBS
-            main.Join(Network.DecodeIP(Combo_Join.Text.TrimStart(' ').TrimEnd(' ')));
+            main.Join(AddressCodec.DecodeIP(Combo_Join.Text.TrimStart(' ').TrimEnd(' ')));
 #else
             main.Join(Combo_Join.Text.TrimStart(' ').TrimEnd(' '));
 #endif
@@ -1556,7 +1565,7 @@ namespace JoinFS
                 return;
             }
 
-            Sim.FlightPlan plan = main.sim.userFlightPlan;
+            Sim.FlightPlan plan = main.sim.View.UserFlightPlan;
             bool hasPlan = plan.departure.Length > 0 || plan.destination.Length > 0;
 
             Button_FlightPlan.Text = hasPlan ? plan.departure + "   ➜   " + plan.destination : Resources.Strings.MainForm_FlightPlanButtonDefaultText;
@@ -1626,12 +1635,6 @@ namespace JoinFS
 
         void CommitUserFlightPlanChange()
         {
-            // bump flight plan version, same as the scheduled flight-plan-form flow
-            if (main.sim.userAircraft != null)
-            {
-                main.sim.userAircraft.flightPlanVersion++;
-                if (main.sim.userAircraft.flightPlanVersion == 0) main.sim.userAircraft.flightPlanVersion = 1;
-            }
             RefreshFlightPlanButtons();
             // AircraftForm's grid reads flightPlan.callsign live but only redraws when its own refresher
             // fires - unlike opening FlightPlanForm from AircraftForm's own context menu (which calls
@@ -1643,11 +1646,15 @@ namespace JoinFS
 
         void BroadcastUserFlightPlanNow()
         {
-            // main-screen source buttons commit and broadcast immediately - no dialog/Save step
-            if (main.sim.userAircraft != null)
+            // main-screen source buttons commit and broadcast immediately - no dialog/Save step.
+            // On the sim thread, which owns the plan (after any edit posted before it).
+            main.SimCommand(sim =>
             {
-                main.network.SendFlightPlanMessage(main.network.localNode.GetLocalNuid(), main.sim.userAircraft.netId, main.sim.userFlightPlan);
-            }
+                if (sim.userAircraft != null)
+                {
+                    main.network.SimSender.BroadcastFlightPlanUpdate(sim.userAircraft.netId, sim.userFlightPlan);
+                }
+            });
         }
 
         private void Button_FlightPlan_Click(object sender, EventArgs e)
@@ -1657,7 +1664,7 @@ namespace JoinFS
                 return;
             }
 
-            if (new FlightPlanForm(main, main.sim.userAircraft, main.sim.userFlightPlan).ShowDialog() == DialogResult.OK)
+            if (new FlightPlanForm(main, main.sim.View.UserAircraft, main.sim.View.UserFlightPlan).ShowDialog() == DialogResult.OK)
             {
                 CommitUserFlightPlanChange();
             }
@@ -1673,7 +1680,7 @@ namespace JoinFS
             if (string.IsNullOrWhiteSpace(Settings.Default.SimBriefUsername))
             {
                 // nothing configured yet - land the pilot on the field where they'd set it
-                if (new FlightPlanForm(main, main.sim.userAircraft, main.sim.userFlightPlan) { FocusSimBriefUsername = true }.ShowDialog() == DialogResult.OK)
+                if (new FlightPlanForm(main, main.sim.View.UserAircraft, main.sim.View.UserFlightPlan) { FocusSimBriefUsername = true }.ShowDialog() == DialogResult.OK)
                 {
                     CommitUserFlightPlanChange();
                 }
@@ -1699,7 +1706,7 @@ namespace JoinFS
         public void ToggleNetwork()
         {
             // get connected state
-            bool connected = main.network.localNode.CurrentState != LocalNode.State.Unconnected;
+            bool connected = main.network.Snapshot.State != SessionState.Unconnected;
 
             // check if user join scheduled
             if (main.network.scheduleJoinUser)
@@ -1723,7 +1730,7 @@ namespace JoinFS
             {
                 // join
 #if NO_HUBS
-                main.Join(Network.DecodeIP(Combo_Join.Text.TrimStart(' ').TrimEnd(' ')));
+                main.Join(AddressCodec.DecodeIP(Combo_Join.Text.TrimStart(' ').TrimEnd(' ')));
 #else
                 main.Join(Combo_Join.Text.TrimStart(' ').TrimEnd(' '));
 #endif
@@ -1771,7 +1778,7 @@ namespace JoinFS
             lock (main.conch)
             {
                 // low bandwidth
-                main.network.localNode.lowBandwidth = Settings.Default.LowBandwidth;
+                main.network.LowBandwidth = Settings.Default.LowBandwidth;
             }
         }
 
@@ -1985,7 +1992,7 @@ namespace JoinFS
         {
             // check if no simulator connected
 #if !XPLANE
-            if (main.sim != null && main.sim.Connected == false)
+            if (main.sim != null && main.sim.View.Connected == false)
             {
                 MessageBox.Show(Resources.Strings.EditMatchingWarning, Main.Name + ": " + Resources.Strings.EditModelMatching);
             }
@@ -2070,14 +2077,14 @@ namespace JoinFS
         {
 #if !SERVER
             // check if no simulator connected
-            if (main.sim != null && main.sim.Connected == false)
+            if (main.sim != null && main.sim.View.Connected == false)
             {
                 MessageBox.Show(Resources.Strings.AssignVariablesWarning, Main.Name);
             }
             else
             {
                 // show dialog for assigning variables
-                new VariablesForm(main, main.sim ?. userAircraft ?. ownerModel).ShowDialog();
+                new VariablesForm(main, main.sim ?. View.UserAircraft ?. ownerModel).ShowDialog();
             }
 #endif
         }

@@ -29,6 +29,8 @@ namespace JoinFS
         string pendingFlightNumber;
         string pendingAlternate;
 
+        /// <param name="aircraft">Snapshot copy of the aircraft (Sim.View), or null for the user's own plan</param>
+        /// <param name="plan">The plan to show - a snapshot copy; OK applies the edits to the live plan on the sim thread</param>
         public FlightPlanForm(Main main, Sim.Aircraft aircraft, Sim.FlightPlan plan)
         {
             InitializeComponent();
@@ -213,7 +215,8 @@ namespace JoinFS
 
         private void Button_OK_Click(object sender, EventArgs e)
         {
-            lock (main.conch)
+            // edit a copy, then apply it to the live plan on the sim thread, which owns it
+            Sim.FlightPlan plan = this.plan.Clone();
             {
                 // return flight plan
                 plan.callsign = Text_Callsign.Text;
@@ -238,6 +241,27 @@ namespace JoinFS
                 plan.flightNumber = pendingFlightNumber;
                 plan.alternate = pendingAlternate;
             }
+
+            Sim.Obj live = aircraft?.Source;
+            main.SimCommand(sim =>
+            {
+                Sim.FlightPlan target = (live is Sim.Aircraft liveAircraft && sim.IsLive(liveAircraft)) ? liveAircraft.flightPlan : sim.userFlightPlan;
+                target.callsign = plan.callsign;
+                target.callsignSetByUser = plan.callsignSetByUser;
+                target.icaoAirline = plan.icaoAirline;
+                target.icaoType = plan.icaoType;
+                target.departure = plan.departure;
+                target.destination = plan.destination;
+                target.rules = plan.rules;
+                target.route = plan.route;
+                target.remarks = plan.remarks;
+                target.altitude = plan.altitude;
+                target.registration = plan.registration;
+                target.flightNumber = plan.flightNumber;
+                target.alternate = plan.alternate;
+            });
+            // whoever opened the dialog sees the edited plan straight away
+            this.plan = plan;
         }
     }
 }

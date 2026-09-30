@@ -183,14 +183,14 @@ namespace JoinFS
                         // get ATC level
                         int level = Settings.Default.AtcLevel;
                         // write client entry for ATC
-                        clientList.Add(WriteClient(true, Sim.MakeAtcCallsign(main.settingsAtcAirport, level), main.settingsNickname, Settings.Default.AtcFrequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, level, main.settingsActivityCircle, true, 0));
+                        clientList.Add(WriteClient(true, Atc.MakeAtcCallsign(main.settingsAtcAirport, level), main.settingsNickname, Settings.Default.AtcFrequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, level, main.settingsActivityCircle, true, 0));
                     }
 
                     // check for simulator
                     if (main.sim != null)
                     {
                         // for each object
-                        foreach (var obj in main.sim.objectList)
+                        foreach (var obj in main.sim.View.Objects)
                         {
                             // check for aircraft
                             if (obj is Sim.Aircraft aircraft && aircraft.showOnRadar)
@@ -198,10 +198,10 @@ namespace JoinFS
                                 // nickname
                                 string nickname = "";
                                 // check for node
-                                if (main.network.nodeList.ContainsKey(aircraft.ownerNuid))
+                                if (main.network.Peers.Nodes.TryGetValue(aircraft.ownerNuid, out var node))
                                 {
                                     // get nickname
-                                    nickname = main.network.nodeList[aircraft.ownerNuid].nickname;
+                                    nickname = node.nickname;
                                 }
 
                                 // default info
@@ -240,7 +240,7 @@ namespace JoinFS
                         }
 
                         // for each node
-                        foreach (var node in main.network.nodeList)
+                        foreach (var node in main.network.Peers.Nodes)
                         {
                             // check if seen guid
                             if (guidList.Exists(g => g.Equals(node.Value.guid)) == false)
@@ -262,7 +262,7 @@ namespace JoinFS
                                     longitude = Math.Min(180.0, Math.Max(-180.0, main.airportList[node.Value.atcAirport].longitude));
                                 }
                                 // write client entry for ATC
-                                clientList.Add(WriteClient(true, Sim.MakeAtcCallsign(node.Value.atcAirport, node.Value.atcLevel), node.Value.nickname, node.Value.atcFrequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, node.Value.atcLevel, node.Value.activityCircle, true, 0));
+                                clientList.Add(WriteClient(true, Atc.MakeAtcCallsign(node.Value.atcAirport, node.Value.atcLevel), node.Value.nickname, node.Value.atcFrequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, node.Value.atcLevel, node.Value.activityCircle, true, 0));
                             }
                         }
                     }
@@ -271,7 +271,7 @@ namespace JoinFS
                     if (main.settingsWhazzupPublic)
                     {
                         // for each hub
-                        foreach (var hub in main.network.hubList)
+                        foreach (var hub in main.network.Hubs.List)
                         {
                             // for each user
                             foreach (var user in hub.userList)
@@ -294,7 +294,7 @@ namespace JoinFS
                                             longitude = Math.Min(180.0, Math.Max(-180.0, main.airportList[user.flightPlan.departure].longitude));
                                         }
                                         // write client entry for ATC
-                                        clientList.Add(WriteClient(true, Sim.MakeAtcCallsign(user.flightPlan.departure, user.level), user.nickname, user.frequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, user.level, user.range, true, 0));
+                                        clientList.Add(WriteClient(true, Atc.MakeAtcCallsign(user.flightPlan.departure, user.level), user.nickname, user.frequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, user.level, user.range, true, 0));
                                     }
                                     else
                                     {
@@ -309,7 +309,7 @@ namespace JoinFS
                     // hub count
                     int hubCount = main.settingsHub ? 1 : 0;
                     // for each hub
-                    foreach (var hub in main.network.hubList)
+                    foreach (var hub in main.network.Hubs.List)
                     {
                         // check if hub is online
                         if (hub.online)
@@ -347,7 +347,7 @@ namespace JoinFS
                     }
 
                     // for each hub
-                    foreach (var hub in main.network.hubList)
+                    foreach (var hub in main.network.Hubs.List)
                     {
                         // check if hub is online
                         if (hub.online)
