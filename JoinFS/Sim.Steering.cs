@@ -142,7 +142,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorError(ex);
             }
         }
 

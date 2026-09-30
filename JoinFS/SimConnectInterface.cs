@@ -99,7 +99,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - Closing SimConnect: " + ex.Message);
+                main.MonitorError(ex, "Closing SimConnect");
             }
             messageEvent.Dispose();
         }
@@ -326,7 +326,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorError(ex);
             }
         }
 
@@ -442,7 +442,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    main.MonitorEvent("ERROR - " + ex.Message);
+                    main.MonitorError(ex);
                 }
             }
         }
@@ -472,7 +472,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    main.MonitorEvent("ERROR - " + ex.Message);
+                    main.MonitorError(ex);
                 }
             }
         }
@@ -502,7 +502,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    main.MonitorEvent("ERROR - " + ex.Message);
+                    main.MonitorError(ex);
                 }
             }
         }
@@ -529,7 +529,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorError(ex);
             }
         }
 
@@ -659,7 +659,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + (ex.InnerException?.Message ?? ex.Message));
+                main.MonitorError(ex);
             }
         }
 
@@ -676,7 +676,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorError(ex);
             }
         }
 
@@ -699,7 +699,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorError(ex);
             }
         }
 
@@ -735,7 +735,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorError(ex);
             }
         }
 
@@ -756,7 +756,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorError(ex);
             }
         }
 
@@ -788,7 +788,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    main.MonitorEvent("ERROR - " + ex.Message);
+                    main.MonitorError(ex);
                 }
             };
             if (_isSimOpen)
@@ -818,7 +818,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    main.MonitorEvent("ERROR - " + ex.Message);
+                    main.MonitorError(ex);
                 }
             };
             if (_isSimOpen)
@@ -849,7 +849,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    main.MonitorEvent("ERROR - " + ex.Message);
+                    main.MonitorError(ex);
                 }
             };
             if (_isSimOpen)
@@ -883,7 +883,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    main.MonitorEvent("ERROR - " + ex.Message);
+                    main.MonitorError(ex);
                 }
             };
             if (_isSimOpen)
@@ -912,7 +912,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorError(ex);
             }
         }
 
@@ -930,7 +930,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorError(ex);
             }
         }
 
@@ -948,7 +948,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorError(ex);
             }
         }
 
@@ -1026,7 +1026,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorError(ex);
             }
         }
 
@@ -1040,7 +1040,7 @@ namespace JoinFS
             }
             catch (AccessViolationException ex)
             {
-                main.MonitorEvent("ERROR - Access violation " + ex.Message);
+                main.MonitorError(ex, "Access violation");
             }
             catch (COMException ex)
             {
@@ -1048,7 +1048,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.MonitorEvent("ERROR - " + ex.Message);
+                main.MonitorError(ex);
             }
         }
     }

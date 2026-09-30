@@ -606,7 +606,7 @@ namespace JoinFS
                         }
                         catch (Exception ex)
                         {
-                            main.MonitorEvent("ERROR: Failed to write position/velocity message: " + ex.Message);
+                            main.MonitorError(ex, "Failed to write position/velocity message");
                         }
                     }
                 }

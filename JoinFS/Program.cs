@@ -1357,6 +1357,44 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Occurrences of each distinct error so far, keyed by context, type and message
+        /// </summary>
+        readonly Dictionary<string, int> errorCounts = [];
+
+        /// <summary>
+        /// Times an error is logged with its stack before only its message is
+        /// </summary>
+        const int ERROR_STACK_LIMIT = 5;
+
+        /// <summary>
+        /// Log an exception with the type and stack, on one line. Each distinct error gets its stack
+        /// only the first few times, so one that fails every frame cannot flood the log.
+        /// </summary>
+        /// <param name="ex">Exception</param>
+        /// <param name="context">What was being done; the calling method when not given</param>
+        public void MonitorError(Exception ex, string context = null, [System.Runtime.CompilerServices.CallerMemberName] string caller = "")
+        {
+            context ??= caller;
+            int count;
+            lock (errorCounts)
+            {
+                string key = context + "|" + ex.GetType().FullName + "|" + ex.Message;
+                errorCounts.TryGetValue(key, out count);
+                errorCounts[key] = ++count;
+            }
+            if (count <= ERROR_STACK_LIMIT)
+            {
+                // ToString() includes the type, the message, the stack and any inner exceptions
+                string detail = ex.ToString().Replace("\r", "").Replace("\n", " | ").Replace("   at ", "at ");
+                MonitorEvent("ERROR - " + context + ": " + detail);
+            }
+            else
+            {
+                MonitorEvent("ERROR - " + context + ": " + ex.Message + " (" + count + " times, stack no longer logged)");
+            }
+        }
+
+        /// <summary>
         /// log an event
         /// </summary>
         /// <param name="s"></param>

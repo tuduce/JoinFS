@@ -145,7 +145,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    main.MonitorEvent("ERROR - Failed to initialize SimConnect. " + ex.Message);
+                    main.MonitorError(ex, "Failed to initialize SimConnect");
                     simconnect = null;
                 }
 #elif XPLANE || CONSOLE

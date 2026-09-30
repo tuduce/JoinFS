@@ -383,7 +383,7 @@ namespace JoinFS
                     }
                     catch (Exception ex)
                     {
-                        main.MonitorEvent("ERROR - Failed to write position/velocity message: " + ex.Message);
+                        main.MonitorError(ex, "Failed to write position/velocity message");
                     }
                 }
             }
@@ -582,7 +582,7 @@ namespace JoinFS
                         }
                         catch (Exception ex)
                         {
-                            main.MonitorEvent("ERROR - Failed to write sim event message: " + ex.Message);
+                            main.MonitorError(ex, "Failed to write sim event message");
                         }
 
                         // check if recording
