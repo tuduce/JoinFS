@@ -133,8 +133,8 @@ namespace JoinFS
                 catch (Exception) when (_cts.IsCancellationRequested) { break; }
                 catch (Exception ex)
                 {
-                    if (main.settingsWebSocketLog)
-                        main.monitor.Write($"WebSocket accept error: {ex.Message}");
+                    // a real accept failure, not routine chatter - no silent errors
+                    main.monitor.Write($"WebSocket accept error: {ex.Message}");
                     // don't spin a core if GetContext() is in a persistently faulting state
                     Thread.Sleep(1000);
                 }
@@ -153,8 +153,8 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                if (main.settingsWebSocketLog)
-                    main.monitor.Write($"WebSocket upgrade error: {ex.Message}");
+                // a real upgrade failure, not routine chatter - no silent errors
+                main.monitor.Write($"WebSocket upgrade error: {ex.Message}");
                 return;
             }
 
@@ -465,7 +465,6 @@ namespace JoinFS
 
             if (snapshot.Count == 0) return;
 
-            bool log = main.settingsWebSocketLog;
             Task.Run(async () =>
             {
                 var bytes = Encoding.UTF8.GetBytes(message);
@@ -503,7 +502,10 @@ namespace JoinFS
                     catch (Exception ex)
                     {
                         dead.Add(ws);
-                        if (log) main.monitor.Write($"WebSocket send error (dropping client): {ex.Message}");
+                        // a genuine send failure (the per-client lock above rules out the
+                        // overlapping-send false positive) - a client silently disappearing with no
+                        // trace is exactly what no-silent-errors is meant to prevent
+                        main.monitor.Write($"WebSocket send error (dropping client): {ex.Message}");
                     }
                     finally
                     {

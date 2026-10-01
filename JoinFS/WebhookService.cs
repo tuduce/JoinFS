@@ -113,8 +113,8 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    if (log)
-                        main.monitor.Write($"Webhook error: {ex.Message}");
+                    // a real delivery failure, not routine chatter - no silent errors
+                    main.monitor.Write($"Webhook error: {ex.Message}");
                 }
             });
         }
