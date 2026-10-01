@@ -102,6 +102,10 @@ namespace JoinFS
             public VariableMgr.Set variableSet = null;
             public double variableStartTime;
             public bool failed = false;
+            /// <summary>main.ElapsedTime when failed was last set - see Sim.FAILED_RETRY_MAX / UpdateCreatingObject's retry backoff.</summary>
+            public double failedTime = 0.0;
+            /// <summary>Number of injection attempts that have failed for this object so far - capped at Sim.FAILED_RETRY_MAX.</summary>
+            public int failedCount = 0;
             public double expireTime = 0.0;
             public bool broadcast = false;
             public double netStateTime = 0.0;

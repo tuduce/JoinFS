@@ -540,6 +540,19 @@ namespace JoinFS
             // get event ID
             Event e = (Event)eventId;
 
+            // check for sim start/stop - re-arm any failed injections so traffic appears once the
+            // user is actually in a flight, without needing a [Sim] toggle (see RearmFailedInjections)
+            if (e == Event.SIM_START || e == Event.SIM_STOP)
+            {
+                simRunning = (e == Event.SIM_START);
+                main.MonitorEvent("Simulator " + (simRunning ? "started" : "stopped") + " (SimConnect event)");
+                if (simRunning)
+                {
+                    RearmFailedInjections("SimStart");
+                }
+                return;
+            }
+
             // check for pause event
             if (e == Event.PAUSE)
             {
@@ -614,6 +627,10 @@ namespace JoinFS
             main.MonitorEvent("Connected to simulator");
             main.MonitorEvent("SimConnect '" + simVerMaj.ToString() + "." + simVerMin.ToString() + "." + simBuiMaj.ToString() + "." + simBuiMin.ToString() + "'");
             main.MonitorEvent(name + " '" + appVerMaj.ToString() + "." + appVerMin.ToString() + "." + appBuiMaj.ToString() + "." + appBuiMin.ToString() + "'");
+
+            // a fresh SimConnect OPEN means we're (re)connected - clear any latched injection
+            // failures from a previous session/attempt so traffic doesn't wait on a [Sim] toggle
+            RearmFailedInjections("ProcessOpen");
 
             // store simulator details
             simulatorName = name;
@@ -768,8 +785,12 @@ namespace JoinFS
                             main.MonitorEvent("ERROR - Failed to inject object - User '" + ((obj.owner == Obj.Owner.Network) ? obj.ownerNuid.ToString() : "Me") + "' - ID '" + obj.simId + "' Sub - '" + obj.ModelTitle + "'");
                         }
 
-                        // failed
+                        // failed - but not permanently. The most common cause is the simulator still
+                        // sitting on the menu / loading a flight when the attempt was made; record the
+                        // time and count so the injection finder can re-arm this after a backoff.
                         obj.failed = true;
+                        obj.failedTime = main.ElapsedTime;
+                        obj.failedCount++;
                     }
                     else
                     {

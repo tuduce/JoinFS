@@ -129,6 +129,8 @@ namespace JoinFS
         // elevated platform (helipad/ship deck/rooftop) ground-trust feature - command-line only, not persisted
         public bool settingsElevatedPlatformRecognition = true;
         public int settingsElevatedPlatformThreshold = 50; // cm
+        /// <summary>Seconds between retries of an injection the simulator rejected while still on the menu / loading - see Sim.FAILED_RETRY_MAX.</summary>
+        public double settingsInjectionRetrySeconds = 10.0;
 #if XPLANE || CONSOLE
         public bool settingsGenerateCsl = false;
         public bool settingsSkipCsl = false;
@@ -587,6 +589,14 @@ namespace JoinFS
                                 }
                                 break;
 
+                            case "-injectionretryseconds":
+                                index++;
+                                if (index < args.Length && Double.TryParse(args[index], NumberStyles.Float, CultureInfo.InvariantCulture, out double injectionRetrySecondsVal) && injectionRetrySecondsVal > 0.0)
+                                {
+                                    settingsInjectionRetrySeconds = injectionRetrySecondsVal;
+                                }
+                                break;
+
 #if XPLANE || CONSOLE
                             case "-generatecsl":
                                 settingsGenerateCsl = true;
@@ -690,6 +700,7 @@ namespace JoinFS
                                 Console.WriteLine("  --websocketlog         Log WebSocket events and webhook calls (default false)");
                                 Console.WriteLine("  --elevatedplatformrecognition <true|false>       Confirm on-ground mismatches (any aircraft type) against local radar altitude instead of always trusting local terrain mesh (default true)");
                                 Console.WriteLine("  --elevatedplatformthreshold <cm>                 Minimum elevation mismatch before elevated platform recognition engages (default 50)");
+                                Console.WriteLine("  --injectionretryseconds <s>                      Delay before retrying an injection the simulator rejected while loading (default 10)");
                                 Console.WriteLine("");
                                 Console.WriteLine("Interactive key commands:");
                                 Console.WriteLine("");

@@ -319,6 +319,12 @@ namespace JoinFS
                 sc.SubscribeToSystemEvent(Sim.Event.OBJECT_REMOVED, "ObjectRemoved");
                 sc.SubscribeToSystemEvent(Sim.Event.FRAME, "Frame");
                 sc.SubscribeToSystemEvent(Sim.Event.PAUSE, "Pause");
+                // SimStart/SimStop - used only to re-arm failed injections (see Sim.RearmFailedInjections),
+                // never to gate the injection branch itself: SimStart semantics vary between MSFS builds
+                // and a missed event would suppress all traffic, which the injection-finder backoff
+                // already guards against independently.
+                sc.SubscribeToSystemEvent(Sim.Event.SIM_START, "SimStart");
+                sc.SubscribeToSystemEvent(Sim.Event.SIM_STOP, "SimStop");
             }
             catch (COMException ex)
             {
@@ -962,6 +968,18 @@ namespace JoinFS
         public void CreateObject(Sim.Obj obj)
         {
             if (!OnOwnerThread(() => CreateObject(obj))) return;
+
+            // Defer until SimConnect has actually sent OPEN. There's a window between simconnect !=
+            // null (Sim.Connected flips true) and RecvOpen where this would otherwise fire a
+            // COMException (exception 22) - same _pendingRequests pattern already used elsewhere
+            // (e.g. RequestSimulatorModels) for exactly this readiness gap.
+            if (!_isSimOpen)
+            {
+                _pendingRequests.Add(() => CreateObject(obj));
+                main.MonitorEvent("SimConnect not ready. Injection of '" + obj.ModelTitle + "' queued.");
+                return;
+            }
+
             // create sim position
             SIMCONNECT_DATA_INITPOSITION initPosition = new()
             {
