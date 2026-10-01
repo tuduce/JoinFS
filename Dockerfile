@@ -2,11 +2,12 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
 WORKDIR /src
 COPY JoinFS/JoinFS.csproj JoinFS/
-RUN dotnet restore JoinFS/JoinFS.csproj -r linux-musl-x64 /p:configuration=CONSOLE 
+RUN dotnet restore JoinFS/JoinFS.csproj -r linux-musl-x64 /p:configuration=CONSOLE /p:PlatformTarget=x64
 COPY . .
 RUN dotnet publish JoinFS/JoinFS.csproj \
 		-r linux-musl-x64 \
         /p:configuration=CONSOLE \
+        /p:PlatformTarget=x64 \
         --self-contained false \
         --no-restore \
         -o /app/publish \
