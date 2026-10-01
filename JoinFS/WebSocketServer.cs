@@ -29,12 +29,23 @@ namespace JoinFS
 
         // WebSocket state
         readonly List<WebSocket> _clients = [];
+        // One send at a time per client: WebSocket.SendAsync throws InvalidOperationException if a
+        // second call overlaps a still-pending one, which the broadcast loop's catch previously
+        // treated as a dead client and evicted - even though it was healthy, just slow to drain a
+        // prior tick's send. Keyed by the same WebSocket instance kept in _clients.
+        readonly Dictionary<WebSocket, SemaphoreSlim> _sendLocks = [];
         readonly object _clientLock = new();
         readonly CancellationTokenSource _cts = new();
         readonly Thread _listenThread;
 
         // Change detection
         readonly Dictionary<Guid, AircraftSnapshot> _previous = [];
+
+        // Aircraft currently skipped for an implausible position, so the warning logs once per
+        // aircraft per bad streak instead of every tick (which would flood the log for a peer/hub
+        // stuck sending garbled positions) - cleared on recovery or disappearance, same pass as
+        // _previous's own stale cleanup below.
+        readonly HashSet<Guid> _warnedImplausible = [];
 
         struct AircraftSnapshot
         {
@@ -147,7 +158,11 @@ namespace JoinFS
                 return;
             }
 
-            lock (_clientLock) _clients.Add(ws);
+            lock (_clientLock)
+            {
+                _clients.Add(ws);
+                _sendLocks[ws] = new SemaphoreSlim(1, 1);
+            }
             if (main.settingsWebSocketLog)
                 main.monitor.Write($"WebSocket client connected ({_clients.Count} total)");
 
@@ -165,7 +180,13 @@ namespace JoinFS
             catch { /* client disconnected */ }
             finally
             {
-                lock (_clientLock) _clients.Remove(ws);
+                SemaphoreSlim sendLock;
+                lock (_clientLock)
+                {
+                    _clients.Remove(ws);
+                    _sendLocks.Remove(ws, out sendLock);
+                }
+                sendLock?.Dispose();
                 if (main.settingsWebSocketLog)
                     main.monitor.Write($"WebSocket client disconnected ({_clients.Count} remaining)");
                 ws.Dispose();
@@ -337,9 +358,10 @@ namespace JoinFS
             catch (Exception ex)
             {
                 // never let the feed feed the work-thread failure streak (Program.cs escalates
-                // 5 throws in 5 s to a full shutdown)
-                if (main.settingsWebSocketLog)
-                    main.monitor.Write($"WebSocket DoWork error: {ex.Message}");
+                // 5 throws in 5 s to a full shutdown) - but never swallow it silently either: an
+                // exception escaping DoWorkInner is always unexpected, so this logs regardless of
+                // the websocketlog setting (no silent errors).
+                main.monitor.Write($"WebSocket DoWork error: {ex.Message}");
             }
         }
 
@@ -356,15 +378,19 @@ namespace JoinFS
                     if (obj is not Sim.Aircraft aircraft) continue;
 
                     Guid key = main.network.Peers.GetAircraftIdentityGuid(aircraft.ownerNuid, aircraft.netId, aircraft.simId);
+                    // tracked here (not just on the plausible path below) so a transient bad streak
+                    // doesn't make the stale-cleanup pass below mistake this aircraft for one that
+                    // disappeared and prune its _previous entry out from under it
+                    seen.Add(key);
 
                     var snap = SnapshotFromAircraft(aircraft);
                     if (!PlausibleSnapshot(in snap))
                     {
-                        if (main.settingsWebSocketLog)
+                        if (_warnedImplausible.Add(key))
                             main.monitor.Write($"[WS] skipping {aircraft.flightPlan.callsign}: implausible position (peer/hub version mismatch?)");
                         continue;
                     }
-                    seen.Add(key);
+                    _warnedImplausible.Remove(key);
 
                     bool existed = _previous.TryGetValue(key, out var prev);
                     _previous[key] = snap;
@@ -410,13 +436,21 @@ namespace JoinFS
                 }
             }
 
-            // drop change-detection state for aircraft/users that are gone (was an unbounded leak)
+            // drop change-detection/warned-implausible state for aircraft/users that are gone (was
+            // an unbounded leak) - _warnedImplausible can hold keys _previous never did (an
+            // aircraft that's never once been plausible never entered _previous), so it's pruned
+            // against the same "seen this tick" set independently rather than only when _previous
+            // happens to be ahead of it.
             if (_previous.Count > seen.Count)
             {
                 var stale = new List<Guid>();
                 foreach (var k in _previous.Keys)
                     if (!seen.Contains(k)) stale.Add(k);
                 foreach (var k in stale) _previous.Remove(k);
+            }
+            if (_warnedImplausible.Count > 0)
+            {
+                _warnedImplausible.RemoveWhere(k => !seen.Contains(k));
             }
 
             if (changedSnaps.Count == 0) return;
@@ -440,6 +474,25 @@ namespace JoinFS
                 foreach (var ws in snapshot)
                 {
                     if (ws.State != WebSocketState.Open) { dead.Add(ws); continue; }
+
+                    SemaphoreSlim sendLock;
+                    lock (_clientLock)
+                    {
+                        if (!_sendLocks.TryGetValue(ws, out sendLock)) continue; // disconnected since the snapshot was taken
+                    }
+
+                    // One send in flight per client at a time: a second DoWork tick can fire
+                    // before a slow client's previous SendAsync has finished, and WebSocket.SendAsync
+                    // throws InvalidOperationException on an overlapping call - which used to evict
+                    // a perfectly healthy, just-slow client as if it had errored.
+                    try
+                    {
+                        await sendLock.WaitAsync(_cts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break; // server shutting down
+                    }
                     try
                     {
                         // bound every send: a client that stops draining must not stall delivery
@@ -452,11 +505,21 @@ namespace JoinFS
                         dead.Add(ws);
                         if (log) main.monitor.Write($"WebSocket send error (dropping client): {ex.Message}");
                     }
+                    finally
+                    {
+                        sendLock.Release();
+                    }
                 }
                 if (dead.Count > 0)
                 {
                     lock (_clientLock)
-                        foreach (var ws in dead) _clients.Remove(ws);
+                    {
+                        foreach (var ws in dead)
+                        {
+                            _clients.Remove(ws);
+                            if (_sendLocks.Remove(ws, out var removedLock)) removedLock.Dispose();
+                        }
+                    }
                     foreach (var ws in dead)
                         try { ws.Dispose(); } catch { }
                 }
@@ -475,6 +538,11 @@ namespace JoinFS
                 try { ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Server shutting down", CancellationToken.None).Wait(1000); }
                 catch { /* ignore */ }
                 ws.Dispose();
+            }
+            lock (_clientLock)
+            {
+                foreach (var sendLock in _sendLocks.Values) sendLock.Dispose();
+                _sendLocks.Clear();
             }
 
             _listenThread.Join(3000);

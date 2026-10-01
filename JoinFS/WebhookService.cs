@@ -37,9 +37,9 @@ namespace JoinFS
             catch (Exception ex)
             {
                 // never let the webhook feed the work-thread failure streak (Program.cs
-                // escalates 5 throws in 5 s to a full shutdown)
-                if (main.settingsWebSocketLog)
-                    main.monitor.Write($"Webhook DoWork error: {ex.Message}");
+                // escalates 5 throws in 5 s to a full shutdown) - but never swallow it silently
+                // either: logs regardless of the websocketlog setting (no silent errors).
+                main.monitor.Write($"Webhook DoWork error: {ex.Message}");
             }
         }
 
