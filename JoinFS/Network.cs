@@ -278,13 +278,35 @@ namespace JoinFS
             {
                 host.Event("Reconnecting to '" + AddressCodec.EncodeIP(joinEndPoint.ToString())
                     + "' after losing every peer while still connected");
-                switch (sessionOrigin)
+
+                // capture before Leave() clears them (see Leave()'s credential-lifetime comment)
+                IPEndPoint target = joinEndPoint;
+                SessionOrigin origin = sessionOrigin;
+                uint passwordHash = lastPasswordHash;
+                string loginEmail = lastLoginEmail;
+                uint loginHash = lastLoginHash;
+                bool loginVerify = lastLoginVerify;
+
+                // Must Leave() before rejoining: our own Connected is still true (suid != 0, from
+                // before every peer expired - that's the whole premise of "orphaned"), and
+                // MeshManager.Handle(JoinReply) only adopts the hub's suid when !Connected. A
+                // restarted hub hands out a fresh suid, so without this reset the reply's
+                // "message.Suid == suid" check fails forever and RegisterNode never runs - the
+                // JoinRequest/JoinReply round-trip happens every retry (hence the log line and the
+                // Network button turning Waiting-orange) but silently never re-establishes anything.
+                // Every manual rejoin already avoids this because Main.Join() always
+                // ScheduleLeave()s before ScheduleJoin()/ScheduleLogin() - Leave() is what resets
+                // suid to 0. reconnectState is also reset by Leave(), restarting the orphaned-
+                // detection cycle cleanly for this fresh attempt.
+                Leave();
+
+                switch (origin)
                 {
                     case SessionOrigin.Join:
-                        Join(joinEndPoint, lastPasswordHash);
+                        Join(target, passwordHash);
                         break;
                     case SessionOrigin.Login:
-                        Login(joinEndPoint, lastLoginEmail, lastLoginHash, lastLoginVerify);
+                        Login(target, loginEmail, loginHash, loginVerify);
                         break;
                 }
             }
