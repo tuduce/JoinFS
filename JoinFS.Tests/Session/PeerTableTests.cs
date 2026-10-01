@@ -144,5 +144,58 @@ namespace JoinFS.Tests.Session
             Assert.True(rig.Peers.shareFlightControls.Invalid());
             Assert.True(rig.Peers.shareAncillaryControls.Invalid());
         }
+
+        [Fact]
+        public void AircraftIdentityGuid_DistinguishesLocallyOwnedAircraftFromEachOther()
+        {
+            // regression: GetNodeGuid() maps every invalid ownerNuid (this node's own aircraft,
+            // plus every Recorder-replayed aircraft) onto this node's own guid - callers that keyed
+            // off GetNodeGuid() alone saw all of them collide onto one identity.
+            var rig = new SessionRig();
+            var own = rig.Peers.GetAircraftIdentityGuid(new NodeId(), netId: 1, simId: 101);
+            var replayed = rig.Peers.GetAircraftIdentityGuid(new NodeId(), netId: 2, simId: 102);
+
+            Assert.NotEqual(own, replayed);
+        }
+
+        [Fact]
+        public void AircraftIdentityGuid_DistinguishesOneOwnersMultipleAircraftFromEachOther()
+        {
+            // regression: the first fix attempt only disambiguated by owner, so one peer
+            // broadcasting more than one aircraft at once still collapsed them onto a single guid.
+            var rig = new SessionRig();
+            rig.Peers.OnPeerJoined(Peer, Peer.ToEndPoint(Peer.port));
+            rig.Peers.Handle(SessionRig.From(Peer), Info("Bob") with { Guid = Guid.NewGuid() });
+
+            var first = rig.Peers.GetAircraftIdentityGuid(Peer, netId: 1, simId: 201);
+            var second = rig.Peers.GetAircraftIdentityGuid(Peer, netId: 2, simId: 202);
+
+            Assert.NotEqual(first, second);
+        }
+
+        [Fact]
+        public void AircraftIdentityGuid_IsStable_ForTheSameOwnerAndNetId()
+        {
+            var rig = new SessionRig();
+            rig.Peers.OnPeerJoined(Peer, Peer.ToEndPoint(Peer.port));
+            rig.Peers.Handle(SessionRig.From(Peer), Info("Bob") with { Guid = Guid.NewGuid() });
+
+            var a = rig.Peers.GetAircraftIdentityGuid(Peer, netId: 7, simId: 301);
+            var b = rig.Peers.GetAircraftIdentityGuid(Peer, netId: 7, simId: 999); // simId only matters when the owner is unrecognised
+
+            Assert.Equal(a, b);
+        }
+
+        [Fact]
+        public void AircraftIdentityGuid_FallsBackToSimId_ForAnUnrecognisedOwner()
+        {
+            var rig = new SessionRig();
+            var unrecognised = new NodeId(0x0A0000FF, 6112, 99); // never registered via OnPeerJoined
+
+            var first = rig.Peers.GetAircraftIdentityGuid(unrecognised, netId: 1, simId: 401);
+            var second = rig.Peers.GetAircraftIdentityGuid(unrecognised, netId: 1, simId: 402);
+
+            Assert.NotEqual(first, second);
+        }
     }
 }
