@@ -41,6 +41,59 @@ namespace JoinFS
         int nextPositionPollRequestId = PositionPollRequestIdBase;
         int NextPositionPollRequestId() { return nextPositionPollRequestId++; }
 
+        /// <summary>
+        /// Resolve the junk-stripped raw type/model and the confidence-hierarchy-resolved ICAO type/
+        /// airline/classCode/WTC for an OBJECT_INFO response. Shared by both "a new SimConnect object
+        /// appeared" and "the user's existing own aircraft object was re-reported" handling in
+        /// ProcessSimObjectData, so a genuinely new object and an in-place aircraft/callsign change on
+        /// an existing one resolve identically.
+        /// </summary>
+        void ResolveObjectInfoType(ObjectGetInfo info, out string type, out string model, out string learnIcaoType,
+            out string learnClassCode, out string learnWtc, out bool learnClassCodeConfirmed, out string resolvedIcaoAirline)
+        {
+            // remove any junk from type
+            type = info.type;
+            type = type.Replace("TTATCCOM.AC_MODEL ", "");
+            type = type.Replace("TTATCCOM.AC_MODEL_", "");
+            type = type.Replace("TT:ATCCOM.AC_MODEL ", "");
+            type = type.Replace("TT:ATCCOM.AC_MODEL_", "");
+            type = type.Replace("ATCCOM.AC_MODEL ", "");
+            type = type.Replace("ATCCOM.AC_MODEL_", "");
+            type = type.Replace("$$:", "");
+            type = type.Replace(".0.text", "");
+            model = info.model;
+            // convert the long hyphen
+            model = model.Replace("â€“", "–");
+
+            // learn this model's real ICAO type/airline/classCode/registration now that it's actually
+            // instantiated - closes the gap for aircraft a title guess can't tag, and for add-ons whose
+            // reported type doesn't match any Doc8643 designator. Confidence hierarchy (highest first): (1)
+            // real aircraft.cfg/livery.cfg data, located via LIVERY FOLDER - FS2024 only, same reliability
+            // tier non-FS2024 builds already get from their upfront folder scan; (2) DeriveLiveClassCode
+            // (category/engine simvars) when no config file can be found/parsed; (3) a title-text guess
+            // (handled elsewhere), for a model never yet instantiated.
+            Substitution.DeriveLiveClassCode(info.category, info.engineType, info.numEngines, out string liveClassCode, out string liveWtc);
+#if FS2024
+            string configIcaoType = "", configWtc = "", configIcaoAirline = "", configAtcId = "", configClassCode = "", configIcaoResolutionNote = "";
+            bool configConfirmed = main.substitution != null && main.substitution.TryReadConfigFromLiveryFolder(
+                info.liveryFolder, model, out configIcaoType, out configWtc,
+                out configIcaoAirline, out configAtcId, out configClassCode, out configIcaoResolutionNote);
+            learnIcaoType = configConfirmed ? configIcaoType : type;
+            learnClassCode = configConfirmed ? configClassCode : liveClassCode;
+            learnWtc = configConfirmed && configWtc.Length > 0 ? configWtc : liveWtc;
+            string learnIcaoAirline = configConfirmed && configIcaoAirline.Length > 0 ? configIcaoAirline : info.airline;
+            string learnAtcId = configConfirmed ? configAtcId : "";
+            learnClassCodeConfirmed = configConfirmed || liveClassCode.Length > 0;
+            resolvedIcaoAirline = main.substitution?.LearnIcaoFromLiveObject(model, info.livery, learnIcaoType, learnIcaoAirline, learnClassCode, learnWtc, learnAtcId, configConfirmed, configConfirmed ? configIcaoResolutionNote : "") ?? "";
+#else
+            learnIcaoType = type;
+            learnClassCode = liveClassCode;
+            learnWtc = liveWtc;
+            learnClassCodeConfirmed = liveClassCode.Length > 0;
+            resolvedIcaoAirline = main.substitution?.LearnIcaoFromLiveObject(model, "", type, "", liveClassCode, liveWtc) ?? "";
+#endif
+        }
+
         public void ProcessSimObjectData(uint objectId, uint requestId, object data)
         {
             // check object ID
@@ -78,48 +131,8 @@ namespace JoinFS
                                         main.MonitorEvent("DIAG ATC ID='" + info.callsign + "' ATC FLIGHT NUMBER='" + info.flightNumber + "'");
 #endif
                                     }
-                                    // remove any junk from type
-                                    string type = info.type;
-                                    type = type.Replace("TTATCCOM.AC_MODEL ", "");
-                                    type = type.Replace("TTATCCOM.AC_MODEL_", "");
-                                    type = type.Replace("TT:ATCCOM.AC_MODEL ", "");
-                                    type = type.Replace("TT:ATCCOM.AC_MODEL_", "");
-                                    type = type.Replace("ATCCOM.AC_MODEL ", "");
-                                    type = type.Replace("ATCCOM.AC_MODEL_", "");
-                                    type = type.Replace("$$:", "");
-                                    type = type.Replace(".0.text", "");
-                                    string model = info.model;
-                                    // convert the long hyphen
-                                    model = model.Replace("â€“", "–");
-
-                                    // learn this model's real ICAO type/airline/classCode/registration now that
-                                    // it's actually instantiated - closes the gap for aircraft a title guess can't
-                                    // tag, and for add-ons whose reported type doesn't match any Doc8643 designator.
-                                    // Confidence hierarchy (highest first): (1) real aircraft.cfg/livery.cfg data,
-                                    // located via LIVERY FOLDER - FS2024 only, same reliability tier non-FS2024
-                                    // builds already get from their upfront folder scan; (2) DeriveLiveClassCode
-                                    // (category/engine simvars) when no config file can be found/parsed; (3) a
-                                    // title-text guess (handled elsewhere), for a model never yet instantiated.
-                                    Substitution.DeriveLiveClassCode(info.category, info.engineType, info.numEngines, out string liveClassCode, out string liveWtc);
-#if FS2024
-                                    string configIcaoType = "", configWtc = "", configIcaoAirline = "", configAtcId = "", configClassCode = "", configIcaoResolutionNote = "";
-                                    bool configConfirmed = main.substitution != null && main.substitution.TryReadConfigFromLiveryFolder(
-                                        info.liveryFolder, model, out configIcaoType, out configWtc,
-                                        out configIcaoAirline, out configAtcId, out configClassCode, out configIcaoResolutionNote);
-                                    string learnIcaoType = configConfirmed ? configIcaoType : type;
-                                    string learnClassCode = configConfirmed ? configClassCode : liveClassCode;
-                                    string learnWtc = configConfirmed && configWtc.Length > 0 ? configWtc : liveWtc;
-                                    string learnIcaoAirline = configConfirmed && configIcaoAirline.Length > 0 ? configIcaoAirline : info.airline;
-                                    string learnAtcId = configConfirmed ? configAtcId : "";
-                                    bool learnClassCodeConfirmed = configConfirmed || liveClassCode.Length > 0;
-                                    string resolvedIcaoAirline = main.substitution?.LearnIcaoFromLiveObject(model, info.livery, learnIcaoType, learnIcaoAirline, learnClassCode, learnWtc, learnAtcId, configConfirmed, configConfirmed ? configIcaoResolutionNote : "") ?? "";
-#else
-                                    string learnIcaoType = type;
-                                    string learnClassCode = liveClassCode;
-                                    string learnWtc = liveWtc;
-                                    bool learnClassCodeConfirmed = liveClassCode.Length > 0;
-                                    string resolvedIcaoAirline = main.substitution?.LearnIcaoFromLiveObject(model, "", type, "", liveClassCode, liveWtc) ?? "";
-#endif
+                                    ResolveObjectInfoType(info, out string type, out string model, out string learnIcaoType,
+                                        out string learnClassCode, out string learnWtc, out bool learnClassCodeConfirmed, out string resolvedIcaoAirline);
 
                                     // check category
                                     switch (info.category)
@@ -234,6 +247,21 @@ namespace JoinFS
                                         {
                                             aircraft.flightPlan.icaoAirline = resolvedIcaoAirline;
                                         }
+                                        // detect a real aircraft/callsign change for the user's own aircraft (a
+                                        // genuinely new SimConnect object here, e.g. from a category-changing
+                                        // swap) and auto-refresh the flight plan the same way this already
+                                        // happens once at startup - see RefreshUserFlightPlanFromSim.
+                                        if (obj.owner == Obj.Owner.Me)
+                                        {
+                                            string resolvedCallsign = ResolveCallsign(resolvedIcaoAirline, flightNumber, tailNumber);
+                                            string resolvedType = learnIcaoType.Length > 0 ? learnIcaoType : type;
+                                            if (lastKnownUserCallsign.Length > 0 && (lastKnownUserCallsign != resolvedCallsign || lastKnownUserIcaoType != resolvedType))
+                                            {
+                                                RefreshUserFlightPlanFromSim(aircraft, resolvedCallsign, resolvedType);
+                                            }
+                                            lastKnownUserCallsign = resolvedCallsign;
+                                            lastKnownUserIcaoType = resolvedType;
+                                        }
                                         // message
 #if FS2024
                                         main.MonitorEvent("Listing aircraft '" + aircraft.flightPlan.callsign + "' User 'Me' - ID '" + obj.simId + "' - Model '" + obj.ownerModel + "' Livery '" + info.livery + "'");
@@ -256,6 +284,27 @@ namespace JoinFS
                                 {
                                     // set expire time
                                     obj.expireTime = main.ElapsedTime + OBJECT_EXPIRE_TIME;
+                                }
+
+                                // the user's own aircraft can be re-reported under the same SimConnect
+                                // object ID too (e.g. a same-category livery/registration swap that
+                                // doesn't get a new ID) - re-resolve and check for a change the same
+                                // way a genuinely new object does above (RefreshUserFlightPlanFromSim).
+                                if (obj.owner == Obj.Owner.Me && obj is Aircraft aircraft)
+                                {
+                                    ObjectGetInfo info = (ObjectGetInfo)data;
+                                    string tailNumber = info.callsign.TrimStart(' ', '\t').TrimEnd(' ', '\t');
+                                    string flightNumber = info.flightNumber.TrimStart(' ', '\t').TrimEnd(' ', '\t');
+                                    ResolveObjectInfoType(info, out string type, out _, out string learnIcaoType,
+                                        out _, out _, out _, out string resolvedIcaoAirline);
+                                    string resolvedCallsign = ResolveCallsign(resolvedIcaoAirline, flightNumber, tailNumber);
+                                    string resolvedType = learnIcaoType.Length > 0 ? learnIcaoType : type;
+                                    if (lastKnownUserCallsign.Length > 0 && (lastKnownUserCallsign != resolvedCallsign || lastKnownUserIcaoType != resolvedType))
+                                    {
+                                        RefreshUserFlightPlanFromSim(aircraft, resolvedCallsign, resolvedType);
+                                    }
+                                    lastKnownUserCallsign = resolvedCallsign;
+                                    lastKnownUserIcaoType = resolvedType;
                                 }
                             }
                         }

@@ -102,6 +102,48 @@ namespace JoinFS
         public FlightPlan userFlightPlan = new();
 
         /// <summary>
+        /// Callsign/type last acted on by the own-aircraft-changed auto-refresh (see
+        /// ResolveObjectInfoType's callers in Sim.SimConnect.cs) - compared against the freshly-
+        /// resolved callsign/type on every "Me" info update to detect a real aircraft/callsign
+        /// change. Deliberately lives here on Sim rather than on the Aircraft object itself: a
+        /// genuine aircraft swap creates a brand-new Aircraft instance, so a per-instance field would
+        /// always start empty and could never detect that case - this needs to survive across object
+        /// recreation to compare the previous aircraft's identity against the new one. Empty means
+        /// "not yet initialized" (first sighting this session - record only, no refresh, so this
+        /// doesn't fight the ordinary reconnect/respawn "flight plan survives" behavior or duplicate
+        /// the app-startup SimBrief auto-import trigger).
+        /// </summary>
+        string lastKnownUserCallsign = "";
+        string lastKnownUserIcaoType = "";
+
+        /// <summary>
+        /// Re-fetch callsign/type for the user's own aircraft from the sim, and if SimBrief
+        /// auto-import is enabled, re-run the SimBrief fetch too - the same thing that already
+        /// happens once at JoinFS startup (see Program.cs), now also triggered whenever the sim
+        /// reports a genuinely different aircraft/callsign for "Me" mid-session. A detected change is
+        /// treated as "a new flight": the callsign goes back to auto-tracking even if it had been
+        /// manually set for the previous leg.
+        /// </summary>
+        void RefreshUserFlightPlanFromSim(Aircraft aircraft, string resolvedCallsign, string resolvedType)
+        {
+            aircraft.flightPlan.callsignSetByUser = false;
+            aircraft.flightPlan.callsign = resolvedCallsign;
+            aircraft.flightPlan.icaoType = resolvedType;
+#if !CONSOLE
+            bool autoImport = Settings.Default.SimBriefAutoImport && string.IsNullOrWhiteSpace(Settings.Default.SimBriefUsername) == false;
+#else
+            bool autoImport = false;
+#endif
+            main.MonitorEvent("Own aircraft changed - refreshed callsign '" + resolvedCallsign + "'/type '" + resolvedType + "' from the sim" + (autoImport ? ", re-fetching SimBrief" : ""));
+#if !CONSOLE
+            if (autoImport)
+            {
+                _ = RefreshUserFlightPlanFromSimBriefAsync();
+            }
+#endif
+        }
+
+        /// <summary>
         /// State of the most recent SimBrief fetch attempt, for the main-screen SimBrief button's coloring -
         /// NotTriggered (neutral/default, like the flight plan button) until a fetch has actually happened,
         /// auto or manual, distinguishing "never asked" from "asked and failed".
