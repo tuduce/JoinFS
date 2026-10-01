@@ -1418,6 +1418,16 @@ namespace JoinFS
                     switch (main.network.Snapshot.State)
                     {
                         case SessionState.Connected:
+                            // Connected can mean "has live peers" or "lost every peer and is
+                            // silently retrying" (see Network.CheckForOrphanedSession) - the latter
+                            // reads as Waiting/orange, same as Button_Simulator's Connecting state,
+                            // rather than a healthy Active/green it isn't.
+                            if (main.network.Reconnecting)
+                            {
+                                backColor = Settings.Default.ColourWaitingBackground;
+                                foreColor = Settings.Default.ColourWaitingText;
+                                break;
+                            }
                             // update label
                             backColor = Settings.Default.ColourActiveBackground;
                             foreColor = Settings.Default.ColourActiveText;
