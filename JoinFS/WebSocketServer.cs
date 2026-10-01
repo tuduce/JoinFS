@@ -39,6 +39,9 @@ namespace JoinFS
         struct AircraftSnapshot
         {
             public string callsign, nickname, guid;
+            // "pilot" (a real connected pilot), "recorded" (Recorder-replayed) or "ai" (other
+            // non-pilot traffic) - mirrors the desktop Aircraft Dialog's (R)/(A) distinction
+            public string trafficType;
             public string registration, icaoAirline, flightNumber;
             public double altitude, speed, latitude, longitude;
             public int heading;
@@ -121,6 +124,8 @@ namespace JoinFS
                 {
                     if (main.settingsWebSocketLog)
                         main.monitor.Write($"WebSocket accept error: {ex.Message}");
+                    // don't spin a core if GetContext() is in a persistently faulting state
+                    Thread.Sleep(1000);
                 }
             }
 
@@ -178,6 +183,9 @@ namespace JoinFS
             snap.icaoAirline = aircraft.flightPlan.icaoAirline;
             snap.flightNumber = aircraft.flightPlan.flightNumber;
             snap.nickname = main.network.Peers.GetNodeName(aircraft.ownerNuid);
+            // mirrors the desktop Aircraft Dialog's (R)/(A) distinction, so a map consumer can
+            // distinguish a replayed/AI aircraft from a real pilot without a separate lookup
+            snap.trafficType = aircraft.user ? "pilot" : (aircraft.owner == Sim.Obj.Owner.Recorder ? "recorded" : "ai");
 
             var pos = aircraft.Position;
             if (pos != null)
@@ -233,6 +241,8 @@ namespace JoinFS
             snap.icaoAirline = user.flightPlan.icaoAirline;
             snap.flightNumber = user.flightPlan.flightNumber;
             snap.nickname = user.nickname;
+            // global hub users are always real connected pilots
+            snap.trafficType = "pilot";
             snap.latitude  = user.latitude;
             snap.longitude = user.longitude;
             snap.altitude  = user.altitude;
@@ -253,7 +263,7 @@ namespace JoinFS
         }
 
         static bool SnapshotsEqual(in AircraftSnapshot a, in AircraftSnapshot b) =>
-            a.callsign == b.callsign && a.nickname == b.nickname &&
+            a.callsign == b.callsign && a.nickname == b.nickname && a.trafficType == b.trafficType &&
             a.registration == b.registration && a.icaoAirline == b.icaoAirline && a.flightNumber == b.flightNumber &&
             a.altitude == b.altitude && a.speed == b.speed &&
             a.latitude == b.latitude && a.longitude == b.longitude &&
@@ -279,6 +289,7 @@ namespace JoinFS
             icaoAirline = s.icaoAirline,
             flightNumber = s.flightNumber,
             nickname = s.nickname,
+            trafficType = s.trafficType,
             guid     = s.guid,
             altitude = Math.Round(s.altitude, 0),
             speed    = Math.Round(s.speed, 1),
@@ -303,10 +314,39 @@ namespace JoinFS
             onGround = s.onGround
         };
 
+        // Newtonsoft throws on NaN/Infinity by default; a single stray non-finite value in one
+        // aircraft record would otherwise take down the whole feed (and, via the work-thread
+        // failure streak, the process). Emit 0 for those instead.
+        static readonly JsonSerializerSettings _jsonSettings = new() { FloatFormatHandling = FloatFormatHandling.DefaultValue };
+
+        // A snapshot whose position didn't survive decoding (wire-format mismatch upstream): skip
+        // it rather than publish 1e202 / int.MinValue to every client.
+        static bool PlausibleSnapshot(in AircraftSnapshot s) =>
+            double.IsFinite(s.latitude) && double.IsFinite(s.longitude) && double.IsFinite(s.altitude)
+            && Math.Abs(s.latitude) <= 90.0 && Math.Abs(s.longitude) <= 180.0
+            && s.altitude >= -2000.0 && s.altitude <= 300000.0
+            && s.heading >= -360 && s.heading <= 360;
+
         // Called from DoWork() inside conch lock
         public void DoWork()
         {
+            try
+            {
+                DoWorkInner();
+            }
+            catch (Exception ex)
+            {
+                // never let the feed feed the work-thread failure streak (Program.cs escalates
+                // 5 throws in 5 s to a full shutdown)
+                if (main.settingsWebSocketLog)
+                    main.monitor.Write($"WebSocket DoWork error: {ex.Message}");
+            }
+        }
+
+        void DoWorkInner()
+        {
             var changedSnaps = new List<AircraftSnapshot>();
+            var seen = new HashSet<Guid>();
 
             // --- sim aircraft ---
             if (main.sim != null)
@@ -319,6 +359,13 @@ namespace JoinFS
                     if (key == Guid.Empty) key = new Guid(aircraft.simId, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
                     var snap = SnapshotFromAircraft(aircraft);
+                    if (!PlausibleSnapshot(in snap))
+                    {
+                        if (main.settingsWebSocketLog)
+                            main.monitor.Write($"[WS] skipping {aircraft.flightPlan.callsign}: implausible position (peer/hub version mismatch?)");
+                        continue;
+                    }
+                    seen.Add(key);
 
                     bool existed = _previous.TryGetValue(key, out var prev);
                     _previous[key] = snap;
@@ -347,6 +394,8 @@ namespace JoinFS
                     {
                         Guid key = user.guid;
                         var snap = SnapshotFromHubUser(user);
+                        if (!PlausibleSnapshot(in snap)) continue;
+                        seen.Add(key);
 
                         bool existed = _previous.TryGetValue(key, out var prev);
                         _previous[key] = snap;
@@ -362,12 +411,21 @@ namespace JoinFS
                 }
             }
 
+            // drop change-detection state for aircraft/users that are gone (was an unbounded leak)
+            if (_previous.Count > seen.Count)
+            {
+                var stale = new List<Guid>();
+                foreach (var k in _previous.Keys)
+                    if (!seen.Contains(k)) stale.Add(k);
+                foreach (var k in stale) _previous.Remove(k);
+            }
+
             if (changedSnaps.Count == 0) return;
 
             // serialize outside the lock, broadcast off the work thread
             var jsonObjs = new List<object>(changedSnaps.Count);
             foreach (var s in changedSnaps) jsonObjs.Add(ToJson(s));
-            string message = JsonConvert.SerializeObject(new { type = "aircraft_update", aircraft = jsonObjs });
+            string message = JsonConvert.SerializeObject(new { type = "aircraft_update", aircraft = jsonObjs }, _jsonSettings);
 
             List<WebSocket> snapshot;
             lock (_clientLock) snapshot = [.. _clients];
@@ -379,17 +437,29 @@ namespace JoinFS
             {
                 var bytes = Encoding.UTF8.GetBytes(message);
                 var segment = new ArraySegment<byte>(bytes);
+                var dead = new List<WebSocket>();
                 foreach (var ws in snapshot)
                 {
-                    if (ws.State != WebSocketState.Open) continue;
+                    if (ws.State != WebSocketState.Open) { dead.Add(ws); continue; }
                     try
                     {
-                        await ws.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
+                        // bound every send: a client that stops draining must not stall delivery
+                        // to the others, and must actually get evicted
+                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        await ws.SendAsync(segment, WebSocketMessageType.Text, true, cts.Token);
                     }
                     catch (Exception ex)
                     {
-                        if (log) main.monitor.Write($"WebSocket send error: {ex.Message}");
+                        dead.Add(ws);
+                        if (log) main.monitor.Write($"WebSocket send error (dropping client): {ex.Message}");
                     }
+                }
+                if (dead.Count > 0)
+                {
+                    lock (_clientLock)
+                        foreach (var ws in dead) _clients.Remove(ws);
+                    foreach (var ws in dead)
+                        try { ws.Dispose(); } catch { }
                 }
             });
         }

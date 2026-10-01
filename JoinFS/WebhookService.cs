@@ -30,6 +30,21 @@ namespace JoinFS
 
         public void DoWork()
         {
+            try
+            {
+                DoWorkInner();
+            }
+            catch (Exception ex)
+            {
+                // never let the webhook feed the work-thread failure streak (Program.cs
+                // escalates 5 throws in 5 s to a full shutdown)
+                if (main.settingsWebSocketLog)
+                    main.monitor.Write($"Webhook DoWork error: {ex.Message}");
+            }
+        }
+
+        void DoWorkInner()
+        {
             // collect changed aircraft inside the conch lock
             List<object> changed = null;
 
