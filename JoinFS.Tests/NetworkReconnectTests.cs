@@ -56,29 +56,31 @@ public class NetworkReconnectTests
     }
 
     [Fact]
-    public void FirstTickOfBeingOrphaned_DoesNotRetryImmediately()
+    public void FirstTickOfBeingOrphaned_RetriesImmediately()
     {
-        // a single bad tick shouldn't trigger an instant reconnect - wait one full interval first,
-        // in case it's a momentary blip (e.g. one missed pulse round trip)
+        // the orphaned signal is already debounced upstream (MeshManager's peer-expiry timeout
+        // only flips hasLiveNode to false after a sustained silence, not one missed packet), so
+        // there's nothing to gain by waiting out a further interval before the first attempt -
+        // every second of delay here is a second the hub/peer stays unreachable for no reason.
         var state = new Network.ReconnectState();
 
-        Assert.False(Network.Tick(ref state, true, true, false, 0.0, Interval));
+        Assert.True(Network.Tick(ref state, true, true, false, 0.0, Interval));
     }
 
     [Fact]
-    public void StillOrphaned_BeforeIntervalElapses_DoesNotRetryYet()
+    public void StillOrphaned_BeforeNextIntervalElapses_DoesNotRetryAgainYet()
     {
         var state = new Network.ReconnectState();
-        Network.Tick(ref state, true, true, false, 0.0, Interval); // becomes orphaned at t=0
+        Network.Tick(ref state, true, true, false, 0.0, Interval); // retries immediately at t=0
 
         Assert.False(Network.Tick(ref state, true, true, false, Interval - 0.001, Interval));
     }
 
     [Fact]
-    public void StillOrphaned_OnceIntervalElapses_RetriesExactlyOnce()
+    public void StillOrphaned_OnceIntervalElapses_RetriesAgain()
     {
         var state = new Network.ReconnectState();
-        Network.Tick(ref state, true, true, false, 0.0, Interval); // becomes orphaned at t=0
+        Network.Tick(ref state, true, true, false, 0.0, Interval); // retries immediately at t=0
 
         Assert.True(Network.Tick(ref state, true, true, false, Interval, Interval));
         // immediately re-checking before the next interval must not retry again
@@ -89,12 +91,11 @@ public class NetworkReconnectTests
     public void StillOrphaned_RetriesAgainEveryFurtherInterval()
     {
         var state = new Network.ReconnectState();
-        Network.Tick(ref state, true, true, false, 0.0, Interval);
-        Assert.True(Network.Tick(ref state, true, true, false, Interval, Interval));
+        Assert.True(Network.Tick(ref state, true, true, false, 0.0, Interval));
 
-        Assert.False(Network.Tick(ref state, true, true, false, Interval * 1.5, Interval));
+        Assert.False(Network.Tick(ref state, true, true, false, Interval * 0.5, Interval));
+        Assert.True(Network.Tick(ref state, true, true, false, Interval, Interval));
         Assert.True(Network.Tick(ref state, true, true, false, Interval * 2, Interval));
-        Assert.True(Network.Tick(ref state, true, true, false, Interval * 3, Interval));
     }
 
     [Fact]
@@ -103,14 +104,13 @@ public class NetworkReconnectTests
         // the retried Join()/Login() succeeded (or some other peer showed up) - a live node again
         // means "not orphaned", resetting the state machine cleanly
         var state = new Network.ReconnectState();
-        Network.Tick(ref state, true, true, false, 0.0, Interval);
-        Assert.True(Network.Tick(ref state, true, true, false, Interval, Interval));
+        Assert.True(Network.Tick(ref state, true, true, false, 0.0, Interval));
 
-        Assert.False(Network.Tick(ref state, true, true, true, Interval + 1, Interval));
+        Assert.False(Network.Tick(ref state, true, true, true, 1.0, Interval));
 
-        // if it goes quiet again later, it must wait a full interval again, not retry immediately
-        Assert.False(Network.Tick(ref state, true, true, false, Interval + 2, Interval));
-        Assert.True(Network.Tick(ref state, true, true, false, Interval + 2 + Interval, Interval));
+        // if it goes quiet again later, this is a fresh orphaned streak - retries immediately
+        // again, same as the very first one did
+        Assert.True(Network.Tick(ref state, true, true, false, 2.0, Interval));
     }
 
     [Fact]

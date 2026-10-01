@@ -226,9 +226,11 @@ namespace JoinFS
 
         /// <summary>
         /// Pure decision step for CheckForOrphanedSession, exposed for testing: given the current
-        /// signals, does the caller need to retry right now? Requires being continuously orphaned for
-        /// at least one full intervalSeconds before the *first* retry (a single bad tick shouldn't
-        /// trigger an immediate reconnect), then retries every intervalSeconds after that, until
+        /// signals, does the caller need to retry right now? Retries immediately on the first tick
+        /// the session is found orphaned - that signal is already debounced upstream by
+        /// MeshManager's peer-expiry timeout (hasLiveNode only goes false after a sustained silence,
+        /// not a single missed packet), so there's nothing to gain by waiting out a further interval
+        /// before the first attempt. Subsequent retries are spaced intervalSeconds apart, until
         /// hasLiveNode or isConnected goes back to true, or hasJoinTarget goes false (explicit leave,
         /// or a session - such as one this node created rather than joined - that never had a join
         /// target to begin with).
@@ -244,11 +246,10 @@ namespace JoinFS
             }
             if (!state.orphaned)
             {
-                // just noticed - wait one interval before the first retry, in case this is a
-                // momentary blip (e.g. one missed pulse round trip) rather than a real disconnect
+                // first tick of being orphaned - retry now, then wait one interval before the next
                 state.orphaned = true;
                 state.nextAttempt = elapsedTime + intervalSeconds;
-                return false;
+                return true;
             }
             if (elapsedTime < state.nextAttempt)
             {
