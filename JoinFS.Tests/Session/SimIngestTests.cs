@@ -43,6 +43,44 @@ namespace JoinFS.Tests.Session
         }
 
         [Fact]
+        public void IdentityFromAnUnregisteredPeer_IsDroppedAndLogged()
+        {
+            // regression (ghost-aircraft-on-reconnect): a position/identity packet can race ahead
+            // of (or arrive just after PeerLeft for) the peer's own join handshake. PeerTable.Nodes
+            // is the source of truth for "is this peer currently a member of the session" -
+            // SimIngest must not cache an identity, and therefore must never let a position create
+            // an aircraft, for a sender that hasn't cleared that bar.
+            var rig = new SessionRig(); // note: no WithPeer() - Peer was never OnPeerJoined'd
+            rig.Ingest.Handle(SessionRig.From(Peer), Identity(7));
+            rig.Ingest.Handle(SessionRig.From(Peer), Position(7));
+
+            Assert.Empty(rig.Sim.Aircraft);
+            Assert.Equal(0, rig.Ingest.IdentityCount);
+            Assert.Contains(rig.Log.NetworkLines, l => l.Contains("not a registered peer"));
+        }
+
+        [Fact]
+        public void IdentityFromAPeerThatHasLeft_IsDroppedAndLogged()
+        {
+            // same race, the other direction: a late identity/position arriving after PeerLeft
+            // already tore the peer down must not resurrect a ghost for it.
+            var rig = WithPeer();
+            rig.Ingest.Handle(SessionRig.From(Peer), Identity(7));
+            rig.Ingest.Handle(SessionRig.From(Peer), Position(7));
+            Assert.Single(rig.Sim.Aircraft); // sanity: the normal path still works up to this point
+
+            rig.Peers.OnPeerLeft(Peer);
+            rig.Ingest.OnPeerLeft(Peer);
+            rig.Sim.Aircraft.Clear();
+
+            rig.Ingest.Handle(SessionRig.From(Peer), Identity(8));
+            rig.Ingest.Handle(SessionRig.From(Peer), Position(8));
+
+            Assert.Empty(rig.Sim.Aircraft);
+            Assert.Equal(0, rig.Ingest.IdentityCount);
+        }
+
+        [Fact]
         public void IdentityThenPosition_UpdatesAircraftWithIdentityAndNickname()
         {
             var rig = WithPeer("Bob");
@@ -132,6 +170,7 @@ namespace JoinFS.Tests.Session
         public void PeerLeft_ForgetsOnlyThatNodesIdentitiesAndRemovesItsObjects()
         {
             var rig = WithPeer();
+            rig.Peers.OnPeerJoined(Other, Other.ToEndPoint(Other.port));
             rig.Ingest.Handle(SessionRig.From(Peer), Identity(1));
             rig.Ingest.Handle(SessionRig.From(Peer), Identity(2));
             rig.Ingest.Handle(SessionRig.From(Other), Identity(1));
