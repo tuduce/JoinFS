@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RecordingXRay map</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#0B0E16}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+.ib:hover{background:rgba(255,255,255,0.08)}
+</style>
+</helmet>
+<div style="width: 550px; height: 514px; box-sizing: border-box; display: flex; flex-direction: column; background: #11151F; border: 1px solid #232A3B; border-radius: 10px; overflow: hidden; color: #E8ECF6; font-family: 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif; font-size: 13px">
+  <div style="height: 48px; flex: 0 0 48px; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid #232A3B">
+    <span style="font-size: 15px; font-weight: 600">Map</span>
+    <span style="font-size: 12px; color: #8791AD">{{countLabel}} at {{timeLabel}}</span>
+    <span style="flex: 1"></span>
+    <button aria-pressed="{{trailsOn}}" onClick="{{toggleTrails}}" style="height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12px; background: {{trailsBg}}; border: 1px solid {{trailsBorder}}; color: {{trailsFg}}">Trails</button>
+    <button aria-pressed="{{labelsOn}}" onClick="{{toggleLabels}}" style="height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12px; background: {{labelsBg}}; border: 1px solid {{labelsBorder}}; color: {{labelsFg}}">Labels</button>
+    <button aria-pressed="{{followOn}}" onClick="{{toggleFollow}}" style="height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12px; background: {{followBg}}; border: 1px solid {{followBorder}}; color: {{followFg}}">Follow</button>
+  </div>
+  <div style="flex: 1; min-height: 0; position: relative; background: #0C121C">
+    <svg viewBox="0 0 548 462" preserveAspectRatio="xMidYMid slice" onMouseDown="{{dragStart}}" onMouseMove="{{dragMove}}" onMouseUp="{{dragEnd}}" onMouseLeave="{{dragEnd}}" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; cursor: grab; touch-action: none" role="group" aria-label="Map of all aircraft, drag to pan">
+      <rect width="548" height="462" fill="#0C121C"/>
+      <path d="{{lonLines}}" stroke="#1A2332" stroke-width="1" fill="none"/>
+      <path d="{{latLines}}" stroke="#1A2332" stroke-width="1" fill="none"/>
+      <g font-family="Cascadia Mono,Consolas,monospace" font-size="10" fill="#6C7792">
+        <sc-for list="{{lonLabels}}" as="l" hint-placeholder-count="6"><text x="{{l.x}}" y="12">{{l.t}}</text></sc-for>
+        <sc-for list="{{latLabels}}" as="l" hint-placeholder-count="6"><text x="6" y="{{l.y}}">{{l.t}}</text></sc-for>
+      </g>
+      <g transform="{{pan}}">
+        <!-- trails: future (dim, dashed) under past (bright, solid) -->
+        <g opacity="{{trailOp}}" fill="none" stroke-linecap="round">
+          <sc-for list="{{trails}}" as="t" hint-placeholder-count="5">
+            <path d="{{t.d}}" stroke="{{t.futureColor}}" stroke-opacity="{{t.futureOp}}" stroke-width="{{t.futureW}}" stroke-dasharray="{{t.futureDash}}"/>
+          </sc-for>
+          <sc-for list="{{trails}}" as="t" hint-placeholder-count="5">
+            <path d="{{t.d}}" stroke="{{t.pastColor}}" stroke-opacity="{{t.pastOp}}" stroke-width="{{t.pastW}}" stroke-dasharray="{{t.pastDash}}"/>
+          </sc-for>
+        </g>
+        <!-- aircraft at the time cursor (only those with data at that time, plus the selected one) -->
+        <sc-for list="{{markers}}" as="m" hint-placeholder-count="5">
+          <g role="button" tabindex="0" aria-label="{{m.aria}}" opacity="{{m.op}}" onClick="{{m.pick}}" onKeyDown="{{m.key}}" style="cursor: pointer; outline: none">
+            <circle cx="{{m.x}}" cy="{{m.y}}" r="15" fill="{{m.haloFill}}" fill-opacity="{{m.haloOp}}"/>
+            <path d="M0 -17L5 -8H-5z" fill="{{accent}}" opacity="{{m.arrowOp}}" transform="{{m.arrow}}"/>
+            <circle cx="{{m.x}}" cy="{{m.y}}" r="{{m.r}}" fill="{{m.fill}}" stroke="#0C121C" stroke-width="2"/>
+            <rect x="{{m.chipX}}" y="{{m.chipY}}" width="{{m.chipW}}" height="20" rx="10" fill="{{m.chipFill}}"/>
+            <text x="{{m.x}}" y="{{m.textY}}" text-anchor="middle" font-family="Segoe UI,system-ui,sans-serif" font-size="{{m.fs}}" font-weight="{{m.fw}}" fill="{{m.textFill}}" opacity="{{m.textOp}}">{{m.name}}</text>
+          </g>
+        </sc-for>
+      </g>
+    </svg>
+    <div style="position: absolute; top: 12px; left: 12px; height: 26px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: rgba(17,21,31,0.92); border: 1px solid #232A3B; border-radius: 13px; font-size: 11.5px; color: #C3CBDD">
+      <span style="display: flex; align-items: center; gap: 6px"><svg width="22" height="6" viewBox="0 0 22 6" aria-hidden="true"><path d="M1 3H21" stroke="#E8ECF6" stroke-width="2.4" stroke-linecap="round"/></svg>Past</span>
+      <span style="display: flex; align-items: center; gap: 6px"><svg width="22" height="6" viewBox="0 0 22 6" aria-hidden="true"><path d="M1 3H21" stroke="#E8ECF6" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 4"/></svg>Future</span>
+    </div>
+    <div style="position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; background: #11151F; border: 1px solid #232A3B; border-radius: 8px; overflow: hidden">
+      <button class="ib" aria-label="Zoom in" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 16 16" stroke="#C3CBDD" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg></button>
+      <button class="ib" aria-label="Zoom out" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-top: 1px solid #232A3B"><svg width="14" height="14" viewBox="0 0 16 16" stroke="#C3CBDD" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3 8h10"/></svg></button>
+      <button class="ib" aria-label="Fit all aircraft" onClick="{{fitAll}}" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-top: 1px solid #232A3B"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#C3CBDD" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg></button>
+    </div>
+    <div style="position: absolute; left: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 3px; font-family: 'Cascadia Mono',Consolas,monospace; font-size: 10.5px; color: #A3ADC5">
+      <span>5 km</span>
+      <div style="width: 63px; height: 5px; border: 1.5px solid #A3ADC5; border-top: 0"></div>
+    </div>
+    <div style="position: absolute; right: 12px; bottom: 12px; height: 26px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: rgba(17,21,31,0.92); border: 1px solid #232A3B; border-radius: 13px; font-size: 12px">
+      <span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span>
+      <span style="color: #C3CBDD">{{selName}}</span>
+      <span style="font-family: 'Cascadia Mono',Consolas,monospace; color: #FFFFFF">{{selCoords}}</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF8A3D","options":["#FF8A3D","#4C8DFF","#4FD1B5","#F2C14B"]},"time":{"editor":"float","default":0.026,"min":0,"max":711.165,"section":"Cursor"},"selected":{"editor":"enum","default":"YR-SCD","options":["TIGER-6","G-CTAN","T7 John","T3","YR-SCD"],"section":"Cursor"},"follow":{"editor":"boolean","default":false,"section":"Cursor"},"onSelect":{"editor":null}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const accent = this.props.accent ?? '#FF8A3D';
+    const TOTAL = 711.165;
+    const st = this.state || {};
+    const controlled = typeof this.props.onSelect === 'function';
+    const sel = controlled ? (this.props.selected ?? 'YR-SCD') : (st.sel ?? this.props.selected ?? 'YR-SCD');
+    const rawTime = controlled ? this.props.time : (st.time ?? this.props.time);
+    const time = Math.min(Math.max(Number(rawTime ?? 0.026), 0), TOTAL);
+    const trailsOn = st.trails !== false, labelsOn = st.labels !== false;
+    const followOn = st.follow ?? (this.props.follow === true || this.props.follow === 'true');
+
+    // First and last frame time of each aircraft's lane (illustrative, except YR-SCD's first frame).
+    const EXT = { 'TIGER-6': [0.031, 711.165], 'G-CTAN': [0.019, 711.140], 'YR-SCD': [0.026, 711.165], 'T3': [0.040, 220.464], 'T7 John': [56.889, 391.135] };
+    // Illustrative flights, in map pixels. Only the YR-SCD start point is real data (frame [0]).
+    const AC = [
+      { id: 'TIGER-6', start: [195, 244], side: 'below', segs: [[170,190,160,130,205,95],[250,62,320,75,345,105],[365,130,340,165,300,170],[250,178,215,215,195,244]] },
+      { id: 'G-CTAN', start: [235, 232], side: 'above', segs: [[225,290,240,350,300,380],[360,408,440,395,465,350],[480,320,450,300,420,305],[380,312,340,300,300,275],[270,258,245,250,235,232]] },
+      { id: 'YR-SCD', start: [275, 236], side: 'below', segs: [[290,270,330,310,380,320],[450,335,505,290,490,220],[478,165,420,140,365,160],[320,177,290,210,275,236]] },
+      { id: 'T3', start: [315, 246], side: 'above', segs: [[350,222,400,212,440,226],[470,236,480,262,455,274]] },
+      { id: 'T7 John', start: [355, 236], side: 'below', segs: [[400,266,470,296,520,286]] }
+    ];
+    const resolve = (id, t) => { const e = EXT[id]; return t < e[0] ? e[0] : (t > e[1] ? e[1] : t); };
+    const choose = (id) => {
+      if (this._moved) return; // the click that ends a drag is not a selection
+      if (controlled) { this.props.onSelect(id); return; }
+      this.setState({ sel: id, time: resolve(id, time) });
+    };
+    const bez = (a, b, c, d, t) => { const u = 1 - t; return u*u*u*a + 3*u*u*t*b + 3*u*t*t*c + t*t*t*d; };
+    const geom = (a) => {
+      const pts = [a.start.slice()];
+      let prev = a.start;
+      a.segs.forEach((s) => {
+        for (let i = 1; i <= 24; i++) { const t = i / 24; pts.push([bez(prev[0], s[0], s[2], s[4], t), bez(prev[1], s[1], s[3], s[5], t)]); }
+        prev = [s[4], s[5]];
+      });
+      const cum = [0];
+      for (let i = 1; i < pts.length; i++) cum.push(cum[i-1] + Math.hypot(pts[i][0] - pts[i-1][0], pts[i][1] - pts[i-1][1]));
+      return { pts, cum, L: cum[cum.length - 1] };
+    };
+    const at = (g, d) => {
+      let i = 1;
+      while (i < g.cum.length - 1 && g.cum[i] < d) i++;
+      const span = g.cum[i] - g.cum[i-1] || 1;
+      const k = Math.min(Math.max((d - g.cum[i-1]) / span, 0), 1);
+      const p0 = g.pts[i-1], p1 = g.pts[i];
+      return { x: p0[0] + (p1[0] - p0[0]) * k, y: p0[1] + (p1[1] - p0[1]) * k, ang: Math.atan2(p1[0] - p0[0], -(p1[1] - p0[1])) * 180 / Math.PI };
+    };
+    const pathD = (a) => 'M' + a.start[0] + ' ' + a.start[1] + a.segs.map(s => 'C' + s.join(' ')).join('');
+
+    const ordered = AC.filter(a => a.id !== sel).concat(AC.filter(a => a.id === sel));
+    const trails = [], markers = [];
+    let selCoords = '', selX = 275, selY = 236, withData = 0;
+    ordered.forEach((a) => {
+      const isSel = a.id === sel;
+      const e = EXT[a.id];
+      const has = time >= e[0] && time <= e[1];
+      if (has) withData++;
+      const u = Math.min(Math.max((time - e[0]) / (e[1] - e[0]), 0), 1);
+      const g = geom(a);
+      const dPast = u * g.L;
+      const p = at(g, dPast);
+      trails.push({
+        d: pathD(a),
+        futureColor: isSel ? accent : '#9AA6C4',
+        futureOp: isSel ? 0.45 : 0.32,
+        futureW: isSel ? 2.2 : 1.6,
+        futureDash: isSel ? '6 5' : '4 5',
+        pastColor: isSel ? accent : '#E8ECF6',
+        pastOp: isSel ? 1 : 0.85,
+        pastW: isSel ? 3.2 : 2,
+        pastDash: dPast.toFixed(1) + ' ' + (g.L + 20).toFixed(1)
+      });
+      if (!has && !isSel) return;
+      const ang = (a.id === 'YR-SCD' && time <= 0.05) ? 164.7 : p.ang;
+      const below = a.side === 'below';
+      const chipW = Math.round(a.id.length * 7.4 + 22);
+      const chipY = below ? p.y + 12 : p.y - 32;
+      markers.push({
+        name: a.id,
+        aria: 'Select ' + a.id,
+        op: has ? 1 : 0.5,
+        x: p.x.toFixed(1), y: p.y.toFixed(1),
+        r: isSel ? 7 : 5,
+        fill: isSel ? accent : '#C3CBDD',
+        haloFill: accent, haloOp: isSel ? 0.2 : 0,
+        arrowOp: isSel ? 1 : 0,
+        arrow: 'translate(' + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ') rotate(' + ang.toFixed(1) + ')',
+        chipFill: isSel ? accent : 'transparent',
+        chipX: (p.x - chipW / 2).toFixed(1), chipW, chipY: chipY.toFixed(1),
+        textY: isSel ? (chipY + 14).toFixed(1) : (below ? p.y + 19 : p.y - 11).toFixed(1),
+        textFill: isSel ? '#1A0F05' : '#C3CBDD',
+        textOp: isSel || labelsOn ? 1 : 0,
+        fs: isSel ? 11.5 : 11, fw: isSel ? 700 : 600,
+        pick: () => choose(a.id),
+        key: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); choose(a.id); } }
+      });
+      if (isSel) {
+        selX = p.x; selY = p.y;
+        const lon = 13.2377 + (p.x - 275) / 80 * 0.1;
+        const lat = 55.4293 - (p.y - 236) / 70.3 * 0.05;
+        selCoords = lat.toFixed(4) + '°N ' + lon.toFixed(4) + '°E' + (has ? '' : ' · no data');
+      }
+    });
+
+    // Follow: keep the selected aircraft at the centre of the view
+    // Dragging the map pans it and switches Follow off (the pan starts from where the view was, so nothing jumps)
+    const tx = followOn ? 274 - selX : (st.panX ?? 0), ty = followOn ? 231 - selY : (st.panY ?? 0);
+    const lonLabels = [], latLabels = [];
+    let lonLines = '', latLines = '';
+    for (let k = -8; k <= 16; k++) {
+      const x = 84.8 + 80 * k + tx;
+      if (x < -2 || x > 550) continue;
+      lonLines += 'M' + x.toFixed(1) + ' 0V462';
+      lonLabels.push({ x: (x + 4).toFixed(1), t: (13.0 + 0.1 * k).toFixed(1) + '°E' });
+    }
+    for (let j = -8; j <= 12; j++) {
+      const y = 66.3 + 70.3 * j + ty;
+      if (y < -2 || y > 464) continue;
+      latLines += 'M0 ' + y.toFixed(1) + 'H548';
+      latLabels.push({ y: (y - 4).toFixed(1), t: (55.55 - 0.05 * j).toFixed(2) + '°N' });
+    }
+
+    const tog = (on, edge) => ({ bg: on ? '#232A3B' : 'transparent', border: on ? (edge || '#3A4460') : '#232A3B', fg: on ? '#FFFFFF' : '#A3ADC5' });
+    const a1 = tog(trailsOn), a2 = tog(labelsOn), a3 = tog(followOn, accent);
+    const mm = Math.floor(time / 60), ss = (time - mm * 60).toFixed(3).padStart(6, '0');
+    return {
+      accent, trails, markers, selName: sel, selCoords, lonLabels, latLabels, lonLines, latLines,
+      pan: 'translate(' + tx.toFixed(1) + ' ' + ty.toFixed(1) + ')',
+      trailOp: trailsOn ? 1 : 0,
+      timeLabel: mm + ':' + ss,
+      countLabel: withData === 5 ? '5 aircraft' : withData + ' of 5 aircraft',
+      trailsOn, labelsOn, followOn,
+      trailsBg: a1.bg, trailsBorder: a1.border, trailsFg: a1.fg,
+      labelsBg: a2.bg, labelsBorder: a2.border, labelsFg: a2.fg,
+      followBg: a3.bg, followBorder: a3.border, followFg: a3.fg,
+      toggleTrails: () => this.setState({ trails: !trailsOn }),
+      toggleLabels: () => this.setState({ labels: !labelsOn }),
+      toggleFollow: () => this.setState({ follow: !followOn, panX: tx, panY: ty }),
+      fitAll: () => this.setState({ follow: false, panX: 0, panY: 0 }),
+      dragStart: (e) => { this._drag = { x: e.clientX, y: e.clientY, bx: tx, by: ty }; this._moved = false; },
+      dragMove: (e) => {
+        const d = this._drag;
+        if (!d) return;
+        const dx = e.clientX - d.x, dy = e.clientY - d.y;
+        if (!this._moved && Math.hypot(dx, dy) < 4) return;
+        this._moved = true;
+        const r = e.currentTarget.getBoundingClientRect();
+        const k = 1 / Math.max(r.width / 548, r.height / 462);
+        this.setState({ follow: false, panX: d.bx + dx * k, panY: d.by + dy * k });
+      },
+      dragEnd: () => { this._drag = null; setTimeout(() => { this._moved = false; }, 30); }
+    };
+  }
+}
+</script>
+</body>
+</html>

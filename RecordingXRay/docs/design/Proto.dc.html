@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RecordingXRay selection prototype</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#0B0E16}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+.row:hover{background:rgba(255,255,255,0.05)}
+</style>
+</helmet>
+<div style="width: 1240px; height: 806px; box-sizing: border-box; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: #0B0E16; color: #E8ECF6; font-family: 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif; font-size: 13px; border: 1px solid #232A3B; border-radius: 10px">
+
+  <div style="display: flex; gap: 12px; height: 514px; flex: 0 0 514px">
+    <div style="flex: 0 0 550px; height: 514px; overflow: hidden">
+      <dc-import name="Map" time="{{time}}" selected="{{sel}}" accent="{{accent}}" on-select="{{choose}}" hint-size="550px,514px"></dc-import>
+    </div>
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+      <!-- Live state -->
+      <div style="background: #11151F; border: 1px solid #232A3B; border-radius: 10px; padding: 12px 16px 10px">
+        <div style="height: 24px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8791AD">Selection</div>
+        <div style="display: flex; align-items: center; height: 28px; gap: 12px"><span style="flex: 0 0 150px; color: #A3ADC5">Selected aircraft</span><span style="display: flex; align-items: center; gap: 8px; font-weight: 600"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span>{{sel}}</span></div>
+        <div style="display: flex; align-items: center; height: 28px; gap: 12px"><span style="flex: 0 0 150px; color: #A3ADC5">Time cursor</span><span style="font-family: 'Cascadia Mono',Consolas,monospace; font-size: 13px">{{timeLabel}}</span></div>
+        <div style="display: flex; align-items: center; height: 28px; gap: 12px"><span style="flex: 0 0 150px; color: #A3ADC5">Lane data at cursor</span><span style="display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 4px; box-sizing: border-box; border: 1.5px solid {{selDotColor}}; background: {{selDotFill}}"></span>{{selHas}}</span></div>
+        <div style="display: flex; align-items: flex-start; gap: 12px; padding-top: 6px"><span style="flex: 0 0 150px; color: #A3ADC5; line-height: 1.45">Last action</span><span style="flex: 1; line-height: 1.45; color: #E8ECF6">{{msg}}</span></div>
+      </div>
+
+      <!-- Rules -->
+      <div style="background: #11151F; border: 1px solid #232A3B; border-radius: 10px; padding: 12px 16px 12px">
+        <div style="height: 24px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8791AD">Behaviour</div>
+        <div style="display: flex; flex-direction: column; gap: 6px; line-height: 1.45; color: #C3CBDD">
+          <span>Select an aircraft by clicking its marker on the map or its name in the timeline.</span>
+          <span>If its lane has data at the cursor, the cursor stays where it is.</span>
+          <span>If not, the cursor jumps to its first frame (cursor before the lane) or last frame (cursor after it).</span>
+          <span>Follow keeps the map centred on the selected aircraft; dragging the map turns Follow off. Click the timeline to move the cursor.</span>
+        </div>
+      </div>
+
+      <!-- Lane extents -->
+      <div style="flex: 1; min-height: 0; background: #11151F; border: 1px solid #232A3B; border-radius: 10px; padding: 12px 16px 8px">
+        <div style="display: flex; align-items: center; height: 24px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8791AD"><span style="flex: 1">Lanes (first and last frames are placeholders)</span></div>
+        <sc-for list="{{lanes}}" as="l" hint-placeholder-count="5">
+          <div style="display: flex; align-items: center; height: 24px; gap: 12px; font-size: 12.5px">
+            <span style="flex: 0 0 90px; font-weight: 600; color: {{l.nameColor}}">{{l.name}}</span>
+            <span style="flex: 1; font-family: 'Cascadia Mono',Consolas,monospace; font-size: 12px; color: #C3CBDD">{{l.range}}</span>
+            <span style="flex: 0 0 70px; text-align: right; font-family: 'Cascadia Mono',Consolas,monospace; font-size: 12px; color: #8791AD">{{l.count}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; background: #0E121B; border: 1px solid #232A3B; border-radius: 10px; overflow: hidden">
+    <div style="height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 14px; padding: 0 14px; border-bottom: 1px solid #232A3B; background: #11151F">
+      <span style="font-family: 'Cascadia Mono',Consolas,monospace; font-size: 20px; font-weight: 600; color: {{accent}}; font-variant-numeric: tabular-nums">{{timeLabel}}</span>
+      <span style="font-family: 'Cascadia Mono',Consolas,monospace; font-size: 12px; color: #8791AD">/ 11:51.165</span>
+      <input type="range" aria-label="Time cursor" min="0" max="711.165" step="0.001" value="{{time}}" onInput="{{scrubInput}}" style="width: 320px; accent-color: #FF8A3D">
+    </div>
+    <div style="flex: 1; min-height: 0; display: flex">
+      <div style="flex: 0 0 236px; display: flex; flex-direction: column; border-right: 1px solid #232A3B">
+        <div style="height: 26px; flex: 0 0 26px; border-bottom: 1px solid #1B2130; display: flex; align-items: center; padding: 0 14px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8791AD">Aircraft (5)</div>
+        <sc-for list="{{tracks}}" as="t" hint-placeholder-count="5">
+          <button class="row" onClick="{{t.pick}}" aria-pressed="{{t.isSel}}" style="height: 34px; flex: 0 0 34px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid #1B2130; background: {{t.headBg}}; text-align: left">
+            <span title="{{t.dataTitle}}" style="width: 8px; height: 8px; border-radius: 4px; box-sizing: border-box; border: 1.5px solid {{t.dotColor}}; background: {{t.dotFill}}"></span>
+            <span style="font-size: 12.5px; font-weight: 600; color: {{t.nameColor}}">{{t.name}}</span>
+            <span style="flex: 1"></span>
+            <span style="font-family: 'Cascadia Mono',Consolas,monospace; font-size: 11.5px; color: #C3CBDD">{{t.count}}</span>
+          </button>
+        </sc-for>
+      </div>
+      <div onClick="{{scrub}}" style="flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column; cursor: crosshair">
+        <div style="height: 26px; flex: 0 0 26px; position: relative; border-bottom: 1px solid #1B2130">
+          <sc-for list="{{ticks}}" as="k" hint-placeholder-count="12">
+            <div style="position: absolute; top: 0; bottom: 0; left: {{k.pct}}%; display: flex; align-items: flex-end"><div style="width: 1px; height: 8px; background: #3A4460"></div><span style="margin: 0 0 4px 4px; font-family: 'Cascadia Mono',Consolas,monospace; font-size: 10.5px; color: #8791AD">{{k.label}}</span></div>
+          </sc-for>
+        </div>
+        <sc-for list="{{tracks}}" as="t" hint-placeholder-count="5">
+          <div style="height: 34px; flex: 0 0 34px; box-sizing: border-box; padding: 7px 0; display: flex; flex-direction: column; gap: 3px; border-bottom: 1px solid #1B2130; background: {{t.laneBg}}">
+            <div style="margin-left: {{t.l}}%; width: {{t.w}}%; height: 10px; border-radius: 2px; opacity: {{t.laneOp}}; background-color: rgba(91,162,255,0.18); background-image: repeating-linear-gradient(90deg, #5BA2FF 0 1px, transparent 1px 3px)"></div>
+            <div style="margin-left: {{t.l}}%; width: {{t.w}}%; height: 6px; border-radius: 2px; opacity: {{t.laneOp}}; background-image: repeating-linear-gradient(90deg, #B58CFF 0 1px, transparent 1px 11px), repeating-linear-gradient(90deg, transparent 0 3px, #4FD1B5 3px 4px, transparent 4px 11px), repeating-linear-gradient(90deg, transparent 0 6px, #F28BB0 6px 7px, transparent 7px 11px)"></div>
+          </div>
+        </sc-for>
+        <div style="position: absolute; top: 0; bottom: 0; left: {{playPct}}%; width: 0; pointer-events: none">
+          <div style="position: absolute; top: 0; bottom: 0; left: -1px; width: 2px; background: {{accent}}"></div>
+          <svg width="14" height="12" viewBox="0 0 14 12" style="position: absolute; top: 0; left: -7px" aria-hidden="true"><path d="M0 0h14v6l-7 6-7-6z" fill="{{accent}}"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF8A3D","options":["#FF8A3D","#4C8DFF","#4FD1B5","#F2C14B"]},"$preview":{"width":1240,"height":806}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const accent = this.props.accent ?? '#FF8A3D';
+    const TOTAL = 711.165;
+    const st = this.state || {};
+    const sel = st.sel ?? 'YR-SCD';
+    const time = st.time ?? 298.689;
+    const msg = st.msg ?? 'Select another aircraft, or click the timeline to move the cursor.';
+    const tint = /^#[0-9a-fA-F]{6}$/.test(accent) ? accent + '24' : 'rgba(255,138,61,0.14)';
+    const fmt = (t) => { const m = Math.floor(t / 60); return m + ':' + (t - m * 60).toFixed(3).padStart(6, '0'); };
+    const EXT = { 'TIGER-6': [0.031, 711.165], 'G-CTAN': [0.019, 711.140], 'YR-SCD': [0.026, 711.165], 'T3': [0.040, 220.464], 'T7 John': [56.889, 391.135] };
+    const COUNT = { 'TIGER-6': '23,912', 'G-CTAN': '34,370', 'YR-SCD': '32,393', 'T3': '34,549', 'T7 John': '19,529' };
+    const has = (id, t) => t >= EXT[id][0] && t <= EXT[id][1];
+
+    const choose = (id) => {
+      const e = EXT[id];
+      let t = time, m;
+      if (t < e[0]) { t = e[0]; m = id + ' has no data at ' + fmt(time) + ' (its lane starts at ' + fmt(e[0]) + '). The cursor jumped to its first frame.'; }
+      else if (t > e[1]) { t = e[1]; m = id + ' has no data at ' + fmt(time) + ' (its lane ends at ' + fmt(e[1]) + '). The cursor jumped to its last frame.'; }
+      else { m = id + ' has data at ' + fmt(time) + '. The cursor stays.'; }
+      this.setState({ sel: id, time: t, msg: m });
+    };
+    const moveTo = (t) => {
+      const c = Math.min(Math.max(t, 0), TOTAL);
+      this.setState({ time: c, msg: 'Cursor moved to ' + fmt(c) + '. ' + sel + (has(sel, c) ? ' has data here.' : ' has no data here.') });
+    };
+
+    const order = ['TIGER-6', 'G-CTAN', 'T7 John', 'T3', 'YR-SCD'];
+    const tracks = order.map((id) => {
+      const isSel = id === sel, ok = has(id, time);
+      return {
+        name: id, count: COUNT[id], isSel,
+        l: (EXT[id][0] / TOTAL * 100).toFixed(3),
+        w: ((EXT[id][1] - EXT[id][0]) / TOTAL * 100).toFixed(3),
+        headBg: isSel ? tint : 'transparent',
+        laneBg: isSel ? 'rgba(255,255,255,0.03)' : 'transparent',
+        nameColor: isSel ? '#FFFFFF' : '#C3CBDD',
+        laneOp: isSel ? 1 : 0.5,
+        dotColor: ok ? '#4FD1B5' : '#5E6985',
+        dotFill: ok ? '#4FD1B5' : 'transparent',
+        dataTitle: ok ? 'Has data at the cursor' : 'No data at the cursor',
+        pick: () => choose(id)
+      };
+    });
+    const ticks = [];
+    for (let m = 0; m <= 11; m++) ticks.push({ pct: (m * 60 / TOTAL * 100).toFixed(3), label: m + ':00' });
+    const lanes = order.map((id) => ({
+      name: id, count: COUNT[id] + ' fr',
+      nameColor: id === sel ? '#FFFFFF' : '#C3CBDD',
+      range: fmt(EXT[id][0]) + '  to  ' + fmt(EXT[id][1])
+    }));
+    const selOk = has(sel, time);
+    return {
+      accent, sel, time, msg, tracks, ticks, lanes,
+      timeLabel: fmt(time),
+      playPct: (time / TOTAL * 100).toFixed(4),
+      selHas: selOk ? 'Yes' : 'No',
+      selDotColor: selOk ? '#4FD1B5' : '#5E6985',
+      selDotFill: selOk ? '#4FD1B5' : 'transparent',
+      choose,
+      scrub: (e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        moveTo((e.clientX - r.left) / r.width * TOTAL);
+      },
+      scrubInput: (e) => moveTo(Number(e.target.value))
+    };
+  }
+}
+</script>
+</body>
+</html>
