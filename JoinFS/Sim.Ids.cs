@@ -153,6 +153,10 @@ namespace JoinFS
             EVENT_00011008,
             EVENT_00011009,
             EVENT_0001100A,
+            // Append only: these numbers go over the legacy wire, into .jfs recordings and to the
+            // X-Plane plugin, so existing members must never be renumbered (see SimEventValuesTests).
+            SIM_START,
+            SIM_STOP,
         };
 
         /// <summary>
@@ -168,6 +172,8 @@ namespace JoinFS
                 Sim.Event.OBJECT_REMOVED => "OBJECT_REMOVED",
                 Sim.Event.FRAME => "FRAME",
                 Sim.Event.PAUSE => "PAUSE",
+                Sim.Event.SIM_START => "SIM_START",
+                Sim.Event.SIM_STOP => "SIM_STOP",
                 Sim.Event.RUDDER_SET => "RUDDER_SET",
                 Sim.Event.ELEVATOR_SET => "ELEVATOR_SET",
                 Sim.Event.AILERON_SET => "AILERON_SET",

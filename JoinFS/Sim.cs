@@ -613,6 +613,42 @@ namespace JoinFS
             return (userLatitude, userLongitude, activityCircle);
         }
 
+        /// <summary>Maximum number of times an injection failure is retried before giving up on an object for good.</summary>
+        internal const int FAILED_RETRY_MAX = 30;
+
+
+        /// <summary>
+        /// Whether an object may be (re-)injected: it never failed, or its last failure is more than
+        /// <paramref name="retrySeconds"/> ago and it has failed fewer than <see cref="FAILED_RETRY_MAX"/> times.
+        /// </summary>
+        internal static bool InjectionRetryEligible(Obj obj, double now, double retrySeconds)
+        {
+            return obj.failed == false || (now - obj.failedTime > retrySeconds && obj.failedCount < FAILED_RETRY_MAX);
+        }
+
+        /// <summary>
+        /// Clear latched injection-failure state on every injected object so the finder retries them
+        /// immediately. Called on a SimConnect OPEN (ProcessOpen) and on a SimStart event.
+        /// </summary>
+        void RearmFailedInjections(string reason)
+        {
+            int count = 0;
+            foreach (var obj in objectList)
+            {
+                if (obj.Injected && (obj.failed || obj.failedCount > 0))
+                {
+                    obj.failed = false;
+                    obj.failedTime = 0.0;
+                    obj.failedCount = 0;
+                    count++;
+                }
+            }
+            if (count > 0)
+            {
+                main.MonitorEvent("Re-armed " + count + " failed injection(s) (" + reason + ")");
+            }
+        }
+
         /// <summary>
         /// Inject (SimConnect) or spawn (X-Plane) the next eligible object one at a time, and time
         /// out an injection that never got a response
@@ -648,15 +684,25 @@ namespace JoinFS
             else if (Connected)
             {
                 // find object that needs creating (plain loop, not Find(lambda), so this doesn't
-                // allocate a closure every tick - it captures activityCircle, a per-call parameter)
+                // allocate a closure every tick - it captures activityCircle, a per-call parameter).
+                // A prior injection failure (SimConnect exception 22 - usually the simulator still
+                // loading) no longer bars an object forever: it's eligible again once
+                // settingsInjectionRetrySeconds have passed, up to FAILED_RETRY_MAX attempts.
                 creatingObject = null;
                 foreach (var o in objectList)
                 {
-                    if (o.owner != Obj.Owner.Me && o.Created == false && o.failed == false && main.log.IgnoreNode(o.ownerNuid) == false && main.log.IgnoreName(o.ownerModel) == false && o != enteredAircraft && o.distance * 0.00053995680346 < activityCircle)
+                    if (o.owner != Obj.Owner.Me && o.Created == false && InjectionRetryEligible(o, main.ElapsedTime, main.settingsInjectionRetrySeconds) && main.log.IgnoreNode(o.ownerNuid) == false && main.log.IgnoreName(o.ownerModel) == false && o != enteredAircraft && o.distance * 0.00053995680346 < activityCircle)
                     {
                         creatingObject = o;
                         break;
                     }
+                }
+
+                // clear a re-armed failure flag so this attempt starts clean
+                if (creatingObject != null && creatingObject.failed)
+                {
+                    creatingObject.failed = false;
+                    main.MonitorEvent("Retrying injection (attempt " + (creatingObject.failedCount + 1) + ") - User '" + ((creatingObject.owner == Obj.Owner.Network) ? creatingObject.ownerNuid.ToString() : "Me") + "' - Sub '" + creatingObject.ModelTitle + "'");
                 }
 
                 // check for object
