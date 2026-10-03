@@ -756,4 +756,13 @@
   <data name="FlightPlan_AltitudeTooltip" xml:space="preserve">
     <value>Cruise altitude or flight level, e.g. 35000 or FL350</value>
   </data>
+  <data name="ReconnectCredentialsRejected" xml:space="preserve">
+    <value>The connection was lost and the hub rejected the saved credentials (they may have changed). Please enter them again to reconnect.</value>
+  </data>
+  <data name="Tip_NetworkReconnecting" xml:space="preserve">
+    <value>Connection lost - trying to reconnect automatically.</value>
+  </data>
+  <data name="ReconnectGaveUp" xml:space="preserve">
+    <value>Connection lost. Automatic reconnect could not re-establish it within the last {0} minutes. Try reconnecting manually when you are ready.</value>
+  </data>
 </root>

@@ -1066,6 +1066,9 @@ namespace JoinFS
             }
         }
 
+        /// <summary>The tool tips of the main window's buttons; null when tool tips are off.</summary>
+        private ToolTip mainTips;
+
         private void MainForm_Load(object sender, EventArgs e)
         {
             // get saved position
@@ -1126,6 +1129,7 @@ namespace JoinFS
                 tip.SetToolTip(Button_Simulator, Resources.Strings.Tip_SimulatorButton);
                 tip.SetToolTip(StatusStrip_Main, Resources.Strings.Tip_Status);
                 tip.SetToolTip(Button_SimBrief, Resources.Strings.MainForm_SimBriefButtonTooltip);
+                mainTips = tip;
             }
 
             // initial flight-plan button state
@@ -1144,6 +1148,22 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// The automatic reconnect replays the remembered credentials silently. When the hub turns them
+        /// down (they changed), say why the user is asked again before the usual password/login dialog,
+        /// and don't retry the stored password - it is the one just rejected.
+        /// </summary>
+        private void ExplainRejectedCredentialsOnReconnect()
+        {
+            NetworkSnapshot snapshot = main.network.Snapshot;
+            bool rejected = snapshot.JoinResult != JoinResult.Accepted || snapshot.LoginResult != LoginResult.Accepted;
+            if (main.network.Reconnecting && rejected)
+            {
+                main.attempedUsedPassword = true;
+                MessageBox.Show(Resources.Strings.ReconnectCredentialsRejected, Main.Name);
+            }
+        }
+
+        /// <summary>
         /// Update window information
         /// </summary>
         public void RefreshNetwork()
@@ -1155,6 +1175,8 @@ namespace JoinFS
                 // check if password failed
                 if (main.network.Snapshot.State == SessionState.Connecting)
                 {
+                    ExplainRejectedCredentialsOnReconnect();
+
                     // check for password fail
                     if (main.network.Snapshot.JoinResult == JoinResult.PasswordRequired)
                     {
@@ -1411,14 +1433,19 @@ namespace JoinFS
                 Color backColor = Settings.Default.ColourWaitingBackground;
                 Color foreColor = Settings.Default.ColourWaitingText;
                 string buttonText = Resources.Strings.Network;
+                string buttonTip = Resources.Strings.Tip_NetworkButton;
 
                 lock (main.conch)
                 {
-                    // check connection state
-                    switch (main.network.Snapshot.State)
+                    // "Connected" can also mean "lost every peer and retrying" (see
+                    // Network.CheckForOrphanedSession): orange, like Button_Simulator's Connecting state
+                    bool reconnecting = main.network.Reconnecting;
+                    NetworkButtonLook look = NetworkButtonStyle.For(
+                        main.network.Snapshot.State, reconnecting, main.network.scheduleJoinUser);
+
+                    switch (look)
                     {
-                        case SessionState.Connected:
-                            // update label
+                        case NetworkButtonLook.Active:
                             backColor = Settings.Default.ColourActiveBackground;
                             foreColor = Settings.Default.ColourActiveText;
                             // check for password
@@ -1428,16 +1455,21 @@ namespace JoinFS
                             }
                             break;
 
-                        case SessionState.Unconnected:
-                            // check not auto joining
-                            if (main.network.scheduleJoinUser == false)
-                            {
-                                // update label
-                                backColor = Settings.Default.ColourInactiveBackground;
-                                foreColor = Settings.Default.ColourInactiveText;
-                            }
+                        case NetworkButtonLook.Inactive:
+                            backColor = Settings.Default.ColourInactiveBackground;
+                            foreColor = Settings.Default.ColourInactiveText;
                             break;
                     }
+
+                    if (reconnecting)
+                    {
+                        buttonTip = Resources.Strings.Tip_NetworkReconnecting;
+                    }
+                }
+
+                if (mainTips != null && mainTips.GetToolTip(Button_Network) != buttonTip)
+                {
+                    mainTips.SetToolTip(Button_Network, buttonTip);
                 }
 
                 // update back color

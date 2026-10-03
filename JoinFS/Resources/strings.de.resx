@@ -756,4 +756,13 @@
   <data name="FlightPlan_AltitudeTooltip" xml:space="preserve">
     <value>Reiseflughöhe oder Flugfläche, z. B. 35000 oder FL350</value>
   </data>
+  <data name="ReconnectCredentialsRejected" xml:space="preserve">
+    <value>Die Verbindung wurde unterbrochen und der Hub hat die gespeicherten Zugangsdaten abgelehnt (evtl. wurden sie geändert). Bitte gib sie erneut ein, um dich wieder zu verbinden.</value>
+  </data>
+  <data name="Tip_NetworkReconnecting" xml:space="preserve">
+    <value>Verbindung verloren - automatische Wiederverbindung läuft.</value>
+  </data>
+  <data name="ReconnectGaveUp" xml:space="preserve">
+    <value>Verbindung verloren. Die automatische Wiederverbindung war innerhalb der letzten {0} Minuten nicht erfolgreich. Verbinde dich manuell neu, sobald du bereit bist.</value>
+  </data>
 </root>
