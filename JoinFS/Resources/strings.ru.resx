@@ -756,4 +756,13 @@
   <data name="FlightPlan_AltitudeTooltip" xml:space="preserve">
     <value>Крейсерская высота или эшелон полёта, напр. 35000 или FL350</value>
   </data>
+  <data name="ReconnectCredentialsRejected" xml:space="preserve">
+    <value>Соединение потеряно, и хаб отклонил сохранённые учётные данные (возможно, они изменились). Введите их снова, чтобы подключиться.</value>
+  </data>
+  <data name="Tip_NetworkReconnecting" xml:space="preserve">
+    <value>Соединение потеряно: выполняется автоматическое переподключение.</value>
+  </data>
+  <data name="ReconnectGaveUp" xml:space="preserve">
+    <value>Соединение потеряно. Автоматическое переподключение не удалось восстановить за последние {0} мин. Подключитесь вручную, когда будете готовы.</value>
+  </data>
 </root>
