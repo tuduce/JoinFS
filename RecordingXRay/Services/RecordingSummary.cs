@@ -9,7 +9,8 @@ public sealed record RecordingSummary(
     string Objects,
     string Frames,
     string Duration,
-    string DurationClock)
+    string DurationClock,
+    double DurationSeconds = 0)
 {
     /// <summary>What the strip shows while no recording is loaded.</summary>
     public const string Placeholder = "—";
@@ -39,6 +40,7 @@ public sealed record RecordingSummary(
             recording.Objects.Count.ToString(CultureInfo.InvariantCulture),
             totalFrames.ToString("N0", CultureInfo.InvariantCulture),
             TimeFormat.Seconds(duration),
-            TimeFormat.Clock(duration));
+            TimeFormat.Clock(duration),
+            duration);
     }
 }

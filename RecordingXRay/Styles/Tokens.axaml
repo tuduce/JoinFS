@@ -48,6 +48,10 @@
   <SolidColorBrush x:Key="MapGridBrush" Color="#1A2332" />
   <SolidColorBrush x:Key="MapLabelBrush" Color="#6C7792" />
 
+  <!-- Timeline -->
+  <SolidColorBrush x:Key="SelectedLaneBrush" Color="#08FFFFFF" />
+  <SolidColorBrush x:Key="PositionLaneBrush" Color="#2E5BA2FF" />
+
   <!-- Instruments -->
   <SolidColorBrush x:Key="AttitudeSkyBrush" Color="#2A5FA6" />
   <SolidColorBrush x:Key="AttitudeGroundBrush" Color="#6A4A2E" />

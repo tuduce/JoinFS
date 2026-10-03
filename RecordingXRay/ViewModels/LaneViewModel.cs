@@ -23,18 +23,94 @@ public sealed class LaneViewModel
 
         double first = double.PositiveInfinity;
         double last = double.NegativeInfinity;
-        HashSet<FrameKind> kinds = [];
-        foreach (RecordedFrame frame in Frames)
+        Dictionary<FrameKind, List<double>> times = [];
+        List<int> positions = [];
+        for (int i = 0; i < Frames.Count; i++)
         {
+            RecordedFrame frame = Frames[i];
             first = Math.Min(first, frame.Time);
             last = Math.Max(last, frame.Time);
-            kinds.Add(FrameKinds.Of(frame.Type));
+
+            FrameKind kind = FrameKinds.Of(frame.Type);
+            if (!times.TryGetValue(kind, out List<double>? list))
+            {
+                times[kind] = list = [];
+            }
+
+            list.Add(frame.Time);
+            if (kind == FrameKind.Position)
+            {
+                positions.Add(i);
+            }
         }
 
         FirstTime = Frames.Count == 0 ? 0 : first;
         LastTime = Frames.Count == 0 ? 0 : last;
-        Kinds = FrameKinds.All.Where(kinds.Contains).ToArray();
+        Kinds = FrameKinds.All.Where(times.ContainsKey).ToArray();
+        TimesByKind = times.ToDictionary(pair => pair.Key, pair => SortedCopy(pair.Value));
+        positionIndexes = positions.ToArray();
         Info = BuildInfo(source);
+    }
+
+    private readonly int[] positionIndexes;
+
+    /// <summary>Frame times of each kind, ascending. The timeline counts frames per pixel column from these.</summary>
+    public IReadOnlyDictionary<FrameKind, double[]> TimesByKind { get; }
+
+    /// <summary>True when the cursor at <paramref name="time"/> is inside this lane's extent (first to last frame).</summary>
+    public bool HasDataAt(double time) => Frames.Count > 0 && time >= FirstTime && time <= LastTime;
+
+    /// <summary>Moves a time into this lane's extent: before it gives the first frame time, after it the last.</summary>
+    public double ClampToExtent(double time) => time < FirstTime ? FirstTime : (time > LastTime ? LastTime : time);
+
+    /// <summary>
+    /// The frame to show for a time cursor: the last position frame at or before the time, else the first position
+    /// frame; for a lane without position frames, the last frame at or before the time, else the first. -1 for an empty lane.
+    /// </summary>
+    public int FrameIndexAt(double time)
+    {
+        if (Frames.Count == 0)
+        {
+            return -1;
+        }
+
+        if (positionIndexes.Length > 0)
+        {
+            int position = LastAtOrBefore(positionIndexes.Length, i => Frames[positionIndexes[i]].Time, time);
+            return positionIndexes[Math.Max(position, 0)];
+        }
+
+        return Math.Max(LastAtOrBefore(Frames.Count, i => Frames[i].Time, time), 0);
+    }
+
+    // Index of the last item whose time is <= time, or -1.
+    private static int LastAtOrBefore(int count, Func<int, double> timeAt, double time)
+    {
+        int low = 0;
+        int high = count - 1;
+        int found = -1;
+        while (low <= high)
+        {
+            int mid = low + (high - low) / 2;
+            if (timeAt(mid) <= time)
+            {
+                found = mid;
+                low = mid + 1;
+            }
+            else
+            {
+                high = mid - 1;
+            }
+        }
+
+        return found;
+    }
+
+    private static double[] SortedCopy(List<double> values)
+    {
+        double[] array = values.ToArray();
+        Array.Sort(array);
+        return array;
     }
 
     public RecordedObject Source { get; }

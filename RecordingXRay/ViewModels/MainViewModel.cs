@@ -32,7 +32,7 @@ public partial class MainViewModel : ObservableObject
 
         Browser = new FrameBrowserViewModel();
         Inspector = new InspectorViewModel(resolveName);
-        Browser.FrameSelected += Inspector.Show;
+        Browser.FrameSelected += OnFrameSelected;
     }
 
     /// <summary>Asks the user for a recording file. Set by the window; returns null when cancelled.</summary>
@@ -52,19 +52,6 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Every aircraft, then every object, of the loaded recording.</summary>
     [ObservableProperty]
     private IReadOnlyList<LaneViewModel> lanes = [];
-
-    [ObservableProperty]
-    private LaneViewModel? selectedLane;
-
-    partial void OnSelectedLaneChanged(LaneViewModel? value)
-    {
-        if (value is null)
-        {
-            Inspector.Clear();
-        }
-
-        Browser.SetLane(value);
-    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasRecording), nameof(IsEmpty))]
@@ -177,10 +164,7 @@ public partial class MainViewModel : ObservableObject
             SummaryItems = BuildItems(summary);
             Status = StatusKind.Loaded;
 
-            Inspector.Clear();
-            Lanes = laneList;
-            SelectedLane = null; // so that loading a recording always starts on its first aircraft
-            SelectedLane = laneList.FirstOrDefault();
+            ResetForRecording(laneList, summary.DurationSeconds);
         }
         catch (Exception ex)
         {

@@ -12,6 +12,10 @@
   <StreamGeometry x:Key="IconInfo">M14.5 8A6.5 6.5 0 1 1 1.5 8A6.5 6.5 0 1 1 14.5 8ZM8 7.2V11M8 4.8V5</StreamGeometry>
   <StreamGeometry x:Key="IconAircraft">M14 2L2 7L6.5 8.8L8.2 14Z</StreamGeometry>
 
+  <!-- Filled transport icons -->
+  <StreamGeometry x:Key="IconStepBack">M3 3H5V13H3ZM13 3.5V12.5L6.5 8Z</StreamGeometry>
+  <StreamGeometry x:Key="IconStepNext">M11 3H13V13H11ZM3 3.5V12.5L9.5 8Z</StreamGeometry>
+
   <!-- App mark, 18 x 18: crosshair ring inside a rounded square (the ring and ticks are drawn on top of the square). -->
   <StreamGeometry x:Key="IconLogoRing">M13.2 9A4.2 4.2 0 1 1 4.8 9A4.2 4.2 0 1 1 13.2 9Z</StreamGeometry>
   <StreamGeometry x:Key="IconLogoTicks">M9 2.5v3M9 12.5v3M2.5 9h3M12.5 9h3</StreamGeometry>

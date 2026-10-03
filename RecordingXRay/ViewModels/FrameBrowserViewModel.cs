@@ -76,11 +76,16 @@ public sealed partial class FrameBrowserViewModel : ObservableObject
         }
     }
 
-    /// <summary>Shows a lane and selects its first frame.</summary>
-    public void SetLane(LaneViewModel? newLane)
+    /// <summary>Shows a lane and selects <paramref name="frameIndex"/> in it (its first frame when null).</summary>
+    public void SetLane(LaneViewModel? newLane, int? frameIndex = null)
     {
         if (ReferenceEquals(Lane, newLane))
         {
+            if (frameIndex is int index)
+            {
+                SelectFrame(index);
+            }
+
             return;
         }
 
@@ -92,12 +97,16 @@ public sealed partial class FrameBrowserViewModel : ObservableObject
         SelectedRow = null;
         if (Rows.Count > 0)
         {
-            Select(Rows[0]);
+            SelectFrame(frameIndex ?? 0);
         }
     }
 
-    /// <summary>Selects a frame by its index in the lane, widening the filter if it hides that frame.</summary>
-    public void SelectFrame(int frameIndex)
+    /// <summary>Selects a frame of the lane by its index.</summary>
+    /// <param name="widenFilter">
+    /// When the filter hides the frame: true clears the filter so the frame can be selected in the list; false leaves
+    /// the filter alone, clears the list selection and still raises <see cref="FrameSelected"/> so the inspector follows.
+    /// </param>
+    public void SelectFrame(int frameIndex, bool widenFilter = true)
     {
         if (Lane is null || (uint)frameIndex >= (uint)Lane.Frames.Count)
         {
@@ -106,6 +115,13 @@ public sealed partial class FrameBrowserViewModel : ObservableObject
 
         if (Rows.PositionOf(frameIndex) < 0)
         {
+            if (!widenFilter)
+            {
+                SelectedRow = null;
+                FrameSelected?.Invoke(Lane, new FrameRow(frameIndex, Lane.Frames[frameIndex], frameIndex > 0 ? Lane.Frames[frameIndex - 1].Time : null));
+                return;
+            }
+
             ResetFilter();
         }
 
@@ -115,6 +131,9 @@ public sealed partial class FrameBrowserViewModel : ObservableObject
             Select(Rows[position]);
         }
     }
+
+    /// <summary>Selects a row of the current list (used by stepping).</summary>
+    public void SelectRow(FrameRow row) => Select(row);
 
     partial void OnFilterTextChanged(string value) => ApplyFilter();
 

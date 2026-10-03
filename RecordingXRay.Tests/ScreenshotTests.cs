@@ -63,6 +63,27 @@ public sealed class ScreenshotTests : IDisposable
         Assert.True(viewModel.Inspector.HasFrame);
     }
 
+    [AvaloniaFact]
+    public async Task Timeline_scrubbed_and_zoomed_renders()
+    {
+        string path = Environment.GetEnvironmentVariable("XRAY_SAMPLE") is { Length: > 0 } sample && File.Exists(sample)
+            ? sample
+            : RecordingFiles.WriteSingleAircraft(directory, 0.026, 0.101, 711.165);
+        MainViewModel viewModel = new();
+        MainWindow window = Show(viewModel);
+        await viewModel.LoadAsync(path);
+
+        viewModel.SelectAircraft(viewModel.Lanes[^1]);
+        viewModel.MoveCursor(300);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Save(window, "timeline-scrubbed.png");
+
+        viewModel.Timeline.ZoomBy(40, 300);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Save(window, "timeline-zoomed.png");
+        Assert.True(viewModel.Timeline.ViewSpan < viewModel.Duration);
+    }
+
     private static MainWindow Show(MainViewModel viewModel)
     {
         MainWindow window = new() { DataContext = viewModel, Width = 1440, Height = 900 };

@@ -245,6 +245,47 @@
     <Setter Property="HorizontalAlignment" Value="Stretch" />
   </Style>
 
+  <!-- Timeline: aircraft header rows and the zoom slider -->
+  <Style Selector="Button.track">
+    <Setter Property="Height" Value="34" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.track:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource HoverBrush}" />
+  </Style>
+  <Style Selector="Button.track.selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource AccentTintBrush}" />
+  </Style>
+  <Style Selector="Button.track.selected TextBlock.name">
+    <Setter Property="Foreground" Value="{StaticResource StrongTextBrush}" />
+  </Style>
+  <Style Selector="Slider.zoom">
+    <Style.Resources>
+      <StaticResource x:Key="SliderTrackValueFill" ResourceKey="AccentBrush" />
+      <StaticResource x:Key="SliderTrackValueFillPointerOver" ResourceKey="AccentHoverBrush" />
+      <StaticResource x:Key="SliderTrackValueFillPressed" ResourceKey="AccentPressedBrush" />
+      <StaticResource x:Key="SliderThumbBackground" ResourceKey="AccentBrush" />
+      <StaticResource x:Key="SliderThumbBackgroundPointerOver" ResourceKey="AccentHoverBrush" />
+      <StaticResource x:Key="SliderThumbBackgroundPressed" ResourceKey="AccentPressedBrush" />
+    </Style.Resources>
+  </Style>
+  <Style Selector="TextBlock.timecode">
+    <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+    <Setter Property="FontSize" Value="20" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+  </Style>
+  <Style Selector="TextBlock.timecode.dim">
+    <Setter Property="Foreground" Value="{StaticResource StrongBorderBrush}" />
+  </Style>
+
   <!-- Instruments and bars: brushes come from the tokens -->
   <Style Selector="c|AttitudeIndicator">
     <Setter Property="SkyBrush" Value="{StaticResource AttitudeSkyBrush}" />

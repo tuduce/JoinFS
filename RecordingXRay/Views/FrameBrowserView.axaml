@@ -75,7 +75,7 @@
       </StackPanel>
 
       <!-- Column headings -->
-      <Grid Grid.Row="1" ColumnDefinitions="40,70,*,64" Height="28" Margin="0" Background="{StaticResource CardBrush}">
+      <Grid Grid.Row="1" ColumnDefinitions="56,70,*,64" Height="28" Margin="0" Background="{StaticResource CardBrush}">
         <TextBlock Classes="caption" Text="FRAME" Margin="16,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" />
         <TextBlock Grid.Column="1" Classes="caption" Text="TIME" Margin="26,0,0,0" VerticalAlignment="Center" />
         <TextBlock Grid.Column="2" Classes="caption" Text="TYPE" Margin="26,0,0,0" VerticalAlignment="Center" />
@@ -87,7 +87,7 @@
                ScrollViewer.HorizontalScrollBarVisibility="Disabled">
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:FrameRow">
-            <Grid ColumnDefinitions="40,70,*,64" Height="28" Margin="8,0">
+            <Grid ColumnDefinitions="56,70,*,64" Height="28" Margin="8,0">
               <TextBlock Classes="mono muted" FontSize="12" Text="{Binding IndexText}" HorizontalAlignment="Right" VerticalAlignment="Center" />
               <TextBlock Grid.Column="1" Classes="mono strong" FontSize="12.5" Foreground="{StaticResource Text2Brush}"
                          Text="{Binding TimeText}" Margin="10,0,0,0" VerticalAlignment="Center" />

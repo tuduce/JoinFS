@@ -20,6 +20,13 @@ frame browser, map, inspector and a multi-track timeline.
   filter, Delta column), inspector for every frame type (Fields cards with degrees, attitude indicator, heading dial,
   control bars, variables table with names, sorting and filter; Raw text; Copy). The aircraft picker is a combo box until the
   map and timeline take over selection in milestones 3 and 4. Selecting a frame does not move a time cursor yet (milestone 3).
+- **Milestone 3 done:** the cursor and selection model (`MainViewModel.Cursor.cs`, section 6 rules, with tests) and the
+  timeline dock: toolbar (previous / next frame, timecode, frame counter, legend, zoom), one track per aircraft with a
+  has-data dot, ruler, lanes drawn between each lane's first and last frame with per-pixel frame columns counted from the
+  frame times, playhead, click / drag to scrub, Ctrl + wheel zoom, Shift + wheel pan. Keys, while the timeline has focus:
+  Left / Right step, Home / End first / last frame, Up / Down change aircraft. Frame list, inspector and status bar follow
+  the cursor; picking a frame in the list moves the cursor to it. Decision taken: scrubbing shows the last *position* frame
+  at or before the cursor (frames of other types that share a timestamp are reached by stepping or from the list).
 - Tests: `dotnet test RecordingXRay.Tests/RecordingXRay.Tests.csproj` (not in `JoinFS.sln`, so CI does not run it yet).
   Set `XRAY_SCREENSHOT_DIR` (and optionally `XRAY_SAMPLE=<a .jfs file>`) to also write headless PNG screenshots of the
   empty and loaded window, for checking the UI against the design.

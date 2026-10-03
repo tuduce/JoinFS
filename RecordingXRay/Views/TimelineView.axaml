@@ -1,0 +1,101 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:RecordingXRay.ViewModels"
+             xmlns:c="using:RecordingXRay.Views.Controls"
+             x:Class="RecordingXRay.Views.TimelineView"
+             x:DataType="vm:MainViewModel"
+             Focusable="True">
+
+  <Border Classes="panel" Background="{StaticResource StripBrush}" MinHeight="140">
+    <Grid RowDefinitions="44,*">
+
+      <!-- Toolbar: step, timecode, frame counter, legend, zoom -->
+      <Border Grid.Row="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource RaisedBrush}"
+              BorderThickness="0,0,0,1" Padding="12,0">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto">
+          <Button Grid.Column="0" Classes="ghost" Width="32" Height="32" Command="{Binding StepPreviousCommand}"
+                  IsEnabled="{Binding HasRecording}" BorderThickness="1" BorderBrush="{StaticResource RaisedBrush}"
+                  AutomationProperties.Name="Previous frame" ToolTip.Tip="Previous frame (Left)">
+            <Path Data="{StaticResource IconStepBack}" Fill="{StaticResource Text2Brush}" Width="16" Height="16" Stretch="None" />
+          </Button>
+          <Button Grid.Column="1" Classes="ghost" Width="32" Height="32" Margin="8,0,0,0" Command="{Binding StepNextCommand}"
+                  IsEnabled="{Binding HasRecording}" BorderThickness="1" BorderBrush="{StaticResource RaisedBrush}"
+                  AutomationProperties.Name="Next frame" ToolTip.Tip="Next frame (Right)">
+            <Path Data="{StaticResource IconStepNext}" Fill="{StaticResource Text2Brush}" Width="16" Height="16" Stretch="None" />
+          </Button>
+          <TextBlock Grid.Column="2" Classes="timecode" Classes.dim="{Binding IsEmpty}" Margin="20,0,0,0"
+                     VerticalAlignment="Center" Text="{Binding CursorText}" />
+          <TextBlock Grid.Column="3" Classes="mono muted" FontSize="12" Margin="8,0,0,0" VerticalAlignment="Center"
+                     Text="{Binding DurationText}" />
+          <TextBlock Grid.Column="4" Classes="muted" FontSize="12" Margin="16,0,0,0" VerticalAlignment="Center"
+                     Text="{Binding FrameCounterText}" />
+
+          <ItemsControl Grid.Column="6" ItemsSource="{Binding Timeline.Legend}" VerticalAlignment="Center">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" Spacing="12" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:LegendItem">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <Border Width="8" Height="8" CornerRadius="2" VerticalAlignment="Center"
+                          Background="{Binding Kind, Converter={x:Static c:KindBrushConverter.Instance}}" />
+                  <TextBlock FontSize="12" Foreground="{StaticResource Text2Brush}" Text="{Binding Label}" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0"
+                      IsVisible="{Binding HasRecording}">
+            <Path Classes="icon" Data="{StaticResource IconSearch}" Width="14" Height="14" VerticalAlignment="Center" />
+            <Slider Classes="zoom" Minimum="0" Maximum="100" Width="110" VerticalAlignment="Center"
+                    Value="{Binding Timeline.Zoom}" AutomationProperties.Name="Timeline zoom" ToolTip.Tip="Zoom (Ctrl + wheel)" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <TextBlock Grid.Row="1" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"
+                 IsVisible="{Binding IsEmpty}" Text="Aircraft tracks appear here once a recording is open" />
+
+      <!-- Tracks: headers on the left, lanes on the right, scrolling together -->
+      <ScrollViewer Grid.Row="1" IsVisible="{Binding HasRecording}" HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
+        <Grid ColumnDefinitions="236,*" VerticalAlignment="Top">
+          <StackPanel Grid.Column="0">
+            <Border Height="26" BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,0,1,1" Padding="14,0">
+              <TextBlock Classes="caption" VerticalAlignment="Center"
+                         Text="{Binding Timeline.Tracks.Count, StringFormat='AIRCRAFT ({0})'}" />
+            </Border>
+            <ItemsControl ItemsSource="{Binding Timeline.Tracks}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:TrackViewModel">
+                  <Button Classes="track" Classes.selected="{Binding IsSelected}" Command="{Binding PickCommand}"
+                          AutomationProperties.Name="{Binding Name}">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                      <Ellipse Grid.Column="0" Width="8" Height="8" Margin="0,0,10,0" StrokeThickness="1.5"
+                               ToolTip.Tip="{Binding DataTip}"
+                               Stroke="{Binding HasData, Converter={x:Static c:BoolBrushConverter.Instance}, ConverterParameter='OkBrush|DimBrush'}"
+                               Fill="{Binding HasData, Converter={x:Static c:BoolBrushConverter.Instance}, ConverterParameter='OkBrush|none'}" />
+                      <TextBlock Grid.Column="1" Classes="name" FontSize="12.5" FontWeight="SemiBold"
+                                 Foreground="{StaticResource Text2Brush}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="2" Classes="mono" FontSize="11.5" Foreground="{StaticResource Text2Brush}"
+                                 Text="{Binding Lane.FrameCountText}" />
+                    </Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
+          <Panel Grid.Column="1" x:Name="LanePanel" Background="Transparent" Cursor="Cross">
+            <c:TimelineControl x:Name="Lanes" Tracks="{Binding Timeline.Tracks}" SelectedLane="{Binding SelectedLane}"
+                               CursorTime="{Binding Cursor}" ViewStart="{Binding Timeline.ViewStart}"
+                               ViewSpan="{Binding Timeline.ViewSpan}" />
+          </Panel>
+        </Grid>
+      </ScrollViewer>
+    </Grid>
+  </Border>
+</UserControl>
