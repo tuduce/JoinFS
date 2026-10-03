@@ -528,6 +528,48 @@ The clock files let logs from several PCs be put on one time line, even when the
   hour per aircraft (half that for 10 Hz senders: X-Plane, or low bandwidth). Clock rows add about
   0.15 MB per hour.
 
+### 6.2 First field results (2026-10-01)
+
+**Session.** Two MSFS 2024 jets, HB-TDX on FLIGHTSIM and YR-SCD on CRISTII5DESK, both running
+`Classic`.
+
+- Both logs were analysed together with
+  `JoinFS/util/estimation-analysis/analyze_estimation.py`, through the `analyze-estimation` skill.
+- 45 minutes of both flying, at a median 150 m/s.
+- About 18 ms each way, steady (p5 to p95 within about 1 ms).
+
+| Error against the sender's state at that moment | YR-SCD on FLIGHTSIM | HB-TDX on CRISTII5DESK |
+|---|---|---|
+| Along track, p50 / p95 / p99 | 0.29 / 1.44 / 2.50 m | 0.17 / 0.99 / 2.58 m |
+| Cross track, p95 | 0.02 m | 0.03 m |
+| Vertical, p95 | 0.21 m | 0.10 m |
+| Close formation (< 100 m, median 62 m), along p95 / drawn along p95 | 1.31 / 1.60 m | 0.92 / 1.47 m |
+| Heading in turns, p95 / p99: Classic → with Euler rates | 0.56 / 2.18 → 0.05 / 0.19 deg | 0.71 / 2.55 → 0.04 / 0.27 deg |
+| Without prediction, horizontal p95 | 14.6 m | 16.0 m |
+
+**Conclusions.**
+
+- **F2 dominates.** The along-track error tracks the sender's timestamp jitter:
+  - CRISTII5DESK stamps with ±7 ms of noise (p5–p95) and FLIGHTSIM with ±4 ms;
+  - the along-track error is larger for the noisier sender.
+
+  Phase 4 (sim-time stamps) is the biggest win.
+- **F4 is confirmed and cheap to fix.**
+- **F3 and F5 make no measurable difference at a 60 ms horizon.** Kalman/IMM work is not justified
+  at this latency.
+- **Steering.** The drawn error exceeds the predicted one mostly in turns and vertical manoeuvres:
+  the Euler singularity near ±90° pitch.
+- **Rare spikes (<0.1%).** They hit both directions at the same seconds, alongside 250–700 ms gaps
+  in the senders' samples while delays stayed normal. Most likely both sims hitched together.
+- **Unexplained.** One 5 s episode where YR-SCD's sim drew HB-TDX level and 357 m too high.
+
+**Lessons for the measurement.**
+
+- `w32tm` against `time.windows.com` misaligned the PCs by +15 to +70 ms, and Windows Time stepped
+  FLIGHTSIM's clock mid-session. The tool therefore aligns the PCs from their two-way traffic.
+- The 1/32 send rate (1.6 s gaps) is by design while a peer's simulator is disconnected. YR-SCD's
+  JoinFS ran without MSFS for an hour.
+
 ---
 
 ## 7. Implementation phases
