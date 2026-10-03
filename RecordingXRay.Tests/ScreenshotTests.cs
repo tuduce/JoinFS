@@ -84,6 +84,26 @@ public sealed class ScreenshotTests : IDisposable
         Assert.True(viewModel.Timeline.ViewSpan < viewModel.Duration);
     }
 
+    [AvaloniaFact]
+    public async Task Map_following_and_zoomed_renders()
+    {
+        string path = Environment.GetEnvironmentVariable("XRAY_SAMPLE") is { Length: > 0 } sample && File.Exists(sample)
+            ? sample
+            : RecordingFiles.WriteSingleAircraft(directory, 0.026, 0.101, 711.165);
+        MainViewModel viewModel = new();
+        MainWindow window = Show(viewModel);
+        await viewModel.LoadAsync(path);
+
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs(); // lay out, so the map knows its size and fits
+        viewModel.SelectAircraft(viewModel.Lanes[^1]);
+        viewModel.MoveCursor(120);
+        viewModel.Map.Follow = true;
+        viewModel.Map.ZoomBy(12, 0, 0);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Save(window, "map-follow-zoomed.png");
+        Assert.True(viewModel.Map.Follow);
+    }
+
     private static MainWindow Show(MainViewModel viewModel)
     {
         MainWindow window = new() { DataContext = viewModel, Width = 1440, Height = 900 };

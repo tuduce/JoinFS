@@ -9,8 +9,12 @@ internal static class RecordingFiles
     public static string WriteSingleAircraft(string directory, params double[] times) =>
         WriteAircraft(directory, ("YR-SCD", times));
 
-    /// <summary>One aircraft per entry, each with an AircraftPosition frame at each of its times.</summary>
-    public static string WriteAircraft(string directory, params (string Callsign, double[] Times)[] aircraft)
+    /// <summary>One aircraft per entry, each with an AircraftPosition frame at each of its times (all at the same place).</summary>
+    public static string WriteAircraft(string directory, params (string Callsign, double[] Times)[] aircraft) =>
+        WritePositions(directory, aircraft.Select(a => (a.Callsign, a.Times.Select(t => (t, 0.9674238236590125, 0.231041585664082, 0.5f)).ToArray())).ToArray());
+
+    /// <summary>One aircraft per entry, each with an AircraftPosition frame per (time, latitude, longitude, heading), angles in radians.</summary>
+    public static string WritePositions(string directory, params (string Callsign, (double Time, double Latitude, double Longitude, float Heading)[] Points)[] aircraft)
     {
         string path = Path.Combine(directory, $"{Guid.NewGuid():N}.jfs");
         using FileStream stream = File.Create(path);
@@ -18,7 +22,7 @@ internal static class RecordingFiles
 
         writer.Write(Version);
         writer.Write(aircraft.Length);
-        foreach ((string callsign, double[] times) in aircraft)
+        foreach ((string callsign, (double Time, double Latitude, double Longitude, float Heading)[] points) in aircraft)
         {
             writer.Write(true); // plane
             writer.Write(callsign);
@@ -26,17 +30,20 @@ internal static class RecordingFiles
             writer.Write("Tiger Moth TIGER-4 01001011110");
             writer.Write((byte)1);
 
-            writer.Write(times.Length);
-            foreach (double time in times)
+            writer.Write(points.Length);
+            foreach ((double time, double latitude, double longitude, float heading) in points)
             {
                 writer.Write((byte)FrameType.AircraftPosition);
                 writer.Write(time);
-                writer.Write(0.9674238236590125); // latitude
-                writer.Write(0.231041585664082); // longitude
+                writer.Write(latitude);
+                writer.Write(longitude);
                 writer.Write(46.31249673649731); // altitude
-                for (int i = 0; i < 12; i++)
+                writer.Write(0.5f); // pitch
+                writer.Write(0.5f); // bank
+                writer.Write(heading);
+                for (int i = 0; i < 9; i++)
                 {
-                    writer.Write(0.5f); // pitch, bank, heading, velocity, angular velocity, acceleration
+                    writer.Write(0.5f); // velocity, angular velocity, acceleration
                 }
 
                 for (int i = 0; i < 5; i++)

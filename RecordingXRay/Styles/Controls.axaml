@@ -129,6 +129,8 @@
     <Setter Property="BorderBrush" Value="{StaticResource RaisedBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Foreground" Value="{StaticResource KeyLabelBrush}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
   </Style>
   <Style Selector="ToggleButton.chip:checked /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{StaticResource RaisedBrush}" />
@@ -140,6 +142,9 @@
   </Style>
   <Style Selector="ToggleButton.chip:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{StaticResource RaisedBrush}" />
+  </Style>
+  <Style Selector="ToggleButton.chip.follow:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
   </Style>
   <Style Selector="Border.flag">
     <Setter Property="Height" Value="24" />

@@ -12,6 +12,10 @@
   <StreamGeometry x:Key="IconInfo">M14.5 8A6.5 6.5 0 1 1 1.5 8A6.5 6.5 0 1 1 14.5 8ZM8 7.2V11M8 4.8V5</StreamGeometry>
   <StreamGeometry x:Key="IconAircraft">M14 2L2 7L6.5 8.8L8.2 14Z</StreamGeometry>
 
+  <StreamGeometry x:Key="IconPlus">M8 3V13M3 8H13</StreamGeometry>
+  <StreamGeometry x:Key="IconMinus">M3 8H13</StreamGeometry>
+  <StreamGeometry x:Key="IconFit">M2 6V2H6M10 2H14V6M14 10V14H10M6 14H2V10</StreamGeometry>
+
   <!-- Filled transport icons -->
   <StreamGeometry x:Key="IconStepBack">M3 3H5V13H3ZM13 3.5V12.5L6.5 8Z</StreamGeometry>
   <StreamGeometry x:Key="IconStepNext">M11 3H13V13H11ZM3 3.5V12.5L9.5 8Z</StreamGeometry>

@@ -27,6 +27,14 @@ frame browser, map, inspector and a multi-track timeline.
   Left / Right step, Home / End first / last frame, Up / Down change aircraft. Frame list, inspector and status bar follow
   the cursor; picking a frame in the list moves the cursor to it. Decision taken: scrubbing shows the last *position* frame
   at or before the cursor (frames of other types that share a timestamp are reached by stepping or from the list).
+- **Milestone 4 done:** the map (`MapViewModel`, `MapTrack`, `MapProjection`, `MapControl`, `MapView`). Web Mercator view with an
+  adaptive lat / lon graticule and scale bar; every aircraft's whole flight is drawn, bright and solid before the cursor,
+  dim and dashed after it; aircraft sit at their interpolated position with heading, the selected one in the accent colour with
+  a name chip; clicking one selects it with the usual cursor rule. Drag pans, wheel zooms, + / - / arrows / Home work when the
+  map has focus. Follow centres the selected aircraft (also as the cursor moves) and any drag switches it off; Fit all
+  refits and switches it off. Trails / Labels / Follow toggles, Past / Future key, zoom buttons, readout pill ("· no data" outside
+  the lane). Deviation from the brief: markers are not individually keyboard-focusable (the map is one focus stop); the keyboard
+  route to select an aircraft is the timeline's Up / Down or its track rows. No basemap tiles (graticule only), as planned.
 - Tests: `dotnet test RecordingXRay.Tests/RecordingXRay.Tests.csproj` (not in `JoinFS.sln`, so CI does not run it yet).
   Set `XRAY_SCREENSHOT_DIR` (and optionally `XRAY_SAMPLE=<a .jfs file>`) to also write headless PNG screenshots of the
   empty and loaded window, for checking the UI against the design.

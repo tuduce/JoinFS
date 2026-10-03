@@ -1,0 +1,94 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:RecordingXRay.ViewModels"
+             xmlns:c="using:RecordingXRay.Views.Controls"
+             x:Class="RecordingXRay.Views.MapView"
+             x:DataType="vm:MapViewModel">
+
+  <Border Classes="panel">
+    <Grid RowDefinitions="48,*">
+
+      <!-- Header: how many aircraft are shown, and the Trails / Labels / Follow toggles -->
+      <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" Margin="14,0">
+        <TextBlock Grid.Column="0" Classes="title" Text="Map" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" Classes="muted" FontSize="12" Margin="10,0,0,0" VerticalAlignment="Center"
+                   IsVisible="{Binding HasTracks}">
+          <Run Text="{Binding CountText, Mode=OneWay}" /><Run Text=" at " /><Run Text="{Binding TimeText, Mode=OneWay}" />
+        </TextBlock>
+        <ToggleButton Grid.Column="3" Classes="chip" Content="Trails" IsChecked="{Binding ShowTrails}" Margin="0,0,8,0"
+                      VerticalAlignment="Center" ToolTip.Tip="Show the whole flight of every aircraft" />
+        <ToggleButton Grid.Column="4" Classes="chip" Content="Labels" IsChecked="{Binding ShowLabels}" Margin="0,0,8,0"
+                      VerticalAlignment="Center" ToolTip.Tip="Show aircraft names" />
+        <ToggleButton Grid.Column="5" Classes="chip follow" Content="Follow" IsChecked="{Binding Follow}"
+                      VerticalAlignment="Center" ToolTip.Tip="Keep the selected aircraft in the centre (dragging the map turns this off)" />
+      </Grid>
+
+      <Border Grid.Row="1" BorderBrush="{StaticResource RaisedBrush}" BorderThickness="0,1,0,0">
+        <Panel>
+          <c:MapControl Map="{Binding}" AutomationProperties.Name="Map of all aircraft. Drag to pan, wheel to zoom." />
+
+          <TextBlock Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasTracks}"
+                     Text="This recording has no position data" />
+
+          <!-- Past / Future key -->
+          <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12" Height="26" Padding="12,0" CornerRadius="13"
+                  Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource RaisedBrush}" BorderThickness="1"
+                  IsVisible="{Binding HasTracks}">
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Path Data="M1 3H21" Stroke="{StaticResource TextBrush}" StrokeThickness="2.4" StrokeLineCap="Round" Width="22" Height="6" Stretch="None" />
+                <TextBlock FontSize="11.5" Foreground="{StaticResource Text2Brush}" Text="Past" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Path Data="M1 3H21" Stroke="{StaticResource MapFutureBrush}" StrokeThickness="2" StrokeLineCap="Round"
+                      StrokeDashArray="2,2" Width="22" Height="6" Stretch="None" />
+                <TextBlock FontSize="11.5" Foreground="{StaticResource Text2Brush}" Text="Future" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- Zoom in, zoom out, fit all -->
+          <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" CornerRadius="8" ClipToBounds="True"
+                  Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource RaisedBrush}" BorderThickness="1"
+                  IsVisible="{Binding HasTracks}">
+            <StackPanel>
+              <Button Classes="ghost" Width="32" Height="32" CornerRadius="0" Command="{Binding ZoomInCommand}"
+                      AutomationProperties.Name="Zoom in" ToolTip.Tip="Zoom in">
+                <Path Classes="icon" Data="{StaticResource IconPlus}" Stroke="{StaticResource Text2Brush}" StrokeThickness="1.6" Width="14" Height="14" />
+              </Button>
+              <Button Classes="ghost" Width="32" Height="32" CornerRadius="0" Command="{Binding ZoomOutCommand}"
+                      BorderBrush="{StaticResource RaisedBrush}" BorderThickness="0,1,0,0"
+                      AutomationProperties.Name="Zoom out" ToolTip.Tip="Zoom out">
+                <Path Classes="icon" Data="{StaticResource IconMinus}" Stroke="{StaticResource Text2Brush}" StrokeThickness="1.6" Width="14" Height="14" />
+              </Button>
+              <Button Classes="ghost" Width="32" Height="32" CornerRadius="0" Command="{Binding FitAllCommand}"
+                      BorderBrush="{StaticResource RaisedBrush}" BorderThickness="0,1,0,0"
+                      AutomationProperties.Name="Fit all aircraft" ToolTip.Tip="Fit every flight in the view (Home)">
+                <Path Classes="icon" Data="{StaticResource IconFit}" Stroke="{StaticResource Text2Brush}" StrokeThickness="1.5" Width="14" Height="14" />
+              </Button>
+            </StackPanel>
+          </Border>
+
+          <!-- Scale bar -->
+          <StackPanel HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="12" Spacing="3" IsHitTestVisible="False"
+                      IsVisible="{Binding HasTracks}">
+            <TextBlock Classes="mono" FontSize="10.5" Foreground="{StaticResource KeyLabelBrush}" Text="{Binding ScaleBarText}" />
+            <Border Width="{Binding ScaleBarWidth}" Height="5" HorizontalAlignment="Left"
+                    BorderBrush="{StaticResource KeyLabelBrush}" BorderThickness="1.5,0,1.5,1.5" />
+          </StackPanel>
+
+          <!-- Selected aircraft: where it is -->
+          <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="12" Height="26" Padding="10,0" CornerRadius="13"
+                  Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource RaisedBrush}" BorderThickness="1"
+                  IsVisible="{Binding HasReadout}" IsHitTestVisible="False">
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <Ellipse Width="8" Height="8" Fill="{StaticResource AccentBrush}" />
+              <TextBlock FontSize="12" Foreground="{StaticResource Text2Brush}" Text="{Binding ReadoutName}" />
+              <TextBlock Classes="mono" FontSize="12" Foreground="{StaticResource StrongTextBrush}" Text="{Binding ReadoutCoordinates}" />
+            </StackPanel>
+          </Border>
+        </Panel>
+      </Border>
+    </Grid>
+  </Border>
+</UserControl>

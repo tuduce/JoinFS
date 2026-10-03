@@ -130,12 +130,7 @@
         <Border Grid.Column="1" Width="3" Height="36" CornerRadius="2" Background="{StaticResource RaisedBrush}"
                 HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" />
 
-        <Border Grid.Column="2" Classes="panel">
-          <StackPanel Margin="16,14" Spacing="4">
-            <TextBlock Classes="title" Text="Map" />
-            <TextBlock Classes="muted" Text="Map: milestone 4" />
-          </StackPanel>
-        </Border>
+        <views:MapView Grid.Column="2" DataContext="{Binding Map}" />
         <GridSplitter Grid.Column="3" AutomationProperties.Name="Resize inspector" />
         <Border Grid.Column="3" Width="3" Height="36" CornerRadius="2" Background="{StaticResource RaisedBrush}"
                 HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" />

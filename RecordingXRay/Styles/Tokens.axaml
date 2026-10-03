@@ -47,6 +47,7 @@
   <SolidColorBrush x:Key="MapBackgroundBrush" Color="#0C121C" />
   <SolidColorBrush x:Key="MapGridBrush" Color="#1A2332" />
   <SolidColorBrush x:Key="MapLabelBrush" Color="#6C7792" />
+  <SolidColorBrush x:Key="MapFutureBrush" Color="#9AA6C4" />
 
   <!-- Timeline -->
   <SolidColorBrush x:Key="SelectedLaneBrush" Color="#08FFFFFF" />

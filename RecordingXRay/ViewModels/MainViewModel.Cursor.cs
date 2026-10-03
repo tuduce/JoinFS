@@ -46,6 +46,10 @@ public partial class MainViewModel
     [ObservableProperty]
     private TimelineViewModel timeline = TimelineViewModel.Empty;
 
+    /// <summary>The map of every aircraft; follows the cursor and the selected aircraft.</summary>
+    [ObservableProperty]
+    private MapViewModel map = MapViewModel.Empty;
+
     /// <summary>Selects an aircraft or object (map marker, timeline track, picker, or Up / Down), moving the cursor as needed.</summary>
     public void SelectAircraft(LaneViewModel? lane)
     {
@@ -210,7 +214,11 @@ public partial class MainViewModel
         Browser.SelectRow(rows[Math.Clamp(target, 0, rows.Count - 1)]);
     }
 
-    private void UpdateTimeline() => Timeline.Update(selectedLane, cursor);
+    private void UpdateTimeline()
+    {
+        Timeline.Update(selectedLane, cursor);
+        Map.Update(selectedLane, cursor);
+    }
 
     private void ResetForRecording(IReadOnlyList<LaneViewModel> laneList, double durationSeconds)
     {
@@ -218,6 +226,7 @@ public partial class MainViewModel
         Lanes = laneList;
         cursor = 0;
         Timeline = new TimelineViewModel(laneList, durationSeconds, SelectAircraft);
+        Map = new MapViewModel(laneList, SelectAircraft);
         OnPropertyChanged(nameof(Cursor));
         OnPropertyChanged(nameof(CursorText));
         OnPropertyChanged(nameof(Duration));
