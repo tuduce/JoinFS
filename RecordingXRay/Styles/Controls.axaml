@@ -1,0 +1,279 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:RecordingXRay.Views.Controls">
+
+  <!-- Text -->
+  <Style Selector="TextBlock.caption">
+    <Setter Property="FontSize" Value="10.5" />
+    <Setter Property="LetterSpacing" Value="0.8" />
+    <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+  </Style>
+  <Style Selector="TextBlock.mono">
+    <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+  </Style>
+  <Style Selector="TextBlock.muted">
+    <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+  </Style>
+  <Style Selector="TextBlock.title">
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="TextBlock.value">
+    <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource StrongTextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.value.dim">
+    <Setter Property="Foreground" Value="{StaticResource DimBrush}" />
+  </Style>
+
+  <!-- Status dot -->
+  <Style Selector="Ellipse.dot">
+    <Setter Property="Width" Value="7" />
+    <Setter Property="Height" Value="7" />
+    <Setter Property="Fill" Value="{StaticResource DimBrush}" />
+  </Style>
+  <Style Selector="Ellipse.dot.ok">
+    <Setter Property="Fill" Value="{StaticResource OkBrush}" />
+  </Style>
+  <Style Selector="Ellipse.dot.busy">
+    <Setter Property="Fill" Value="{StaticResource AccentBrush}" />
+  </Style>
+  <Style Selector="Ellipse.dot.err">
+    <Setter Property="Fill" Value="{StaticResource ErrorBrush}" />
+  </Style>
+
+  <!-- Surfaces -->
+  <Style Selector="Border.panel">
+    <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource RaisedBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource PanelRadius}" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+
+  <!-- Stroke icons -->
+  <Style Selector="Path.icon">
+    <Setter Property="Stroke" Value="{StaticResource MutedBrush}" />
+    <Setter Property="StrokeThickness" Value="1.4" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="StrokeJoin" Value="Round" />
+    <Setter Property="Width" Value="16" />
+    <Setter Property="Height" Value="16" />
+    <Setter Property="Stretch" Value="None" />
+  </Style>
+
+  <!-- Buttons -->
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource AccentTextBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="CornerRadius" Value="{StaticResource ControlRadius}" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource AccentHoverBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource AccentTextBrush}" />
+  </Style>
+  <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource AccentPressedBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource AccentTextBrush}" />
+  </Style>
+  <Style Selector="Button.primary Path.icon">
+    <Setter Property="Stroke" Value="{StaticResource AccentTextBrush}" />
+  </Style>
+  <Style Selector="Button.primary.large">
+    <Setter Property="Height" Value="40" />
+    <Setter Property="Padding" Value="22,0" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="CornerRadius" Value="10" />
+  </Style>
+
+  <Style Selector="Button.ghost">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{StaticResource Text2Brush}" />
+    <Setter Property="CornerRadius" Value="{StaticResource ControlRadius}" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource HoverBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource StrongTextBrush}" />
+  </Style>
+  <Style Selector="Button.ghost:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource RaisedBrush}" />
+  </Style>
+
+  <!-- Cards (inspector) -->
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{StaticResource CardBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource RaisedBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource PanelRadius}" />
+    <Setter Property="Padding" Value="14,10,14,8" />
+  </Style>
+  <Style Selector="Border.fieldrow:pointerover">
+    <Setter Property="Background" Value="{StaticResource HoverBrush}" />
+  </Style>
+
+  <!-- Chips: type toggles in the frame browser, flags in the inspector -->
+  <Style Selector="ToggleButton.chip">
+    <Setter Property="Height" Value="26" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="CornerRadius" Value="13" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{StaticResource RaisedBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{StaticResource KeyLabelBrush}" />
+  </Style>
+  <Style Selector="ToggleButton.chip:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource RaisedBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource StrongBorderBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource StrongTextBrush}" />
+  </Style>
+  <Style Selector="ToggleButton.chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderBrush" Value="{StaticResource StrongBorderBrush}" />
+  </Style>
+  <Style Selector="ToggleButton.chip:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource RaisedBrush}" />
+  </Style>
+  <Style Selector="Border.flag">
+    <Setter Property="Height" Value="24" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="8,0,10,0" />
+    <Setter Property="Background" Value="{StaticResource RaisedBrush}" />
+  </Style>
+  <Style Selector="Border.flag.on">
+    <Setter Property="Background" Value="{StaticResource OkTintBrush}" />
+  </Style>
+  <Style Selector="Border.flag TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="Border.flag.on TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource OkTextBrush}" />
+  </Style>
+  <Style Selector="Border.flag Path.icon">
+    <Setter Property="Stroke" Value="{StaticResource MutedBrush}" />
+    <Setter Property="Width" Value="12" />
+    <Setter Property="Height" Value="12" />
+    <Setter Property="StrokeThickness" Value="2" />
+  </Style>
+  <Style Selector="Border.flag.on Path.icon">
+    <Setter Property="Stroke" Value="{StaticResource OkTextBrush}" />
+  </Style>
+
+  <!-- Segmented control (Fields | Raw) -->
+  <Style Selector="Border.segmented">
+    <Setter Property="Background" Value="{StaticResource InputBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource RaisedBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="2" />
+  </Style>
+  <Style Selector="Button.seg">
+    <Setter Property="Height" Value="26" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+  </Style>
+  <Style Selector="Button.seg.active /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource RaisedBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource StrongTextBrush}" />
+  </Style>
+  <Style Selector="Button.seg:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{StaticResource StrongTextBrush}" />
+  </Style>
+
+  <!-- Flat lists: frame rows and variable rows -->
+  <Style Selector="ListBox.flat">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="4,4" />
+  </Style>
+  <Style Selector="ListBox.flat > ListBoxItem">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="ListBox.flat > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource HoverBrush}" />
+  </Style>
+  <Style Selector="ListBox.flat > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource AccentTintBrush}" />
+  </Style>
+  <Style Selector="ListBox.flat > ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource AccentTintBrush}" />
+  </Style>
+  <Style Selector="ListBox.flat > ListBoxItem:selected TextBlock.strong">
+    <Setter Property="Foreground" Value="{StaticResource StrongTextBrush}" />
+  </Style>
+
+  <!-- Text input and combo box -->
+  <Style Selector="TextBox.field">
+    <Setter Property="Background" Value="{StaticResource InputBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource RaisedBrush}" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBox.field:focus /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+  </Style>
+  <Style Selector="TextBox.raw">
+    <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="Background" Value="{StaticResource CardBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Padding" Value="16,12" />
+  </Style>
+  <Style Selector="ComboBox.lane">
+    <Setter Property="Background" Value="{StaticResource InputBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource RaisedBrush}" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+  </Style>
+
+  <!-- Instruments and bars: brushes come from the tokens -->
+  <Style Selector="c|AttitudeIndicator">
+    <Setter Property="SkyBrush" Value="{StaticResource AttitudeSkyBrush}" />
+    <Setter Property="GroundBrush" Value="{StaticResource AttitudeGroundBrush}" />
+    <Setter Property="RingBrush" Value="{StaticResource InstrumentRingBrush}" />
+    <Setter Property="LineBrush" Value="{StaticResource StrongTextBrush}" />
+    <Setter Property="AccentBrush" Value="{StaticResource AccentBrush}" />
+  </Style>
+  <Style Selector="c|HeadingDial">
+    <Setter Property="FaceBrush" Value="{StaticResource StripBrush}" />
+    <Setter Property="RingBrush" Value="{StaticResource InstrumentRingBrush}" />
+    <Setter Property="TickBrush" Value="{StaticResource DimBrush}" />
+    <Setter Property="LetterBrush" Value="{StaticResource Text2Brush}" />
+    <Setter Property="ValueBrush" Value="{StaticResource StrongTextBrush}" />
+    <Setter Property="AccentBrush" Value="{StaticResource AccentBrush}" />
+    <Setter Property="UiFont" Value="{StaticResource UiFont}" />
+    <Setter Property="MonoFont" Value="{StaticResource MonoFont}" />
+  </Style>
+  <Style Selector="c|ValueBar">
+    <Setter Property="TrackBrush" Value="{StaticResource RaisedBrush}" />
+    <Setter Property="FillBrush" Value="{StaticResource AccentBrush}" />
+    <Setter Property="TickBrush" Value="{StaticResource DimBrush}" />
+    <Setter Property="Width" Value="96" />
+    <Setter Property="Height" Value="10" />
+  </Style>
+
+  <!-- Keyboard focus ring (buttons, markers, rows) -->
+  <Style Selector="Button:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+</Styles>
