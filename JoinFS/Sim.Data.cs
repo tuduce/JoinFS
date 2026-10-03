@@ -193,6 +193,22 @@ namespace JoinFS
             public float staticCgToGround;
         };
 
+#if FS2020 || FS2024
+        /// <summary>
+        /// AIRCRAFT_POSITION as MSFS sends it: with the simulator's clock at the sample, which times
+        /// it better than the moment we handle its message (Estimation/SimClockStamper). A struct
+        /// of its own, so that <see cref="AircraftPosition"/> (also recorded and filled from the
+        /// network and X-Plane) does not change.
+        /// </summary>
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct AircraftPositionTimed
+        {
+            public AircraftPosition position;
+            /// <summary>"SIMULATION TIME", seconds since the simulation started</summary>
+            public double simulationTime;
+        };
+#endif
+
         /// <summary>
         /// Aircraft ID in simConnect
         /// </summary>
@@ -380,12 +396,19 @@ namespace JoinFS
             /// <returns></returns>
             public Pos Extrapolate(Vel velocity, double time)
             {
+                // extrapolate position and velocity
+                return new Pos(geo + (velocity.linear * time + velocity.acc * (time * time)) * GeoPerMetre(), angles + velocity.angular * time, elevation, ground, radarHeight);
+            }
+
+            /// <summary>
+            /// Change in geo (longitude, altitude, latitude) per metre moved east, up and north from here
+            /// </summary>
+            public Vector GeoPerMetre()
+            {
                 // get rate of change of geodesic position
                 double xRate = Vector.GeodesicDistance(geo.x, geo.z, geo.x + Vector.GEODESIC_EPSILON, geo.z);
                 double zRate = Vector.GeodesicDistance(geo.x, geo.z, geo.x, geo.z + Vector.GEODESIC_EPSILON);
-                // extrapolate position and velocity
-                Vector scalar = new(1.0 / xRate * Vector.GEODESIC_EPSILON, 1.0, 1.0 / zRate * Vector.GEODESIC_EPSILON);
-                return new Pos(geo + (velocity.linear * time + velocity.acc * (time * time)) * scalar, angles + velocity.angular * time, elevation, ground, radarHeight);
+                return new(1.0 / xRate * Vector.GEODESIC_EPSILON, 1.0, 1.0 / zRate * Vector.GEODESIC_EPSILON);
             }
         }
 

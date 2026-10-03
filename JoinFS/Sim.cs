@@ -401,6 +401,17 @@ namespace JoinFS
                     main.MonitorEvent("Estimation log not started - " + ex.Message);
                 }
             }
+
+            // position estimation options (-estimator, -dispatchtime)
+            if (main.settingsUnknownEstimator != null)
+            {
+                main.MonitorEvent("ERROR - Unknown estimator '" + main.settingsUnknownEstimator + "', known: " + string.Join(", ", EstimationRegistry.EstimatorNames));
+            }
+            if (main.settingsEstimationLog || EstimationRegistry.SelectedEstimator != EstimationRegistry.DefaultEstimator || main.settingsDispatchTime)
+            {
+                main.MonitorEvent("Position estimator - " + EstimationRegistry.SelectedEstimator + ", own samples stamped by " +
+                    (main.settingsDispatchTime ? "dispatch time" : "the simulator's clock where it has one"));
+            }
         }
 
         /// <summary>

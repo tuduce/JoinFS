@@ -97,6 +97,30 @@ namespace JoinFS.Tests.Estimation
         }
 
         [Fact]
+        public void SendRows_HaveEveryColumn_AndBothClocks()
+        {
+            var writer = new StringWriter();
+            var log = new EstimationLog(writer, () => Utc);
+            var plane = Plane();
+
+            log.OnSend(plane, 100.016, 4321.5, 100.004);
+            log.OnSend(plane, 100.066, double.NaN, 100.066);
+
+            string[] rows = Rows(writer);
+            Assert.Equal(3, rows.Length);
+            Assert.All(rows, row => Assert.Equal(Columns, row.Split(',').Length));
+            var f = Fields(rows[1]);
+            Assert.Equal("send", f["kind"]);
+            Assert.Equal("100.016000", f["local"]);
+            Assert.Equal("100.004000", f["netTime"]);
+            Assert.Equal("4321.500000", f["simClock"]);
+            Assert.Equal("JFS123", f["callsign"]);
+            Assert.Equal("", f["lat"]);
+            // no simulator clock
+            Assert.Equal("", Fields(rows[2])["simClock"]);
+        }
+
+        [Fact]
         public void Callsigns_CannotBreakTheColumns()
         {
             var writer = new StringWriter();

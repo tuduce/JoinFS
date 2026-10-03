@@ -122,9 +122,13 @@ class Session:
         self.port = m.group(1) if m else '?'
         clock_rows = []
         self.objects = defaultdict(list)
+        # own samples sent (logs from 2026-10-03 on): netTime as sent -> (time handled, simulator clock)
+        self.sends = {}
         for row in csv.DictReader(io.StringIO(text)):
             if row['kind'] == 'clock':
                 clock_rows.append((float(row['local']), float(row['utc'])))
+            elif row['kind'] == 'send':
+                self.sends[row['netTime']] = (float(row['local']), num(row.get('simClock') or ''))
             elif row['kind'] == 'sample':
                 s = Sample()
                 s.owner, s.node, s.callsign = row['owner'], row['node'], row['callsign']
@@ -437,20 +441,29 @@ def analyse(direction, own_tracks):
     out['speed'] = pct([math.hypot(s.vx, s.vz) for s in S if not s.ground], .5)
 
     # timestamp honesty: distance flown between samples / speed against the stamped difference
-    mism = []
-    for seg in segs:
-        for a, b in zip(seg, seg[1:]):
-            dt = b.netTime - a.netTime
-            if a.ground or a.paused or b.paused or not 0 < dt <= 0.1:
-                continue
-            ve, vn = (a.vx + b.vx) / 2, (a.vz + b.vz) / 2
-            sp = math.hypot(ve, vn)
-            if sp < 50:
-                continue
-            de = wrap(b.lon - a.lon) * R * math.cos(a.lat)
-            dn = (b.lat - a.lat) * R
-            mism.append(((de * ve + dn * vn) / sp / sp - dt) * 1000)
-    out['stamp'] = (pct(mism, .05), pct(mism, .5), pct(mism, .95), over(mism, 5.0)) if mism else None
+    def honesty(stamp):
+        mism = []
+        for seg in segs:
+            for a, b in zip(seg, seg[1:]):
+                dt = stamp(b) - stamp(a)
+                if a.ground or a.paused or b.paused or not 0 < dt <= 0.1:
+                    continue
+                ve, vn = (a.vx + b.vx) / 2, (a.vz + b.vz) / 2
+                sp = math.hypot(ve, vn)
+                if sp < 50:
+                    continue
+                de = wrap(b.lon - a.lon) * R * math.cos(a.lat)
+                dn = (b.lat - a.lat) * R
+                mism.append(((de * ve + dn * vn) / sp / sp - dt) * 1000)
+        return (pct(mism, .05), pct(mism, .5), pct(mism, .95), over(mism, 5.0)) if mism else None
+    out['stamp'] = honesty(lambda s: s.netTime)
+    # the same samples stamped when the sender handled them (the stamp before 2026-10-03), from the sender's send rows
+    out['stamp_dispatch'] = None
+    out['sim_clock_share'] = None
+    sends = direction.owner.sends if direction.owner else {}
+    if sends:
+        out['sim_clock_share'] = sum(1 for _, c in sends.values() if not math.isnan(c)) / len(sends)
+        out['stamp_dispatch'] = honesty(lambda s: sends.get(f'{s.netTime:.6f}', (math.nan, math.nan))[0])
 
     # clock: the sender's time at a receiver local time
     if direction.calibrated:
@@ -501,7 +514,7 @@ def analyse(direction, own_tracks):
     res = {p: defaultdict(list) for p in phases}
     res['close'] = defaultdict(list)
     episodes = []
-    reproduce = []
+    reproduce = {'Classic': [], 'ClassicFixed': []}
     own = own_tracks.get(r.pc)
     prev = None
     for s in S:
@@ -512,8 +525,10 @@ def analyse(direction, own_tracks):
         if i >= len(S) or abs(T[i] - s.predFrom) > 1e-6 or S[i].paused:
             continue
         base = S[i]
-        c = extrapolate(base, s.predAge)
-        reproduce.append(math.hypot(wrap(c[1] - s.predLon) * R * math.cos(s.predLat), (c[0] - s.predLat) * R) + abs(c[2] - s.predAlt))
+        # Classic (a t^2) and ClassicFixed (1/2 a t^2) place the aircraft differently only there
+        for name, factor in (('Classic', 1.0), ('ClassicFixed', 0.5)):
+            c = extrapolate(base, s.predAge, acc_factor=factor)
+            reproduce[name].append(math.hypot(wrap(c[1] - s.predLon) * R * math.cos(s.predLat), (c[0] - s.predLat) * R) + abs(c[2] - s.predAlt))
         tm = interp_state(S, T, s.predFrom + s.predAge)
         t_now = now_sender(s.predLocal)
         tt = interp_state(S, T, t_now)
@@ -557,7 +572,10 @@ def analyse(direction, own_tracks):
         if worst > EPISODE:
             episodes.append((s, tt, (ta, tx, tu), drawn, sep))
     out['res'] = res
-    out['reproduce'] = pct(reproduce, .5), (max(reproduce) if reproduce else math.nan), len(reproduce)
+    # the estimator whose positions match the logged predictions
+    out['estimator'] = min(reproduce, key=lambda k: pct(reproduce[k], .5) if reproduce[k] else math.inf)
+    r = reproduce[out['estimator']]
+    out['reproduce'] = pct(r, .5), (max(r) if r else math.nan), len(r)
     out['episodes'] = group_episodes(episodes)
     return out
 
@@ -632,17 +650,21 @@ def report(pcs, results, notes, out):
     w('\n')
 
     w('\n## Sender timestamps\n\nDistance flown between two samples / speed, minus the stamped time difference'
-      ' (the change in stamping error; honest stamps give 0).\n\n| aircraft | p5 ms | p50 | p95 | share > 5 ms |\n|---|---|---|---|---|\n')
+      ' (the change in stamping error; honest stamps give 0). "dispatch" restamps the same samples with the time the'
+      ' sender handled them (the stamp before 2026-10-03), from the sender\'s send rows, for comparison.\n\n'
+      '| aircraft | stamps | p5 ms | p50 | p95 | share > 5 ms |\n|---|---|---|---|---|---|\n')
     for res in results:
-        st_ = res['stamp']
-        if st_:
-            w(f"| {res['dir'].callsign} | {st_[0]:+.1f} | {st_[1]:+.1f} | {st_[2]:+.1f} | {st_[3]:.0f}% |\n")
+        share = res.get('sim_clock_share')
+        sent = 'as sent' + (f' ({share:.0%} by the sim clock)' if share is not None else '')
+        for label, st_ in ((sent, res['stamp']), ('dispatch', res.get('stamp_dispatch'))):
+            if st_:
+                w(f"| {res['dir'].callsign} | {label} | {st_[0]:+.1f} | {st_[1]:+.1f} | {st_[2]:+.1f} | {st_[3]:.0f}% |\n")
 
     for res in results:
         d = res['dir']
         rp = res['reproduce']
         w(f"\n## {d.callsign} as seen by {d.receiver.pc.computer}\n\n")
-        w(f"Offline Classic reproduces the logged predictions to p50 {rp[0]*1000:.2f} mm (max {rp[1]*1000:.2f} mm, {rp[2]} predictions).\n\n")
+        w(f"The receiver ran {res['estimator']}: offline it reproduces the logged positions to p50 {rp[0]*1000:.2f} mm (max {rp[1]*1000:.2f} mm, {rp[2]} predictions).\n\n")
         w('| phase | n | along p50/p95/p99 m | cross p95 m | vert p95/p99 m | heading p95/p99 deg | > 3 m | drawn along p95 | drawn cross p95 | drawn vert p95/p99 | timing p95 ms | age p50 ms |\n')
         w('|---|---|---|---|---|---|---|---|---|---|---|---|\n')
         for phase in ('all', 'ground', 'straight', 'turning', 'close'):

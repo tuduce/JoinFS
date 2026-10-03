@@ -16,6 +16,10 @@ namespace JoinFS.Estimation
     ///   made before it arrived; and where the simulator last reported the object.
     /// - "clock": local time against UTC, once a second. Logs from two machines whose clocks are
     ///   synchronised can then be put on one time line, which gives the true network delay.
+    /// - "send": one of our own aircraft's samples was sent. local is when its message was
+    ///   handled, netTime the time it was sent with, and simClock the simulator's own clock at the
+    ///   sample (empty when there is none). A receiver's sample row has the same netTime, so the
+    ///   two can be joined to compare ways of stamping.
     ///
     /// Units: times in seconds (local = this process's ElapsedTime, utc = Unix time), latitude
     /// and longitude in radians, altitude in metres, angles in radians, velocities in m/s,
@@ -30,7 +34,10 @@ namespace JoinFS.Estimation
             "kind,utc,local,owner,node,netId,callsign,netTime,receivedAt,rtt," +
             "lat,lon,alt,pitch,bank,heading,vx,vy,vz,avx,avy,avz,ax,ay,az,ground,paused," +
             "predLocal,predFrom,predAge,predLat,predLon,predAlt,predPitch,predBank,predHeading," +
-            "simTime,simLat,simLon,simAlt,simPitch,simBank,simHeading";
+            "simTime,simLat,simLon,simAlt,simPitch,simBank,simHeading,simClock";
+
+        /// <summary>Columns in a row</summary>
+        static readonly int ColumnCount = Header.Split(',').Length;
 
         /// <summary>The newest prediction for an object, copied (the steering may reuse its objects)</summary>
         sealed class Prediction
@@ -174,8 +181,29 @@ namespace JoinFS.Estimation
                 line.Append(",,,,,,,");
             }
 
-            // no trailing comma
-            line.Length--;
+            // simClock is for send rows: left empty
+            Write(() => writer.WriteLine(line));
+        }
+
+        /// <summary>
+        /// One of our own objects' samples was sent
+        /// </summary>
+        /// <param name="handled">Local time its message was handled</param>
+        /// <param name="simClock">The simulator's own clock at the sample, NaN when there is none</param>
+        /// <param name="netTime">The time it was sent with</param>
+        public void OnSend(Sim.Obj obj, double handled, double simClock, double netTime)
+        {
+            if (Error != null)
+            {
+                return;
+            }
+            line.Clear();
+            line.Append("send,").Append(Utc()).Append(',').Append(Time(handled)).Append(',')
+                .Append(obj.owner).Append(',').Append(Text(obj.ownerNuid.ToString())).Append(',')
+                .Append(obj.netId.ToString(Inv)).Append(',').Append(Text((obj as Sim.Aircraft)?.flightPlan.callsign)).Append(',')
+                .Append(Time(netTime));
+            // the sample columns are left empty, up to simClock
+            line.Append(',', ColumnCount - 8).Append(Time(simClock));
             Write(() => writer.WriteLine(line));
         }
 

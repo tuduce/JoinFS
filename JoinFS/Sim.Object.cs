@@ -114,8 +114,11 @@ namespace JoinFS
             /// </summary>
             IClockModel clock;
             IStateEstimator estimator;
+            SimClockStamper stamper;
             public IClockModel Clock => clock ??= EstimationRegistry.CreateClock();
-            public IStateEstimator Estimator => estimator ??= EstimationRegistry.CreateEstimator();
+            /// <summary>Times this object's own samples for sending (sim thread only)</summary>
+            public SimClockStamper Stamper => stamper ??= new SimClockStamper();
+            public IStateEstimator Estimator => estimator ??= EstimationRegistry.CreateEstimator(EstimationRegistry.SelectedEstimator);
 
             public bool NetValid { get { return netStateTime > 0.0; } }
             public bool SimValid { get { return simTime > 0.0; } }
@@ -175,6 +178,7 @@ namespace JoinFS
                 view.Source = this;
                 view.clock = null;
                 view.estimator = null;
+                view.stamper = null;
                 view.simPosition = simPosition?.CloneAll();
                 view.netPosition = netPosition?.CloneAll();
                 view.netVelocity = netVelocity?.Clone();
