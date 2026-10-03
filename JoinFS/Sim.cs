@@ -614,10 +614,17 @@ namespace JoinFS
         }
 
         /// <summary>Maximum number of times an injection failure is retried before giving up on an object for good.</summary>
-        const int FAILED_RETRY_MAX = 30;
+        internal const int FAILED_RETRY_MAX = 30;
 
-        /// <summary>Tracks the SimStart/SimStop system events for logging/diagnostics only - the injection eligibility check in UpdateCreatingObject is never gated on it, only on the per-object failed/failedTime/failedCount backoff.</summary>
-        public bool simRunning = false;
+
+        /// <summary>
+        /// Whether an object may be (re-)injected: it never failed, or its last failure is more than
+        /// <paramref name="retrySeconds"/> ago and it has failed fewer than <see cref="FAILED_RETRY_MAX"/> times.
+        /// </summary>
+        internal static bool InjectionRetryEligible(Obj obj, double now, double retrySeconds)
+        {
+            return obj.failed == false || (now - obj.failedTime > retrySeconds && obj.failedCount < FAILED_RETRY_MAX);
+        }
 
         /// <summary>
         /// Clear latched injection-failure state on every injected object so the finder retries them
@@ -684,8 +691,7 @@ namespace JoinFS
                 creatingObject = null;
                 foreach (var o in objectList)
                 {
-                    bool eligible = o.failed == false || (main.ElapsedTime - o.failedTime > main.settingsInjectionRetrySeconds && o.failedCount < FAILED_RETRY_MAX);
-                    if (o.owner != Obj.Owner.Me && o.Created == false && eligible && main.log.IgnoreNode(o.ownerNuid) == false && main.log.IgnoreName(o.ownerModel) == false && o != enteredAircraft && o.distance * 0.00053995680346 < activityCircle)
+                    if (o.owner != Obj.Owner.Me && o.Created == false && InjectionRetryEligible(o, main.ElapsedTime, main.settingsInjectionRetrySeconds) && main.log.IgnoreNode(o.ownerNuid) == false && main.log.IgnoreName(o.ownerModel) == false && o != enteredAircraft && o.distance * 0.00053995680346 < activityCircle)
                     {
                         creatingObject = o;
                         break;

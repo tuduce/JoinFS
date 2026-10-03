@@ -970,8 +970,9 @@ namespace JoinFS
             if (!OnOwnerThread(() => CreateObject(obj))) return;
 
             // Defer until SimConnect has actually sent OPEN. There's a window between simconnect !=
-            // null (Sim.Connected flips true) and RecvOpen where this would otherwise fire a
-            // COMException (exception 22) - same _pendingRequests pattern already used elsewhere
+            // null (Sim.Connected flips true) and RecvOpen where this would otherwise be
+            // refused with exception 22 (reported asynchronously through RecvException, not thrown
+            // as a COMException) - same _pendingRequests pattern already used elsewhere
             // (e.g. RequestSimulatorModels) for exactly this readiness gap.
             if (!_isSimOpen)
             {

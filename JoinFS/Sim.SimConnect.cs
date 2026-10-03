@@ -544,7 +544,7 @@ namespace JoinFS
             // user is actually in a flight, without needing a [Sim] toggle (see RearmFailedInjections)
             if (e == Event.SIM_START || e == Event.SIM_STOP)
             {
-                simRunning = (e == Event.SIM_START);
+                bool simRunning = e == Event.SIM_START;
                 main.MonitorEvent("Simulator " + (simRunning ? "started" : "stopped") + " (SimConnect event)");
                 if (simRunning)
                 {
