@@ -1,0 +1,68 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Design tokens from RecordingXRay/docs/README.md section 3. No hard-coded colours in views. -->
+
+  <!-- Surfaces -->
+  <SolidColorBrush x:Key="WindowBrush" Color="#0B0E16" />
+  <SolidColorBrush x:Key="StripBrush" Color="#0E121B" />
+  <SolidColorBrush x:Key="PanelBrush" Color="#11151F" />
+  <SolidColorBrush x:Key="CardBrush" Color="#161B27" />
+  <SolidColorBrush x:Key="RaisedBrush" Color="#232A3B" />
+  <SolidColorBrush x:Key="DividerBrush" Color="#1B2130" />
+  <SolidColorBrush x:Key="InputBrush" Color="#0B0E16" />
+  <SolidColorBrush x:Key="PillBrush" Color="#131824" />
+  <SolidColorBrush x:Key="HoverBrush" Color="#14FFFFFF" />
+  <SolidColorBrush x:Key="StrongBorderBrush" Color="#3A4460" />
+
+  <!-- Text -->
+  <SolidColorBrush x:Key="TextBrush" Color="#E8ECF6" />
+  <SolidColorBrush x:Key="StrongTextBrush" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="Text2Brush" Color="#C3CBDD" />
+  <SolidColorBrush x:Key="MutedBrush" Color="#8791AD" />
+  <SolidColorBrush x:Key="KeyLabelBrush" Color="#A3ADC5" />
+  <SolidColorBrush x:Key="DimBrush" Color="#5E6985" />
+
+  <!-- Accent -->
+  <SolidColorBrush x:Key="AccentBrush" Color="#FF8A3D" />
+  <SolidColorBrush x:Key="AccentHoverBrush" Color="#FF9C5C" />
+  <SolidColorBrush x:Key="AccentPressedBrush" Color="#E67A33" />
+  <SolidColorBrush x:Key="AccentTextBrush" Color="#1A0F05" />
+  <SolidColorBrush x:Key="AccentTintBrush" Color="#24FF8A3D" />
+
+  <!-- Frame types (each is always shown next to its name, never colour alone) -->
+  <SolidColorBrush x:Key="TypePositionBrush" Color="#5BA2FF" />
+  <SolidColorBrush x:Key="TypeIntegerBrush" Color="#B58CFF" />
+  <SolidColorBrush x:Key="TypeFloatBrush" Color="#4FD1B5" />
+  <SolidColorBrush x:Key="TypeString8Brush" Color="#F28BB0" />
+  <SolidColorBrush x:Key="TypeSimEventBrush" Color="#F2C14B" />
+
+  <!-- Status -->
+  <SolidColorBrush x:Key="OkBrush" Color="#4FD1B5" />
+  <SolidColorBrush x:Key="OkTextBrush" Color="#6FE3C8" />
+  <SolidColorBrush x:Key="OkTintBrush" Color="#244FD1B5" />
+  <SolidColorBrush x:Key="ErrorBrush" Color="#FF6B6B" />
+  <SolidColorBrush x:Key="ErrorTintBrush" Color="#24FF6B6B" />
+
+  <!-- Map -->
+  <SolidColorBrush x:Key="MapBackgroundBrush" Color="#0C121C" />
+  <SolidColorBrush x:Key="MapGridBrush" Color="#1A2332" />
+  <SolidColorBrush x:Key="MapLabelBrush" Color="#6C7792" />
+  <SolidColorBrush x:Key="MapFutureBrush" Color="#9AA6C4" />
+
+  <!-- Timeline -->
+  <SolidColorBrush x:Key="SelectedLaneBrush" Color="#08FFFFFF" />
+  <SolidColorBrush x:Key="PositionLaneBrush" Color="#2E5BA2FF" />
+
+  <!-- Instruments -->
+  <SolidColorBrush x:Key="AttitudeSkyBrush" Color="#2A5FA6" />
+  <SolidColorBrush x:Key="AttitudeGroundBrush" Color="#6A4A2E" />
+  <SolidColorBrush x:Key="InstrumentRingBrush" Color="#2A3246" />
+
+  <!-- Fonts -->
+  <FontFamily x:Key="UiFont">Segoe UI Variable Text, Segoe UI</FontFamily>
+  <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas</FontFamily>
+
+  <!-- Shared metrics -->
+  <CornerRadius x:Key="PanelRadius">10</CornerRadius>
+  <CornerRadius x:Key="ControlRadius">8</CornerRadius>
+</ResourceDictionary>

@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RecordingXRay: recording loaded</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#0B0E16}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input{font:inherit}
+.sb::-webkit-scrollbar{width:10px;height:10px}
+.sb::-webkit-scrollbar-thumb{background:#2A3246;border-radius:5px;border:2px solid transparent;background-clip:padding-box}
+.row:hover{background:rgba(255,255,255,0.05)}
+.ib:hover{background:rgba(255,255,255,0.08)}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: #0B0E16; color: #E8ECF6; font-family: 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif; font-size: 13px; border: 1px solid #232A3B; border-radius: 10px">
+
+  <!-- Title bar -->
+  <div style="height: 40px; flex: 0 0 40px; display: flex; align-items: center; gap: 12px; padding-left: 14px; background: #0B0E16">
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect width="18" height="18" rx="5" fill="{{accent}}"></rect><circle cx="9" cy="9" r="4.2" fill="none" stroke="#1A0F05" stroke-width="1.6"></circle><path d="M9 2.5v3M9 12.5v3M2.5 9h3M12.5 9h3" stroke="#1A0F05" stroke-width="1.6" stroke-linecap="round"></path></svg>
+    <span style="font-size: 12.5px; font-weight: 600; color: #C3CBDD">RecordingXRay</span>
+    <div style="flex: 1; display: flex; justify-content: center">
+      <div style="width: 520px; height: 28px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #131824; border: 1px solid #232A3B; border-radius: 8px">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8791AD" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2h5l3 3v8.5a.5.5 0 0 1-.5.5h-7.5a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5zM9 2v3h3"></path></svg>
+        <span style="font-family: 'Cascadia Mono',Consolas,monospace; font-size: 12px; color: #8791AD; white-space: nowrap">C:\Users\crist\Downloads\</span><span style="font-family: 'Cascadia Mono',Consolas,monospace; font-size: 12px; color: #E8ECF6; margin-left: -8px">tigers 3rd.jfs</span>
+      </div>
+    </div>
+    <button style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 8px; background: {{accent}}; color: #1A0F05; font-weight: 600; font-size: 12.5px">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#1A0F05" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z"></path></svg>
+      Open
+    </button>
+    <div style="display: flex; margin-left: 8px">
+      <button class="ib" aria-label="Minimize" style="width: 46px; height: 40px; display: flex; align-items: center; justify-content: center"><svg width="10" height="10" viewBox="0 0 10 10" stroke="#C3CBDD" stroke-width="1" aria-hidden="true"><path d="M0 5h10"></path></svg></button>
+      <button class="ib" aria-label="Maximize" style="width: 46px; height: 40px; display: flex; align-items: center; justify-content: center"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#C3CBDD" stroke-width="1" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9"></rect></svg></button>
+      <button class="ib" aria-label="Close" style="width: 46px; height: 40px; display: flex; align-items: center; justify-content: center"><svg width="10" height="10" viewBox="0 0 10 10" stroke="#C3CBDD" stroke-width="1" aria-hidden="true"><path d="M0 0l10 10M10 0L0 10"></path></svg></button>
+    </div>
+  </div>
+
+  <!-- Recording summary -->
+  <div style="height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 28px; padding: 0 20px; border-top: 1px solid #1B2130; border-bottom: 1px solid #1B2130; background: #0E121B">
+    <sc-for list="{{stats}}" as="s" hint-placeholder-count="5">
+      <div style="display: flex; align-items: baseline; gap: 8px">
+        <span style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8791AD">{{s.label}}</span>
+        <span style="font-family: 'Cascadia Mono',Consolas,monospace; font-size: 15px; font-weight: 600; color: #FFFFFF; font-variant-numeric: tabular-nums">{{s.value}}</span>
+        <span style="font-family: 'Cascadia Mono',Consolas,monospace; font-size: 11.5px; color: #8791AD">{{s.extra}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- Workspace: frames | map | inspector -->
+  <div style="flex: 1; min-height: 0; display: flex; padding: 12px 12px 0 12px">
+
+    <!-- Frame browser -->
+    <div style="flex: 0 0 400px; min-width: 0; display: flex; flex-direction: column; background: #11151F; border: 1px solid #232A3B; border-radius: 10px; overflow: hidden">
+      <div style="padding: 14px 16px 10px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; flex-direction: column; gap: 3px">
+          <div style="display: flex; align-items: center; gap: 10px">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="{{accent}}" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M14 2 2 7l4.5 1.8L8.2 14 14 2z"></path></svg>
+            <span style="font-size: 15px; font-weight: 600">YR-SCD</span>
+            <span style="flex: 1"></span>
+            <span style="font-size: 12px; color: #C3CBDD">32,393 frames</span>
+          </div>
+          <div style="font-size: 12px; color: #8791AD">Tiger Moth · TIGER-4 · <span style="font-family: 'Cascadia Mono',Consolas,monospace; font-size: 11.5px">01001011110</span></div>
+        </div>
+        <label style="height: 32px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: #0B0E16; border: 1px solid #232A3B; border-radius: 8px">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8791AD" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14"></path></svg>
+          <input aria-label="Filter frames" placeholder="Go to time or filter frames" style="flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: #E8ECF6; font-size: 12.5px">
+        </label>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap">
+          <sc-for list="{{typeChips}}" as="c" hint-placeholder-count="4">
+            <button aria-pressed="true" style="height: 26px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 13px; background: #1A2030; border: 1px solid #2A3246; font-size: 12px; color: #E8ECF6">
+              <span style="width: 8px; height: 8px; border-radius: 4px; background: {{c.color}}"></span>{{c.label}}
+            </button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; height: 28px; flex: 0 0 28px; padding: 0 16px; gap: 10px; border-top: 1px solid #232A3B; border-bottom: 1px solid #232A3B; background: #151A26; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8791AD">
+        <span style="width: 40px; text-align: right">Frame</span>
+        <span style="width: 70px">Time</span>
+        <span style="flex: 1">Type</span>
+        <span style="width: 64px; text-align: right">Delta</span>
+      </div>
+      <div class="sb" style="flex: 1; min-height: 0; overflow-y: auto; padding: 4px 8px">
+        <sc-for list="{{frames}}" as="f" hint-placeholder-count="12">
+          <div class="row" style="display: flex; align-items: center; height: 28px; padding: 0 8px; gap: 10px; border-radius: 6px; background: {{f.bg}}">
+            <span style="width: 40px; text-align: right; font-family: 'Cascadia Mono',Consolas,monospace; font-size: 12px; color: #8791AD">{{f.idx}}</span>
+            <span style="width: 70px; font-family: 'Cascadia Mono',Consolas,monospace; font-size: 12.5px; color: {{f.fg}}">{{f.time}}</span>
+            <span style="flex: 1; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: {{f.fg}}"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{f.color}}"></span>{{f.type}}</span>
+            <span style="width: 64px; text-align: right; font-family: 'Cascadia Mono',Consolas,monospace; font-size: 12px; color: #8791AD">{{f.delta}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex: 0 0 12px; display: flex; align-items: center; justify-content: center"><div style="width: 3px; height: 36px; border-radius: 2px; background: #2A3246"></div></div>
+
+    <!-- Map (shared component, see Map.dc.html) -->
+    <div style="flex: 0 0 550px; height: 514px; overflow: hidden">
+      <dc-import name="Map" time="0.026" selected="YR-SCD" accent="{{accent}}" hint-size="550px,514px"></dc-import>
+    </div>
+
+    <div style="flex: 0 0 12px; display: flex; align-items: center; justify-content: center"><div style="width: 3px; height: 36px; border-radius: 2px; background: #2A3246"></div></div>
+
+    <!-- Inspector -->
+    <div style="flex: 0 0 440px; min-width: 0; display: flex; flex-direction: column; background: #11151F; border: 1px solid #232A3B; border-radius: 10px; overflow: hidden">
+      <div style="padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #232A3B">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <span style="width: 10px; height: 10px; border-radius: 5px; background: #5BA2FF"></span>
+          <div style="display: flex; flex-direction: column; gap: 1px">
+            <span style="font-size: 16px; font-weight: 600">AircraftPosition</span>
+            <span style="font-size: 12px; color: #8791AD">YR-SCD · frame [0] · 0.026 s</span>
+          </div>
+          <span style="flex: 1"></span>
+          <div style="display: flex; padding: 2px; background: #0B0E16; border: 1px solid #232A3B; border-radius: 8px">
+            <button style="height: 26px; padding: 0 12px; border-radius: 6px; background: #232A3B; color: #FFFFFF; font-size: 12.5px">Fields</button>
+            <button style="height: 26px; padding: 0 12px; border-radius: 6px; color: #8791AD; font-size: 12.5px">Raw</button>
+          </div>
+          <button class="ib" aria-label="Copy frame" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #232A3B"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#C3CBDD" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M3 10.5V4a1 1 0 0 1 1-1h6.5"></path></svg></button>
+        </div>
+        <div style="display: flex; gap: 6px">
+          <span style="height: 24px; display: flex; align-items: center; gap: 5px; padding: 0 10px 0 8px; border-radius: 12px; background: rgba(79,209,181,0.14); color: #6FE3C8; font-size: 12px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#6FE3C8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"></path></svg>Ground</span>
+          <span style="height: 24px; display: flex; align-items: center; gap: 5px; padding: 0 10px 0 8px; border-radius: 12px; background: rgba(79,209,181,0.14); color: #6FE3C8; font-size: 12px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#6FE3C8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"></path></svg>Elevation correction</span>
+        </div>
+      </div>
+
+      <div class="sb" style="flex: 1; min-height: 0; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 12px">
+
+        <div style="display: flex; gap: 12px">
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 8px; background: #161B27; border: 1px solid #232A3B; border-radius: 10px">
+            <svg width="148" height="148" viewBox="0 0 168 168" role="img" aria-label="Attitude indicator">
+              <defs><clipPath id="adi"><circle cx="84" cy="84" r="80"></circle></clipPath></defs>
+              <g clip-path="url(#adi)">
+                <g transform="{{horizon}}">
+                  <rect x="-120" y="-220" width="408" height="304" fill="#2A5FA6"></rect>
+                  <rect x="-120" y="84" width="408" height="320" fill="#6A4A2E"></rect>
+                  <path d="M-120 84H288" stroke="#FFFFFF" stroke-width="1.5"></path>
+                  <path d="M64 62h40M74 40h20M64 106h40M74 128h20" stroke="#FFFFFF" stroke-opacity="0.7" stroke-width="1.2"></path>
+                </g>
+              </g>
+              <circle cx="84" cy="84" r="80" fill="none" stroke="#2A3246" stroke-width="3"></circle>
+              <path d="M44 84h26l4 6M124 84H98l-4 6" fill="none" stroke="{{accent}}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+              <circle cx="84" cy="84" r="2.5" fill="{{accent}}"></circle>
+            </svg>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 1px">
+              <span style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8791AD">Attitude</span>
+              <span style="font-family: 'Cascadia Mono',Consolas,monospace; font-size: 11px; color: #C3CBDD">P -11.24° · B -0.45°</span>
+            </div>
+          </div>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 8px; background: #161B27; border: 1px solid #232A3B; border-radius: 10px">
+            <svg width="148" height="148" viewBox="0 0 168 168" role="img" aria-label="Heading 164.7 degrees">
+              <circle cx="84" cy="84" r="80" fill="#0E121B" stroke="#2A3246" stroke-width="3"></circle>
+              <g transform="{{dial}}" font-family="Segoe UI,system-ui,sans-serif" font-size="13" font-weight="600" text-anchor="middle" fill="#C3CBDD">
+                <g stroke="#5E6985" stroke-width="1.5">
+                  <path d="M84 8v8"></path><path d="M84 8v8" transform="rotate(30 84 84)"></path><path d="M84 8v8" transform="rotate(60 84 84)"></path><path d="M84 8v8" transform="rotate(90 84 84)"></path><path d="M84 8v8" transform="rotate(120 84 84)"></path><path d="M84 8v8" transform="rotate(150 84 84)"></path><path d="M84 8v8" transform="rotate(180 84 84)"></path><path d="M84 8v8" transform="rotate(210 84 84)"></path><path d="M84 8v8" transform="rotate(240 84 84)"></path><path d="M84 8v8" transform="rotate(270 84 84)"></path><path d="M84 8v8" transform="rotate(300 84 84)"></path><path d="M84 8v8" transform="rotate(330 84 84)"></path>
+                </g>
+                <text x="84" y="36" fill="{{accent}}">N</text>
+                <text x="84" y="36" transform="rotate(90 84 84)">E</text>
+                <text x="84" y="36" transform="rotate(180 84 84)">S</text>
+                <text x="84" y="36" transform="rotate(270 84 84)">W</text>
+              </g>
+              <path d="M84 2l-6 11h12z" fill="{{accent}}"></path>
+              <text x="84" y="92" text-anchor="middle" font-family="Cascadia Mono,Consolas,monospace" font-size="18" font-weight="600" fill="#FFFFFF">164.7°</text>
+            </svg>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 1px">
+              <span style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8791AD">Heading</span>
+              <span style="font-family: 'Cascadia Mono',Consolas,monospace; font-size: 11px; color: #C3CBDD">2.874476 rad</span>
+            </div>
+          </div>
+        </div>
+
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="5">
+          <div style="background: #161B27; border: 1px solid #232A3B; border-radius: 10px; padding: 10px 14px 8px">
+            <div style="height: 22px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8791AD">{{g.title}}</div>
+            <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3">
+              <div class="row" style="display: flex; align-items: center; height: 26px; gap: 8px; margin: 0 -6px; padding: 0 6px; border-radius: 5px">
+                <span style="flex: 0 0 70px; color: #A3ADC5">{{r.k}}</span>
+                <span style="flex: 1; text-align: right; font-family: 'Cascadia Mono',Consolas,monospace; font-size: 11.5px; color: #8791AD">{{r.deg}}</span>
+                <span style="flex: 0 0 136px; text-align: right; font-family: 'Cascadia Mono',Consolas,monospace; font-size: 12.5px; color: #FFFFFF; font-variant-numeric: tabular-nums">{{r.v}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+
+        <div style="background: #161B27; border: 1px solid #232A3B; border-radius: 10px; padding: 10px 14px 8px">
+          <div style="height: 22px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8791AD">Controls (raw)</div>
+          <sc-for list="{{controls}}" as="c" hint-placeholder-count="5">
+            <div class="row" style="display: flex; align-items: center; height: 26px; gap: 10px; margin: 0 -6px; padding: 0 6px; border-radius: 5px">
+              <span style="flex: 0 0 82px; color: #A3ADC5">{{c.k}}</span>
+              <div style="flex: 1; display: flex; justify-content: flex-end">
+                <div style="position: relative; width: 96px; height: 6px; border-radius: 3px; background: #232A3B">
+                  <div style="position: absolute; top: 0; height: 6px; border-radius: 3px; background: {{accent}}; left: {{c.left}}px; width: {{c.w}}px"></div>
+                  <sc-if value="{{c.axis}}" hint-placeholder-val="{{true}}"><div style="position: absolute; left: 47px; top: -2px; width: 2px; height: 10px; background: #5E6985"></div></sc-if>
+                </div>
+              </div>
+              <span style="flex: 0 0 52px; text-align: right; font-family: 'Cascadia Mono',Consolas,monospace; font-size: 12.5px; color: #FFFFFF; font-variant-numeric: tabular-nums">{{c.v}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timeline dock -->
+  
+
+  <!-- Status bar -->
+  <div style="flex: 0 0 248px; margin: 12px 12px 0; display: flex; flex-direction: column; background: #0E121B; border: 1px solid #232A3B; border-radius: 10px; overflow: hidden">
+    <div style="height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid #232A3B; background: #11151F">
+      <button class="ib" aria-label="Previous frame" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #232A3B"><svg width="16" height="16" viewBox="0 0 16 16" fill="#C3CBDD" aria-hidden="true"><rect x="3" y="3" width="2" height="10" rx="1"></rect><path d="M13 3.5v9a.7.7 0 0 1-1.1.6L6 8.6a.7.7 0 0 1 0-1.2l5.9-4.5A.7.7 0 0 1 13 3.5z"></path></svg></button>
+      <button class="ib" aria-label="Next frame" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #232A3B"><svg width="16" height="16" viewBox="0 0 16 16" fill="#C3CBDD" aria-hidden="true"><rect x="11" y="3" width="2" height="10" rx="1"></rect><path d="M3 3.5v9a.7.7 0 0 0 1.1.6L10 8.6a.7.7 0 0 0 0-1.2L4.1 2.9A.7.7 0 0 0 3 3.5z"></path></svg></button>
+      <div style="display: flex; align-items: baseline; gap: 8px; margin-left: 12px">
+        <span style="font-family: 'Cascadia Mono',Consolas,monospace; font-size: 20px; font-weight: 600; color: {{accent}}; font-variant-numeric: tabular-nums">00:00.026</span>
+        <span style="font-family: 'Cascadia Mono',Consolas,monospace; font-size: 12px; color: #8791AD">/ 11:51.165</span>
+      </div>
+      <span style="margin-left: 8px; font-size: 12px; color: #8791AD">frame [0] of 32,393</span>
+      <span style="flex: 1"></span>
+      <div style="display: flex; align-items: center; gap: 12px; font-size: 12px; color: #C3CBDD">
+        <sc-for list="{{typeChips}}" as="c" hint-placeholder-count="4">
+          <span style="display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 2px; background: {{c.color}}"></span>{{c.label}}</span>
+        </sc-for>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-left: 16px; padding-left: 16px; border-left: 1px solid #232A3B">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8791AD" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14M5 7h4"></path></svg>
+        <input type="range" aria-label="Timeline zoom" min="0" max="100" value="0" style="width: 110px; accent-color: #FF8A3D">
+      </div>
+    </div>
+    <div style="flex: 1; min-height: 0; display: flex">
+      <div style="flex: 0 0 236px; display: flex; flex-direction: column; border-right: 1px solid #232A3B">
+        <div style="height: 26px; flex: 0 0 26px; border-bottom: 1px solid #1B2130; display: flex; align-items: center; padding: 0 14px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8791AD">Aircraft (5)</div>
+        <sc-for list="{{tracks}}" as="t" hint-placeholder-count="5">
+          <div style="height: 34px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid #1B2130; background: {{t.headBg}}">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8791AD" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-label="Visible" role="img"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"></path><circle cx="8" cy="8" r="2"></circle></svg>
+            <span style="font-size: 12.5px; font-weight: 600; color: {{t.nameColor}}">{{t.name}}</span>
+            <span style="flex: 1; font-size: 11.5px; color: #8791AD; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{t.sub}}</span>
+            <span style="font-family: 'Cascadia Mono',Consolas,monospace; font-size: 11.5px; color: #C3CBDD">{{t.count}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column">
+        <div style="height: 26px; flex: 0 0 26px; position: relative; border-bottom: 1px solid #1B2130">
+          <sc-for list="{{ticks}}" as="k" hint-placeholder-count="12">
+            <div style="position: absolute; top: 0; bottom: 0; left: {{k.pct}}%; display: flex; align-items: flex-end"><div style="width: 1px; height: 8px; background: #3A4460"></div><span style="margin: 0 0 4px 4px; font-family: 'Cascadia Mono',Consolas,monospace; font-size: 10.5px; color: #8791AD">{{k.label}}</span></div>
+          </sc-for>
+        </div>
+        <sc-for list="{{tracks}}" as="t" hint-placeholder-count="5">
+          <div style="height: 34px; box-sizing: border-box; padding: 7px 0; display: flex; flex-direction: column; gap: 3px; border-bottom: 1px solid #1B2130; background: {{t.laneBg}}">
+            <div style="margin-left: {{t.l}}%; width: {{t.w}}%; height: 10px; border-radius: 2px; opacity: {{t.laneOp}}; background-color: rgba(91,162,255,0.18); background-image: repeating-linear-gradient(90deg, #5BA2FF 0 1px, transparent 1px 3px)"></div>
+            <div style="margin-left: {{t.l}}%; width: {{t.w}}%; height: 6px; border-radius: 2px; opacity: {{t.laneOp}}; background-image: repeating-linear-gradient(90deg, #B58CFF 0 1px, transparent 1px 11px), repeating-linear-gradient(90deg, transparent 0 3px, #4FD1B5 3px 4px, transparent 4px 11px), repeating-linear-gradient(90deg, transparent 0 6px, #F28BB0 6px 7px, transparent 7px 11px)"></div>
+          </div>
+        </sc-for>
+        <div style="position: absolute; top: 0; bottom: 0; left: {{playPct}}%; width: 0">
+          <div style="position: absolute; top: 0; bottom: 0; left: -1px; width: 2px; background: {{accent}}"></div>
+          <svg width="14" height="12" viewBox="0 0 14 12" style="position: absolute; top: 0; left: -7px" aria-hidden="true"><path d="M0 0h14v6l-7 6-7-6z" fill="{{accent}}"></path></svg>
+        </div>
+      </div>
+    </div>
+  </div><div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 16px; padding: 0 16px; font-size: 12px; color: #8791AD">
+    <span style="display: flex; align-items: center; gap: 6px"><span style="width: 7px; height: 7px; border-radius: 4px; background: #4FD1B5"></span>Recording loaded</span>
+    <span style="flex: 1"></span>
+    <span style="font-family: 'Cascadia Mono',Consolas,monospace">YR-SCD › [0] AircraftPosition @ 0.026 s</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF8A3D","options":["#FF8A3D","#4C8DFF","#4FD1B5","#F2C14B"]},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const accent = this.props.accent ?? '#FF8A3D';
+    const tint = /^#[0-9a-fA-F]{6}$/.test(accent) ? accent + '24' : 'rgba(255,138,61,0.14)';
+    const T = {
+      pos: { n: 'AircraftPosition', c: '#5BA2FF' },
+      int: { n: 'IntegerVariables', c: '#B58CFF' },
+      flt: { n: 'FloatVariables', c: '#4FD1B5' },
+      str: { n: 'String8Variables', c: '#F28BB0' }
+    };
+    const raw = [[26,'pos'],[101,'pos'],[146,'pos'],[154,'int'],[154,'flt'],[154,'str'],[193,'int'],[193,'flt'],[193,'str'],[207,'pos'],[268,'pos'],[330,'pos'],[357,'int'],[357,'flt'],[357,'str'],[391,'pos'],[406,'pos'],[412,'flt'],[412,'str'],[453,'pos'],[516,'pos'],[560,'int']];
+    const frames = raw.map(([ms, k], i) => ({
+      idx: '[' + i + ']',
+      time: (ms / 1000).toFixed(3) + ' s',
+      type: T[k].n,
+      color: T[k].c,
+      delta: i === 0 ? '—' : '+' + (ms - raw[i - 1][0]) + ' ms',
+      bg: i === 0 ? tint : 'transparent',
+      fg: i === 0 ? '#FFFFFF' : '#C3CBDD'
+    }));
+    const typeChips = [
+      { label: 'Position', color: T.pos.c },
+      { label: 'Integer', color: T.int.c },
+      { label: 'Float', color: T.flt.c },
+      { label: 'String8', color: T.str.c }
+    ];
+    const stats = [
+      { label: 'Version', value: '21005', extra: '' },
+      { label: 'Aircraft', value: '5', extra: '' },
+      { label: 'Objects', value: '0', extra: '' },
+      { label: 'Frames', value: '144,753', extra: '' },
+      { label: 'Duration', value: '711.165 s', extra: '11:51.165' }
+    ];
+    const ac = [
+      ['TIGER-6', 'TIGER-6', '23,912', false],
+      ['G-CTAN', 'TIGER-9', '34,370', false],
+      ['T7 John', 'TIGER-7', '19,529', false],
+      ['T3', 'TIGER-3', '34,549', false],
+      ['YR-SCD', 'TIGER-4', '32,393', true]
+    ];
+    const EXT = { 'TIGER-6': [0.031, 711.165], 'G-CTAN': [0.019, 711.140], 'YR-SCD': [0.026, 711.165], 'T3': [0.040, 220.464], 'T7 John': [56.889, 391.135] };
+    const tracks = ac.map(([name, call, count, sel]) => ({
+      name, count,
+      l: (EXT[name][0] / 711.165 * 100).toFixed(3),
+      w: ((EXT[name][1] - EXT[name][0]) / 711.165 * 100).toFixed(3),
+      sub: 'Tiger Moth · ' + call,
+      headBg: sel ? tint : 'transparent',
+      laneBg: sel ? 'rgba(255,255,255,0.03)' : 'transparent',
+      nameColor: sel ? '#FFFFFF' : '#C3CBDD',
+      laneOp: sel ? 1 : 0.5
+    }));
+    const total = 711.165;
+    const ticks = [];
+    for (let m = 0; m <= 11; m++) ticks.push({ pct: (m * 60 / total * 100).toFixed(3), label: m + ':00' });
+    const kv = (k, v, deg) => ({ k, v, deg: deg || '' });
+    const groups = [
+      { title: 'Position', rows: [kv('Latitude', '0.9674238236590125', '55.4293°'), kv('Longitude', '0.231041585664082', '13.2377°'), kv('Altitude', '46.31249673649731'), kv('Elevation', '44.945507')] },
+      { title: 'Attitude', rows: [kv('Pitch', '-0.19611156', '-11.24°'), kv('Bank', '-0.007834598', '-0.45°'), kv('Heading', '2.874476', '164.70°')] },
+      { title: 'Velocity', rows: [kv('X', '0.75756854'), kv('Y', '-0.015327258'), kv('Z', '-2.8728685')] },
+      { title: 'Angular velocity', rows: [kv('X', '-0.0020286753'), kv('Y', '-0.042695135'), kv('Z', '-0.0027144956')] },
+      { title: 'Acceleration', rows: [kv('X', '0.17851764'), kv('Y', '-0.11454715'), kv('Z', '-0.17097732')] }
+    ];
+    const MAX = 16383, HALF = 48;
+    const ctl = (k, v, axis) => {
+      const w = v === 0 ? 0 : Math.max(2, Math.round(Math.abs(v) / MAX * HALF));
+      const left = axis ? (v < 0 ? HALF - w : HALF) : 0;
+      return { k, v: String(v), axis, left, w };
+    };
+    const controls = [ctl('Rudder', -1, true), ctl('Elevator', 712, true), ctl('Aileron', -1471, true), ctl('Brake left', 0, false), ctl('Brake right', 0, false)];
+    const pitchDeg = -11.24, bankDeg = -0.45, headingDeg = 164.70;
+    return {
+      accent, stats, typeChips, frames, tracks, ticks, groups, controls,
+      playPct: (0.026 / total * 100).toFixed(4),
+      horizon: 'rotate(' + bankDeg + ' 84 84) translate(0 ' + (-pitchDeg * 2.2).toFixed(1) + ')',
+      dial: 'rotate(' + (-headingDeg) + ' 84 84)',
+      headingMarker: 'translate(275 236) rotate(' + headingDeg + ')'
+    };
+  }
+}
+</script>
+</body>
+</html>

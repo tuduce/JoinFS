@@ -1,0 +1,29 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- 16 x 16 stroke icons. Use as <Path Data="{StaticResource IconFile}" Classes="icon" />. -->
+  <StreamGeometry x:Key="IconFile">M4 2h5l3 3v8.5a.5.5 0 0 1-.5.5h-7.5a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5zM9 2v3h3</StreamGeometry>
+  <StreamGeometry x:Key="IconFolderOpen">M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z</StreamGeometry>
+  <StreamGeometry x:Key="IconClose">M3.5 3.5l9 9M12.5 3.5l-9 9</StreamGeometry>
+
+  <StreamGeometry x:Key="IconSearch">M11.5 7A4.5 4.5 0 1 1 2.5 7A4.5 4.5 0 1 1 11.5 7ZM10.5 10.5L14 14</StreamGeometry>
+  <StreamGeometry x:Key="IconCheck">M3.5 8.5L6.5 11.5L12.5 4.5</StreamGeometry>
+  <StreamGeometry x:Key="IconDash">M4 8H12</StreamGeometry>
+  <StreamGeometry x:Key="IconCopy">M7 5.5H12A1.5 1.5 0 0 1 13.5 7V12A1.5 1.5 0 0 1 12 13.5H7A1.5 1.5 0 0 1 5.5 12V7A1.5 1.5 0 0 1 7 5.5ZM3 10.5V4A1 1 0 0 1 4 3H10.5</StreamGeometry>
+  <StreamGeometry x:Key="IconInfo">M14.5 8A6.5 6.5 0 1 1 1.5 8A6.5 6.5 0 1 1 14.5 8ZM8 7.2V11M8 4.8V5</StreamGeometry>
+  <StreamGeometry x:Key="IconAircraft">M14 2L2 7L6.5 8.8L8.2 14Z</StreamGeometry>
+
+  <StreamGeometry x:Key="IconPlus">M8 3V13M3 8H13</StreamGeometry>
+  <StreamGeometry x:Key="IconMinus">M3 8H13</StreamGeometry>
+  <StreamGeometry x:Key="IconFit">M2 6V2H6M10 2H14V6M14 10V14H10M6 14H2V10</StreamGeometry>
+
+  <!-- Filled transport icons -->
+  <StreamGeometry x:Key="IconStepBack">M3 3H5V13H3ZM13 3.5V12.5L6.5 8Z</StreamGeometry>
+  <StreamGeometry x:Key="IconStepNext">M11 3H13V13H11ZM3 3.5V12.5L9.5 8Z</StreamGeometry>
+
+  <!-- App mark, 18 x 18: crosshair ring inside a rounded square (the ring and ticks are drawn on top of the square). -->
+  <StreamGeometry x:Key="IconLogoRing">M13.2 9A4.2 4.2 0 1 1 4.8 9A4.2 4.2 0 1 1 13.2 9Z</StreamGeometry>
+  <StreamGeometry x:Key="IconLogoTicks">M9 2.5v3M9 12.5v3M2.5 9h3M12.5 9h3</StreamGeometry>
+
+  <!-- Empty-state illustration, 72 x 72 -->
+  <StreamGeometry x:Key="IconEmptyRecording">M16 14H56A6 6 0 0 1 62 20V46A6 6 0 0 1 56 52H16A6 6 0 0 1 10 46V20A6 6 0 0 1 16 14ZM10 40H62M24 14V40M36 52V58M26 58H46M51 27A5 5 0 1 1 41 27A5 5 0 1 1 51 27Z</StreamGeometry>
+</ResourceDictionary>

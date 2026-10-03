@@ -35,6 +35,7 @@ jobs:
     env:
       Solution_Name: JoinFS.sln
       Test_Project: JoinFS.Tests\JoinFS.Tests.csproj
+      XRay_Test_Project: RecordingXRay.Tests\RecordingXRay.Tests.csproj
       App_Project: JoinFS\JoinFS.csproj
 
     steps:
@@ -66,6 +67,9 @@ jobs:
 
       - name: Execute unit tests
         run: dotnet test ${env:Test_Project} -c FS2024-Debug /p:Platform=x64
+
+      - name: Execute RecordingXRay unit tests
+        run: dotnet test ${env:XRay_Test_Project}
 
       - name: Restore NuGet packages
         run: dotnet restore ${env:Solution_Name} /p:Configuration=${{ matrix.configuration }}

@@ -1,0 +1,106 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:RecordingXRay.ViewModels"
+             xmlns:c="using:RecordingXRay.Views.Controls"
+             x:Class="RecordingXRay.Views.FrameBrowserView"
+             x:DataType="vm:MainViewModel">
+
+  <Border Classes="panel">
+    <Grid RowDefinitions="Auto,Auto,*">
+
+      <!-- Header: aircraft picker, frame count, aircraft details, filter, type chips -->
+      <StackPanel Grid.Row="0" Margin="16,14,16,10" Spacing="10">
+        <Grid ColumnDefinitions="*,Auto,Auto">
+          <ComboBox Grid.Column="0" Classes="lane" ItemsSource="{Binding Lanes}" SelectedItem="{Binding SelectedLane}"
+                    AutomationProperties.Name="Aircraft">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:LaneViewModel">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <Path Classes="icon" Data="{StaticResource IconAircraft}" Stroke="{StaticResource AccentBrush}" StrokeThickness="1.5" />
+                  <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                  <TextBlock Classes="muted" Text="{Binding FrameCountText}" />
+                </StackPanel>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <TextBlock Grid.Column="1" Classes="muted" FontSize="12" Margin="12,0" VerticalAlignment="Center"
+                     Text="{Binding Browser.CountText}" />
+          <Button Grid.Column="2" Classes="ghost" Width="32" Height="32" AutomationProperties.Name="Aircraft details"
+                  ToolTip.Tip="Aircraft details">
+            <Path Classes="icon" Data="{StaticResource IconInfo}" />
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedRight">
+                <ItemsControl x:DataType="vm:MainViewModel" ItemsSource="{Binding SelectedLane.Info}" MinWidth="280">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:InfoRow">
+                      <Grid ColumnDefinitions="110,*" Margin="0,3">
+                        <TextBlock Classes="muted" Text="{Binding Key}" />
+                        <TextBlock Grid.Column="1" Classes="mono" FontSize="12" TextWrapping="Wrap" Text="{Binding Value}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+        </Grid>
+
+        <TextBlock Classes="mono muted" FontSize="12" Text="{Binding Browser.Subtitle}" TextTrimming="CharacterEllipsis"
+                   ToolTip.Tip="{Binding Browser.Subtitle}" />
+
+        <TextBox Classes="field" Text="{Binding Browser.FilterText}" Watermark="Go to time (Enter) or filter by type"
+                 AutomationProperties.Name="Filter frames">
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding Browser.GoToTimeCommand}" />
+          </TextBox.KeyBindings>
+        </TextBox>
+
+        <ItemsControl ItemsSource="{Binding Browser.TypeChips}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel Orientation="Horizontal" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:TypeChipViewModel">
+              <ToggleButton Classes="chip" IsChecked="{Binding IsOn}" Margin="0,0,6,6">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <Ellipse Width="8" Height="8" Fill="{Binding Kind, Converter={x:Static c:KindBrushConverter.Instance}}" />
+                  <TextBlock Text="{Binding Label}" />
+                </StackPanel>
+              </ToggleButton>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
+      <!-- Column headings -->
+      <Grid Grid.Row="1" ColumnDefinitions="56,70,*,64" Height="28" Margin="0" Background="{StaticResource CardBrush}">
+        <TextBlock Classes="caption" Text="FRAME" Margin="16,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" Classes="caption" Text="TIME" Margin="26,0,0,0" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="2" Classes="caption" Text="TYPE" Margin="26,0,0,0" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="3" Classes="caption" Text="DELTA" Margin="0,0,20,0" HorizontalAlignment="Right" VerticalAlignment="Center" />
+      </Grid>
+
+      <ListBox x:Name="FrameList" Grid.Row="2" Classes="flat" ItemsSource="{Binding Browser.Rows}"
+               SelectedItem="{Binding Browser.SelectedRow}" AutomationProperties.Name="Frames"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:FrameRow">
+            <Grid ColumnDefinitions="56,70,*,64" Height="28" Margin="8,0">
+              <TextBlock Classes="mono muted" FontSize="12" Text="{Binding IndexText}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Classes="mono strong" FontSize="12.5" Foreground="{StaticResource Text2Brush}"
+                         Text="{Binding TimeText}" Margin="10,0,0,0" VerticalAlignment="Center" />
+              <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="10,0,0,0" VerticalAlignment="Center">
+                <Ellipse Width="8" Height="8" Fill="{Binding Kind, Converter={x:Static c:KindBrushConverter.Instance}}" />
+                <TextBlock Classes="strong" FontSize="12.5" Foreground="{StaticResource Text2Brush}" Text="{Binding TypeName}" />
+              </StackPanel>
+              <TextBlock Grid.Column="3" Classes="mono muted" FontSize="12" Text="{Binding DeltaText}"
+                         HorizontalAlignment="Right" VerticalAlignment="Center" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Grid>
+  </Border>
+</UserControl>
