@@ -120,9 +120,8 @@ namespace JoinFS
                     // update aircraft
                     UpdateObject(userAircraft, aircraftPosition, aircraft.netVelocity);
                     // copy net time
-                    userAircraft.netRealTime = aircraft.netRealTime;
+                    userAircraft.Clock.CopyFrom(aircraft.Clock);
                     userAircraft.netStateTime = aircraft.netStateTime;
-                    userAircraft.netSimTime = aircraft.netSimTime;
 
                     // update net position
                     userAircraft.netPosition = aircraft.Position.Clone();

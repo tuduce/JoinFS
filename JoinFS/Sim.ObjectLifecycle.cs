@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using JoinFS.Properties;
 using JoinFS.Net;
+using JoinFS.Estimation;
 
 
 
@@ -335,8 +336,7 @@ namespace JoinFS
             {
                 // reset network times
                 obj.netStateTime = 0.0;
-                obj.netRealTime = 0.0;
-                obj.netSimTime = 0.0;
+                obj.Clock.Reset();
             }
         }
 
@@ -474,29 +474,23 @@ namespace JoinFS
         /// instead of the time the update is processed keeps queueing delays out of the extrapolation.</param>
         public void UpdateObject(Obj obj, double netTime, double receivedAt = 0.0)
         {
-            // local time of this update - never before the previous one, so time only moves forward
-            double localTime = receivedAt > 0.0 ? Math.Max(receivedAt, obj.netSimTime) : main.ElapsedTime;
+            double now = main.ElapsedTime;
             // store remote state time
             obj.netStateTime = netTime;
             // check for first update
-            if (obj.netRealTime == 0.0)
+            if (obj.Clock.Started == false)
             {
                 // set position and velocity
                 UpdateObject(obj, obj.netPosition, obj.netVelocity);
-                // set time
-                obj.netRealTime = obj.netStateTime;
             }
-            else
+            // follow the sender's clock, and let the estimator see the sample
+            obj.Clock.OnSample(netTime, receivedAt, now);
+            obj.Estimator.OnSample(new KinematicState(obj.netPosition, obj.netVelocity), netTime);
+            // network samples only: playback feeds interpolated positions at a high rate, with no network in between
+            if (estimationLog != null && obj.owner != Obj.Owner.Recorder)
             {
-                // update estimated network time
-                obj.netRealTime += localTime - obj.netSimTime;
-                // calculate error between network update and estimated time
-                double error = obj.netStateTime - obj.netRealTime;
-                // gradually merge to remove error over time
-                obj.netRealTime += error * TIME_ERROR_RATE;
+                estimationLog.OnSample(obj, now, netTime, receivedAt, obj.owner == Obj.Owner.Network ? main.network.GetNodeRTT(obj.ownerNuid) : double.NaN);
             }
-            // store local time at which state was updated
-            obj.netSimTime = localTime;
         }
 
         /// <summary>
