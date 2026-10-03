@@ -185,132 +185,101 @@ namespace JoinFS
         /// Which method established the current session - decides what CheckForOrphanedSession
         /// replays on an automatic reconnect.
         /// </summary>
-        enum SessionOrigin { None, Join, Login }
+        internal enum SessionOrigin { None = 0, Join = 1, Login = 2, Global = 3 }
         SessionOrigin sessionOrigin = SessionOrigin.None;
 
         /// <summary>
-        /// Credentials for the current session, kept in memory only for as long as the session lasts
-        /// (cleared in Leave()) so CheckForOrphanedSession can retry with the same credentials - see
-        /// tuduce/JoinFS#177 and the maintainer discussion on PR #179 about sessions that require
-        /// login (https://github.com/tuduce/JoinFS/pull/179#issuecomment-5937299466). Neither Join
-        /// nor Login ever receives a plaintext password - the UI hashes it before scheduling - so
-        /// this only ever holds a hash (plus, for Login, the non-secret email address), never a
-        /// reversible secret. Never written to Settings, Log, or any file.
+        /// Credentials of the last Join/Login, kept in memory for as long as the app runs so the automatic
+        /// reconnect (see CheckForOrphanedSession) can replay them without asking again - see
+        /// tuduce/JoinFS#177 and the discussion on PR #179 about sessions that require login
+        /// (https://github.com/tuduce/JoinFS/pull/179#issuecomment-5937299466). Neither Join nor Login ever
+        /// receives a plaintext password - the UI hashes it before scheduling - so this only ever holds a
+        /// hash (plus, for Login, the non-secret email address), never a reversible secret. Never written to
+        /// Settings, Log, or any file.
         /// </summary>
         uint lastPasswordHash = 0;
         string lastLoginEmail = "";
         uint lastLoginHash = 0;
         bool lastLoginVerify = false;
 
-        /// <summary>How often to retry while the session is orphaned - see CheckForOrphanedSession.</summary>
+        /// <summary>How often to retry while the session is lost - see CheckForOrphanedSession.</summary>
         const double RECONNECT_INTERVAL_S = 10.0;
 
-        /// <summary>
-        /// Progress of the "am I orphaned, and when is the next retry due" decision - separated out
-        /// as plain data so the decision itself (Tick) can be tested without a live Network instance.
-        /// </summary>
-        public struct ReconnectState
-        {
-            public bool orphaned;
-            public double nextAttempt;
-        }
-        ReconnectState reconnectState;
+        /// <summary>How long to keep retrying before giving up and leaving the next step to the user.</summary>
+        const double RECONNECT_MAX_S = 5 * 60.0;
+
+        readonly ReconnectSupervisor reconnectSupervisor = new(RECONNECT_INTERVAL_S, RECONNECT_MAX_S);
 
         /// <summary>
-        /// True while CheckForOrphanedSession considers the session orphaned (Connected but zero live
-        /// peers) and is retrying in the background - same "Waiting" signal Sim.View.Connecting gives
-        /// Button_Simulator, for Button_Network to show the same three-state palette instead of
-        /// reading as a healthy Connected the whole time it's actually reconnecting.
+        /// True while a lost session is being re-established in the background - same "Waiting" signal
+        /// Sim.View.Connecting gives Button_Simulator, for Button_Network to show the same three-state
+        /// palette instead of reading as a healthy Connected, or a final Unconnected, while it retries.
         /// </summary>
-        public bool Reconnecting => reconnectState.orphaned;
-
-        /// <summary>
-        /// Pure decision step for CheckForOrphanedSession, exposed for testing: given the current
-        /// signals, does the caller need to retry right now? Retries immediately on the first tick
-        /// the session is found orphaned - that signal is already debounced upstream by
-        /// MeshManager's peer-expiry timeout (hasLiveNode only goes false after a sustained silence,
-        /// not a single missed packet), so there's nothing to gain by waiting out a further interval
-        /// before the first attempt. Subsequent retries are spaced intervalSeconds apart, until
-        /// hasLiveNode or isConnected goes back to true, or hasJoinTarget goes false (explicit leave,
-        /// or a session - such as one this node created rather than joined - that never had a join
-        /// target to begin with).
-        /// </summary>
-        public static bool Tick(ref ReconnectState state, bool hasJoinTarget, bool isConnected,
-            bool hasLiveNode, double elapsedTime, double intervalSeconds)
-        {
-            bool orphanedNow = hasJoinTarget && isConnected && !hasLiveNode;
-            if (!orphanedNow)
-            {
-                state.orphaned = false;
-                return false;
-            }
-            if (!state.orphaned)
-            {
-                // first tick of being orphaned - retry now, then wait one interval before the next
-                state.orphaned = true;
-                state.nextAttempt = elapsedTime + intervalSeconds;
-                return true;
-            }
-            if (elapsedTime < state.nextAttempt)
-            {
-                return false;
-            }
-            state.nextAttempt = elapsedTime + intervalSeconds;
-            return true;
-        }
+        public bool Reconnecting => reconnectSupervisor.Pending;
 
         /// <summary>
         /// See tuduce/JoinFS#177: a client can be left reporting Connected with zero live peers (hub
         /// restart, a network drop that outlasts every peer's expiry) with nothing ever retrying the
-        /// join/login on its own. Detect that and retry whatever established the session - Join or
-        /// Login, with the same credentials - every RECONNECT_INTERVAL_S until it succeeds (a fresh
-        /// JoinReply/LoginReply repopulates the peer list) or the user explicitly leaves. A session
-        /// this node created rather than joined (joinEndPoint never set, see Create()) has no join
-        /// target and is therefore never considered orphaned here - losing every client is that
-        /// session's normal idle state, not an error.
+        /// join/login on its own. Detect that and re-run whatever established the session - Join, Login or
+        /// the global session, with the same credentials - every RECONNECT_INTERVAL_S for up to
+        /// RECONNECT_MAX_S, until a fresh JoinReply/LoginReply repopulates the peer list or the user leaves.
+        /// A session this node created rather than joined (joinEndPoint never set, see Create()) has no
+        /// join target and is therefore never considered lost here - losing every client is that session's
+        /// normal idle state, not an error.
         /// </summary>
         void CheckForOrphanedSession()
         {
             bool hasJoinTarget = joinEndPoint.Port != 0;
-            bool isConnected = Snapshot.Connected;
-            bool hasLiveNode = Snapshot.PeerList.Count > 0;
+            NetworkSnapshot snapshot = Snapshot;
 
-            if (Tick(ref reconnectState, hasJoinTarget, isConnected, hasLiveNode, host.Now, RECONNECT_INTERVAL_S))
+            switch (reconnectSupervisor.Tick(hasJoinTarget, snapshot.State, snapshot.PeerList.Count, host.Now))
             {
-                host.Event("Reconnecting to '" + AddressCodec.EncodeIP(joinEndPoint.ToString())
-                    + "' after losing every peer while still connected");
-
-                // capture before Leave() clears them (see Leave()'s credential-lifetime comment)
-                IPEndPoint target = joinEndPoint;
-                SessionOrigin origin = sessionOrigin;
-                uint passwordHash = lastPasswordHash;
-                string loginEmail = lastLoginEmail;
-                uint loginHash = lastLoginHash;
-                bool loginVerify = lastLoginVerify;
-
-                // Must Leave() before rejoining: our own Connected is still true (suid != 0, from
-                // before every peer expired - that's the whole premise of "orphaned"), and
-                // MeshManager.Handle(JoinReply) only adopts the hub's suid when !Connected. A
-                // restarted hub hands out a fresh suid, so without this reset the reply's
-                // "message.Suid == suid" check fails forever and RegisterNode never runs - the
-                // JoinRequest/JoinReply round-trip happens every retry (hence the log line and the
-                // Network button turning Waiting-orange) but silently never re-establishes anything.
-                // Every manual rejoin already avoids this because Main.Join() always
-                // ScheduleLeave()s before ScheduleJoin()/ScheduleLogin() - Leave() is what resets
-                // suid to 0. reconnectState is also reset by Leave(), restarting the orphaned-
-                // detection cycle cleanly for this fresh attempt.
-                Leave();
-
-                switch (origin)
-                {
-                    case SessionOrigin.Join:
-                        Join(target, passwordHash);
-                        break;
-                    case SessionOrigin.Login:
-                        Login(target, loginEmail, loginHash, loginVerify);
-                        break;
-                }
+                case ReconnectAction.Retry:
+                    RetrySession();
+                    break;
+                case ReconnectAction.GiveUp:
+                    GiveUpReconnecting();
+                    break;
             }
+        }
+
+        void RetrySession()
+        {
+            host.Event("Reconnecting to '" + AddressCodec.EncodeIP(joinEndPoint.ToString())
+                + "' after losing every peer while still connected");
+
+            IPEndPoint target = joinEndPoint;
+
+            // Must reset the mesh before rejoining: our own Connected is still true (suid != 0, from
+            // before every peer expired - that's the whole premise of a lost session), and
+            // MeshManager.Handle(JoinReply) only adopts the hub's suid when !Connected. A restarted hub
+            // hands out a fresh suid, so without this reset the reply's "message.Suid == suid" check
+            // fails forever and RegisterNode never runs. Every manual rejoin avoids this because
+            // Main.Join() always ScheduleLeave()s first. This is ResetSession(), not Leave(): the
+            // reconnect in progress must survive the reset.
+            ResetSession();
+
+            switch (sessionOrigin)
+            {
+                case SessionOrigin.Join:
+                    Join(target, lastPasswordHash);
+                    break;
+                case SessionOrigin.Login:
+                    Login(target, lastLoginEmail, lastLoginHash, lastLoginVerify);
+                    break;
+                case SessionOrigin.Global:
+                    StartGlobalSession();
+                    break;
+            }
+        }
+
+        void GiveUpReconnecting()
+        {
+            ResetSession();
+            host.Event("Gave up reconnecting to '" + AddressCodec.EncodeIP(joinEndPoint.ToString())
+                + "' after " + (int)(RECONNECT_MAX_S / 60) + " minutes");
+            host.ShowMessage(string.Format(Resources.Strings.ReconnectGaveUp, (int)(RECONNECT_MAX_S / 60)));
+            host.SessionChanged(1);
         }
 
         volatile IPEndPoint scheduleJoin = null;
@@ -408,15 +377,7 @@ namespace JoinFS
 
             if (scheduleJoinGlobal)
             {
-                // create the global session and join it on every hub running it
-                Create(true);
-                foreach (var hub in Hubs.List)
-                {
-                    if (hub.globalSession)
-                    {
-                        Join(hub.endPoint, 0);
-                    }
-                }
+                StartGlobalSession();
                 scheduleJoinGlobal = false;
             }
 
@@ -425,6 +386,21 @@ namespace JoinFS
                 Login(scheduleLogin, scheduleLoginEmail, scheduleLoginHash, scheduleLoginVerify);
                 scheduleLogin = null;
             }
+        }
+
+        /// <summary>Create the global session and join it on every hub running it.</summary>
+        void StartGlobalSession()
+        {
+            Create(true);
+            foreach (var hub in Hubs.List)
+            {
+                if (hub.globalSession)
+                {
+                    Join(hub.endPoint, 0);
+                }
+            }
+            // after the joins, which each record themselves as the origin
+            sessionOrigin = SessionOrigin.Global;
         }
 
         /// <summary>What joining and logging in have in common: remember where, and start the session.</summary>
@@ -473,24 +449,29 @@ namespace JoinFS
         /// </summary>
         public void Leave()
         {
-            service.Post(core => core.Mesh.Leave());
+            reconnectSupervisor.NotifyUserLeft();
+            sessionOrigin = SessionOrigin.None;
             if (Snapshot.State != SessionState.Unconnected)
             {
                 host.Event("Left the session");
                 host.SessionChanged(1);
             }
-            // bound the in-memory credential's lifetime to the session - see CheckForOrphanedSession
-            sessionOrigin = SessionOrigin.None;
-            lastPasswordHash = 0;
-            lastLoginEmail = "";
-            lastLoginHash = 0;
-            lastLoginVerify = false;
-            reconnectState = default;
+            ResetSession();
         }
+
+        /// <summary>
+        /// Drop the mesh session without touching the reconnect in progress or the remembered
+        /// credentials: the automatic reconnect resets and rejoins with it, and a user Leave() is the
+        /// one that cancels it.
+        /// </summary>
+        void ResetSession() => service.Post(core => core.Mesh.Leave());
 
         /// <summary>Create a session (or the global session) that others can join.</summary>
         public void Create(bool globalSession)
         {
+            // a session of our own has no hub to go back to
+            joinEndPoint = new IPEndPoint(0, 0);
+            sessionOrigin = SessionOrigin.None;
             try
             {
                 LowBandwidth = host.LowBandwidth;
