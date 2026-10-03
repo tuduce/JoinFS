@@ -53,13 +53,27 @@ namespace JoinFS
 
         public void Handle(in MessageMeta meta, in IdentityUpdate identity)
         {
-            var key = (meta.Sender, identity.ObjectId);
+            NodeId nuid = meta.Sender;
+            // An identity/position packet can race ahead of (or arrive just after PeerLeft for)
+            // the sender's own join handshake - PeerTable.Nodes is the source of truth for "is
+            // this peer currently a member of the session". Gating here, before anything is
+            // cached, keeps a stale or early packet from ever reaching sim.UpdateAircraft (which
+            // would otherwise create a short-lived duplicate/"ghost" object for it) - positions
+            // for an object whose identity was never admitted are already dropped by the existing
+            // "identity not known yet" check below.
+            if (!peers.Nodes.ContainsKey(nuid))
+            {
+                log.Network("Dropped identity for " + nuid + "/" + identity.ObjectId + " - not a registered peer");
+                return;
+            }
+
+            var key = (nuid, identity.ObjectId);
             bool known = identities.TryGetValue(key, out IdentityUpdate previous);
             identities[key] = identity;
             // new objects are created from it by their first position
             if (known && !previous.SameAs(identity) && sim.Available)
             {
-                sim.ChangeIdentity(meta.Sender, identity);
+                sim.ChangeIdentity(nuid, identity);
             }
         }
 
