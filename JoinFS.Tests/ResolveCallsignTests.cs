@@ -40,6 +40,17 @@ public class ResolveCallsignTests
     }
 
     [Fact]
+    public void FlightNumberWithTrailingLetterSuffix_ConcatenatesWithAirline()
+    {
+        // Real-world flight numbers routinely carry a trailing letter suffix (e.g. a Eurowings
+        // "34U") without being a complete pre-existing callsign - this must still combine with the
+        // airline into "EWG34U", not broadcast bare as "34U".
+        string result = Sim.ResolveCallsign("EWG", "34U", "D-ALEX");
+
+        Assert.Equal("EWG34U", result);
+    }
+
+    [Fact]
     public void MissingAirlineOrFlightNumber_FallsBackToTailNumber()
     {
         Assert.Equal("D-ALEX", Sim.ResolveCallsign("", "1234", "D-ALEX"));
