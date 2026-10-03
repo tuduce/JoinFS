@@ -470,12 +470,37 @@ again when the simulator link closes.
 - **Replay.** Feed the `sample` rows (with their `receivedAt`) to any `IStateEstimator`/`IClockModel`
   offline. This is the input for the §6 harness.
 
+**Tester package.** To hand the logging build to a group of pilots, run:
+
+```
+JoinFS\util\tester-package\Build-TesterPackage.ps1 -UploadTarget <user>@<host>:<path>/ -UploadPort <port>
+```
+
+The upload server is passed here and never written in the repository, and its password is given to
+the testers separately. `Collect test logs.bat` then uploads the zip with Windows' own `scp`, with
+three password attempts. The server's host keys (ed25519, ecdsa, rsa) are taken at build time and
+pinned in the package, so testers are never asked to trust the server, and an impostor is refused.
+Without `-UploadTarget`, `-UploadInfo "<where to send the logs>"` tells testers where to send it.
+
+It writes `artifacts\JoinFS-test-<commit>.zip` with:
+
+- the FS2024 and FS2020 builds (choose with `-Builds`; `-SelfContained` bundles .NET);
+- one `Start JoinFS - <sim>.bat` per build. It runs the app with `-estimationlog`, after recording
+  the PC's clock offset to `time.windows.com` in `clock-*.txt`;
+- `Collect test logs.bat`, which zips the last 7 days of `estimation-*.csv`, `log-*.txt` and
+  `clock-*.txt`, plus the package info, onto the Desktop;
+- a README for the testers.
+
+The clock files let logs from several PCs be put on one time line, even when the PCs' clocks differ
+(one test PC was 211 ms off).
+
 **Caveats.**
 
 - After a reset (pause, cockpit entry, playback seek), the first row's prediction can be from before
   the reset. Drop rows where `predFrom` is older than the previous sample's `netTime`.
-- Size is about 300–400 bytes per row. At 20 Hz per remote aircraft that is roughly 25 MB per hour
-  per aircraft.
+- Size is about 500 bytes per full row. At 20 Hz per remote aircraft that is roughly 35–40 MB per
+  hour per aircraft (half that for 10 Hz senders: X-Plane, or low bandwidth). Clock rows add about
+  0.15 MB per hour.
 
 ---
 
