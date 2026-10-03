@@ -279,8 +279,20 @@
   <data name="Shortcuts_Network" xml:space="preserve">
     <value>Schakel de netwerkstatus in / uit</value>
   </data>
+  <data name="Shortcuts_Overdub" xml:space="preserve">
+    <value>Start de overdub-opname</value>
+  </data>
+  <data name="Shortcuts_Record" xml:space="preserve">
+    <value>Begin met het opnemen van het geselecteerde vliegtuig</value>
+  </data>
+  <data name="Shortcuts_Replay" xml:space="preserve">
+    <value>Speel / pauzeer het vliegtuig dat is opgeslagen in de recorder</value>
+  </data>
   <data name="Shortcuts_Simulator" xml:space="preserve">
     <value>Schakel de simulatorstatus in / uit</value>
+  </data>
+  <data name="Shortcuts_Stop" xml:space="preserve">
+    <value>Stop met opnemen / afspelen</value>
   </data>
   <data name="SingleProp" xml:space="preserve">
     <value>Enkele Prop</value>
@@ -409,7 +421,7 @@
     <value>versie | open kaart | totaal aantal hubgebruikers, sessiegebruikers | bijdrage leveren</value>
   </data>
   <data name="Tip_Stop" xml:space="preserve">
-    <value>Stop met het opnemen / afspelen van de drone</value>
+    <value>Stop met het opnemen / afspelen van het vliegtuig</value>
   </data>
   <data name="Tip_Time" xml:space="preserve">
     <value>Tijd sinds het starten van opnemen / afspelen</value>
