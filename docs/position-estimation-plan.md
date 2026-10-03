@@ -476,11 +476,37 @@ again when the simulator link closes.
 JoinFS\util\tester-package\Build-TesterPackage.ps1 -UploadTarget <user>@<host>:<path>/ -UploadPort <port>
 ```
 
-The upload server is passed here and never written in the repository, and its password is given to
-the testers separately. `Collect test logs.bat` then uploads the zip with Windows' own `scp`, with
-three password attempts. The server's host keys (ed25519, ecdsa, rsa) are taken at build time and
-pinned in the package, so testers are never asked to trust the server, and an impostor is refused.
-Without `-UploadTarget`, `-UploadInfo "<where to send the logs>"` tells testers where to send it.
+The upload server is passed here and never written in the repository.
+
+- **Uploading.** Each package gets its own ed25519 login key, so testers need no password.
+  `Collect test logs.bat` uploads with Windows' own `sftp` in batch mode. It uses `sftp`, not
+  `scp`, because Windows 10's `scp` speaks the old SCP protocol, which the server refuses.
+- **Installing the key.** The build script prints the line to add on the server:
+  `restrict,expiry-time="<date>" ssh-ed25519 …`. The key stops working after `-KeyValidDays`
+  (default 60).
+- **Host keys.** The server's host keys (ed25519, ecdsa, rsa) are taken at build time and pinned
+  in the package. Testers are never asked to trust the server, and an impostor is refused.
+- **Without a server.** Leave out `-UploadTarget`, and `-UploadInfo "<where to send the logs>"`
+  tells testers where to send the zip.
+
+The server account is a write-only drop box, so a leaked package can only upload. The sshd config:
+
+```
+Match User uploaduser
+    ChrootDirectory /var/sftp/uploaduser            # root:root 755
+    ForceCommand internal-sftp -d /incoming -u 0077 -p open,close,write,fstat,lstat,stat,realpath,limits
+    AuthorizedKeysFile /etc/ssh/authorized_keys/%u  # root-owned: the user cannot add keys
+    PasswordAuthentication no
+    PermitTunnel no
+    AllowAgentForwarding no
+    AllowTcpForwarding no
+    X11Forwarding no
+```
+
+`/var/sftp/uploaduser/incoming` is `root:uploaduser 1730`. Testing on 2026-10-01 confirmed that
+uploading works and that everything else is refused: listing, downloading, deleting, renaming,
+creating folders, changing permissions, writing outside `incoming`, a shell, tunnelling and the
+old SCP protocol.
 
 It writes `artifacts\JoinFS-test-<commit>.zip` with:
 
