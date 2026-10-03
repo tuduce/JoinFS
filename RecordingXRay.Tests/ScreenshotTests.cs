@@ -1,6 +1,7 @@
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media.Imaging;
+using RecordingXRay.Services;
 using RecordingXRay.ViewModels;
 using RecordingXRay.Views;
 
@@ -102,6 +103,56 @@ public sealed class ScreenshotTests : IDisposable
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         Save(window, "map-follow-zoomed.png");
         Assert.True(viewModel.Map.Follow);
+    }
+
+    /// <summary>Needs the internet and XRAY_TILES=1: renders the map over real OpenStreetMap tiles.</summary>
+    [AvaloniaFact]
+    public async Task Map_with_openstreetmap_tiles_renders()
+    {
+        if (Environment.GetEnvironmentVariable("XRAY_TILES") != "1")
+        {
+            return;
+        }
+
+        string path = Environment.GetEnvironmentVariable("XRAY_SAMPLE") is { Length: > 0 } sample && File.Exists(sample)
+            ? sample
+            : RecordingFiles.WriteSingleAircraft(directory, 0.026, 0.101, 711.165);
+        using OsmTileSource tiles = new();
+        MainViewModel viewModel = new(tiles: tiles);
+        MainWindow window = Show(viewModel);
+        await viewModel.LoadAsync(path);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        viewModel.SelectAircraft(viewModel.Lanes[^1]);
+        viewModel.MoveCursor(300);
+
+        // Give the tiles a few seconds to arrive.
+        for (int i = 0; i < 40; i++)
+        {
+            await Task.Delay(250);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        }
+
+        Save(window, "map-tiles.png");
+        Assert.True(viewModel.Map.HasBasemap);
+    }
+
+    [AvaloniaFact]
+    public void Empty_window_with_recent_files_renders()
+    {
+        string first = RecordingFiles.WriteSingleAircraft(directory, 1);
+        string second = Path.Combine(directory, "tigers 3rd.jfs");
+        File.Copy(first, second);
+        MemorySettingsStore store = new();
+        store.Save(new AppSettings { RecentFiles = [second, first] });
+        MainViewModel viewModel = new(settingsStore: store);
+        MainWindow window = Show(viewModel);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Save(window, "empty-recent.png");
+
+        viewModel.IsDragOver = true;
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Save(window, "empty-dragover.png");
+        Assert.Equal(2, viewModel.RecentFiles.Count);
     }
 
     private static MainWindow Show(MainViewModel viewModel)

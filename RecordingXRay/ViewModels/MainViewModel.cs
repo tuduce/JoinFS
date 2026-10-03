@@ -12,23 +12,33 @@ public enum StatusKind
     Error,
 }
 
+/// <summary>An entry in the recent files list.</summary>
+public sealed record RecentFile(string Path, string FileName, string Directory, System.Windows.Input.ICommand? Open = null);
+
 public partial class MainViewModel : ObservableObject
 {
+    public const int MaxRecentFiles = 5;
+
+    private readonly ISettingsStore settingsStore;
+    private readonly AppSettings settings;
+    private readonly ITileSource? tiles;
     private int loadGeneration;
 
-    public MainViewModel()
-        : this(null)
-    {
-    }
-
     /// <param name="resolveName">Maps a variable id to its name. Defaults to the JoinFS variable tables, loaded on first use.</param>
-    public MainViewModel(Func<uint, string>? resolveName)
+    /// <param name="tiles">Where the map's basemap comes from. None (the default) gives a map without a basemap.</param>
+    /// <param name="settingsStore">Where recent files and options are kept. Defaults to memory only.</param>
+    public MainViewModel(Func<uint, string>? resolveName = null, ITileSource? tiles = null, ISettingsStore? settingsStore = null)
     {
         if (resolveName is null)
         {
             Lazy<VariableLookup> lookup = new(VariableLookup.Create);
             resolveName = id => lookup.Value.Resolve(id);
         }
+
+        this.tiles = tiles;
+        this.settingsStore = settingsStore ?? new MemorySettingsStore();
+        settings = this.settingsStore.Load();
+        recentFiles = settings.RecentFiles.Where(File.Exists).Take(MaxRecentFiles).Select(ToRecent).ToArray();
 
         Browser = new FrameBrowserViewModel();
         Inspector = new InspectorViewModel(resolveName);
@@ -58,8 +68,21 @@ public partial class MainViewModel : ObservableObject
     private RecordingFile? recording;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasFile), nameof(FileName), nameof(FileDirectory))]
+    [NotifyPropertyChangedFor(nameof(HasFile), nameof(FileName), nameof(FileDirectory), nameof(WindowTitle))]
     private string? filePath;
+
+    /// <summary>True while a file is being dragged over the window.</summary>
+    [ObservableProperty]
+    private bool isDragOver;
+
+    /// <summary>Recently opened recordings, newest first, shown on the empty screen.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRecent))]
+    private IReadOnlyList<RecentFile> recentFiles;
+
+    public bool HasRecent => RecentFiles.Count > 0;
+
+    public string WindowTitle => HasFile ? $"{FileName} - RecordingXRay" : "RecordingXRay";
 
     [ObservableProperty]
     private RecordingSummary summary = RecordingSummary.Empty;
@@ -132,6 +155,26 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void DismissError() => ErrorMessage = null;
 
+    [RelayCommand]
+    private void ClearRecent() => SetRecent([]);
+
+    private RecentFile ToRecent(string path) =>
+        new(path, Path.GetFileName(path), Path.GetDirectoryName(path) ?? string.Empty, new AsyncRelayCommand(() => LoadAsync(path)));
+
+    private void SetRecent(IEnumerable<string> paths)
+    {
+        string[] list = paths.Take(MaxRecentFiles).ToArray();
+        RecentFiles = list.Select(ToRecent).ToArray();
+        settings.RecentFiles = [.. list];
+        settingsStore.Save(settings);
+    }
+
+    private void RememberRecent(string path) =>
+        SetRecent(new[] { path }.Concat(RecentFiles.Select(r => r.Path).Where(p => !string.Equals(p, path, StringComparison.OrdinalIgnoreCase))));
+
+    private void ForgetRecent(string path) =>
+        SetRecent(RecentFiles.Select(r => r.Path).Where(p => !string.Equals(p, path, StringComparison.OrdinalIgnoreCase)));
+
     /// <summary>
     /// Reads a recording on a background thread. On failure the previously loaded recording stays in place
     /// and the message is shown in the error banner.
@@ -165,6 +208,7 @@ public partial class MainViewModel : ObservableObject
             Status = StatusKind.Loaded;
 
             ResetForRecording(laneList, summary.DurationSeconds);
+            RememberRecent(path);
         }
         catch (Exception ex)
         {
@@ -175,6 +219,10 @@ public partial class MainViewModel : ObservableObject
 
             ErrorMessage = $"{Path.GetFileName(path)}: {ex.Message}";
             Status = StatusKind.Error;
+            if (!File.Exists(path))
+            {
+                ForgetRecent(path); // a recent file that has gone away is dropped from the list
+            }
         }
         finally
         {

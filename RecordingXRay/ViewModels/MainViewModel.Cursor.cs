@@ -214,6 +214,20 @@ public partial class MainViewModel
         Browser.SelectRow(rows[Math.Clamp(target, 0, rows.Count - 1)]);
     }
 
+    private MapViewModel CreateMap(IReadOnlyList<LaneViewModel> laneList)
+    {
+        MapViewModel map = new(laneList, SelectAircraft, tiles) { ShowBasemap = settings.ShowBasemap };
+        map.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MapViewModel.ShowBasemap) && settings.ShowBasemap != map.ShowBasemap)
+            {
+                settings.ShowBasemap = map.ShowBasemap;
+                settingsStore.Save(settings);
+            }
+        };
+        return map;
+    }
+
     private void UpdateTimeline()
     {
         Timeline.Update(selectedLane, cursor);
@@ -226,7 +240,8 @@ public partial class MainViewModel
         Lanes = laneList;
         cursor = 0;
         Timeline = new TimelineViewModel(laneList, durationSeconds, SelectAircraft);
-        Map = new MapViewModel(laneList, SelectAircraft);
+        Map.Dispose();
+        Map = CreateMap(laneList);
         OnPropertyChanged(nameof(Cursor));
         OnPropertyChanged(nameof(CursorText));
         OnPropertyChanged(nameof(Duration));

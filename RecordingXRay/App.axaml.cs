@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using RecordingXRay.Services;
 using RecordingXRay.ViewModels;
 using RecordingXRay.Views;
 
@@ -14,7 +15,10 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow { DataContext = new MainViewModel() };
+            MainViewModel viewModel = new(
+                tiles: new OsmTileSource(OsmTileSource.DefaultCacheDirectory),
+                settingsStore: new FileSettingsStore(FileSettingsStore.DefaultPath));
+            desktop.MainWindow = new MainWindow { DataContext = viewModel };
         }
 
         base.OnFrameworkInitializationCompleted();

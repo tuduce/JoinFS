@@ -4,7 +4,7 @@
         xmlns:views="using:RecordingXRay.Views"
         x:Class="RecordingXRay.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="RecordingXRay"
+        Title="{Binding WindowTitle}"
         Width="1440" Height="900"
         MinWidth="1100" MinHeight="700"
         Background="{StaticResource WindowBrush}"
@@ -111,8 +111,37 @@
               <TextBlock Text="Choose file" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
+
+          <StackPanel Width="440" Spacing="6" Margin="0,16,0,0" IsVisible="{Binding HasRecent}">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="caption" Text="RECENT" VerticalAlignment="Center" />
+              <Button Grid.Column="1" Classes="ghost" Content="Clear" FontSize="11.5" Height="24" Padding="8,0" VerticalContentAlignment="Center"
+                      Command="{Binding ClearRecentCommand}" AutomationProperties.Name="Clear the recent files list" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding RecentFiles}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:RecentFile">
+                  <Button Classes="recent" Command="{Binding Open}" ToolTip.Tip="{Binding Path}" Margin="0,0,0,6">
+                    <Grid ColumnDefinitions="Auto,Auto,*">
+                      <Path Classes="icon" Data="{StaticResource IconFile}" Width="14" Height="14" Margin="0,0,10,0" />
+                      <TextBlock Grid.Column="1" FontWeight="SemiBold" Text="{Binding FileName}" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="2" Classes="mono muted" FontSize="11.5" Margin="10,0,0,0" Text="{Binding Directory}"
+                                 TextTrimming="PrefixCharacterEllipsis" VerticalAlignment="Center" />
+                    </Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
         </StackPanel>
       </Panel>
+
+      <!-- Shown while a file is dragged over the window -->
+      <Border Grid.Row="1" IsVisible="{Binding IsDragOver}" IsHitTestVisible="False" CornerRadius="12" BorderThickness="2"
+              BorderBrush="{StaticResource AccentBrush}" Background="{StaticResource AccentTintBrush}">
+        <TextBlock Text="Drop the file to open it" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center"
+                   VerticalAlignment="Top" Margin="0,28,0,0" />
+      </Border>
 
       <!-- Loaded: frame browser | map | inspector (filled in by the next milestones) -->
       <Grid Grid.Row="1" IsVisible="{Binding HasRecording}" ColumnDefinitions="400,12,*,12,440">

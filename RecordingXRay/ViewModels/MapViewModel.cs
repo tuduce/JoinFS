@@ -15,7 +15,7 @@ public readonly record struct GraticuleLine(double Pixel, string Label);
 /// The map: the view (centre and scale), Follow, toggles, and what is drawn at the current cursor. The drawing itself
 /// is in <c>MapControl</c>; everything it needs to decide lives here so it can be tested.
 /// </summary>
-public sealed partial class MapViewModel : ObservableObject
+public sealed partial class MapViewModel : ObservableObject, IDisposable
 {
     private const double FitPadding = 48;
     private const double WheelStep = 1.25;
@@ -24,9 +24,16 @@ public sealed partial class MapViewModel : ObservableObject
     private bool needsFit = true;
     private LaneViewModel? selectedLane;
 
-    public MapViewModel(IReadOnlyList<LaneViewModel> lanes, Action<LaneViewModel>? select = null)
+    /// <param name="tiles">Where basemap tiles come from, or null for a map without a basemap.</param>
+    public MapViewModel(IReadOnlyList<LaneViewModel> lanes, Action<LaneViewModel>? select = null, ITileSource? tiles = null)
     {
         this.select = select;
+        Tiles = tiles;
+        if (tiles is not null)
+        {
+            tiles.TilesChanged += OnTilesChanged;
+        }
+
         Tracks = lanes.Select(MapTrack.Create).OfType<MapTrack>().ToArray();
         centerX = 0.5;
         centerY = 0.5;
@@ -37,6 +44,23 @@ public sealed partial class MapViewModel : ObservableObject
 
     /// <summary>Raised whenever something that changes the picture changed.</summary>
     public event Action? Invalidated;
+
+    /// <summary>The basemap tiles, or null when this map has none.</summary>
+    public ITileSource? Tiles { get; }
+
+    public bool HasBasemap => Tiles is not null;
+
+    /// <summary>Draw the basemap. Off keeps the map free of any network use.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowAttribution))]
+    private bool showBasemap = true;
+
+    /// <summary>The map credit is shown whenever the basemap is.</summary>
+    public bool ShowAttribution => HasBasemap && ShowBasemap;
+
+    public string Attribution => Tiles?.Attribution ?? string.Empty;
+
+    public string AttributionUrl => Tiles?.AttributionUrl ?? string.Empty;
 
     /// <summary>The path of every lane that has position frames.</summary>
     public IReadOnlyList<MapTrack> Tracks { get; }
@@ -107,6 +131,18 @@ public sealed partial class MapViewModel : ObservableObject
     }
 
     partial void OnShowTrailsChanged(bool value) => Invalidated?.Invoke();
+
+    partial void OnShowBasemapChanged(bool value) => Invalidated?.Invoke();
+
+    private void OnTilesChanged() => Invalidated?.Invoke();
+
+    public void Dispose()
+    {
+        if (Tiles is not null)
+        {
+            Tiles.TilesChanged -= OnTilesChanged;
+        }
+    }
 
     partial void OnShowLabelsChanged(bool value) => Invalidated?.Invoke();
 

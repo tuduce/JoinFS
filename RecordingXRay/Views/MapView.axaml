@@ -9,12 +9,15 @@
     <Grid RowDefinitions="48,*">
 
       <!-- Header: how many aircraft are shown, and the Trails / Labels / Follow toggles -->
-      <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" Margin="14,0">
+      <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="14,0">
         <TextBlock Grid.Column="0" Classes="title" Text="Map" VerticalAlignment="Center" />
-        <TextBlock Grid.Column="1" Classes="muted" FontSize="12" Margin="10,0,0,0" VerticalAlignment="Center"
-                   IsVisible="{Binding HasTracks}">
+        <TextBlock Grid.Column="1" Classes="muted" FontSize="12" Margin="10,0,8,0" VerticalAlignment="Center"
+                   IsVisible="{Binding HasTracks}" TextTrimming="CharacterEllipsis">
           <Run Text="{Binding CountText, Mode=OneWay}" /><Run Text=" at " /><Run Text="{Binding TimeText, Mode=OneWay}" />
         </TextBlock>
+        <ToggleButton Grid.Column="2" Classes="chip" Content="Basemap" IsChecked="{Binding ShowBasemap}" Margin="0,0,8,0"
+                      VerticalAlignment="Center" IsVisible="{Binding HasBasemap}"
+                      ToolTip.Tip="Show OpenStreetMap under the flights (needs the internet; off keeps the map offline)" />
         <ToggleButton Grid.Column="3" Classes="chip" Content="Trails" IsChecked="{Binding ShowTrails}" Margin="0,0,8,0"
                       VerticalAlignment="Center" ToolTip.Tip="Show the whole flight of every aircraft" />
         <ToggleButton Grid.Column="4" Classes="chip" Content="Labels" IsChecked="{Binding ShowLabels}" Margin="0,0,8,0"
@@ -77,8 +80,16 @@
                     BorderBrush="{StaticResource KeyLabelBrush}" BorderThickness="1.5,0,1.5,1.5" />
           </StackPanel>
 
+          <!-- Map credit, required by the OpenStreetMap licence -->
+          <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Padding="6,2" CornerRadius="4,0,0,0"
+                  Background="#B311151F" IsVisible="{Binding ShowAttribution}">
+            <TextBlock x:Name="AttributionLink" FontSize="10.5" Foreground="{StaticResource Text2Brush}"
+                       Text="{Binding Attribution}" Cursor="Hand" TextDecorations="Underline"
+                       ToolTip.Tip="{Binding AttributionUrl}" />
+          </Border>
+
           <!-- Selected aircraft: where it is -->
-          <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="12" Height="26" Padding="10,0" CornerRadius="13"
+          <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="12,12,12,28" Height="26" Padding="10,0" CornerRadius="13"
                   Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource RaisedBrush}" BorderThickness="1"
                   IsVisible="{Binding HasReadout}" IsHitTestVisible="False">
             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">

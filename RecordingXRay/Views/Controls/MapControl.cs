@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using RecordingXRay.Services;
 using RecordingXRay.ViewModels;
 
 namespace RecordingXRay.Views.Controls;
@@ -18,6 +19,9 @@ public sealed class MapControl : Control
 
     private const double HitRadius = 16;
     private const double DragThreshold = 4;
+
+    // Standard OpenStreetMap tiles are light; dimmed they sit quietly under the trails on the dark theme.
+    private const double TileOpacity = 0.5;
 
     private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
     private static readonly Cursor ArrowCursor = new(StandardCursorType.Arrow);
@@ -79,6 +83,7 @@ public sealed class MapControl : Control
             return;
         }
 
+        DrawTiles(context, map);
         DrawGraticule(context, map);
         if (map.ShowTrails)
         {
@@ -88,10 +93,53 @@ public sealed class MapControl : Control
         DrawMarkers(context, map);
     }
 
+    // Basemap tiles. A tile that has not arrived yet is shown from a coarser tile already in memory, if there is one.
+    private void DrawTiles(DrawingContext context, MapViewModel map)
+    {
+        if (!map.ShowBasemap || map.Tiles is not { } tiles)
+        {
+            return;
+        }
+
+        IReadOnlyList<TilePlacement> placements = TileMath.Visible(map.CenterX, map.CenterY, map.Scale, Bounds.Width, Bounds.Height);
+        tiles.SetWanted(placements.Select(p => p.Key).ToArray());
+
+        using (context.PushOpacity(TileOpacity))
+        {
+            foreach (TilePlacement placement in placements)
+            {
+                // Whole pixels, so neighbouring tiles meet without hairline gaps.
+                double left = Math.Round(placement.X);
+                double top = Math.Round(placement.Y);
+                Rect destination = new(left, top, Math.Round(placement.X + placement.Size) - left, Math.Round(placement.Y + placement.Size) - top);
+
+                if (tiles.TryGet(placement.Key) is { } bitmap)
+                {
+                    context.DrawImage(bitmap, new Rect(bitmap.Size), destination);
+                    continue;
+                }
+
+                tiles.Request(placement.Key);
+                TileKey ancestor = placement.Key;
+                for (int level = 1; level <= 4 && ancestor.Zoom > 0; level++)
+                {
+                    ancestor = ancestor.Parent;
+                    if (tiles.TryGet(ancestor) is { } coarse && TileMath.SourceRect(placement.Key, ancestor, coarse.Size) is { } source)
+                    {
+                        context.DrawImage(coarse, source, destination);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     private void DrawGraticule(DrawingContext context, MapViewModel map)
     {
         (IReadOnlyList<GraticuleLine> longitudes, IReadOnlyList<GraticuleLine> latitudes) = map.Graticule();
-        Pen pen = new(Brush("MapGridBrush"), 1);
+        // Fainter over a basemap, where the lines would otherwise be heavy.
+        bool overBasemap = map.ShowBasemap && map.Tiles is not null;
+        Pen pen = new(overBasemap ? Alpha("MapGridBrush", 0.5) : Brush("MapGridBrush"), 1);
         IBrush labelBrush = Brush("MapLabelBrush");
         Typeface mono = new(Font("MonoFont"));
 

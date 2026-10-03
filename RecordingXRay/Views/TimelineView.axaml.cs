@@ -55,7 +55,8 @@ public partial class TimelineView : UserControl
 
     private void ScrubTo(PointerEventArgs e) => ViewModel?.MoveCursor(Lanes.TimeAt(e.GetPosition(Lanes).X));
 
-    // Ctrl + wheel zooms around the pointer, Shift + wheel (or a horizontal wheel) pans; a plain wheel scrolls the tracks.
+    // The wheel over the ruler or the lanes zooms around the pointer; Shift + wheel (or a horizontal wheel) pans.
+    // Over the aircraft names the wheel scrolls the tracks, as usual.
     private void OnPointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         if (ViewModel?.Timeline is not { } timeline)
@@ -63,15 +64,15 @@ public partial class TimelineView : UserControl
             return;
         }
 
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
-        {
-            timeline.ZoomBy(Math.Pow(1.25, e.Delta.Y), Lanes.TimeAt(e.GetPosition(Lanes).X));
-            e.Handled = true;
-        }
-        else if (e.KeyModifiers.HasFlag(KeyModifiers.Shift) || e.Delta.X != 0)
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift) || e.Delta.X != 0)
         {
             double delta = e.Delta.X != 0 ? e.Delta.X : e.Delta.Y;
             timeline.Pan(-delta * timeline.ViewSpan * 0.1);
+            e.Handled = true;
+        }
+        else if (e.Delta.Y != 0)
+        {
+            timeline.ZoomBy(Math.Pow(1.25, e.Delta.Y), Lanes.TimeAt(e.GetPosition(Lanes).X));
             e.Handled = true;
         }
     }

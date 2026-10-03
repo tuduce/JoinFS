@@ -12,6 +12,8 @@ public partial class MainWindow : Window
         InitializeComponent();
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
+        AddHandler(DragDrop.DragEnterEvent, OnDragEnter);
+        AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         TitleBar.PointerPressed += OnTitleBarPointerPressed;
     }
 
@@ -65,8 +67,29 @@ public partial class MainWindow : Window
     private static void OnDragOver(object? sender, DragEventArgs e) =>
         e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
 
+    private void OnDragEnter(object? sender, DragEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+        {
+            viewModel.IsDragOver = e.DataTransfer.Contains(DataFormat.File);
+        }
+    }
+
+    private void OnDragLeave(object? sender, DragEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+        {
+            viewModel.IsDragOver = false;
+        }
+    }
+
     private async void OnDrop(object? sender, DragEventArgs e)
     {
+        if (DataContext is MainViewModel dragging)
+        {
+            dragging.IsDragOver = false;
+        }
+
         string? path = e.DataTransfer.TryGetFiles()?.Select(file => file.TryGetLocalPath()).FirstOrDefault(p => p is not null);
         if (path is not null && DataContext is MainViewModel viewModel)
         {

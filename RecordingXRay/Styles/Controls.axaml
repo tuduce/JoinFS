@@ -103,7 +103,27 @@
     <Setter Property="Background" Value="{StaticResource HoverBrush}" />
     <Setter Property="Foreground" Value="{StaticResource StrongTextBrush}" />
   </Style>
+  <Style Selector="Button.ghost:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Opacity" Value="0.4" />
+  </Style>
   <Style Selector="Button.ghost:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource RaisedBrush}" />
+  </Style>
+
+  <!-- Recent files on the empty screen -->
+  <Style Selector="Button.recent">
+    <Setter Property="Height" Value="40" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Background" Value="{StaticResource CardBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource RaisedBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.recent:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{StaticResource RaisedBrush}" />
   </Style>
 

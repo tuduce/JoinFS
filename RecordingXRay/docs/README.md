@@ -23,7 +23,7 @@ frame browser, map, inspector and a multi-track timeline.
 - **Milestone 3 done:** the cursor and selection model (`MainViewModel.Cursor.cs`, section 6 rules, with tests) and the
   timeline dock: toolbar (previous / next frame, timecode, frame counter, legend, zoom), one track per aircraft with a
   has-data dot, ruler, lanes drawn between each lane's first and last frame with per-pixel frame columns counted from the
-  frame times, playhead, click / drag to scrub, Ctrl + wheel zoom, Shift + wheel pan. Keys, while the timeline has focus:
+  frame times, playhead, click / drag to scrub, the wheel zooms, Shift + wheel pans. Keys, while the timeline has focus:
   Left / Right step, Home / End first / last frame, Up / Down change aircraft. Frame list, inspector and status bar follow
   the cursor; picking a frame in the list moves the cursor to it. Decision taken: scrubbing shows the last *position* frame
   at or before the cursor (frames of other types that share a timestamp are reached by stepping or from the list).
@@ -34,7 +34,21 @@ frame browser, map, inspector and a multi-track timeline.
   map has focus. Follow centres the selected aircraft (also as the cursor moves) and any drag switches it off; Fit all
   refits and switches it off. Trails / Labels / Follow toggles, Past / Future key, zoom buttons, readout pill ("· no data" outside
   the lane). Deviation from the brief: markers are not individually keyboard-focusable (the map is one focus stop); the keyboard
-  route to select an aircraft is the timeline's Up / Down or its track rows. No basemap tiles (graticule only), as planned.
+  route to select an aircraft is the timeline's Up / Down or its track rows. The basemap came in milestone 5.
+- **Milestone 5 done:**
+  - *Basemap:* OpenStreetMap standard tiles (map view, no satellite) under the flights, dimmed so the trails stay in front,
+    with the required credit "© OpenStreetMap contributors" (a link to the copyright page). `OsmTileSource` follows the tile
+    usage policy: identifying User-Agent, at most two downloads at a time, only tiles in view, an on-disk cache
+    (`%LOCALAPPDATA%\RecordingXRay\tiles`, 14 days) and a memory cache, no retry storm after a failure, and a coarser cached tile
+    is shown while a finer one loads. A **Basemap** toggle in the map header turns it off (nothing is then requested); the
+    choice is remembered. Offline, the map simply stays dark with its graticule.
+  - *Timeline wheel:* the wheel over the ruler or lanes zooms around the pointer; Shift + wheel (or a sideways wheel) pans;
+    the wheel over the aircraft names scrolls the tracks.
+  - *Recent files:* up to five, newest first, on the empty screen with Clear; kept in `%APPDATA%\RecordingXRay\settings.json`
+    (which also holds the basemap choice). Entries whose file has gone are dropped when the list loads or when opening them fails.
+  - *Polish:* a "Drop the file to open it" highlight while dragging a file over the window; the window title shows the open file;
+    disabled step buttons look disabled.
+  - Tests that touch the network are off by default; `XRAY_TILES=1` enables a screenshot test of the map over real tiles.
 - Tests: `dotnet test RecordingXRay.Tests/RecordingXRay.Tests.csproj` (not in `JoinFS.sln`, so CI does not run it yet).
   Set `XRAY_SCREENSHOT_DIR` (and optionally `XRAY_SAMPLE=<a .jfs file>`) to also write headless PNG screenshots of the
   empty and loaded window, for checking the UI against the design.
@@ -58,8 +72,8 @@ frame browser, map, inspector and a multi-track timeline.
   `Avalonia.Fonts.Inter` is **not** wanted. Use `CommunityToolkit.Mvvm` for MVVM. Remove `Form1*`, `UseWindowsForms`.
 - Target `net8.0` (Avalonia is cross-platform). Keep the project in `JoinFS.sln` under the same name.
 - Theme: `FluentTheme`, `RequestedThemeVariant="Dark"`, dark only for v1.
-- The map is a **custom-drawn control** (no tiles), matching the mock-up: dark background, lat/lon graticule, trails,
-  markers. Do not add Mapsui or tile downloads in v1.
+- The map is a **custom-drawn control**, matching the mock-up: dark background, lat/lon graticule, trails, markers.
+  No Mapsui. A basemap of OpenStreetMap standard tiles is drawn underneath (milestone 5); it is optional and can be switched off.
 - Keep logic testable: view models and the pure helpers in section 6 must not touch Avalonia types. Add unit tests
   (there is a `JoinFS.Tests` project on xunit) for the selection rule, cursor/frame mapping, interpolation and number formatting.
 
@@ -187,7 +201,7 @@ frame browser 400 | map (fills, min 400) | inspector 440 (min 360).
   upper bar 10 px blue for position frames, lower bar 6 px with the variable types in violet / teal / pink. Selected lane
   at full opacity, others at 50%. Do not draw one rectangle per frame.
 - Playhead: 2 px accent line with a flag on the ruler. Click or drag anywhere on the ruler / lanes to scrub
-  (capture the pointer). Ctrl + wheel zooms, Shift + wheel pans.
+  (capture the pointer). the wheel over the ruler or lanes zooms, Shift + wheel pans.
 - Keyboard: Left / Right previous / next frame, Home / End first / last frame of the selected lane, Up / Down change
   the selected aircraft (through `SelectAircraft`).
 

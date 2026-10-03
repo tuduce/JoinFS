@@ -51,7 +51,7 @@
                       IsVisible="{Binding HasRecording}">
             <Path Classes="icon" Data="{StaticResource IconSearch}" Width="14" Height="14" VerticalAlignment="Center" />
             <Slider Classes="zoom" Minimum="0" Maximum="100" Width="110" VerticalAlignment="Center"
-                    Value="{Binding Timeline.Zoom}" AutomationProperties.Name="Timeline zoom" ToolTip.Tip="Zoom (Ctrl + wheel)" />
+                    Value="{Binding Timeline.Zoom}" AutomationProperties.Name="Timeline zoom" ToolTip.Tip="Zoom (mouse wheel over the tracks)" />
           </StackPanel>
         </Grid>
       </Border>
