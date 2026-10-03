@@ -304,7 +304,7 @@ namespace JoinFS
             callsign = s.callsign,
             registration = s.registration,
             // "" for General Aviation (no explicit airline data and the callsign doesn't shape-match a
-            // commercial flight) - see Sim.DeriveIcaoAirlineFromCallsign, applied in
+            // commercial flight) - see CallsignRules.DeriveIcaoAirline, applied in
             // Network.SendFlightPlanMessage before this snapshot is taken, so this already reflects a
             // callsign-derived fallback when nothing more authoritative supplied one.
             icaoAirline = s.icaoAirline,

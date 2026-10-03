@@ -229,7 +229,7 @@ namespace JoinFS
                 // icaoAirline), so a stale sim/livery-derived tag (e.g. from the sim's own aircraft-
                 // customization dialog) must not keep overriding what the user is now flying as. Empty
                 // when the new callsign doesn't look like a commercial flight (GA-style).
-                plan.icaoAirline = Sim.DeriveIcaoAirlineFromCallsign(plan.callsign);
+                plan.icaoAirline = CallsignRules.DeriveIcaoAirline(plan.callsign, AirlineDirectory.Bundled);
                 plan.icaoType = Text_Type.Text;
                 plan.departure = Text_From.Text.Substring(0, Math.Min(4, Text_From.Text.Length)).ToUpperInvariant();
                 plan.destination = Text_To.Text.Substring(0, Math.Min(4, Text_To.Text.Length)).ToUpperInvariant();

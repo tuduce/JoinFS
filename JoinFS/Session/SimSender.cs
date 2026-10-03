@@ -76,11 +76,12 @@ namespace JoinFS
         /// <summary>Send one of our aircraft's flight plan to everyone (fills in a missing airline from the callsign).</summary>
         public void BroadcastFlightPlanUpdate(uint netId, Sim.FlightPlan flightPlan)
         {
+            FlightPlanUpdate update = SimMessageMapper.ToFlightPlanUpdate(session.LocalId, netId, flightPlan);
             if (flightPlan.icaoAirline.Length == 0)
             {
-                flightPlan.icaoAirline = Sim.DeriveIcaoAirlineFromCallsign(flightPlan.callsign);
+                update.IcaoAirline = CallsignRules.DeriveIcaoAirline(flightPlan.callsign, AirlineDirectory.Bundled);
             }
-            outbox.Broadcast(SimMessageMapper.ToFlightPlanUpdate(session.LocalId, netId, flightPlan));
+            outbox.Broadcast(update);
         }
 
         /// <summary>The weather at our aircraft, to everyone.</summary>

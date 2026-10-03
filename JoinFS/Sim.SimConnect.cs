@@ -41,6 +41,136 @@ namespace JoinFS
         int nextPositionPollRequestId = PositionPollRequestIdBase;
         int NextPositionPollRequestId() { return nextPositionPollRequestId++; }
 
+        /// <summary>
+        /// Resolve the junk-stripped raw type/model and the confidence-hierarchy-resolved ICAO type/
+        /// airline/classCode/WTC for an OBJECT_INFO response. Shared by both "a new SimConnect object
+        /// appeared" and "the user's existing own aircraft object was re-reported" handling in
+        /// ProcessSimObjectData, so a genuinely new object and an in-place aircraft/callsign change on
+        /// an existing one resolve identically.
+        /// </summary>
+        void ResolveObjectInfoType(ObjectGetInfo info, out string type, out string model, out string learnIcaoType,
+            out string learnClassCode, out string learnWtc, out bool learnClassCodeConfirmed, out string resolvedIcaoAirline)
+        {
+            // remove any junk from type
+            type = info.type;
+            type = type.Replace("TTATCCOM.AC_MODEL ", "");
+            type = type.Replace("TTATCCOM.AC_MODEL_", "");
+            type = type.Replace("TT:ATCCOM.AC_MODEL ", "");
+            type = type.Replace("TT:ATCCOM.AC_MODEL_", "");
+            type = type.Replace("ATCCOM.AC_MODEL ", "");
+            type = type.Replace("ATCCOM.AC_MODEL_", "");
+            type = type.Replace("$$:", "");
+            type = type.Replace(".0.text", "");
+            model = info.model;
+            // convert the long hyphen
+            model = model.Replace("â€“", "–");
+
+            // learn this model's real ICAO type/airline/classCode/registration now that it's actually
+            // instantiated - closes the gap for aircraft a title guess can't tag, and for add-ons whose
+            // reported type doesn't match any Doc8643 designator. Confidence hierarchy (highest first): (1)
+            // real aircraft.cfg/livery.cfg data, located via LIVERY FOLDER - FS2024 only, same reliability
+            // tier non-FS2024 builds already get from their upfront folder scan; (2) DeriveLiveClassCode
+            // (category/engine simvars) when no config file can be found/parsed; (3) a title-text guess
+            // (handled elsewhere), for a model never yet instantiated.
+            Substitution.DeriveLiveClassCode(info.category, info.engineType, info.numEngines, out string liveClassCode, out string liveWtc);
+#if FS2024
+            string configIcaoType = "", configWtc = "", configIcaoAirline = "", configAtcId = "", configClassCode = "", configIcaoResolutionNote = "";
+            bool configConfirmed = main.substitution != null && main.substitution.TryReadConfigFromLiveryFolder(
+                info.liveryFolder, model, out configIcaoType, out configWtc,
+                out configIcaoAirline, out configAtcId, out configClassCode, out configIcaoResolutionNote);
+            learnIcaoType = configConfirmed ? configIcaoType : type;
+            learnClassCode = configConfirmed ? configClassCode : liveClassCode;
+            learnWtc = configConfirmed && configWtc.Length > 0 ? configWtc : liveWtc;
+            string learnIcaoAirline = configConfirmed && configIcaoAirline.Length > 0 ? configIcaoAirline : info.airline;
+            string learnAtcId = configConfirmed ? configAtcId : "";
+            learnClassCodeConfirmed = configConfirmed || liveClassCode.Length > 0;
+            resolvedIcaoAirline = main.substitution?.LearnIcaoFromLiveObject(model, info.livery, learnIcaoType, learnIcaoAirline, learnClassCode, learnWtc, learnAtcId, configConfirmed, configConfirmed ? configIcaoResolutionNote : "") ?? "";
+#else
+            learnIcaoType = type;
+            learnClassCode = liveClassCode;
+            learnWtc = liveWtc;
+            learnClassCodeConfirmed = liveClassCode.Length > 0;
+            resolvedIcaoAirline = main.substitution?.LearnIcaoFromLiveObject(model, "", type, "", liveClassCode, liveWtc) ?? "";
+#endif
+        }
+
+        readonly UserAircraftTracker userAircraftTracker = new();
+
+        /// <summary>
+        /// The ATC flight number of the user's aircraft, with an IATA-style prefix mapped to ICAO
+        /// (CallsignRules.NormalizeIataPrefix). Logs when a mapping actually happened.
+        /// </summary>
+        string UserFlightNumber(ObjectGetInfo info, string configuredAirline, int typerole)
+        {
+            string flightNumber = info.flightNumber.TrimStart(' ', '\t').TrimEnd(' ', '\t');
+#if FS2024
+            string livery = info.livery;
+#else
+            string livery = "";
+#endif
+            IataResolution result = CallsignRules.NormalizeIataPrefix(flightNumber, configuredAirline, typerole == Substitution.TypeRole_Airliner, livery, AirlineDirectory.Bundled);
+            if (result.Callsign != flightNumber)
+            {
+                main.MonitorEvent("Flight number '" + flightNumber + "' read as '" + result.Callsign + "' (" + result.Reason + ")");
+            }
+            return result.Callsign;
+        }
+
+        /// <summary>The callsign, airline, type and registration the user's aircraft is broadcast under, from the raw sim data.</summary>
+        ResolvedAircraftIdentity ResolveUserAircraft(ObjectGetInfo info, int typerole)
+        {
+            ResolveObjectInfoType(info, out string type, out _, out string learnIcaoType, out _, out _, out _, out string configuredAirline);
+            string tailNumber = info.callsign.TrimStart(' ', '\t').TrimEnd(' ', '\t');
+            string flightNumber = UserFlightNumber(info, configuredAirline, typerole);
+            string callsign = CallsignRules.Resolve(configuredAirline, flightNumber, tailNumber);
+            string icaoAirline = configuredAirline.Length > 0 ? configuredAirline : CallsignRules.DeriveIcaoAirline(callsign, AirlineDirectory.Bundled);
+            string icaoType = learnIcaoType.Length > 0 ? learnIcaoType : type;
+            return new ResolvedAircraftIdentity(callsign, icaoType, icaoAirline, tailNumber, flightNumber);
+        }
+
+        /// <summary>
+        /// Detects a change of the user's aircraft from the raw SimConnect data. Called on every OBJECT_INFO for the
+        /// user's aircraft; resolution (and any config-file read) happens only when the raw data changed.
+        /// </summary>
+        void CheckUserAircraftChanged(Aircraft aircraft, ObjectGetInfo info)
+        {
+#if FS2024
+            string airline = info.airline, livery = info.livery, liveryFolder = info.liveryFolder;
+#else
+            string airline = "", livery = "", liveryFolder = "";
+#endif
+            var raw = new UserAircraftInfo(info.type, info.model, info.callsign, info.flightNumber, airline, livery, liveryFolder,
+                info.isUser != 0, info.category, info.engineType, info.numEngines);
+            if (userAircraftTracker.Check(raw, _ => ResolveUserAircraft(info, aircraft.typerole), out ResolvedAircraftIdentity identity))
+            {
+                RefreshUserFlightPlanFromSim(aircraft, identity);
+            }
+        }
+
+        /// <summary>
+        /// Applies a changed identity to the user's aircraft: the flight plan, then a re-match of the livery, which reads
+        /// the airline and registration. The next position message carries the new identity to other clients.
+        /// A detected change is a new flight, so the callsign returns to auto-tracking and SimBrief is re-fetched if enabled.
+        /// </summary>
+        void RefreshUserFlightPlanFromSim(Aircraft aircraft, ResolvedAircraftIdentity identity)
+        {
+            identity.ApplyTo(aircraft.flightPlan);
+            UpdateObject(aircraft, aircraft.ownerModel, aircraft.ownerLivery, identity.IcaoType, identity.IcaoAirline,
+                aircraft.ownerClassCode, aircraft.ownerWtc, aircraft.ownerClassCodeConfirmed, aircraft.typerole);
+#if !CONSOLE
+            bool autoImport = Settings.Default.SimBriefAutoImport && string.IsNullOrWhiteSpace(Settings.Default.SimBriefUsername) == false;
+#else
+            bool autoImport = false;
+#endif
+            main.MonitorEvent("Own aircraft changed - refreshed callsign '" + identity.Callsign + "', airline '" + identity.IcaoAirline + "', type '" + identity.IcaoType + "' from the sim" + (autoImport ? ", re-fetching SimBrief" : ""));
+#if !CONSOLE
+            if (autoImport)
+            {
+                _ = RefreshUserFlightPlanFromSimBriefAsync();
+            }
+#endif
+        }
+
         public void ProcessSimObjectData(uint objectId, uint requestId, object data)
         {
             // check object ID
@@ -78,48 +208,8 @@ namespace JoinFS
                                         main.MonitorEvent("DIAG ATC ID='" + info.callsign + "' ATC FLIGHT NUMBER='" + info.flightNumber + "'");
 #endif
                                     }
-                                    // remove any junk from type
-                                    string type = info.type;
-                                    type = type.Replace("TTATCCOM.AC_MODEL ", "");
-                                    type = type.Replace("TTATCCOM.AC_MODEL_", "");
-                                    type = type.Replace("TT:ATCCOM.AC_MODEL ", "");
-                                    type = type.Replace("TT:ATCCOM.AC_MODEL_", "");
-                                    type = type.Replace("ATCCOM.AC_MODEL ", "");
-                                    type = type.Replace("ATCCOM.AC_MODEL_", "");
-                                    type = type.Replace("$$:", "");
-                                    type = type.Replace(".0.text", "");
-                                    string model = info.model;
-                                    // convert the long hyphen
-                                    model = model.Replace("â€“", "–");
-
-                                    // learn this model's real ICAO type/airline/classCode/registration now that
-                                    // it's actually instantiated - closes the gap for aircraft a title guess can't
-                                    // tag, and for add-ons whose reported type doesn't match any Doc8643 designator.
-                                    // Confidence hierarchy (highest first): (1) real aircraft.cfg/livery.cfg data,
-                                    // located via LIVERY FOLDER - FS2024 only, same reliability tier non-FS2024
-                                    // builds already get from their upfront folder scan; (2) DeriveLiveClassCode
-                                    // (category/engine simvars) when no config file can be found/parsed; (3) a
-                                    // title-text guess (handled elsewhere), for a model never yet instantiated.
-                                    Substitution.DeriveLiveClassCode(info.category, info.engineType, info.numEngines, out string liveClassCode, out string liveWtc);
-#if FS2024
-                                    string configIcaoType = "", configWtc = "", configIcaoAirline = "", configAtcId = "", configClassCode = "", configIcaoResolutionNote = "";
-                                    bool configConfirmed = main.substitution != null && main.substitution.TryReadConfigFromLiveryFolder(
-                                        info.liveryFolder, model, out configIcaoType, out configWtc,
-                                        out configIcaoAirline, out configAtcId, out configClassCode, out configIcaoResolutionNote);
-                                    string learnIcaoType = configConfirmed ? configIcaoType : type;
-                                    string learnClassCode = configConfirmed ? configClassCode : liveClassCode;
-                                    string learnWtc = configConfirmed && configWtc.Length > 0 ? configWtc : liveWtc;
-                                    string learnIcaoAirline = configConfirmed && configIcaoAirline.Length > 0 ? configIcaoAirline : info.airline;
-                                    string learnAtcId = configConfirmed ? configAtcId : "";
-                                    bool learnClassCodeConfirmed = configConfirmed || liveClassCode.Length > 0;
-                                    string resolvedIcaoAirline = main.substitution?.LearnIcaoFromLiveObject(model, info.livery, learnIcaoType, learnIcaoAirline, learnClassCode, learnWtc, learnAtcId, configConfirmed, configConfirmed ? configIcaoResolutionNote : "") ?? "";
-#else
-                                    string learnIcaoType = type;
-                                    string learnClassCode = liveClassCode;
-                                    string learnWtc = liveWtc;
-                                    bool learnClassCodeConfirmed = liveClassCode.Length > 0;
-                                    string resolvedIcaoAirline = main.substitution?.LearnIcaoFromLiveObject(model, "", type, "", liveClassCode, liveWtc) ?? "";
-#endif
+                                    ResolveObjectInfoType(info, out string type, out string model, out string learnIcaoType,
+                                        out string learnClassCode, out string learnWtc, out bool learnClassCodeConfirmed, out string resolvedIcaoAirline);
 
                                     // check category
                                     switch (info.category)
@@ -198,7 +288,9 @@ namespace JoinFS
                                         Aircraft aircraft = obj as Aircraft;
                                         // ATC ID is a tail number, not a callsign
                                         string tailNumber = callsign;
-                                        string flightNumber = info.flightNumber.TrimStart(' ', '\t').TrimEnd(' ', '\t');
+                                        string flightNumber = obj.owner == Obj.Owner.Me
+                                            ? UserFlightNumber(info, resolvedIcaoAirline, aircraft.typerole)
+                                            : info.flightNumber.TrimStart(' ', '\t').TrimEnd(' ', '\t');
                                         aircraft.flightPlan.registration = tailNumber;
                                         aircraft.flightPlan.flightNumber = flightNumber;
                                         // prefer a synthesized real callsign (ICAO airline + flight number) over the tail number,
@@ -210,7 +302,7 @@ namespace JoinFS
                                         // holds even if the user explicitly cleared the field on purpose.
                                         if (aircraft.flightPlan.callsignSetByUser == false)
                                         {
-                                            aircraft.flightPlan.callsign = ResolveCallsign(resolvedIcaoAirline, flightNumber, tailNumber);
+                                            aircraft.flightPlan.callsign = CallsignRules.Resolve(resolvedIcaoAirline, flightNumber, tailNumber);
                                         }
                                         // the aircraft's own live-resolved type (learnIcaoType - the confidence
                                         // hierarchy above, e.g. base_container-resolved config data, not the raw
@@ -234,6 +326,10 @@ namespace JoinFS
                                         {
                                             aircraft.flightPlan.icaoAirline = resolvedIcaoAirline;
                                         }
+                                        if (obj.owner == Obj.Owner.Me)
+                                        {
+                                            CheckUserAircraftChanged(aircraft, info);
+                                        }
                                         // message
 #if FS2024
                                         main.MonitorEvent("Listing aircraft '" + aircraft.flightPlan.callsign + "' User 'Me' - ID '" + obj.simId + "' - Model '" + obj.ownerModel + "' Livery '" + info.livery + "'");
@@ -256,6 +352,14 @@ namespace JoinFS
                                 {
                                     // set expire time
                                     obj.expireTime = main.ElapsedTime + OBJECT_EXPIRE_TIME;
+                                }
+
+                                // the user's own aircraft can be re-reported under the same object ID (e.g. a
+                                // livery or registration swap that keeps the ID); CheckUserAircraftChanged
+                                // resolves only when the raw data differs from the last poll.
+                                if (obj.owner == Obj.Owner.Me && obj is Aircraft aircraft)
+                                {
+                                    CheckUserAircraftChanged(aircraft, (ObjectGetInfo)data);
                                 }
                             }
                         }
