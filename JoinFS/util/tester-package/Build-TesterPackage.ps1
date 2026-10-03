@@ -4,7 +4,7 @@ Builds a zip for testers: JoinFS builds that start with the position estimation 
 scripts to start them and to collect the logs afterwards (docs/position-estimation-plan.md 6.1).
 
 .EXAMPLE
-.\JoinFS\util\tester-package\Build-TesterPackage.ps1 -UploadTarget user@host.example:/upload/ -UploadPort 2224
+.\JoinFS\util\tester-package\Build-TesterPackage.ps1 -UploadTarget user@host.example:/incoming/ -UploadPort 2224
 
 .EXAMPLE
 .\JoinFS\util\tester-package\Build-TesterPackage.ps1 -UploadInfo "upload the zip to https://drive.example/folder"
@@ -20,10 +20,13 @@ param(
     [switch]$SelfContained,
     # where testers send the collected logs, when the collect script does not upload them
     [string]$UploadInfo = 'send the zip to the test organiser.',
-    # scp target the collect script uploads to, e.g. user@host:/path/ - passed here rather than
-    # written in the repository; the password is given to the testers separately
+    # SFTP target the collect script uploads to, e.g. user@host:/incoming/ - passed here rather than
+    # written in the repository. The package gets its own login key for it; the server must have
+    # the account set up as a write-only drop box (docs/position-estimation-plan.md 6.1).
     [string]$UploadTarget,
     [int]$UploadPort = 22,
+    # how long the package's login key works, in days (the server enforces it)
+    [int]$KeyValidDays = 60,
     # where the package goes (default: artifacts\ in the repository)
     [string]$OutputFolder
 )
@@ -60,6 +63,17 @@ function Get-HostKeys([string]$userHost, [int]$port) {
         Pop-Location
         Remove-Item $work -Recurse -Force
     }
+}
+
+<#
+A new login key without a passphrase, for this package's uploads. Run with a raw command line:
+Windows PowerShell drops an empty argument, and -N "" must reach ssh-keygen.
+#>
+function New-UploadKey([string]$keyFile, [string]$comment) {
+    $keygen = Join-Path $env:SystemRoot 'System32\OpenSSH\ssh-keygen.exe'
+    if (-not (Test-Path $keygen)) { $keygen = 'ssh-keygen' }
+    $process = Start-Process -FilePath $keygen -ArgumentList "-q -t ed25519 -N `"`" -C $comment -f `"$keyFile`"" -NoNewWindow -Wait -PassThru
+    if ($process.ExitCode -ne 0 -or -not (Test-Path $keyFile)) { throw "ssh-keygen failed" }
 }
 
 $repo =(Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
@@ -112,8 +126,10 @@ foreach ($build in $Builds) {
     'if errorlevel 1 pause'
 ) | Set-Content -Path (Join-Path $stage 'Collect test logs.bat') -Encoding ASCII
 
-# the upload: target, port and the server's pinned host keys
+# the upload: target, port, the server's pinned host keys, and the package's own login key
 $sendLogs = $UploadInfo
+$keyExpires = ''
+$authorizedKey = ''
 if ($UploadTarget) {
     $userHost = $UploadTarget.Split(':')[0]
     Write-Host "Fetching the host keys of $userHost (port $UploadPort)..."
@@ -124,7 +140,17 @@ if ($UploadTarget) {
         "target $UploadTarget",
         "port $UploadPort"
     ) | Set-Content -Path (Join-Path $stage 'tools\upload.txt') -Encoding ASCII
-    $sendLogs = "the collect script uploads the zip for you. When it asks for a password, type the upload password you were given (nothing shows while you type) and press Enter. If the upload fails, $UploadInfo"
+
+    # the key goes in the package; the server gets its public half, limited to uploads and to
+    # KeyValidDays (restrict: no forwarding or terminal; the account is write-only SFTP anyway)
+    $keyFile = Join-Path $stage 'tools\upload_key'
+    New-UploadKey $keyFile "joinfs-test-$commit"
+    $keyExpires = (Get-Date).AddDays($KeyValidDays).ToString('yyyyMMdd')
+    $authorizedKey = "restrict,expiry-time=`"$keyExpires`" " + (Get-Content "$keyFile.pub" -Raw).Trim()
+    Remove-Item "$keyFile.pub"
+    $authorizedKey | Set-Content -Path (Join-Path $OutputFolder "$name.authorized_keys.txt") -Encoding ASCII
+
+    $sendLogs = "the collect script uploads the zip for you (it needs the internet). If the upload fails, $UploadInfo"
 }
 
 $readme = Join-Path $stage 'README.txt'
@@ -136,10 +162,17 @@ $readme = Join-Path $stage 'README.txt'
     "branch $branch",
     ("built " + (Get-Date).ToUniversalTime().ToString('o')),
     ("builds " + ($Builds -join ' ')),
-    "selfContained $([bool]$SelfContained)"
+    "selfContained $([bool]$SelfContained)",
+    "uploadKeyExpires $keyExpires"
 ) | Set-Content -Path (Join-Path $stage 'tools\package-info.txt') -Encoding ASCII
 
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
 $size = [math]::Round((Get-Item $zip).Length / 1MB, 1)
 Write-Host ""
 Write-Host "Package: $zip ($size MB)" -ForegroundColor Green
+if ($authorizedKey) {
+    Write-Host ""
+    Write-Host "Before handing it out, let the server accept the package's key (valid until $keyExpires):"
+    Write-Host "  echo '$authorizedKey' | sudo tee -a /etc/ssh/authorized_keys/$($userHost.Split('@')[0])"
+    Write-Host "(also saved in $name.authorized_keys.txt next to the package)"
+}

@@ -83,37 +83,52 @@ $size = [math]::Round((Get-Item $zip).Length / 1MB, 1)
 Write-Host ""
 Write-Host "Logs packed: $zip ($size MB)" -ForegroundColor Green
 
-# upload with Windows' own scp, when the package says where to (tools\upload.txt)
+# upload with Windows' own sftp and the package's login key, when the package says where to
+# (tools\upload.txt, tools\upload_key). sftp rather than scp: Windows 10's scp speaks the old
+# SCP protocol, which an SFTP-only server refuses.
 $uploaded = $false
 $uploadFile = Join-Path $PSScriptRoot 'upload.txt'
-if (Test-Path $uploadFile) {
+$packageKey = Join-Path $PSScriptRoot 'upload_key'
+$canUpload = (Test-Path $uploadFile) -and (Test-Path $packageKey)
+if ($canUpload) {
     $upload = @{}
     Get-Content $uploadFile | ForEach-Object { $key, $value = $_ -split ' ', 2; $upload[$key] = $value }
-    $scp = Join-Path $env:SystemRoot 'System32\OpenSSH\scp.exe'
-    if (-not (Test-Path $scp)) {
+    $userHost, $remoteFolder = $upload['target'] -split ':', 2
+    $sftp = Join-Path $env:SystemRoot 'System32\OpenSSH\sftp.exe'
+    if (-not (Test-Path $sftp)) {
         Write-Host ""
         Write-Host "Cannot upload: the Windows OpenSSH client is missing (Settings > System > Optional features > OpenSSH Client)." -ForegroundColor Yellow
     }
     else {
-        # the server's keys come with the package: never ask the tester to trust it, refuse an
-        # impostor. A relative file name, as ssh splits a path with spaces into several files.
-        $hostOptions = @('-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile=known_hosts')
-        Push-Location $PSScriptRoot
+        $temp = Join-Path ([IO.Path]::GetTempPath()) ("joinfs-upload-" + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $temp | Out-Null
         try {
-            for ($attempt = 1; $attempt -le 3 -and -not $uploaded; $attempt++) {
-                Write-Host ""
-                Write-Host "Uploading. Type the upload password you were given (nothing shows while you type), then press Enter."
-                & $scp -P $upload['port'] @hostOptions $zip $upload['target']
-                if ($LASTEXITCODE -eq 0) {
-                    $uploaded = $true
+            # ssh refuses a private key others can read: use a copy only this user can access
+            # (full control, so it can be deleted again)
+            $key = Join-Path $temp 'upload_key'
+            Copy-Item $packageKey $key
+            $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+            & icacls.exe $key /inheritance:r /grant:r "*${sid}:(F)" | Out-Null
+            # forward slashes: sftp reads a backslash in a batch file as an escape
+            $batch = Join-Path $temp 'upload.sftp'
+            ('put "' + $zip.Replace('\', '/') + '" ' + $remoteFolder) | Set-Content -Path $batch -Encoding ASCII
+            # the server's keys come with the package: never ask the tester to trust it, refuse an
+            # impostor. A relative file name, as ssh splits a path with spaces into several files.
+            Push-Location $PSScriptRoot
+            try {
+                for ($attempt = 1; $attempt -le 2 -and -not $uploaded; $attempt++) {
+                    Write-Host ""
+                    Write-Host "Uploading..."
+                    & $sftp -b $batch -i $key -P $upload['port'] -o StrictHostKeyChecking=yes -o UserKnownHostsFile=known_hosts -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=20 $userHost
+                    if ($LASTEXITCODE -eq 0) { $uploaded = $true }
                 }
-                elseif ($attempt -lt 3) {
-                    Write-Host "The upload did not work - try the password again." -ForegroundColor Yellow
-                }
+            }
+            finally {
+                Pop-Location
             }
         }
         finally {
-            Pop-Location
+            Remove-Item $temp -Recurse -Force
         }
     }
 }
@@ -124,7 +139,7 @@ if ($uploaded) {
 }
 else {
     explorer.exe "/select,`"$zip`""
-    if (Test-Path $uploadFile) {
+    if ($canUpload) {
         Write-Host "The logs were not uploaded." -ForegroundColor Yellow
     }
     Get-Content (Join-Path $root 'README.txt') | Where-Object { $_ -like '*Send the logs:*' } | ForEach-Object { Write-Host $_.Trim().TrimStart('3', '.', ' ') }
