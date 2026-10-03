@@ -104,10 +104,13 @@ if ($canUpload) {
         New-Item -ItemType Directory -Path $temp | Out-Null
         try {
             # ssh refuses a private key others can read: use a copy only this user can access
-            # (full control, so it can be deleted again)
+            # (full control, so it can be deleted again). The copy can carry the package file's
+            # explicit entries (Users, Authenticated Users), which /inheritance:r leaves alone: /reset
+            # first replaces them with the temp folder's inherited ones, which /inheritance:r removes.
             $key = Join-Path $temp 'upload_key'
             Copy-Item $packageKey $key
             $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+            & icacls.exe $key /reset | Out-Null
             & icacls.exe $key /inheritance:r /grant:r "*${sid}:(F)" | Out-Null
             # forward slashes: sftp reads a backslash in a batch file as an escape
             $batch = Join-Path $temp 'upload.sftp'
