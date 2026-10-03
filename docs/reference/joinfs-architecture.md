@@ -542,8 +542,13 @@ functions in `SimMessageMapper`.
    - asks the clock for the sample's age;
    - asks the estimator for the state at that age;
    - lets the steering law (`ISteeringLaw`) compute the command it applies through SimConnect.
-   The X-Plane plugin still does its own estimation (`AdvancePosition` in `JoinFS-XP`). See
+   The estimator is chosen at start-up with `-estimator <name>` (default `Classic`). The X-Plane
+   plugin still does its own estimation (`AdvancePosition` in `JoinFS-XP`). See
    `docs/position-estimation-plan.md`.
+
+The sender times its own samples with `SimClockStamper` (one per object, on the sim thread): on
+MSFS by the simulator's `SIMULATION TIME`, tied to `ElapsedTime`; elsewhere, or with
+`-dispatchtime`, by the time the position message was handled.
 
 **Joining a session:**
 1. The UI schedules a join. On the next tick, `Network` posts `core.Mesh.Join(endPoint, passwordHash)`.

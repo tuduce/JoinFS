@@ -16,8 +16,13 @@ is to:
 Written 2026-10-01. Status:
 
 - Phase 1 (refactor, no behaviour change) is done; see §7.1.
-- Phase 2's field logging (`-estimationlog`) is done; see §6.1. The offline harness is still open.
-- Phases 3–8 are open.
+- Phase 2: the field logging (`-estimationlog`, §6.1) and the replay of logs through the
+  estimators (§6.3) are done. Replaying `.jfs` recordings through an impairment model, and
+  shadow mode, are open.
+- Phase 3: `ClassicFixed` (F3, F4) is built, selectable with `-estimator ClassicFixed`; see §7.2.
+  F6, F9 and the X-Plane quick win are open.
+- Phase 4: sim-time stamping is built for MSFS (F2); see §7.2. X-Plane's is open.
+- Phases 5–8 are open.
 
 **Prior art in the repo:**
 
@@ -441,6 +446,10 @@ again when the simulator link closes.
 **Rows.** See [EstimationLog.cs](../JoinFS/Estimation/EstimationLog.cs) for the columns and units.
 
 - **`clock`**, once a second: `utc` (Unix seconds) against `local` (this process's `ElapsedTime`).
+- **`send`** (from 2026-10-03), for each of our own samples sent: `local` is when its message was
+  handled, `netTime` the stamp it was sent with, and `simClock` the simulator's own clock at the
+  sample (empty without one). A receiver's `sample` row carries the same `netTime`, so the two
+  logs join exactly, and every sample can be scored with either stamp.
 - **`sample`**, for each accepted position of a network object (and of your own aircraft while
   someone else flies it). Recorder playback is not logged. Each row has:
   - the sample: sender `netTime`, arrival `receivedAt`, `rtt` to the owner, then position,
@@ -570,6 +579,48 @@ The clock files let logs from several PCs be put on one time line, even when the
 - The 1/32 send rate (1.6 s gaps) is by design while a peer's simulator is disconnected. YR-SCD's
   JoinFS ran without MSFS for an hour.
 
+### 6.3 The log replay (built)
+
+`JoinFS.Tests/Estimation/Replay/` replays the `sample` rows of estimation logs through every
+estimator in `EstimationRegistry`, with the real C# code.
+
+- **Scoring.** Each prediction is compared with the sender's own samples, interpolated at the
+  predicted moment on the sender's clock. The horizon is given, not chosen by a clock model, so
+  this scores the estimator alone. The horizons are the ones the receiver's clock chose in the
+  field (`logged`), plus 50, 100 and 200 ms for other network delays.
+- **Output.** Along-track, cross-track, vertical, heading, pitch and bank error percentiles, per
+  phase (ground, straight, turning). It also names the estimator that ran, by which one
+  reproduces the logged predictions.
+- **Running it.** Name the logs (CSV files, folders, or the tester package's zips, separated by
+  `;`) in `JOINFS_ESTIMATION_LOGS`; the report goes to `JOINFS_REPLAY_REPORT`, by default
+  `estimation-replay.md` in the temp folder. The test does nothing when the variable is unset.
+
+```
+$env:JOINFS_ESTIMATION_LOGS = "D:\logs"
+dotnet test JoinFS.Tests/JoinFS.Tests.csproj -c FS2024-Debug -p:Platform=x64 --filter "FullyQualifiedName~ReplayFieldLogs"
+```
+
+**Results on the 2026-10-01 and 2026-10-02 logs** (two MSFS 2024 receivers, about 1.5 million
+predictions, including other pilots' traffic on 2026-10-02). In turns (|bank| ≥ 30°), p95:
+
+| | Classic | ClassicFixed |
+|---|---|---|
+| Heading, logged horizon (58–72 ms) | 0.6–2.1° | 0.04–0.13° |
+| Pitch, logged horizon | 1.5–2.2° | 0.03–0.10° |
+| Bank, logged horizon | 0.4–2.0° | 0.13–0.24° |
+| Cross-track, 200 ms | 0.55–0.79 m | 0.05–0.08 m |
+| Heading, 200 ms | 2.0–2.3° | 0.14–0.56° |
+| Bank, 200 ms | 1.8–2.5° | 1.1–1.6° |
+| Along-track, any horizon | the same | the same |
+
+- ClassicFixed is better or equal in every phase, at every horizon, in every log. The pitch and
+  bank results also confirm the sign conventions behind `Attitude.Integrate`.
+- What is left at 200 ms is mostly bank: the roll rate changes within the horizon (roll-in and
+  roll-out), which constant body rates cannot follow. That is the case for angular acceleration
+  or control-input lead (§3 items 4 and 5), when longer horizons matter.
+- The along-track error does not change: it is the senders' stamping jitter (F2), which no
+  estimator can remove. That is what sim-time stamping (§7.2) is for.
+
 ---
 
 ## 7. Implementation phases
@@ -641,6 +692,47 @@ The difference is sub-microsecond.
 - `EstimationWiringTests` cover the registry, one instance per object, and snapshot isolation.
 
 **Not changed:** the X-Plane plugin's own estimator (phase 3).
+
+### 7.2 Phases 3 and 4 as built (2026-10-03)
+
+**`ClassicFixed`** ([ClassicFixedEstimator.cs](../JoinFS/Estimation/ClassicFixedEstimator.cs)) is
+Classic with two fixes:
+
+- **F4.** The attitude follows the body rates through
+  [Attitude.cs](../JoinFS/Estimation/Attitude.cs). It integrates a quaternion, which is exact for
+  constant body rates and has no singularity at ±90° pitch. Heading and bank stay continuous
+  across the 0/360 line.
+- **F3.** The acceleration moves the position by ½·a·t².
+
+It is selected with `-estimator ClassicFixed`. `Classic` stays the default until a field test
+confirms it in the simulator (§6, acceptance). On FS2020/2024 the steering sets the predicted
+attitude every frame, so the fix shows directly in the drawn aircraft. The tester package starts
+`ClassicFixed`.
+
+**Sim-time stamps** ([SimClockStamper.cs](../JoinFS/Estimation/SimClockStamper.cs), F2):
+
+- **Reading the clock.** On FS2020/2024, `AIRCRAFT_POSITION` also reads `SIMULATION TIME`. It is
+  registered as `AircraftPositionTimed`, so `AircraftPosition` itself does not change: the recorder
+  and the X-Plane link still use it.
+- **Stamping.** Each own-aircraft sample is stamped with the simulator time plus the smallest
+  (handled − simulator time) of the last second. That is the least-delayed samples' offset, so
+  the dispatch jitter drops out. A stamp is never later than the handling time, and stamps only
+  move forward.
+- **Falling back to the handling time.** It does that when the simulator's clock stands still
+  (pause), and when it jumps back or falls behind ours by more than 40 ms (a reload, a hitch, the
+  end of a pause). From there it starts over.
+- **Other simulators and `-dispatchtime`.** FSX, P3D and X-Plane keep the old stamps. So does any
+  build started with `-dispatchtime`.
+- **Wire and receivers.** No wire change: `NetTime` is still the sender's `ElapsedTime`, so
+  receivers of any version benefit.
+
+**Still open from phases 3 and 4:**
+
+- F6, the per-frame RTT filter;
+- F9, checking the `OBJECT_VELOCITY` acceleration units;
+- the X-Plane quick win (F13, F14, F15) and X-Plane's sim-time stamps;
+- a sim rate other than 1×. The stamper copes, falling back or starting over, but does not use
+  the rate.
 
 ## 8. Critical files
 

@@ -241,6 +241,10 @@ namespace JoinFS
                 // used to ground a substitute model using its own real clearance instead of the sender's -
                 // see AircraftPosition.staticCgToGround / the ground-jitter-on-model-mismatch fix
                 sc.AddToDataDefinition(Sim.Definitions.AIRCRAFT_POSITION, "STATIC CG TO GROUND", "feet", SIMCONNECT_DATATYPE.FLOAT32, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+#if FS2020 || FS2024
+                // when the sample was taken, on the simulator's clock - see Sim.AircraftPositionTimed
+                sc.AddToDataDefinition(Sim.Definitions.AIRCRAFT_POSITION, "SIMULATION TIME", "seconds", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+#endif
 
                 // define an ID structure
                 sc.AddToDataDefinition(Sim.Definitions.AIRCRAFT_SET_ID, "ATC ID", null, SIMCONNECT_DATATYPE.STRING32, 0.0f, SimConnect.SIMCONNECT_UNUSED);
@@ -258,7 +262,11 @@ namespace JoinFS
                 sc.RegisterDataDefineStruct<Sim.ObjectPositionUpdate>(Sim.Definitions.OBJECT_POSITION_UPDATE);
                 sc.RegisterDataDefineStruct<Sim.ObjectVelocity>(Sim.Definitions.OBJECT_VELOCITY);
                 sc.RegisterDataDefineStruct<Sim.ObjectEuler>(Sim.Definitions.OBJECT_EULER);
+#if FS2020 || FS2024
+                sc.RegisterDataDefineStruct<Sim.AircraftPositionTimed>(Sim.Definitions.AIRCRAFT_POSITION);
+#else
                 sc.RegisterDataDefineStruct<Sim.AircraftPosition>(Sim.Definitions.AIRCRAFT_POSITION);
+#endif
                 sc.RegisterDataDefineStruct<Sim.AircraftSetId>(Sim.Definitions.AIRCRAFT_SET_ID);
                 sc.RegisterDataDefineStruct<Object[]>(Sim.Definitions.AIRCRAFT_WAYPOINTS);
 
