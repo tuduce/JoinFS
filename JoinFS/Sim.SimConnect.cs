@@ -444,8 +444,6 @@ namespace JoinFS
                 {
                     // update velocity
                     obj.netVelocity = new Vel(ref positionVelocity);
-                    // store current time
-                    obj.netSimTime = main.ElapsedTime;
                 }
 
                 // check if broadcasting

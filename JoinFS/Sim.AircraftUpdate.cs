@@ -552,8 +552,6 @@ namespace JoinFS
                     {
                         // update velocity
                         aircraft.netVelocity = new Vel(ref aircraftPosition);
-                        // store current time
-                        aircraft.netSimTime = simTime;
                     }
 
                     // check if broadcasting

@@ -125,6 +125,11 @@ namespace JoinFS
         public bool settingsXplane = false;
         public bool settingsTcas = false;
         public bool settingsScan = false;
+        /// <summary>Write the position estimation log (Estimation/EstimationLog) - command-line only, not persisted</summary>
+        public bool settingsEstimationLog = false;
+
+        /// <summary>The UDP port this instance uses - it also tells the per-instance log files apart</summary>
+        public ushort ActivePort => settingsPortEnabled ? settingsPort : Network.DEFAULT_PORT;
 
         // elevated platform (helipad/ship deck/rooftop) ground-trust feature - command-line only, not persisted
         public bool settingsElevatedPlatformRecognition = true;
@@ -537,6 +542,10 @@ namespace JoinFS
                                 settingsTcas = true;
                                 break;
 
+                            case "-estimationlog":
+                                settingsEstimationLog = true;
+                                break;
+
                             case "-simfolder":
                                 // next parameter
                                 index++;
@@ -939,7 +948,7 @@ namespace JoinFS
 #endif
 
                 // port
-                ushort port = settingsPortEnabled ? settingsPort : Network.DEFAULT_PORT;
+                ushort port = ActivePort;
                 // open port
                 if (network.Open(port))
                 {

@@ -130,7 +130,7 @@ namespace JoinFS
             this.main = main;
 
             // get port
-            ushort port = main.settingsPortEnabled ? main.settingsPort : Network.DEFAULT_PORT;
+            ushort port = main.ActivePort;
 
             // make file name
             logName = main.storagePath + Path.DirectorySeparatorChar + LOG_FILE + "-" + port + ".txt";

@@ -121,7 +121,7 @@ read it freely; writers publish new collections.
 | Subsystem | File(s) | Role |
 |---|---|---|
 | `Main` | `Program.cs` | Composition root, work loop, settings, command-line options, shutdown. |
-| `Sim` | `Sim.cs` | Simulator abstraction: SimConnect lifecycle, the object list, and per-frame reconciliation that moves each remote or recorded object toward its latest known position (`UpdateSimObjectVelocity` in `Sim.Steering.cs`; original design: `git show 73b203d^:docs/positioning-improvements.md`). Decides *which peers* get *which updates* and how often (per-peer rate masks), then hands one canonical message per tick to `Network`. |
+| `Sim` | `Sim.cs` | Simulator abstraction: SimConnect lifecycle, the object list, and per-frame reconciliation that moves each remote or recorded object toward its latest known position (`UpdateSimObjectVelocity` in `Sim.Steering.cs`, which uses the swappable clock model, estimator and steering law in `JoinFS/Estimation/`; see `docs/position-estimation-plan.md`). Decides *which peers* get *which updates* and how often (per-peer rate masks), then hands one canonical message per tick to `Network`. |
 | `VariableMgr` | `Variables.cs`, `VariableMgr.*.cs` | Declares every simulator variable JoinFS syncs, each identified on the network by a 32-bit `vuid` hash of its name. |
 | `Substitution` | `Substitution.cs` | Matches remote aircraft types to locally installed models. |
 | `Recorder` | `Recorder.cs` | Records to and plays back `.jfs` files. Played-back objects feed the same `Sim.Obj` path as network ones (owner *Recorder*). File version `Recorder.FileVersion`, independent of any wire version. |
@@ -536,7 +536,14 @@ functions in `SimMessageMapper`.
 4. On the next app tick, `Network.DoWork` drains them and forwards both to `SimIngest`: the identity
    is cached, and the position is applied through `ISimSink.UpdateAircraft`, which calls
    `Sim.UpdateAircraft`.
-5. `Sim.UpdateSimObjectVelocity` then moves the injected object toward that position every frame.
+5. `Sim.UpdateObject(obj, netTime, receivedAt)` feeds the sample to the object's clock model and
+   estimator (`JoinFS/Estimation/`).
+6. Every frame, `Sim.UpdateSimObjectVelocity` does three things:
+   - asks the clock for the sample's age;
+   - asks the estimator for the state at that age;
+   - lets the steering law (`ISteeringLaw`) compute the command it applies through SimConnect.
+   The X-Plane plugin still does its own estimation (`AdvancePosition` in `JoinFS-XP`). See
+   `docs/position-estimation-plan.md`.
 
 **Joining a session:**
 1. The UI schedules a join. On the next tick, `Network` posts `core.Mesh.Join(endPoint, passwordHash)`.
