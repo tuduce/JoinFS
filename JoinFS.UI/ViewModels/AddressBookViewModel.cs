@@ -56,13 +56,19 @@ public sealed partial class AddressBookViewModel : ObservableObject
         _reloading = true;
         try
         {
-            string? picked = Selected?.Name;
+            string? picked = EffectiveSelection?.Name;
             (IReadOnlyList<AddressBookEntry> entries, string? storedSelection) = _store.Load();
 
             Entries.Clear();
             foreach (AddressBookEntry entry in entries)
                 Entries.Add(new AddressBookRow(entry, Remove));
-            Selected = Entries.FirstOrDefault(r => r.Name == picked) ?? Entries.FirstOrDefault(r => r.Name == storedSelection) ?? Entries.FirstOrDefault();
+            AddressBookRow? row = Entries.FirstOrDefault(r => r.Name == picked) ?? Entries.FirstOrDefault(r => r.Name == storedSelection) ?? Entries.FirstOrDefault();
+
+            // While a joined hub is shown as the label, the real pick waits underneath it.
+            if (TransientLabel is not null)
+                _stashed = row;
+            else
+                Selected = row;
         }
         finally
         {
@@ -74,7 +80,76 @@ public sealed partial class AddressBookViewModel : ObservableObject
     [ObservableProperty]
     private AddressBookRow? _selected;
 
-    partial void OnSelectedChanged(AddressBookRow? value) => Persist();
+    partial void OnSelectedChanged(AddressBookRow? value)
+    {
+        if (_swapping)
+            return;
+
+        // Picking from the list takes over from the label.
+        if (value is not null && TransientLabel is not null)
+        {
+            _stashed = null;
+            TransientLabel = null;
+        }
+        Persist();
+    }
+
+    // ---- the joined hub that is not in the book ----
+
+    private AddressBookRow? _stashed;
+    private bool _swapping;
+
+    /// <summary>
+    /// The name of the hub that was joined from the directory when it is not in the address book, shown as the picker's current text.
+    /// It is not added to the list. Null when the picker shows its own pick.
+    /// </summary>
+    [ObservableProperty]
+    private string? _transientLabel;
+
+    /// <summary>What the Network button joins: the pick, or the pick that waits under the label.</summary>
+    public AddressBookRow? EffectiveSelection => Selected ?? _stashed;
+
+    /// <summary>Shows <paramref name="label"/> as the picker's text. The pick is kept and comes back with <see cref="ClearTransient"/>.</summary>
+    public void ShowTransient(string label)
+    {
+        if (TransientLabel is null)
+            _stashed = Selected;
+
+        _swapping = true;
+        try
+        {
+            Selected = null;
+        }
+        finally
+        {
+            _swapping = false;
+        }
+        TransientLabel = label;
+    }
+
+    /// <summary>Goes back to the pick. Does nothing when no label is showing.</summary>
+    public void ClearTransient()
+    {
+        if (TransientLabel is null)
+            return;
+
+        AddressBookRow? stashed = _stashed;
+        _stashed = null;
+        TransientLabel = null;
+
+        if (Selected is null && stashed is not null)
+        {
+            _swapping = true;
+            try
+            {
+                Selected = stashed;
+            }
+            finally
+            {
+                _swapping = false;
+            }
+        }
+    }
 
     // The two draft fields of the "add" row.
     [ObservableProperty]
@@ -109,6 +184,9 @@ public sealed partial class AddressBookViewModel : ObservableObject
     {
         if (!row.CanRemove)
             return;
+        // The pick under a label may be the one removed; fall back to the first entry, as for a visible pick.
+        if (_stashed == row)
+            _stashed = null;
         bool wasSelected = Selected == row;
         Entries.Remove(row);
         if (wasSelected)

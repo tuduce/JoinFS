@@ -221,6 +221,30 @@ public class RenderTests
     }
 
     [AvaloniaFact]
+    public async Task A_joined_hub_that_is_not_in_the_book_shows_as_the_pickers_text()
+    {
+        Problems problems = new();
+        Logger.Sink = problems;
+        var (window, main, _) = Open(expanded: true);
+
+        await main.Hubs.Rows.Single(r => r.Name == "Flight Unlimited Network").JoinCommand.ExecuteAsync(null);
+        Settle();
+        Snapshot(window, "picker-joined-hub");
+
+        ComboBox picker = window.GetVisualDescendants().OfType<ComboBox>().First(c => c.IsEffectivelyVisible);
+        Assert.Equal("Flight Unlimited Network", picker.PlaceholderText);
+        Assert.Null(picker.SelectedItem);
+        Assert.DoesNotContain(picker.Items.Cast<object>(), i => i is JoinFS.UI.ViewModels.AddressBookRow { Name: "Flight Unlimited Network" });
+
+        main.IsExpanded = false;
+        Settle();
+        Snapshot(window, "picker-joined-hub-collapsed");
+
+        Assert.Empty(problems.Messages);
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void The_first_run_card_shows_over_the_collapsed_window()
     {
         Problems problems = new();

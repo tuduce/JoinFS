@@ -27,6 +27,9 @@
       <StaticResource x:Key="ComboBoxBorderBrushFocused" ResourceKey="AccentBrush" />
       <StaticResource x:Key="ComboBoxBackground" ResourceKey="SurfaceBrush" />
       <StaticResource x:Key="ComboBoxBackgroundPointerOver" ResourceKey="SurfaceBrush" />
+      <!-- The picker's placeholder is a joined hub's name, so it reads like a selection, not like a hint. -->
+      <StaticResource x:Key="ComboBoxPlaceHolderForeground" ResourceKey="TextBrush" />
+      <StaticResource x:Key="ComboBoxPlaceHolderForegroundFocused" ResourceKey="TextBrush" />
     </ResourceDictionary>
   </Application.Resources>
 
