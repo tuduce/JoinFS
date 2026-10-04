@@ -120,7 +120,17 @@ public sealed record ChatMessage(string From, string Text, string Callsign = "",
     public string Label => From.Length == 0 ? "" : (Callsign.Length == 0 ? From : From + " · " + Callsign) + ": ";
 }
 
-public sealed record RecordedAircraft(string Callsign, string Model);
+/// <param name="Id">Names the aircraft to the recorder, for the aircraft of a loaded recording.</param>
+/// <param name="Skipped">The aircraft is left out of playback.</param>
+public sealed record RecordedAircraft(string Callsign, string Model, string Id = "", bool Skipped = false);
+
+/// <summary>What the recorder is doing, as the transport shows it.</summary>
+/// <param name="Time">Where playback or recording is, in seconds. Zero when it is doing neither.</param>
+/// <param name="EndTime">The length of the recording, in seconds.</param>
+public sealed record RecorderStatus(bool Recording, bool Playing, bool Paused, bool Empty, double Time, double EndTime)
+{
+    public bool Active => Recording || Playing;
+}
 
 /// <param name="Matched">The matched value, followed by "(+N)" when the attribute added to the score.</param>
 /// <param name="Decisive">This attribute decided the match; the row is highlighted.</param>

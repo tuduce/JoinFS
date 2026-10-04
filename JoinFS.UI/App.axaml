@@ -58,6 +58,7 @@
 
     <DataTemplate DataType="ovm:OnboardingViewModel"><ov:OnboardingView /></DataTemplate>
     <DataTemplate DataType="ovm:PasswordPromptViewModel"><ov:PasswordPromptView /></DataTemplate>
+    <DataTemplate DataType="ovm:ConfirmViewModel"><ov:ConfirmView /></DataTemplate>
     <DataTemplate DataType="ovm:SimbriefPromptViewModel"><ov:SimbriefPromptView /></DataTemplate>
     <DataTemplate DataType="ovm:SubstituteViewModel"><ov:SubstituteView /></DataTemplate>
     <DataTemplate DataType="ovm:AdjustHeightViewModel"><ov:AdjustHeightView /></DataTemplate>
