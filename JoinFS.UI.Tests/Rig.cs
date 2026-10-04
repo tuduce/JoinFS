@@ -22,10 +22,5 @@ public sealed class Rig
     public MainViewModel Main { get; }
 
     /// <summary>A rig whose hub directory has been loaded.</summary>
-    public static async Task<Rig> WithHubsAsync()
-    {
-        Rig rig = new();
-        await rig.Main.Hubs.RefreshAsync();
-        return rig;
-    }
+    public static Task<Rig> WithHubsAsync() => Task.FromResult(new Rig());
 }

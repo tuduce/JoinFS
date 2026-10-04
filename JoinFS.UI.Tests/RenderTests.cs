@@ -114,7 +114,7 @@ public class RenderTests
         Problems problems = new();
         Logger.Sink = problems;
         var (window, main, _) = Open(expanded: true);
-        await main.Hubs.RefreshAsync();
+        main.Hubs.Refresh();
 
         main.GoTo(tab);
         Settle();
@@ -133,7 +133,7 @@ public class RenderTests
         Problems problems = new();
         Logger.Sink = problems;
         var (window, main, _) = Open(expanded: true);
-        await main.Hubs.RefreshAsync();
+        main.Hubs.Refresh();
 
         main.GoTo(TabId.Network);
         main.Hubs.Rows[0].ToggleExpandedCommand.Execute(null);

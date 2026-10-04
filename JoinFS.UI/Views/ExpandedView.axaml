@@ -30,7 +30,7 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:NavItemViewModel">
-              <Button Classes="nav" Classes.active="{Binding IsActive}" Command="{Binding SelectCommand}">
+              <Button Classes="nav" Classes.active="{Binding IsActive}" Command="{Binding SelectCommand}" AutomationProperties.Name="{Binding Label}">
                 <StackPanel Orientation="Horizontal" Spacing="12">
                   <Panel Width="18" Height="18">
                     <c:Icon Source="{Binding IconKey, Converter={x:Static v:ResourceKeyConverter.Instance}}" Width="18" Height="18" />

@@ -17,7 +17,7 @@ public static class FakeServices
         Simulator: new FakeSimulatorLink(latency),
         Network: new FakeNetworkLink(latency),
         AddressBook: addressBook,
-        Hubs: new FakeHubDirectory(),
+        Hubs: new FakeHubDirectory(addressBook),
         Session: new FakeSessionSource(addressBook),
         Traffic: new FakeTrafficSource(),
         Models: new FakeModelCatalog(),
@@ -83,9 +83,30 @@ public sealed class InMemoryAddressBookStore : IAddressBookStore
     }
 }
 
-public sealed class FakeHubDirectory : IHubDirectory
+public sealed class FakeHubDirectory(IAddressBookStore addressBook) : IHubDirectory
 {
-    public Task<IReadOnlyList<HubInfo>> GetPublicHubsAsync(CancellationToken cancellationToken) => Task.FromResult(SampleData.Hubs);
+    private readonly Dictionary<string, bool> _ignored = [];
+
+    public IReadOnlyList<HubInfo> GetHubs()
+    {
+        HashSet<string> saved = [.. addressBook.Load().Entries.Select(e => e.Name)];
+        return [.. SampleData.Hubs.Select(h => h with { Ignored = _ignored.GetValueOrDefault(h.Id, h.Ignored), Saved = saved.Contains(h.Name) })];
+    }
+
+    public void SetIgnored(string hubId, bool ignored) => _ignored[hubId] = ignored;
+
+    public void SetSaved(string hubId, bool saved)
+    {
+        HubInfo? hub = SampleData.Hubs.FirstOrDefault(h => h.Id == hubId);
+        if (hub is null)
+            return;
+
+        (IReadOnlyList<AddressBookEntry> entries, string? selected) = addressBook.Load();
+        List<AddressBookEntry> next = [.. entries.Where(e => e.Name != hub.Name)];
+        if (saved)
+            next.Add(new AddressBookEntry(hub.Name, hub.Address, RequiresPassword: hub.Status == HubStatus.Password));
+        addressBook.Save(next, selected);
+    }
 }
 
 public sealed class FakeSessionSource(IAddressBookStore addressBook) : ISessionSource

@@ -115,8 +115,12 @@ namespace JoinFS.Live
             awaitingEndPoint = null;
             awaitingLabel = null;
 
-            // the same call the old Join button made; it resolves a hub, an address book name or an address, and joins Global by its name
-            main.Join(hub.BuiltIn ? Resources.Strings.Global : hub.Name);
+            // the same call the old Join button made; it resolves a hub, an address book name or an address, and joins Global by its name.
+            // A hub of the directory is joined by its address, as the old window's double click did; an address book entry by its name.
+            string text = hub.BuiltIn ? Resources.Strings.Global
+                : IPEndPoint.TryParse(hub.Address ?? "", out _) ? hub.Address
+                : hub.Name;
+            main.Join(text);
             return Task.CompletedTask;
         }
 

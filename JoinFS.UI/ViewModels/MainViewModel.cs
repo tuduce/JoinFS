@@ -31,7 +31,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
             requestConnect: JoinSelectedAsync, observed: services.Network.ReportsState);
 
         Home = new HomeViewModel(this, services.Session, services.Traffic, services.App, services.Platform);
-        Hubs = new HubsViewModel(services.Hubs, services.Network, AddressBook, this, ignoredHubs: ["NoiseAbatement Hub"]);
+        Hubs = new HubsViewModel(services.Hubs, services.Network, this);
         Session = new SessionViewModel(services.Session);
         RecordSelection = new RecordSelection();
         Aircraft = new AircraftViewModel(services.Traffic, services.Models, services.Platform, Profile, RecordSelection, this);
@@ -55,6 +55,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
 
         // Save in the Session tab changes the address book; the strip's hub picker has to show it.
         Session.AddressBookChanged += (_, _) => AddressBook.Reload();
+        Hubs.AddressBookChanged += (_, _) => AddressBook.Reload();
 
         NavItems =
         [
@@ -176,6 +177,9 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         {
             case TabId.Home:
                 Home.Refresh();
+                break;
+            case TabId.Network:
+                Hubs.Refresh();
                 break;
             case TabId.Session:
                 Session.Refresh();

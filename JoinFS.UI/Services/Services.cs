@@ -62,7 +62,13 @@ public interface IAddressBookStore
 
 public interface IHubDirectory
 {
-    Task<IReadOnlyList<HubInfo>> GetPublicHubsAsync(CancellationToken cancellationToken);
+    /// <summary>The hubs the app knows of, online or not, ignored or not. The app keeps the list; this reads it.</summary>
+    IReadOnlyList<HubInfo> GetHubs();
+
+    void SetIgnored(string hubId, bool ignored);
+
+    /// <summary>Adds the hub to the address book, or removes it from it.</summary>
+    void SetSaved(string hubId, bool saved);
 }
 
 public interface ISessionSource
