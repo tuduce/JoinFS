@@ -635,7 +635,7 @@ public class AircraftAndObjectsTests
         Assert.Equal("GC1a Swift (Factory)", substitute.Original); // the livery suffix is dropped
 
         Link(row, "Explain Match").Command.Execute(null);
-        Assert.Equal("GC1a Swift (Factory) (D)", Assert.IsType<ExplainMatchViewModel>(rig.Main.Overlay).Model);
+        Assert.Equal("Explain Match: A320", Assert.IsType<ExplainMatchViewModel>(rig.Main.Overlay).Title);
 
         Link(row, "Adjust Height").Command.Execute(null);
         Assert.IsType<AdjustHeightViewModel>(rig.Main.Overlay);
@@ -938,8 +938,17 @@ public sealed class RecordingCatalog(IModelCatalog inner, bool hasModels = true)
         inner.ClearSubstitute(target);
     }
 
-    public IReadOnlyList<ExplainRow> Explain(string model) => inner.Explain(model);
-    public IReadOnlyList<string> ExplainSteps(string model) => inner.ExplainSteps(model);
+
+    public string? KnownFile { get; set; }
+    public bool FailBundle { get; set; }
+    public string? KnownModelsFile() => KnownFile;
+
+    public void WriteDebugBundle(string zipPath, string report)
+    {
+        if (FailBundle)
+            throw new IOException("disk full");
+        Writes.Add($"bundle {zipPath}: {report}");
+    }
 }
 
 public class ModelMatchingTests
@@ -1154,6 +1163,135 @@ public class ModelMatchingTests
         SubstituteViewModel edit = new(new ModelTarget("Cessna 172", Livery: "Red"), Start, rig.Services.Models);
 
         Assert.Equal("Cessna 172 [+] Red", edit.Original);
+    }
+}
+
+/// <summary>A platform that answers the save dialog with a path, and remembers what was opened and copied.</summary>
+public sealed class SavingPlatform(string? savePath) : IPlatform
+{
+    public List<string> Copied { get; } = [];
+    public List<string> Opened { get; } = [];
+    public string? SuggestedName { get; private set; }
+
+    public Task CopyTextAsync(string text) { Copied.Add(text); return Task.CompletedTask; }
+    public void OpenUrl(string url) => Opened.Add(url);
+    public Task<string?> PickOpenFileAsync(string title) => Task.FromResult<string?>(null);
+    public Task<string?> PickSaveFileAsync(string title, string suggestedName) { SuggestedName = suggestedName; return Task.FromResult(savePath); }
+    public Task<string?> PickFolderAsync(string title) => Task.FromResult<string?>(null);
+}
+
+public class ExplainMatchTests
+{
+    private static MatchExplanation Explanation(string? note = null) => new(
+        "9H-WDR", "Result: Auto - matched 'GC1a Swift'", note,
+        [new ExplainRow("Category", "SingleProp", "SingleProp (+60)", Decisive: true), new ExplainRow("Livery", "Default", "Closest available")],
+        ["1. Exact title match - not found.", "2. Category match - matched."], "Models come from the simulator.", "# Match Report - 9H-WDR");
+
+    private static ExplainMatchViewModel Open(RecordingCatalog catalog, IPlatform platform, MatchExplanation? explanation = null) =>
+        new(explanation ?? Explanation(), catalog, platform);
+
+    [Fact]
+    public void The_overlay_shows_the_explanation_as_it_was_given()
+    {
+        ExplainMatchViewModel explain = Open(new RecordingCatalog(new JoinFS.UI.Services.Fake.FakeModelCatalog()), new JoinFS.UI.Services.Fake.NullPlatform(), Explanation("The ICAO type was guessed."));
+
+        Assert.Equal("Explain Match: 9H-WDR", explain.Title);
+        Assert.Equal("Result: Auto - matched 'GC1a Swift'", explain.Outcome);
+        Assert.Equal("The ICAO type was guessed.", explain.Note);
+        Assert.Equal(2, explain.Rows.Count);
+        Assert.True(explain.Rows[0].Decisive);
+        Assert.False(explain.Rows[1].Decisive);
+        Assert.Equal(2, explain.Steps.Count);
+        Assert.Equal("Models come from the simulator.", explain.Source);
+    }
+
+    [Fact]
+    public async Task Copy_puts_the_whole_report_on_the_clipboard()
+    {
+        JoinFS.UI.Services.Fake.NullPlatform platform = new();
+        ExplainMatchViewModel explain = Open(new RecordingCatalog(new JoinFS.UI.Services.Fake.FakeModelCatalog()), platform);
+
+        await explain.CopyToClipboardCommand.ExecuteAsync(null);
+
+        Assert.Equal(["# Match Report - 9H-WDR"], platform.Copied);
+    }
+
+    [Fact]
+    public async Task Export_writes_the_bundle_where_the_user_chose()
+    {
+        RecordingCatalog catalog = new(new JoinFS.UI.Services.Fake.FakeModelCatalog());
+        SavingPlatform platform = new(@"C:\tmp\bundle.zip");
+        ExplainMatchViewModel explain = Open(catalog, platform);
+
+        await explain.ExportDebugBundleCommand.ExecuteAsync(null);
+
+        Assert.Equal([@"bundle C:\tmp\bundle.zip: # Match Report - 9H-WDR"], catalog.Writes);
+        Assert.StartsWith("JoinFS-MatchDebug-9H-WDR-", platform.SuggestedName);
+        Assert.EndsWith(".zip", platform.SuggestedName);
+        Assert.Contains("bundle.zip", explain.Status);
+    }
+
+    [Fact]
+    public async Task Cancelling_the_save_dialog_writes_nothing()
+    {
+        RecordingCatalog catalog = new(new JoinFS.UI.Services.Fake.FakeModelCatalog());
+        ExplainMatchViewModel explain = Open(catalog, new SavingPlatform(null));
+
+        await explain.ExportDebugBundleCommand.ExecuteAsync(null);
+
+        Assert.Empty(catalog.Writes);
+        Assert.Equal("", explain.Status);
+    }
+
+    [Fact]
+    public async Task A_bundle_that_cannot_be_written_says_so_instead_of_failing()
+    {
+        RecordingCatalog catalog = new(new JoinFS.UI.Services.Fake.FakeModelCatalog()) { FailBundle = true };
+        ExplainMatchViewModel explain = Open(catalog, new SavingPlatform(@"C:\tmp\bundle.zip"));
+
+        await explain.ExportDebugBundleCommand.ExecuteAsync(null);
+
+        Assert.Contains("disk full", explain.Status);
+    }
+
+    [Fact]
+    public void The_known_models_list_is_opened_when_there_is_one_and_explained_when_there_is_not()
+    {
+        RecordingCatalog catalog = new(new JoinFS.UI.Services.Fake.FakeModelCatalog());
+        SavingPlatform platform = new(null);
+        ExplainMatchViewModel explain = Open(catalog, platform);
+
+        explain.OpenKnownModelsListCommand.Execute(null);
+        Assert.Empty(platform.Opened);
+        Assert.NotEqual("", explain.Status);
+
+        catalog.KnownFile = @"C:\tmp\models.txt";
+        explain.OpenKnownModelsListCommand.Execute(null);
+        Assert.Equal([@"C:\tmp\models.txt"], platform.Opened);
+    }
+
+    [Fact]
+    public void An_aircraft_with_nothing_to_explain_opens_no_overlay()
+    {
+        ScriptedTraffic traffic = new() { Explanation = null };
+        AppServices services = JoinFS.UI.Services.Fake.FakeServices.Create(TimeSpan.Zero, new Services.UserSettings { Onboarded = true, Nickname = "Me" }) with { Traffic = traffic };
+        MainViewModel main = new(services);
+
+        main.Aircraft.Rows[0].Actions.Single(a => a.Label.StartsWith("Explain")).Command.Execute(null);
+
+        Assert.Null(main.Overlay);
+    }
+
+    [Fact]
+    public void The_aircraft_list_opens_the_explanation_of_that_aircraft()
+    {
+        ScriptedTraffic traffic = new();
+        AppServices services = JoinFS.UI.Services.Fake.FakeServices.Create(TimeSpan.Zero, new Services.UserSettings { Onboarded = true, Nickname = "Me" }) with { Traffic = traffic };
+        MainViewModel main = new(services);
+
+        main.Aircraft.Rows[0].Actions.Single(a => a.Label.StartsWith("Explain")).Command.Execute(null);
+
+        Assert.Equal("Explain Match: A", Assert.IsType<ExplainMatchViewModel>(main.Overlay).Title);
     }
 }
 
@@ -1678,6 +1816,8 @@ public sealed class ScriptedTraffic : ITrafficSource
         return Objects ??= [Obj("o1")];
     }
 
+    public MatchExplanation? Explanation { get; set; } = new("A", "Result: Auto - matched 'Model'", null, [], [], "Models come from the test.", "# Match Report - A");
+    public Task<MatchExplanation?> ExplainMatchAsync(string aircraftId) => Task.FromResult(Explanation);
     public ModelTarget? AircraftModel { get; set; } = new("Model");
     public ModelTarget? ObjectModel { get; set; } = new("Model");
     public ModelTarget? GetAircraftModel(string aircraftId) => AircraftModel;

@@ -213,6 +213,31 @@ public sealed class FakeTrafficSource : ITrafficSource
         return aircraft is null ? null : new ModelTarget(aircraft.OriginalModel);
     }
 
+    public Task<MatchExplanation?> ExplainMatchAsync(string aircraftId)
+    {
+        AircraftInfo? aircraft = SampleData.Aircraft.Concat(SampleData.HubAircraft).Concat(SampleData.SimulatorAircraft).FirstOrDefault(a => a.Id == aircraftId);
+        if (aircraft is null)
+            return Task.FromResult<MatchExplanation?>(null);
+
+        ExplainRow[] rows =
+        [
+            new("Manufacturer", "Generic", aircraft.Model.Split(' ')[0]),
+            new("Category", "SingleProp", "SingleProp", Decisive: true),
+            new("Livery", "Default", "Closest available"),
+            new("ICAO Type", "Unknown", "Fallback"),
+        ];
+        string[] steps =
+        [
+            "1. Exact title match - not found.",
+            "2. ICAO + livery match - not found.",
+            "3. ICAO match, any livery - not found.",
+            $"4. Category fallback match - matched \"{aircraft.Model}\".",
+        ];
+        return Task.FromResult<MatchExplanation?>(new MatchExplanation(
+            aircraft.Callsign, $"Result: Default - matched '{aircraft.Model}'", null, rows, steps, "Models come from the fake catalog.",
+            $"# Match Report - {aircraft.Callsign}"));
+    }
+
     public ModelTarget? GetObjectModel(string objectId)
     {
         ObjectInfo? obj = SampleData.Objects.FirstOrDefault(o => o.Id == objectId || "group:" + o.Owner + "/" + o.Model == objectId);
@@ -276,21 +301,12 @@ public sealed class FakeModelCatalog : IModelCatalog
 
     public void ClearSubstitute(ModelTarget target) => _rules.RemoveAll(r => r.Original == target.Model);
 
-    public IReadOnlyList<ExplainRow> Explain(string model) =>
-    [
-        new("Manufacturer", "Generic", model.Split(' ')[0]),
-        new("Category", "SingleProp", "SingleProp"),
-        new("Livery", "Default", "Closest available"),
-        new("ICAO Type", "Unknown", "Fallback"),
-    ];
+    public string? KnownModelsFile() => null;
 
-    public IReadOnlyList<string> ExplainSteps(string model) =>
-    [
-        "1. Exact title match — not found.",
-        "2. ICAO + livery match — not found.",
-        "3. ICAO match, any livery — not found.",
-        $"4. Category fallback match — matched \"{model}\".",
-    ];
+    public void WriteDebugBundle(string zipPath, string report) => WrittenBundles.Add((zipPath, report));
+
+    /// <summary>The debug bundles that were asked for, so a test can see them.</summary>
+    public List<(string Path, string Report)> WrittenBundles { get; } = [];
 }
 
 public sealed class FakeVariablesCatalog : IVariablesCatalog

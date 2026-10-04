@@ -177,38 +177,68 @@ public sealed partial class AdjustHeightViewModel : OverlayViewModel
 /// <summary>"Explain Match": a read-only comparison of what was asked for and what was matched, and the steps tried.</summary>
 public sealed partial class ExplainMatchViewModel : OverlayViewModel
 {
+    private readonly IModelCatalog _catalog;
     private readonly IPlatform _platform;
+    private readonly MatchExplanation _explanation;
 
-    public ExplainMatchViewModel(string model, IModelCatalog catalog, IPlatform platform)
+    public ExplainMatchViewModel(MatchExplanation explanation, IModelCatalog catalog, IPlatform platform)
     {
-        Model = model;
+        _explanation = explanation;
+        _catalog = catalog;
         _platform = platform;
-        Rows = catalog.Explain(model);
-        Steps = catalog.ExplainSteps(model);
     }
 
-    public override string Title => "Explain Match";
+    public override string Title => "Explain Match: " + _explanation.Callsign;
 
-    public string Model { get; }
-    public IReadOnlyList<ExplainRow> Rows { get; }
-    public IReadOnlyList<string> Steps { get; }
+    public string Outcome => _explanation.Outcome;
 
-    /// <summary>The text "Copy to clipboard" puts on the clipboard.</summary>
-    public string ClipboardText =>
-        string.Join(Environment.NewLine,
-            [$"Model: {Model}", "", "Attribute\tRequested\tMatched Model",
-             .. Rows.Select(r => $"{r.Attribute}\t{r.Requested}\t{r.Matched}"),
-             "", "Matching steps (in the order they were tried):", .. Steps]);
+    /// <summary>A warning about the matched model, shown above the table. Null when there is none.</summary>
+    public string? Note => _explanation.Note;
+
+    public IReadOnlyList<ExplainRow> Rows => _explanation.Rows;
+    public IReadOnlyList<string> Steps => _explanation.Steps;
+
+    /// <summary>Where the list of known models comes from.</summary>
+    public string Source => _explanation.Source;
+
+    /// <summary>What the last of the buttons below did, when it did not work or needs saying. Empty otherwise.</summary>
+    [ObservableProperty]
+    private string _status = "";
+
+    /// <summary>The text "Copy to clipboard" puts on the clipboard: the whole report.</summary>
+    public string ClipboardText => _explanation.Report;
 
     [RelayCommand]
     private Task CopyToClipboardAsync() => _platform.CopyTextAsync(ClipboardText);
 
-    // The README lists the two buttons below as placeholders; they need the real matcher and debug-bundle writer.
     [RelayCommand]
-    private void ExportDebugBundle() { }
+    private async Task ExportDebugBundleAsync()
+    {
+        string suggested = $"JoinFS-MatchDebug-{_explanation.Callsign}-{DateTime.Now:yyyyMMdd-HHmmss}.zip";
+        string? path = await _platform.PickSaveFileAsync("Export debug bundle", suggested);
+        if (path is null)
+            return;
+
+        try
+        {
+            _catalog.WriteDebugBundle(path, _explanation.Report);
+            Status = "Saved " + path;
+        }
+        catch (Exception ex)
+        {
+            Status = "Could not create the bundle: " + ex.Message;
+        }
+    }
 
     [RelayCommand]
-    private void OpenKnownModelsList() { }
+    private void OpenKnownModelsList()
+    {
+        string? file = _catalog.KnownModelsFile();
+        if (file is null)
+            Status = "There is no known-models list yet. Scan for models first.";
+        else
+            _platform.OpenUrl(file);
+    }
 }
 
 /// <summary>"Variables": the variable files assigned to one model. Shared by the Aircraft tab and Settings → Variables.</summary>

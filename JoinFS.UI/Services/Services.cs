@@ -142,6 +142,12 @@ public interface ITrafficSource
 
     /// <summary>The model of an object (of a group, the model they share), for Substitute. Null when the object is gone.</summary>
     ModelTarget? GetObjectModel(string objectId);
+
+    /// <summary>
+    /// How the model of an aircraft was chosen. For your own aircraft the matching is run now, as a preview that changes nothing.
+    /// Null when there is nothing to explain: the aircraft is gone, or its model was never matched.
+    /// </summary>
+    Task<MatchExplanation?> ExplainMatchAsync(string aircraftId);
 }
 
 /// <summary>
@@ -173,8 +179,11 @@ public interface IModelCatalog
     /// <summary>The model stands for itself again.</summary>
     void ClearSubstitute(ModelTarget target);
 
-    IReadOnlyList<ExplainRow> Explain(string model);
-    IReadOnlyList<string> ExplainSteps(string model);
+    /// <summary>The file that lists the models the simulator has, or null when it has not been written yet.</summary>
+    string? KnownModelsFile();
+
+    /// <summary>Writes a zip with the match <paramref name="report"/> and the files it was made from, for a bug report.</summary>
+    void WriteDebugBundle(string zipPath, string report);
 }
 
 public interface IVariablesCatalog

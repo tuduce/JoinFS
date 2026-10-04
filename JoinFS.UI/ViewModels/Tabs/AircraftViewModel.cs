@@ -37,7 +37,7 @@ public sealed partial class AircraftRowViewModel : ObservableObject
         };
 
         _substitute = new("Substitute…", new RelayCommand(() => _ = _owner.SubstituteAsync(this), () => Info.Can.HasFlag(AircraftActions.Substitute)));
-        _explain = new("Explain Match…", new RelayCommand(() => _owner.ExplainMatch(this), () => Info.Can.HasFlag(AircraftActions.ExplainMatch)));
+        _explain = new("Explain Match…", new RelayCommand(() => _ = _owner.ExplainMatchAsync(this), () => Info.Can.HasFlag(AircraftActions.ExplainMatch)));
         _copyFlightPlan = new("Copy Flight Plan…", new RelayCommand(() => _owner.CopyFlightPlan(this), () => Info.Can.HasFlag(AircraftActions.FlightPlan)));
         _variables = new("Assign Variables…", new RelayCommand(() => _owner.AssignVariables(this), () => Info.Can.HasFlag(AircraftActions.Variables)));
         _height = new("Adjust Height…", new RelayCommand(() => _owner.AdjustHeight(this), () => Info.Can.HasFlag(AircraftActions.AdjustHeight)));
@@ -302,8 +302,11 @@ public sealed partial class AircraftViewModel : ObservableObject
         _shell.ShowOverlay(new SubstituteViewModel(target, await _catalog.GetCurrentAsync(target), _catalog));
     }
 
-    internal void ExplainMatch(AircraftRowViewModel row) =>
-        _shell.ShowOverlay(new ExplainMatchViewModel(row.Model, _catalog, _platform));
+    internal async Task ExplainMatchAsync(AircraftRowViewModel row)
+    {
+        if (await Source.ExplainMatchAsync(row.Id) is { } explanation)
+            _shell.ShowOverlay(new ExplainMatchViewModel(explanation, _catalog, _platform));
+    }
 
     internal void AssignVariables(AircraftRowViewModel row) =>
         _shell.ShowOverlay(new VariablesOverlayViewModel(row.Model, ["ListBox_Sets"], _platform));
