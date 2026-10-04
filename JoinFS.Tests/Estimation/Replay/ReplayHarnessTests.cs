@@ -12,7 +12,7 @@ namespace JoinFS.Tests.Estimation.Replay
     public class ReplayHarnessTests(ITestOutputHelper output)
     {
         const double R = 6371009.0;
-        static readonly string[] Both = [EstimationRegistry.DefaultEstimator, ClassicFixedEstimator.Name];
+        static readonly string[] Both = [EstimationRegistry.ClassicName, ClassicFixedEstimator.Name];
 
         /// <summary>
         /// A level coordinated turn at 150 m/s and <paramref name="bankDegrees"/> of bank, sampled
@@ -108,12 +108,12 @@ namespace JoinFS.Tests.Estimation.Replay
             output.WriteLine(scorer.Report("Coordinated turn, 60° bank"));
 
             // the logged predictions were Classic's
-            Assert.InRange(scorer.Reproduction(EstimationRegistry.DefaultEstimator).Percentile(0.99), 0.0, 1e-5);
+            Assert.InRange(scorer.Reproduction(EstimationRegistry.ClassicName).Percentile(0.99), 0.0, 1e-5);
             Assert.InRange(scorer.Reproduction(ClassicFixedEstimator.Name).Percentile(0.5), 1e-3, double.MaxValue);
 
             foreach (string horizon in new[] { ReplayScorer.Logged, ReplayScorer.HorizonLabel(0.1), ReplayScorer.HorizonLabel(0.2) })
             {
-                var classic = scorer[EstimationRegistry.DefaultEstimator, horizon, "turning"];
+                var classic = scorer[EstimationRegistry.ClassicName, horizon, "turning"];
                 var fixedErrors = scorer[ClassicFixedEstimator.Name, horizon, "turning"];
                 Assert.True(classic.Heading.Count > 1000);
                 // Classic turns the heading at only cos(60°) = half the rate

@@ -10,7 +10,9 @@ namespace JoinFS.Estimation
     public static class EstimationRegistry
     {
         public const string DefaultClock = "RttHalf";
-        public const string DefaultEstimator = "Classic";
+        /// <summary>The original estimator, kept as the frozen reference (-estimator Classic)</summary>
+        public const string ClassicName = "Classic";
+        public const string DefaultEstimator = ClassicFixedEstimator.Name;
 
         static readonly Dictionary<string, Func<IClockModel>> clocks = new()
         {
@@ -19,7 +21,7 @@ namespace JoinFS.Estimation
 
         static readonly Dictionary<string, Func<IStateEstimator>> estimators = new()
         {
-            [DefaultEstimator] = () => new ClassicEstimator(),
+            [ClassicName] = () => new ClassicEstimator(),
             [ClassicFixedEstimator.Name] = () => new ClassicFixedEstimator(),
         };
 

@@ -19,10 +19,10 @@ Written 2026-10-01. Status:
 - Phase 2: the field logging (`-estimationlog`, §6.1) and the replay of logs through the
   estimators (§6.3) are done. Replaying `.jfs` recordings through an impairment model, and
   shadow mode, are open.
-- Phase 3: `ClassicFixed` (F3, F4) is built, selectable with `-estimator ClassicFixed`; see §7.2.
-  F6, F9 and the X-Plane quick win are open.
-- Phase 4: sim-time stamping is built for MSFS (F2); see §7.2. X-Plane's is open.
-- Phases 5–8 are open.
+- Phase 3: `ClassicFixed` (F3, F4) is built and has been the default since 2026-10-04 (`-estimator
+  Classic` selects the old one); see §7.2 and §6.4. F6, F9 and the X-Plane quick win are open.
+- Phase 4: sim-time stamping is built for MSFS (F2) and field-tested (§6.4). X-Plane's is open.
+- Phases 5–8 are open; §6.4 lists the next steps.
 
 **Prior art in the repo:**
 
@@ -309,7 +309,7 @@ it.
   today's controller moved out of `UpdateSimObjectVelocity`.
 - **`EstimatorRegistry`**:
   - name → factory;
-  - selected by a setting (`Settings.Default.PositionEstimator`, default `"Classic"`);
+  - selected by a setting (`Settings.Default.PositionEstimator`, default `"ClassicFixed"` since 2026-10-04);
   - per-object override for A/B;
   - shown in the Monitor/Objects form for diagnostics.
 
@@ -621,6 +621,67 @@ predictions, including other pilots' traffic on 2026-10-02). In turns (|bank| �
 - The along-track error does not change: it is the senders' stamping jitter (F2), which no
   estimator can remove. That is what sim-time stamping (§7.2) is for.
 
+### 6.4 Field results with ClassicFixed and sim-time stamps (2026-10-04)
+
+**Session.** The same two MSFS 2024 PCs, from 19:04 to 20:19 UTC. Both ran the tester package built
+from `86a0cfe` (the same change as `a979145` on this branch, before a rebase) with `ClassicFixed`
+and sim-time stamps. About 79 000 predictions per direction and about 20.8 ms each way. The comparison is with the `Classic` sessions of
+2026-10-01 to 03 in the same upload; its analysis was done with `analyze-estimation`.
+
+| | Classic, earlier sessions | ClassicFixed + sim-time stamps |
+|---|---|---|
+| Sender stamp error between samples, p5 / p95 | YR-SCD −7.4 / +7.0 and −5.1 / +4.8 ms; HB-TDX −4.1 / +4.1 and −2.7 / +2.5 ms | −0.1 / +0.0 ms, both senders; 0% over 5 ms |
+| Along track, YR-SCD on FLIGHTSIM, p50 / p95 / p99 | 0.24–0.29 / 0.92–1.42 / 1.50–2.47 m | 0.42 / 0.71 / 0.86 m |
+| Along track, HB-TDX on CRISTII5DESK, p50 / p95 / p99 | 0.15–0.17 / 0.53–0.98 / 0.86–2.57 m | 0.23 / 0.45 / 0.59 m |
+| Cross track, p95 | 0.01–0.03 m | 0.01 m |
+| Heading in turns (\|bank\| ≥ 30°), p95 / p99 | 0.6–2.0 / 2.2–9.6° | 0.08 / 0.28° (YR-SCD), 0.13 / 0.35° (HB-TDX) |
+| Predictions more than 3 m off | 0.36–0.78% | 0.13% (YR-SCD), 0.04% (HB-TDX) |
+| Drawn along track, p95 | 0.8–1.8 m | 0.86–0.88 m |
+
+**Conclusions.**
+
+- **F2 is fixed.** The sender's stamps are now as steady as the simulator's clock. The along-track p99
+  fell from about 2.5 m to under 0.9 m.
+- **F4 is confirmed in the simulator**, not only in the replay: the heading error in turns fell by an
+  order of magnitude, and the cross track is at 0.01 m.
+- **The along-track median rose** by about 0.1–0.15 m (0.4 m for YR-SCD, 0.2 m for HB-TDX), which is
+  1–3 ms of bias. The most likely cause is the stamper's minimum-offset rule (§7.2), which stamps
+  the samples as early as the least-delayed ones. It is small next to the p95 gain, and open.
+- **The timing p95 rose** from 2.8 to 4.8 ms for YR-SCD (3.1 ms for HB-TDX), which fits the same bias.
+- **Rare large errors remain** (13–16 episodes over 10 m per direction):
+  - 40–70 m along track for a fraction of a second, one of the predicted and drawn positions off
+    while the other is right. They coincide with gaps in the samples (pauses, hitches).
+  - YR-SCD showed 2 323 m and 1 253 m predicted errors for 0.1 s at 19:21:03 and 19:17:05, with the
+    sender level. The pilot says YR-SCD was following HB-TDX to get closer, so these are the
+    sender's own jumps, not an estimator fault. How the following moves the aircraft was not checked.
+  - One HB-TDX prediction differs by 18 m from the offline replay of the same input, against about
+    0.1 mm for all the others.
+- **The 357 m episode (§6.2)** is from the 2026-10-01 session on `Classic` and is still unexplained.
+
+**Next steps**, in this order:
+
+1. **Look at the median bias.** Plot the stamp offset against the simulator's frame times, and
+   compare the minimum-offset window (1 s) with a quantile or a longer one. Aim at a median
+   along-track error below the old 0.17–0.29 m while keeping the p95 gain.
+2. **The remaining rare large errors.** The 19:17 and 19:21 jumps are explained (YR-SCD following
+   HB-TDX). The 18 m replay mismatch is not; find the sample that causes it. Then check how the
+   receiver draws a sender's jump (a hard reset, not a long steer), using those two episodes.
+3. **F9 and F6.** Check the `OBJECT_VELOCITY` acceleration units now that ½·a·t² is the default,
+   and make the RTT filter per frame.
+4. **Other simulators and rates.** Collect one session each from FS2020 and from FSX/P3D (the same
+   code, unvalidated), and one with a sim rate other than 1×.
+5. **X-Plane quick win.** A 20 Hz sender, drain the link every frame, send the sample age to the
+   plugin, fix the snap sign and `Slerp`, and bump `DATA_VERSION` on both sides; then X-Plane
+   sim-time stamps. Use `fake_xplane_plugin.py` first, and be careful here.
+6. **`OffsetClock` (phase 5), only if a link needs it.** The tool aligns the PCs from their own
+   traffic, so it cannot see an asymmetry between the two ways; on this 41 ms link the along-track
+   error is already under 1 m at p95. Wait for a log from a long or asymmetric link (a hub in
+   another country, a mobile connection) before building it.
+7. **Steering and angular acceleration (phase 6).** Bank is the largest attitude error left at a
+   200 ms horizon; at the 60–70 ms horizon in use it is already small.
+8. **Not justified by the data:** Kalman/IMM (phase 8) and the sender dead-reckoning threshold
+   (phase 7).
+
 ---
 
 ## 7. Implementation phases
@@ -704,8 +765,9 @@ Classic with two fixes:
   across the 0/360 line.
 - **F3.** The acceleration moves the position by ½·a·t².
 
-It is selected with `-estimator ClassicFixed`. `Classic` stays the default until a field test
-confirms it in the simulator (§6, acceptance). On FS2020/2024 the steering sets the predicted
+It has been the default since 2026-10-04, after the field test in §6.4; `-estimator Classic` selects
+the original, which stays as the frozen reference for the tests. It is untested in the field on FSX
+and P3D, which share the code but not the per-frame attitude steering. On FS2020/2024 the steering sets the predicted
 attitude every frame, so the fix shows directly in the drawn aircraft. The tester package starts
 `ClassicFixed`.
 
