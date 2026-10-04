@@ -30,9 +30,37 @@ public sealed record PeerInfo(
 /// <summary>What the user has set for one other user (the old PermissionsForm, plus Save and Ignore).</summary>
 public sealed record PeerSettings(bool CockpitEntry, bool HandOverControls, bool MultipleObjects, bool IsSaved, bool IsIgnored);
 
+/// <summary>How far an aircraft got in the simulator: shows in the distance column.</summary>
+public enum AircraftLinkState { Pending, Created, Failed }
+
+/// <summary>What can be done with one aircraft right now. The old context menu enabled each item only in certain cases.</summary>
+[Flags]
+public enum AircraftActions
+{
+    None = 0,
+    Record = 1,
+    Ignore = 2,
+    Follow = 4,
+    EnterCockpit = 8,
+    Track = 16,
+    CopyWeather = 32,
+    Substitute = 64,
+    ExplainMatch = 128,
+    FlightPlan = 256,
+    Variables = 512,
+    AdjustHeight = 1024,
+    All = Record | Ignore | Follow | EnterCockpit | Track | CopyWeather | Substitute | ExplainMatch | FlightPlan | Variables | AdjustHeight,
+}
+
+/// <summary>One row of the Aircraft table. Values that may not be known (no user aircraft to measure from, no position yet) are null.</summary>
+/// <param name="Id">Names the aircraft to the service. Opaque to the UI.</param>
+/// <param name="Owner">The pilot, marked "(R)" for a recorded aircraft and "(A)" for an AI aircraft.</param>
+/// <param name="Model">The model shown, marked "(S)" substituted, "(A)" automatic, "(D)" default or "(AI)".</param>
 public sealed record AircraftInfo(
-    string Callsign, string Owner, double DistanceNm, int Heading, int AltitudeFt, int GroundSpeed, string Model,
-    string Squawk, string Com1, string Com2, string Simulator, string OriginalModel, string FlightPlan, string Remarks);
+    string Id, string Callsign, string Owner,
+    double? DistanceNm, int? Heading, int? AltitudeFt, double SpeedKnots, string Model,
+    int? Bearing, string Squawk, string Com1, string Com2, string Simulator, string OriginalModel, string FlightPlan, string Remarks,
+    AircraftLinkState Link, bool Recording, bool Ignored, bool Tracked, AircraftActions Can);
 
 public sealed record ObjectInfo(
     string Owner, string Model, int Count, int Bearing, double DistanceNm,

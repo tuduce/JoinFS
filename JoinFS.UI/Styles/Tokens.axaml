@@ -13,6 +13,7 @@
   <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#F7F8FA" /> <!-- oklch(0.98 0.002 250) -->
   <SolidColorBrush x:Key="SurfaceSelectedBrush" Color="#D9EFFD" /> <!-- oklch(0.94 0.03 235) -->
   <SolidColorBrush x:Key="SurfaceControlHoverBrush" Color="#EAEBED" /> <!-- oklch(0.94 0.003 250) -->
+  <SolidColorBrush x:Key="SurfaceTrackedBrush" Color="#FFECC1" /> <!-- oklch(0.95 0.06 85) -->
   <SolidColorBrush x:Key="SurfaceTitleHoverBrush" Color="#DBDEE1" /> <!-- oklch(0.9 0.005 250) -->
   <SolidColorBrush x:Key="SurfaceCloseHoverBrush" Color="#FFCEC6" /> <!-- oklch(0.93 0.1 25) -->
   <SolidColorBrush x:Key="ScrimBrush" Color="#7313161A" /> <!-- oklch(0.2 0.01 250 / 0.45) -->

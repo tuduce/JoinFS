@@ -33,7 +33,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Home = new HomeViewModel(this, services.Session, services.Traffic, services.App, services.Platform);
         Hubs = new HubsViewModel(services.Hubs, services.Network, AddressBook, this, ignoredHubs: ["NoiseAbatement Hub"]);
         Session = new SessionViewModel(services.Session);
-        RecordSelection = new RecordSelection(services.Recorder.GetRecordedCallsigns());
+        RecordSelection = new RecordSelection();
         Aircraft = new AircraftViewModel(services.Traffic, services.Models, services.Platform, Profile, RecordSelection, this);
         Objects = new ObjectsViewModel(services.Traffic, services.Models, Profile, this);
         ModelMatching = new ModelMatchingViewModel(services.Models, Profile, this);
@@ -179,6 +179,9 @@ public sealed partial class MainViewModel : ObservableObject, IShell
                 break;
             case TabId.Session:
                 Session.Refresh();
+                break;
+            case TabId.Aircraft:
+                Aircraft.Refresh();
                 break;
         }
     }

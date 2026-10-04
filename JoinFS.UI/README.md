@@ -52,7 +52,8 @@ the launcher instead of opening the WinForms forms when started with `-newui`.
 | `ISimulatorLink` (the Simulator button) | **Live**: state from `sim.View` (the sim thread's snapshot); a click goes to the sim thread through `ToggleSimulator()`, as the old button did |
 | `INetworkLink` (the Network button, Join, Create, password) | **Live**: state from the session snapshot, mapped by the old button's own rule (`NetworkButtonStyle`); Join is `Main.Join(name)`, Disconnect leaves the session, Create is leave then create. A protected session is answered as the old window did: the remembered password first, then a prompt |
 | `ISessionSource` (Session tab, Home counts) | **Live**: the users, as the old `SessionForm` listed them, read once a second while the tab is open. Allow Cockpit Entry and Allow Multiple Objects are the `log` entries; Hand Over Controls is the flight controls only (`Peers.shareFlightControls`); Save adds or removes the user in the address book; Ignore is the `log` ignore list |
-| `IHubDirectory`, `ITrafficSource`, the rest | Fake |
+| `ITrafficSource`, aircraft part (Aircraft tab, Home counts) | **Live**: the aircraft as the old `AircraftForm` listed them (yours, the network's, the recorder's, and on request the simulator's own and other hubs'), with its details and flight plan. Record sets the aircraft's `record` flag on the sim thread; Ignore is the `log` ignore list (by user, or by callsign for the simulator's own); Follow, Enter/Leave Cockpit, Track and Stop Tracking are the sim commands the old menu posted; each is enabled by the old menu's own rules. The two "Include …" links are the old list filters (`IncludeGlobalAircraft`, `IncludeSimulatorAircraft`). Substitute, Explain Match, Copy Flight Plan, Assign Variables and Adjust Height are disabled until the Model Matching work |
+| `ITrafficSource`, objects part, `IHubDirectory`, the rest | Fake |
 
 Not handled yet: the old login dialog (email and password, `JoinResult.LoginRequired`), and the message that a remembered password
 was rejected. Model overrides and height adjustments are not in `Settings` yet; they stay in memory until the substitution wiring.
@@ -128,8 +129,8 @@ Per build: Hub Mode is in every build; the X-Plane card and the "X-Plane label" 
 ## Notes
 
 - The Aircraft tab's Record column and the Recorder's "Aircraft to record" list are one selection (`RecordSelection`). "Remove From
-  Recorder" / "Add To Recorder" toggle it. "Include All Hub Aircraft" ticks the aircraft with an owner, "Include All Simulator Aircraft"
-  those without (my reading of the names: confirm when the real data is wired).
+  Recorder" / "Add To Recorder" toggle it. "Include All Hub Aircraft" and "Include All Simulator Aircraft" are not part of it: they are
+  list filters, as in the old window (an earlier version of this README guessed otherwise).
 - "Scan at launch" in the X-Plane scan dialog and "Model scan on connect" in Settings are one setting.
 - The Home tab has no Map link yet; a map widget is planned.
 - The scan itself and the CSL generation are not wired: Scan saves the options and closes the dialog.

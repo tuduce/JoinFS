@@ -34,17 +34,17 @@
               <DataTemplate x:DataType="tvm:AircraftRowViewModel">
                 <Border Classes="row">
                   <StackPanel>
-                    <Button Classes="rowButton" Classes.selected="{Binding IsExpanded}" Classes.ignored="{Binding IsIgnored}"
+                    <Button Classes="rowButton" Classes.selected="{Binding IsExpanded}" Classes.tracked="{Binding IsTracked}" Classes.ignored="{Binding IsIgnored}"
                             Command="{Binding ToggleExpandedCommand}">
                       <Grid ColumnDefinitions="110,110,90,80,80,60,*,70" Margin="10,8">
                         <TextBlock Grid.Column="0" Text="{Binding Callsign}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Grid.Column="1" Text="{Binding Owner}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="2" Text="{Binding Distance}" Classes.far="{Binding IsFar}" />
+                        <TextBlock Grid.Column="2" Text="{Binding Distance}" Classes.far="{Binding IsFar}" Classes.failed="{Binding IsFailed}" />
                         <TextBlock Grid.Column="3" Text="{Binding Heading}" />
                         <TextBlock Grid.Column="4" Text="{Binding Altitude}" />
-                        <TextBlock Grid.Column="5" Text="{Binding GroundSpeed}" />
+                        <TextBlock Grid.Column="5" Text="{Binding GroundSpeed}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Grid.Column="6" Text="{Binding Model}" TextTrimming="CharacterEllipsis" />
-                        <CheckBox Grid.Column="7" IsChecked="{Binding Recording}" MinHeight="0" Padding="0" AutomationProperties.Name="Record" />
+                        <CheckBox Grid.Column="7" IsChecked="{Binding Recording}" IsEnabled="{Binding CanRecord}" MinHeight="0" Padding="0" AutomationProperties.Name="Record" />
                       </Grid>
                     </Button>
 

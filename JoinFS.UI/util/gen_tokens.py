@@ -29,6 +29,7 @@ T = [
  ('SurfaceHover', 'oklch(0.98 0.002 250)'),
  ('SurfaceSelected', 'oklch(0.94 0.03 235)'),
  ('SurfaceControlHover', 'oklch(0.94 0.003 250)'),
+ ('SurfaceTracked', 'oklch(0.95 0.06 85)'),
  ('SurfaceTitleHover', 'oklch(0.9 0.005 250)'),
  ('SurfaceCloseHover', 'oklch(0.93 0.1 25)'),
  ('Scrim', 'oklch(0.2 0.01 250 / 0.45)'),

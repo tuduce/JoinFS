@@ -53,7 +53,7 @@ public sealed partial class RecorderViewModel : ObservableObject
 
         // "Aircraft to record" lists the aircraft of the Aircraft tab, with the same ticks.
         foreach (AircraftInfo a in traffic.GetAircraft())
-            LiveAircraft.Add(new RecordItemViewModel(new RecordedAircraft(a.Callsign, a.Model), recordSelection.For(a.Callsign)));
+            LiveAircraft.Add(new RecordItemViewModel(new RecordedAircraft(a.Callsign, a.Model), recordSelection.For(a.Id)));
 
         // The loaded recording's own ticks (which of its aircraft to play) are separate.
         HashSet<string> loadedTicked = ["6Knotts", "ADF320", "CarGuy86", "DiegoCuervo"];

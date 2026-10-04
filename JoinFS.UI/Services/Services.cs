@@ -90,6 +90,33 @@ public interface ISessionSource
 public interface ITrafficSource
 {
     IReadOnlyList<AircraftInfo> GetAircraft();
+
+    /// <summary>Also list the aircraft of the other public hubs (not the one you are in).</summary>
+    bool IncludeHubAircraft { get; set; }
+
+    /// <summary>Also list the AI aircraft of the local simulator.</summary>
+    bool IncludeSimulatorAircraft { get; set; }
+
+    /// <summary>True while you are in another aircraft's cockpit: Enter Cockpit then means Leave.</summary>
+    bool InCockpit { get; }
+
+    /// <summary>True while an aircraft is tracked, so Stop Tracking has something to stop.</summary>
+    bool IsTracking { get; }
+
+    void SetRecording(string aircraftId, bool recording);
+    void SetIgnored(string aircraftId, bool ignored);
+    void Follow(string aircraftId);
+
+    /// <summary>Enters the cockpit of the aircraft, or leaves the one you are in.</summary>
+    void EnterCockpit(string aircraftId);
+
+    void TrackHeading(string aircraftId);
+    void TrackBearing(string aircraftId);
+    void StopTracking();
+
+    /// <summary>Takes the weather the aircraft reports.</summary>
+    void CopyWeather(string aircraftId);
+
     IReadOnlyList<ObjectInfo> GetObjects();
 }
 
@@ -131,10 +158,7 @@ public interface IChatSource
 }
 
 public interface IRecorderSource
-{
-    /// <summary>Callsigns that are included in the recording to start with.</summary>
-    IReadOnlyCollection<string> GetRecordedCallsigns();
-    IReadOnlyList<RecordedAircraft> GetLoadedRecording();
+{    IReadOnlyList<RecordedAircraft> GetLoadedRecording();
     string LoadedRecordingName { get; }
     int LoadedRecordingSeconds { get; }
 }

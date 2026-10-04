@@ -45,6 +45,21 @@ public static class SampleData
 
     public static IReadOnlyList<AircraftInfo> Aircraft { get; } = BuildAircraft();
 
+    /// <summary>Shown when "Include All Hub Aircraft" is on: the aircraft of the other public hubs.</summary>
+    public static IReadOnlyList<AircraftInfo> HubAircraft { get; } =
+    [
+        Aircraft1("HUB-001", "Retro Flight Club", 1204.5, 90, 8500, 180, "Douglas DC-3", AircraftActions.None),
+        Aircraft1("HUB-002", "AirSherpa", 612.2, 270, 11500, 140, "Pilatus PC-6", AircraftActions.None),
+    ];
+
+    /// <summary>Shown when "Include All Simulator Aircraft" is on: the local simulator's own AI aircraft.</summary>
+    public static IReadOnlyList<AircraftInfo> SimulatorAircraft { get; } =
+    [
+        Aircraft1("AI-0001", "Sim (A)", 12.4, 45, 4000, 210, "Airbus A320neo (AI)", AircraftActions.Ignore | AircraftActions.Record),
+        Aircraft1("AI-0002", "Sim (A)", 30.1, 225, 12000, 330, "Boeing 737-800 (AI)", AircraftActions.Ignore | AircraftActions.Record),
+    ];
+
+
     public static IReadOnlyList<ObjectInfo> Objects { get; } =
     [
         new("Pastou", "Airbus H145 Red Carpet (A)", 3, 45, 390.3, true, false, false),
@@ -103,6 +118,12 @@ public static class SampleData
         "16:07:08.856 - Removed node '24943-43180-6112/200'",
     ];
 
+    private static AircraftInfo Aircraft1(string callsign, string owner, double distance, int heading, int altitude, double speed, string model, AircraftActions can) =>
+        new(callsign, callsign, owner, distance, heading, altitude, speed, model,
+            Bearing: heading, Squawk: "1200", Com1: "118.000", Com2: "121.500", Simulator: "Microsoft Flight Simulator 2024",
+            OriginalModel: ModelNames.StripVariantSuffix(model), FlightPlan: "No flight plan filed", Remarks: "None",
+            AircraftLinkState.Created, Recording: false, Ignored: false, Tracked: false, can);
+
     private static IReadOnlyList<AircraftInfo> BuildAircraft()
     {
         (string Callsign, string Owner, double Distance, int Heading, int Altitude, int Gs, string Model)[] raw =
@@ -117,15 +138,18 @@ public static class SampleData
             ("CTO75", "Nicksrun75", 458.6, 285, 1898, 172, "C208B Cargo (Cargo 01)"),
         ];
 
-        // Squawk and radio frequencies are derived from the names, exactly as the prototype does, until real data is wired in.
+        // The prototype starts with these four recorded; squawk and radio frequencies are derived from the names until real data is wired in.
+        HashSet<string> recorded = ["LV-ALB", "9H-WDR", "AAL2693", "ASXGS"];
         return raw.Select(a => new AircraftInfo(
-            a.Callsign, a.Owner, a.Distance, a.Heading, a.Altitude, a.Gs, a.Model,
+            a.Callsign, a.Callsign, a.Owner, a.Distance, a.Heading, a.Altitude, a.Gs, a.Model,
+            Bearing: a.Heading,
             Squawk: (1200 + a.Callsign.Length * 37 % 6600).ToString("0000", CultureInfo.InvariantCulture),
             Com1: (118 + a.Callsign.Length % 17 / 10.0).ToString("0.000", CultureInfo.InvariantCulture),
             Com2: (121 + a.Owner.Length % 9 / 10.0).ToString("0.000", CultureInfo.InvariantCulture),
             Simulator: "Microsoft Flight Simulator 2024",
             OriginalModel: ModelNames.StripVariantSuffix(a.Model),
             FlightPlan: a.Owner.Length > 0 ? $"{a.Callsign} — VFR, {Math.Round(a.Distance / 50)} nm route" : "No flight plan filed",
-            Remarks: "None")).ToArray();
+            Remarks: "None",
+            AircraftLinkState.Created, recorded.Contains(a.Callsign), Ignored: false, Tracked: false, AircraftActions.All)).ToArray();
     }
 }
