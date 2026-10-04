@@ -197,6 +197,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Network.Sync(_services.Network.State);
         ShowPasswordRequest();
         FollowJoinedHubLabel();
+        Hubs.SyncJoined();
 
         if (++_polls % LiveListEvery == 0)
             RefreshVisibleTab();
@@ -306,11 +307,25 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         await ConnectToAsync(hub, password: null);
     }
 
+    // True from the moment a mesh of our own was asked for until a hub is joined again: the picker's hub is not what is connected then.
+    private bool _onOwnMesh;
+
+    public string? JoinedHubName =>
+        Network.IsConnected && !_onOwnMesh ? AddressBook.TransientLabel ?? AddressBook.Selected?.Name : null;
+
+    public async Task LeaveAsync()
+    {
+        if (Network.IsConnected)
+            await Network.DisconnectAsync();
+        Hubs.SyncJoined();
+    }
+
     public async Task<string?> CreateMeshAsync()
     {
         if (Network.IsConnecting)
             return null;
 
+        _onOwnMesh = true;
         // A mesh of your own is not a hub of the directory: the picker goes back to its pick.
         ClearJoinedHubLabel();
 
@@ -324,6 +339,8 @@ public sealed partial class MainViewModel : ObservableObject, IShell
 
     private async Task ConnectToAsync(AddressBookEntry hub, string? password)
     {
+        _onOwnMesh = false;
+
         // The picker shows the hub that was joined: its entry when the address book has it, otherwise just its name as the current text.
         if (AddressBook.Select(hub.Name))
             ClearJoinedHubLabel();
@@ -334,6 +351,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         if (Network.IsConnected)
             await Network.DisconnectAsync();
         await Network.ConnectAsync();
+        Hubs.SyncJoined();
     }
 
     private void OnOverlayCloseRequested(object? sender, EventArgs e)

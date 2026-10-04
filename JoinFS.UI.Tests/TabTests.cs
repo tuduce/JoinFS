@@ -1540,6 +1540,8 @@ public sealed class NullShell : IShell
     public void GoTo(TabId tab) { }
     public void ShowOverlay(OverlayViewModel overlay) { }
     public Task JoinAsync(AddressBookEntry hub) => Task.CompletedTask;
+    public string? JoinedHubName => null;
+    public Task LeaveAsync() => Task.CompletedTask;
     public Task<string?> CreateMeshAsync() => Task.FromResult<string?>(null);
 }
 

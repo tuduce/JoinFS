@@ -71,8 +71,19 @@ public sealed partial class HubRowViewModel : ObservableObject
     [RelayCommand]
     private void ToggleExpanded() => _owner.Expand(this);
 
-    [RelayCommand(CanExecute = nameof(CanJoin))]
-    private Task JoinAsync() => _owner.JoinAsync(this);
+    /// <summary>True while the network is connected to this hub: the Join link then reads Leave.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(JoinLabel))]
+    [NotifyCanExecuteChangedFor(nameof(JoinCommand))]
+    private bool _isJoined;
+
+    public string JoinLabel => IsJoined ? "Leave" : "Join";
+
+    // Leaving is always possible, even for a hub that could not be joined (it went offline while we were in it).
+    private bool CanJoinOrLeave() => IsJoined || CanJoin;
+
+    [RelayCommand(CanExecute = nameof(CanJoinOrLeave))]
+    private Task JoinAsync() => IsJoined ? _owner.LeaveAsync() : _owner.JoinAsync(this);
 
     [RelayCommand]
     private void ToggleSave() => _owner.SetSaved(this, !IsSaved);
@@ -152,6 +163,7 @@ public sealed partial class HubsViewModel : ObservableObject
             _rowsById.Remove(gone);
 
         OnPropertyChanged(nameof(HubCount));
+        SyncJoined();
         Rebuild();
         MeshCode = _network.MeshCode;
     }
@@ -176,6 +188,16 @@ public sealed partial class HubsViewModel : ObservableObject
     {
         AddressBookEntry target = new(row.Hub.Name, row.Hub.Address, RequiresPassword: row.Hub.Status == HubStatus.Password);
         return _shell.JoinAsync(target);
+    }
+
+    internal Task LeaveAsync() => _shell.LeaveAsync();
+
+    /// <summary>Marks the row of the hub the network is connected to, so its Join link reads Leave.</summary>
+    public void SyncJoined()
+    {
+        string? joined = _shell.JoinedHubName;
+        foreach (HubRowViewModel row in _rowsById.Values)
+            row.IsJoined = joined is not null && string.Equals(row.Name, joined, StringComparison.OrdinalIgnoreCase);
     }
 
     internal void SetSaved(HubRowViewModel row, bool saved)

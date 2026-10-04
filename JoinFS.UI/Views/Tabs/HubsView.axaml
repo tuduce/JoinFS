@@ -56,7 +56,7 @@
                       <StackPanel Grid.Column="2" Spacing="10">
                         <TextBlock Classes="caps" Text="ACTIONS" />
                         <StackPanel Orientation="Horizontal" Spacing="16">
-                          <Button Classes="link positive" Command="{Binding JoinCommand}" Content="Join" />
+                          <Button Classes="link positive" Command="{Binding JoinCommand}" Content="{Binding JoinLabel}" />
                           <Button Classes="link" Command="{Binding ToggleSaveCommand}" Content="{Binding SaveLabel}" />
                           <Button Classes="link" Command="{Binding ToggleIgnoreCommand}" Content="{Binding IgnoreLabel}" />
                         </StackPanel>
