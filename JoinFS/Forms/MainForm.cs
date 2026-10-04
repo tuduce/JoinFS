@@ -513,14 +513,14 @@ namespace JoinFS
                 if (Settings.Default.ShortcutRecord && CombinationPressed(control, shift, alt, recordShortcut))
                 {
                     // start recording
-                    main.recorderForm?.Button_Record_Click(null, EventArgs.Empty);
+                    main.recorderForm?.Hotkey_Record();
                 }
 
                 // check if overdub key pressed
                 if (Settings.Default.ShortcutOverdub && CombinationPressed(control, shift, alt, overdubShortcut))
                 {
                     // start overdub
-                    main.recorderForm?.Button_Overdub_Click(null, EventArgs.Empty);
+                    main.recorderForm?.Hotkey_Overdub();
                 }
 
                 // check if stop key pressed
@@ -1085,9 +1085,49 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Check if there is an unsaved recording
+        /// Write an unsaved recording to the documents folder without asking, so starting a new
+        /// recording (also by hotkey, e.g. in VR) never needs a dialog. Returns false if the
+        /// recording couldn't be saved and must be kept
         /// </summary>
-        public void CheckRecording()
+        public bool AutoSaveRecording()
+        {
+            if (unsaved == false || main.recorder.Empty)
+            {
+                return true;
+            }
+
+            // copy on the sim thread, which owns the recording
+            List<Recorder.Obj> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
+            if (objects == null)
+            {
+                return ReportAutoSaveFailure("the simulator thread did not respond");
+            }
+
+            try
+            {
+                string path = main.recorder.AutoSave(main.documentsPath, objects, DateTime.Now);
+                main.MonitorEvent("Recorder: auto-saved the previous recording to '" + path + "'.");
+                unsaved = false;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return ReportAutoSaveFailure(ex.Message);
+            }
+        }
+
+        bool ReportAutoSaveFailure(string reason)
+        {
+            string message = "ERROR - Previous recording not saved (" + reason + "), so no new recording was started.";
+            main.MonitorEvent(message);
+            MessageBox.Show(message, Main.Name + ": " + Resources.Strings.RecorderStr);
+            return false;
+        }
+
+        /// <summary>
+        /// Ask whether to save an unsaved recording (when closing)
+        /// </summary>
+        public void PromptSaveRecording()
         {
             // check if recording is unsaved
             if (unsaved)
@@ -1174,7 +1214,7 @@ namespace JoinFS
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             // leave network
-            CheckRecording();
+            PromptSaveRecording();
 
             base.OnFormClosed(e);
         }
