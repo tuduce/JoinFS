@@ -36,8 +36,17 @@ public abstract partial class OverlayViewModel : ObservableObject
 
     public event EventHandler? CloseRequested;
 
+    /// <summary>Called as the overlay closes, whichever way it was closed (✕, Cancel, Escape or its own OK).</summary>
+    protected virtual void OnClosing()
+    {
+    }
+
     [RelayCommand]
-    public void Close() => CloseRequested?.Invoke(this, EventArgs.Empty);
+    public void Close()
+    {
+        OnClosing();
+        CloseRequested?.Invoke(this, EventArgs.Empty);
+    }
 }
 
 /// <summary>One sidebar row.</summary>

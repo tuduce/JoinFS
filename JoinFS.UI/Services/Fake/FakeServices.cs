@@ -31,12 +31,24 @@ public static class FakeServices
 
 public sealed class FakeSimulatorLink(TimeSpan latency) : ISimulatorLink
 {
+    public bool ReportsState => false;
+    public ConnectionState State => ConnectionState.Disconnected;
+    public void Poll() { }
+
     public Task ConnectAsync(CancellationToken cancellationToken) => Task.Delay(latency, cancellationToken);
     public Task DisconnectAsync() => Task.CompletedTask;
 }
 
 public sealed class FakeNetworkLink(TimeSpan latency) : INetworkLink
 {
+    public bool ReportsState => false;
+    public ConnectionState State => ConnectionState.Disconnected;
+    public void Poll() { }
+
+    public string? PasswordRequestedBy => null;
+    public void SubmitPassword(string password) { }
+    public void CancelPasswordRequest() { }
+
     public string MeshCode { get; private set; } = "40383 51901";
 
     public Task JoinAsync(AddressBookEntry hub, string? password, CancellationToken cancellationToken) => Task.Delay(latency, cancellationToken);

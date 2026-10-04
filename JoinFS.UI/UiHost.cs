@@ -13,6 +13,7 @@ public static class UiHost
 {
     private static Func<IPlatform, AppServices>? _servicesFactory;
     private static string[] _args = [];
+    private static Action<string>? _log;
 
     /// <summary>The window's platform services (clipboard, file pickers, browser). Give it to the adapters that need one.</summary>
     public static IPlatform Platform { get; } = new AvaloniaPlatform(() => MainWindowOrNull);
@@ -20,6 +21,9 @@ public static class UiHost
     internal static Window? MainWindowOrNull { get; set; }
 
     internal static string[] Args => _args;
+
+    /// <summary>Something went wrong that the UI itself cannot show. Goes to the host's log, or nowhere.</summary>
+    internal static void Log(string message) => _log?.Invoke(message);
 
     internal static AppServices CreateServices()
     {
@@ -33,9 +37,11 @@ public static class UiHost
     }
 
     /// <param name="servicesFactory">Builds the services, given the window's platform services.</param>
-    public static void Run(Func<IPlatform, AppServices> servicesFactory, string[] args)
+    /// <param name="log">Where to report a failure the UI cannot show, such as a poll that threw.</param>
+    public static void Run(Func<IPlatform, AppServices> servicesFactory, string[] args, Action<string>? log = null)
     {
         _servicesFactory = servicesFactory;
+        _log = log;
         Start(args);
     }
 

@@ -6,14 +6,41 @@ namespace JoinFS.UI.Services;
 // (Sim goes through ISimSink/ISimView, the network through Network.Snapshot and its mailbox; see CLAUDE.md "Threads").
 // Nothing here may touch Main, a form or Settings directly.
 
-public interface ISimulatorLink
+/// <summary>
+/// What the Simulator and Network buttons need in common. A link that <see cref="ReportsState"/> is the live app: its
+/// <see cref="State"/> is the truth and changes by itself (the sim drops, the session is lost), so the UI only asks for a change and
+/// then shows what <see cref="State"/> says. A link that does not is a fake that does exactly what it is asked.
+/// </summary>
+public interface IConnectionLink
+{
+    bool ReportsState { get; }
+
+    ConnectionState State { get; }
+
+    /// <summary>Housekeeping the live app needs, called from the UI thread before <see cref="State"/> is read (every poll).</summary>
+    void Poll();
+}
+
+public interface ISimulatorLink : IConnectionLink
 {
     Task ConnectAsync(CancellationToken cancellationToken);
     Task DisconnectAsync();
 }
 
-public interface INetworkLink
+public interface INetworkLink : IConnectionLink
 {
+    /// <summary>
+    /// The hub (or session) that is waiting for a password, or null. Joining a protected session is a conversation: the
+    /// join goes out, the session answers "password required", and only then is a password asked for.
+    /// </summary>
+    string? PasswordRequestedBy { get; }
+
+    /// <summary>Answers <see cref="PasswordRequestedBy"/>: joins again with this password.</summary>
+    void SubmitPassword(string password);
+
+    /// <summary>Gives up on <see cref="PasswordRequestedBy"/>.</summary>
+    void CancelPasswordRequest();
+
     /// <summary>The code others use to join this node's mesh. Shown on the Network Hubs tab.</summary>
     string MeshCode { get; }
 

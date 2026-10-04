@@ -40,15 +40,24 @@ public sealed partial class OnboardingViewModel : OverlayViewModel
     }
 }
 
-/// <summary>Asks for a hub's password; <c>onConfirm</c> continues the join.</summary>
+/// <summary>Asks for a hub's password; <c>onConfirm</c> continues the join, <c>onCancel</c> hears that it was given up.</summary>
 public sealed partial class PasswordPromptViewModel : OverlayViewModel
 {
     private readonly Func<string, Task> _onConfirm;
+    private readonly Action? _onCancel;
+    private bool _confirmed;
 
-    public PasswordPromptViewModel(string hubName, Func<string, Task> onConfirm)
+    public PasswordPromptViewModel(string hubName, Func<string, Task> onConfirm, Action? onCancel = null)
     {
         HubName = hubName;
         _onConfirm = onConfirm;
+        _onCancel = onCancel;
+    }
+
+    protected override void OnClosing()
+    {
+        if (!_confirmed)
+            _onCancel?.Invoke();
     }
 
     public override string Title => "Password Required";
@@ -62,6 +71,7 @@ public sealed partial class PasswordPromptViewModel : OverlayViewModel
     [RelayCommand]
     private async Task ConfirmAsync()
     {
+        _confirmed = true;
         Close();
         await _onConfirm(Password);
     }
