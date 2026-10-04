@@ -21,6 +21,7 @@ namespace JoinFS.Live
                 Network = new LiveNetworkLink(main),
                 Session = new LiveSessionSource(main),
                 Traffic = new LiveTrafficSource(main),
+                Hubs = new LiveHubDirectory(main),
                 App = new LiveAppInfo(),
                 Settings = new LiveSettingsStore(main),
                 AddressBook = new LiveAddressBookStore(main),

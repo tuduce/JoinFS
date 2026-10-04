@@ -96,15 +96,6 @@ public sealed partial class AddressBookViewModel : ObservableObject
         Persist();
     }
 
-    /// <summary>Adds a hub from the Network Hubs tab. Does nothing if a hub with that name is already there.</summary>
-    public void AddHub(HubInfo hub)
-    {
-        if (Entries.Any(r => r.Name == hub.Name))
-            return;
-        Entries.Add(new AddressBookRow(new AddressBookEntry(hub.Name, hub.Address, RequiresPassword: hub.Status == HubStatus.Password), Remove));
-        Persist();
-    }
-
     public bool Select(string name)
     {
         AddressBookRow? row = Entries.FirstOrDefault(r => r.Name == name);

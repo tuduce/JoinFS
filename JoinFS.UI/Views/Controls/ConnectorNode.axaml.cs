@@ -44,6 +44,9 @@ public partial class ConnectorNode : UserControl
         else if (change.Property == TitleProperty)
             TitleText.Text = Title;
         else if (change.Property == ButtonTipProperty)
+        {
             ToolTip.SetTip(NodeButton, ButtonTip);
+            Avalonia.Automation.AutomationProperties.SetName(NodeButton, ButtonTip);
+        }
     }
 }

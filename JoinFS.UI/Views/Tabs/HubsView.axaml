@@ -57,7 +57,7 @@
                         <TextBlock Classes="caps" Text="ACTIONS" />
                         <StackPanel Orientation="Horizontal" Spacing="16">
                           <Button Classes="link positive" Command="{Binding JoinCommand}" Content="Join" />
-                          <Button Classes="link" Command="{Binding AddToAddressBookCommand}" Content="Add to Address Book" />
+                          <Button Classes="link" Command="{Binding ToggleSaveCommand}" Content="{Binding SaveLabel}" />
                           <Button Classes="link" Command="{Binding ToggleIgnoreCommand}" Content="{Binding IgnoreLabel}" />
                         </StackPanel>
                       </StackPanel>

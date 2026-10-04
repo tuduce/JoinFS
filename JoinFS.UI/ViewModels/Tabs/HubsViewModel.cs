@@ -6,18 +6,24 @@ using JoinFS.UI.Services;
 
 namespace JoinFS.UI.ViewModels.Tabs;
 
+/// <summary>
+/// One hub in the Network Hubs table. The row lives as long as the hub is listed and is updated in place on each refresh, so an open row
+/// survives it. Ignoring and saving go straight to the service.
+/// </summary>
 public sealed partial class HubRowViewModel : ObservableObject
 {
     private readonly HubsViewModel _owner;
 
-    internal HubRowViewModel(HubInfo hub, HubsViewModel owner, bool isIgnored)
+    internal HubRowViewModel(HubInfo hub, HubsViewModel owner)
     {
         Hub = hub;
         _owner = owner;
-        _isIgnored = isIgnored;
+        _isIgnored = hub.Ignored;
+        _isSaved = hub.Saved;
     }
 
-    public HubInfo Hub { get; }
+    public HubInfo Hub { get; private set; }
+    public string Id => Hub.Id;
     public string Name => Hub.Name;
     public string Status => Hub.Status.ToString();
     public int Users => Hub.Users;
@@ -33,6 +39,11 @@ public sealed partial class HubRowViewModel : ObservableObject
     public bool IsPassword => Hub.Status == HubStatus.Password;
     public bool IsOffline => Hub.Status == HubStatus.Offline;
 
+    /// <summary>False for an offline hub, and for this node's own hub (in hub mode), which has no address to join.</summary>
+    public bool CanJoin => Hub.CanJoin;
+
+    public bool CanIgnore => Hub.CanIgnore;
+
     [ObservableProperty]
     private bool _isExpanded;
 
@@ -42,39 +53,49 @@ public sealed partial class HubRowViewModel : ObservableObject
 
     public string IgnoreLabel => IsIgnored ? "Unignore" : "Ignore";
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SaveLabel))]
+    private bool _isSaved;
+
+    public string SaveLabel => IsSaved ? "Remove From Address Book" : "Add to Address Book";
+
+    /// <summary>Takes a newer reading of the same hub.</summary>
+    internal void Update(HubInfo hub)
+    {
+        Hub = hub;
+        OnPropertyChanged(string.Empty); // every display property may have changed
+        IsIgnored = hub.Ignored;
+        IsSaved = hub.Saved;
+    }
+
     [RelayCommand]
     private void ToggleExpanded() => _owner.Expand(this);
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanJoin))]
     private Task JoinAsync() => _owner.JoinAsync(this);
 
     [RelayCommand]
-    private void AddToAddressBook() => _owner.AddToAddressBook(this);
+    private void ToggleSave() => _owner.SetSaved(this, !IsSaved);
 
-    [RelayCommand]
-    private void ToggleIgnore() => IsIgnored = !IsIgnored;
+    [RelayCommand(CanExecute = nameof(CanIgnore))]
+    private void ToggleIgnore() => _owner.SetIgnored(this, !IsIgnored);
 }
 
-/// <summary>Network Hubs tab: the public hub directory, plus "create your own mesh".</summary>
+/// <summary>Network Hubs tab: the hub directory, plus "create your own mesh".</summary>
 public sealed partial class HubsViewModel : ObservableObject
 {
     private readonly IHubDirectory _directory;
     private readonly INetworkLink _network;
-    private readonly AddressBookViewModel _addressBook;
     private readonly IShell _shell;
     private readonly SortController<HubRowViewModel> _sort;
-    private readonly Dictionary<string, HubRowViewModel> _rowsByName = [];
-    private readonly HashSet<string> _ignoredAtStart;
-    private List<HubInfo> _hubs = [];
+    private readonly Dictionary<string, HubRowViewModel> _rowsById = [];
+    private List<HubRowViewModel> _all = [];
 
-    /// <param name="ignoredHubs">Hubs struck through from the start. The prototype ignores NoiseAbatement Hub.</param>
-    public HubsViewModel(IHubDirectory directory, INetworkLink network, AddressBookViewModel addressBook, IShell shell, IEnumerable<string>? ignoredHubs = null)
+    public HubsViewModel(IHubDirectory directory, INetworkLink network, IShell shell)
     {
         _directory = directory;
         _network = network;
-        _addressBook = addressBook;
         _shell = shell;
-        _ignoredAtStart = [.. ignoredHubs ?? []];
         _meshCode = network.MeshCode;
 
         _sort = new SortController<HubRowViewModel>(Rebuild, initialKey: "name");
@@ -83,7 +104,12 @@ public sealed partial class HubsViewModel : ObservableObject
         UsersColumn = _sort.Add("users", "Users", r => r.Users);
         AircraftColumn = _sort.Add("aircraft", "Aircraft", r => r.Aircraft);
         VersionColumn = _sort.Add("version", "Version", r => r.Version);
+
+        Refresh();
     }
+
+    /// <summary>Raised after Add to / Remove From Address Book changed the book, so whoever shows it can read it again.</summary>
+    public event EventHandler? AddressBookChanged;
 
     public SortColumn NameColumn { get; }
     public SortColumn StatusColumn { get; }
@@ -95,7 +121,7 @@ public sealed partial class HubsViewModel : ObservableObject
     public ObservableCollection<HubRowViewModel> Rows { get; } = [];
 
     /// <summary>The "(53)" after "Public Hubs": every hub the directory knows, whether or not it is shown.</summary>
-    public int HubCount => _hubs.Count;
+    public int HubCount => _all.Count;
 
     [ObservableProperty]
     private bool _showOfflineHubs;
@@ -105,21 +131,30 @@ public sealed partial class HubsViewModel : ObservableObject
     [ObservableProperty]
     private string _meshCode;
 
-    public async Task RefreshAsync()
+    /// <summary>Reads the directory again. Rows of hubs still there are updated in place; new hubs get a row, hubs gone lose theirs.</summary>
+    [RelayCommand]
+    public void Refresh()
     {
-        _hubs = [.. await _directory.GetPublicHubsAsync(CancellationToken.None)];
+        _all = [];
+        HashSet<string> seen = [];
+        foreach (HubInfo hub in _directory.GetHubs())
+        {
+            if (!seen.Add(hub.Id))
+                continue; // an id names one hub; a repeat is a fault in the source and would break the list
+            if (_rowsById.TryGetValue(hub.Id, out HubRowViewModel? row))
+                row.Update(hub);
+            else
+                _rowsById[hub.Id] = row = new HubRowViewModel(hub, this);
+            _all.Add(row);
+        }
 
-        // Rows outlive a refresh, so what the user did (expanded, ignored) survives it.
-        foreach (HubInfo hub in _hubs)
-            if (!_rowsByName.ContainsKey(hub.Name))
-                _rowsByName[hub.Name] = new HubRowViewModel(hub, this, _ignoredAtStart.Contains(hub.Name));
+        foreach (string gone in _rowsById.Keys.Except(seen).ToList())
+            _rowsById.Remove(gone);
 
         OnPropertyChanged(nameof(HubCount));
         Rebuild();
+        MeshCode = _network.MeshCode;
     }
-
-    [RelayCommand]
-    private Task Refresh() => RefreshAsync();
 
     [RelayCommand]
     private async Task CreateMeshAsync()
@@ -132,7 +167,7 @@ public sealed partial class HubsViewModel : ObservableObject
     internal void Expand(HubRowViewModel row)
     {
         bool open = !row.IsExpanded;
-        foreach (HubRowViewModel other in _rowsByName.Values)
+        foreach (HubRowViewModel other in _rowsById.Values)
             other.IsExpanded = false;
         row.IsExpanded = open;
     }
@@ -143,16 +178,22 @@ public sealed partial class HubsViewModel : ObservableObject
         return _shell.JoinAsync(target);
     }
 
-    internal void AddToAddressBook(HubRowViewModel row) => _addressBook.AddHub(row.Hub);
+    internal void SetSaved(HubRowViewModel row, bool saved)
+    {
+        _directory.SetSaved(row.Id, saved);
+        row.IsSaved = saved;
+        AddressBookChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    internal void SetIgnored(HubRowViewModel row, bool ignored)
+    {
+        _directory.SetIgnored(row.Id, ignored);
+        row.IsIgnored = ignored;
+    }
 
     private void Rebuild()
     {
-        IEnumerable<HubRowViewModel> visible = _hubs
-            .Select(h => _rowsByName[h.Name])
-            .Where(r => ShowOfflineHubs || r.Hub.Status != HubStatus.Offline);
-
-        Rows.Clear();
-        foreach (HubRowViewModel row in _sort.Apply(visible))
-            Rows.Add(row);
+        IEnumerable<HubRowViewModel> visible = _all.Where(r => ShowOfflineHubs || r.Hub.Status != HubStatus.Offline);
+        CollectionSync.Reconcile(Rows, [.. _sort.Apply(visible)]);
     }
 }

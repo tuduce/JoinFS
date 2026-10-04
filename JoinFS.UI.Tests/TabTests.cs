@@ -66,20 +66,101 @@ public class HubsTests
     }
 
     [Fact]
-    public async Task Add_to_address_book_adds_the_hub_once_with_its_real_address()
+    public void The_directory_is_loaded_as_soon_as_the_app_starts()
     {
-        Rig rig = await Rig.WithHubsAsync();
-        HubRowViewModel row = rig.Main.Hubs.Rows.Single(r => r.Name == "AirSherpa");
-        AddressBookViewModel book = rig.Main.AddressBook;
+        // not only after the first press of Refresh
+        Assert.NotEmpty(new Rig().Main.Hubs.Rows);
+    }
+
+    [Fact]
+    public void Add_and_remove_to_the_address_book_go_to_the_service_and_the_pickers_list_follows()
+    {
+        Rig rig = new();
         HubRowViewModel dtp = rig.Main.Hubs.Rows.Single(r => r.Name == "DigitalThemePark");
+        Assert.Equal("Add to Address Book", dtp.SaveLabel);
 
-        dtp.AddToAddressBookCommand.Execute(null);
-        dtp.AddToAddressBookCommand.Execute(null);
-        row.AddToAddressBookCommand.Execute(null); // already there
+        dtp.ToggleSaveCommand.Execute(null);
 
-        Assert.Single(book.Entries, e => e.Name == "DigitalThemePark");
-        Assert.Equal("dtp-network.com:24192", book.Entries.Single(e => e.Name == "DigitalThemePark").Address);
-        Assert.Single(book.Entries, e => e.Name == "AirSherpa");
+        Assert.True(dtp.IsSaved);
+        Assert.Equal("Remove From Address Book", dtp.SaveLabel);
+        AddressBookRow added = Assert.Single(rig.Main.AddressBook.Entries, e => e.Name == "DigitalThemePark");
+        Assert.Equal("dtp-network.com:24192", added.Address); // the hub's real address
+
+        dtp.ToggleSaveCommand.Execute(null);
+        Assert.False(dtp.IsSaved);
+        Assert.DoesNotContain(rig.Main.AddressBook.Entries, e => e.Name == "DigitalThemePark");
+    }
+
+    [Fact]
+    public void A_hub_already_in_the_address_book_shows_as_saved()
+    {
+        Rig rig = new();
+
+        Assert.True(rig.Main.Hubs.Rows.Single(r => r.Name == "AirSherpa").IsSaved);
+        Assert.False(rig.Main.Hubs.Rows.Single(r => r.Name == "DigitalThemePark").IsSaved);
+    }
+
+    [Fact]
+    public void Ignore_goes_to_the_service()
+    {
+        Rig rig = new();
+        HubRowViewModel hub = rig.Main.Hubs.Rows.Single(r => r.Name == "AirSherpa");
+
+        hub.ToggleIgnoreCommand.Execute(null);
+
+        Assert.True(hub.IsIgnored);
+        Assert.Contains(rig.Services.Hubs.GetHubs(), h => h.Id == hub.Id && h.Ignored);
+    }
+
+    [Fact]
+    public void An_offline_hub_cannot_be_joined_and_this_nodes_own_hub_cannot_be_ignored()
+    {
+        Rig rig = new();
+        rig.Main.Hubs.ShowOfflineHubs = true;
+        Assert.False(rig.Main.Hubs.Rows.Single(r => r.Status == "Offline").JoinCommand.CanExecute(null));
+
+        HubRowViewModel own = rig.Main.Hubs.Rows[0];
+        own.Update(own.Hub with { CanJoin = false, CanIgnore = false });
+        Assert.False(own.JoinCommand.CanExecute(null));
+        Assert.False(own.ToggleIgnoreCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void A_refresh_updates_hub_rows_in_place_adds_new_hubs_and_drops_the_ones_gone()
+    {
+        ScriptedHubs source = new();
+        HubsViewModel hubs = new(source, new JoinFS.UI.Services.Fake.FakeNetworkLink(TimeSpan.Zero), new NullShell());
+        HubRowViewModel a = hubs.Rows.Single();
+        a.ToggleExpandedCommand.Execute(null);
+
+        source.Hubs = [source.Hub("b"), source.Hub("a") with { Users = 40 }, source.Hub("c")];
+        hubs.Refresh();
+
+        Assert.Equal(["a", "b", "c"], hubs.Rows.Select(r => r.Id)); // the table sorts by name
+        Assert.Same(a, hubs.Rows[0]);
+        Assert.True(a.IsExpanded);
+        Assert.Equal(40, a.Users);
+        Assert.Equal(3, hubs.HubCount);
+
+        source.Hubs = [source.Hub("c")];
+        hubs.Refresh();
+        Assert.Equal(["c"], hubs.Rows.Select(r => r.Id));
+    }
+
+    [Fact]
+    public void A_poll_reads_the_directory_only_while_the_tab_is_open()
+    {
+        ScriptedHubs source = new();
+        AppServices services = JoinFS.UI.Services.Fake.FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true, Nickname = "Me" }) with { Hubs = source };
+        MainViewModel main = new(services);
+        int atStart = source.Reads;
+
+        for (int i = 0; i < 8; i++)
+            main.Poll();
+        Assert.Equal(atStart, source.Reads);
+
+        main.GoTo(TabId.Network);
+        Assert.True(source.Reads > atStart);
     }
 
     [Fact]
@@ -1548,4 +1629,26 @@ public class ScanModelsTests
 
         Assert.Null(rig.Main.Overlay);
     }
+}
+
+
+/// <summary>A hub directory the test scripts.</summary>
+public sealed class ScriptedHubs : IHubDirectory
+{
+    public List<HubInfo> Hubs { get; set; }
+    public int Reads { get; private set; }
+    public List<string> Writes { get; } = [];
+
+    public ScriptedHubs() => Hubs = [Hub("a")];
+
+    public HubInfo Hub(string id) => new(id, id, HubStatus.Online, 1, 1, "26.6.0", "", "", "", "1.2.3.4:6112");
+
+    public IReadOnlyList<HubInfo> GetHubs()
+    {
+        Reads++;
+        return Hubs;
+    }
+
+    public void SetIgnored(string hubId, bool ignored) => Writes.Add($"ignore {hubId}={ignored}");
+    public void SetSaved(string hubId, bool saved) => Writes.Add($"save {hubId}={saved}");
 }

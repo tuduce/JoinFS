@@ -7,9 +7,15 @@ public enum HubStatus { Online, Password, Offline, Global }
 /// <summary>The sidebar tabs, in sidebar order. The README's ids are home|network|session|aircraft|objects|models|flightplan|recorder|chat|log|settings.</summary>
 public enum TabId { Home, Network, Session, Aircraft, Objects, Models, FlightPlan, Recorder, Chat, Monitor, Settings }
 
+/// <param name="Id">Names the hub to the service. Opaque to the UI.</param>
+/// <param name="Ignored">The user has ignored this hub.</param>
+/// <param name="Saved">The hub is in the address book.</param>
+/// <param name="CanJoin">An online hub with an address. This node's own hub (in hub mode) has none.</param>
+/// <param name="CanIgnore">This node's own hub cannot be ignored.</param>
 public sealed record HubInfo(
-    string Name, HubStatus Status, int Users, int Aircraft, string Version,
-    string About, string Voice, string NextEvent, string Address);
+    string Id, string Name, HubStatus Status, int Users, int Aircraft, string Version,
+    string About, string Voice, string NextEvent, string Address,
+    bool Ignored = false, bool Saved = false, bool CanJoin = true, bool CanIgnore = true);
 
 /// <summary>A hub the user can pick from the strip. <see cref="BuiltIn"/> entries (the Global directory) cannot be removed.</summary>
 public sealed record AddressBookEntry(string Name, string Address, bool BuiltIn = false, bool RequiresPassword = false);

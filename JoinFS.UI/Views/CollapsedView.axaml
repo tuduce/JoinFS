@@ -24,7 +24,7 @@
                        Icon="{DynamicResource IconNetworkNode}" Title="Network" ButtonTip="Connect to hub" />
     </Grid>
 
-    <Button Classes="link" Command="{Binding ToggleExpandCommand}" HorizontalAlignment="Center" FontSize="11.5">
+    <Button Classes="link" Command="{Binding ToggleExpandCommand}" HorizontalAlignment="Center" FontSize="11.5" AutomationProperties.Name="Open full view">
       <StackPanel Orientation="Horizontal" Spacing="4">
         <TextBlock Text="Open full view" VerticalAlignment="Center" />
         <c:Icon Source="{DynamicResource IconExpand}" Width="11" Height="11" VerticalAlignment="Center" />

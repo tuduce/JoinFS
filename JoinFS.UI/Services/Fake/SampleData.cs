@@ -8,15 +8,18 @@ public static class SampleData
 {
     public static IReadOnlyList<HubInfo> Hubs { get; } =
     [
-        new("Planet FsHub", HubStatus.Online, 24, 24, "26.4.0", "The official FsHub community server for JoinFS pilots — casual flying, weekly group flights, and a friendly ATC crew.", "discord.gg/planetfshub", "Sat Oct 4, 18:00 UTC — Group flight KJFK→KBOS", "fshub.io:24192"),
-        new("AirSherpa", HubStatus.Online, 6, 6, "3.2.17", "Small mountain-flying focused hub.", "", "", "airsherpa.net:24192"),
-        new("DigitalThemePark", HubStatus.Online, 5, 5, "3.2.17", "", "teamspeak.dtp-network.com", "", "dtp-network.com:24192"),
-        new("swiss and europe", HubStatus.Global, 4, 4, "3.2.17", "Regional hub covering Swiss and European routes.", "", "Sun Oct 12, 17:00 UTC — Alps VFR tour", "85.195.0.14:24192"),
-        new("Flight Unlimited Network", HubStatus.Online, 0, 0, "26.4.0", "", "", "", "flightunlimited.net:24192"),
-        new("Aidan's Hub", HubStatus.Password, 0, 0, "26.5.0", "Private hub, invite only.", "", "", "aidan-hub.net:24192"),
-        new("Retro Flight Club", HubStatus.Offline, 0, 0, "26.3.1", "Vintage aircraft community, currently offline.", "", "", "retroflight.club:24192"),
-        new("NoiseAbatement Hub", HubStatus.Online, 3, 3, "26.4.0", "Community hub focused on noise-abatement procedures around busy airports.", "", "", "noiseabatement.net:24192"),
+        Hub("Planet FsHub", HubStatus.Online, 24, 24, "26.4.0", "The official FsHub community server for JoinFS pilots — casual flying, weekly group flights, and a friendly ATC crew.", "discord.gg/planetfshub", "Sat Oct 4, 18:00 UTC — Group flight KJFK→KBOS", "fshub.io:24192"),
+        Hub("AirSherpa", HubStatus.Online, 6, 6, "3.2.17", "Small mountain-flying focused hub.", "", "", "airsherpa.net:24192"),
+        Hub("DigitalThemePark", HubStatus.Online, 5, 5, "3.2.17", "", "teamspeak.dtp-network.com", "", "dtp-network.com:24192"),
+        Hub("swiss and europe", HubStatus.Global, 4, 4, "3.2.17", "Regional hub covering Swiss and European routes.", "", "Sun Oct 12, 17:00 UTC — Alps VFR tour", "85.195.0.14:24192"),
+        Hub("Flight Unlimited Network", HubStatus.Online, 0, 0, "26.4.0", "", "", "", "flightunlimited.net:24192"),
+        Hub("Aidan's Hub", HubStatus.Password, 0, 0, "26.5.0", "Private hub, invite only.", "", "", "aidan-hub.net:24192"),
+        Hub("Retro Flight Club", HubStatus.Offline, 0, 0, "26.3.1", "Vintage aircraft community, currently offline.", "", "", "retroflight.club:24192"),
+        Hub("NoiseAbatement Hub", HubStatus.Online, 3, 3, "26.4.0", "Community hub focused on noise-abatement procedures around busy airports.", "", "", "noiseabatement.net:24192", ignored: true),
     ];
+
+    private static HubInfo Hub(string name, HubStatus status, int users, int aircraft, string version, string about, string voice, string nextEvent, string address, bool ignored = false) =>
+        new(name, name, status, users, aircraft, version, about, voice, nextEvent, address, Ignored: ignored, Saved: false, CanJoin: status != HubStatus.Offline);
 
     public static IReadOnlyList<AddressBookEntry> AddressBook { get; } =
     [
