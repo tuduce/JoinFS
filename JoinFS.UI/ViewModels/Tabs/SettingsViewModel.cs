@@ -398,22 +398,60 @@ public sealed partial class XPlaneSettingsViewModel : PersistedSettingsSectionVi
 
 public sealed partial class VariablesSettingsViewModel : SettingsSectionViewModel
 {
+    private readonly IVariablesCatalog _catalog;
+    private readonly IModelCatalog _models;
     private readonly IShell _shell;
     private readonly IPlatform _platform;
+    private readonly Dictionary<string, VariableAssignmentViewModel> _rowsByModel = [];
 
-    internal VariablesSettingsViewModel(Action<SettingsSectionViewModel> toggle, IVariablesCatalog catalog, IShell shell, IPlatform platform)
+    internal VariablesSettingsViewModel(Action<SettingsSectionViewModel> toggle, IVariablesCatalog catalog, IModelCatalog models, IShell shell, IPlatform platform)
         : base("Variables", toggle)
     {
+        _catalog = catalog;
+        _models = models;
         _shell = shell;
         _platform = platform;
-        foreach (VariableAssignment assignment in catalog.GetAssignments())
-            Assignments.Add(new VariableAssignmentViewModel(assignment, Edit));
+        Refresh();
+
+        // Opening the card reads the lists again, so it opens on what is true now.
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(IsOpen) && IsOpen)
+                Refresh();
+        };
     }
 
     public ObservableCollection<VariableAssignmentViewModel> Assignments { get; } = [];
 
-    private void Edit(VariableAssignmentViewModel row) =>
-        _shell.ShowOverlay(new VariablesOverlayViewModel(row.Model, row.Files, _platform, files => row.Files = files));
+    /// <summary>Reads the models that have variable files of their own. Rows still there are updated in place.</summary>
+    public void Refresh()
+    {
+        List<VariableAssignmentViewModel> wanted = [];
+        HashSet<string> seen = [];
+        foreach (VariableAssignment assignment in _catalog.GetAssignments())
+        {
+            if (!seen.Add(assignment.Model))
+                continue;
+            if (_rowsByModel.TryGetValue(assignment.Model, out VariableAssignmentViewModel? row))
+                row.Files = assignment.Files;
+            else
+                _rowsByModel[assignment.Model] = row = new VariableAssignmentViewModel(assignment, Edit);
+            wanted.Add(row);
+        }
+
+        foreach (string gone in _rowsByModel.Keys.Except(seen).ToList())
+            _rowsByModel.Remove(gone);
+
+        CollectionSync.Reconcile(Assignments, wanted);
+    }
+
+    private void Edit(VariableAssignmentViewModel row)
+    {
+        VariablesOverlayViewModel overlay = new(row.Model, _catalog, _models, _platform);
+        // What the overlay changed shows in the list as soon as it is closed.
+        overlay.CloseRequested += (_, _) => Refresh();
+        _shell.ShowOverlay(overlay);
+    }
 }
 
 public sealed partial class VariableAssignmentViewModel : ObservableObject
@@ -443,7 +481,7 @@ public sealed partial class VariableAssignmentViewModel : ObservableObject
 public sealed class SettingsViewModel : ObservableObject
 {
     /// <param name="isXPlaneBuild">Only the XPLANE build has the X-Plane card.</param>
-    public SettingsViewModel(ProfileViewModel profile, AddressBookViewModel addressBook, IPreferencesStore preferences, IVariablesCatalog variables, IXPlanePluginInstaller xplaneInstaller, IXPlaneScanSource xplaneScan,
+    public SettingsViewModel(ProfileViewModel profile, AddressBookViewModel addressBook, IPreferencesStore preferences, IVariablesCatalog variables, IModelCatalog models, IXPlanePluginInstaller xplaneInstaller, IXPlaneScanSource xplaneScan,
         IShell shell, IPlatform platform, Func<bool> isSimulatorConnected, bool isXPlaneBuild)
     {
         PreferencesSession session = new(preferences);
@@ -454,7 +492,7 @@ public sealed class SettingsViewModel : ObservableObject
         AddressBook = new AddressBookSettingsViewModel(Toggle, addressBook);
         XPlane = new XPlaneSettingsViewModel(Toggle, session, shell, xplaneInstaller, platform);
         IsXPlaneBuild = isXPlaneBuild;
-        Variables = new VariablesSettingsViewModel(Toggle, variables, shell, platform);
+        Variables = new VariablesSettingsViewModel(Toggle, variables, models, shell, platform);
 
         Sections = isXPlaneBuild
             ? [Simulator, UserInterface, Network, HubMode, AddressBook, XPlane, Variables]

@@ -189,6 +189,22 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// The models that have a list of their own: those not using the default of their kind (sim thread)
+        /// </summary>
+        public List<(string model, List<string> files)> GetAssignments()
+        {
+            List<(string model, List<string> files)> list = [];
+            foreach (var model in files)
+            {
+                if (UsingDefault(model.Key) == false)
+                {
+                    list.Add((model.Key, [.. model.Value]));
+                }
+            }
+            return list;
+        }
+
+        /// <summary>
         /// Get list of variables for a particular model
         /// </summary>
         /// <param name="title"></param>

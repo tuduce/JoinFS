@@ -157,6 +157,9 @@ public interface ITrafficSource
 
     /// <summary>Sets the adjustment of the model the aircraft shows, and keeps it. Zero turns it off.</summary>
     void SetHeightAdjustment(string aircraftId, int centimetres);
+
+    /// <summary>The title of the model the aircraft shows, which its variable files are kept for. Null when the aircraft is gone.</summary>
+    string? GetVariablesModel(string aircraftId);
 }
 
 /// <summary>
@@ -179,6 +182,12 @@ public interface IModelCatalog
     /// <summary>The model of this type and variation as it is shown once chosen, or empty when there is none.</summary>
     string GetReplacement(string type, string variation);
 
+    /// <summary>The title of the model of this type and variation, or empty when there is none.</summary>
+    string GetTitle(string type, string variation);
+
+    /// <summary>The type and variation of the model with this title, or null when the simulator has no such model.</summary>
+    ModelChoice? FindChoice(string title);
+
     /// <summary>What stands in for the model now, to start the picker on. Null when nothing is known.</summary>
     Task<ModelChoice?> GetCurrentAsync(ModelTarget target);
 
@@ -195,9 +204,34 @@ public interface IModelCatalog
     void WriteDebugBundle(string zipPath, string report);
 }
 
+/// <summary>
+/// The variable files of each model: lists of files of simulator variables that the models use. A model has a list of its own,
+/// or else the default of its kind. They take effect when the simulator is connected again.
+/// </summary>
 public interface IVariablesCatalog
 {
+    /// <summary>The models that have a list of their own, with it.</summary>
     IReadOnlyList<VariableAssignment> GetAssignments();
+
+    /// <summary>False for X-Plane, where the model is the one given and cannot be picked.</summary>
+    bool CanPickModel { get; }
+
+    /// <summary>The folder the variable files are in. They are named relative to it.</summary>
+    string FilesFolder { get; }
+
+    /// <summary>The files of a model: its own list, or the default of its kind. Empty while the simulator is not connected.</summary>
+    IReadOnlyList<string> GetFiles(string model);
+
+    /// <summary>Adds files, named relative to <see cref="FilesFolder"/>, to the model's list. The model has a list of its own from then on.</summary>
+    void AddFiles(string model, IReadOnlyList<string> files);
+
+    void RemoveFile(string model, int index);
+
+    /// <summary>One of the default files, which JoinFS provides and the user does not edit.</summary>
+    bool IsBuiltIn(string file);
+
+    /// <summary>Makes the changes take effect: the simulator is connected again.</summary>
+    void Apply();
 }
 
 /// <summary>The flight plan filed for the simulator's user aircraft.</summary>
@@ -375,7 +409,11 @@ public interface IPlatform
 {
     Task CopyTextAsync(string text);
     void OpenUrl(string url);
-    Task<string?> PickOpenFileAsync(string title);
+
+    /// <summary>Opens a file of the user's in the program that goes with it. Unlike <see cref="OpenUrl"/>, which is for web links only.</summary>
+    Task OpenFileAsync(string path);
+
+    Task<string?> PickOpenFileAsync(string title, string? startFolder = null);
     Task<string?> PickSaveFileAsync(string title, string suggestedName);
     Task<string?> PickFolderAsync(string title);
 }

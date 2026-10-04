@@ -290,7 +290,7 @@ namespace JoinFS.Live
             Same(view.TrackHeadingObject, aircraft) || Same(view.TrackBearingObject, aircraft);
 
         /// <summary>
-        /// What the old context menu enabled for this aircraft. Variables is left off until that is live.
+        /// What the old context menu enabled for this aircraft. The old "Flight Plan..." item is the Flight Plan tab now.
         /// </summary>
         static AircraftActions Can(Sim.Aircraft aircraft, SimSnapshot view)
         {
@@ -302,6 +302,9 @@ namespace JoinFS.Live
                 can |= AircraftActions.Record;
             }
 
+            // the new list's own link: the plan filed for the aircraft, as one line, onto the clipboard
+            can |= AircraftActions.FlightPlan;
+
             if (view.Connected)
             {
                 // a model can only be replaced by one the simulator has
@@ -312,6 +315,9 @@ namespace JoinFS.Live
                 {
                     can |= AircraftActions.ExplainMatch;
                 }
+
+                // any aircraft has the variable files of its model
+                can |= AircraftActions.Variables;
 
                 // only an aircraft JoinFS creates, with a model standing in for its owner's, has a height to adjust
                 if (aircraft.Injected && aircraft.subModel != null)
@@ -389,6 +395,8 @@ namespace JoinFS.Live
             }
             return null;
         }
+
+        public string GetVariablesModel(string aircraftId) => Find(aircraftId)?.ModelTitle;
 
         public HeightAdjustment GetHeightAdjustment(string aircraftId)
         {

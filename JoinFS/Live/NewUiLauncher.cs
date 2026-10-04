@@ -32,6 +32,7 @@ namespace JoinFS.Live
                 Updates = new LiveUpdateChecker(main),
                 Preferences = new LivePreferencesStore(main),
                 Models = new LiveModelCatalog(main),
+                Variables = new LiveVariablesCatalog(main),
             }, [], main.MonitorEvent);
         }
     }
