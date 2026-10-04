@@ -7,41 +7,32 @@ using JoinFS.UI.Services;
 namespace JoinFS.UI.ViewModels.Overlays;
 
 /// <summary>
-/// "Substitution": picks the model that stands in for <see cref="Original"/>. The replacement is shown as
-/// <c>type [+] variation</c>. Shared by the Aircraft, Objects and Model Matching tabs.
+/// Picks a model the way the old dialogs did: filter words narrow the types, a type has variations, and the two together name a model.
+/// Shared by Substitute and Variables.
 /// </summary>
-public sealed partial class SubstituteViewModel : OverlayViewModel
+public sealed partial class ModelPickerViewModel : ObservableObject
 {
-    public const string VariationSeparator = " [+] ";
+    private readonly IModelCatalog _catalog;
+    private bool _loading = true;
 
-    private readonly ProfileViewModel _profile;
-    private readonly List<string> _allTypes;
-
-    public SubstituteViewModel(string original, string currentSubstitute, IModelCatalog catalog, ProfileViewModel profile)
+    /// <param name="start">What to start on. It stays pickable even when the filter would leave it out.</param>
+    public ModelPickerViewModel(IModelCatalog catalog, ModelChoice? start = null)
     {
-        Original = original;
-        _profile = profile;
+        _catalog = catalog;
 
-        (string currentType, string currentVariation) = ParseSubstitute(currentSubstitute);
+        List<string> types = [.. catalog.GetTypes("")];
+        if (start is not null && !types.Contains(start.Type))
+            types.Insert(0, start.Type);
+        foreach (string type in types)
+            Types.Add(type);
 
-        // The current type may not be in the catalogue (the original model itself, say); keep it selectable.
-        _allTypes = [.. catalog.GetTypes()];
-        if (!_allTypes.Contains(currentType))
-            _allTypes.Insert(0, currentType);
-
-        List<string> variations = [.. catalog.GetVariations()];
-        if (!variations.Contains(currentVariation))
-            variations.Insert(0, currentVariation);
-        foreach (string variation in variations)
-            Variations.Add(variation);
-
-        RebuildTypes(currentType);
-        SelectedVariation = currentVariation;
+        _selectedType = start?.Type ?? types.FirstOrDefault();
+        FillVariations(start?.Variation);
+        _loading = false;
     }
 
-    public override string Title => "Substitution";
-
-    public string Original { get; }
+    /// <summary>False until the simulator's models are known: there is nothing to pick from.</summary>
+    public bool HasModels => _catalog.HasModels;
 
     /// <summary>Optional. Narrows the type list to the entries containing every word.</summary>
     [ObservableProperty]
@@ -51,48 +42,90 @@ public sealed partial class SubstituteViewModel : OverlayViewModel
     public ObservableCollection<string> Variations { get; } = [];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Preview))]
+    [NotifyPropertyChangedFor(nameof(Replacement), nameof(Choice))]
     private string? _selectedType;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Preview))]
+    [NotifyPropertyChangedFor(nameof(Replacement), nameof(Choice))]
     private string? _selectedVariation;
 
-    /// <summary>The replacement as it will be saved.</summary>
-    public string Preview => $"{SelectedType}{VariationSeparator}{SelectedVariation}";
+    /// <summary>The model chosen, as it is shown; empty when nothing is chosen.</summary>
+    public string Replacement =>
+        Choice is { } choice ? _catalog.GetReplacement(choice.Type, choice.Variation) : "";
 
-    partial void OnFilterWordsChanged(string value) => RebuildTypes(SelectedType);
+    /// <summary>The type and variation picked, or null while one of them is missing.</summary>
+    public ModelChoice? Choice =>
+        SelectedType is { } type && SelectedVariation is { } variation ? new ModelChoice(type, variation) : null;
+
+    partial void OnFilterWordsChanged(string value)
+    {
+        string? keep = SelectedType;
+        Types.Clear();
+        foreach (string type in _catalog.GetTypes(value))
+            Types.Add(type);
+        SelectedType = keep is not null && Types.Contains(keep) ? keep : Types.FirstOrDefault();
+    }
+
+    partial void OnSelectedTypeChanged(string? value)
+    {
+        if (!_loading)
+            FillVariations(null);
+    }
+
+    private void FillVariations(string? keep)
+    {
+        Variations.Clear();
+        if (SelectedType is { } type)
+        {
+            foreach (string variation in _catalog.GetVariations(type))
+                Variations.Add(variation);
+        }
+        if (keep is not null && !Variations.Contains(keep))
+            Variations.Insert(0, keep);
+        SelectedVariation = keep ?? Variations.FirstOrDefault();
+    }
+}
+
+/// <summary>
+/// "Substitution": picks the model that stands in for <see cref="Original"/>. The replacement is shown as it will be saved.
+/// Shared by the Aircraft, Objects and Model Matching tabs.
+/// </summary>
+public sealed partial class SubstituteViewModel : OverlayViewModel
+{
+    public const string VariationSeparator = " [+] ";
+
+    private readonly ModelTarget _target;
+    private readonly IModelCatalog _catalog;
+
+    /// <param name="current">What stands in for the model now, to start the picker on.</param>
+    public SubstituteViewModel(ModelTarget target, ModelChoice? current, IModelCatalog catalog)
+    {
+        _target = target;
+        _catalog = catalog;
+        Picker = new ModelPickerViewModel(catalog, current);
+    }
+
+    public override string Title => "Substitution";
+
+    /// <summary>The model to be replaced, with its livery when it has one.</summary>
+    public string Original => _target.Livery.Length > 0 ? _target.Model + VariationSeparator + _target.Livery : _target.Model;
+
+    public ModelPickerViewModel Picker { get; }
 
     [RelayCommand]
     private void Save()
     {
-        _profile.SetOverride(Original, Preview);
+        if (Picker.Choice is { } choice)
+            _catalog.SetSubstitute(_target, choice.Type, choice.Variation);
         Close();
     }
 
-    /// <summary>"No substitution": the model stands in for itself.</summary>
+    /// <summary>"No substitution": the model stands for itself.</summary>
     [RelayCommand]
     private void UseOriginal()
     {
-        _profile.SetOverride(Original, Original);
+        _catalog.ClearSubstitute(_target);
         Close();
-    }
-
-    public static (string Type, string Variation) ParseSubstitute(string substitute)
-    {
-        int split = substitute.IndexOf(VariationSeparator, StringComparison.Ordinal);
-        return split < 0
-            ? (substitute, "Factory")
-            : (substitute[..split], substitute[(split + VariationSeparator.Length)..]);
-    }
-
-    private void RebuildTypes(string? keep)
-    {
-        string[] words = FilterWords.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        Types.Clear();
-        foreach (string type in _allTypes.Where(t => words.All(w => t.Contains(w, StringComparison.OrdinalIgnoreCase))))
-            Types.Add(type);
-        SelectedType = keep is not null && Types.Contains(keep) ? keep : Types.FirstOrDefault();
     }
 }
 

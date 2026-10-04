@@ -4,7 +4,7 @@ using JoinFS.UI.Services;
 namespace JoinFS.UI.ViewModels;
 
 /// <summary>
-/// What the user entered once and keeps: nickname, SimBrief username, model overrides, height adjustments.
+/// What the user entered once and keeps: nickname, SimBrief username, height adjustments.
 /// Every change is written straight back to the <see cref="ISettingsStore"/>, so "ask once, remember" holds across runs.
 /// </summary>
 public sealed partial class ProfileViewModel : ObservableObject
@@ -24,9 +24,6 @@ public sealed partial class ProfileViewModel : ObservableObject
         _generateCsl = _settings.GenerateCsl;
         _skipCsl = _settings.SkipCsl;
     }
-
-    /// <summary>Raised when an override is added, changed or removed.</summary>
-    public event EventHandler? OverridesChanged;
 
     public bool Onboarded => _settings.Onboarded;
 
@@ -109,27 +106,6 @@ public sealed partial class ProfileViewModel : ObservableObject
         _settings.Onboarded = true;
         Save();
         OnPropertyChanged(nameof(Onboarded));
-    }
-
-    /// <summary>The substitute chosen for <paramref name="original"/>, or null when none was saved.</summary>
-    public string? GetOverride(string original) => _settings.ModelOverrides.GetValueOrDefault(original);
-
-    public IReadOnlyDictionary<string, string> Overrides => _settings.ModelOverrides;
-
-    public void SetOverride(string original, string substitute)
-    {
-        _settings.ModelOverrides[original] = substitute;
-        Save();
-        OverridesChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    public void RemoveOverride(string original)
-    {
-        if (_settings.ModelOverrides.Remove(original))
-        {
-            Save();
-            OverridesChanged?.Invoke(this, EventArgs.Empty);
-        }
     }
 
     /// <summary>Per-model height offset in centimetres. Zero means off.</summary>

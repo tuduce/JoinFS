@@ -5,7 +5,7 @@ namespace JoinFS.Live
 {
     /// <summary>
     /// The user's settings, kept in the same Settings.Default the forms use, so the old and new UI see each other's changes.
-    /// What Settings does not hold yet (model overrides, height adjustments) stays in memory for now.
+    /// What Settings does not hold yet (height adjustments) stays in memory for now.
     /// </summary>
     class LiveSettingsStore : ISettingsStore
     {

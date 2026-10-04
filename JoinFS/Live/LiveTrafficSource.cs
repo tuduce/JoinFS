@@ -289,7 +289,7 @@ namespace JoinFS.Live
             Same(view.TrackHeadingObject, aircraft) || Same(view.TrackBearingObject, aircraft);
 
         /// <summary>
-        /// What the old context menu enabled for this aircraft. The substitution and flight plan items are left off until those tabs are live.
+        /// What the old context menu enabled for this aircraft. Explain Match, Variables and Adjust Height are left off until those are live.
         /// </summary>
         static AircraftActions Can(Sim.Aircraft aircraft, SimSnapshot view)
         {
@@ -299,6 +299,12 @@ namespace JoinFS.Live
             if (aircraft.owner != Sim.Obj.Owner.Recorder)
             {
                 can |= AircraftActions.Record;
+            }
+
+            // a model can only be replaced by one the simulator has
+            if (view.Connected)
+            {
+                can |= AircraftActions.Substitute;
             }
 
             // you cannot ignore yourself or the recorder, only other users and the simulator's own aircraft
@@ -326,6 +332,23 @@ namespace JoinFS.Live
         // ---- changing ----
 
         Sim.Aircraft Find(string aircraftId) => lastRead.TryGetValue(aircraftId, out Sim.Aircraft aircraft) ? aircraft : null;
+
+        public ModelTarget GetAircraftModel(string aircraftId)
+        {
+            Sim.Aircraft aircraft = Find(aircraftId);
+            if (aircraft == null || aircraft.ownerModel.Length == 0)
+            {
+                return null;
+            }
+
+            // What an injected aircraft shows is the match of its owner's model. Your own and the simulator's are not injected:
+            // changing the model of those changes what is sent for them, the masquerade.
+#if FS2024
+            return new ModelTarget(aircraft.ownerModel, aircraft.ownerLivery, aircraft.typerole, IsMasquerade: !aircraft.Injected);
+#else
+            return new ModelTarget(aircraft.ownerModel, "", aircraft.typerole, IsMasquerade: !aircraft.Injected);
+#endif
+        }
 
         public void SetRecording(string aircraftId, bool recording)
         {
@@ -574,10 +597,26 @@ namespace JoinFS.Live
 
             return new ObjectInfo(
                 id, OwnerName(obj), model, obj.ownerModel, count, bearing, distance, broadcast, ignoreNode, ignoreModel, modelBroadcast,
-                CanBroadcast: !network, CanIgnore: network, CanSubstitute: false);
+                CanBroadcast: !network, CanIgnore: network, CanSubstitute: network);
         }
 
         Sim.Obj FindObject(string objectId) => lastObjects.TryGetValue(objectId, out Sim.Obj obj) ? obj : null;
+
+        public ModelTarget GetObjectModel(string objectId)
+        {
+            Sim.Obj obj = FindObject(objectId);
+            if (obj == null || obj.ownerModel.Length == 0)
+            {
+                return null;
+            }
+
+            // objects of the network only, as the old window's button: their match is what is changed
+#if FS2024
+            return new ModelTarget(obj.ownerModel, obj.ownerLivery, obj.typerole);
+#else
+            return new ModelTarget(obj.ownerModel, "", obj.typerole);
+#endif
+        }
 
         public void SetObjectBroadcast(string objectId, bool broadcast)
         {

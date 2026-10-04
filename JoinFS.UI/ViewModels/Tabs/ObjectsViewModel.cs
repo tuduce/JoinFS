@@ -26,7 +26,7 @@ public sealed partial class ObjectRowViewModel : ObservableObject
         Info = info;
         _owner = owner;
 
-        _substitute = new("Substitute…", new RelayCommand(() => _owner.Substitute(this), () => Info.CanSubstitute));
+        _substitute = new("Substitute…", new RelayCommand(() => _ = _owner.SubstituteAsync(this), () => Info.CanSubstitute));
         _thisObject = new("", new RelayCommand(() => Broadcast = !Broadcast, () => Info.CanBroadcast && !IsGroup));
         _model = new("", new RelayCommand(() => _owner.Source.SetModelBroadcast(Info.OriginalModel, !Info.ModelBroadcast), () => Info.CanBroadcast));
         _tacpack = new("", new RelayCommand(() => _owner.Profile.BroadcastTacpack = !_owner.Profile.BroadcastTacpack));
@@ -250,13 +250,14 @@ public sealed partial class ObjectsViewModel : ObservableObject
     private void Substitute()
     {
         if (SelectedRow is not null)
-            Substitute(SelectedRow);
+            _ = SubstituteAsync(SelectedRow);
     }
 
-    internal void Substitute(ObjectRowViewModel row)
+    internal async Task SubstituteAsync(ObjectRowViewModel row)
     {
-        string original = ModelNames.StripVariantSuffix(row.Model);
-        _shell.ShowOverlay(new SubstituteViewModel(original, Profile.GetOverride(original) ?? row.Model, _catalog, Profile));
+        if (Source.GetObjectModel(row.Id) is not { } target)
+            return;
+        _shell.ShowOverlay(new SubstituteViewModel(target, await _catalog.GetCurrentAsync(target), _catalog));
     }
 
     /// <summary>Clicking a row opens it; clicking the open row closes it. At most one is open.</summary>

@@ -10,22 +10,29 @@
         <TextBlock Text="This is the model to be replaced" FontSize="12.5" FontWeight="SemiBold" />
         <Border Classes="readonly"><TextBlock Text="{Binding Original}" Foreground="{DynamicResource Text2Brush}" TextWrapping="Wrap" /></Border>
       </StackPanel>
-      <StackPanel Spacing="6">
-        <TextBlock Text="Filter words" FontSize="12.5" FontWeight="SemiBold" />
-        <TextBox Text="{Binding FilterWords}" Watermark="optional" />
+      <!-- The picker is a view model of its own, shared with Variables. -->
+      <Panel DataContext="{Binding Picker}">
+      <StackPanel Spacing="16" x:DataType="ovm:ModelPickerViewModel">
+        <TextBlock Text="No models are known yet. Scan for models first (Settings, Simulator)." FontSize="12.5" TextWrapping="Wrap"
+                   Foreground="{DynamicResource Muted2Brush}" IsVisible="{Binding !HasModels}" />
+        <StackPanel Spacing="6">
+          <TextBlock Text="Filter words" FontSize="12.5" FontWeight="SemiBold" />
+          <TextBox Text="{Binding FilterWords}" Watermark="optional" />
+        </StackPanel>
+        <StackPanel Spacing="6">
+          <TextBlock Text="Select a type" FontSize="12.5" FontWeight="SemiBold" />
+          <ComboBox ItemsSource="{Binding Types}" SelectedItem="{Binding SelectedType}" />
+        </StackPanel>
+        <StackPanel Spacing="6">
+          <TextBlock Text="Select a variation" FontSize="12.5" FontWeight="SemiBold" />
+          <ComboBox ItemsSource="{Binding Variations}" SelectedItem="{Binding SelectedVariation}" />
+        </StackPanel>
+        <StackPanel Spacing="6">
+          <TextBlock Text="This is the replacement model" FontSize="12.5" FontWeight="SemiBold" />
+          <Border Classes="readonly"><TextBlock Text="{Binding Replacement}" TextWrapping="Wrap" /></Border>
+        </StackPanel>
       </StackPanel>
-      <StackPanel Spacing="6">
-        <TextBlock Text="Select a type" FontSize="12.5" FontWeight="SemiBold" />
-        <ComboBox ItemsSource="{Binding Types}" SelectedItem="{Binding SelectedType}" />
-      </StackPanel>
-      <StackPanel Spacing="6">
-        <TextBlock Text="Select a variation" FontSize="12.5" FontWeight="SemiBold" />
-        <ComboBox ItemsSource="{Binding Variations}" SelectedItem="{Binding SelectedVariation}" />
-      </StackPanel>
-      <StackPanel Spacing="6">
-        <TextBlock Text="This is the replacement model" FontSize="12.5" FontWeight="SemiBold" />
-        <Border Classes="readonly"><TextBlock Text="{Binding Preview}" TextWrapping="Wrap" /></Border>
-      </StackPanel>
+      </Panel>
     </StackPanel>
     <c:ModalCard.Footer>
       <Grid ColumnDefinitions="Auto,*,Auto">

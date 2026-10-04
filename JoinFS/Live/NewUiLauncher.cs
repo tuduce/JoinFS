@@ -31,6 +31,7 @@ namespace JoinFS.Live
                 AddressBook = new LiveAddressBookStore(main),
                 Updates = new LiveUpdateChecker(main),
                 Preferences = new LivePreferencesStore(main),
+                Models = new LiveModelCatalog(main),
             }, [], main.MonitorEvent);
         }
     }

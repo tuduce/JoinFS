@@ -207,6 +207,18 @@ public sealed class FakeTrafficSource : ITrafficSource
         })];
     }
 
+    public ModelTarget? GetAircraftModel(string aircraftId)
+    {
+        AircraftInfo? aircraft = SampleData.Aircraft.Concat(SampleData.HubAircraft).Concat(SampleData.SimulatorAircraft).FirstOrDefault(a => a.Id == aircraftId);
+        return aircraft is null ? null : new ModelTarget(aircraft.OriginalModel);
+    }
+
+    public ModelTarget? GetObjectModel(string objectId)
+    {
+        ObjectInfo? obj = SampleData.Objects.FirstOrDefault(o => o.Id == objectId || "group:" + o.Owner + "/" + o.Model == objectId);
+        return obj is null ? null : new ModelTarget(obj.OriginalModel);
+    }
+
     public void SetObjectBroadcast(string objectId, bool broadcast) => Set(objectId, s => (broadcast, s.IgnoreOwner, s.IgnoreModel));
     public void SetIgnoreOwner(string objectId, bool ignored) => Set(objectId, s => (s.Broadcast, ignored, s.IgnoreModel));
     public void SetIgnoreModel(string objectId, bool ignored) => Set(objectId, s => (s.Broadcast, s.IgnoreOwner, ignored));
@@ -225,9 +237,44 @@ public sealed class FakeTrafficSource : ITrafficSource
 
 public sealed class FakeModelCatalog : IModelCatalog
 {
-    public IReadOnlyList<ModelRule> GetDefaultRules() => SampleData.DefaultRules;
-    public IReadOnlyList<string> GetTypes() => SampleData.ModelTypes;
-    public IReadOnlyList<string> GetVariations() => SampleData.ModelVariations;
+    private const string Separator = " [+] ";
+    private readonly List<ModelRule> _rules = [.. SampleData.DefaultRules];
+
+    public IReadOnlyList<ModelRule> GetRules() => [.. _rules];
+
+    public bool HasModels => true;
+
+    public IReadOnlyList<string> GetTypes(string filter)
+    {
+        string[] words = filter.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return [.. SampleData.ModelTypes.Where(t => words.All(w => t.Contains(w, StringComparison.OrdinalIgnoreCase)))];
+    }
+
+    public IReadOnlyList<string> GetVariations(string type) => SampleData.ModelVariations;
+
+    public string GetReplacement(string type, string variation) => $"{type}{Separator}{variation}";
+
+    public Task<ModelChoice?> GetCurrentAsync(ModelTarget target)
+    {
+        ModelRule? rule = _rules.FirstOrDefault(r => r.Original == target.Model);
+        string substitute = rule?.Substitute ?? target.Model;
+        int split = substitute.IndexOf(Separator, StringComparison.Ordinal);
+        return Task.FromResult<ModelChoice?>(split < 0
+            ? new ModelChoice(substitute, "Factory")
+            : new ModelChoice(substitute[..split], substitute[(split + Separator.Length)..]));
+    }
+
+    public void SetSubstitute(ModelTarget target, string type, string variation)
+    {
+        int at = _rules.FindIndex(r => r.Original == target.Model);
+        ModelRule rule = new(target.Model, GetReplacement(type, variation), at >= 0 && _rules[at].IsDefault);
+        if (at >= 0)
+            _rules[at] = rule;
+        else
+            _rules.Add(rule);
+    }
+
+    public void ClearSubstitute(ModelTarget target) => _rules.RemoveAll(r => r.Original == target.Model);
 
     public IReadOnlyList<ExplainRow> Explain(string model) =>
     [

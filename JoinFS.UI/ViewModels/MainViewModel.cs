@@ -36,7 +36,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         RecordSelection = new RecordSelection();
         Aircraft = new AircraftViewModel(services.Traffic, services.Models, services.Platform, Profile, RecordSelection, this);
         Objects = new ObjectsViewModel(services.Traffic, services.Models, Profile, this);
-        ModelMatching = new ModelMatchingViewModel(services.Models, Profile, this);
+        ModelMatching = new ModelMatchingViewModel(services.Models, this);
         FlightPlan = new FlightPlanViewModel(services.FlightPlan, services.SimBrief, Profile, this);
         Recorder = new RecorderViewModel(services.Recorder, services.Traffic, RecordSelection, services.Platform);
         Chat = new ChatViewModel(services.Chat);
@@ -231,6 +231,9 @@ public sealed partial class MainViewModel : ObservableObject, IShell
                 break;
             case TabId.Aircraft:
                 Aircraft.Refresh();
+                break;
+            case TabId.Models:
+                ModelMatching.Refresh();
                 break;
             case TabId.FlightPlan:
                 FlightPlan.Refresh();

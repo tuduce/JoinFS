@@ -178,7 +178,7 @@ public class RenderTests
             ("onboarding", new OnboardingViewModel(main.Profile)),
             ("password", new PasswordPromptViewModel("Aidan's Hub", _ => Task.CompletedTask)),
             ("simbrief", new SimbriefPromptViewModel(_ => Task.CompletedTask)),
-            ("substitute", new SubstituteViewModel("GC1a Swift (Factory)", "GC1a Swift (Factory)", rig.Services.Models, main.Profile)),
+            ("substitute", new SubstituteViewModel(new JoinFS.UI.Models.ModelTarget("GC1a Swift (Factory)"), new JoinFS.UI.Models.ModelChoice("GC1a Swift - factory", "Factory"), rig.Services.Models)),
             ("height", new AdjustHeightViewModel("GC1a Swift (Factory)", main.Profile)),
             ("explain", new ExplainMatchViewModel("GC1a Swift (Factory)", rig.Services.Models, rig.Platform)),
             ("variables", new VariablesOverlayViewModel("PMDG 777-200ER GE PMDG House", ["Custom_FMC_Vars", "ListBox_Sets"], rig.Platform)),
