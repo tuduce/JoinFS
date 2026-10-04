@@ -183,7 +183,8 @@ public sealed class FakeAppInfo(bool isXPlaneBuild = false) : IAppInfo
 {
     public bool IsXPlaneBuild { get; } = isXPlaneBuild;
     public string Version => "26.6.0";
-    public string SessionLabel => "JoinFS-FS2024";
+    // Says so in the title bar, so a run on the fakes cannot be mistaken for the live app.
+    public string SessionLabel => "JoinFS-FS2024 (fake data)";
     public string DocumentationUrl => "https://joinfs.net/docs";
     public string DownloadUrl => "https://joinfs.net/download";
     public string Copyright => "© 2026 JoinFS Project. All rights reserved.";
