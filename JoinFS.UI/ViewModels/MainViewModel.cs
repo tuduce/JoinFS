@@ -41,7 +41,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Recorder = new RecorderViewModel(services.Recorder, services.Traffic, RecordSelection, services.Platform);
         Chat = new ChatViewModel(services.Chat);
         Monitor = new MonitorViewModel(services.Monitor);
-        Settings = new SettingsViewModel(Profile, AddressBook, services.Variables, services.XPlanePlugin, services.XPlaneScan, this, services.Platform, () => Simulator.IsConnected, services.App.IsXPlaneBuild);
+        Settings = new SettingsViewModel(Profile, AddressBook, services.Preferences, services.Variables, services.XPlanePlugin, services.XPlaneScan, this, services.Platform, () => Simulator.IsConnected, services.App.IsXPlaneBuild);
 
         // The strip's flight-plan button fetches from SimBrief. If a username is still needed the prompt comes first and
         // the import finishes after it, so this attempt ends "not loaded" and the import itself reports back through Imported.

@@ -151,8 +151,12 @@
                 <StackPanel x:DataType="tvm:NetworkSettingsViewModel" Spacing="14">
                   <StackPanel Orientation="Horizontal" Spacing="10">
                     <CheckBox IsChecked="{Binding ChooseOwnPort}" Content="Choose my own port" VerticalAlignment="Center" />
-                    <TextBox Classes="compact mono" Width="90" Text="{Binding LocalPort}" IsEnabled="{Binding PortEnabled}" />
+                    <!-- The port is opened when it is saved, so it is saved when the box loses focus, not at every key. -->
+                    <TextBox Classes="compact mono" Width="90" Text="{Binding LocalPort, UpdateSourceTrigger=LostFocus}" IsEnabled="{Binding PortEnabled}" />
                   </StackPanel>
+                  <TextBlock Text="{Binding PortError}" IsVisible="{Binding PortError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                             Classes="label" Foreground="{DynamicResource DangerBrush}" />
+
                   <CheckBox IsChecked="{Binding JoinGlobalAtLaunch}" Content="Join global session at launch" />
                   <CheckBox IsChecked="{Binding LowBandwidth}" Content="Low bandwidth" />
                   <StackPanel Orientation="Horizontal" Spacing="16">
@@ -184,6 +188,8 @@
               <Panel DataContext="{Binding HubMode}">
                 <StackPanel x:DataType="tvm:HubModeSettingsViewModel" Spacing="12">
                   <CheckBox IsChecked="{Binding Enabled}" Content="Enable Hub Mode" />
+                  <TextBlock Text="{Binding NameError}" IsVisible="{Binding NameError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                             Classes="label" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
                   <ItemsControl ItemsSource="{Binding Fields}">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>

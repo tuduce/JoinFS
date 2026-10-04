@@ -32,7 +32,8 @@ public static class FakeServices
         Updates: new FakeUpdateChecker(),
         App: new FakeAppInfo(xplaneBuild),
         Settings: new InMemorySettingsStore(settings),
-        Platform: platform ?? new NullPlatform());
+        Platform: platform ?? new NullPlatform(),
+        Preferences: new InMemoryPreferencesStore());
 }
 
 public sealed class FakeSimulatorLink(TimeSpan latency) : ISimulatorLink
@@ -335,6 +336,22 @@ public sealed class InMemorySettingsStore(UserSettings? initial = null) : ISetti
 
     public UserSettings Load() => _settings;
     public void Save(UserSettings settings) => _settings = settings;
+}
+
+/// <summary>Keeps the preferences, and every version saved, so a test can see what was applied.</summary>
+public sealed class InMemoryPreferencesStore(Preferences? initial = null) : IPreferencesStore
+{
+    private Preferences _current = initial ?? new Preferences();
+
+    public List<Preferences> Saved { get; } = [];
+
+    public Preferences Load() => _current.Clone();
+
+    public void Save(Preferences preferences)
+    {
+        _current = preferences.Clone();
+        Saved.Add(_current);
+    }
 }
 
 /// <summary>For tests and for running without a window: records what would have happened.</summary>
