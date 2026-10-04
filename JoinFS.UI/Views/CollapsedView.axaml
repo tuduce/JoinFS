@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
+             xmlns:v="using:JoinFS.UI.Views"
+             xmlns:vm="using:JoinFS.UI.ViewModels"
+             x:Class="JoinFS.UI.Views.CollapsedView"
+             x:DataType="vm:MainViewModel">
+  <!-- The small view: Simulator → Hub → Network, and a link to open the full window. -->
+  <StackPanel Margin="16" Spacing="12">
+    <Grid ColumnDefinitions="56,20,*,20,56">
+      <c:ConnectorNode Grid.Column="0" DataContext="{Binding Simulator}"
+                       Icon="{DynamicResource IconAircraft}" Title="Simulator" ButtonTip="Connect to simulator" />
+      <Border Grid.Column="1" Classes="wire" />
+
+      <StackPanel Grid.Column="2">
+        <Panel Height="42">
+          <v:HubPicker Height="36" VerticalAlignment="Center" />
+        </Panel>
+        <TextBlock Text="Hub" Classes="label" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+      </StackPanel>
+
+      <Border Grid.Column="3" Classes="wire" />
+      <c:ConnectorNode Grid.Column="4" DataContext="{Binding Network}"
+                       Icon="{DynamicResource IconNetworkNode}" Title="Network" ButtonTip="Connect to hub" />
+    </Grid>
+
+    <Button Classes="link" Command="{Binding ToggleExpandCommand}" HorizontalAlignment="Center" FontSize="11.5">
+      <StackPanel Orientation="Horizontal" Spacing="4">
+        <TextBlock Text="Open full view" VerticalAlignment="Center" />
+        <c:Icon Source="{DynamicResource IconExpand}" Width="11" Height="11" VerticalAlignment="Center" />
+      </StackPanel>
+    </Button>
+  </StackPanel>
+</UserControl>

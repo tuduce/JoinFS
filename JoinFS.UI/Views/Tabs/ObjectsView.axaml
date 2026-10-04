@@ -1,0 +1,80 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
+             xmlns:vm="using:JoinFS.UI.ViewModels"
+             x:Class="JoinFS.UI.Views.Tabs.ObjectsView"
+             x:DataType="tvm:ObjectsViewModel">
+  <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
+    <TextBlock Text="Objects" Classes="h2" />
+
+    <Border Grid.Row="1" Classes="card">
+      <Grid RowDefinitions="Auto,*">
+        <Border Background="{DynamicResource SurfaceHeaderBrush}" Padding="6,8">
+          <Grid ColumnDefinitions="80,*,44,50,74,60,62,62" ColumnSpacing="5" TextElement.FontSize="11">
+            <Button Grid.Column="0" Classes="th" FontSize="11" Command="{Binding OwnerColumn.SortCommand}" Content="{Binding OwnerColumn.Header}" />
+            <Button Grid.Column="1" Classes="th" FontSize="11" Command="{Binding ModelColumn.SortCommand}" Content="{Binding ModelColumn.Header}" />
+            <Button Grid.Column="2" Classes="th" FontSize="11" Command="{Binding CountColumn.SortCommand}" Content="{Binding CountColumn.Header}" />
+            <Button Grid.Column="3" Classes="th" FontSize="11" Command="{Binding BearingColumn.SortCommand}" Content="{Binding BearingColumn.Header}" />
+            <Button Grid.Column="4" Classes="th" FontSize="11" Command="{Binding DistanceColumn.SortCommand}" Content="{Binding DistanceColumn.Header}" />
+            <TextBlock Grid.Column="5" Text="Broadcast" Foreground="{DynamicResource MutedBrush}" />
+            <TextBlock Grid.Column="6" Text="Ignore Owner" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+            <TextBlock Grid.Column="7" Text="Ignore Model" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+          </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1">
+          <ItemsControl ItemsSource="{Binding Rows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="tvm:ObjectRowViewModel">
+                <Border Classes="row">
+                  <StackPanel>
+                  <Button Classes="rowButton" Classes.selected="{Binding IsSelected}" Classes.ignoredMuted="{Binding IsIgnored}"
+                          Command="{Binding SelectCommand}">
+                    <Grid ColumnDefinitions="80,*,44,50,74,60,62,62" ColumnSpacing="5" Margin="6,8" TextElement.FontSize="12.5">
+                      <TextBlock Grid.Column="0" Text="{Binding Owner}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Text="{Binding Model}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="2" Text="{Binding Count}" />
+                      <TextBlock Grid.Column="3" Text="{Binding Bearing}" />
+                      <TextBlock Grid.Column="4" Text="{Binding Distance}" />
+                      <CheckBox Grid.Column="5" IsChecked="{Binding Broadcast}" MinHeight="0" Padding="0" AutomationProperties.Name="Broadcast" />
+                      <CheckBox Grid.Column="6" IsChecked="{Binding IgnoreOwner}" MinHeight="0" Padding="0" AutomationProperties.Name="Ignore owner" />
+                      <CheckBox Grid.Column="7" IsChecked="{Binding IgnoreModel}" MinHeight="0" Padding="0" AutomationProperties.Name="Ignore model" />
+                    </Grid>
+                  </Button>
+
+                  <Border Classes="expanded" IsVisible="{Binding IsSelected}">
+                    <StackPanel Spacing="10">
+                      <TextBlock Classes="caps" Text="ACTIONS" />
+                      <ItemsControl ItemsSource="{Binding Actions}">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate>
+                            <WrapPanel />
+                          </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:ActionLink">
+                            <Button Classes="link" Command="{Binding Command}" Content="{Binding Label}" Margin="0,0,20,6" />
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </Border>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
+      <Button Grid.Column="0" Command="{Binding RefreshCommand}" Content="Refresh" />
+      <Button Grid.Column="1" Command="{Binding SubstituteCommand}" Content="Substitute..."
+              ToolTip.Tip="Select an object in the table first" />
+      <TextBlock Grid.Column="2" Text="Click header to sort objects" Classes="label" HorizontalAlignment="Center" VerticalAlignment="Center" />
+      <CheckBox Grid.Column="3" IsChecked="{Binding GroupByModel}" Content="Group by model" Margin="0,0,8,0" />
+      <CheckBox Grid.Column="4" IsChecked="{Binding ListIgnoredObjects}" Content="List ignored objects" />
+    </Grid>
+  </Grid>
+</UserControl>

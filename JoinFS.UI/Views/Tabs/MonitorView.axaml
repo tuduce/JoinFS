@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
+             x:Class="JoinFS.UI.Views.Tabs.MonitorView"
+             x:DataType="tvm:MonitorViewModel">
+  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="12">
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Text="Monitor" Classes="h2" VerticalAlignment="Center" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+        <TextBlock Text="{Binding FpsText}" Foreground="{DynamicResource Muted2Brush}" VerticalAlignment="Center" />
+        <Button Command="{Binding ViewLogsCommand}" Content="View Logs..." />
+      </StackPanel>
+    </Grid>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="10">
+      <TextBlock Classes="caps" Text="SHOW (THIS SESSION)" VerticalAlignment="Center" />
+      <ItemsControl ItemsSource="{Binding Filters}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" Spacing="10" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="tvm:MonitorFilterViewModel">
+            <ToggleButton Classes="chip" IsChecked="{Binding IsOn}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Ellipse Classes="dot" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Label}" />
+              </StackPanel>
+            </ToggleButton>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+
+    <Border Grid.Row="2" Background="{DynamicResource ConsoleBackgroundBrush}" CornerRadius="10" Padding="14">
+      <ScrollViewer>
+        <ItemsControl ItemsSource="{Binding LogLines}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="x:String">
+              <TextBlock Text="{Binding}" Classes="mono" FontSize="12" LineHeight="19.2"
+                         Foreground="{DynamicResource ConsoleTextBrush}" TextWrapping="NoWrap" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Border>
+  </Grid>
+</UserControl>

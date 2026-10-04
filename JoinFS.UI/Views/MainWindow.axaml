@@ -1,0 +1,74 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:JoinFS.UI.Views.Controls"
+        xmlns:v="using:JoinFS.UI.Views"
+        xmlns:vm="using:JoinFS.UI.ViewModels"
+        x:Class="JoinFS.UI.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="{Binding SessionLabel}"
+        Width="376" Height="190"
+        CanResize="False"
+        WindowStartupLocation="Manual"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextBrush}"
+        FontFamily="Segoe UI, Inter, Arial"
+        FontSize="13"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1">
+
+  <!-- The window draws its own title bar, so it is the design's panel rather than OS chrome. -->
+  <Panel>
+    <DockPanel>
+
+      <!-- Title bar: logo, session label, chat badge, expand, minimise, maximise, close. -->
+      <Border x:Name="TitleBar" DockPanel.Dock="Top" Height="38"
+              Background="{DynamicResource SurfaceStripBrush}"
+              BorderBrush="{DynamicResource BorderCardBrush}" BorderThickness="0,0,0,1"
+              Padding="10,0"
+              PointerPressed="OnTitleBarPointerPressed" DoubleTapped="OnTitleBarDoubleTapped">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <c:TigerMoth Grid.Column="0" Width="18" Height="18" Foreground="{DynamicResource Text2Brush}" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="{Binding SessionLabel}" FontSize="12.5" FontWeight="SemiBold"
+                     VerticalAlignment="Center" Margin="10,0" TextTrimming="CharacterEllipsis" />
+
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <!-- New chat message: only while collapsed. -->
+            <Button Classes="ghost" IsVisible="{Binding ShowChatBadge}" Command="{Binding OpenChatCommand}"
+                    ToolTip.Tip="New chat message">
+              <Panel>
+                <c:Icon Source="{DynamicResource IconChat}" Width="16" Height="16" />
+                <Ellipse Width="7" Height="7" Margin="0,-6,-9,0" HorizontalAlignment="Right" VerticalAlignment="Top"
+                         Fill="{DynamicResource UnreadBrush}"
+                         Stroke="{DynamicResource SurfaceBrush}" StrokeThickness="1.5" />
+              </Panel>
+            </Button>
+            <Button Classes="ghost" Command="{Binding ToggleExpandCommand}" ToolTip.Tip="Expand/collapse">
+              <c:Icon Source="{DynamicResource IconExpand}" Width="14" Height="14" />
+            </Button>
+            <Button Classes="ghost" Click="OnMinimizeClick" ToolTip.Tip="Minimize">
+              <c:Icon Source="{DynamicResource IconMinimize}" Width="14" Height="14" />
+            </Button>
+            <Button x:Name="MaximizeButton" Classes="ghost" Click="OnMaximizeClick" ToolTip.Tip="Maximize"
+                    IsEnabled="{Binding IsExpanded}">
+              <c:Icon Source="{DynamicResource IconMaximize}" Width="14" Height="14" />
+            </Button>
+            <Button Classes="ghost close" Click="OnCloseClick" ToolTip.Tip="Close">
+              <c:Icon Source="{DynamicResource IconClose}" Width="14" Height="14" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Panel>
+        <v:CollapsedView IsVisible="{Binding IsCollapsed}" />
+        <v:ExpandedView IsVisible="{Binding IsExpanded}" />
+      </Panel>
+    </DockPanel>
+
+    <!-- Overlay: a scrim over the whole window and the card on it. One at a time, chosen by the data templates in App.axaml. -->
+    <Border IsVisible="{Binding IsOverlayOpen}" Background="{DynamicResource ScrimBrush}">
+      <ContentControl Content="{Binding Overlay}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16" />
+    </Border>
+  </Panel>
+</Window>

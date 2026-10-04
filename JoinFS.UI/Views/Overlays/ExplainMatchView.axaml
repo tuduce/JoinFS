@@ -1,0 +1,61 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
+             xmlns:m="using:JoinFS.UI.Models"
+             xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
+             x:Class="JoinFS.UI.Views.Overlays.ExplainMatchView"
+             x:DataType="ovm:ExplainMatchViewModel">
+  <c:ModalCard Width="600" Title="{Binding Title}" CloseCommand="{Binding CloseCommand}" ShowClose="{Binding IsDismissable}">
+    <StackPanel Spacing="16">
+      <Border Classes="card" CornerRadius="8">
+        <StackPanel>
+          <Border Classes="tableHeader" Padding="12,8">
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12" TextElement.FontSize="12" TextElement.Foreground="{DynamicResource MutedBrush}">
+              <TextBlock Grid.Column="0" Text="Attribute" />
+              <TextBlock Grid.Column="1" Text="Requested" />
+              <TextBlock Grid.Column="2" Text="Matched Model" />
+            </Grid>
+          </Border>
+          <ItemsControl ItemsSource="{Binding Rows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="m:ExplainRow">
+                <Border BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="12,8">
+                  <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12" TextElement.FontSize="12.5">
+                    <TextBlock Grid.Column="0" Text="{Binding Attribute}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="1" Text="{Binding Requested}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="2" Text="{Binding Matched}" TextWrapping="Wrap" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <StackPanel Spacing="8">
+        <TextBlock Text="Matching steps (in the order they were tried):" FontSize="13" FontWeight="SemiBold" />
+        <Border Classes="card" CornerRadius="8" Height="140" Background="{DynamicResource SurfaceHoverBrush}">
+          <ScrollViewer>
+            <ItemsControl ItemsSource="{Binding Steps}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="x:String">
+                  <Border BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,0,0,1" Padding="12,6">
+                    <TextBlock Text="{Binding}" FontSize="12.5" TextWrapping="Wrap" />
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Border>
+      </StackPanel>
+    </StackPanel>
+    <c:ModalCard.Footer>
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
+        <Button Grid.Column="0" Command="{Binding OpenKnownModelsListCommand}" Content="Open known-models list" Padding="16,8" />
+        <Button Grid.Column="2" Command="{Binding CopyToClipboardCommand}" Content="Copy to clipboard" Padding="16,8" />
+        <Button Grid.Column="3" Command="{Binding ExportDebugBundleCommand}" Content="Export Debug Bundle..." Padding="16,8" />
+        <Button Grid.Column="4" Classes="primary" Command="{Binding CloseCommand}" Content="Close" Padding="18,8" />
+      </Grid>
+    </c:ModalCard.Footer>
+  </c:ModalCard>
+</UserControl>

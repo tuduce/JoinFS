@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
+             x:Class="JoinFS.UI.Views.Tabs.ModelMatchingView"
+             x:DataType="tvm:ModelMatchingViewModel">
+  <ScrollViewer>
+    <StackPanel Spacing="14">
+      <TextBlock Text="Model Matching" Classes="h2" />
+      <Border Classes="card">
+        <StackPanel>
+          <Border Classes="tableHeader">
+            <Grid ColumnDefinitions="*,*,150" ColumnSpacing="10" TextElement.FontSize="12" TextElement.Foreground="{DynamicResource MutedBrush}">
+              <TextBlock Grid.Column="0" Text="Original Model" />
+              <TextBlock Grid.Column="1" Text="Substitute Model" />
+            </Grid>
+          </Border>
+          <ItemsControl ItemsSource="{Binding Rows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="tvm:ModelRuleRowViewModel">
+                <Border Classes="row" Background="Transparent">
+                  <Grid ColumnDefinitions="*,*,150" ColumnSpacing="10" Margin="10,7">
+                    <TextBlock Grid.Column="0" Text="{Binding Original}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding Substitute}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                      <Button Classes="link" FontSize="12.5" Command="{Binding EditCommand}" Content="Edit…" />
+                      <Button Classes="link danger" IsVisible="{Binding IsRemovable}" Command="{Binding RemoveCommand}" Content="Remove" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

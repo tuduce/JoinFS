@@ -1,0 +1,36 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:m="using:JoinFS.UI.Models"
+             xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
+             x:Class="JoinFS.UI.Views.Tabs.ChatView"
+             x:DataType="tvm:ChatViewModel">
+  <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
+    <TextBlock Text="Chat" Classes="h2" />
+
+    <Border Grid.Row="1" Classes="card">
+      <ScrollViewer>
+        <ItemsControl ItemsSource="{Binding Messages}" Margin="16">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="10" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="m:ChatMessage">
+              <TextBlock FontSize="13.5" TextWrapping="Wrap"><Run Text="{Binding From, StringFormat='{}{0}:', Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" " /><Run Text="{Binding Text, Mode=OneWay}" /></TextBlock>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+      <TextBox Classes="large" Text="{Binding Draft}" Watermark="Type a message">
+        <TextBox.KeyBindings>
+          <KeyBinding Gesture="Enter" Command="{Binding SendCommand}" />
+        </TextBox.KeyBindings>
+      </TextBox>
+      <Button Grid.Column="1" Classes="primary" Command="{Binding SendCommand}" Content="Send" Padding="20,10" CornerRadius="8" FontSize="13.5" />
+    </Grid>
+  </Grid>
+</UserControl>

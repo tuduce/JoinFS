@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
+             x:Class="JoinFS.UI.Views.Tabs.HomeView"
+             x:DataType="tvm:HomeViewModel">
+  <ScrollViewer>
+    <StackPanel MaxWidth="640" HorizontalAlignment="Left">
+      <TextBlock Text="Welcome back" FontSize="22" FontWeight="Bold" Margin="0,0,0,6" />
+      <TextBlock Text="{Binding Subtitle}" TextWrapping="Wrap" FontSize="14" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,24" />
+
+      <Grid ColumnDefinitions="*,*,*" ColumnSpacing="14">
+        <Border Grid.Column="0" Classes="card" Padding="16">
+          <StackPanel Spacing="4">
+            <TextBlock Text="Hub" FontSize="12" Foreground="{DynamicResource Muted2Brush}" />
+            <TextBlock Text="{Binding HubName}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="1" Classes="card" Padding="16">
+          <StackPanel Spacing="4">
+            <TextBlock Text="Connected users" FontSize="12" Foreground="{DynamicResource Muted2Brush}" />
+            <TextBlock Text="{Binding ConnectedUsers}" FontSize="16" FontWeight="SemiBold" />
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="2" Classes="card" Padding="16">
+          <StackPanel Spacing="4">
+            <TextBlock Text="Aircraft tracked" FontSize="12" Foreground="{DynamicResource Muted2Brush}" />
+            <TextBlock Text="{Binding AircraftTracked}" FontSize="16" FontWeight="SemiBold" />
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,20,0,0">
+        <Button Classes="link" Command="{Binding OpenDownloadCommand}" Content="Download" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
