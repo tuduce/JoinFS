@@ -87,6 +87,15 @@ namespace JoinFS.Live
             return model == null ? "" : Describe(model);
         }
 
+        public string GetTitle(string type, string variation) =>
+            main.substitution?.FindModel(type, variation)?.title ?? "";
+
+        public ModelChoice FindChoice(string title)
+        {
+            Substitution.Model model = main.substitution?.GetModel(title);
+            return model == null ? null : new ModelChoice(model.type, model.variation);
+        }
+
         public async Task<ModelChoice> GetCurrentAsync(ModelTarget target)
         {
             Substitution substitution = main.substitution;

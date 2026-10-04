@@ -567,7 +567,7 @@ public class AircraftAndObjectsTests
     public void Recording_is_written_to_the_service_and_a_refresh_does_not_write_it_back()
     {
         ScriptedTraffic traffic = new();
-        AircraftViewModel aircraft = new(traffic, new JoinFS.UI.Services.Fake.FakeModelCatalog(), new JoinFS.UI.Services.Fake.NullPlatform(),
+        AircraftViewModel aircraft = new(traffic, new JoinFS.UI.Services.Fake.FakeModelCatalog(), new JoinFS.UI.Services.Fake.FakeVariablesCatalog(), new JoinFS.UI.Services.Fake.NullPlatform(),
             new ProfileViewModel(new JoinFS.UI.Services.Fake.InMemorySettingsStore()), new RecordSelection(), new NullShell());
         AircraftRowViewModel row = aircraft.Rows.Single();
         Assert.Empty(traffic.Writes); // reading the list wrote nothing
@@ -585,7 +585,7 @@ public class AircraftAndObjectsTests
     public void A_refresh_updates_rows_in_place_adds_new_aircraft_and_drops_the_ones_gone()
     {
         ScriptedTraffic traffic = new();
-        AircraftViewModel aircraft = new(traffic, new JoinFS.UI.Services.Fake.FakeModelCatalog(), new JoinFS.UI.Services.Fake.NullPlatform(),
+        AircraftViewModel aircraft = new(traffic, new JoinFS.UI.Services.Fake.FakeModelCatalog(), new JoinFS.UI.Services.Fake.FakeVariablesCatalog(), new JoinFS.UI.Services.Fake.NullPlatform(),
             new ProfileViewModel(new JoinFS.UI.Services.Fake.InMemorySettingsStore()), new RecordSelection(), new NullShell());
         AircraftRowViewModel a = aircraft.Rows.Single();
         a.ToggleExpandedCommand.Execute(null);
@@ -924,6 +924,8 @@ public sealed class RecordingCatalog(IModelCatalog inner, bool hasModels = true)
     public IReadOnlyList<string> GetTypes(string filter) => hasModels ? inner.GetTypes(filter) : [];
     public IReadOnlyList<string> GetVariations(string type) => hasModels ? inner.GetVariations(type) : [];
     public string GetReplacement(string type, string variation) => inner.GetReplacement(type, variation);
+    public string GetTitle(string type, string variation) => inner.GetTitle(type, variation);
+    public ModelChoice? FindChoice(string title) => inner.FindChoice(title);
     public Task<ModelChoice?> GetCurrentAsync(ModelTarget target) => hasModels ? inner.GetCurrentAsync(target) : Task.FromResult<ModelChoice?>(null);
 
     public void SetSubstitute(ModelTarget target, string type, string variation)
@@ -1174,8 +1176,9 @@ public sealed class SavingPlatform(string? savePath) : IPlatform
     public string? SuggestedName { get; private set; }
 
     public Task CopyTextAsync(string text) { Copied.Add(text); return Task.CompletedTask; }
-    public void OpenUrl(string url) => Opened.Add(url);
-    public Task<string?> PickOpenFileAsync(string title) => Task.FromResult<string?>(null);
+    public void OpenUrl(string url) { }
+    public Task OpenFileAsync(string path) { Opened.Add(path); return Task.CompletedTask; }
+    public Task<string?> PickOpenFileAsync(string title, string? startFolder = null) => Task.FromResult<string?>(null);
     public Task<string?> PickSaveFileAsync(string title, string suggestedName) { SuggestedName = suggestedName; return Task.FromResult(savePath); }
     public Task<string?> PickFolderAsync(string title) => Task.FromResult<string?>(null);
 }
@@ -1881,6 +1884,8 @@ public sealed class ScriptedTraffic : ITrafficSource
         return Objects ??= [Obj("o1")];
     }
 
+    public string? VariablesModel { get; set; } = "Model";
+    public string? GetVariablesModel(string aircraftId) => VariablesModel;
     public HeightAdjustment? Height { get; set; } = new("Model", 0);
     public HeightAdjustment? GetHeightAdjustment(string aircraftId) => Height;
     public void SetHeightAdjustment(string aircraftId, int centimetres) => Writes.Add($"height {aircraftId}={centimetres}");

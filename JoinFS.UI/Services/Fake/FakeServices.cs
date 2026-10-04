@@ -213,6 +213,9 @@ public sealed class FakeTrafficSource : ITrafficSource
         return aircraft is null ? null : new ModelTarget(aircraft.OriginalModel);
     }
 
+    public string? GetVariablesModel(string aircraftId) =>
+        SampleData.Aircraft.Concat(SampleData.HubAircraft).Concat(SampleData.SimulatorAircraft).FirstOrDefault(a => a.Id == aircraftId)?.Model;
+
     public Task<MatchExplanation?> ExplainMatchAsync(string aircraftId)
     {
         AircraftInfo? aircraft = SampleData.Aircraft.Concat(SampleData.HubAircraft).Concat(SampleData.SimulatorAircraft).FirstOrDefault(a => a.Id == aircraftId);
@@ -315,6 +318,11 @@ public sealed class FakeModelCatalog : IModelCatalog
 
     public void ClearSubstitute(ModelTarget target) => _rules.RemoveAll(r => r.Original == target.Model);
 
+    public string GetTitle(string type, string variation) => type;
+
+    public ModelChoice? FindChoice(string title) =>
+        SampleData.ModelTypes.Contains(title) ? new ModelChoice(title, SampleData.ModelVariations[0]) : null;
+
     public string? KnownModelsFile() => null;
 
     public void WriteDebugBundle(string zipPath, string report) => WrittenBundles.Add((zipPath, report));
@@ -325,7 +333,36 @@ public sealed class FakeModelCatalog : IModelCatalog
 
 public sealed class FakeVariablesCatalog : IVariablesCatalog
 {
-    public IReadOnlyList<VariableAssignment> GetAssignments() => SampleData.Variables;
+    private readonly Dictionary<string, List<string>> _files = SampleData.Variables.ToDictionary(v => v.Model, v => v.Files.ToList());
+    private static readonly string[] Defaults = ["Plane.txt", "SingleProp.txt"];
+
+    public int Applied { get; private set; }
+
+    public IReadOnlyList<VariableAssignment> GetAssignments() => [.. _files.Select(f => new VariableAssignment(f.Key, [.. f.Value]))];
+
+    public bool CanPickModel => true;
+    public string FilesFolder => Path.Combine(Path.GetTempPath(), "JoinFS", "Variables");
+
+    public IReadOnlyList<string> GetFiles(string model) => _files.TryGetValue(model, out List<string>? files) ? [.. files] : Defaults;
+
+    public void AddFiles(string model, IReadOnlyList<string> files)
+    {
+        if (!_files.TryGetValue(model, out List<string>? list))
+            _files[model] = list = [.. Defaults];
+        list.AddRange(files);
+    }
+
+    public void RemoveFile(string model, int index)
+    {
+        if (!_files.TryGetValue(model, out List<string>? list))
+            _files[model] = list = [.. Defaults];
+        if (index >= 0 && index < list.Count)
+            list.RemoveAt(index);
+    }
+
+    public bool IsBuiltIn(string file) => Defaults.Contains(file);
+
+    public void Apply() => Applied++;
 }
 
 public sealed class FakeSimBriefClient(TimeSpan latency) : ISimBriefClient
@@ -441,10 +478,14 @@ public sealed class NullPlatform : IPlatform
 {
     public List<string> Copied { get; } = [];
     public List<string> OpenedUrls { get; } = [];
+    public List<string> OpenedFiles { get; } = [];
+    public string? PickedFile { get; set; }
+    public string? LastStartFolder { get; private set; }
 
     public Task CopyTextAsync(string text) { Copied.Add(text); return Task.CompletedTask; }
     public void OpenUrl(string url) => OpenedUrls.Add(url);
-    public Task<string?> PickOpenFileAsync(string title) => Task.FromResult<string?>(null);
+    public Task OpenFileAsync(string path) { OpenedFiles.Add(path); return Task.CompletedTask; }
+    public Task<string?> PickOpenFileAsync(string title, string? startFolder = null) { LastStartFolder = startFolder; return Task.FromResult(PickedFile); }
     public Task<string?> PickSaveFileAsync(string title, string suggestedName) => Task.FromResult<string?>(null);
     public Task<string?> PickFolderAsync(string title) => Task.FromResult<string?>(null);
 }

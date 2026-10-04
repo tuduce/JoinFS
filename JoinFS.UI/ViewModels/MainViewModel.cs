@@ -34,14 +34,14 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Hubs = new HubsViewModel(services.Hubs, services.Network, this);
         Session = new SessionViewModel(services.Session);
         RecordSelection = new RecordSelection();
-        Aircraft = new AircraftViewModel(services.Traffic, services.Models, services.Platform, Profile, RecordSelection, this);
+        Aircraft = new AircraftViewModel(services.Traffic, services.Models, services.Variables, services.Platform, Profile, RecordSelection, this);
         Objects = new ObjectsViewModel(services.Traffic, services.Models, Profile, this);
         ModelMatching = new ModelMatchingViewModel(services.Models, this);
         FlightPlan = new FlightPlanViewModel(services.FlightPlan, services.SimBrief, Profile, this);
         Recorder = new RecorderViewModel(services.Recorder, services.Traffic, RecordSelection, services.Platform);
         Chat = new ChatViewModel(services.Chat);
         Monitor = new MonitorViewModel(services.Monitor);
-        Settings = new SettingsViewModel(Profile, AddressBook, services.Preferences, services.Variables, services.XPlanePlugin, services.XPlaneScan, this, services.Platform, () => Simulator.IsConnected, services.App.IsXPlaneBuild);
+        Settings = new SettingsViewModel(Profile, AddressBook, services.Preferences, services.Variables, services.Models, services.XPlanePlugin, services.XPlaneScan, this, services.Platform, () => Simulator.IsConnected, services.App.IsXPlaneBuild);
 
         // The strip's flight-plan button fetches from SimBrief. If a username is still needed the prompt comes first and
         // the import finishes after it, so this attempt ends "not loaded" and the import itself reports back through Imported.
@@ -237,6 +237,11 @@ public sealed partial class MainViewModel : ObservableObject, IShell
                 break;
             case TabId.FlightPlan:
                 FlightPlan.Refresh();
+                break;
+            case TabId.Settings:
+                // The files are asked of the simulator, so only while the card that lists them is open.
+                if (Settings.Variables.IsOpen)
+                    Settings.Variables.Refresh();
                 break;
             case TabId.Objects:
                 Objects.Refresh();

@@ -182,6 +182,7 @@ public sealed partial class AircraftRowViewModel : ObservableObject
 public sealed partial class AircraftViewModel : ObservableObject
 {
     private readonly IModelCatalog _catalog;
+    private readonly IVariablesCatalog _variables;
     private readonly IPlatform _platform;
     private readonly ProfileViewModel _profile;
     private readonly IShell _shell;
@@ -190,10 +191,11 @@ public sealed partial class AircraftViewModel : ObservableObject
     private readonly Dictionary<string, AircraftRowViewModel> _rowsById = [];
     private List<AircraftRowViewModel> _inSourceOrder = [];
 
-    public AircraftViewModel(ITrafficSource traffic, IModelCatalog catalog, IPlatform platform, ProfileViewModel profile, RecordSelection recordSelection, IShell shell)
+    public AircraftViewModel(ITrafficSource traffic, IModelCatalog catalog, IVariablesCatalog variables, IPlatform platform, ProfileViewModel profile, RecordSelection recordSelection, IShell shell)
     {
         Source = traffic;
         _catalog = catalog;
+        _variables = variables;
         _platform = platform;
         _profile = profile;
         _recordSelection = recordSelection;
@@ -308,8 +310,11 @@ public sealed partial class AircraftViewModel : ObservableObject
             _shell.ShowOverlay(new ExplainMatchViewModel(explanation, _catalog, _platform));
     }
 
-    internal void AssignVariables(AircraftRowViewModel row) =>
-        _shell.ShowOverlay(new VariablesOverlayViewModel(row.Model, ["ListBox_Sets"], _platform));
+    internal void AssignVariables(AircraftRowViewModel row)
+    {
+        if (Source.GetVariablesModel(row.Id) is { } model)
+            _shell.ShowOverlay(new VariablesOverlayViewModel(model, _variables, _catalog, _platform));
+    }
 
     internal void AdjustHeight(AircraftRowViewModel row)
     {

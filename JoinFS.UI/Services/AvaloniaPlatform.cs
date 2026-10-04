@@ -19,11 +19,24 @@ public sealed class AvaloniaPlatform(Func<TopLevel?> topLevel) : IPlatform
             _ = topLevel()?.Launcher.LaunchUriAsync(uri);
     }
 
-    public async Task<string?> PickOpenFileAsync(string title)
+    public async Task OpenFileAsync(string path)
+    {
+        if (topLevel() is not { } top || !File.Exists(path))
+            return;
+        if (await top.StorageProvider.TryGetFileFromPathAsync(new Uri(path)) is { } file)
+            await top.Launcher.LaunchFileAsync(file);
+    }
+
+    public async Task<string?> PickOpenFileAsync(string title, string? startFolder = null)
     {
         if (topLevel()?.StorageProvider is not { } storage)
             return null;
-        var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions { Title = title, AllowMultiple = false });
+
+        FilePickerOpenOptions options = new() { Title = title, AllowMultiple = false };
+        if (startFolder is not null && Directory.Exists(startFolder))
+            options.SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(new Uri(startFolder));
+
+        var files = await storage.OpenFilePickerAsync(options);
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }
 

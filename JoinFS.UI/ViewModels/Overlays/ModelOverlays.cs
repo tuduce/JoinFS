@@ -238,35 +238,51 @@ public sealed partial class ExplainMatchViewModel : OverlayViewModel
         if (file is null)
             Status = "There is no known-models list yet. Scan for models first.";
         else
-            _platform.OpenUrl(file);
+            _ = _platform.OpenFileAsync(file);
     }
 }
 
-/// <summary>"Variables": the variable files assigned to one model. Shared by the Aircraft tab and Settings → Variables.</summary>
+/// <summary>"Variables": the variable files of one model. Shared by the Aircraft tab and Settings → Variables.</summary>
 public sealed partial class VariablesOverlayViewModel : OverlayViewModel
 {
+    private readonly IVariablesCatalog _variables;
+    private readonly IModelCatalog _models;
     private readonly IPlatform _platform;
-    private readonly Action<IReadOnlyList<string>>? _onSave;
 
-    public VariablesOverlayViewModel(string model, IEnumerable<string> files, IPlatform platform, Action<IReadOnlyList<string>>? onSave = null)
+    /// <param name="model">The title of the model to start on. It stays the model until another is picked.</param>
+    public VariablesOverlayViewModel(string? model, IVariablesCatalog variables, IModelCatalog models, IPlatform platform)
     {
-        Model = model;
+        _variables = variables;
+        _models = models;
         _platform = platform;
-        _onSave = onSave;
-        foreach (string file in files)
-            Files.Add(file);
+
+        CanPickModel = variables.CanPickModel;
+        _model = model ?? "";
+        Picker = new ModelPickerViewModel(models, model is null ? null : models.FindChoice(model));
+        if (model is null && Picker.Choice is { } first)
+            _model = models.GetTitle(first.Type, first.Variation);
+
+        // Picking another model moves to its files.
+        Picker.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ModelPickerViewModel.Choice) && CanPickModel && Picker.Choice is { } choice)
+                Model = models.GetTitle(choice.Type, choice.Variation);
+        };
+
+        LoadFiles();
     }
 
     public override string Title => "Variables";
 
-    public string Model { get; }
+    /// <summary>False for X-Plane: the model is the one given, so the picker is not shown.</summary>
+    public bool CanPickModel { get; }
 
+    public ModelPickerViewModel Picker { get; }
+
+    /// <summary>The title of the model whose files are shown.</summary>
     [ObservableProperty]
-    private string _filterWords = "";
-
-    // The design shows these two selects empty (a single "—"); they fill in once the variable catalogue is wired.
-    public IReadOnlyList<string> Types { get; } = ["—"];
-    public IReadOnlyList<string> Variations { get; } = ["—"];
+    [NotifyCanExecuteChangedFor(nameof(AddCommand))]
+    private string _model;
 
     public ObservableCollection<string> Files { get; } = [];
 
@@ -274,15 +290,44 @@ public sealed partial class VariablesOverlayViewModel : OverlayViewModel
     [NotifyCanExecuteChangedFor(nameof(RemoveCommand), nameof(EditCommand))]
     private string? _selectedFile;
 
-    [RelayCommand]
+    /// <summary>Why the last Add did nothing, when it needs saying. Empty otherwise.</summary>
+    [ObservableProperty]
+    private string _status = "";
+
+    partial void OnModelChanged(string value) => LoadFiles();
+
+    private void LoadFiles()
+    {
+        Files.Clear();
+        if (Model.Length > 0)
+        {
+            foreach (string file in _variables.GetFiles(Model))
+                Files.Add(file);
+        }
+        SelectedFile = null;
+    }
+
+    private bool HasModel => Model.Length > 0;
+
+    [RelayCommand(CanExecute = nameof(HasModel))]
     private async Task AddAsync()
     {
-        string? path = await _platform.PickOpenFileAsync("Add variable file");
+        string folder = _variables.FilesFolder;
+        string? path = await _platform.PickOpenFileAsync("Add variable file", folder);
         if (path is null)
             return;
-        string name = Path.GetFileNameWithoutExtension(path);
-        if (!Files.Contains(name))
-            Files.Add(name);
+
+        // Files are kept by their name under the Variables folder, so a file from elsewhere cannot be used.
+        string root = folder.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+        {
+            Status = "Choose a file from the Variables folder: " + folder;
+            return;
+        }
+
+        Status = "";
+        _variables.AddFiles(Model, [path[root.Length..]]);
+        LoadFiles();
     }
 
     private bool HasSelection => SelectedFile is not null;
@@ -290,18 +335,28 @@ public sealed partial class VariablesOverlayViewModel : OverlayViewModel
     [RelayCommand(CanExecute = nameof(HasSelection))]
     private void Remove()
     {
-        if (SelectedFile is not null)
-            Files.Remove(SelectedFile);
+        if (SelectedFile is null)
+            return;
+
+        _variables.RemoveFile(Model, Files.IndexOf(SelectedFile));
+        LoadFiles();
     }
 
-    // Editing a variable file opens its contents; that needs the real variable editor.
-    [RelayCommand(CanExecute = nameof(HasSelection))]
-    private void Edit() { }
+    // The files JoinFS provides are not edited.
+    private bool CanEdit => SelectedFile is { } file && !_variables.IsBuiltIn(file);
 
+    [RelayCommand(CanExecute = nameof(CanEdit))]
+    private void Edit()
+    {
+        if (SelectedFile is { } file)
+            _ = _platform.OpenFileAsync(Path.Combine(_variables.FilesFolder, file));
+    }
+
+    /// <summary>OK makes the changes take effect, which connects the simulator again. Closing any other way leaves things as they are.</summary>
     [RelayCommand]
     private void Ok()
     {
-        _onSave?.Invoke([.. Files]);
+        _variables.Apply();
         Close();
     }
 }
