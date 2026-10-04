@@ -990,17 +990,40 @@ namespace JoinFS
         /// <summary>
         /// Write a copy of a recording (from <see cref="CopyForSave"/>) into the folder under an
         /// automatic name, never overwriting a file. Returns the path; throws if it can't be written
-        /// - any thread
+        /// (a partially written file is deleted first) - any thread
         /// </summary>
         public string AutoSave(string folder, List<Obj> objects, DateTime now)
         {
             string path = UniquePath(folder, BuildAutoSaveFileName(now, FirstCallsign(objects)));
             using (var stream = new FileStream(path, FileMode.CreateNew))
-            using (var writer = new BinaryWriter(stream))
             {
-                Write(writer, objects);
+                try
+                {
+                    using var writer = new BinaryWriter(stream);
+                    Write(writer, objects);
+                }
+                catch
+                {
+                    stream.Dispose();
+                    TryDeleteQuietly(path);
+                    throw;
+                }
             }
             return path;
+        }
+
+        /// <summary>
+        /// Delete a file, ignoring failures (nothing sensible left to do about them) - any thread
+        /// </summary>
+        static void TryDeleteQuietly(string path)
+        {
+            try
+            {
+                File.Delete(path);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+            }
         }
 
         /// <summary>

@@ -105,6 +105,17 @@ public class RecorderAutoSaveTests : IDisposable
         Assert.ThrowsAny<IOException>(() => recorder.AutoSave(Path.Combine(folder, "missing"), [], Moment));
     }
 
+    [Fact]
+    public void AutoSave_DeletesTheTruncatedFile_WhenWritingFails()
+    {
+        var recorder = new Recorder(null!);
+        var unwritable = new Recorder.Obj("", "", "", "", 0, default(Sim.Obj.Owner)) { model = null! };
+
+        Assert.ThrowsAny<Exception>(() => recorder.AutoSave(folder, [unwritable], Moment));
+
+        Assert.Empty(Directory.GetFiles(folder));
+    }
+
     // ---- what each action is allowed to do ----
 
     [Theory]
