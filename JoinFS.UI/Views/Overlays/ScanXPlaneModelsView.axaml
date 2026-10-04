@@ -25,6 +25,9 @@
         <CheckBox Grid.Column="1" IsChecked="{Binding SkipCsl}" IsEnabled="{Binding CanSkipCsl}" Content="Skip CSL objects already done" />
       </Grid>
 
+      <TextBlock Text="Generating CSL objects may take several minutes. You may need to restart X-Plane when complete." FontSize="12" TextWrapping="Wrap"
+                 Foreground="{DynamicResource Muted2Brush}" IsVisible="{Binding GenerateCsl}" />
+
       <!-- Only while generating: which aircraft folders to generate for. -->
       <Border Classes="card" CornerRadius="8" BorderBrush="{DynamicResource BorderInputBrush}" Height="200"
               IsVisible="{Binding GenerateCsl}">
@@ -46,6 +49,8 @@
           </ScrollViewer>
         </Grid>
       </Border>
+      <TextBlock Text="{Binding Status}" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}"
+                 IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
     </StackPanel>
     <c:ModalCard.Footer>
       <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="14">

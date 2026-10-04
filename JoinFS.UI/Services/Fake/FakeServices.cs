@@ -33,7 +33,8 @@ public static class FakeServices
         App: new FakeAppInfo(xplaneBuild),
         Settings: new InMemorySettingsStore(settings),
         Platform: platform ?? new NullPlatform(),
-        Preferences: new InMemoryPreferencesStore());
+        Preferences: new InMemoryPreferencesStore(),
+        ModelScan: new FakeModelScanSource());
 }
 
 public sealed class FakeSimulatorLink(TimeSpan latency) : ISimulatorLink
@@ -318,6 +319,8 @@ public sealed class FakeModelCatalog : IModelCatalog
 
     public void ClearSubstitute(ModelTarget target) => _rules.RemoveAll(r => r.Original == target.Model);
 
+    public string ScanStatus => "";
+
     public string GetTitle(string type, string variation) => type;
 
     public ModelChoice? FindChoice(string title) =>
@@ -423,6 +426,49 @@ public sealed class FakeXPlaneScanSource : IXPlaneScanSource
 
     public IReadOnlyList<string> ListAircraftFolders(string xplaneFolder) =>
         string.IsNullOrWhiteSpace(xplaneFolder) ? [] : ["Extra Aircraft", "FlyJSim", "Laminar Research", "Zibo 737"];
+
+    /// <summary>The scans that were asked for, so a test can see them.</summary>
+    public List<(string Folder, IReadOnlyList<string> AircraftFolders)> Scans { get; } = [];
+
+    /// <summary>Pretend a scan is already running, so asking for another is refused.</summary>
+    public bool Busy { get; set; }
+
+    public bool Scan(string xplaneFolder, IReadOnlyList<string> aircraftFolders)
+    {
+        if (Busy)
+            return false;
+        Scans.Add((xplaneFolder, aircraftFolders));
+        return true;
+    }
+}
+
+public sealed class FakeModelScanSource : IModelScanSource
+{
+    public string SimulatorName => "Microsoft Flight Simulator 2020";
+    public string SimFolder => @"C:\Flight Simulator Packages";
+    public string FolderPrompt => "Please specify the 'Flight Simulator Packages' folder:";
+    public bool ListsSubfolders { get; set; } = true;
+    public IReadOnlyList<string> InitialSubfolders => ["Airplanes"];
+
+    public IReadOnlyList<string> ListSubfolders(string simFolder) =>
+        string.IsNullOrWhiteSpace(simFolder) ? [] : ["Airplanes", "Boats", "Rotorcraft"];
+
+    public IReadOnlyList<ScanAddOn> AddOns => [new("Aerosoft CRJ", "Aerosoft CRJ", true), new("Fenix A320", "Fenix A320", false)];
+    public IReadOnlyList<string> AdditionalFolders => [@"D:\Community"];
+
+    /// <summary>The scans that were asked for, so a test can see them.</summary>
+    public List<(string Folder, IReadOnlyList<string> Subfolders, IReadOnlyList<string> AddOns, IReadOnlyList<string> Additional)> Scans { get; } = [];
+
+    /// <summary>Pretend a scan is already running, so asking for another is refused.</summary>
+    public bool Busy { get; set; }
+
+    public bool Scan(string simFolder, IReadOnlyList<string> subfolders, IReadOnlyList<string> addOns, IReadOnlyList<string> additionalFolders)
+    {
+        if (Busy)
+            return false;
+        Scans.Add((simFolder, subfolders, addOns, additionalFolders));
+        return true;
+    }
 }
 
 public sealed class FakeXPlanePluginInstaller : IXPlanePluginInstaller

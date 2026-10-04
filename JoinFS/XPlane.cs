@@ -507,7 +507,7 @@ namespace JoinFS
                 main.substitution.SaveManualFolder(main.sim.GetSimulatorName(), folder);
             }
             // nothing but the default C172 exists yet, so always generate the CSL packages
-            main.substitution.StartScanInBackground(forceCslGeneration: true);
+            main.substitution.StartBackgroundScan(true);
         }
 #endif
 

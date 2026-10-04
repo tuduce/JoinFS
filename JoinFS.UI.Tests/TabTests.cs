@@ -919,6 +919,7 @@ public sealed class RecordingCatalog(IModelCatalog inner, bool hasModels = true)
 {
     public List<string> Writes { get; } = [];
 
+    public string ScanStatus => "";
     public IReadOnlyList<ModelRule> GetRules() => inner.GetRules();
     public bool HasModels => hasModels;
     public IReadOnlyList<string> GetTypes(string filter) => hasModels ? inner.GetTypes(filter) : [];

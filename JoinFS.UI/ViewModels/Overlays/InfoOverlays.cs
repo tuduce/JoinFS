@@ -39,39 +39,3 @@ public sealed partial class AboutViewModel : OverlayViewModel
             _platform.OpenUrl(Update.Url);
     }
 }
-
-/// <summary>"Scan For Models", opened from Settings → Simulator. Only gathers where to scan; the scan itself is not wired yet.</summary>
-public sealed partial class ScanModelsViewModel : OverlayViewModel
-{
-    private readonly IPlatform _platform;
-
-    public ScanModelsViewModel(bool simulatorConnected, IPlatform platform)
-    {
-        SimulatorConnected = simulatorConnected;
-        _platform = platform;
-    }
-
-    public override string Title => "Scan For Models";
-
-    public bool SimulatorConnected { get; }
-    public string SimulatorLabel => SimulatorConnected ? "Connected" : "Not connected";
-
-    [ObservableProperty]
-    private string _rootFolder = "";
-
-    public ObservableCollection<string> Subfolders { get; } = [];
-    public ObservableCollection<string> AddOns { get; } = [];
-    public ObservableCollection<string> OtherFolders { get; } = [];
-
-    [RelayCommand]
-    private async Task BrowseAsync()
-    {
-        string? folder = await _platform.PickFolderAsync("Simulator root folder");
-        if (folder is not null)
-            RootFolder = folder;
-    }
-
-    // The scan needs the real model scanner and its progress; the README leaves the progress state to the wiring step.
-    [RelayCommand]
-    private void Scan() => Close();
-}

@@ -8,48 +8,76 @@
     <StackPanel Spacing="14">
       <StackPanel Orientation="Horizontal" Spacing="10">
         <TextBlock Text="Simulator:" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-        <Border CornerRadius="6" Padding="10,4" Background="{DynamicResource DangerTintBrush}">
+        <TextBlock Text="{Binding SimulatorName}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+        <Border CornerRadius="6" Padding="10,4" Background="{DynamicResource DangerTintBrush}" IsVisible="{Binding !SimulatorConnected}">
           <TextBlock Text="{Binding SimulatorLabel}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource DangerTextBrush}" />
         </Border>
       </StackPanel>
 
       <StackPanel Spacing="8">
-        <TextBlock Text="Please specify the root folder for the simulator:" FontSize="13" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding FolderPrompt}" FontSize="13" FontWeight="SemiBold" />
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
           <TextBox Classes="mono" FontSize="12.5" Text="{Binding RootFolder}" Watermark="C:\...\Microsoft Flight Simulator" />
           <Button Grid.Column="1" Command="{Binding BrowseCommand}" Content="Browse..." Padding="16,9" />
         </Grid>
       </StackPanel>
 
-      <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
-        <Border Grid.Column="0" Classes="card" CornerRadius="8" BorderBrush="{DynamicResource BorderInputBrush}">
+      <!-- Subfolders only exist for a simulator with one SimObjects folder; without them the add-ons have the whole width. -->
+      <DockPanel LastChildFill="True">
+        <Border DockPanel.Dock="Left" Width="249" Margin="0,0,14,0" Classes="card" CornerRadius="8" BorderBrush="{DynamicResource BorderInputBrush}" IsVisible="{Binding ShowSubfolders}">
           <StackPanel>
             <Border Padding="12,8" Background="{DynamicResource SurfaceHeaderBrush}" BorderBrush="{DynamicResource BorderInputBrush}" BorderThickness="0,0,0,1">
               <TextBlock Text="Subfolder" FontSize="12.5" FontWeight="SemiBold" />
             </Border>
-            <Panel Height="90">
-              <TextBlock Text="No subfolders found" FontSize="12" Foreground="{DynamicResource DisabledBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <Panel Height="110">
+              <TextBlock Text="No subfolders found" FontSize="12" Foreground="{DynamicResource DisabledBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                         IsVisible="{Binding NoSubfolders}" />
+              <ScrollViewer>
+                <ItemsControl ItemsSource="{Binding Subfolders}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="ovm:ScanChoiceViewModel">
+                      <Border Padding="12,4" BorderBrush="{DynamicResource SurfaceHeaderBrush}" BorderThickness="0,0,0,1">
+                        <CheckBox IsChecked="{Binding IsChecked}" Content="{Binding Name}" FontSize="12.5" />
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
             </Panel>
           </StackPanel>
         </Border>
-        <Border Grid.Column="1" Classes="card" CornerRadius="8" BorderBrush="{DynamicResource BorderInputBrush}">
+        <Border Classes="card" CornerRadius="8" BorderBrush="{DynamicResource BorderInputBrush}">
           <StackPanel>
             <Border Padding="12,8" Background="{DynamicResource SurfaceHeaderBrush}" BorderBrush="{DynamicResource BorderInputBrush}" BorderThickness="0,0,0,1">
               <TextBlock Text="Add-on" FontSize="12.5" FontWeight="SemiBold" />
             </Border>
-            <Panel Height="90">
-              <TextBlock Text="No add-ons found" FontSize="12" Foreground="{DynamicResource DisabledBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <Panel Height="110">
+              <TextBlock Text="No add-ons found" FontSize="12" Foreground="{DynamicResource DisabledBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                         IsVisible="{Binding NoAddOns}" />
+              <ScrollViewer>
+                <ItemsControl ItemsSource="{Binding AddOns}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="ovm:ScanChoiceViewModel">
+                      <Border Padding="12,4" BorderBrush="{DynamicResource SurfaceHeaderBrush}" BorderThickness="0,0,0,1">
+                        <CheckBox IsChecked="{Binding IsChecked}" Content="{Binding Name}" FontSize="12.5" />
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
             </Panel>
           </StackPanel>
         </Border>
-      </Grid>
+      </DockPanel>
 
       <StackPanel Spacing="8">
-        <TextBlock Text="Other folders to scan:" FontSize="13" FontWeight="SemiBold" />
-        <Border Classes="card" CornerRadius="8" BorderBrush="{DynamicResource BorderInputBrush}" Height="70">
-          <TextBlock Text="No additional folders added" FontSize="12" Foreground="{DynamicResource DisabledBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-        </Border>
+        <TextBlock Text="Other folders to scan (one to a line):" FontSize="13" FontWeight="SemiBold" />
+        <TextBox Classes="mono" FontSize="12" Height="70" AcceptsReturn="True" TextWrapping="NoWrap" Text="{Binding OtherFoldersText}"
+                 Watermark="No additional folders added" />
       </StackPanel>
+
+      <TextBlock Text="{Binding Status}" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}"
+                 IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
     </StackPanel>
     <c:ModalCard.Footer>
       <StackPanel Classes="footer" Spacing="14">

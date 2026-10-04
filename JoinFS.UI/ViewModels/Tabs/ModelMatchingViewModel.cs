@@ -41,7 +41,7 @@ public sealed partial class ModelRuleRowViewModel : ObservableObject
 }
 
 /// <summary>Model Matching tab: which model stands in for which. Edits go through the shared Substitute overlay.</summary>
-public sealed class ModelMatchingViewModel : ObservableObject
+public sealed partial class ModelMatchingViewModel : ObservableObject
 {
     private readonly IModelCatalog _catalog;
     private readonly IShell _shell;
@@ -55,6 +55,10 @@ public sealed class ModelMatchingViewModel : ObservableObject
     }
 
     public ObservableCollection<ModelRuleRowViewModel> Rows { get; } = [];
+
+    /// <summary>How the models stand: how many are known, or that a scan is running. Empty when there is nothing to say.</summary>
+    [ObservableProperty]
+    private string _scanStatus = "";
 
     /// <summary>Reads the table again. Rules still there are updated in place; new ones get a row, ones gone lose theirs.</summary>
     public void Refresh()
@@ -76,6 +80,7 @@ public sealed class ModelMatchingViewModel : ObservableObject
             _rowsByOriginal.Remove(gone);
 
         CollectionSync.Reconcile(Rows, wanted);
+        ScanStatus = _catalog.ScanStatus;
     }
 
     internal async Task EditAsync(ModelRuleRowViewModel row)

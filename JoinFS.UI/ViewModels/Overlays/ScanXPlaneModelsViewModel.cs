@@ -16,7 +16,7 @@ public sealed partial class AircraftFolderViewModel(string name, bool isChecked)
 
 /// <summary>
 /// "Scan For Models" in the XPLANE build (the old ScanForm_XPLANE): the X-Plane folder, the CSL folder derived from it,
-/// whether to generate CSL objects and for which aircraft folders. Only gathers the options; the scan itself is not wired yet.
+/// whether to generate CSL objects and for which aircraft folders, and the scan itself.
 /// </summary>
 public sealed partial class ScanXPlaneModelsViewModel : OverlayViewModel
 {
@@ -75,6 +75,13 @@ public sealed partial class ScanXPlaneModelsViewModel : OverlayViewModel
 
     public ProfileViewModel Profile => _profile;
 
+    /// <summary>What the old dialog warned of before it generated CSL objects. Shown while generating.</summary>
+    public const string CslWarning = "Generating CSL objects may take several minutes. You may need to restart X-Plane when complete.";
+
+    /// <summary>Why the scan did not start, when it needs saying. Empty otherwise.</summary>
+    [ObservableProperty]
+    private string _status = "";
+
     /// <summary>The aircraft folders to scan, as full paths under the X-Plane folder's Aircraft folder.</summary>
     public IReadOnlyList<string> SelectedFolderPaths =>
         [.. AircraftFolders.Where(f => f.IsChecked).Select(f => Path.Combine(XplaneFolder, "Aircraft", f.Name))];
@@ -87,9 +94,18 @@ public sealed partial class ScanXPlaneModelsViewModel : OverlayViewModel
             XplaneFolder = folder;
     }
 
-    // The scan needs the real model scanner; the options above are already saved as they change.
+    /// <summary>Scans the folders ticked, or all of X-Plane's aircraft when none is. The options above are already saved as they change.</summary>
     [RelayCommand]
-    private void Scan() => Close();
+    private void Scan()
+    {
+        IReadOnlyList<string> folders = [.. AircraftFolders.Where(f => f.IsChecked).Select(f => f.Name)];
+        if (!_source.Scan(XplaneFolder.Trim(), folders))
+        {
+            Status = "A scan is already running.";
+            return;
+        }
+        Close();
+    }
 
     private void RefreshFolders()
     {

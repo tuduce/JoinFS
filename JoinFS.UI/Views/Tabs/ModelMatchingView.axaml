@@ -6,6 +6,7 @@
   <ScrollViewer>
     <StackPanel Spacing="14">
       <TextBlock Text="Model Matching" Classes="h2" />
+      <TextBlock Text="{Binding ScanStatus}" Classes="label" IsVisible="{Binding ScanStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
       <Border Classes="card">
         <StackPanel>
           <Border Classes="tableHeader">
