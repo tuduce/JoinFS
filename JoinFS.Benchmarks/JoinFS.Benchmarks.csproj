@@ -2,7 +2,12 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <!-- net8.0-windows, not net8.0: a solution restore ignores the ProjectReference's
+         AdditionalProperties and resolves JoinFS.csproj with the active solution configuration
+         (e.g. FS2024-Debug, net8.0-windows). A plain net8.0 consumer then fails with NU1201, which
+         also stops the Windows Forms designer from loading. A net8.0-windows project can still
+         reference the net8.0 CONSOLE build it actually uses. -->
+    <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
