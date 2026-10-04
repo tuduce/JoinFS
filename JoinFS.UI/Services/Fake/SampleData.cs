@@ -62,13 +62,17 @@ public static class SampleData
 
     public static IReadOnlyList<ObjectInfo> Objects { get; } =
     [
-        new("Pastou", "Airbus H145 Red Carpet (A)", 3, 45, 390.3, true, false, false),
-        new("Jcfoster", "PC-12 D-FCAH (A)", 1, 96, 4549.4, true, false, false),
-        new("David18", "Black Square B36TP Bonanza", 2, 32, 8813.0, false, false, false),
-        new("Jeka28", "GC1a Swift (Factory) (D)", 1, 44, 8818.2, true, true, false),
-        new("Nacho", "GC1a Swift (Factory) (D)", 4, 22, 6306.6, true, false, true),
-        new("Nicksrun75", "C208B Cargo (Cargo 01)", 1, 285, 458.6, false, false, false),
+        Obj("Pastou", "Airbus H145 Red Carpet (A)", 3, 45, 390.3, true, false, false),
+        Obj("Jcfoster", "PC-12 D-FCAH (A)", 1, 96, 4549.4, true, false, false),
+        Obj("David18", "Black Square B36TP Bonanza", 2, 32, 8813.0, false, false, false),
+        Obj("Jeka28", "GC1a Swift (Factory) (D)", 1, 44, 8818.2, true, true, false),
+        Obj("Nacho", "GC1a Swift (Factory) (D)", 4, 22, 6306.6, true, false, true),
+        Obj("Nicksrun75", "C208B Cargo (Cargo 01)", 1, 285, 458.6, false, false, false),
     ];
+
+    private static ObjectInfo Obj(string owner, string model, int count, int bearing, double distance, bool broadcast, bool ignoreOwner, bool ignoreModel) =>
+        new($"{owner}/{model}", owner, model, ModelNames.StripVariantSuffix(model), count, bearing, distance,
+            broadcast, ignoreOwner, ignoreModel, ModelBroadcast: false, CanBroadcast: true, CanIgnore: true, CanSubstitute: true);
 
     public static IReadOnlyList<ModelRule> DefaultRules { get; } =
     [

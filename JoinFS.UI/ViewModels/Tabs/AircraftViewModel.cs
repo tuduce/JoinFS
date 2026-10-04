@@ -239,8 +239,11 @@ public sealed partial class AircraftViewModel : ObservableObject
         IsTracking = Source.IsTracking;
 
         _inSourceOrder = [];
+        HashSet<string> seen = [];
         foreach (AircraftInfo info in Source.GetAircraft())
         {
+            if (!seen.Add(info.Id))
+                continue; // an id names one aircraft; a repeat is a fault in the source and would break the list
             if (_rowsById.TryGetValue(info.Id, out AircraftRowViewModel? row))
                 row.Update(info);
             else

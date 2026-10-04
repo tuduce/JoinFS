@@ -36,9 +36,9 @@
                       <TextBlock Grid.Column="2" Text="{Binding Count}" />
                       <TextBlock Grid.Column="3" Text="{Binding Bearing}" />
                       <TextBlock Grid.Column="4" Text="{Binding Distance}" />
-                      <CheckBox Grid.Column="5" IsChecked="{Binding Broadcast}" MinHeight="0" Padding="0" AutomationProperties.Name="Broadcast" />
-                      <CheckBox Grid.Column="6" IsChecked="{Binding IgnoreOwner}" MinHeight="0" Padding="0" AutomationProperties.Name="Ignore owner" />
-                      <CheckBox Grid.Column="7" IsChecked="{Binding IgnoreModel}" MinHeight="0" Padding="0" AutomationProperties.Name="Ignore model" />
+                      <CheckBox Grid.Column="5" IsChecked="{Binding Broadcast}" IsEnabled="{Binding CanBroadcast}" MinHeight="0" Padding="0" AutomationProperties.Name="Broadcast" />
+                      <CheckBox Grid.Column="6" IsChecked="{Binding IgnoreOwner}" IsEnabled="{Binding CanIgnore}" MinHeight="0" Padding="0" AutomationProperties.Name="Ignore owner" />
+                      <CheckBox Grid.Column="7" IsChecked="{Binding IgnoreModel}" IsEnabled="{Binding CanIgnore}" MinHeight="0" Padding="0" AutomationProperties.Name="Ignore model" />
                     </Grid>
                   </Button>
 

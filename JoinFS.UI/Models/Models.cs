@@ -62,9 +62,18 @@ public sealed record AircraftInfo(
     int? Bearing, string Squawk, string Com1, string Com2, string Simulator, string OriginalModel, string FlightPlan, string Remarks,
     AircraftLinkState Link, bool Recording, bool Ignored, bool Tracked, AircraftActions Can);
 
+/// <summary>One row of the Objects table: a scenery or shared object, or (grouped by model) all the objects of one owner and model.</summary>
+/// <param name="Id">Names the row to the service. Opaque to the UI.</param>
+/// <param name="Model">The model as shown, marked "(S)", "(A)" or "(D)" for objects of the network.</param>
+/// <param name="OriginalModel">The model the owner has, which the broadcast and ignore settings are kept by.</param>
+/// <param name="Count">How many objects the row stands for: 1, unless grouped by model.</param>
+/// <param name="Broadcast">Broadcast: this object, or for a group whether its model is.</param>
+/// <param name="ModelBroadcast">Every object of this model is broadcast.</param>
+/// <param name="CanBroadcast">Only your own objects can be broadcast, not ones already on the network.</param>
+/// <param name="CanIgnore">Only objects of the network can be ignored.</param>
 public sealed record ObjectInfo(
-    string Owner, string Model, int Count, int Bearing, double DistanceNm,
-    bool Broadcast, bool IgnoreOwner, bool IgnoreModel);
+    string Id, string Owner, string Model, string OriginalModel, int Count, int? Bearing, double? DistanceNm,
+    bool Broadcast, bool IgnoreOwner, bool IgnoreModel, bool ModelBroadcast, bool CanBroadcast, bool CanIgnore, bool CanSubstitute);
 
 public sealed record ModelRule(string Original, string Substitute, bool IsDefault);
 

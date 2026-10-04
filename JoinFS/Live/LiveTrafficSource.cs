@@ -13,12 +13,11 @@ namespace JoinFS.Live
     /// rules of its context menu. Reads the sim's snapshot (Sim.View) under the app's lock, as the form did; everything that changes an
     /// aircraft is posted to the sim thread through its Source, never done from here.
     ///
-    /// The Objects tab is not live yet: its rows come from <paramref name="objects"/>.
+    /// The Objects tab is read the same way, from the old ObjectsForm's list and its checkboxes.
     /// </summary>
     class LiveTrafficSource : ITrafficSource
     {
         readonly Main main;
-        readonly ITrafficSource objects;
 
         // the variables an aircraft's radios and transponder are read from
         readonly uint vuidCom1 = VariableMgr.CreateVuid("com active frequency:1");
@@ -28,13 +27,10 @@ namespace JoinFS.Live
         // the aircraft of the last read, by the id a row carries, so an action finds the same one the user clicked
         Dictionary<string, Sim.Aircraft> lastRead = [];
 
-        public LiveTrafficSource(Main main, ITrafficSource objects)
+        public LiveTrafficSource(Main main)
         {
             this.main = main;
-            this.objects = objects;
         }
-
-        public IReadOnlyList<ObjectInfo> GetObjects() => objects.GetObjects();
 
         // ---- the list filters, which are the old window's settings ----
 
@@ -452,6 +448,187 @@ namespace JoinFS.Live
                 {
                     main.sim?.SetWeatherObservation(aircraft.metar);
                 }
+            }
+        }
+
+        // ---- objects ----
+
+        // the objects of the last read, by the id a row carries
+        Dictionary<string, Sim.Obj> lastObjects = [];
+
+        public bool GroupObjects
+        {
+            get => Settings.Default.GroupObjects;
+            set
+            {
+                Settings.Default.GroupObjects = value;
+                Settings.Default.Save();
+            }
+        }
+
+        public IReadOnlyList<ObjectInfo> GetObjects()
+        {
+            List<ObjectInfo> list = [];
+            Dictionary<string, Sim.Obj> read = [];
+
+            lock (main.conch)
+            {
+                if (main.sim != null)
+                {
+                    SimSnapshot view = main.sim.View;
+                    Sim.Pos userPosition = view.UserAircraft?.Position;
+
+                    if (GroupObjects)
+                    {
+                        // one row per owner and model, with how many there are
+                        Dictionary<string, (Sim.Obj First, int Count)> groups = [];
+                        foreach (Sim.Obj obj in view.Objects)
+                        {
+                            if (obj is Sim.Aircraft)
+                            {
+                                continue;
+                            }
+                            string key = obj.ownerNuid.ToString() + " " + obj.ownerModel;
+                            groups[key] = groups.TryGetValue(key, out var group) ? (group.First, group.Count + 1) : (obj, 1);
+                        }
+                        foreach (var group in groups)
+                        {
+                            string id = "group:" + group.Key;
+                            read[id] = group.Value.First;
+                            list.Add(Describe(id, group.Value.First, group.Value.Count, view, userPosition));
+                        }
+                    }
+                    else
+                    {
+                        foreach (Sim.Obj obj in view.Objects)
+                        {
+                            if (obj is Sim.Aircraft)
+                            {
+                                continue;
+                            }
+                            string id = IdOf(obj);
+                            if (read.TryAdd(id, obj))
+                            {
+                                list.Add(Describe(id, obj, 1, view, userPosition));
+                            }
+                        }
+                    }
+                }
+            }
+
+            lastObjects = read;
+            return list;
+        }
+
+        /// <summary>
+        /// What names an object to the UI: its owner and net id on the network, its sim id otherwise.
+        /// </summary>
+        static string IdOf(Sim.Obj obj) =>
+            obj.ownerNuid.Valid() ? "net:" + obj.ownerNuid + "/" + obj.netId : "sim:" + obj.simId;
+
+        /// <summary>
+        /// The owner, as the old Objects list named it
+        /// </summary>
+        string OwnerName(Sim.Obj obj) => obj.owner switch
+        {
+            Sim.Obj.Owner.Me or Sim.Obj.Owner.Sim => main.settingsNickname,
+            Sim.Obj.Owner.Network => main.network.Peers.GetNodeName(obj.ownerNuid),
+            Sim.Obj.Owner.Recorder => Resources.Strings.RecorderStr,
+            _ => "",
+        };
+
+        ObjectInfo Describe(string id, Sim.Obj obj, int count, SimSnapshot view, Sim.Pos userPosition)
+        {
+            bool network = obj.owner == Sim.Obj.Owner.Network;
+            bool ignoreNode = network && main.log.IgnoreNode(obj.ownerNuid);
+            bool ignoreModel = network && main.log.IgnoreName(obj.ownerModel);
+
+            // the model, marked with how it was chosen when it is someone else's
+            string model = obj.ModelTitle;
+            if (obj.ownerNuid.Valid())
+            {
+                model += obj.subType switch
+                {
+                    Substitution.Type.Substitute => " (S)",
+                    Substitution.Type.Auto => " (A)",
+                    Substitution.Type.Default => " (D)",
+                    _ => "",
+                };
+            }
+
+            // where it is, only for a single object
+            double? distance = null;
+            int? bearing = null;
+            Sim.Pos position = obj.Position;
+            if (count == 1 && userPosition != null && position != null)
+            {
+                distance = Vector.GeodesicDistance(position.geo.x, position.geo.z, userPosition.geo.x, userPosition.geo.z) * 0.00053995680346;
+                bearing = Compass((int)(Vector.GeodesicBearing(userPosition.geo.x, userPosition.geo.z, position.geo.x, position.geo.z) * 180.0 / Math.PI));
+            }
+
+            // a group is broadcast when its model is, or it is a TacPack model and those are
+            bool modelBroadcast = main.log.BroadcastName(obj.ownerModel);
+            bool broadcast = count == 1 && !GroupObjects
+                ? main.sim != null && main.sim.IsBroadcast(obj)
+                : modelBroadcast || Settings.Default.BroadcastTacpack && Sim.IsTacpackModel(obj.ownerModel);
+
+            return new ObjectInfo(
+                id, OwnerName(obj), model, obj.ownerModel, count, bearing, distance, broadcast, ignoreNode, ignoreModel, modelBroadcast,
+                CanBroadcast: !network, CanIgnore: network, CanSubstitute: false);
+        }
+
+        Sim.Obj FindObject(string objectId) => lastObjects.TryGetValue(objectId, out Sim.Obj obj) ? obj : null;
+
+        public void SetObjectBroadcast(string objectId, bool broadcast)
+        {
+            Sim.Obj obj = FindObject(objectId);
+            // your own objects only, one at a time
+            if (obj == null || obj.owner == Sim.Obj.Owner.Network || GroupObjects)
+            {
+                return;
+            }
+            Sim.Obj live = obj.Source;
+            main.SimCommand(sim => live.broadcast = broadcast);
+        }
+
+        public void SetModelBroadcast(string originalModel, bool broadcast)
+        {
+            lock (main.conch)
+            {
+                if (broadcast)
+                {
+                    main.log.AddBroadcastName(originalModel);
+                }
+                else
+                {
+                    main.log.RemoveBroadcastName(originalModel);
+                }
+            }
+        }
+
+        public void SetIgnoreOwner(string objectId, bool ignored)
+        {
+            Sim.Obj obj = FindObject(objectId);
+            if (obj == null || obj.owner != Sim.Obj.Owner.Network)
+            {
+                return;
+            }
+            lock (main.conch)
+            {
+                if (ignored) main.log.AddIgnoreNode(obj.ownerNuid); else main.log.RemoveIgnoreNode(obj.ownerNuid);
+            }
+        }
+
+        public void SetIgnoreModel(string objectId, bool ignored)
+        {
+            Sim.Obj obj = FindObject(objectId);
+            if (obj == null || obj.owner != Sim.Obj.Owner.Network)
+            {
+                return;
+            }
+            lock (main.conch)
+            {
+                if (ignored) main.log.AddIgnoreName(obj.ownerModel); else main.log.RemoveIgnoreName(obj.ownerModel);
             }
         }
     }

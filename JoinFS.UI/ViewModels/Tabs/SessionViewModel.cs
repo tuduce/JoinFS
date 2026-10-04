@@ -169,8 +169,11 @@ public sealed partial class SessionViewModel : ObservableObject
         IReadOnlyList<PeerInfo> peers = Source.GetPeers();
 
         List<PeerRowViewModel> wanted = [];
+        HashSet<string> seen = [];
         foreach (PeerInfo peer in peers)
         {
+            if (!seen.Add(peer.Id))
+                continue; // an id names one user; a repeat is a fault in the source and would break the list
             PeerSettings settings = peer.IsMe ? new PeerSettings(false, false, false, false, false) : Source.GetSettings(peer.Id);
             if (_rowsById.TryGetValue(peer.Id, out PeerRowViewModel? row))
                 row.Update(peer, settings);
