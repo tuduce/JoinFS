@@ -1,0 +1,85 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
+             xmlns:v="using:JoinFS.UI.Views"
+             xmlns:vm="using:JoinFS.UI.ViewModels"
+             x:Class="JoinFS.UI.Views.ExpandedView"
+             x:DataType="vm:MainViewModel">
+  <!-- The full view: a dark sidebar, the connection strip, and the active tab. -->
+  <Grid ColumnDefinitions="216,*">
+
+    <!-- Sidebar -->
+    <Border Grid.Column="0" Background="{DynamicResource SidebarBackgroundBrush}">
+      <Grid RowDefinitions="Auto,*,Auto" Margin="0,14">
+        <Border Grid.Row="0" Padding="16,4,16,18"
+                BorderBrush="{DynamicResource SidebarBorderBrush}" BorderThickness="0,0,0,1">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <c:TigerMoth Width="60" Height="60"
+                         BodyBrush="{DynamicResource SidebarMothBodyBrush}"
+                         WingsBrush="{DynamicResource SidebarTextBrush}" />
+            <TextBlock Text="JoinFS" FontSize="15" FontWeight="SemiBold" LetterSpacing="0.2"
+                       Foreground="{DynamicResource SidebarTextBrush}" VerticalAlignment="Center" />
+          </StackPanel>
+        </Border>
+
+        <ItemsControl Grid.Row="1" ItemsSource="{Binding NavItems}" Margin="8,12">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="2" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:NavItemViewModel">
+              <Button Classes="nav" Classes.active="{Binding IsActive}" Command="{Binding SelectCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <Panel Width="18" Height="18">
+                    <c:Icon Source="{Binding IconKey, Converter={x:Static v:ResourceKeyConverter.Instance}}" Width="18" Height="18" />
+                    <!-- Unread dot, Chat only. -->
+                    <Ellipse IsVisible="{Binding ShowBadge}" Width="7" Height="7" Margin="9,-1,0,0"
+                             HorizontalAlignment="Left" VerticalAlignment="Top"
+                             Fill="{DynamicResource UnreadBrush}"
+                             Stroke="{DynamicResource SidebarBackgroundBrush}" StrokeThickness="1.5" />
+                  </Panel>
+                  <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- The version opens About. -->
+        <Border Grid.Row="2" BorderBrush="{DynamicResource SidebarBorderBrush}" BorderThickness="0,1,0,0">
+          <Button Classes="versionLink" Command="{Binding OpenAboutCommand}" Content="{Binding Version, StringFormat='v{0}'}" />
+        </Border>
+      </Grid>
+    </Border>
+
+    <!-- Strip and tab -->
+    <DockPanel Grid.Column="1">
+      <Border DockPanel.Dock="Top" Background="{DynamicResource SurfaceBrush}"
+              BorderBrush="{DynamicResource BorderCardBrush}" BorderThickness="0,0,0,1" Padding="24,8">
+        <Grid ColumnDefinitions="56,20,170,20,56,20,56,*">
+          <c:ConnectorNode Grid.Column="0" DataContext="{Binding Simulator}"
+                           Icon="{DynamicResource IconAircraft}" Title="Simulator" ButtonTip="Connect to simulator" />
+          <Border Grid.Column="1" Classes="wire" />
+
+          <StackPanel Grid.Column="2">
+            <v:HubPicker Height="42" />
+            <TextBlock Text="Hub" Classes="label" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+          </StackPanel>
+
+          <Border Grid.Column="3" Classes="wire" />
+          <c:ConnectorNode Grid.Column="4" DataContext="{Binding Network}"
+                           Icon="{DynamicResource IconNetworkNode}" Title="Network" ButtonTip="Connect to hub" />
+          <Border Grid.Column="5" Classes="wire" />
+          <c:ConnectorNode Grid.Column="6" DataContext="{Binding FlightPlanLoad}"
+                           Icon="{DynamicResource IconFlightPlan}" Title="Flight Plan" ButtonTip="Fetch flight plan from Simbrief" />
+        </Grid>
+      </Border>
+
+      <Border Padding="24">
+        <ContentControl Content="{Binding CurrentTab}" />
+      </Border>
+    </DockPanel>
+  </Grid>
+</UserControl>

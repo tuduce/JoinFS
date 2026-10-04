@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
+             xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
+             x:Class="JoinFS.UI.Views.Overlays.SubstituteView"
+             x:DataType="ovm:SubstituteViewModel">
+  <c:ModalCard Width="380" Title="{Binding Title}" CloseCommand="{Binding CloseCommand}" ShowClose="{Binding IsDismissable}">
+    <StackPanel Spacing="16">
+      <StackPanel Spacing="6">
+        <TextBlock Text="This is the model to be replaced" FontSize="12.5" FontWeight="SemiBold" />
+        <Border Classes="readonly"><TextBlock Text="{Binding Original}" Foreground="{DynamicResource Text2Brush}" TextWrapping="Wrap" /></Border>
+      </StackPanel>
+      <StackPanel Spacing="6">
+        <TextBlock Text="Filter words" FontSize="12.5" FontWeight="SemiBold" />
+        <TextBox Text="{Binding FilterWords}" Watermark="optional" />
+      </StackPanel>
+      <StackPanel Spacing="6">
+        <TextBlock Text="Select a type" FontSize="12.5" FontWeight="SemiBold" />
+        <ComboBox ItemsSource="{Binding Types}" SelectedItem="{Binding SelectedType}" />
+      </StackPanel>
+      <StackPanel Spacing="6">
+        <TextBlock Text="Select a variation" FontSize="12.5" FontWeight="SemiBold" />
+        <ComboBox ItemsSource="{Binding Variations}" SelectedItem="{Binding SelectedVariation}" />
+      </StackPanel>
+      <StackPanel Spacing="6">
+        <TextBlock Text="This is the replacement model" FontSize="12.5" FontWeight="SemiBold" />
+        <Border Classes="readonly"><TextBlock Text="{Binding Preview}" TextWrapping="Wrap" /></Border>
+      </StackPanel>
+    </StackPanel>
+    <c:ModalCard.Footer>
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <Button Grid.Column="0" Command="{Binding UseOriginalCommand}" Content="Use Original" Padding="16,8" />
+        <StackPanel Grid.Column="2" Classes="footer">
+          <Button Command="{Binding CloseCommand}" Content="Cancel" Padding="18,8" />
+          <Button Classes="primary" Command="{Binding SaveCommand}" Content="OK" />
+        </StackPanel>
+      </Grid>
+    </c:ModalCard.Footer>
+  </c:ModalCard>
+</UserControl>

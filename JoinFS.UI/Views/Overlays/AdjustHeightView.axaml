@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
+             xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
+             x:Class="JoinFS.UI.Views.Overlays.AdjustHeightView"
+             x:DataType="ovm:AdjustHeightViewModel">
+  <c:ModalCard Width="360" Title="{Binding Title}" CloseCommand="{Binding CloseCommand}" ShowClose="{Binding IsDismissable}">
+    <StackPanel Spacing="12">
+      <StackPanel Spacing="6">
+        <TextBlock Text="Model" FontSize="13" FontWeight="SemiBold" />
+        <Border Classes="readonly"><TextBlock Text="{Binding Model}" Foreground="{DynamicResource Text2Brush}" TextWrapping="Wrap" /></Border>
+      </StackPanel>
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="18">
+        <StackPanel Grid.Column="0" Spacing="8">
+          <Button Command="{Binding Up50Command}" Content="+ 50 cm" Padding="0,9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+          <Button Command="{Binding Up5Command}" Content="+ 5 cm" Padding="0,9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+          <Button Command="{Binding OffCommand}" Content="Off" Padding="0,9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+          <Button Command="{Binding Down5Command}" Content="- 5 cm" Padding="0,9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+          <Button Command="{Binding Down50Command}" Content="- 50 cm" Padding="0,9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Spacing="6">
+          <TextBlock Text="Adjustment" FontSize="13" FontWeight="SemiBold" />
+          <Border Classes="readonly"><TextBlock Text="{Binding AdjustmentLabel}" Foreground="{DynamicResource Text2Brush}" HorizontalAlignment="Center" /></Border>
+        </StackPanel>
+      </Grid>
+    </StackPanel>
+    <c:ModalCard.Footer>
+      <StackPanel Classes="footer">
+        <Button Command="{Binding CloseCommand}" Content="Cancel" Padding="18,8" />
+        <Button Classes="primary" Command="{Binding OkCommand}" Content="OK" />
+      </StackPanel>
+    </c:ModalCard.Footer>
+  </c:ModalCard>
+</UserControl>

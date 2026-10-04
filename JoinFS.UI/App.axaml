@@ -1,0 +1,68 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
+             xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
+             xmlns:tv="using:JoinFS.UI.Views.Tabs"
+             xmlns:ov="using:JoinFS.UI.Views.Overlays"
+             x:Class="JoinFS.UI.App"
+             RequestedThemeVariant="Light">
+
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://JoinFS.UI/Styles/Tokens.axaml" />
+        <ResourceInclude Source="avares://JoinFS.UI/Styles/Icons.axaml" />
+        <ResourceInclude Source="avares://JoinFS.UI/Styles/Moth.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+
+      <!-- Fluent's input colours, pointed at the design's borders and accent. -->
+      <StaticResource x:Key="TextControlBorderBrush" ResourceKey="BorderInputBrush" />
+      <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="BorderButtonBrush" />
+      <StaticResource x:Key="TextControlBorderBrushFocused" ResourceKey="AccentBrush" />
+      <StaticResource x:Key="TextControlBackground" ResourceKey="SurfaceBrush" />
+      <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="SurfaceBrush" />
+      <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="SurfaceBrush" />
+      <StaticResource x:Key="ComboBoxBorderBrush" ResourceKey="BorderInputBrush" />
+      <StaticResource x:Key="ComboBoxBorderBrushPointerOver" ResourceKey="BorderButtonBrush" />
+      <StaticResource x:Key="ComboBoxBorderBrushFocused" ResourceKey="AccentBrush" />
+      <StaticResource x:Key="ComboBoxBackground" ResourceKey="SurfaceBrush" />
+      <StaticResource x:Key="ComboBoxBackgroundPointerOver" ResourceKey="SurfaceBrush" />
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Light" Accent="#0091CE" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="avares://JoinFS.UI/Styles/Controls.axaml" />
+  </Application.Styles>
+
+  <!-- Which view draws which view model. The shell shows the active tab and the overlay through a ContentControl. -->
+  <Application.DataTemplates>
+    <DataTemplate DataType="tvm:HomeViewModel"><tv:HomeView /></DataTemplate>
+    <DataTemplate DataType="tvm:HubsViewModel"><tv:HubsView /></DataTemplate>
+    <DataTemplate DataType="tvm:SessionViewModel"><tv:SessionView /></DataTemplate>
+    <DataTemplate DataType="tvm:AircraftViewModel"><tv:AircraftView /></DataTemplate>
+    <DataTemplate DataType="tvm:ObjectsViewModel"><tv:ObjectsView /></DataTemplate>
+    <DataTemplate DataType="tvm:ModelMatchingViewModel"><tv:ModelMatchingView /></DataTemplate>
+    <DataTemplate DataType="tvm:FlightPlanViewModel"><tv:FlightPlanView /></DataTemplate>
+    <DataTemplate DataType="tvm:RecorderViewModel"><tv:RecorderView /></DataTemplate>
+    <DataTemplate DataType="tvm:ChatViewModel"><tv:ChatView /></DataTemplate>
+    <DataTemplate DataType="tvm:MonitorViewModel"><tv:MonitorView /></DataTemplate>
+    <DataTemplate DataType="tvm:SettingsViewModel"><tv:SettingsView /></DataTemplate>
+
+    <DataTemplate DataType="ovm:OnboardingViewModel"><ov:OnboardingView /></DataTemplate>
+    <DataTemplate DataType="ovm:PasswordPromptViewModel"><ov:PasswordPromptView /></DataTemplate>
+    <DataTemplate DataType="ovm:SimbriefPromptViewModel"><ov:SimbriefPromptView /></DataTemplate>
+    <DataTemplate DataType="ovm:SubstituteViewModel"><ov:SubstituteView /></DataTemplate>
+    <DataTemplate DataType="ovm:AdjustHeightViewModel"><ov:AdjustHeightView /></DataTemplate>
+    <DataTemplate DataType="ovm:ExplainMatchViewModel"><ov:ExplainMatchView /></DataTemplate>
+    <DataTemplate DataType="ovm:VariablesOverlayViewModel"><ov:VariablesView /></DataTemplate>
+    <DataTemplate DataType="ovm:ScanModelsViewModel"><ov:ScanModelsView /></DataTemplate>
+    <DataTemplate DataType="ovm:ScanXPlaneModelsViewModel"><ov:ScanXPlaneModelsView /></DataTemplate>
+    <DataTemplate DataType="ovm:AboutViewModel"><ov:AboutView /></DataTemplate>
+    <DataTemplate DataType="ovm:InstallXPlanePluginViewModel"><ov:InstallXPlanePluginView /></DataTemplate>
+  </Application.DataTemplates>
+</Application>

@@ -1,0 +1,211 @@
+using JoinFS.UI.Models;
+
+namespace JoinFS.UI.Services.Fake;
+
+/// <summary>In-memory stand-ins for every service, driven by <see cref="SampleData"/>. Used until the real JoinFS adapters exist.</summary>
+public static class FakeServices
+{
+    /// <param name="latency">How long a connect or fetch takes. The prototype uses 900 ms; tests pass zero.</param>
+    /// <param name="xplaneBuild">Pretend to be the XPLANE build, which shows the X-Plane settings.</param>
+    public static AppServices Create(TimeSpan latency, UserSettings? settings = null, IPlatform? platform = null, bool xplaneBuild = false) => new(
+        Simulator: new FakeSimulatorLink(latency),
+        Network: new FakeNetworkLink(latency),
+        AddressBook: new InMemoryAddressBookStore(),
+        Hubs: new FakeHubDirectory(),
+        Session: new FakeSessionSource(),
+        Traffic: new FakeTrafficSource(),
+        Models: new FakeModelCatalog(),
+        Variables: new FakeVariablesCatalog(),
+        SimBrief: new FakeSimBriefClient(latency),
+        FlightPlan: new InMemoryFlightPlanStore(),
+        Chat: new FakeChatSource(),
+        Recorder: new FakeRecorderSource(),
+        Monitor: new FakeMonitorSource(),
+        XPlanePlugin: new FakeXPlanePluginInstaller(),
+        XPlaneScan: new FakeXPlaneScanSource(),
+        Updates: new FakeUpdateChecker(),
+        App: new FakeAppInfo(xplaneBuild),
+        Settings: new InMemorySettingsStore(settings),
+        Platform: platform ?? new NullPlatform());
+}
+
+public sealed class FakeSimulatorLink(TimeSpan latency) : ISimulatorLink
+{
+    public Task ConnectAsync(CancellationToken cancellationToken) => Task.Delay(latency, cancellationToken);
+    public Task DisconnectAsync() => Task.CompletedTask;
+}
+
+public sealed class FakeNetworkLink(TimeSpan latency) : INetworkLink
+{
+    public string MeshCode { get; private set; } = "40383 51901";
+
+    public Task JoinAsync(AddressBookEntry hub, string? password, CancellationToken cancellationToken) => Task.Delay(latency, cancellationToken);
+
+    public async Task<string> CreateMeshAsync(CancellationToken cancellationToken)
+    {
+        await Task.Delay(latency, cancellationToken);
+        MeshCode = $"{Random.Shared.Next(10000, 99999)} {Random.Shared.Next(10000, 99999)}";
+        return MeshCode;
+    }
+
+    public Task DisconnectAsync() => Task.CompletedTask;
+}
+
+public sealed class InMemoryAddressBookStore : IAddressBookStore
+{
+    private IReadOnlyList<AddressBookEntry> _entries = SampleData.AddressBook;
+    private string? _selectedName = "Planet FsHub";
+
+    public (IReadOnlyList<AddressBookEntry> Entries, string? SelectedName) Load() => (_entries, _selectedName);
+
+    public void Save(IReadOnlyList<AddressBookEntry> entries, string? selectedName)
+    {
+        _entries = entries;
+        _selectedName = selectedName;
+    }
+}
+
+public sealed class FakeHubDirectory : IHubDirectory
+{
+    public Task<IReadOnlyList<HubInfo>> GetPublicHubsAsync(CancellationToken cancellationToken) => Task.FromResult(SampleData.Hubs);
+}
+
+public sealed class FakeSessionSource : ISessionSource
+{
+    public IReadOnlyList<PeerInfo> GetPeers() => SampleData.Peers;
+}
+
+public sealed class FakeTrafficSource : ITrafficSource
+{
+    public IReadOnlyList<AircraftInfo> GetAircraft() => SampleData.Aircraft;
+    public IReadOnlyList<ObjectInfo> GetObjects() => SampleData.Objects;
+}
+
+public sealed class FakeModelCatalog : IModelCatalog
+{
+    public IReadOnlyList<ModelRule> GetDefaultRules() => SampleData.DefaultRules;
+    public IReadOnlyList<string> GetTypes() => SampleData.ModelTypes;
+    public IReadOnlyList<string> GetVariations() => SampleData.ModelVariations;
+
+    public IReadOnlyList<ExplainRow> Explain(string model) =>
+    [
+        new("Manufacturer", "Generic", model.Split(' ')[0]),
+        new("Category", "SingleProp", "SingleProp"),
+        new("Livery", "Default", "Closest available"),
+        new("ICAO Type", "Unknown", "Fallback"),
+    ];
+
+    public IReadOnlyList<string> ExplainSteps(string model) =>
+    [
+        "1. Exact title match — not found.",
+        "2. ICAO + livery match — not found.",
+        "3. ICAO match, any livery — not found.",
+        $"4. Category fallback match — matched \"{model}\".",
+    ];
+}
+
+public sealed class FakeVariablesCatalog : IVariablesCatalog
+{
+    public IReadOnlyList<VariableAssignment> GetAssignments() => SampleData.Variables;
+}
+
+public sealed class FakeSimBriefClient(TimeSpan latency) : ISimBriefClient
+{
+    public async Task<FlightPlanData> FetchAsync(string username, CancellationToken cancellationToken)
+    {
+        await Task.Delay(latency, cancellationToken);
+        return new FlightPlanData("HB-TDX", "BE35.0.tt", "VFR", "LSZH", "LSGG", "5500", "LSZH DCT KLO DCT LSGG", "Imported from SimBrief");
+    }
+}
+
+public sealed class InMemoryFlightPlanStore : IFlightPlanStore
+{
+    private FlightPlanData _plan = new("HB-TDX", "BE35.0.tt", "VFR", "", "", "", "", "");
+
+    public FlightPlanData Load() => _plan;
+    public void Save(FlightPlanData plan) => _plan = plan;
+}
+
+public sealed class FakeChatSource : IChatSource
+{
+    private readonly List<ChatMessage> _messages = [.. SampleData.Chat];
+
+    public IReadOnlyList<ChatMessage> GetMessages() => _messages;
+    public void Send(string text) => _messages.Add(new ChatMessage("You", text));
+
+    public bool HasUnread { get; private set; } = true;
+    public void MarkRead() => HasUnread = false;
+}
+
+public sealed class FakeRecorderSource : IRecorderSource
+{
+    // The prototype starts with these four of the six listed aircraft ticked.
+    public IReadOnlyCollection<string> GetRecordedCallsigns() => ["LV-ALB", "9H-WDR", "AAL2693", "ASXGS"];
+    public IReadOnlyList<RecordedAircraft> GetLoadedRecording() => SampleData.LoadedRecordList;
+    public string LoadedRecordingName => "session_2609.rec";
+    public int LoadedRecordingSeconds => 92;
+}
+
+public sealed class FakeMonitorSource : IMonitorSource
+{
+    public IReadOnlyList<string> GetLogLines() => SampleData.LogLines;
+    public int FramesPerSecond => 48;
+}
+
+public sealed class FakeUpdateChecker : IUpdateChecker
+{
+    public UpdateInfo? CheckForUpdate() => new("26.7.0", "https://joinfs.net/download");
+}
+
+public sealed class FakeXPlaneScanSource : IXPlaneScanSource
+{
+    public string SimFolder => @"C:\X-Plane 12";
+    public IReadOnlyList<string> InitialScanFolders => ["Laminar Research"];
+
+    public IReadOnlyList<string> ListAircraftFolders(string xplaneFolder) =>
+        string.IsNullOrWhiteSpace(xplaneFolder) ? [] : ["Extra Aircraft", "FlyJSim", "Laminar Research", "Zibo 737"];
+}
+
+public sealed class FakeXPlanePluginInstaller : IXPlanePluginInstaller
+{
+    public string SavedFolder { get; private set; } = @"C:\X-Plane 12";
+    public List<string> Installed { get; } = [];
+
+    public Task InstallAsync(string folder, CancellationToken cancellationToken)
+    {
+        SavedFolder = folder;
+        Installed.Add(folder);
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class FakeAppInfo(bool isXPlaneBuild = false) : IAppInfo
+{
+    public bool IsXPlaneBuild { get; } = isXPlaneBuild;
+    public string Version => "26.6.0";
+    public string SessionLabel => "JoinFS-FS2024";
+    public string DocumentationUrl => "https://joinfs.net/docs";
+    public string DownloadUrl => "https://joinfs.net/download";
+    public string Copyright => "© 2026 JoinFS Project. All rights reserved.";
+}
+
+public sealed class InMemorySettingsStore(UserSettings? initial = null) : ISettingsStore
+{
+    private UserSettings _settings = initial ?? new UserSettings();
+
+    public UserSettings Load() => _settings;
+    public void Save(UserSettings settings) => _settings = settings;
+}
+
+/// <summary>For tests and for running without a window: records what would have happened.</summary>
+public sealed class NullPlatform : IPlatform
+{
+    public List<string> Copied { get; } = [];
+    public List<string> OpenedUrls { get; } = [];
+
+    public Task CopyTextAsync(string text) { Copied.Add(text); return Task.CompletedTask; }
+    public void OpenUrl(string url) => OpenedUrls.Add(url);
+    public Task<string?> PickOpenFileAsync(string title) => Task.FromResult<string?>(null);
+    public Task<string?> PickSaveFileAsync(string title, string suggestedName) => Task.FromResult<string?>(null);
+    public Task<string?> PickFolderAsync(string title) => Task.FromResult<string?>(null);
+}

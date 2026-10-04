@@ -1,0 +1,58 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
+             xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
+             x:Class="JoinFS.UI.Views.Overlays.ScanXPlaneModelsView"
+             x:DataType="ovm:ScanXPlaneModelsViewModel">
+  <c:ModalCard Width="560" Title="{Binding Title}" CloseCommand="{Binding CloseCommand}" ShowClose="{Binding IsDismissable}">
+    <StackPanel Spacing="14">
+      <StackPanel Spacing="8">
+        <TextBlock Text="Specify X-Plane folder:" FontSize="13" FontWeight="SemiBold" />
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+          <TextBox Classes="mono" FontSize="12.5" Text="{Binding XplaneFolder}" Watermark="C:\X-Plane 12" />
+          <Button Grid.Column="1" Command="{Binding BrowseCommand}" Content="Browse..." Padding="16,9" />
+        </Grid>
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Text="CSL folder:" FontSize="13" FontWeight="SemiBold" />
+        <TextBox Classes="mono" FontSize="11" IsReadOnly="True" Text="{Binding CslFolder}"
+                 Background="{DynamicResource SurfaceExpandedBrush}" />
+      </StackPanel>
+
+      <Grid ColumnDefinitions="*,Auto">
+        <CheckBox IsChecked="{Binding GenerateCsl}" Content="Generate CSL objects for installed aircraft" />
+        <CheckBox Grid.Column="1" IsChecked="{Binding SkipCsl}" IsEnabled="{Binding CanSkipCsl}" Content="Skip CSL objects already done" />
+      </Grid>
+
+      <!-- Only while generating: which aircraft folders to generate for. -->
+      <Border Classes="card" CornerRadius="8" BorderBrush="{DynamicResource BorderInputBrush}" Height="200"
+              IsVisible="{Binding GenerateCsl}">
+        <Grid RowDefinitions="Auto,*">
+          <Border Padding="12,8" Background="{DynamicResource SurfaceHeaderBrush}"
+                  BorderBrush="{DynamicResource BorderInputBrush}" BorderThickness="0,0,0,1">
+            <TextBlock Text="Aircraft Folders" FontSize="12.5" FontWeight="SemiBold" />
+          </Border>
+          <ScrollViewer Grid.Row="1">
+            <ItemsControl ItemsSource="{Binding AircraftFolders}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="ovm:AircraftFolderViewModel">
+                  <Border Padding="12,4" BorderBrush="{DynamicResource SurfaceHeaderBrush}" BorderThickness="0,0,0,1">
+                    <CheckBox IsChecked="{Binding IsChecked}" Content="{Binding Name}" FontSize="12.5" />
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </StackPanel>
+    <c:ModalCard.Footer>
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="14">
+        <CheckBox Grid.Column="1" IsChecked="{Binding Profile.ModelScanOnConnect}" Content="Scan at launch" VerticalAlignment="Center" />
+        <Button Grid.Column="2" Command="{Binding CloseCommand}" Content="Cancel" Padding="18,8" />
+        <Button Grid.Column="3" Classes="primary" Command="{Binding ScanCommand}" Content="Scan" />
+      </Grid>
+    </c:ModalCard.Footer>
+  </c:ModalCard>
+</UserControl>

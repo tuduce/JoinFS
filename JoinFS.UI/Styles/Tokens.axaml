@@ -1,0 +1,97 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- GENERATED from the oklch() values in docs/design_handoff_avalonia_ui (see JoinFS.UI/util/gen_tokens.py).
+       Avalonia cannot parse oklch(), so each token holds the sRGB hex and keeps the design value in its comment.
+       Edit the oklch value in the table in gen_tokens.py and regenerate, so the two never drift apart. -->
+
+  <!-- Surfaces -->
+  <SolidColorBrush x:Key="AppBackgroundBrush" Color="#D5D8DB" /> <!-- oklch(0.88 0.006 250) -->
+  <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" /> <!-- #fff -->
+  <SolidColorBrush x:Key="SurfaceStripBrush" Color="#F4F5F7" /> <!-- oklch(0.97 0.003 250) -->
+  <SolidColorBrush x:Key="SurfaceHeaderBrush" Color="#F0F2F4" /> <!-- oklch(0.96 0.003 250) -->
+  <SolidColorBrush x:Key="SurfaceExpandedBrush" Color="#F4F5F7" /> <!-- oklch(0.97 0.003 250) -->
+  <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#F7F8FA" /> <!-- oklch(0.98 0.002 250) -->
+  <SolidColorBrush x:Key="SurfaceSelectedBrush" Color="#D9EFFD" /> <!-- oklch(0.94 0.03 235) -->
+  <SolidColorBrush x:Key="SurfaceControlHoverBrush" Color="#EAEBED" /> <!-- oklch(0.94 0.003 250) -->
+  <SolidColorBrush x:Key="SurfaceTitleHoverBrush" Color="#DBDEE1" /> <!-- oklch(0.9 0.005 250) -->
+  <SolidColorBrush x:Key="SurfaceCloseHoverBrush" Color="#FFCEC6" /> <!-- oklch(0.93 0.1 25) -->
+  <SolidColorBrush x:Key="ScrimBrush" Color="#7313161A" /> <!-- oklch(0.2 0.01 250 / 0.45) -->
+  <SolidColorBrush x:Key="ScrimOnboardingBrush" Color="#8013161A" /> <!-- oklch(0.2 0.01 250 / 0.5) -->
+
+  <!-- Sidebar -->
+  <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#11161D" /> <!-- oklch(0.20 0.015 255) -->
+  <SolidColorBrush x:Key="SidebarActiveBrush" Color="#202730" /> <!-- oklch(0.27 0.02 255) -->
+  <SolidColorBrush x:Key="SidebarBorderBrush" Color="#292E35" /> <!-- oklch(0.30 0.015 255) -->
+  <SolidColorBrush x:Key="SidebarTextBrush" Color="#E2E5E8" /> <!-- oklch(0.92 0.005 255) -->
+  <SolidColorBrush x:Key="SidebarNavTextBrush" Color="#AAAEB4" /> <!-- oklch(0.75 0.01 255) -->
+  <SolidColorBrush x:Key="SidebarMutedBrush" Color="#7C8186" /> <!-- oklch(0.6 0.01 255) -->
+  <SolidColorBrush x:Key="SidebarMutedHoverBrush" Color="#C9CED4" /> <!-- oklch(0.85 0.01 255) -->
+  <SolidColorBrush x:Key="SidebarMothBodyBrush" Color="#6A727D" /> <!-- oklch(0.55 0.02 255) -->
+
+  <!-- Text -->
+  <SolidColorBrush x:Key="TextBrush" Color="#171B1F" /> <!-- oklch(0.22 0.01 250) -->
+  <SolidColorBrush x:Key="TextStrongBrush" Color="#13161A" /> <!-- oklch(0.2 0.01 250) -->
+  <SolidColorBrush x:Key="Text2Brush" Color="#44484D" /> <!-- oklch(0.4 0.01 250) -->
+  <SolidColorBrush x:Key="Text3Brush" Color="#51565B" /> <!-- oklch(0.45 0.01 250) -->
+  <SolidColorBrush x:Key="MutedBrush" Color="#5F6469" /> <!-- oklch(0.5 0.01 250) -->
+  <SolidColorBrush x:Key="Muted2Brush" Color="#6D7277" /> <!-- oklch(0.55 0.01 250) -->
+  <SolidColorBrush x:Key="FaintBrush" Color="#7C8186" /> <!-- oklch(0.6 0.01 250) -->
+  <SolidColorBrush x:Key="DisabledBrush" Color="#8D8F92" /> <!-- oklch(0.65 0.005 250) -->
+
+  <!-- Borders -->
+  <SolidColorBrush x:Key="BorderCardBrush" Color="#DBDEE1" /> <!-- oklch(0.9 0.005 250) -->
+  <SolidColorBrush x:Key="BorderHeaderBrush" Color="#E2E5E8" /> <!-- oklch(0.92 0.005 250) -->
+  <SolidColorBrush x:Key="BorderInputBrush" Color="#D5D8DB" /> <!-- oklch(0.88 0.005 250) -->
+  <SolidColorBrush x:Key="BorderButtonBrush" Color="#CBCED1" /> <!-- oklch(0.85 0.005 250) -->
+  <SolidColorBrush x:Key="BorderSoftBrush" Color="#EAEBED" /> <!-- oklch(0.94 0.003 250) -->
+  <SolidColorBrush x:Key="BorderRowBrush" Color="#E6E8EA" /> <!-- oklch(0.93 0.003 250) -->
+  <SolidColorBrush x:Key="BorderTransportBrush" Color="#A9AFB4" /> <!-- oklch(0.75 0.01 250) -->
+  <SolidColorBrush x:Key="ConnectorBrush" Color="#8B9095" /> <!-- oklch(0.65 0.01 250) -->
+  <SolidColorBrush x:Key="ScrollbarBrush" Color="#A9AFB4" /> <!-- oklch(0.75 0.01 250) -->
+
+  <!-- Accent and semantic -->
+  <SolidColorBrush x:Key="AccentBrush" Color="#0091CE" /> <!-- oklch(0.62 0.14 235) -->
+  <SolidColorBrush x:Key="AccentHoverBrush" Color="#0082BD" /> <!-- oklch(0.57 0.14 235) -->
+  <SolidColorBrush x:Key="AccentPressedBrush" Color="#0073AD" /> <!-- oklch(0.52 0.14 235) -->
+  <SolidColorBrush x:Key="AccentLinkBrush" Color="#006DA6" /> <!-- oklch(0.5 0.14 235) -->
+  <SolidColorBrush x:Key="AccentLinkStrongBrush" Color="#007CC0" /> <!-- oklch(0.55 0.16 235) -->
+  <SolidColorBrush x:Key="AccentTintBrush" Color="#CFEDFF" /> <!-- oklch(0.93 0.04 235) -->
+  <SolidColorBrush x:Key="AccentChipBrush" Color="#C9EEFF" /> <!-- oklch(0.93 0.05 235) -->
+  <SolidColorBrush x:Key="AccentChipTextBrush" Color="#00416F" /> <!-- oklch(0.35 0.12 235) -->
+  <SolidColorBrush x:Key="AccentChipBorderBrush" Color="#8AC7EA" /> <!-- oklch(0.8 0.08 235) -->
+  <SolidColorBrush x:Key="AccentDotBrush" Color="#007CC0" /> <!-- oklch(0.55 0.16 235) -->
+  <SolidColorBrush x:Key="DotOffBrush" Color="#BBBEC1" /> <!-- oklch(0.8 0.005 250) -->
+  <SolidColorBrush x:Key="ButtonDisabledBgBrush" Color="#DBDEE1" /> <!-- oklch(0.9 0.005 250) -->
+  <SolidColorBrush x:Key="ButtonDisabledTextBrush" Color="#7E8083" /> <!-- oklch(0.6 0.005 250) -->
+  <SolidColorBrush x:Key="PositiveBrush" Color="#1E7729" /> <!-- oklch(0.5 0.14 145) -->
+  <SolidColorBrush x:Key="DangerBrush" Color="#B94642" /> <!-- oklch(0.55 0.15 25) -->
+  <SolidColorBrush x:Key="DangerTintBrush" Color="#FFE7E4" /> <!-- oklch(0.95 0.03 25) -->
+  <SolidColorBrush x:Key="DangerTextBrush" Color="#831A1D" /> <!-- oklch(0.4 0.14 25) -->
+  <SolidColorBrush x:Key="WarningBrush" Color="#C85B32" /> <!-- oklch(0.6 0.15 40) -->
+  <SolidColorBrush x:Key="UnreadBrush" Color="#DE3B3D" /> <!-- oklch(0.6 0.2 25) -->
+  <SolidColorBrush x:Key="RecordingBrush" Color="#CC272E" /> <!-- oklch(0.55 0.2 25) -->
+  <SolidColorBrush x:Key="OverdubBrush" Color="#E0843E" /> <!-- oklch(0.7 0.14 55) -->
+  <SolidColorBrush x:Key="LabelYellowBrush" Color="#F9C718" /> <!-- oklch(0.85 0.17 90) -->
+
+  <!-- Connection states -->
+  <SolidColorBrush x:Key="DisconnectedDotBrush" Color="#DE3B3D" /> <!-- oklch(0.6 0.2 25) -->
+  <SolidColorBrush x:Key="DisconnectedBgBrush" Color="#FFE7E4" /> <!-- oklch(0.95 0.03 25) -->
+  <SolidColorBrush x:Key="DisconnectedTextBrush" Color="#831A1D" /> <!-- oklch(0.4 0.14 25) -->
+  <SolidColorBrush x:Key="ConnectingDotBrush" Color="#E99B2A" /> <!-- oklch(0.75 0.15 70) -->
+  <SolidColorBrush x:Key="ConnectingBgBrush" Color="#FFE9CB" /> <!-- oklch(0.95 0.05 70) -->
+  <SolidColorBrush x:Key="ConnectingTextBrush" Color="#753D00" /> <!-- oklch(0.42 0.12 70) -->
+  <SolidColorBrush x:Key="ConnectedDotBrush" Color="#31983D" /> <!-- oklch(0.6 0.16 145) -->
+  <SolidColorBrush x:Key="ConnectedBgBrush" Color="#D0F3D0" /> <!-- oklch(0.93 0.06 145) -->
+  <SolidColorBrush x:Key="ConnectedTextBrush" Color="#0B3E12" /> <!-- oklch(0.32 0.09 145) -->
+
+  <!-- Monitor console -->
+  <SolidColorBrush x:Key="ConsoleBackgroundBrush" Color="#0C0D0F" /> <!-- oklch(0.16 0.005 250) -->
+  <SolidColorBrush x:Key="ConsoleTextBrush" Color="#CAD0CA" /> <!-- oklch(0.85 0.01 145) -->
+
+  <!-- Shadows. Modals and cards: 0 20px 50px -10px oklch(0.2 0.01 250 / 0.4). The shell: 0 24px 60px -12px oklch(0.2 0.01 250 / 0.35). -->
+  <BoxShadows x:Key="ModalShadow">0 20 50 -10 #6613161A</BoxShadows>
+  <BoxShadows x:Key="ShellShadow">0 24 60 -12 #5913161A</BoxShadows>
+
+  <!-- Accent as a Color too, for Fluent palette overrides -->
+  <Color x:Key="AccentColor">#0091CE</Color>
+</ResourceDictionary>

@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
+             xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
+             x:Class="JoinFS.UI.Views.Overlays.AboutView"
+             x:DataType="ovm:AboutViewModel">
+  <c:ModalCard Width="340" Title="{Binding Title}" CloseCommand="{Binding CloseCommand}" ShowClose="{Binding IsDismissable}">
+    <StackPanel Spacing="4" HorizontalAlignment="Stretch" Margin="0,4">
+      <c:TigerMoth Width="56" Height="56" Margin="0,0,0,4" HorizontalAlignment="Center"
+                   BodyBrush="{DynamicResource SidebarMothBodyBrush}" WingsBrush="{DynamicResource ScrollbarBrush}" />
+      <TextBlock Text="JoinFS" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" />
+      <TextBlock Text="{Binding VersionText}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" />
+      <Button Classes="link strong" IsVisible="{Binding NewVersionAvailable}" Command="{Binding OpenDownloadCommand}"
+              Content="{Binding DownloadText}" FontSize="12.5" HorizontalAlignment="Center" Margin="0,4,0,0"
+              Foreground="{DynamicResource AccentLinkStrongBrush}" />
+      <StackPanel Spacing="6" Margin="0,16,0,0">
+        <Button Classes="link" Command="{Binding OpenDocumentationCommand}" Content="Documentation" FontSize="12.5"
+                Foreground="{DynamicResource AccentLinkStrongBrush}" />
+        <StackPanel>
+          <TextBlock Text="{Binding License}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" />
+          <TextBlock Text="{Binding Copyright}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" />
+        </StackPanel>
+      </StackPanel>
+    </StackPanel>
+    <c:ModalCard.Footer>
+      <StackPanel Classes="footer">
+        <Button Classes="primary" Command="{Binding CloseCommand}" Content="Close" />
+      </StackPanel>
+    </c:ModalCard.Footer>
+  </c:ModalCard>
+</UserControl>

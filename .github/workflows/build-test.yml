@@ -36,6 +36,7 @@ jobs:
       Solution_Name: JoinFS.sln
       Test_Project: JoinFS.Tests\JoinFS.Tests.csproj
       XRay_Test_Project: RecordingXRay.Tests\RecordingXRay.Tests.csproj
+      UI_Test_Project: JoinFS.UI.Tests\JoinFS.UI.Tests.csproj
       App_Project: JoinFS\JoinFS.csproj
 
     steps:
@@ -70,6 +71,9 @@ jobs:
 
       - name: Execute RecordingXRay unit tests
         run: dotnet test ${env:XRay_Test_Project}
+
+      - name: Execute JoinFS.UI unit tests
+        run: dotnet test ${env:UI_Test_Project}
 
       - name: Restore NuGet packages
         run: dotnet restore ${env:Solution_Name} /p:Configuration=${{ matrix.configuration }}

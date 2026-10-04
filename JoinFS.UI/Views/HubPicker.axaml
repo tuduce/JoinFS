@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
+             xmlns:vm="using:JoinFS.UI.ViewModels"
+             x:Class="JoinFS.UI.Views.HubPicker"
+             x:DataType="vm:MainViewModel">
+  <!-- The hub the Network button joins, picked from the address book. DataContext is the MainViewModel. -->
+  <Border Background="{DynamicResource SurfaceBrush}"
+          BorderBrush="{DynamicResource BorderButtonBrush}"
+          BorderThickness="1"
+          CornerRadius="8"
+          Padding="10,0">
+    <Grid ColumnDefinitions="Auto,*">
+      <c:Icon Source="{DynamicResource IconHubs}" Width="13" Height="13" Margin="0,0,7,0"
+              Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" Classes="bare"
+                ItemsSource="{Binding AddressBook.Entries}"
+                SelectedItem="{Binding AddressBook.Selected}"
+                VerticalAlignment="Center">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:AddressBookRow">
+            <TextBlock Text="{Binding Name}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+    </Grid>
+  </Border>
+</UserControl>

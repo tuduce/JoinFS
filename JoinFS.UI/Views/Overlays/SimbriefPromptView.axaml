@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
+             x:Class="JoinFS.UI.Views.Overlays.SimbriefPromptView"
+             x:DataType="ovm:SimbriefPromptViewModel">
+  <Border Classes="dialog">
+    <StackPanel Spacing="12">
+      <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" />
+      <StackPanel Spacing="6">
+        <TextBlock Text="SimBrief Username" Classes="label" />
+        <TextBox Text="{Binding Username}" Watermark="SimBrief username">
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding ImportCommand}" />
+          </TextBox.KeyBindings>
+        </TextBox>
+      </StackPanel>
+      <TextBlock Text="You can change this later in Settings." FontSize="11.5" Foreground="{DynamicResource FaintBrush}" />
+      <StackPanel Classes="footer" Spacing="10">
+        <Button Command="{Binding CloseCommand}" Content="Cancel" Padding="16,8" />
+        <Button Classes="primary" Command="{Binding ImportCommand}" Content="Import" Padding="18,8" />
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</UserControl>
