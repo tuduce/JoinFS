@@ -7,26 +7,34 @@ using JoinFS.UI.ViewModels.Overlays;
 
 namespace JoinFS.UI.ViewModels.Tabs;
 
+/// <summary>
+/// One rule of the Model Matching table. The row lives as long as the rule does and is updated in place, so a refresh never
+/// rebuilds what the user is looking at.
+/// </summary>
 public sealed partial class ModelRuleRowViewModel : ObservableObject
 {
     private readonly ModelMatchingViewModel _owner;
 
-    internal ModelRuleRowViewModel(string original, string substitute, bool isRemovable, ModelMatchingViewModel owner)
+    internal ModelRuleRowViewModel(ModelRule rule, ModelMatchingViewModel owner)
     {
-        Original = original;
-        Substitute = substitute;
-        IsRemovable = isRemovable;
+        Original = rule.Original;
+        _substitute = rule.Substitute;
+        IsRemovable = !rule.IsDefault;
         _owner = owner;
     }
 
     public string Original { get; }
-    public string Substitute { get; }
+
+    [ObservableProperty]
+    private string _substitute;
 
     /// <summary>Only rules the user added can be removed; the built-in defaults can only be edited.</summary>
     public bool IsRemovable { get; }
 
+    internal void Update(ModelRule rule) => Substitute = rule.Substitute;
+
     [RelayCommand]
-    private void Edit() => _owner.Edit(this);
+    private Task Edit() => _owner.EditAsync(this);
 
     [RelayCommand]
     private void Remove() => _owner.Remove(this);
@@ -36,36 +44,54 @@ public sealed partial class ModelRuleRowViewModel : ObservableObject
 public sealed class ModelMatchingViewModel : ObservableObject
 {
     private readonly IModelCatalog _catalog;
-    private readonly ProfileViewModel _profile;
     private readonly IShell _shell;
+    private readonly Dictionary<string, ModelRuleRowViewModel> _rowsByOriginal = [];
 
-    public ModelMatchingViewModel(IModelCatalog catalog, ProfileViewModel profile, IShell shell)
+    public ModelMatchingViewModel(IModelCatalog catalog, IShell shell)
     {
         _catalog = catalog;
-        _profile = profile;
         _shell = shell;
-        _profile.OverridesChanged += (_, _) => Rebuild();
-        Rebuild();
+        Refresh();
     }
 
     public ObservableCollection<ModelRuleRowViewModel> Rows { get; } = [];
 
-    internal void Edit(ModelRuleRowViewModel row) =>
-        _shell.ShowOverlay(new SubstituteViewModel(row.Original, row.Substitute, _catalog, _profile));
-
-    internal void Remove(ModelRuleRowViewModel row) => _profile.RemoveOverride(row.Original);
-
-    private void Rebuild()
+    /// <summary>Reads the table again. Rules still there are updated in place; new ones get a row, ones gone lose theirs.</summary>
+    public void Refresh()
     {
-        IReadOnlyList<ModelRule> defaults = _catalog.GetDefaultRules();
+        List<ModelRuleRowViewModel> wanted = [];
+        HashSet<string> seen = [];
+        foreach (ModelRule rule in _catalog.GetRules())
+        {
+            if (!seen.Add(rule.Original))
+                continue; // a model has one match; a repeat is a fault in the source
+            if (_rowsByOriginal.TryGetValue(rule.Original, out ModelRuleRowViewModel? row) && row.IsRemovable == !rule.IsDefault)
+                row.Update(rule);
+            else
+                _rowsByOriginal[rule.Original] = row = new ModelRuleRowViewModel(rule, this);
+            wanted.Add(row);
+        }
 
-        Rows.Clear();
-        foreach (ModelRule rule in defaults)
-            Rows.Add(new ModelRuleRowViewModel(rule.Original, _profile.GetOverride(rule.Original) ?? rule.Substitute, isRemovable: false, this));
+        foreach (string gone in _rowsByOriginal.Keys.Except(seen).ToList())
+            _rowsByOriginal.Remove(gone);
 
-        // Overrides the user saved for models that are not defaults are rules of their own.
-        foreach ((string original, string substitute) in _profile.Overrides)
-            if (defaults.All(d => d.Original != original))
-                Rows.Add(new ModelRuleRowViewModel(original, substitute, isRemovable: true, this));
+        CollectionSync.Reconcile(Rows, wanted);
+    }
+
+    internal async Task EditAsync(ModelRuleRowViewModel row)
+    {
+        ModelTarget target = new(row.Original);
+        ModelChoice? current = await _catalog.GetCurrentAsync(target);
+
+        SubstituteViewModel overlay = new(target, current, _catalog);
+        // What the overlay changes shows in the table as soon as it is closed.
+        overlay.CloseRequested += (_, _) => Refresh();
+        _shell.ShowOverlay(overlay);
+    }
+
+    internal void Remove(ModelRuleRowViewModel row)
+    {
+        _catalog.ClearSubstitute(new ModelTarget(row.Original));
+        Refresh();
     }
 }

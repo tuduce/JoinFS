@@ -136,14 +136,43 @@ public interface ITrafficSource
     void SetIgnoreModel(string objectId, bool ignored);
 
     IReadOnlyList<ObjectInfo> GetObjects();
+
+    /// <summary>The model of an aircraft as its owner has it, for Substitute. Null when the aircraft is gone or has none.</summary>
+    ModelTarget? GetAircraftModel(string aircraftId);
+
+    /// <summary>The model of an object (of a group, the model they share), for Substitute. Null when the object is gone.</summary>
+    ModelTarget? GetObjectModel(string objectId);
 }
 
+/// <summary>
+/// The models the simulator has and how one stands in for another: the match table of the Model Matching tab, and the picker
+/// that Substitute (and Variables) choose a model with.
+/// </summary>
 public interface IModelCatalog
 {
-    /// <summary>The model-matching table. Overrides the user saved come back through <see cref="ISettingsStore"/>.</summary>
-    IReadOnlyList<ModelRule> GetDefaultRules();
-    IReadOnlyList<string> GetTypes();
-    IReadOnlyList<string> GetVariations();
+    /// <summary>The model-matching table: the default rules first, then the matches that were added.</summary>
+    IReadOnlyList<ModelRule> GetRules();
+
+    /// <summary>False until the simulator's models are known; there is then nothing to pick from.</summary>
+    bool HasModels { get; }
+
+    /// <summary>The types of the models that have every word of <paramref name="filter"/> in their manufacturer, type or variation.</summary>
+    IReadOnlyList<string> GetTypes(string filter);
+
+    IReadOnlyList<string> GetVariations(string type);
+
+    /// <summary>The model of this type and variation as it is shown once chosen, or empty when there is none.</summary>
+    string GetReplacement(string type, string variation);
+
+    /// <summary>What stands in for the model now, to start the picker on. Null when nothing is known.</summary>
+    Task<ModelChoice?> GetCurrentAsync(ModelTarget target);
+
+    /// <summary>Makes the model of this type and variation stand in for the target.</summary>
+    void SetSubstitute(ModelTarget target, string type, string variation);
+
+    /// <summary>The model stands for itself again.</summary>
+    void ClearSubstitute(ModelTarget target);
+
     IReadOnlyList<ExplainRow> Explain(string model);
     IReadOnlyList<string> ExplainSteps(string model);
 }
@@ -243,7 +272,6 @@ public sealed class UserSettings
     public bool Onboarded { get; set; }
     public string Nickname { get; set; } = "";
     public string? SimbriefUsername { get; set; }
-    public Dictionary<string, string> ModelOverrides { get; set; } = new();
     public Dictionary<string, int> HeightAdjustmentsCm { get; set; } = new();
 
     // The broadcast options shared by Settings → Simulator and the Objects tab.

@@ -81,7 +81,23 @@ public sealed record ObjectInfo(
     string Id, string Owner, string Model, string OriginalModel, int Count, int? Bearing, double? DistanceNm,
     bool Broadcast, bool IgnoreOwner, bool IgnoreModel, bool ModelBroadcast, bool CanBroadcast, bool CanIgnore, bool CanSubstitute);
 
+/// <param name="Original">The model that is replaced.</param>
+/// <param name="Substitute">The model that stands in for it, as shown.</param>
+/// <param name="IsDefault">One of the built-in "default by kind" rules: it can be edited but not removed.</param>
 public sealed record ModelRule(string Original, string Substitute, bool IsDefault);
+
+/// <summary>
+/// The model a Substitute action is about, as its owner has it. Where it was seen decides what is changed: the match of an aircraft
+/// or object of the network, or the masquerade of your own aircraft, which is what the others see of it.
+/// </summary>
+/// <param name="Model">The model title.</param>
+/// <param name="Livery">The livery (FS2024). Empty when not known; the service then takes the one of the current match.</param>
+/// <param name="TypeRole">The kind of aircraft, as the matching numbers it. Zero when not known; the service then looks it up.</param>
+/// <param name="IsMasquerade">Changing it changes what others see of your own aircraft, not what you see of theirs.</param>
+public sealed record ModelTarget(string Model, string Livery = "", int TypeRole = 0, bool IsMasquerade = false);
+
+/// <summary>A model picked by its type and variation. Together they name one model.</summary>
+public sealed record ModelChoice(string Type, string Variation);
 
 public sealed record VariableAssignment(string Model, IReadOnlyList<string> Files)
 {

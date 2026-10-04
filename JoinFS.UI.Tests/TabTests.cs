@@ -914,8 +914,38 @@ public class AircraftAndObjectsTests
     }
 }
 
+/// <summary>A model catalog that remembers what the UI changed, on top of the fake one.</summary>
+public sealed class RecordingCatalog(IModelCatalog inner, bool hasModels = true) : IModelCatalog
+{
+    public List<string> Writes { get; } = [];
+
+    public IReadOnlyList<ModelRule> GetRules() => inner.GetRules();
+    public bool HasModels => hasModels;
+    public IReadOnlyList<string> GetTypes(string filter) => hasModels ? inner.GetTypes(filter) : [];
+    public IReadOnlyList<string> GetVariations(string type) => hasModels ? inner.GetVariations(type) : [];
+    public string GetReplacement(string type, string variation) => inner.GetReplacement(type, variation);
+    public Task<ModelChoice?> GetCurrentAsync(ModelTarget target) => hasModels ? inner.GetCurrentAsync(target) : Task.FromResult<ModelChoice?>(null);
+
+    public void SetSubstitute(ModelTarget target, string type, string variation)
+    {
+        Writes.Add($"set {target.Model}{(target.IsMasquerade ? " (masquerade)" : "")} = {type}/{variation}");
+        inner.SetSubstitute(target, type, variation);
+    }
+
+    public void ClearSubstitute(ModelTarget target)
+    {
+        Writes.Add($"clear {target.Model}{(target.IsMasquerade ? " (masquerade)" : "")}");
+        inner.ClearSubstitute(target);
+    }
+
+    public IReadOnlyList<ExplainRow> Explain(string model) => inner.Explain(model);
+    public IReadOnlyList<string> ExplainSteps(string model) => inner.ExplainSteps(model);
+}
+
 public class ModelMatchingTests
 {
+    private static ModelChoice Start => new("GC1a Swift - factory", "Factory");
+
     [Fact]
     public void The_defaults_are_listed_and_cannot_be_removed()
     {
@@ -933,25 +963,38 @@ public class ModelMatchingTests
         row.EditCommand.Execute(null);
         SubstituteViewModel edit = (SubstituteViewModel)rig.Main.Overlay!;
 
-        edit.SelectedType = "Latecoere 631";
-        edit.SelectedVariation = "Livery A";
-        Assert.Equal("Latecoere 631 [+] Livery A", edit.Preview);
+        edit.Picker.SelectedType = "Latecoere 631";
+        edit.Picker.SelectedVariation = "Livery A";
+        Assert.Equal("Latecoere 631 [+] Livery A", edit.Picker.Replacement);
         edit.SaveCommand.Execute(null);
 
         Assert.Null(rig.Main.Overlay);
-        Assert.Equal("Latecoere 631 [+] Livery A", rig.Main.ModelMatching.Rows[0].Substitute);
-        Assert.Equal("Latecoere 631 [+] Livery A", rig.Settings.ModelOverrides["Default SingleProp"]);
+        Assert.Same(row, rig.Main.ModelMatching.Rows[0]); // the row was updated, not replaced
+        Assert.Equal("Latecoere 631 [+] Livery A", row.Substitute);
     }
 
     [Fact]
-    public void Use_original_makes_the_model_stand_in_for_itself()
+    public void The_picker_starts_on_what_stands_in_for_the_model_now()
+    {
+        Rig rig = new();
+        rig.Main.ModelMatching.Rows[2].EditCommand.Execute(null); // Default Airliner -> "PMDG 777-200ER GE PMDG House"
+
+        SubstituteViewModel edit = (SubstituteViewModel)rig.Main.Overlay!;
+
+        Assert.Equal("Default Airliner", edit.Original);
+        Assert.Equal("PMDG 777-200ER GE PMDG House", edit.Picker.SelectedType);
+    }
+
+    [Fact]
+    public void Use_original_clears_the_match_and_the_row_goes()
     {
         Rig rig = new();
         rig.Main.ModelMatching.Rows[1].EditCommand.Execute(null);
 
         ((SubstituteViewModel)rig.Main.Overlay!).UseOriginalCommand.Execute(null);
 
-        Assert.Equal("Default TwinProp", rig.Main.ModelMatching.Rows[1].Substitute);
+        Assert.Equal(7, rig.Main.ModelMatching.Rows.Count);
+        Assert.DoesNotContain(rig.Main.ModelMatching.Rows, r => r.Original == "Default TwinProp");
     }
 
     [Fact]
@@ -960,37 +1003,157 @@ public class ModelMatchingTests
         Rig rig = new();
         rig.Main.Aircraft.Rows[0].Actions[0].Command.Execute(null); // Substitute…
         ((SubstituteViewModel)rig.Main.Overlay!).SaveCommand.Execute(null);
+        rig.Main.ModelMatching.Refresh();
 
         ModelRuleRowViewModel added = rig.Main.ModelMatching.Rows.Last();
         Assert.True(added.IsRemovable);
-        Assert.Equal("GC1a Swift", added.Original); // the design drops the trailing "(…)" to get the original model
+        Assert.Equal("GC1a Swift", added.Original);
 
         added.RemoveCommand.Execute(null);
         Assert.Equal(8, rig.Main.ModelMatching.Rows.Count);
     }
 
     [Fact]
-    public void Filter_words_narrow_the_type_list_to_entries_with_every_word()
+    public void The_tab_follows_the_table_when_it_changes_behind_its_back()
     {
         Rig rig = new();
-        SubstituteViewModel edit = new("X", "X", rig.Services.Models, rig.Main.Profile);
+        rig.Services.Models.SetSubstitute(new ModelTarget("Somebody's Plane"), "Latecoere 631", "Factory");
 
-        edit.FilterWords = "pmdg 777";
-        Assert.Equal(["PMDG 777-200ER GE PMDG House"], edit.Types);
+        rig.Main.ModelMatching.Refresh();
 
-        edit.FilterWords = "";
-        Assert.True(edit.Types.Count > 1);
+        Assert.Contains(rig.Main.ModelMatching.Rows, r => r.Original == "Somebody's Plane");
     }
 
     [Fact]
-    public void A_substitute_that_is_not_in_the_catalogue_stays_selectable()
+    public void The_tab_is_read_again_when_it_opens_and_while_it_is_shown()
+    {
+        Rig rig = new();
+        rig.Main.GoTo(TabId.Models);
+        rig.Services.Models.SetSubstitute(new ModelTarget("Late Arrival"), "Latecoere 631", "Factory");
+
+        for (int i = 0; i < 4; i++)
+            rig.Main.Poll();
+
+        Assert.Contains(rig.Main.ModelMatching.Rows, r => r.Original == "Late Arrival");
+    }
+
+    // ---- what the overlay passes to the service
+
+    private static (MainViewModel Main, RecordingCatalog Catalog, ScriptedTraffic Traffic) OpenScripted()
+    {
+        RecordingCatalog catalog = new(new JoinFS.UI.Services.Fake.FakeModelCatalog());
+        ScriptedTraffic traffic = new();
+        AppServices services = JoinFS.UI.Services.Fake.FakeServices.Create(TimeSpan.Zero, new Services.UserSettings { Onboarded = true, Nickname = "Me" }) with { Models = catalog, Traffic = traffic };
+        return (new MainViewModel(services), catalog, traffic);
+    }
+
+    [Fact]
+    public void Substituting_your_own_aircraft_changes_its_masquerade()
+    {
+        (MainViewModel main, RecordingCatalog catalog, ScriptedTraffic traffic) = OpenScripted();
+        traffic.AircraftModel = new ModelTarget("My Plane", TypeRole: 1, IsMasquerade: true);
+        main.Aircraft.Rows[0].Actions[0].Command.Execute(null);
+
+        ((SubstituteViewModel)main.Overlay!).SaveCommand.Execute(null);
+
+        Assert.Equal(["set My Plane (masquerade) = My Plane/Factory"], catalog.Writes);
+    }
+
+    [Fact]
+    public void An_aircraft_that_has_no_model_to_replace_opens_nothing()
+    {
+        (MainViewModel main, _, ScriptedTraffic traffic) = OpenScripted();
+        traffic.AircraftModel = null;
+
+        main.Aircraft.Rows[0].Actions[0].Command.Execute(null);
+
+        Assert.Null(main.Overlay);
+    }
+
+    [Fact]
+    public void Use_original_on_an_object_clears_its_match()
+    {
+        (MainViewModel main, RecordingCatalog catalog, ScriptedTraffic traffic) = OpenScripted();
+        traffic.ObjectModel = new ModelTarget("Some Object");
+        main.Objects.Rows[0].Actions[0].Command.Execute(null);
+
+        ((SubstituteViewModel)main.Overlay!).UseOriginalCommand.Execute(null);
+
+        Assert.Equal(["clear Some Object"], catalog.Writes);
+    }
+
+    // ---- the picker
+
+    [Fact]
+    public void Filter_words_narrow_the_type_list_to_entries_with_every_word()
+    {
+        Rig rig = new();
+        ModelPickerViewModel picker = new(rig.Services.Models);
+
+        picker.FilterWords = "pmdg 777";
+        Assert.Equal(["PMDG 777-200ER GE PMDG House"], picker.Types);
+        Assert.Equal("PMDG 777-200ER GE PMDG House", picker.SelectedType);
+
+        picker.FilterWords = "";
+        Assert.True(picker.Types.Count > 1);
+    }
+
+    [Fact]
+    public void Narrowing_the_filter_keeps_the_type_when_it_still_fits()
+    {
+        Rig rig = new();
+        ModelPickerViewModel picker = new(rig.Services.Models, new ModelChoice("PMDG 777-200ER GE PMDG House", "Livery A"));
+
+        picker.FilterWords = "pmdg";
+
+        Assert.Equal("PMDG 777-200ER GE PMDG House", picker.SelectedType);
+        Assert.Equal("Livery A", picker.SelectedVariation);
+    }
+
+    [Fact]
+    public void A_start_that_is_not_in_the_catalogue_stays_selectable()
     {
         Rig rig = new();
 
-        SubstituteViewModel edit = new("X", "Some Custom Model [+] Livery B", rig.Services.Models, rig.Main.Profile);
+        ModelPickerViewModel picker = new(rig.Services.Models, new ModelChoice("Some Custom Model", "Livery B"));
 
-        Assert.Equal("Some Custom Model", edit.SelectedType);
-        Assert.Equal("Livery B", edit.SelectedVariation);
+        Assert.Equal("Some Custom Model", picker.SelectedType);
+        Assert.Equal("Livery B", picker.SelectedVariation);
+        Assert.Equal("Some Custom Model [+] Livery B", picker.Replacement);
+    }
+
+    [Fact]
+    public void Choosing_another_type_picks_the_first_of_its_variations()
+    {
+        Rig rig = new();
+        ModelPickerViewModel picker = new(rig.Services.Models, new ModelChoice("GC1a Swift - factory", "Livery B"));
+
+        picker.SelectedType = "Latecoere 631";
+
+        Assert.Equal(rig.Services.Models.GetVariations("Latecoere 631")[0], picker.SelectedVariation);
+    }
+
+    [Fact]
+    public void With_no_models_known_there_is_nothing_to_pick_and_nothing_is_saved()
+    {
+        RecordingCatalog catalog = new(new JoinFS.UI.Services.Fake.FakeModelCatalog(), hasModels: false);
+
+        SubstituteViewModel edit = new(new ModelTarget("X"), null, catalog);
+        edit.SaveCommand.Execute(null);
+
+        Assert.False(edit.Picker.HasModels);
+        Assert.Null(edit.Picker.Choice);
+        Assert.Empty(catalog.Writes);
+    }
+
+    [Fact]
+    public void The_livery_is_shown_with_the_model_to_be_replaced()
+    {
+        Rig rig = new();
+
+        SubstituteViewModel edit = new(new ModelTarget("Cessna 172", Livery: "Red"), Start, rig.Services.Models);
+
+        Assert.Equal("Cessna 172 [+] Red", edit.Original);
     }
 }
 
@@ -1514,6 +1677,11 @@ public sealed class ScriptedTraffic : ITrafficSource
         ObjectReads++;
         return Objects ??= [Obj("o1")];
     }
+
+    public ModelTarget? AircraftModel { get; set; } = new("Model");
+    public ModelTarget? ObjectModel { get; set; } = new("Model");
+    public ModelTarget? GetAircraftModel(string aircraftId) => AircraftModel;
+    public ModelTarget? GetObjectModel(string objectId) => ObjectModel;
 
     public bool GroupObjects { get; set; }
     public void SetObjectBroadcast(string objectId, bool broadcast) => Writes.Add($"object broadcast {objectId}={broadcast}");

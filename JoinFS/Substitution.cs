@@ -4114,6 +4114,137 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Make <paramref name="model"/> the match for <paramref name="original"/> (any thread). The aircraft already using the
+        /// original are removed, so they come back with the new model.
+        /// </summary>
+        public void SetMatch(string original, Model model)
+        {
+            lock (writeLock)
+            {
+                // update model match (copy-on-write)
+                Dictionary<string, Model> updated = new(matches);
+                updated[original] = model;
+                matches = updated;
+                main.ScheduleSubstitutionSave();
+                // remove aircraft using the selected model
+                main.sim ?. ScheduleRemoveModel(original);
+            }
+        }
+
+        /// <summary>
+        /// Remove the match of <paramref name="original"/> (any thread): it is shown as itself again
+        /// </summary>
+        public void ClearMatch(string original)
+        {
+            lock (writeLock)
+            {
+                // remove this model match (copy-on-write)
+                Dictionary<string, Model> updated = new(matches);
+                updated.Remove(original);
+                matches = updated;
+                main.ScheduleSubstitutionSave();
+                // remove aircraft using the selected model
+                main.sim ?. ScheduleRemoveModel(original);
+            }
+        }
+
+        /// <summary>
+        /// Make <paramref name="model"/> the masquerade of <paramref name="original"/> (any thread): what is sent for your own aircraft
+        /// </summary>
+        public void SetMasquerade(string original, Model model)
+        {
+            lock (writeLock)
+            {
+                // update model masquerade (copy-on-write)
+                Dictionary<string, Model> updated = new(masquerades);
+                updated[original] = model;
+                masquerades = updated;
+                main.ScheduleSubstitutionSave();
+                // apply
+                ApplyMasquerade(original, model);
+            }
+        }
+
+        /// <summary>
+        /// Remove the masquerade of <paramref name="original"/> (any thread)
+        /// </summary>
+        public void ClearMasquerade(string original)
+        {
+            lock (writeLock)
+            {
+                // remove this model masquerade (copy-on-write)
+                Dictionary<string, Model> updated = new(masquerades);
+                updated.Remove(original);
+                masquerades = updated;
+                main.ScheduleSubstitutionSave();
+                // apply
+                ApplyMasquerade(original, null);
+            }
+        }
+
+        /// <summary>
+        /// The types of the models that have every word of <paramref name="filter"/> in their manufacturer, type or variation, sorted
+        /// </summary>
+        public List<string> TypesMatching(string filter)
+        {
+            // get filter words
+            string[] words = (filter ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            SortedSet<string> types = new(StringComparer.OrdinalIgnoreCase);
+            foreach (Model model in models)
+            {
+                // every filter word has to be found
+                bool add = true;
+                foreach (string word in words)
+                {
+                    if (!model.manufacturer.Contains(word, StringComparison.OrdinalIgnoreCase) &&
+                        !model.type.Contains(word, StringComparison.OrdinalIgnoreCase) &&
+                        !model.variation.Contains(word, StringComparison.OrdinalIgnoreCase))
+                    {
+                        add = false;
+                    }
+                }
+                if (add)
+                {
+                    types.Add(model.type);
+                }
+            }
+            return [.. types];
+        }
+
+        /// <summary>
+        /// The variations of the models of a type, sorted
+        /// </summary>
+        public List<string> VariationsOf(string type)
+        {
+            SortedSet<string> variations = new(StringComparer.OrdinalIgnoreCase);
+            foreach (Model model in models)
+            {
+                if (model.type.Equals(type))
+                {
+                    variations.Add(model.variation);
+                }
+            }
+            return [.. variations];
+        }
+
+        /// <summary>
+        /// The model of a type and variation, or null
+        /// </summary>
+        public Model FindModel(string type, string variation)
+        {
+            Model found = null;
+            foreach (Model model in models)
+            {
+                if (model.type.Equals(type) && model.variation.Equals(variation))
+                {
+                    found = model;
+                }
+            }
+            return found;
+        }
+
+        /// <summary>
         /// Edit an existing match
         /// </summary>
         /// <param name="modelTitle"></param>
@@ -4150,13 +4281,7 @@ namespace JoinFS
 #endif
                                 if (model != null)
                                 {
-                                    // update model match (copy-on-write)
-                                    Dictionary<string, Model> updated = new(matches);
-                                    updated[substitutionForm.GetReplaceModel()] = model;
-                                    matches = updated;
-                                    main.ScheduleSubstitutionSave();
-                                    // remove aircraft using the selected model
-                                    main.sim ?. ScheduleRemoveModel(substitutionForm.GetReplaceModel());
+                                    SetMatch(substitutionForm.GetReplaceModel(), model);
                                     // refresh
                                     main.aircraftForm ?. refresher.Schedule(2);
                                 }
@@ -4164,18 +4289,9 @@ namespace JoinFS
                             return true;
 
                         case System.Windows.Forms.DialogResult.No:
-                            lock (writeLock)
-                            {
-                                // remove this model match (copy-on-write)
-                                Dictionary<string, Model> updated = new(matches);
-                                updated.Remove(modelTitle);
-                                matches = updated;
-                                main.ScheduleSubstitutionSave();
-                                // remove aircraft using the selected model
-                                main.sim ?. ScheduleRemoveModel(modelTitle);
-                                // refresh
-                                main.aircraftForm ?. refresher.Schedule(2);
-                            }
+                            ClearMatch(modelTitle);
+                            // refresh
+                            main.aircraftForm ?. refresher.Schedule(2);
                             return true;
                     }
                 }
@@ -4231,28 +4347,13 @@ namespace JoinFS
 #endif
                                 if (model != null)
                                 {
-                                    // update model masquerade (copy-on-write)
-                                    Dictionary<string, Model> updated = new(masquerades);
-                                    updated[modelTitle] = model;
-                                    masquerades = updated;
-                                    main.ScheduleSubstitutionSave();
-                                    // apply
-                                    ApplyMasquerade(modelTitle, model);
+                                    SetMasquerade(modelTitle, model);
                                 }
                             }
                             return true;
 
                         case System.Windows.Forms.DialogResult.No:
-                            lock (writeLock)
-                            {
-                                // remove this model match (copy-on-write)
-                                Dictionary<string, Model> updated = new(masquerades);
-                                updated.Remove(modelTitle);
-                                masquerades = updated;
-                                main.ScheduleSubstitutionSave();
-                                // apply
-                                ApplyMasquerade(modelTitle, null);
-                            }
+                            ClearMasquerade(modelTitle);
                             return true;
                     }
                 }

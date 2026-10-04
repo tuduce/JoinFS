@@ -36,7 +36,7 @@ public sealed partial class AircraftRowViewModel : ObservableObject
                 _owner.Source.SetRecording(Id, _recordFlag.IsOn);
         };
 
-        _substitute = new("Substitute…", new RelayCommand(() => _owner.Substitute(this), () => Info.Can.HasFlag(AircraftActions.Substitute)));
+        _substitute = new("Substitute…", new RelayCommand(() => _ = _owner.SubstituteAsync(this), () => Info.Can.HasFlag(AircraftActions.Substitute)));
         _explain = new("Explain Match…", new RelayCommand(() => _owner.ExplainMatch(this), () => Info.Can.HasFlag(AircraftActions.ExplainMatch)));
         _copyFlightPlan = new("Copy Flight Plan…", new RelayCommand(() => _owner.CopyFlightPlan(this), () => Info.Can.HasFlag(AircraftActions.FlightPlan)));
         _variables = new("Assign Variables…", new RelayCommand(() => _owner.AssignVariables(this), () => Info.Can.HasFlag(AircraftActions.Variables)));
@@ -294,8 +294,13 @@ public sealed partial class AircraftViewModel : ObservableObject
         Refresh();
     }
 
-    internal void Substitute(AircraftRowViewModel row) =>
-        _shell.ShowOverlay(new SubstituteViewModel(row.OriginalModel, _profile.GetOverride(row.OriginalModel) ?? row.Model, _catalog, _profile));
+    internal async Task SubstituteAsync(AircraftRowViewModel row)
+    {
+        // The model as its owner has it; whether it is a match or your own masquerade is the service's to say.
+        if (Source.GetAircraftModel(row.Id) is not { } target)
+            return;
+        _shell.ShowOverlay(new SubstituteViewModel(target, await _catalog.GetCurrentAsync(target), _catalog));
+    }
 
     internal void ExplainMatch(AircraftRowViewModel row) =>
         _shell.ShowOverlay(new ExplainMatchViewModel(row.Model, _catalog, _platform));
