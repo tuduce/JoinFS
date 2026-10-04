@@ -67,7 +67,24 @@ public interface IHubDirectory
 
 public interface ISessionSource
 {
+    /// <summary>This node first (when connected), then the other users.</summary>
     IReadOnlyList<PeerInfo> GetPeers();
+
+    PeerSettings GetSettings(string peerId);
+
+    /// <summary>Lets this user get into your cockpit.</summary>
+    void SetCockpitEntry(string peerId, bool allowed);
+
+    /// <summary>Hands your flight controls to this user.</summary>
+    void SetHandOverControls(string peerId, bool handedOver);
+
+    /// <summary>Lets this user share more than one object.</summary>
+    void SetMultipleObjects(string peerId, bool allowed);
+
+    /// <summary>Adds the user to the address book, or removes them from it.</summary>
+    void SetSaved(string peerId, bool saved);
+
+    void SetIgnored(string peerId, bool ignored);
 }
 
 public interface ITrafficSource

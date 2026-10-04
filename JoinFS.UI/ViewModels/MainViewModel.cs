@@ -53,6 +53,9 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         });
         FlightPlan.Imported += (_, _) => FlightPlanLoad.SetState(ConnectionState.Connected);
 
+        // Save in the Session tab changes the address book; the strip's hub picker has to show it.
+        Session.AddressBookChanged += (_, _) => AddressBook.Reload();
+
         NavItems =
         [
             new(this, TabId.Home, "Home", "IconHome"),
@@ -142,6 +145,10 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     public bool IsOverlayOpen => Overlay is not null;
 
     private PasswordPromptViewModel? _passwordPrompt;
+    private int _polls;
+
+    // The live lists are re-read once a second (every fourth poll) and only while they are on screen.
+    private const int LiveListEvery = 4;
 
     /// <summary>
     /// Brings what the live app does by itself onto the screen: the state of the Simulator and Network buttons, and a hub asking for its
@@ -154,6 +161,26 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Simulator.Sync(_services.Simulator.State);
         Network.Sync(_services.Network.State);
         ShowPasswordRequest();
+
+        if (++_polls % LiveListEvery == 0)
+            RefreshVisibleTab();
+    }
+
+    /// <summary>Reads the live data of the tab that is on screen. Nothing is read for a tab nobody is looking at.</summary>
+    private void RefreshVisibleTab()
+    {
+        if (!IsExpanded)
+            return;
+
+        switch (SelectedTab)
+        {
+            case TabId.Home:
+                Home.Refresh();
+                break;
+            case TabId.Session:
+                Session.Refresh();
+                break;
+        }
     }
 
     private void ShowPasswordRequest()
@@ -179,7 +206,13 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         ShowOverlay(_passwordPrompt);
     }
 
-    partial void OnSelectedTabChanged(TabId value) => RefreshNav();
+    partial void OnIsExpandedChanged(bool value) => RefreshVisibleTab();
+
+    partial void OnSelectedTabChanged(TabId value)
+    {
+        RefreshNav();
+        RefreshVisibleTab(); // a tab opens on what is true now, not on what it saw last
+    }
     partial void OnHasNewChatChanged(bool value) => RefreshNav();
 
     [RelayCommand]
@@ -200,8 +233,8 @@ public sealed partial class MainViewModel : ObservableObject, IShell
 
     public void GoTo(TabId tab)
     {
+        IsExpanded = true; // first, so the tab that opens sees a window that is showing it
         SelectedTab = tab;
-        IsExpanded = true;
         if (tab == TabId.Chat)
         {
             _services.Chat.MarkRead();

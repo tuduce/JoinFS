@@ -45,6 +45,31 @@ public sealed partial class AddressBookViewModel : ObservableObject
 
     public ObservableCollection<AddressBookRow> Entries { get; } = [];
 
+    private bool _reloading;
+
+    /// <summary>
+    /// Reads the book from the store again, for when it was changed elsewhere (Save in the Session tab). Keeps the picked hub if it is still there.
+    /// Does not write anything back.
+    /// </summary>
+    public void Reload()
+    {
+        _reloading = true;
+        try
+        {
+            string? picked = Selected?.Name;
+            (IReadOnlyList<AddressBookEntry> entries, string? storedSelection) = _store.Load();
+
+            Entries.Clear();
+            foreach (AddressBookEntry entry in entries)
+                Entries.Add(new AddressBookRow(entry, Remove));
+            Selected = Entries.FirstOrDefault(r => r.Name == picked) ?? Entries.FirstOrDefault(r => r.Name == storedSelection) ?? Entries.FirstOrDefault();
+        }
+        finally
+        {
+            _reloading = false;
+        }
+    }
+
     /// <summary>The hub the Network button joins. Null only when the book is empty.</summary>
     [ObservableProperty]
     private AddressBookRow? _selected;
@@ -101,5 +126,11 @@ public sealed partial class AddressBookViewModel : ObservableObject
             Persist();
     }
 
-    private void Persist() => _store.Save([.. Entries.Select(r => r.Entry)], Selected?.Name);
+    private void Persist()
+    {
+        if (!_reloading)
+            Save();
+    }
+
+    private void Save() => _store.Save([.. Entries.Select(r => r.Entry)], Selected?.Name);
 }

@@ -51,7 +51,8 @@ the launcher instead of opening the WinForms forms when started with `-newui`.
 | `IUpdateChecker` | **Live**: the same `version.txt` the forms read |
 | `ISimulatorLink` (the Simulator button) | **Live**: state from `sim.View` (the sim thread's snapshot); a click goes to the sim thread through `ToggleSimulator()`, as the old button did |
 | `INetworkLink` (the Network button, Join, Create, password) | **Live**: state from the session snapshot, mapped by the old button's own rule (`NetworkButtonStyle`); Join is `Main.Join(name)`, Disconnect leaves the session, Create is leave then create. A protected session is answered as the old window did: the remembered password first, then a prompt |
-| `IHubDirectory`, `ISessionSource`, `ITrafficSource`, the rest | Fake |
+| `ISessionSource` (Session tab, Home counts) | **Live**: the users, as the old `SessionForm` listed them, read once a second while the tab is open. Allow Cockpit Entry and Allow Multiple Objects are the `log` entries; Hand Over Controls is the flight controls only (`Peers.shareFlightControls`); Save adds or removes the user in the address book; Ignore is the `log` ignore list |
+| `IHubDirectory`, `ITrafficSource`, the rest | Fake |
 
 Not handled yet: the old login dialog (email and password, `JoinResult.LoginRequired`), and the message that a remembered password
 was rejected. Model overrides and height adjustments are not in `Settings` yet; they stay in memory until the substitution wiring.

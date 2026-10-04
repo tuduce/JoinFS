@@ -1,4 +1,5 @@
 using JoinFS.UI.Models;
+using JoinFS.UI.Services;
 using JoinFS.UI.ViewModels;
 using JoinFS.UI.ViewModels.Overlays;
 using JoinFS.UI.ViewModels.Tabs;
@@ -157,7 +158,7 @@ public class HubsTests
 public class SessionTests
 {
     [Fact]
-    public void The_table_lists_the_peers_and_protocol_decides_the_version_and_the_legacy_flag()
+    public void The_table_lists_the_peers_and_the_protocol_decides_the_legacy_flag()
     {
         Rig rig = new();
         SessionViewModel session = rig.Main.Session;
@@ -173,7 +174,16 @@ public class SessionTests
     }
 
     [Fact]
-    public void Hand_over_controls_needs_cockpit_entry_and_objects_exported_doubles_with_multiple_objects()
+    public void Your_own_row_has_no_settings_or_actions()
+    {
+        SessionViewModel session = new Rig().Main.Session;
+
+        Assert.False(session.Rows.Single(r => r.Peer.IsMe).IsOther);
+        Assert.True(session.Rows.Single(r => r.Nick == "6Knotts").IsOther);
+    }
+
+    [Fact]
+    public void Hand_over_controls_needs_cockpit_entry()
     {
         PeerRowViewModel peer = new Rig().Main.Session.Rows[0];
         Assert.False(peer.CanHandOverControls);
@@ -188,22 +198,152 @@ public class SessionTests
 
         peer.CockpitEntry = false;
         Assert.False(peer.HandOverControls);
-
-        Assert.Equal(1, peer.ObjectsExported);
-        peer.MultipleObjects = true;
-        Assert.Equal(2, peer.ObjectsExported);
     }
 
     [Fact]
-    public void A_users_settings_survive_a_refresh()
+    public void What_you_tick_goes_to_the_service_and_comes_back_on_the_next_refresh()
     {
-        SessionViewModel session = new Rig().Main.Session;
-        session.Rows[2].CockpitEntry = true;
+        Rig rig = new();
+        SessionViewModel session = rig.Main.Session;
+        PeerRowViewModel peer = session.Rows[0];
+
+        peer.CockpitEntry = true;
+        peer.HandOverControls = true;
+        peer.MultipleObjects = true;
+
+        PeerSettings stored = rig.Services.Session.GetSettings(peer.Id);
+        Assert.Equal((true, true, true), (stored.CockpitEntry, stored.HandOverControls, stored.MultipleObjects));
 
         session.RefreshCommand.Execute(null);
-
-        Assert.True(session.Rows[2].CockpitEntry);
+        Assert.Equal((true, true, true), (peer.CockpitEntry, peer.HandOverControls, peer.MultipleObjects));
     }
+
+    [Fact]
+    public void A_refresh_does_not_write_what_it_reads_back_to_the_service()
+    {
+        ScriptedSession source = new();
+        SessionViewModel session = new(source);
+        source.Settings["a"] = new PeerSettings(true, true, true, false, true);
+
+        session.Refresh();
+
+        Assert.Empty(source.Writes);
+        PeerRowViewModel row = session.Rows.Single();
+        Assert.Equal((true, true, true, true), (row.CockpitEntry, row.HandOverControls, row.MultipleObjects, row.IsIgnored));
+    }
+
+    [Fact]
+    public void A_refresh_updates_rows_in_place_adds_new_users_and_drops_the_ones_gone()
+    {
+        ScriptedSession source = new();
+        SessionViewModel session = new(source);
+        PeerRowViewModel a = session.Rows.Single();
+        a.ToggleExpandedCommand.Execute(null);
+
+        source.Peers = [source.Peer("b", "Bravo"), source.Peer("a", "Alpha 2", latency: 99), source.Peer("c", "Charlie")];
+        session.Refresh();
+
+        Assert.Equal(["b", "a", "c"], session.Rows.Select(r => r.Id));
+        Assert.Same(a, session.Rows[1]); // the same row, not a new one
+        Assert.True(a.IsExpanded);
+        Assert.Equal(("Alpha 2", 99), (a.Nick, a.Latency));
+        Assert.Equal(3, session.PeerCount);
+
+        source.Peers = [source.Peer("c", "Charlie")];
+        session.Refresh();
+
+        Assert.Equal(["c"], session.Rows.Select(r => r.Id));
+    }
+
+    [Fact]
+    public void Ignore_goes_to_the_service_and_the_row_shows_what_the_service_says()
+    {
+        Rig rig = new();
+        PeerRowViewModel peer = rig.Main.Session.Rows[0];
+
+        peer.ToggleIgnoreCommand.Execute(null);
+
+        Assert.True(peer.IsIgnored);
+        Assert.Equal("Unignore", peer.IgnoreLabel);
+        Assert.True(rig.Services.Session.GetSettings(peer.Id).IsIgnored);
+    }
+
+    [Fact]
+    public void Save_adds_the_user_to_the_address_book_and_the_pickers_list_shows_it()
+    {
+        Rig rig = new();
+        PeerRowViewModel peer = rig.Main.Session.Rows.Single(r => r.Nick == "CarGuy86");
+        Assert.Equal("Save", peer.SaveLabel);
+        Assert.DoesNotContain(rig.Main.AddressBook.Entries, e => e.Name == "CarGuy86");
+
+        peer.ToggleSaveCommand.Execute(null);
+
+        Assert.True(peer.IsSaved);
+        Assert.Equal("Remove From Address Book", peer.SaveLabel);
+        Assert.Contains(rig.Main.AddressBook.Entries, e => e.Name == "CarGuy86");
+
+        peer.ToggleSaveCommand.Execute(null);
+        Assert.False(peer.IsSaved);
+        Assert.DoesNotContain(rig.Main.AddressBook.Entries, e => e.Name == "CarGuy86");
+    }
+
+    [Fact]
+    public void Reloading_the_address_book_keeps_the_picked_hub_and_writes_nothing()
+    {
+        Rig rig = new();
+        rig.Main.AddressBook.Select("AirSherpa");
+        (IReadOnlyList<AddressBookEntry> before, _) = rig.Services.AddressBook.Load();
+
+        rig.Main.AddressBook.Reload();
+
+        Assert.Equal("AirSherpa", rig.Main.AddressBook.Selected?.Name);
+        Assert.Equal(before.Count, rig.Main.AddressBook.Entries.Count);
+    }
+
+    [Fact]
+    public void A_poll_reads_the_session_only_while_the_tab_is_open_and_only_every_fourth_time()
+    {
+        ScriptedSession source = new();
+        AppServices services = JoinFS.UI.Services.Fake.FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true, Nickname = "Me" }) with { Session = source };
+        MainViewModel main = new(services);
+        int atStart = source.Reads;
+
+        for (int i = 0; i < 8; i++)
+            main.Poll();
+        Assert.Equal(atStart, source.Reads); // the tab is not open
+
+        main.GoTo(TabId.Session);
+        int opened = source.Reads;
+        Assert.True(opened > atStart); // opening it reads at once
+
+        for (int i = 0; i < 8; i++)
+            main.Poll();
+        Assert.Equal(opened + 2, source.Reads);
+    }
+}
+
+/// <summary>A session source the test scripts: users it returns, settings it holds, and what the UI wrote to it.</summary>
+public sealed class ScriptedSession : ISessionSource
+{
+    public List<PeerInfo> Peers { get; set; } = [new PeerInfo("a", "Alpha", "A1", "Yes", 10, 1, 0, "MSFS", "26.6.0", "JFP2", 6112)];
+    public Dictionary<string, PeerSettings> Settings { get; } = [];
+    public List<string> Writes { get; } = [];
+    public int Reads { get; private set; }
+
+    public PeerInfo Peer(string id, string nick, int latency = 10) => new(id, nick, "", "Yes", latency, 1, 0, "MSFS", "26.6.0", "JFP2", 6112);
+
+    public IReadOnlyList<PeerInfo> GetPeers()
+    {
+        Reads++;
+        return Peers;
+    }
+
+    public PeerSettings GetSettings(string peerId) => Settings.GetValueOrDefault(peerId) ?? new PeerSettings(false, false, false, false, false);
+    public void SetCockpitEntry(string peerId, bool allowed) => Writes.Add("cockpit " + peerId);
+    public void SetHandOverControls(string peerId, bool handedOver) => Writes.Add("handover " + peerId);
+    public void SetMultipleObjects(string peerId, bool allowed) => Writes.Add("multiple " + peerId);
+    public void SetSaved(string peerId, bool saved) => Writes.Add("saved " + peerId);
+    public void SetIgnored(string peerId, bool ignored) => Writes.Add("ignored " + peerId);
 }
 
 public class AircraftAndObjectsTests

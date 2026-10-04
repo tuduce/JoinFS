@@ -14,17 +14,21 @@ public sealed record HubInfo(
 /// <summary>A hub the user can pick from the strip. <see cref="BuiltIn"/> entries (the Global directory) cannot be removed.</summary>
 public sealed record AddressBookEntry(string Name, string Address, bool BuiltIn = false, bool RequiresPassword = false);
 
+/// <summary>One row of the Session table: a user connected to the network, or this node itself.</summary>
+/// <param name="Id">Names the user to the service, for the settings and actions of the row. Opaque to the UI.</param>
+/// <param name="Connected">"Yes" (direct), "Route" (through another user) or "No".</param>
+/// <param name="Protocol">How the link is spoken: "JFP2", "Legacy" or "Pending". Empty for this node, which has no link.</param>
 public sealed record PeerInfo(
-    string Nick, string Callsign, bool Connected, int LatencyMs, int Aircraft, string Simulator, string Protocol)
+    string Id, string Nick, string Callsign, string Connected, int LatencyMs, int Aircraft, int Objects,
+    string Simulator, string Version, string Protocol, int Port, bool IsMe = false)
 {
     public const string LegacyProtocol = "Legacy";
 
     public bool IsLegacy => Protocol == LegacyProtocol;
-
-    // The README derives both from the protocol until real session data is wired in.
-    public string Version => IsLegacy ? "18.2.4" : "26.4.0";
-    public int Port => 6809 + Nick.Length % 40;
 }
+
+/// <summary>What the user has set for one other user (the old PermissionsForm, plus Save and Ignore).</summary>
+public sealed record PeerSettings(bool CockpitEntry, bool HandOverControls, bool MultipleObjects, bool IsSaved, bool IsIgnored);
 
 public sealed record AircraftInfo(
     string Callsign, string Owner, double DistanceNm, int Heading, int AltitudeFt, int GroundSpeed, string Model,

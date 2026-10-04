@@ -102,6 +102,13 @@ public sealed partial class HomeViewModel : ObservableObject
         main.AddressBook.PropertyChanged += (_, _) => OnPropertyChanged(nameof(HubName));
     }
 
+    /// <summary>Reads the counts again; the live numbers change while the tab is open.</summary>
+    public void Refresh()
+    {
+        OnPropertyChanged(nameof(ConnectedUsers));
+        OnPropertyChanged(nameof(AircraftTracked));
+    }
+
     public string HubName => _main.AddressBook.Selected?.Name ?? "—";
     public int ConnectedUsers => _session.GetPeers().Count;
     public int AircraftTracked => _traffic.GetAircraft().Count;

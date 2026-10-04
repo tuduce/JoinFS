@@ -19,6 +19,7 @@ namespace JoinFS.Live
             {
                 Simulator = new LiveSimulatorLink(main),
                 Network = new LiveNetworkLink(main),
+                Session = new LiveSessionSource(main),
                 App = new LiveAppInfo(),
                 Settings = new LiveSettingsStore(main),
                 AddressBook = new LiveAddressBookStore(main),
