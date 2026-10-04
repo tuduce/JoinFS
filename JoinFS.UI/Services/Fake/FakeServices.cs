@@ -119,7 +119,39 @@ public sealed class FakeSessionSource(IAddressBookStore addressBook) : ISessionS
 
 public sealed class FakeTrafficSource : ITrafficSource
 {
-    public IReadOnlyList<AircraftInfo> GetAircraft() => SampleData.Aircraft;
+    private readonly Dictionary<string, bool> _recording = [];
+    private readonly Dictionary<string, bool> _ignored = [];
+    private string? _tracked;
+
+    public bool IncludeHubAircraft { get; set; }
+    public bool IncludeSimulatorAircraft { get; set; }
+    public bool InCockpit { get; private set; }
+    public bool IsTracking => _tracked is not null;
+
+    public IReadOnlyList<AircraftInfo> GetAircraft()
+    {
+        IEnumerable<AircraftInfo> all = SampleData.Aircraft;
+        if (IncludeHubAircraft)
+            all = all.Concat(SampleData.HubAircraft);
+        if (IncludeSimulatorAircraft)
+            all = all.Concat(SampleData.SimulatorAircraft);
+
+        return [.. all.Select(a => a with
+        {
+            Recording = _recording.GetValueOrDefault(a.Id, a.Recording),
+            Ignored = _ignored.GetValueOrDefault(a.Id, a.Ignored),
+            Tracked = a.Id == _tracked,
+        })];
+    }
+
+    public void SetRecording(string aircraftId, bool recording) => _recording[aircraftId] = recording;
+    public void SetIgnored(string aircraftId, bool ignored) => _ignored[aircraftId] = ignored;
+    public void Follow(string aircraftId) { }
+    public void EnterCockpit(string aircraftId) => InCockpit = !InCockpit;
+    public void TrackHeading(string aircraftId) => _tracked = aircraftId;
+    public void TrackBearing(string aircraftId) => _tracked = aircraftId;
+    public void StopTracking() => _tracked = null;
+    public void CopyWeather(string aircraftId) { }
     public IReadOnlyList<ObjectInfo> GetObjects() => SampleData.Objects;
 }
 
@@ -181,8 +213,6 @@ public sealed class FakeChatSource : IChatSource
 
 public sealed class FakeRecorderSource : IRecorderSource
 {
-    // The prototype starts with these four of the six listed aircraft ticked.
-    public IReadOnlyCollection<string> GetRecordedCallsigns() => ["LV-ALB", "9H-WDR", "AAL2693", "ASXGS"];
     public IReadOnlyList<RecordedAircraft> GetLoadedRecording() => SampleData.LoadedRecordList;
     public string LoadedRecordingName => "session_2609.rec";
     public int LoadedRecordingSeconds => 92;

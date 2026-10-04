@@ -8,12 +8,20 @@ using JoinFS.UI.ViewModels.Overlays;
 
 namespace JoinFS.UI.ViewModels.Tabs;
 
+/// <summary>
+/// One aircraft in the Aircraft table. The row lives as long as the aircraft is listed and is updated in place on each refresh, so an open
+/// row survives it. Recording and ignoring are written straight to the service; every other action is a link that the service says is available.
+/// </summary>
 public sealed partial class AircraftRowViewModel : ObservableObject
 {
     private readonly AircraftViewModel _owner;
-
     private readonly RecordFlag _recordFlag;
-    private readonly ActionLink _recordAction;
+
+    // True while the row is being filled from the service, so what it reads is not written back as if the user had set it.
+    private bool _syncing;
+
+    private readonly ActionLink _substitute, _explain, _copyFlightPlan, _variables, _height, _follow, _enter, _trackHeading, _trackBearing,
+        _copyWeather, _record, _includeHub, _includeSimulator, _ignore, _stopTracking;
 
     internal AircraftRowViewModel(AircraftInfo info, AircraftViewModel owner, RecordFlag recordFlag)
     {
@@ -23,33 +31,74 @@ public sealed partial class AircraftRowViewModel : ObservableObject
         _recordFlag.PropertyChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(Recording));
-            _recordAction.Label = RecordActionLabel;
+            RefreshActions();
+            if (!_syncing)
+                _owner.Source.SetRecording(Id, _recordFlag.IsOn);
         };
-        _ignoreAction = new ActionLink("Ignore", ToggleIgnoreCommand);
-        _recordAction = new ActionLink(RecordActionLabel, new RelayCommand(() => Recording = !Recording));
-        Actions = BuildActions();
+
+        _substitute = new("Substitute…", new RelayCommand(() => _owner.Substitute(this), () => Info.Can.HasFlag(AircraftActions.Substitute)));
+        _explain = new("Explain Match…", new RelayCommand(() => _owner.ExplainMatch(this), () => Info.Can.HasFlag(AircraftActions.ExplainMatch)));
+        _copyFlightPlan = new("Copy Flight Plan…", new RelayCommand(() => _owner.CopyFlightPlan(this), () => Info.Can.HasFlag(AircraftActions.FlightPlan)));
+        _variables = new("Assign Variables…", new RelayCommand(() => _owner.AssignVariables(this), () => Info.Can.HasFlag(AircraftActions.Variables)));
+        _height = new("Adjust Height…", new RelayCommand(() => _owner.AdjustHeight(this), () => Info.Can.HasFlag(AircraftActions.AdjustHeight)));
+        _follow = new("", new RelayCommand(() => _owner.Source.Follow(Id), () => Info.Can.HasFlag(AircraftActions.Follow)));
+        _enter = new("", new RelayCommand(() => _owner.Source.EnterCockpit(Id), () => _owner.InCockpit || Info.Can.HasFlag(AircraftActions.EnterCockpit)));
+        _trackHeading = new("Track Heading On Hdg", new RelayCommand(() => _owner.Source.TrackHeading(Id), () => Info.Can.HasFlag(AircraftActions.Track)));
+        _trackBearing = new("Track Bearing On Hdg", new RelayCommand(() => _owner.Source.TrackBearing(Id), () => Info.Can.HasFlag(AircraftActions.Track)));
+        _copyWeather = new("Copy Weather", new RelayCommand(() => _owner.Source.CopyWeather(Id), () => Info.Can.HasFlag(AircraftActions.CopyWeather)));
+        _record = new("", new RelayCommand(() => Recording = !Recording, () => Info.Can.HasFlag(AircraftActions.Record)));
+        _includeHub = new("", new RelayCommand(_owner.ToggleIncludeHubAircraft));
+        _includeSimulator = new("", new RelayCommand(_owner.ToggleIncludeSimulatorAircraft));
+        _ignore = new("", new RelayCommand(() => _owner.SetIgnored(this, !IsIgnored), () => Info.Can.HasFlag(AircraftActions.Ignore)));
+        _stopTracking = new("Stop Tracking", new RelayCommand(_owner.Source.StopTracking, () => _owner.IsTracking));
+
+        // The order the design lays them out in, three to a row.
+        Actions =
+        [
+            _substitute, _explain, _copyFlightPlan, _variables, _height, _follow, _enter, _trackHeading, _trackBearing, _copyWeather,
+            _record, _includeHub, _includeSimulator, _ignore, _stopTracking,
+        ];
+        RefreshActions();
     }
 
-    public AircraftInfo Info { get; }
+    public AircraftInfo Info { get; private set; }
+    public string Id => Info.Id;
     public string Callsign => Info.Callsign;
     public string Owner => Info.Owner;
     public string Model => Info.Model;
-    public string Distance => $"{Info.DistanceNm.ToString("N1", CultureInfo.CurrentCulture)} nm";
-    public int Heading => Info.Heading;
-    public string Altitude => $"{Info.AltitudeFt.ToString("N0", CultureInfo.CurrentCulture)} ft";
-    public int GroundSpeed => Info.GroundSpeed;
+
+    // What the columns sort by: numbers as numbers, and an unknown value before every known one.
+    public int HeadingValue => Info.Heading ?? -1;
+    public double DistanceValue => Info.DistanceNm ?? -1;
+    public int AltitudeValue => Info.AltitudeFt ?? int.MinValue;
+    public double SpeedValue => Info.SpeedKnots;
+
+    public string Distance => Info.DistanceNm is { } d ? $"{d.ToString("N1", CultureInfo.CurrentCulture)} nm" : "-";
+    public string Heading => Info.Heading is { } h ? h.ToString("D3", CultureInfo.InvariantCulture) : "-";
+    public string Altitude => Info.AltitudeFt is { } a ? $"{a.ToString("N0", CultureInfo.CurrentCulture)} ft" : "-";
+
+    /// <summary>Knots, or Mach from 600 knots up, as the old window showed it.</summary>
+    public string GroundSpeed => Info.SpeedKnots > 600
+        ? $"{(Info.SpeedKnots / 667.0).ToString("N2", CultureInfo.CurrentCulture)} M"
+        : $"{Info.SpeedKnots.ToString("N0", CultureInfo.CurrentCulture)} kt";
 
     /// <summary>Far-away aircraft are flagged in orange.</summary>
-    public bool IsFar => Info.DistanceNm > 3000;
+    public bool IsFar => Info.DistanceNm > 3000 && !IsFailed;
+
+    /// <summary>The simulator refused the aircraft: its distance is red.</summary>
+    public bool IsFailed => Info.Link == AircraftLinkState.Failed;
 
     public string Squawk => Info.Squawk;
-    public string Bearing => $"{Info.Heading}°";
+    public string Bearing => Info.Bearing is { } b ? $"{b.ToString("D3", CultureInfo.InvariantCulture)}°" : "-";
     public string Com1 => Info.Com1;
     public string Com2 => Info.Com2;
     public string Simulator => Info.Simulator;
     public string OriginalModel => Info.OriginalModel;
     public string FlightPlan => Info.FlightPlan;
     public string Remarks => Info.Remarks;
+
+    /// <summary>The aircraft the view follows by heading or bearing: highlighted.</summary>
+    public bool IsTracked => Info.Tracked;
 
     [ObservableProperty]
     private bool _isExpanded;
@@ -58,107 +107,111 @@ public sealed partial class AircraftRowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IgnoreLabel))]
     private bool _isIgnored;
 
+    public string IgnoreLabel => IsIgnored ? "Unignore" : "Ignore";
+
     /// <summary>Included in the recording. The same flag as in the Recorder tab's list.</summary>
     public bool Recording
     {
         get => _recordFlag.IsOn;
-        set => _recordFlag.IsOn = value;
+        set
+        {
+            if (Info.Can.HasFlag(AircraftActions.Record) || _syncing)
+                _recordFlag.IsOn = value;
+        }
     }
 
-    private string RecordActionLabel => Recording ? "Remove From Recorder" : "Add To Recorder";
-
-    public string IgnoreLabel => IsIgnored ? "Unignore" : "Ignore";
+    /// <summary>False for an aircraft the recorder plays or one of another hub: its box is disabled.</summary>
+    public bool CanRecord => Info.Can.HasFlag(AircraftActions.Record);
 
     /// <summary>Every link of the Actions block, in the order the design lays them out, three to a row.</summary>
     public IReadOnlyList<ActionLink> Actions { get; }
 
-    private readonly ActionLink _ignoreAction;
+    /// <summary>Takes a newer reading of the same aircraft.</summary>
+    internal void Update(AircraftInfo info)
+    {
+        Info = info;
+        _syncing = true;
+        try
+        {
+            _recordFlag.IsOn = info.Recording;
+            IsIgnored = info.Ignored;
+        }
+        finally
+        {
+            _syncing = false;
+        }
+        OnPropertyChanged(string.Empty); // every display property may have changed
+        RefreshActions();
+    }
 
-    partial void OnIsIgnoredChanged(bool value) => _ignoreAction.Label = IgnoreLabel;
+    /// <summary>Words each link by the state it acts on, and re-asks whether it is available.</summary>
+    internal void RefreshActions()
+    {
+        _follow.Label = $"Follow '{Callsign}'";
+        _enter.Label = _owner.InCockpit ? "Leave Cockpit" : "Enter Cockpit";
+        _record.Label = Recording ? "Remove From Recorder" : "Add To Recorder";
+        _includeHub.Label = _owner.IncludeHubAircraft ? "Exclude Hub Aircraft" : "Include All Hub Aircraft";
+        _includeSimulator.Label = _owner.IncludeSimulatorAircraft ? "Exclude Simulator Aircraft" : "Include All Simulator Aircraft";
+        _ignore.Label = IgnoreLabel;
+
+        foreach (ActionLink link in Actions)
+            (link.Command as RelayCommand)?.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsIgnoredChanged(bool value) => RefreshActions();
 
     [RelayCommand]
     private void ToggleExpanded() => _owner.Expand(this);
 
-    [RelayCommand]
-    private void ToggleIgnore() => IsIgnored = !IsIgnored;
-
-    [RelayCommand]
-    private void Substitute() => _owner.Substitute(this);
-
-    [RelayCommand]
-    private void ExplainMatch() => _owner.ExplainMatch(this);
-
-    [RelayCommand]
-    private void AssignVariables() => _owner.AssignVariables(this);
-
-    [RelayCommand]
-    private void AdjustHeight() => _owner.AdjustHeight(this);
-
-    [RelayCommand]
-    private void CopyFlightPlan() => _owner.CopyFlightPlan(this);
-
-    // The links the prototype shows but gives no behaviour. They need the sim thread (follow, enter cockpit, track, weather)
-    // or the recorder; each is wired when its tab is.
-    private static readonly IRelayCommand NotWired = new RelayCommand(() => { });
-
-    // "Stop Tracking" is drawn but never available in the design.
-    private static readonly IRelayCommand Unavailable = new RelayCommand(() => { }, () => false);
-
-    private IReadOnlyList<ActionLink> BuildActions() =>
-    [
-        new("Substitute…", SubstituteCommand),
-        new("Explain Match…", ExplainMatchCommand),
-        new("Copy Flight Plan…", CopyFlightPlanCommand),
-        new("Assign Variables…", AssignVariablesCommand),
-        new("Adjust Height…", AdjustHeightCommand),
-        new($"Follow '{Callsign}'", NotWired),
-        new("Enter Cockpit", NotWired),
-        new("Track Heading On Hdg", NotWired),
-        new("Track Bearing On Hdg", NotWired),
-        new("Copy Weather", NotWired),
-        _recordAction,
-        // The two "Include All …" links act on the whole list rather than on this aircraft.
-        new("Include All Hub Aircraft", new RelayCommand(_owner.IncludeHubAircraft)),
-        new("Include All Simulator Aircraft", new RelayCommand(_owner.IncludeSimulatorAircraft)),
-        _ignoreAction,
-        new("Stop Tracking", Unavailable),
-    ];
+    /// <summary>Shows an ignore state the service already holds, without writing it again.</summary>
+    internal void ShowIgnored(bool ignored)
+    {
+        _syncing = true;
+        try
+        {
+            IsIgnored = ignored;
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
 }
 
 /// <summary>Aircraft tab: every aircraft the session lists, sortable, with details and actions in the expanded row.</summary>
 public sealed partial class AircraftViewModel : ObservableObject
 {
-    private readonly ITrafficSource _traffic;
     private readonly IModelCatalog _catalog;
     private readonly IPlatform _platform;
     private readonly ProfileViewModel _profile;
     private readonly IShell _shell;
-    private readonly SortController<AircraftRowViewModel> _sort;
-    private readonly Dictionary<string, AircraftRowViewModel> _rowsByCallsign = [];
-    private List<AircraftRowViewModel> _inSourceOrder = [];
-
     private readonly RecordSelection _recordSelection;
+    private readonly SortController<AircraftRowViewModel> _sort;
+    private readonly Dictionary<string, AircraftRowViewModel> _rowsById = [];
+    private List<AircraftRowViewModel> _inSourceOrder = [];
 
     public AircraftViewModel(ITrafficSource traffic, IModelCatalog catalog, IPlatform platform, ProfileViewModel profile, RecordSelection recordSelection, IShell shell)
     {
-        _recordSelection = recordSelection;
-        _traffic = traffic;
+        Source = traffic;
         _catalog = catalog;
         _platform = platform;
         _profile = profile;
+        _recordSelection = recordSelection;
         _shell = shell;
 
         _sort = new SortController<AircraftRowViewModel>(Rebuild);
         CallsignColumn = _sort.Add("callsign", "Callsign", r => r.Callsign);
         OwnerColumn = _sort.Add("owner", "Owner", r => r.Owner);
-        DistanceColumn = _sort.Add("distance", "Distance", r => r.Info.DistanceNm);
-        HeadingColumn = _sort.Add("heading", "Heading", r => r.Heading);
-        AltitudeColumn = _sort.Add("altitude", "Altitude", r => r.Info.AltitudeFt);
-        GroundSpeedColumn = _sort.Add("gs", "GS", r => r.GroundSpeed);
+        DistanceColumn = _sort.Add("distance", "Distance", r => r.DistanceValue);
+        HeadingColumn = _sort.Add("heading", "Heading", r => r.HeadingValue);
+        AltitudeColumn = _sort.Add("altitude", "Altitude", r => r.AltitudeValue);
+        GroundSpeedColumn = _sort.Add("gs", "GS", r => r.SpeedValue);
         ModelColumn = _sort.Add("model", "Sub Model", r => r.Model);
 
         Refresh();
     }
+
+    internal ITrafficSource Source { get; }
 
     public SortColumn CallsignColumn { get; }
     public SortColumn OwnerColumn { get; }
@@ -172,32 +225,44 @@ public sealed partial class AircraftViewModel : ObservableObject
 
     public int AircraftCount => Rows.Count;
 
+    // What the actions read; set at each refresh.
+    internal bool InCockpit { get; private set; }
+    internal bool IsTracking { get; private set; }
+    internal bool IncludeHubAircraft => Source.IncludeHubAircraft;
+    internal bool IncludeSimulatorAircraft => Source.IncludeSimulatorAircraft;
+
+    /// <summary>Reads the aircraft again. Rows of aircraft still there are updated in place; new aircraft get a row, aircraft gone lose theirs.</summary>
     [RelayCommand]
     public void Refresh()
     {
-        // Rows outlive a refresh, so what the user did (expanded, ignored, record ticks) survives it.
+        InCockpit = Source.InCockpit;
+        IsTracking = Source.IsTracking;
+
         _inSourceOrder = [];
-        foreach (AircraftInfo info in _traffic.GetAircraft())
+        foreach (AircraftInfo info in Source.GetAircraft())
         {
-            if (!_rowsByCallsign.TryGetValue(info.Callsign, out AircraftRowViewModel? row))
-                _rowsByCallsign[info.Callsign] = row = new AircraftRowViewModel(info, this, _recordSelection.For(info.Callsign));
+            if (_rowsById.TryGetValue(info.Id, out AircraftRowViewModel? row))
+                row.Update(info);
+            else
+                _rowsById[info.Id] = row = NewRow(info);
             _inSourceOrder.Add(row);
         }
+
+        foreach (string gone in _rowsById.Keys.Except(_inSourceOrder.Select(r => r.Id)).ToList())
+            _rowsById.Remove(gone);
+
         Rebuild();
+
+        // The links that read the whole list's state (cockpit, tracking, the two filters) are worded on each row.
+        foreach (AircraftRowViewModel row in _inSourceOrder)
+            row.RefreshActions();
     }
 
-    /// <summary>Records every aircraft flown by another pilot on the hub.</summary>
-    internal void IncludeHubAircraft()
+    private AircraftRowViewModel NewRow(AircraftInfo info)
     {
-        foreach (AircraftRowViewModel row in _inSourceOrder.Where(r => r.Owner.Length > 0))
-            row.Recording = true;
-    }
-
-    /// <summary>Records every aircraft of the local simulator, which have no other pilot as owner.</summary>
-    internal void IncludeSimulatorAircraft()
-    {
-        foreach (AircraftRowViewModel row in _inSourceOrder.Where(r => r.Owner.Length == 0))
-            row.Recording = true;
+        AircraftRowViewModel row = new(info, this, _recordSelection.For(info.Id));
+        row.Update(info); // fills the flag and the ignore state without writing them back
+        return row;
     }
 
     internal void Expand(AircraftRowViewModel row)
@@ -206,6 +271,24 @@ public sealed partial class AircraftViewModel : ObservableObject
         foreach (AircraftRowViewModel other in Rows)
             other.IsExpanded = false;
         row.IsExpanded = open;
+    }
+
+    internal void SetIgnored(AircraftRowViewModel row, bool ignored)
+    {
+        Source.SetIgnored(row.Id, ignored);
+        row.ShowIgnored(ignored);
+    }
+
+    internal void ToggleIncludeHubAircraft()
+    {
+        Source.IncludeHubAircraft = !Source.IncludeHubAircraft;
+        Refresh();
+    }
+
+    internal void ToggleIncludeSimulatorAircraft()
+    {
+        Source.IncludeSimulatorAircraft = !Source.IncludeSimulatorAircraft;
+        Refresh();
     }
 
     internal void Substitute(AircraftRowViewModel row) =>
@@ -225,10 +308,7 @@ public sealed partial class AircraftViewModel : ObservableObject
     private void Rebuild()
     {
         // With no column chosen the rows stay in the source's own order.
-        List<AircraftRowViewModel> sorted = [.. _sort.Apply(_inSourceOrder)];
-        Rows.Clear();
-        foreach (AircraftRowViewModel row in sorted)
-            Rows.Add(row);
+        CollectionSync.Reconcile(Rows, [.. _sort.Apply(_inSourceOrder)]);
         OnPropertyChanged(nameof(AircraftCount));
     }
 }

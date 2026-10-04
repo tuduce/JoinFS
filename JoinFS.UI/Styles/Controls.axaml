@@ -63,6 +63,9 @@
     <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
     <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
+  <Style Selector="TextBlock.failed">
+    <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+  </Style>
   <Style Selector="TextBlock.far">
     <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
   </Style>
@@ -269,6 +272,10 @@
   </Style>
   <Style Selector="Button.rowButton.selected /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
+  </Style>
+  <!-- The aircraft the view tracks by heading or bearing. -->
+  <Style Selector="Button.rowButton.tracked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SurfaceTrackedBrush}" />
   </Style>
   <Style Selector="Button.rowButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource SurfaceControlHoverBrush}" />

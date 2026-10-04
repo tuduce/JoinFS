@@ -182,19 +182,7 @@ public sealed partial class SessionViewModel : ObservableObject
         foreach (string gone in _rowsById.Keys.Except(wanted.Select(r => r.Id)).ToList())
             _rowsById.Remove(gone);
 
-        // Bring the visible list into the wanted order with the fewest moves, so the rows that stay are not rebuilt.
-        for (int i = 0; i < wanted.Count; i++)
-        {
-            int at = Rows.IndexOf(wanted[i]);
-            if (at == i)
-                continue;
-            if (at < 0)
-                Rows.Insert(i, wanted[i]);
-            else
-                Rows.Move(at, i);
-        }
-        while (Rows.Count > wanted.Count)
-            Rows.RemoveAt(Rows.Count - 1);
+        CollectionSync.Reconcile(Rows, wanted);
 
         OnPropertyChanged(nameof(PeerCount));
     }

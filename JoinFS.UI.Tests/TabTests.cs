@@ -348,6 +348,9 @@ public sealed class ScriptedSession : ISessionSource
 
 public class AircraftAndObjectsTests
 {
+    private static ActionLink Link(AircraftRowViewModel row, string label) =>
+        row.Actions.Single(l => l.Label == label || l.Label.StartsWith(label, StringComparison.Ordinal));
+
     [Fact]
     public void Aircraft_sorts_by_a_column_and_numbers_sort_as_numbers()
     {
@@ -361,25 +364,183 @@ public class AircraftAndObjectsTests
     }
 
     [Fact]
-    public void Aircraft_beyond_3000_nm_are_flagged_far()
+    public void Aircraft_beyond_3000_nm_are_flagged_far_and_a_refused_one_is_red_instead()
     {
-        AircraftViewModel aircraft = new Rig().Main.Aircraft;
+        Rig rig = new();
+        AircraftViewModel aircraft = rig.Main.Aircraft;
 
         Assert.False(aircraft.Rows.Single(r => r.Callsign == "9H-WDR").IsFar);
         Assert.True(aircraft.Rows.Single(r => r.Callsign == "ASXGS").IsFar);
+
+        AircraftInfo far = aircraft.Rows.Single(r => r.Callsign == "ASXGS").Info;
+        AircraftRowViewModel failed = new Rig().Main.Aircraft.Rows[0];
+        failed.Update(far with { Link = AircraftLinkState.Failed });
+        Assert.True(failed.IsFailed);
+        Assert.False(failed.IsFar);
     }
 
     [Fact]
-    public void An_expanded_row_lists_every_action_and_stop_tracking_is_never_available()
+    public void Values_that_are_not_known_show_as_a_dash_and_sort_before_the_known_ones()
+    {
+        AircraftRowViewModel row = new Rig().Main.Aircraft.Rows[0];
+
+        row.Update(row.Info with { DistanceNm = null, Heading = null, AltitudeFt = null, Bearing = null });
+
+        Assert.Equal(("-", "-", "-", "-"), (row.Distance, row.Heading, row.Altitude, row.Bearing));
+        Assert.True(row.DistanceValue < 0 && row.HeadingValue < 0);
+    }
+
+    [Fact]
+    public void Speed_is_in_knots_and_in_mach_from_600()
+    {
+        AircraftRowViewModel row = new Rig().Main.Aircraft.Rows[0];
+
+        row.Update(row.Info with { SpeedKnots = 263 });
+        Assert.EndsWith(" kt", row.GroundSpeed);
+
+        row.Update(row.Info with { SpeedKnots = 1334 });
+        Assert.EndsWith(" M", row.GroundSpeed);
+        Assert.StartsWith("2", row.GroundSpeed);
+    }
+
+    [Fact]
+    public void An_expanded_row_lists_every_action_in_the_designs_order()
     {
         AircraftRowViewModel row = new Rig().Main.Aircraft.Rows[1];
 
         Assert.Equal(15, row.Actions.Count);
-        Assert.Equal("Follow '9H-WDR'", row.Actions[5].Label);
-        Assert.False(row.Actions[^1].Command.CanExecute(null));
+        Assert.Equal(
+            ["Substitute…", "Explain Match…", "Copy Flight Plan…", "Assign Variables…", "Adjust Height…", "Follow '9H-WDR'", "Enter Cockpit",
+             "Track Heading On Hdg", "Track Bearing On Hdg", "Copy Weather", "Remove From Recorder", "Include All Hub Aircraft",
+             "Include All Simulator Aircraft", "Ignore", "Stop Tracking"],
+            row.Actions.Select(a => a.Label));
+    }
 
-        row.ToggleIgnoreCommand.Execute(null);
+    [Fact]
+    public void Only_the_actions_the_service_allows_can_be_used()
+    {
+        AircraftRowViewModel row = new Rig().Main.Aircraft.Rows[1];
+        Assert.All(row.Actions.Take(14), a => Assert.True(a.Command.CanExecute(null), a.Label));
+        Assert.False(Link(row, "Stop Tracking").Command.CanExecute(null)); // nothing is tracked
+
+        row.Update(row.Info with { Can = AircraftActions.Ignore | AircraftActions.Record });
+
+        Assert.False(Link(row, "Substitute").Command.CanExecute(null));
+        Assert.False(Link(row, "Follow").Command.CanExecute(null));
+        Assert.False(Link(row, "Enter Cockpit").Command.CanExecute(null));
+        Assert.False(Link(row, "Track Heading").Command.CanExecute(null));
+        Assert.True(Link(row, "Ignore").Command.CanExecute(null));
+        Assert.True(Link(row, "Remove From Recorder").Command.CanExecute(null));
+        Assert.True(Link(row, "Include All Hub Aircraft").Command.CanExecute(null)); // a list filter, always there
+    }
+
+    [Fact]
+    public void An_aircraft_you_cannot_record_has_its_box_disabled_and_ignores_the_tick()
+    {
+        AircraftRowViewModel row = new Rig().Main.Aircraft.Rows.First(r => !r.Recording);
+        row.Update(row.Info with { Can = AircraftActions.None });
+        Assert.False(row.CanRecord);
+
+        row.Recording = true;
+
+        Assert.False(row.Recording);
+    }
+
+    [Fact]
+    public void Follow_enter_cockpit_and_the_tracking_links_go_to_the_service()
+    {
+        Rig rig = new();
+        AircraftViewModel aircraft = rig.Main.Aircraft;
+        AircraftRowViewModel row = aircraft.Rows.Single(r => r.Callsign == "9H-WDR");
+
+        Link(row, "Enter Cockpit").Command.Execute(null);
+        aircraft.Refresh();
+        Assert.True(rig.Services.Traffic.InCockpit);
+        Assert.Equal("Leave Cockpit", Link(row, "Leave Cockpit").Label);
+
+        Link(row, "Track Heading").Command.Execute(null);
+        aircraft.Refresh();
+        Assert.True(row.IsTracked);
+        Assert.True(Link(row, "Stop Tracking").Command.CanExecute(null));
+
+        Link(row, "Stop Tracking").Command.Execute(null);
+        aircraft.Refresh();
+        Assert.False(row.IsTracked);
+        Assert.False(Link(row, "Stop Tracking").Command.CanExecute(null));
+    }
+
+    [Fact]
+    public void Ignore_goes_to_the_service_and_the_link_words_itself_by_it()
+    {
+        Rig rig = new();
+        AircraftRowViewModel row = rig.Main.Aircraft.Rows[1];
+
+        Link(row, "Ignore").Command.Execute(null);
+
+        Assert.True(row.IsIgnored);
         Assert.Equal("Unignore", row.Actions[^2].Label);
+        Assert.Contains(rig.Services.Traffic.GetAircraft(), a => a.Id == row.Id && a.Ignored);
+    }
+
+    [Fact]
+    public void Recording_is_written_to_the_service_and_a_refresh_does_not_write_it_back()
+    {
+        ScriptedTraffic traffic = new();
+        AircraftViewModel aircraft = new(traffic, new JoinFS.UI.Services.Fake.FakeModelCatalog(), new JoinFS.UI.Services.Fake.NullPlatform(),
+            new ProfileViewModel(new JoinFS.UI.Services.Fake.InMemorySettingsStore()), new RecordSelection(), new NullShell());
+        AircraftRowViewModel row = aircraft.Rows.Single();
+        Assert.Empty(traffic.Writes); // reading the list wrote nothing
+
+        row.Recording = true;
+        Assert.Equal(["record a=True"], traffic.Writes);
+
+        traffic.Aircraft = [traffic.Info("a") with { Recording = false }];
+        aircraft.Refresh();
+        Assert.False(row.Recording);
+        Assert.Equal(["record a=True"], traffic.Writes); // the refresh took the service's word and wrote nothing
+    }
+
+    [Fact]
+    public void A_refresh_updates_rows_in_place_adds_new_aircraft_and_drops_the_ones_gone()
+    {
+        ScriptedTraffic traffic = new();
+        AircraftViewModel aircraft = new(traffic, new JoinFS.UI.Services.Fake.FakeModelCatalog(), new JoinFS.UI.Services.Fake.NullPlatform(),
+            new ProfileViewModel(new JoinFS.UI.Services.Fake.InMemorySettingsStore()), new RecordSelection(), new NullShell());
+        AircraftRowViewModel a = aircraft.Rows.Single();
+        a.ToggleExpandedCommand.Execute(null);
+
+        traffic.Aircraft = [traffic.Info("b"), traffic.Info("a") with { AltitudeFt = 9999 }, traffic.Info("c")];
+        aircraft.Refresh();
+
+        Assert.Equal(["b", "a", "c"], aircraft.Rows.Select(r => r.Id));
+        Assert.Same(a, aircraft.Rows[1]);
+        Assert.True(a.IsExpanded);
+        Assert.Contains("9,999", a.Altitude.Replace(".", ",").Replace(" ", ","));
+
+        traffic.Aircraft = [traffic.Info("c")];
+        aircraft.Refresh();
+        Assert.Equal(["c"], aircraft.Rows.Select(r => r.Id));
+    }
+
+    [Fact]
+    public void The_two_include_links_are_list_filters_and_add_the_other_aircraft()
+    {
+        Rig rig = new();
+        AircraftViewModel aircraft = rig.Main.Aircraft;
+        AircraftRowViewModel any = aircraft.Rows[0];
+        Assert.Equal(8, aircraft.AircraftCount);
+
+        Link(any, "Include All Hub Aircraft").Command.Execute(null);
+        Assert.True(rig.Services.Traffic.IncludeHubAircraft);
+        Assert.Equal(10, aircraft.AircraftCount);
+        Assert.Equal("Exclude Hub Aircraft", Link(any, "Exclude Hub Aircraft").Label);
+
+        Link(any, "Include All Simulator Aircraft").Command.Execute(null);
+        Assert.Equal(12, aircraft.AircraftCount);
+
+        Link(any, "Exclude Hub Aircraft").Command.Execute(null);
+        Link(any, "Exclude Simulator Aircraft").Command.Execute(null);
+        Assert.Equal(8, aircraft.AircraftCount);
     }
 
     [Fact]
@@ -388,17 +549,17 @@ public class AircraftAndObjectsTests
         Rig rig = new();
         AircraftRowViewModel row = rig.Main.Aircraft.Rows.Single(r => r.Callsign == "A320");
 
-        row.SubstituteCommand.Execute(null);
+        Link(row, "Substitute").Command.Execute(null);
         SubstituteViewModel substitute = Assert.IsType<SubstituteViewModel>(rig.Main.Overlay);
         Assert.Equal("GC1a Swift (Factory)", substitute.Original); // the livery suffix is dropped
 
-        row.ExplainMatchCommand.Execute(null);
+        Link(row, "Explain Match").Command.Execute(null);
         Assert.Equal("GC1a Swift (Factory) (D)", Assert.IsType<ExplainMatchViewModel>(rig.Main.Overlay).Model);
 
-        row.AdjustHeightCommand.Execute(null);
+        Link(row, "Adjust Height").Command.Execute(null);
         Assert.IsType<AdjustHeightViewModel>(rig.Main.Overlay);
 
-        row.AssignVariablesCommand.Execute(null);
+        Link(row, "Assign Variables").Command.Execute(null);
         Assert.IsType<VariablesOverlayViewModel>(rig.Main.Overlay);
     }
 
@@ -407,9 +568,29 @@ public class AircraftAndObjectsTests
     {
         Rig rig = new();
 
-        rig.Main.Aircraft.Rows.Single(r => r.Callsign == "9H-WDR").CopyFlightPlanCommand.Execute(null);
+        Link(rig.Main.Aircraft.Rows.Single(r => r.Callsign == "9H-WDR"), "Copy Flight Plan").Command.Execute(null);
 
         Assert.Equal(["9H-WDR — VFR, 8 nm route"], rig.Platform.Copied);
+    }
+
+    [Fact]
+    public void A_poll_reads_the_aircraft_only_while_the_tab_is_open()
+    {
+        ScriptedTraffic traffic = new();
+        AppServices services = JoinFS.UI.Services.Fake.FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true, Nickname = "Me" }) with { Traffic = traffic };
+        MainViewModel main = new(services);
+        int atStart = traffic.Reads;
+
+        for (int i = 0; i < 8; i++)
+            main.Poll();
+        Assert.Equal(atStart, traffic.Reads);
+
+        main.GoTo(TabId.Aircraft);
+        int opened = traffic.Reads;
+        Assert.True(opened > atStart);
+        for (int i = 0; i < 8; i++)
+            main.Poll();
+        Assert.Equal(opened + 2, traffic.Reads);
     }
 
     [Fact]
@@ -588,7 +769,7 @@ public class ModelMatchingTests
     public void A_substitution_for_an_aircraft_model_becomes_a_removable_row()
     {
         Rig rig = new();
-        rig.Main.Aircraft.Rows[0].SubstituteCommand.Execute(null);
+        rig.Main.Aircraft.Rows[0].Actions[0].Command.Execute(null); // Substitute…
         ((SubstituteViewModel)rig.Main.Overlay!).SaveCommand.Execute(null);
 
         ModelRuleRowViewModel added = rig.Main.ModelMatching.Rows.Last();
@@ -1073,14 +1254,14 @@ public class RecordSelectionTests
     {
         Rig rig = new();
 
-        Assert.Equal(rig.Main.Aircraft.Rows.Select(r => r.Callsign).Order(), rig.Main.Recorder.LiveAircraft.Select(r => r.Callsign).Order());
+        Assert.Equal(rig.Main.Aircraft.Rows.Select(r => r.Id).Order(), rig.Main.Recorder.LiveAircraft.Select(r => r.Callsign).Order());
         foreach (AircraftRowViewModel row in rig.Main.Aircraft.Rows)
-            Assert.Equal(row.Recording, rig.Main.Recorder.LiveAircraft.Single(r => r.Callsign == row.Callsign).IsChecked);
+            Assert.Equal(row.Recording, rig.Main.Recorder.LiveAircraft.Single(r => r.Callsign == row.Id).IsChecked);
         Assert.Equal(["9H-WDR", "AAL2693", "ASXGS", "LV-ALB"], rig.Main.Aircraft.Rows.Where(r => r.Recording).Select(r => r.Callsign).Order());
     }
 
     [Fact]
-    public void Ticking_in_either_tab_ticks_in_the_other()
+    public void Ticking_in_either_tab_ticks_in_the_other_and_reaches_the_service()
     {
         Rig rig = new();
         AircraftRowViewModel row = rig.Main.Aircraft.Rows.Single(r => r.Callsign == "A320");
@@ -1089,9 +1270,11 @@ public class RecordSelectionTests
 
         row.Recording = true;
         Assert.True(item.IsChecked);
+        Assert.Contains(rig.Services.Traffic.GetAircraft(), a => a.Id == "A320" && a.Recording);
 
         item.IsChecked = false;
         Assert.False(row.Recording);
+        Assert.DoesNotContain(rig.Services.Traffic.GetAircraft(), a => a.Id == "A320" && a.Recording);
     }
 
     [Fact]
@@ -1110,22 +1293,49 @@ public class RecordSelectionTests
         link.Command.Execute(null);
         Assert.True(row.Recording);
     }
+}
 
-    [Fact]
-    public void Include_all_hub_aircraft_ticks_those_with_an_owner_and_simulator_aircraft_those_without()
+/// <summary>A traffic source the test scripts: the aircraft it returns and what the UI wrote to it.</summary>
+public sealed class ScriptedTraffic : ITrafficSource
+{
+    public List<AircraftInfo> Aircraft { get; set; }
+    public List<string> Writes { get; } = [];
+    public int Reads { get; private set; }
+
+    public ScriptedTraffic() => Aircraft = [Info("a")];
+
+    public AircraftInfo Info(string id) =>
+        new(id, id.ToUpperInvariant(), "Pilot", 10, 90, 3000, 120, "Model", 90, "1200", "118.000", "121.500", "MSFS", "Model", "-", "-",
+            AircraftLinkState.Created, false, false, false, AircraftActions.All);
+
+    public IReadOnlyList<AircraftInfo> GetAircraft()
     {
-        Rig rig = new();
-        AircraftViewModel aircraft = rig.Main.Aircraft;
-        AircraftRowViewModel anyRow = aircraft.Rows[0];
-        foreach (AircraftRowViewModel row in aircraft.Rows)
-            row.Recording = false;
-
-        anyRow.Actions.Single(a => a.Label == "Include All Hub Aircraft").Command.Execute(null);
-        Assert.All(aircraft.Rows, r => Assert.Equal(r.Owner.Length > 0, r.Recording));
-
-        anyRow.Actions.Single(a => a.Label == "Include All Simulator Aircraft").Command.Execute(null);
-        Assert.All(aircraft.Rows, r => Assert.True(r.Recording));
+        Reads++;
+        return Aircraft;
     }
+
+    public IReadOnlyList<ObjectInfo> GetObjects() => [];
+    public bool IncludeHubAircraft { get; set; }
+    public bool IncludeSimulatorAircraft { get; set; }
+    public bool InCockpit => false;
+    public bool IsTracking => false;
+    public void SetRecording(string aircraftId, bool recording) => Writes.Add($"record {aircraftId}={recording}");
+    public void SetIgnored(string aircraftId, bool ignored) => Writes.Add($"ignore {aircraftId}={ignored}");
+    public void Follow(string aircraftId) => Writes.Add("follow " + aircraftId);
+    public void EnterCockpit(string aircraftId) => Writes.Add("enter " + aircraftId);
+    public void TrackHeading(string aircraftId) => Writes.Add("heading " + aircraftId);
+    public void TrackBearing(string aircraftId) => Writes.Add("bearing " + aircraftId);
+    public void StopTracking() => Writes.Add("stop tracking");
+    public void CopyWeather(string aircraftId) => Writes.Add("weather " + aircraftId);
+}
+
+/// <summary>An IShell that does nothing, for view models built on their own.</summary>
+public sealed class NullShell : IShell
+{
+    public void GoTo(TabId tab) { }
+    public void ShowOverlay(OverlayViewModel overlay) { }
+    public Task JoinAsync(AddressBookEntry hub) => Task.CompletedTask;
+    public Task<string?> CreateMeshAsync() => Task.FromResult<string?>(null);
 }
 
 public class ScanModelsTests
