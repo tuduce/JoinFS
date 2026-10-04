@@ -7,12 +7,18 @@ public static class FakeServices
 {
     /// <param name="latency">How long a connect or fetch takes. The prototype uses 900 ms; tests pass zero.</param>
     /// <param name="xplaneBuild">Pretend to be the XPLANE build, which shows the X-Plane settings.</param>
-    public static AppServices Create(TimeSpan latency, UserSettings? settings = null, IPlatform? platform = null, bool xplaneBuild = false) => new(
+    public static AppServices Create(TimeSpan latency, UserSettings? settings = null, IPlatform? platform = null, bool xplaneBuild = false)
+    {
+        InMemoryAddressBookStore addressBook = new();
+        return Build(latency, settings, platform, xplaneBuild, addressBook);
+    }
+
+    private static AppServices Build(TimeSpan latency, UserSettings? settings, IPlatform? platform, bool xplaneBuild, InMemoryAddressBookStore addressBook) => new(
         Simulator: new FakeSimulatorLink(latency),
         Network: new FakeNetworkLink(latency),
-        AddressBook: new InMemoryAddressBookStore(),
+        AddressBook: addressBook,
         Hubs: new FakeHubDirectory(),
-        Session: new FakeSessionSource(),
+        Session: new FakeSessionSource(addressBook),
         Traffic: new FakeTrafficSource(),
         Models: new FakeModelCatalog(),
         Variables: new FakeVariablesCatalog(),
@@ -82,9 +88,33 @@ public sealed class FakeHubDirectory : IHubDirectory
     public Task<IReadOnlyList<HubInfo>> GetPublicHubsAsync(CancellationToken cancellationToken) => Task.FromResult(SampleData.Hubs);
 }
 
-public sealed class FakeSessionSource : ISessionSource
+public sealed class FakeSessionSource(IAddressBookStore addressBook) : ISessionSource
 {
+    private readonly Dictionary<string, PeerSettings> _settings = [];
+
     public IReadOnlyList<PeerInfo> GetPeers() => SampleData.Peers;
+
+    public PeerSettings GetSettings(string peerId) =>
+        (_settings.GetValueOrDefault(peerId) ?? new PeerSettings(false, false, false, false, false)) with { IsSaved = IsSaved(peerId) };
+
+    public void SetCockpitEntry(string peerId, bool allowed) => Update(peerId, s => s with { CockpitEntry = allowed });
+    public void SetHandOverControls(string peerId, bool handedOver) => Update(peerId, s => s with { HandOverControls = handedOver });
+    public void SetMultipleObjects(string peerId, bool allowed) => Update(peerId, s => s with { MultipleObjects = allowed });
+    public void SetIgnored(string peerId, bool ignored) => Update(peerId, s => s with { IsIgnored = ignored });
+
+    public void SetSaved(string peerId, bool saved)
+    {
+        (IReadOnlyList<AddressBookEntry> entries, string? selected) = addressBook.Load();
+        List<AddressBookEntry> next = [.. entries.Where(e => e.Name != peerId)];
+        if (saved)
+            next.Add(new AddressBookEntry(peerId, peerId));
+        addressBook.Save(next, selected);
+    }
+
+    private bool IsSaved(string peerId) => addressBook.Load().Entries.Any(e => e.Name == peerId);
+
+    private void Update(string peerId, Func<PeerSettings, PeerSettings> change) =>
+        _settings[peerId] = change(GetSettings(peerId));
 }
 
 public sealed class FakeTrafficSource : ITrafficSource

@@ -29,15 +29,19 @@ public static class SampleData
 
     public static IReadOnlyList<PeerInfo> Peers { get; } =
     [
-        new("6Knotts", "ASXGS", true, 36, 1, "Microsoft Flight Simulator 2024", "Legacy"),
-        new("ADF320", "A320", true, 162, 1, "Prepar3D v5", "Legacy"),
-        new("azizba213", "", true, 123, 1, "Microsoft Flight Simulator 2024", "Legacy"),
-        new("Breizh Punisher", "F-SLCD", true, 38, 1, "X-Plane", "Legacy"),
-        new("CarGuy86", "G-HUGE", true, 108, 1, "Microsoft Flight Simulator 2024", "Legacy"),
-        new("David18", "ASXGS", true, 22, 1, "Microsoft Flight Simulator 2020", "JFP2"),
-        new("DiegoCuervo", "LV-OPA", true, 255, 1, "Microsoft Flight Simulator 2024", "Legacy"),
-        new("HB-TDX", "HB-TDX", true, 0, 1, "Microsoft Flight Simulator 2024", "JFP2"),
+        Peer("6Knotts", "ASXGS", 36, "Microsoft Flight Simulator 2024", legacy: true),
+        Peer("ADF320", "A320", 162, "Prepar3D v5", legacy: true),
+        Peer("azizba213", "", 123, "Microsoft Flight Simulator 2024", legacy: true),
+        Peer("Breizh Punisher", "F-SLCD", 38, "X-Plane", legacy: true),
+        Peer("CarGuy86", "G-HUGE", 108, "Microsoft Flight Simulator 2024", legacy: true),
+        Peer("David18", "ASXGS", 22, "Microsoft Flight Simulator 2020", legacy: false),
+        Peer("DiegoCuervo", "LV-OPA", 255, "Microsoft Flight Simulator 2024", legacy: true),
+        Peer("HB-TDX", "HB-TDX", 0, "Microsoft Flight Simulator 2024", legacy: false, isMe: true),
     ];
+
+    // The prototype derives the version from the protocol and the port from the nickname, until real data is wired in.
+    private static PeerInfo Peer(string nick, string callsign, int latency, string simulator, bool legacy, bool isMe = false) =>
+        new(nick, nick, callsign, "Yes", latency, 1, 0, simulator, legacy ? "18.2.4" : "26.4.0", isMe ? "" : legacy ? "Legacy" : "JFP2", 6809 + nick.Length % 40, isMe);
 
     public static IReadOnlyList<AircraftInfo> Aircraft { get; } = BuildAircraft();
 

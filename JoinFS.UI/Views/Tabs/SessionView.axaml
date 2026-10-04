@@ -60,21 +60,21 @@
                         </StackPanel>
                       </StackPanel>
 
-                      <Border Grid.Column="1" Classes="vrule" />
+                      <Border Grid.Column="1" Classes="vrule" IsVisible="{Binding IsOther}" />
 
-                      <StackPanel Grid.Column="2" Spacing="10" MinWidth="220">
+                      <StackPanel Grid.Column="2" Spacing="10" MinWidth="220" IsVisible="{Binding IsOther}">
                         <TextBlock Classes="caps" Text="SETTINGS" />
                         <CheckBox IsChecked="{Binding CockpitEntry}" Content="Allow Cockpit Entry" />
                         <CheckBox Margin="22,0,0,0" IsChecked="{Binding HandOverControls}" IsEnabled="{Binding CanHandOverControls}" Content="Hand Over Controls" />
                         <CheckBox IsChecked="{Binding MultipleObjects}" Content="Allow Multiple Objects" />
                       </StackPanel>
 
-                      <Border Grid.Column="3" Classes="vrule" />
+                      <Border Grid.Column="3" Classes="vrule" IsVisible="{Binding IsOther}" />
 
-                      <StackPanel Grid.Column="4" Spacing="10">
+                      <StackPanel Grid.Column="4" Spacing="10" IsVisible="{Binding IsOther}">
                         <TextBlock Classes="caps" Text="ACTIONS" />
                         <StackPanel Orientation="Horizontal" Spacing="16">
-                          <Button Classes="link" Command="{Binding SaveCommand}" Content="Save" />
+                          <Button Classes="link" Command="{Binding ToggleSaveCommand}" Content="{Binding SaveLabel}" />
                           <Button Classes="link" Command="{Binding ToggleIgnoreCommand}" Content="{Binding IgnoreLabel}" />
                         </StackPanel>
                       </StackPanel>

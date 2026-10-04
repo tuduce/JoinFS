@@ -6,21 +6,29 @@ using JoinFS.UI.Services;
 
 namespace JoinFS.UI.ViewModels.Tabs;
 
+/// <summary>
+/// One user in the Session table. The row lives as long as the user is connected and is updated in place, so an open row, a
+/// half-ticked box and the scroll position survive every refresh. What the user sets on it goes straight to the service.
+/// </summary>
 public sealed partial class PeerRowViewModel : ObservableObject
 {
     private readonly SessionViewModel _owner;
-    private bool _handOverRequested;
 
-    internal PeerRowViewModel(PeerInfo peer, SessionViewModel owner)
+    // True while the row is being filled from the service, so what it reads is not written back as if the user had set it.
+    private bool _syncing;
+
+    internal PeerRowViewModel(PeerInfo peer, PeerSettings settings, SessionViewModel owner)
     {
         Peer = peer;
         _owner = owner;
+        Apply(settings);
     }
 
-    public PeerInfo Peer { get; }
+    public PeerInfo Peer { get; private set; }
+    public string Id => Peer.Id;
     public string Nick => Peer.Nick;
     public string Callsign => Peer.Callsign;
-    public string Connected => Peer.Connected ? "Yes" : "No";
+    public string Connected => Peer.Connected;
     public int Latency => Peer.LatencyMs;
     public string Simulator => Peer.Simulator;
     public string Version => Peer.Version;
@@ -30,8 +38,37 @@ public sealed partial class PeerRowViewModel : ObservableObject
     public bool IsLegacy => Peer.IsLegacy;
 
     public int Aircraft => Peer.Aircraft;
+    public int ObjectsExported => Peer.Objects;
     public int Port => Peer.Port;
-    public int ObjectsExported => Peer.Aircraft + (MultipleObjects ? Peer.Aircraft : 0);
+
+    /// <summary>Everyone but this node: you cannot save, ignore or give permissions to yourself.</summary>
+    public bool IsOther => !Peer.IsMe;
+
+    /// <summary>Takes a newer reading of the same user.</summary>
+    internal void Update(PeerInfo peer, PeerSettings settings)
+    {
+        Peer = peer;
+        OnPropertyChanged(string.Empty); // every display property may have changed
+        Apply(settings);
+    }
+
+    private void Apply(PeerSettings settings)
+    {
+        _syncing = true;
+        try
+        {
+            CockpitEntry = settings.CockpitEntry;
+            _handOverRequested = settings.HandOverControls;
+            OnPropertyChanged(nameof(HandOverControls));
+            MultipleObjects = settings.MultipleObjects;
+            IsSaved = settings.IsSaved;
+            IsIgnored = settings.IsIgnored;
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
 
     [ObservableProperty]
     private bool _isExpanded;
@@ -47,8 +84,15 @@ public sealed partial class PeerRowViewModel : ObservableObject
     private bool _cockpitEntry;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ObjectsExported))]
     private bool _multipleObjects;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SaveLabel))]
+    private bool _isSaved;
+
+    public string SaveLabel => IsSaved ? "Remove From Address Book" : "Save";
+
+    private bool _handOverRequested;
 
     /// <summary>Handing over controls only makes sense with cockpit entry; the box is off and disabled without it.</summary>
     public bool CanHandOverControls => CockpitEntry;
@@ -62,52 +106,96 @@ public sealed partial class PeerRowViewModel : ObservableObject
                 return;
             _handOverRequested = value;
             OnPropertyChanged();
+            if (!_syncing)
+                _owner.Source.SetHandOverControls(Id, value);
         }
     }
 
-    [ObservableProperty]
-    private bool _isSaved;
+    partial void OnCockpitEntryChanged(bool value)
+    {
+        if (!_syncing)
+            _owner.Source.SetCockpitEntry(Id, value);
+    }
+
+    partial void OnMultipleObjectsChanged(bool value)
+    {
+        if (!_syncing)
+            _owner.Source.SetMultipleObjects(Id, value);
+    }
 
     [RelayCommand]
     private void ToggleExpanded() => _owner.Expand(this);
 
     [RelayCommand]
-    private void Save() => IsSaved = true;
+    private void ToggleSave()
+    {
+        _owner.Source.SetSaved(Id, !IsSaved);
+        IsSaved = _owner.Source.GetSettings(Id).IsSaved;
+        _owner.OnAddressBookChanged();
+    }
 
     [RelayCommand]
-    private void ToggleIgnore() => IsIgnored = !IsIgnored;
+    private void ToggleIgnore()
+    {
+        _owner.Source.SetIgnored(Id, !IsIgnored);
+        IsIgnored = _owner.Source.GetSettings(Id).IsIgnored;
+    }
 }
 
 /// <summary>Session tab: the users connected to the network, with per-user settings in the expanded row.</summary>
 public sealed partial class SessionViewModel : ObservableObject
 {
-    private readonly ISessionSource _source;
-    private readonly Dictionary<string, PeerRowViewModel> _rowsByNick = [];
+    private readonly Dictionary<string, PeerRowViewModel> _rowsById = [];
 
-    public SessionViewModel(ISessionSource source, IEnumerable<string>? ignoredPeers = null)
+    public SessionViewModel(ISessionSource source)
     {
-        _source = source;
-        _ignoredAtStart = [.. ignoredPeers ?? []];
+        Source = source;
         Refresh();
     }
 
-    private readonly HashSet<string> _ignoredAtStart;
+    internal ISessionSource Source { get; }
+
+    /// <summary>Raised after Save added or removed an address book entry, so whoever shows the address book can read it again.</summary>
+    public event EventHandler? AddressBookChanged;
 
     public ObservableCollection<PeerRowViewModel> Rows { get; } = [];
 
     public int PeerCount => Rows.Count;
 
+    /// <summary>Reads the session again. Rows of users still there are updated in place; new users get a row, users gone lose theirs.</summary>
     [RelayCommand]
     public void Refresh()
     {
-        Rows.Clear();
-        foreach (PeerInfo peer in _source.GetPeers())
+        IReadOnlyList<PeerInfo> peers = Source.GetPeers();
+
+        List<PeerRowViewModel> wanted = [];
+        foreach (PeerInfo peer in peers)
         {
-            // A row outlives a refresh, so a user's settings are not lost when the list reloads.
-            if (!_rowsByNick.TryGetValue(peer.Nick, out PeerRowViewModel? row))
-                _rowsByNick[peer.Nick] = row = new PeerRowViewModel(peer, this) { IsIgnored = _ignoredAtStart.Contains(peer.Nick) };
-            Rows.Add(row);
+            PeerSettings settings = peer.IsMe ? new PeerSettings(false, false, false, false, false) : Source.GetSettings(peer.Id);
+            if (_rowsById.TryGetValue(peer.Id, out PeerRowViewModel? row))
+                row.Update(peer, settings);
+            else
+                _rowsById[peer.Id] = row = new PeerRowViewModel(peer, settings, this);
+            wanted.Add(row);
         }
+
+        foreach (string gone in _rowsById.Keys.Except(wanted.Select(r => r.Id)).ToList())
+            _rowsById.Remove(gone);
+
+        // Bring the visible list into the wanted order with the fewest moves, so the rows that stay are not rebuilt.
+        for (int i = 0; i < wanted.Count; i++)
+        {
+            int at = Rows.IndexOf(wanted[i]);
+            if (at == i)
+                continue;
+            if (at < 0)
+                Rows.Insert(i, wanted[i]);
+            else
+                Rows.Move(at, i);
+        }
+        while (Rows.Count > wanted.Count)
+            Rows.RemoveAt(Rows.Count - 1);
+
         OnPropertyChanged(nameof(PeerCount));
     }
 
@@ -118,4 +206,6 @@ public sealed partial class SessionViewModel : ObservableObject
             other.IsExpanded = false;
         row.IsExpanded = open;
     }
+
+    internal void OnAddressBookChanged() => AddressBookChanged?.Invoke(this, EventArgs.Empty);
 }
