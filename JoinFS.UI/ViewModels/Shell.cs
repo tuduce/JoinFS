@@ -19,6 +19,12 @@ public interface IShell
     /// </summary>
     Task JoinAsync(AddressBookEntry hub);
 
+    /// <summary>The name of the hub the network is connected to, or null when disconnected or on a mesh of its own.</summary>
+    string? JoinedHubName { get; }
+
+    /// <summary>Disconnects the network from its hub. Nothing else is joined; the user connects again when they want to.</summary>
+    Task LeaveAsync();
+
     /// <summary>Leaves the current network and starts a new mesh. Returns its code.</summary>
     Task<string?> CreateMeshAsync();
 }
