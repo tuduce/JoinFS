@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body{margin:0}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:oklch(0.75 0.01 250);border-radius:6px}
+  table{border-collapse:collapse;width:100%}
+  th,td{text-align:left;padding:7px 10px;font-size:13px;white-space:nowrap}
+</style>
+</helmet>
+
+<div style="position:fixed;inset:0;background:oklch(0.88 0.006 250);font-family:'Segoe UI',system-ui,sans-serif;color:oklch(0.22 0.01 250);overflow:hidden">
+<div style="position:absolute;left:24px;bottom:24px;{{ panelSize }};border-radius:{{ panelRadius }};box-shadow:0 24px 60px -12px oklch(0.2 0.01 250 / 0.35);background:#fff;overflow:hidden;display:flex;flex-direction:column;transition:width .38s cubic-bezier(.2,.8,.2,1),height .38s cubic-bezier(.2,.8,.2,1),border-radius .38s">
+
+  <div style="flex:none;display:flex;align-items:center;gap:10px;padding:8px 10px;background:oklch(0.97 0.003 250);border-bottom:1px solid oklch(0.9 0.005 250)">
+    <svg width="18" height="18" viewBox="0 0 64 64" style="flex:none;color:oklch(0.3 0.01 250)">
+      <path fill="currentColor" d="M37.54,18.22Q37.19,17.94 36.24,17.85Q35.29,17.76 34.43,17.73Q33.57,17.69 32.85,17.75Q32.12,17.81 31.34,17.79Q30.56,17.76 29.7,17.72Q28.85,17.68 27.9,17.53Q26.95,17.37 26.38,17.44Q25.8,17.51 24.76,17.27Q23.72,17.02 23.15,16.99Q22.57,16.96 21.55,16.72Q20.52,16.48 19.57,16.47Q18.62,16.47 17.87,16.8Q17.13,17.14 16.24,17.01Q15.35,16.88 14.76,16.92Q14.18,16.96 13.27,16.61Q12.36,16.27 11.45,16.28Q10.55,16.29 9.61,16.6Q8.67,16.92 7.89,16.4Q7.11,15.89 6.36,16.13Q5.61,16.37 4.8,16.1Q4,15.83 3.66,17.01Q3.32,18.19 3.66,19.58Q4,20.96 4.89,20.56Q5.78,20.15 6.47,20.4Q7.17,20.66 8.25,20.93Q9.32,21.21 10.05,21.03Q10.78,20.85 11.6,20.4Q12.41,19.96 13.34,20.19Q14.27,20.41 14.93,20.59Q15.59,20.76 16.46,20.55Q17.34,20.34 18.07,20.35Q18.81,20.36 19.73,20.39Q20.65,20.43 21.51,20.32Q22.37,20.2 23.14,19.85Q23.91,19.49 24.83,19.5Q25.75,19.51 26.36,19.57Q26.97,19.62 27.86,19.75Q28.75,19.87 29.78,19.74Q30.82,19.61 31.54,19.5Q32.27,19.4 33.14,19.3Q34.01,19.19 34.7,19.24Q35.39,19.29 36.29,19.19Q37.19,19.09 37.54,18.79Q37.89,18.5 37.54,18.22Z M26.54,45.24Q26.19,44.98 25.4,44.87Q24.62,44.76 23.69,44.79Q22.76,44.81 22.02,44.64Q21.28,44.46 20.32,44.48Q19.37,44.5 18.42,44.61Q17.47,44.71 16.67,44.48Q15.86,44.25 14.9,44.11Q13.94,43.98 13.14,44.16Q12.35,44.33 11.43,43.94Q10.51,43.55 9.9,43.55Q9.29,43.54 8.39,43.92Q7.5,44.31 6.54,44.01Q5.59,43.71 4.79,43.9Q4,44.08 3.47,44.95Q2.94,45.81 3.47,46.42Q4,47.02 4.85,47.34Q5.69,47.66 6.63,47.22Q7.57,46.79 8.44,46.98Q9.31,47.17 10.2,47.2Q11.1,47.22 11.72,47.26Q12.33,47.29 13.19,47.15Q14.06,47.01 14.84,46.98Q15.63,46.95 16.64,46.67Q17.65,46.4 18.52,46.41Q19.4,46.41 20.39,46.39Q21.37,46.38 22.19,46.26Q23,46.15 23.7,46.12Q24.39,46.09 25.29,46.15Q26.19,46.21 26.54,45.85Q26.89,45.5 26.54,45.24Z"></path>
+      <path fill="currentColor" d="M60.17,18.5C60.28,17.52 60.34,16.4 60.06,15.7C59.92,15.48 59.52,15.48 59.38,15.7C59.1,16.4 59.16,17.52 59.27,18.5C59.16,19.48 59.1,20.6 59.38,21.3C59.52,21.52 59.92,21.52 60.06,21.3C60.34,20.6 60.28,19.48 60.17,18.5ZM60,18.5C60,17.88 59.16,17.58 58.04,17.49C56.36,17.3 53.56,17.21 51.04,17.3L42.64,18.02L40.4,18.16L39.39,18.5L40.4,18.84L42.64,18.98L51.04,19.7C53.56,19.79 56.36,19.7 58.04,19.51C59.16,19.42 60,19.12 60,18.5ZM56.64,18.5L54.54,7.16C54.34,6.12 53.14,5.93 52.16,6.07C51.32,6.21 50.84,6.68 50.82,7.38L52.92,18.5L50.82,29.62C50.84,30.32 51.32,30.79 52.16,30.93C53.14,31.07 54.34,30.88 54.54,29.84L56.64,18.5ZM54.9,18.5L52.8,7.55C52.61,6.52 51.4,6.32 50.42,6.46C49.58,6.6 49.11,7.08 49.08,7.78L51.18,18.5L49.08,29.22C49.11,29.92 49.58,30.4 50.42,30.54C51.4,30.68 52.61,30.48 52.8,29.45L54.9,18.5ZM43.76,18.5C43.42,16.26 42.58,14.16 41.46,14.1C40.57,14.08 40.18,14.86 40.2,15.84L40.4,18.5L40.2,21.16C40.18,22.14 40.57,22.92 41.46,22.9C42.58,22.84 43.42,20.74 43.76,18.5Z M49.17,45.5C49.28,44.52 49.34,43.4 49.06,42.7C48.92,42.48 48.52,42.48 48.38,42.7C48.1,43.4 48.16,44.52 48.27,45.5C48.16,46.48 48.1,47.6 48.38,48.3C48.52,48.52 48.92,48.52 49.06,48.3C49.34,47.6 49.28,46.48 49.17,45.5ZM49,45.5C49,44.88 48.16,44.58 47.04,44.49C45.36,44.3 42.56,44.21 40.04,44.3L31.64,45.02L29.4,45.16L28.39,45.5L29.4,45.84L31.64,45.98L40.04,46.7C42.56,46.79 45.36,46.7 47.04,46.51C48.16,46.42 49,46.12 49,45.5ZM45.64,45.5L43.54,34.16C43.34,33.12 42.14,32.93 41.16,33.07C40.32,33.21 39.84,33.68 39.82,34.38L41.92,45.5L39.82,56.62C39.84,57.32 40.32,57.79 41.16,57.93C42.14,58.07 43.34,57.88 43.54,56.84L45.64,45.5ZM43.9,45.5L41.8,34.55C41.61,33.52 40.4,33.32 39.42,33.46C38.58,33.6 38.11,34.08 38.08,34.78L40.18,45.5L38.08,56.22C38.11,56.92 38.58,57.4 39.42,57.54C40.4,57.68 41.61,57.48 41.8,56.45L43.9,45.5ZM32.76,45.5C32.42,43.26 31.58,41.16 30.46,41.1C29.57,41.08 29.18,41.86 29.2,42.84L29.4,45.5L29.2,48.16C29.18,49.14 29.57,49.92 30.46,49.9C31.58,49.84 32.42,47.74 32.76,45.5Z"></path>
+    </svg>
+    <div style="font-size:12.5px;font-weight:600;flex:1">JoinFS-FS2024</div>
+    <sc-if value="{{ showChatBadge }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ openChat }}" title="New chat message" style="position:relative;width:26px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:5px;cursor:pointer" style-hover="background:oklch(0.9 0.005 250)">
+        <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><rect x="3" y="4" width="12" height="8" rx="2" stroke="currentColor" stroke-width="1.5"></rect><polygon points="6,12 6,15.2 9.2,12" fill="currentColor"></polygon></svg>
+        <div style="position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:oklch(0.6 0.2 25);border:1.5px solid #fff"></div>
+      </div>
+    </sc-if>
+    <div onClick="{{ toggleExpand }}" title="Expand/collapse" style="width:26px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:5px;cursor:pointer;font-size:13px" style-hover="background:oklch(0.9 0.005 250)">{{ expandIcon }}</div>
+    <div style="width:26px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:5px;cursor:pointer;font-size:14px" style-hover="background:oklch(0.9 0.005 250)">–</div>
+    <div style="width:26px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:5px;cursor:pointer;font-size:13px" style-hover="background:oklch(0.9 0.005 250)">▢</div>
+    <div style="width:26px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:5px;cursor:pointer;font-size:13px" style-hover="background:oklch(0.93 0.1 25)">✕</div>
+  </div>
+
+<sc-if value="{{ isOnboarding }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;inset:0;background:oklch(0.2 0.01 250 / 0.5);display:flex;align-items:center;justify-content:center;z-index:100;padding:8px;box-sizing:border-box">
+    <div style="width:100%;max-width:280px;max-height:100%;overflow-y:auto;background:#fff;border-radius:10px;box-shadow:0 20px 50px -10px oklch(0.2 0.01 250 / 0.4);padding:10px 12px;display:flex;flex-direction:column;gap:6px;box-sizing:border-box">
+      <div style="font-size:12px;font-weight:600">Welcome to JoinFS</div>
+      <input value="{{ nickname }}" onInput="{{ setNickname }}" placeholder="Your nickname" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid oklch(0.88 0.005 250);border-radius:6px;font-size:12px">
+      <div onClick="{{ toggleSimbriefInput }}" style="font-size:11px;color:oklch(0.5 0.14 235);cursor:pointer;font-weight:600">Using SimBrief?</div>
+      <sc-if value="{{ showSimbriefInput }}" hint-placeholder-val="{{ false }}">
+        <input value="{{ simbriefUsername }}" onInput="{{ setSimbriefUsername }}" placeholder="SimBrief username" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid oklch(0.88 0.005 250);border-radius:6px;font-size:12px">
+      </sc-if>
+      <button onClick="{{ finishOnboarding }}" disabled="{{ onboardingDisabled }}" style="{{ onboardingBtnStyle }}border:none;padding:6px 0;border-radius:6px;font-size:12px;font-weight:600;margin-top:2px">Continue</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isPasswordPrompt }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;inset:0;background:oklch(0.2 0.01 250 / 0.5);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px;box-sizing:border-box">
+    <div style="width:280px;max-width:100%;background:#fff;border-radius:12px;box-shadow:0 20px 50px -10px oklch(0.2 0.01 250 / 0.4);padding:18px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:14.5px;font-weight:600">Password Required</div>
+      <div style="font-size:12.5px;color:oklch(0.55 0.01 250)">{{ passwordPromptHubName }} requires a password to join.</div>
+      <input type="password" value="{{ passwordPromptValue }}" onInput="{{ setPasswordPromptValue }}" placeholder="Password" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13px">
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px">
+        <button onClick="{{ closePasswordPrompt }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:8px 16px;border-radius:7px;font-size:13px;cursor:pointer">Cancel</button>
+        <button onClick="{{ confirmPasswordPrompt }}" style="background:oklch(0.62 0.14 235);color:#fff;border:none;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">Join</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isSimbriefPrompt }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;inset:0;background:oklch(0.2 0.01 250 / 0.5);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px;box-sizing:border-box">
+    <div style="width:280px;max-width:100%;background:#fff;border-radius:12px;box-shadow:0 20px 50px -10px oklch(0.2 0.01 250 / 0.4);padding:18px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:14.5px;font-weight:600">Import from SimBrief</div>
+      <div>
+        <div style="font-size:12.5px;color:oklch(0.55 0.01 250);margin-bottom:6px">SimBrief Username</div>
+        <input value="{{ simbriefPromptValue }}" onInput="{{ setSimbriefPromptValue }}" placeholder="SimBrief username" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13px">
+      </div>
+      <div style="font-size:11.5px;color:oklch(0.6 0.01 250)">You can change this later in Settings.</div>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button onClick="{{ closeSimbriefPrompt }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:8px 16px;border-radius:7px;font-size:13px;cursor:pointer">Cancel</button>
+        <button onClick="{{ confirmSimbriefPrompt }}" style="background:oklch(0.62 0.14 235);color:#fff;border:none;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">Import</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isCollapsedView }}" hint-placeholder-val="{{ true }}">
+  <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;align-items:flex-start">
+      <div style="display:flex;flex-direction:column;align-items:center;width:56px;flex:none">
+        <div style="height:42px;display:flex;align-items:center;justify-content:center">
+          <button onClick="{{ toggleSim }}" title="Connect to simulator" style="{{ simBtnStyle }}width:42px;height:42px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><polygon points="15,9 3,5.6 3,7.6 9,9 3,10.4 3,12.4" fill="currentColor"></polygon></svg>
+          </button>
+        </div>
+        <div style="margin-top:6px;text-align:center">
+          <div style="font-size:12.5px;color:oklch(0.4 0.01 250);white-space:nowrap">Simulator</div>
+          <div style="font-size:12.5px;color:oklch(0.5 0.01 250);white-space:nowrap">{{ simStateLabel }}</div>
+        </div>
+      </div>
+      <div style="flex:none;width:20px;height:42px;display:flex;align-items:center"><div style="width:100%;height:1.5px;border-radius:1px;background:oklch(0.65 0.01 250)"></div></div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:stretch;min-width:0">
+        <div style="height:42px;display:flex;align-items:center">
+          <div style="width:100%;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid oklch(0.85 0.005 250);border-radius:8px;padding:0 10px;height:36px">
+            <svg width="13" height="13" viewBox="0 0 18 18" fill="none" style="flex:none;color:oklch(0.5 0.01 250)"><line x1="9" y1="4" x2="4" y2="13" stroke="currentColor" stroke-width="1.4"></line><line x1="9" y1="4" x2="14" y2="13" stroke="currentColor" stroke-width="1.4"></line><line x1="4" y1="13" x2="14" y2="13" stroke="currentColor" stroke-width="1.4"></line><circle cx="9" cy="4" r="2" fill="currentColor"></circle><circle cx="4" cy="13" r="2" fill="currentColor"></circle><circle cx="14" cy="13" r="2" fill="currentColor"></circle></svg>
+            <select value="{{ selectedAddr }}" onChange="{{ selectAddr }}" style="flex:1;min-width:0;border:none;background:transparent;font-size:12.5px;padding:0;height:34px">
+              <sc-for list="{{ addressBook }}" as="ab" hint-placeholder-count="4"><option value="{{ ab.name }}">{{ ab.name }}</option></sc-for>
+            </select>
+          </div>
+        </div>
+        <div style="font-size:12.5px;color:oklch(0.5 0.01 250);margin-top:6px;text-align:center">Hub</div>
+      </div>
+      <div style="flex:none;width:20px;height:42px;display:flex;align-items:center"><div style="width:100%;height:1.5px;border-radius:1px;background:oklch(0.65 0.01 250)"></div></div>
+      <div style="display:flex;flex-direction:column;align-items:center;width:56px;flex:none">
+        <div style="height:42px;display:flex;align-items:center;justify-content:center">
+          <button onClick="{{ toggleNet }}" title="Connect to hub" style="{{ netBtnStyle }}width:42px;height:42px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="7" y="2" width="4" height="3.2" rx="0.6" stroke="currentColor" stroke-width="1.3"></rect><line x1="9" y1="5.2" x2="9" y2="8" stroke="currentColor" stroke-width="1.3"></line><line x1="3" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1.3"></line><line x1="3" y1="8" x2="3" y2="10" stroke="currentColor" stroke-width="1.3"></line><line x1="9" y1="8" x2="9" y2="10" stroke="currentColor" stroke-width="1.3"></line><line x1="15" y1="8" x2="15" y2="10" stroke="currentColor" stroke-width="1.3"></line><rect x="1" y="10" width="4" height="3.2" rx="0.6" stroke="currentColor" stroke-width="1.3"></rect><rect x="7" y="10" width="4" height="3.2" rx="0.6" stroke="currentColor" stroke-width="1.3"></rect><rect x="13" y="10" width="4" height="3.2" rx="0.6" stroke="currentColor" stroke-width="1.3"></rect></svg>
+          </button>
+        </div>
+        <div style="margin-top:6px;text-align:center">
+          <div style="font-size:12.5px;color:oklch(0.4 0.01 250);white-space:nowrap">Network</div>
+          <div style="font-size:12.5px;color:oklch(0.5 0.01 250);white-space:nowrap">{{ netStateLabel }}</div>
+        </div>
+      </div>
+    </div>
+    <div onClick="{{ toggleExpand }}" style="text-align:center;font-size:11.5px;color:oklch(0.5 0.14 235);cursor:pointer">Open full view ⤢</div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isExpandedView }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex:1;min-height:0">
+
+  <div style="width:216px;flex:none;background:oklch(0.20 0.015 255);color:oklch(0.92 0.005 255);display:flex;flex-direction:column;padding:14px 0">
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 16px 18px 16px;border-bottom:1px solid oklch(0.30 0.015 255)">
+      <svg width="60" height="60" viewBox="0 0 64 64" style="flex:none">
+        <path fill="oklch(0.55 0.02 255)" d="M37.54,18.22Q37.19,17.94 36.24,17.85Q35.29,17.76 34.43,17.73Q33.57,17.69 32.85,17.75Q32.12,17.81 31.34,17.79Q30.56,17.76 29.7,17.72Q28.85,17.68 27.9,17.53Q26.95,17.37 26.38,17.44Q25.8,17.51 24.76,17.27Q23.72,17.02 23.15,16.99Q22.57,16.96 21.55,16.72Q20.52,16.48 19.57,16.47Q18.62,16.47 17.87,16.8Q17.13,17.14 16.24,17.01Q15.35,16.88 14.76,16.92Q14.18,16.96 13.27,16.61Q12.36,16.27 11.45,16.28Q10.55,16.29 9.61,16.6Q8.67,16.92 7.89,16.4Q7.11,15.89 6.36,16.13Q5.61,16.37 4.8,16.1Q4,15.83 3.66,17.01Q3.32,18.19 3.66,19.58Q4,20.96 4.89,20.56Q5.78,20.15 6.47,20.4Q7.17,20.66 8.25,20.93Q9.32,21.21 10.05,21.03Q10.78,20.85 11.6,20.4Q12.41,19.96 13.34,20.19Q14.27,20.41 14.93,20.59Q15.59,20.76 16.46,20.55Q17.34,20.34 18.07,20.35Q18.81,20.36 19.73,20.39Q20.65,20.43 21.51,20.32Q22.37,20.2 23.14,19.85Q23.91,19.49 24.83,19.5Q25.75,19.51 26.36,19.57Q26.97,19.62 27.86,19.75Q28.75,19.87 29.78,19.74Q30.82,19.61 31.54,19.5Q32.27,19.4 33.14,19.3Q34.01,19.19 34.7,19.24Q35.39,19.29 36.29,19.19Q37.19,19.09 37.54,18.79Q37.89,18.5 37.54,18.22Z M26.54,45.24Q26.19,44.98 25.4,44.87Q24.62,44.76 23.69,44.79Q22.76,44.81 22.02,44.64Q21.28,44.46 20.32,44.48Q19.37,44.5 18.42,44.61Q17.47,44.71 16.67,44.48Q15.86,44.25 14.9,44.11Q13.94,43.98 13.14,44.16Q12.35,44.33 11.43,43.94Q10.51,43.55 9.9,43.55Q9.29,43.54 8.39,43.92Q7.5,44.31 6.54,44.01Q5.59,43.71 4.79,43.9Q4,44.08 3.47,44.95Q2.94,45.81 3.47,46.42Q4,47.02 4.85,47.34Q5.69,47.66 6.63,47.22Q7.57,46.79 8.44,46.98Q9.31,47.17 10.2,47.2Q11.1,47.22 11.72,47.26Q12.33,47.29 13.19,47.15Q14.06,47.01 14.84,46.98Q15.63,46.95 16.64,46.67Q17.65,46.4 18.52,46.41Q19.4,46.41 20.39,46.39Q21.37,46.38 22.19,46.26Q23,46.15 23.7,46.12Q24.39,46.09 25.29,46.15Q26.19,46.21 26.54,45.85Q26.89,45.5 26.54,45.24Z"></path>
+        <path fill="oklch(0.92 0.005 255)" d="M60.17,18.5C60.28,17.52 60.34,16.4 60.06,15.7C59.92,15.48 59.52,15.48 59.38,15.7C59.1,16.4 59.16,17.52 59.27,18.5C59.16,19.48 59.1,20.6 59.38,21.3C59.52,21.52 59.92,21.52 60.06,21.3C60.34,20.6 60.28,19.48 60.17,18.5ZM60,18.5C60,17.88 59.16,17.58 58.04,17.49C56.36,17.3 53.56,17.21 51.04,17.3L42.64,18.02L40.4,18.16L39.39,18.5L40.4,18.84L42.64,18.98L51.04,19.7C53.56,19.79 56.36,19.7 58.04,19.51C59.16,19.42 60,19.12 60,18.5ZM56.64,18.5L54.54,7.16C54.34,6.12 53.14,5.93 52.16,6.07C51.32,6.21 50.84,6.68 50.82,7.38L52.92,18.5L50.82,29.62C50.84,30.32 51.32,30.79 52.16,30.93C53.14,31.07 54.34,30.88 54.54,29.84L56.64,18.5ZM54.9,18.5L52.8,7.55C52.61,6.52 51.4,6.32 50.42,6.46C49.58,6.6 49.11,7.08 49.08,7.78L51.18,18.5L49.08,29.22C49.11,29.92 49.58,30.4 50.42,30.54C51.4,30.68 52.61,30.48 52.8,29.45L54.9,18.5ZM43.76,18.5C43.42,16.26 42.58,14.16 41.46,14.1C40.57,14.08 40.18,14.86 40.2,15.84L40.4,18.5L40.2,21.16C40.18,22.14 40.57,22.92 41.46,22.9C42.58,22.84 43.42,20.74 43.76,18.5Z M49.17,45.5C49.28,44.52 49.34,43.4 49.06,42.7C48.92,42.48 48.52,42.48 48.38,42.7C48.1,43.4 48.16,44.52 48.27,45.5C48.16,46.48 48.1,47.6 48.38,48.3C48.52,48.52 48.92,48.52 49.06,48.3C49.34,47.6 49.28,46.48 49.17,45.5ZM49,45.5C49,44.88 48.16,44.58 47.04,44.49C45.36,44.3 42.56,44.21 40.04,44.3L31.64,45.02L29.4,45.16L28.39,45.5L29.4,45.84L31.64,45.98L40.04,46.7C42.56,46.79 45.36,46.7 47.04,46.51C48.16,46.42 49,46.12 49,45.5ZM45.64,45.5L43.54,34.16C43.34,33.12 42.14,32.93 41.16,33.07C40.32,33.21 39.84,33.68 39.82,34.38L41.92,45.5L39.82,56.62C39.84,57.32 40.32,57.79 41.16,57.93C42.14,58.07 43.34,57.88 43.54,56.84L45.64,45.5ZM43.9,45.5L41.8,34.55C41.61,33.52 40.4,33.32 39.42,33.46C38.58,33.6 38.11,34.08 38.08,34.78L40.18,45.5L38.08,56.22C38.11,56.92 38.58,57.4 39.42,57.54C40.4,57.68 41.61,57.48 41.8,56.45L43.9,45.5ZM32.76,45.5C32.42,43.26 31.58,41.16 30.46,41.1C29.57,41.08 29.18,41.86 29.2,42.84L29.4,45.5L29.2,48.16C29.18,49.14 29.57,49.92 30.46,49.9C31.58,49.84 32.42,47.74 32.76,45.5Z"></path>
+      </svg>
+      <div style="font-size:15px;font-weight:600;letter-spacing:.2px">JoinFS</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;padding:12px 8px;flex:1">
+
+      <div onClick="{{ goHome }}" style="{{ navStyle.home }}" style-hover="background:oklch(0.27 0.02 255)">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><polyline points="3,9 9,3 15,9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></polyline><rect x="5" y="9" width="8" height="6" stroke="currentColor" stroke-width="1.6"></rect><line x1="9" y1="15" x2="9" y2="12" stroke="currentColor" stroke-width="1.6"></line></svg>
+        <span>Home</span>
+      </div>
+
+      <div onClick="{{ goNetwork }}" style="{{ navStyle.network }}" style-hover="background:oklch(0.27 0.02 255)">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><line x1="9" y1="4" x2="4" y2="13" stroke="currentColor" stroke-width="1.4"></line><line x1="9" y1="4" x2="14" y2="13" stroke="currentColor" stroke-width="1.4"></line><line x1="4" y1="13" x2="14" y2="13" stroke="currentColor" stroke-width="1.4"></line><circle cx="9" cy="4" r="2" fill="currentColor"></circle><circle cx="4" cy="13" r="2" fill="currentColor"></circle><circle cx="14" cy="13" r="2" fill="currentColor"></circle></svg>
+        <span>Network Hubs</span>
+      </div>
+
+      <div onClick="{{ goSession }}" style="{{ navStyle.session }}" style-hover="background:oklch(0.27 0.02 255)">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="7" cy="7.5" r="3.2" stroke="currentColor" stroke-width="1.5"></circle><circle cx="12" cy="9" r="3.2" stroke="currentColor" stroke-width="1.5"></circle></svg>
+        <span>Session</span>
+      </div>
+
+      <div onClick="{{ goAircraft }}" style="{{ navStyle.aircraft }}" style-hover="background:oklch(0.27 0.02 255)">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><polygon points="15,9 3,5.6 3,7.6 9,9 3,10.4 3,12.4" fill="currentColor"></polygon></svg>
+        <span>Aircraft</span>
+      </div>
+
+      <div onClick="{{ goObjects }}" style="{{ navStyle.objects }}" style-hover="background:oklch(0.27 0.02 255)">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="3" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"></rect><rect x="10" y="3" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"></rect><rect x="3" y="10" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"></rect><rect x="10" y="10" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"></rect></svg>
+        <span>Objects</span>
+      </div>
+
+<div onClick="{{ goModelsTab }}" style="{{ navStyle.models }}" style-hover="background:oklch(0.27 0.02 255)">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><line x1="4" y1="6" x2="13" y2="6" stroke="currentColor" stroke-width="1.5"></line><polygon points="13,4 16.5,6 13,8" fill="currentColor"></polygon><line x1="14" y1="12" x2="5" y2="12" stroke="currentColor" stroke-width="1.5"></line><polygon points="5,10 1.5,12 5,14" fill="currentColor"></polygon></svg>
+        <span>Model Matching</span>
+      </div>
+
+      <div onClick="{{ goFlightPlan }}" style="{{ navStyle.flightplan }}" style-hover="background:oklch(0.27 0.02 255)">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2 L9 16 M4 5 L14 5 M4 5 C4 8 4 8 2 9 C4 10 4 10 4 13 L14 13 C14 10 14 10 16 9 C14 8 14 8 14 5" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"></path></svg>
+        <span>Flight Plan</span>
+      </div>
+
+      <div onClick="{{ goRecorder }}" style="{{ navStyle.recorder }}" style-hover="background:oklch(0.27 0.02 255)">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.5"></circle><circle cx="9" cy="9" r="2.6" fill="currentColor"></circle></svg>
+        <span>Recorder</span>
+      </div>
+
+<div onClick="{{ goChat }}" style="{{ navStyle.chat }}position:relative" style-hover="background:oklch(0.27 0.02 255)">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="4" width="12" height="8" rx="2" stroke="currentColor" stroke-width="1.5"></rect><polygon points="6,12 6,15.2 9.2,12" fill="currentColor"></polygon></svg>
+        <span>Chat</span>
+        <sc-if value="{{ hasNewChat }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:19px;top:9px;width:7px;height:7px;border-radius:50%;background:oklch(0.6 0.2 25);border:1.5px solid oklch(0.2 0.015 255)"></div>
+        </sc-if>
+      </div>
+
+      <div onClick="{{ goLog }}" style="{{ navStyle.log }}" style-hover="background:oklch(0.27 0.02 255)">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="4" width="12" height="8" rx="1" stroke="currentColor" stroke-width="1.5"></rect><line x1="7" y1="15" x2="11" y2="15" stroke="currentColor" stroke-width="1.5"></line><line x1="5.2" y1="7" x2="9.5" y2="7" stroke="currentColor" stroke-width="1.2"></line><line x1="5.2" y1="9.3" x2="8" y2="9.3" stroke="currentColor" stroke-width="1.2"></line></svg>
+        <span>Monitor</span>
+      </div>
+
+      <div onClick="{{ goSettings }}" style="{{ navStyle.settings }}" style-hover="background:oklch(0.27 0.02 255)">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="5" stroke="currentColor" stroke-width="1.5"></circle><circle cx="9" cy="9" r="1.8" fill="currentColor"></circle><line x1="9" y1="1.8" x2="9" y2="3.8" stroke="currentColor" stroke-width="1.5"></line><line x1="9" y1="14.2" x2="9" y2="16.2" stroke="currentColor" stroke-width="1.5"></line><line x1="1.8" y1="9" x2="3.8" y2="9" stroke="currentColor" stroke-width="1.5"></line><line x1="14.2" y1="9" x2="16.2" y2="9" stroke="currentColor" stroke-width="1.5"></line></svg>
+        <span>Settings</span>
+      </div>
+
+    </div>
+    <div onClick="{{ openAbout }}" style="padding:10px 16px 2px 16px;border-top:1px solid oklch(0.30 0.015 255);font-size:11px;color:oklch(0.6 0.01 255);cursor:pointer" style-hover="color:oklch(0.85 0.01 255)">v26.6.0</div>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden">
+
+    <div style="flex:none;background:#fff;border-bottom:1px solid oklch(0.9 0.005 250);padding:8px 24px;display:flex;align-items:flex-start;gap:0">
+      <div style="display:flex;flex-direction:column;align-items:center;width:56px;flex:none">
+        <button onClick="{{ toggleSim }}" title="Connect to simulator" style="{{ simBtnStyle }}width:42px;height:42px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><polygon points="15,9 3,5.6 3,7.6 9,9 3,10.4 3,12.4" fill="currentColor"></polygon></svg>
+        </button>
+        <div style="margin-top:6px;text-align:center">
+          <div style="font-size:12.5px;color:oklch(0.4 0.01 250);white-space:nowrap">Simulator</div>
+          <div style="font-size:12.5px;color:oklch(0.5 0.01 250);white-space:nowrap">{{ simStateLabel }}</div>
+        </div>
+      </div>
+      <div style="flex:none;width:20px;height:42px;display:flex;align-items:center"><div style="width:100%;height:1.5px;border-radius:1px;background:oklch(0.65 0.01 250)"></div></div>
+      <div style="width:170px;flex:none;display:flex;flex-direction:column;align-items:stretch">
+        <div style="height:42px;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid oklch(0.85 0.005 250);border-radius:8px;padding:0 10px;width:100%;box-sizing:border-box">
+          <svg width="13" height="13" viewBox="0 0 18 18" fill="none" style="flex:none;color:oklch(0.5 0.01 250)"><line x1="9" y1="4" x2="4" y2="13" stroke="currentColor" stroke-width="1.4"></line><line x1="9" y1="4" x2="14" y2="13" stroke="currentColor" stroke-width="1.4"></line><line x1="4" y1="13" x2="14" y2="13" stroke="currentColor" stroke-width="1.4"></line><circle cx="9" cy="4" r="2" fill="currentColor"></circle><circle cx="4" cy="13" r="2" fill="currentColor"></circle><circle cx="14" cy="13" r="2" fill="currentColor"></circle></svg>
+          <select value="{{ selectedAddr }}" onChange="{{ selectAddr }}" style="flex:1;min-width:0;border:none;background:transparent;font-size:13px;padding:0;height:34px">
+            <sc-for list="{{ addressBook }}" as="ab" hint-placeholder-count="4"><option value="{{ ab.name }}">{{ ab.name }}</option></sc-for>
+          </select>
+        </div>
+        <div style="font-size:12.5px;color:oklch(0.5 0.01 250);margin-top:6px;text-align:center">Hub</div>
+      </div>
+      <div style="flex:none;width:20px;height:42px;display:flex;align-items:center"><div style="width:100%;height:1.5px;border-radius:1px;background:oklch(0.65 0.01 250)"></div></div>
+      <div style="display:flex;flex-direction:column;align-items:center;width:56px;flex:none">
+        <button onClick="{{ toggleNet }}" title="Connect to hub" style="{{ netBtnStyle }}width:42px;height:42px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="7" y="2" width="4" height="3.2" rx="0.6" stroke="currentColor" stroke-width="1.3"></rect><line x1="9" y1="5.2" x2="9" y2="8" stroke="currentColor" stroke-width="1.3"></line><line x1="3" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1.3"></line><line x1="3" y1="8" x2="3" y2="10" stroke="currentColor" stroke-width="1.3"></line><line x1="9" y1="8" x2="9" y2="10" stroke="currentColor" stroke-width="1.3"></line><line x1="15" y1="8" x2="15" y2="10" stroke="currentColor" stroke-width="1.3"></line><rect x="1" y="10" width="4" height="3.2" rx="0.6" stroke="currentColor" stroke-width="1.3"></rect><rect x="7" y="10" width="4" height="3.2" rx="0.6" stroke="currentColor" stroke-width="1.3"></rect><rect x="13" y="10" width="4" height="3.2" rx="0.6" stroke="currentColor" stroke-width="1.3"></rect></svg>
+        </button>
+        <div style="margin-top:6px;text-align:center">
+          <div style="font-size:12.5px;color:oklch(0.4 0.01 250);white-space:nowrap">Network</div>
+          <div style="font-size:12.5px;color:oklch(0.5 0.01 250);white-space:nowrap">{{ netStateLabel }}</div>
+        </div>
+      </div>
+      <div style="flex:none;width:20px;height:42px;display:flex;align-items:center"><div style="width:100%;height:1.5px;border-radius:1px;background:oklch(0.65 0.01 250)"></div></div>
+      <div style="display:flex;flex-direction:column;align-items:center;width:56px;flex:none">
+        <button onClick="{{ toggleFp }}" title="Fetch flight plan from Simbrief" style="{{ fpBtnStyle }}width:42px;height:42px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2 L9 16 M4 5 L14 5 M4 5 C4 8 4 8 2 9 C4 10 4 10 4 13 L14 13 C14 10 14 10 16 9 C14 8 14 8 14 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+        </button>
+        <div style="margin-top:6px;text-align:center">
+          <div style="font-size:12.5px;color:oklch(0.4 0.01 250);white-space:nowrap">Flight Plan</div>
+          <div style="font-size:12.5px;color:oklch(0.5 0.01 250);white-space:nowrap">{{ fpStateLabel }}</div>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+    </div>
+
+
+    <div style="flex:1;overflow:auto;padding:24px">
+
+      <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+        <div style="max-width:640px">
+          <h1 style="font-size:22px;margin:0 0 6px 0">Welcome back</h1>
+          <p style="color:oklch(0.5 0.01 250);font-size:14px;margin:0 0 24px 0">Simulator and network are both connected. Pick a panel from the sidebar to manage hubs, session traffic, aircraft, or model matching.</p>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px">
+            <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;padding:16px">
+              <div style="font-size:12px;color:oklch(0.55 0.01 250)">Hub</div>
+              <div style="font-size:16px;font-weight:600;margin-top:4px">Planet FsHub</div>
+            </div>
+            <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;padding:16px">
+              <div style="font-size:12px;color:oklch(0.55 0.01 250)">Connected users</div>
+              <div style="font-size:16px;font-weight:600;margin-top:4px">25</div>
+            </div>
+            <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;padding:16px">
+              <div style="font-size:12px;color:oklch(0.55 0.01 250)">Aircraft tracked</div>
+              <div style="font-size:16px;font-weight:600;margin-top:4px">23</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:16px;margin-top:20px;font-size:13px">
+            <a href="#" style="color:oklch(0.5 0.14 235)">Map</a>
+            <a href="#" style="color:oklch(0.5 0.14 235)">Download</a>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isNetwork }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <h2 style="font-size:17px;margin:0">Public Hubs <span style="color:oklch(0.55 0.01 250);font-weight:400">(53)</span></h2>
+            <div style="display:flex;align-items:center;gap:18px">
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:oklch(0.5 0.01 250);cursor:pointer">
+                <input type="checkbox" checked="{{ showOfflineHubs }}" onChange="{{ toggleShowOfflineHubs }}"> Show Offline Hubs
+              </label>
+              <button style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:7px 14px;border-radius:7px;font-size:13px;cursor:pointer">Refresh</button>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;overflow:hidden">
+            <table style="width:100%">
+              <thead><tr style="background:oklch(0.96 0.003 250);color:oklch(0.5 0.01 250);font-size:12px">
+                <th onClick="{{ sortByName }}" style="cursor:pointer">Name{{ hubSortIndicators.name }}</th>
+                <th onClick="{{ sortByStatus }}" style="cursor:pointer">Status{{ hubSortIndicators.status }}</th>
+                <th onClick="{{ sortByUsers }}" style="cursor:pointer">Users{{ hubSortIndicators.users }}</th>
+                <th onClick="{{ sortByAircraft }}" style="cursor:pointer">Aircraft{{ hubSortIndicators.aircraft }}</th>
+                <th onClick="{{ sortByVersion }}" style="cursor:pointer">Version{{ hubSortIndicators.version }}</th>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{ hubs }}" as="h" hint-placeholder-count="6">
+                  <tr style="{{ h.rowStyle }}cursor:pointer" onClick="{{ h.toggle }}">
+                    <td>{{ h.name }}</td>
+                    <td style="{{ h.statusStyle }}">{{ h.status }}</td>
+                    <td>{{ h.users }}</td>
+                    <td>{{ h.aircraft }}</td>
+                    <td style="color:oklch(0.55 0.01 250)">{{ h.version }}</td>
+                  </tr>
+                  <sc-if value="{{ h.isExpanded }}" hint-placeholder-val="{{ false }}">
+                    <tr>
+                      <td colspan="5" style="background:oklch(0.97 0.003 250);padding:16px 18px;font-size:13px;white-space:normal">
+                        <div style="display:grid;grid-template-columns:minmax(0,360px) 1px auto;gap:32px;align-items:start;width:100%;justify-content:start">
+                          <div style="display:flex;flex-direction:column;gap:8px;min-width:0;overflow-wrap:break-word;white-space:normal">
+                            <div style="font-size:11px;font-weight:600;letter-spacing:0.4px;color:oklch(0.55 0.01 250);text-transform:uppercase">Info</div>
+                            <div><span style="color:oklch(0.5 0.01 250);font-weight:600">About: </span>{{ h.about }}</div>
+                            <div><span style="color:oklch(0.5 0.01 250);font-weight:600">Voice Server: </span>{{ h.voice }}</div>
+                            <div><span style="color:oklch(0.5 0.01 250);font-weight:600">Next Event: </span>{{ h.nextEvent }}</div>
+                          </div>
+                          <div style="width:1px;height:100%;background:oklch(0.9 0.005 250)"></div>
+                          <div style="display:flex;flex-direction:column;gap:10px">
+                            <div style="font-size:11px;font-weight:600;letter-spacing:0.4px;color:oklch(0.55 0.01 250);text-transform:uppercase">Actions</div>
+                            <div style="display:flex;gap:16px;white-space:nowrap">
+                              <a href="#" onClick="{{ h.join }}" style="color:oklch(0.5 0.14 145);font-size:13px;font-weight:600">Join</a>
+                              <a href="#" onClick="{{ h.addToAddressBook }}" style="color:oklch(0.5 0.14 235);font-size:13px">Add to Address Book</a>
+                              <a href="#" onClick="{{ h.toggleIgnore }}" style="color:oklch(0.5 0.14 235);font-size:13px">{{ h.ignoreLabel }}</a>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </sc-if>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="margin-top:28px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <h2 style="font-size:17px;margin:0">Create Your Own Mesh</h2>
+          </div>
+          <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;padding:18px;display:flex;align-items:center;gap:12px">
+            <div style="font-family:ui-monospace,Consolas,monospace;font-size:16px;font-weight:600;letter-spacing:1px;background:oklch(0.96 0.003 250);padding:8px 16px;border-radius:8px;border:1px solid oklch(0.88 0.005 250)">40383 51901</div>
+            <button style="background:oklch(0.62 0.14 235);color:#fff;border:none;padding:9px 18px;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer">Create</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isSession }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;height:100%;gap:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <h2 style="font-size:17px;margin:0">Session <span style="color:oklch(0.55 0.01 250);font-weight:400">(25)</span></h2>
+            <button style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:7px 14px;border-radius:7px;font-size:13px;cursor:pointer">Refresh</button>
+          </div>
+          <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;overflow:auto;flex:1">
+            <table>
+              <thead><tr style="background:oklch(0.96 0.003 250);color:oklch(0.5 0.01 250);font-size:12px">
+                <th>Nickname</th><th>Callsign</th><th>Connected</th><th>Latency</th><th style="min-width:220px">Simulator</th><th>Version</th><th>Protocol</th>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{ users }}" as="u" hint-placeholder-count="8">
+                  <tr style="{{ u.rowStyle }}cursor:pointer" onClick="{{ u.toggle }}">
+                    <td>{{ u.nick }}</td><td>{{ u.callsign }}</td>
+                    <td style="{{ u.connStyle }}">{{ u.connected }}</td>
+                    <td>{{ u.latency }}</td>
+                    <td style="white-space:nowrap">{{ u.simulator }}</td>
+                    <td style="color:oklch(0.55 0.01 250)">{{ u.version }}</td>
+                    <td style="{{ u.protoStyle }}">{{ u.protocol }}</td>
+                  </tr>
+                  <sc-if value="{{ u.isExpanded }}" hint-placeholder-val="{{ false }}">
+                    <tr>
+                      <td colspan="7" style="background:oklch(0.97 0.003 250);padding:16px 18px;font-size:13px">
+                        <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+                          <div style="display:flex;flex-direction:column;gap:10px;min-width:160px">
+                            <div style="font-size:11px;font-weight:600;letter-spacing:0.4px;color:oklch(0.55 0.01 250);text-transform:uppercase">Info</div>
+                            <div style="display:flex;flex-direction:column;gap:6px;color:oklch(0.45 0.01 250)">
+                              <div><span style="font-weight:600;color:oklch(0.2 0.01 250)">{{ u.aircraft }}</span> Aircraft</div>
+                              <div><span style="font-weight:600;color:oklch(0.2 0.01 250)">{{ u.objectsExported }}</span> Objects Exported</div>
+                              <div>Network Port <span style="font-weight:600;color:oklch(0.2 0.01 250)">{{ u.port }}</span></div>
+                            </div>
+                          </div>
+                          <div style="width:1px;align-self:stretch;background:oklch(0.9 0.005 250)"></div>
+                          <div style="display:flex;flex-direction:column;gap:10px;min-width:220px">
+                            <div style="font-size:11px;font-weight:600;letter-spacing:0.4px;color:oklch(0.55 0.01 250);text-transform:uppercase">Settings</div>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                              <input type="checkbox" checked="{{ u.cockpitEntry }}" onChange="{{ u.toggleCockpitEntry }}"> Allow Cockpit Entry
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;padding-left:22px;{{ u.handOverStyle }}">
+                              <input type="checkbox" checked="{{ u.handOverControls }}" onChange="{{ u.toggleHandOverControls }}" disabled="{{ u.handOverDisabled }}"> Hand Over Controls
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                              <input type="checkbox" checked="{{ u.multipleObjects }}" onChange="{{ u.toggleMultipleObjects }}"> Allow Multiple Objects
+                            </label>
+                          </div>
+                          <div style="width:1px;align-self:stretch;background:oklch(0.9 0.005 250)"></div>
+                          <div style="display:flex;flex-direction:column;gap:10px">
+                            <div style="font-size:11px;font-weight:600;letter-spacing:0.4px;color:oklch(0.55 0.01 250);text-transform:uppercase">Actions</div>
+                            <div style="display:flex;gap:16px">
+                              <a href="#" onClick="{{ u.save }}" style="color:oklch(0.5 0.14 235);font-size:13px">Save</a>
+                              <a href="#" onClick="{{ u.ignore }}" style="color:oklch(0.5 0.14 235);font-size:13px">{{ u.ignoreLabel }}</a>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </sc-if>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isChat }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;height:100%;gap:14px">
+          <h2 style="font-size:17px;margin:0">Chat</h2>
+          <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;overflow:auto;flex:1;padding:16px;display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ chatLines }}" as="c" hint-placeholder-count="6">
+              <div style="font-size:13.5px"><span style="font-weight:600">{{ c.from }}:</span> {{ c.text }}</div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:10px">
+            <input placeholder="Type a message" style="flex:1;padding:10px 14px;border-radius:8px;border:1px solid oklch(0.85 0.005 250);font-size:13.5px">
+            <button style="background:oklch(0.62 0.14 235);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer">Send</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isAircraft }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;height:100%;gap:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <h2 style="font-size:17px;margin:0">Aircraft <span style="color:oklch(0.55 0.01 250);font-weight:400">(23)</span></h2>
+            <button style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:7px 14px;border-radius:7px;font-size:13px;cursor:pointer">Refresh</button>
+          </div>
+          <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;overflow:auto;flex:1">
+            <div style="display:grid;grid-template-columns:110px 110px 90px 80px 80px 60px 1fr 70px;background:oklch(0.96 0.003 250);color:oklch(0.5 0.01 250);font-size:12px;padding:8px 10px;position:sticky;top:0">
+              <div onClick="{{ sortAcByCallsign }}" style="cursor:pointer">Callsign{{ acSortIndicators.callsign }}</div>
+              <div onClick="{{ sortAcByOwner }}" style="cursor:pointer">Owner{{ acSortIndicators.owner }}</div>
+              <div onClick="{{ sortAcByDistance }}" style="cursor:pointer">Distance{{ acSortIndicators.distance }}</div>
+              <div onClick="{{ sortAcByHeading }}" style="cursor:pointer">Heading{{ acSortIndicators.heading }}</div>
+              <div onClick="{{ sortAcByAltitude }}" style="cursor:pointer">Altitude{{ acSortIndicators.altitude }}</div>
+              <div onClick="{{ sortAcByGs }}" style="cursor:pointer">GS{{ acSortIndicators.gs }}</div>
+              <div onClick="{{ sortAcByModel }}" style="cursor:pointer">Sub Model{{ acSortIndicators.model }}</div>
+              <div>Record</div>
+            </div>
+            <sc-for list="{{ aircraft }}" as="a" hint-placeholder-count="8">
+              <div style="border-top:1px solid oklch(0.93 0.003 250)">
+                <div onClick="{{ a.select }}" style="{{ a.rowStyle }}display:grid;grid-template-columns:110px 110px 90px 80px 80px 60px 1fr 70px;padding:8px 10px;font-size:13px;cursor:pointer;align-items:center">
+                  <div>{{ a.callsign }}</div><div>{{ a.owner }}</div>
+                  <div style="{{ a.distStyle }}">{{ a.distance }}</div>
+                  <div>{{ a.heading }}</div><div>{{ a.altitude }}</div><div>{{ a.gs }}</div>
+                  <div>{{ a.model }}</div>
+                  <div onClick="{{ a.stopClick }}"><input type="checkbox" checked="{{ a.recording }}"></div>
+                </div>
+                <sc-if value="{{ a.expanded }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:16px 18px;background:oklch(0.97 0.003 250);font-size:13px;white-space:normal">
+                    <div style="display:grid;grid-template-columns:minmax(0,300px) 1px auto;gap:32px;align-items:start;width:100%;justify-content:start">
+                      <div style="display:flex;flex-direction:column;gap:8px;min-width:0;overflow-wrap:break-word">
+                        <div style="font-size:11px;font-weight:600;letter-spacing:0.4px;color:oklch(0.55 0.01 250);text-transform:uppercase">Info</div>
+                        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px;color:oklch(0.45 0.01 250)">
+                          <div>Squawk <span style="font-weight:600;color:oklch(0.2 0.01 250)">{{ a.squawk }}</span></div>
+                          <div>Bearing <span style="font-weight:600;color:oklch(0.2 0.01 250)">{{ a.bearing }}</span></div>
+                          <div>COM1 <span style="font-weight:600;color:oklch(0.2 0.01 250)">{{ a.com1 }}</span></div>
+                          <div>COM2 <span style="font-weight:600;color:oklch(0.2 0.01 250)">{{ a.com2 }}</span></div>
+                          <div>Simulator <span style="font-weight:600;color:oklch(0.2 0.01 250)">{{ a.simulator }}</span></div>
+                          <div>Original Model <span style="font-weight:600;color:oklch(0.2 0.01 250)">{{ a.originalModel }}</span></div>
+                        </div>
+                        <div style="border-top:1px solid oklch(0.9 0.005 250);margin-top:4px;padding-top:8px;display:flex;flex-direction:column;gap:4px">
+                          <div><span style="font-weight:600;color:oklch(0.2 0.01 250)">Flight Plan: </span>{{ a.flightPlan }}</div>
+                          <div><span style="font-weight:600;color:oklch(0.2 0.01 250)">Remarks: </span>{{ a.remarks }}</div>
+                        </div>
+                      </div>
+                      <div style="width:1px;align-self:stretch;background:oklch(0.9 0.005 250)"></div>
+                      <div style="display:flex;flex-direction:column;gap:10px">
+                        <div style="font-size:11px;font-weight:600;letter-spacing:0.4px;color:oklch(0.55 0.01 250);text-transform:uppercase">Actions</div>
+                        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 20px">
+                          <sc-for list="{{ a.actionsMain }}" as="act" hint-placeholder-count="6">
+                            <a href="#" onClick="{{ act.onClick }}" style="color:oklch(0.5 0.14 235);font-size:13px">{{ act.label }}</a>
+                          </sc-for>
+                          <sc-for list="{{ a.actionsInclude }}" as="act" hint-placeholder-count="3">
+                            <a href="#" style="color:oklch(0.5 0.14 235);font-size:13px">{{ act.label }}</a>
+                          </sc-for>
+                          <a href="#" onClick="{{ a.toggleIgnore }}" style="color:oklch(0.5 0.14 235);font-size:13px">{{ a.ignoreLabel }}</a>
+                          <span style="color:oklch(0.65 0.005 250);font-size:13px;cursor:default">Stop Tracking</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isObjects }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;height:100%;gap:14px">
+          <h2 style="font-size:17px;margin:0">Objects</h2>
+          <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;overflow:auto;flex:1">
+            <div style="display:grid;grid-template-columns:80px 1fr 44px 50px 58px 60px 62px 62px;column-gap:5px;background:oklch(0.96 0.003 250);color:oklch(0.5 0.01 250);font-size:11px;padding:8px 6px;position:sticky;top:0;line-height:1.25">
+              <div onClick="{{ sortObjByOwner }}" style="cursor:pointer;overflow:hidden">Owner{{ objSortIndicators.owner }}</div>
+              <div onClick="{{ sortObjByModel }}" style="cursor:pointer;overflow:hidden">Model{{ objSortIndicators.model }}</div>
+              <div onClick="{{ sortObjByCount }}" style="cursor:pointer;overflow:hidden">Count{{ objSortIndicators.count }}</div>
+              <div onClick="{{ sortObjByBearing }}" style="cursor:pointer;overflow:hidden">Bearing{{ objSortIndicators.bearing }}</div>
+              <div onClick="{{ sortObjByDistance }}" style="cursor:pointer;overflow:hidden">Distance{{ objSortIndicators.distance }}</div>
+              <div style="overflow:hidden">Broadcast</div>
+              <div style="overflow:hidden">Ignore Owner</div>
+              <div style="overflow:hidden">Ignore Model</div>
+            </div>
+            <sc-for list="{{ objects }}" as="o" hint-placeholder-count="8">
+              <div style="{{ o.rowStyle }}display:grid;grid-template-columns:80px 1fr 44px 50px 58px 60px 62px 62px;column-gap:5px;padding:8px 6px;font-size:12.5px;align-items:center;border-top:1px solid oklch(0.93 0.003 250);white-space:nowrap">
+                <div style="overflow:hidden;text-overflow:ellipsis">{{ o.owner }}</div>
+                <div style="overflow:hidden;text-overflow:ellipsis">{{ o.model }}</div>
+                <div>{{ o.count }}</div>
+                <div>{{ o.bearing }}</div>
+                <div>{{ o.distance }}</div>
+                <div><input type="checkbox" checked="{{ o.broadcast }}" onChange="{{ o.toggleBroadcast }}"></div>
+                <div><input type="checkbox" checked="{{ o.ignoreOwner }}" onChange="{{ o.toggleIgnoreOwner }}"></div>
+                <div><input type="checkbox" checked="{{ o.ignoreModel }}" onChange="{{ o.toggleIgnoreModel }}"></div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="flex:none;display:flex;align-items:center;gap:8px">
+            <button onClick="{{ refreshObjects }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:7px 14px;border-radius:7px;font-size:13px;cursor:pointer">Refresh</button>
+            <button onClick="{{ openObjectSubstitute }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:7px 14px;border-radius:7px;font-size:13px;cursor:pointer">Substitute...</button>
+            <div style="flex:1;text-align:center;font-size:12.5px;color:oklch(0.55 0.01 250)">Click header to sort objects</div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" checked="{{ groupByModel }}" onChange="{{ toggleGroupByModel }}">Group by model</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" checked="{{ listIgnoredObjects }}" onChange="{{ toggleListIgnoredObjects }}">List ignored objects</label>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isFlightPlan }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <h2 style="font-size:17px;margin:0">Flight Plan</h2>
+          <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+              <label style="display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:oklch(0.5 0.01 250)">Callsign
+                <input value="{{ fp.callsign }}" onInput="{{ setFp.callsign }}" style="padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13.5px;color:oklch(0.22 0.01 250)">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:oklch(0.5 0.01 250)">Type
+                <input value="{{ fp.type }}" onInput="{{ setFp.type }}" style="padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13.5px;color:oklch(0.22 0.01 250)">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:oklch(0.5 0.01 250)">Rules
+                <select value="{{ fp.rules }}" onChange="{{ setFp.rules }}" style="padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13.5px;background:#fff;color:oklch(0.22 0.01 250)">
+                  <option>VFR</option><option>IFR</option>
+                </select>
+              </label>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+              <label style="display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:oklch(0.5 0.01 250)">From
+                <input value="{{ fp.from }}" onInput="{{ setFp.from }}" style="padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13.5px;color:oklch(0.22 0.01 250)">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:oklch(0.5 0.01 250)">To
+                <input value="{{ fp.to }}" onInput="{{ setFp.to }}" style="padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13.5px;color:oklch(0.22 0.01 250)">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:oklch(0.5 0.01 250)">Altitude
+                <input value="{{ fp.altitude }}" onInput="{{ setFp.altitude }}" style="padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13.5px;color:oklch(0.22 0.01 250)">
+              </label>
+            </div>
+            <label style="display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:oklch(0.5 0.01 250)">Route
+              <input value="{{ fp.route }}" onInput="{{ setFp.route }}" style="padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13.5px;color:oklch(0.22 0.01 250)">
+            </label>
+            <label style="display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:oklch(0.5 0.01 250)">Remarks
+              <input value="{{ fp.remarks }}" onInput="{{ setFp.remarks }}" style="padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13.5px;color:oklch(0.22 0.01 250)">
+            </label>
+            <div>
+              <span onClick="{{ importFromSimbrief }}" style="color:oklch(0.5 0.14 235);font-size:13px;font-weight:600;cursor:pointer">Import from SimBrief</span>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:4px">
+              <button onClick="{{ clearFp }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:9px 18px;border-radius:8px;font-size:13.5px;cursor:pointer">Clear</button>
+              <div style="flex:1"></div>
+              <button style="background:oklch(0.62 0.14 235);color:#fff;border:none;padding:9px 22px;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer">Save</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isModels }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <h2 style="font-size:17px;margin:0 0 14px 0">Model Matching</h2>
+          <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;overflow:hidden">
+            <table>
+              <thead><tr style="background:oklch(0.96 0.003 250);color:oklch(0.5 0.01 250);font-size:12px">
+                <th>Original Model</th><th>Substitute Model</th><th></th>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{ models }}" as="m" hint-placeholder-count="8">
+                  <tr style-hover="background:oklch(0.97 0.003 250)">
+                    <td>{{ m.original }}</td><td>{{ m.substitute }}</td>
+                    <td style="display:flex;gap:14px">
+                      <a href="#" onClick="{{ m.edit }}" style="color:oklch(0.5 0.14 235);font-size:12.5px">Edit…</a>
+                      <sc-if value="{{ m.removable }}" hint-placeholder-val="{{ false }}">
+                        <a href="#" onClick="{{ m.remove }}" style="color:oklch(0.55 0.15 25);font-size:12.5px">Remove</a>
+                      </sc-if>
+                    </td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isLog }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;height:100%;gap:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <h2 style="font-size:17px;margin:0">Monitor</h2>
+            <div style="display:flex;align-items:center;gap:14px;font-size:13px">
+              <span style="color:oklch(0.55 0.01 250)">FPS: 48</span>
+              <button style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:7px 14px;border-radius:7px;font-size:13px;cursor:pointer">View Logs...</button>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span style="font-size:11px;font-weight:600;letter-spacing:0.4px;color:oklch(0.55 0.01 250);text-transform:uppercase">Show (this session)</span>
+            <sc-for list="{{ monitorFilterChips }}" as="mf" hint-placeholder-count="4">
+              <div onClick="{{ mf.toggle }}" style="{{ mf.style }}display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:12.5px;cursor:pointer;white-space:nowrap">
+                <div style="{{ mf.dotStyle }}width:7px;height:7px;border-radius:50%;flex:none"></div>
+                {{ mf.label }}
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="background:oklch(0.16 0.005 250);color:oklch(0.85 0.01 145);border-radius:10px;padding:14px;flex:1;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.6">
+            <sc-for list="{{ logLines }}" as="line" hint-placeholder-count="10">
+              <div>{{ line }}</div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <h2 style="font-size:17px;margin:0">Settings</h2>
+
+          <div style="display:flex;flex-direction:column;gap:10px">
+
+            <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;overflow:hidden">
+              <div onClick="{{ toggleSimulator }}" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer" style-hover="background:oklch(0.98 0.002 250)">
+                <div style="font-size:14px;font-weight:600">Simulator</div>
+                <svg width="12" height="12" viewBox="0 0 18 18" fill="none" style="transform:{{ simulatorChevron }};transition:transform .15s;color:oklch(0.5 0.01 250)"><polyline points="4,6 9,12 14,6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+              </div>
+              <sc-if value="{{ simulatorOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:0 18px 18px 18px;display:flex;flex-direction:column;gap:14px;border-top:1px solid oklch(0.94 0.003 250)">
+                  <div style="padding-top:14px">
+                    <div style="font-size:12.5px;color:oklch(0.55 0.01 250);margin-bottom:6px">Nickname</div>
+                    <input placeholder="Nickname shown to other pilots" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13px">
+                  </div>
+                  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;flex:none"><input type="checkbox" checked="checked">Connect simulator on launch</label>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;flex:none"><input type="checkbox">Elevation Correction</label>
+                  </div>
+                  <div>
+                    <div style="font-size:12.5px;color:oklch(0.55 0.01 250);margin-bottom:6px">Circle of activity: 5 nm</div>
+                    <input type="range" style="width:100%">
+                  </div>
+                  <div>
+                    <div style="font-size:12.5px;color:oklch(0.55 0.01 250);margin-bottom:6px">Follow distance: 80 m</div>
+                    <input type="range" style="width:100%">
+                  </div>
+
+                  <div style="border:1px solid oklch(0.9 0.005 250);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div style="font-size:13px;font-weight:600">X-Plane label</div>
+                      <span style="font-size:10.5px;font-weight:600;color:oklch(0.5 0.14 235);background:oklch(0.93 0.04 235);padding:2px 6px;border-radius:5px">X-PLANE ONLY</span>
+                    </div>
+                    <div style="font-size:12px;color:oklch(0.55 0.01 250)">Controls the floating label JoinFS draws above other aircraft in X-Plane.</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                      <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" checked="checked">Show Nickname</label>
+                      <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" checked="checked">Show Callsign</label>
+                      <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox">Show Distance</label>
+                      <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox">Show Altitude</label>
+                      <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox">Show Speed</label>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+                      <div style="font-size:12.5px;color:oklch(0.55 0.01 250);flex:none">Label text colour</div>
+                      <div style="width:20px;height:20px;border-radius:5px;border:1px solid oklch(0.85 0.005 250);background:oklch(0.85 0.17 90);flex:none"></div>
+                      <button style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:8px 14px;border-radius:7px;font-size:12.5px;cursor:pointer;flex:none">Choose...</button>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;flex:none"><input type="checkbox">Auto import SimBrief flight plan</label>
+                    <input placeholder="Simbrief UserName" value="{{ simbriefUsername }}" onInput="{{ setSimbriefUsername }}" style="flex:1;padding:8px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:12.5px">
+                  </div>
+
+                  <div style="height:1px;background:oklch(0.94 0.003 250)"></div>
+
+                  <div>
+                    <div style="font-size:13.5px;font-weight:600;margin-bottom:6px">Scan for models</div>
+                    <div style="font-size:12.5px;color:oklch(0.55 0.01 250);margin-bottom:12px">Builds the list of aircraft models JoinFS can substitute during a flight.</div>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:12px"><input type="checkbox">Model scan on connect</label>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:12px"><input type="checkbox">Auto broadcast VRS TacPack</label>
+                    <span onClick="{{ openScanModels }}" style="color:oklch(0.5 0.14 235);font-size:13px;font-weight:600;cursor:pointer">Open Model Scanning...</span>
+                  </div>
+
+                  <div style="height:1px;background:oklch(0.94 0.003 250)"></div>
+
+                  <div>
+                    <div style="font-size:13.5px;font-weight:600;margin-bottom:6px">Model matching</div>
+                    <div style="font-size:12.5px;color:oklch(0.55 0.01 250);margin-bottom:12px">Substitute models used when an exact match isn't installed.</div>
+                    <span onClick="{{ goModels }}" style="color:oklch(0.5 0.14 235);font-size:13px;font-weight:600;cursor:pointer">Open Model Matching →</span>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+
+            <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;overflow:hidden">
+              <div onClick="{{ toggleUi }}" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer" style-hover="background:oklch(0.98 0.002 250)">
+                <div style="font-size:14px;font-weight:600">User Interface</div>
+                <svg width="12" height="12" viewBox="0 0 18 18" fill="none" style="transform:{{ uiChevron }};transition:transform .15s;color:oklch(0.5 0.01 250)"><polyline points="4,6 9,12 14,6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+              </div>
+              <sc-if value="{{ uiOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:0 18px 18px 18px;display:flex;flex-direction:column;gap:14px;border-top:1px solid oklch(0.94 0.003 250)">
+                  <div style="display:flex;gap:20px;padding-top:14px">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox">Always on top</label>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" checked="checked">Auto refresh</label>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" checked="checked">Tool Tips</label>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+
+            <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;overflow:hidden">
+              <div onClick="{{ toggleNetworkSettings }}" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer" style-hover="background:oklch(0.98 0.002 250)">
+                <div style="font-size:14px;font-weight:600">Network</div>
+                <svg width="12" height="12" viewBox="0 0 18 18" fill="none" style="transform:{{ networkSettingsChevron }};transition:transform .15s;color:oklch(0.5 0.01 250)"><polyline points="4,6 9,12 14,6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+              </div>
+              <sc-if value="{{ networkSettingsOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:0 18px 18px 18px;display:flex;flex-direction:column;gap:14px;border-top:1px solid oklch(0.94 0.003 250)">
+                  <div style="display:flex;align-items:center;gap:10px;padding-top:14px">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;flex:none"><input type="checkbox">Choose my own port</label>
+                    <input style="width:90px;padding:8px 10px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:12.5px;font-family:ui-monospace,monospace">
+                  </div>
+                  <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" checked="checked">Join global session at launch</label>
+                  <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox">Low bandwidth</label>
+                  <div style="display:flex;align-items:center;gap:16px">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;flex:none"><input type="checkbox" checked="{{ whazzupEnabled }}" onChange="{{ toggleWhazzup }}">Generate WhazzUp</label>
+                    <label style="{{ whazzupSubStyle }}display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" checked="checked" disabled="{{ whazzupDisabled }}">include global users</label>
+                    <label style="{{ whazzupSubStyle }}display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" disabled="{{ whazzupDisabled }}">include AI</label>
+                  </div>
+                  <div>
+                    <div style="font-size:12.5px;color:oklch(0.55 0.01 250);margin-bottom:6px">Password</div>
+                    <input type="password" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13px">
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+
+            <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;overflow:hidden">
+              <div onClick="{{ toggleHub }}" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer" style-hover="background:oklch(0.98 0.002 250)">
+                <div style="font-size:14px;font-weight:600">Hub Mode (Public)</div>
+                <svg width="12" height="12" viewBox="0 0 18 18" fill="none" style="transform:{{ hubChevron }};transition:transform .15s;color:oklch(0.5 0.01 250)"><polyline points="4,6 9,12 14,6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+              </div>
+              <sc-if value="{{ hubOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:0 18px 18px 18px;display:flex;flex-direction:column;gap:12px;border-top:1px solid oklch(0.94 0.003 250)">
+                  <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding-top:14px"><input type="checkbox">Enable Hub Mode</label>
+                  <sc-for list="{{ hubFields }}" as="hf" hint-placeholder-count="5">
+                    <div>
+                      <div style="font-size:12.5px;color:oklch(0.55 0.01 250);margin-bottom:6px">{{ hf.label }}</div>
+                      <input placeholder="{{ hf.placeholder }}" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13px">
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+
+            <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;overflow:hidden">
+              <div onClick="{{ toggleAddressBook }}" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer" style-hover="background:oklch(0.98 0.002 250)">
+                <div style="font-size:14px;font-weight:600">Address Book</div>
+                <svg width="12" height="12" viewBox="0 0 18 18" fill="none" style="transform:{{ addressBookChevron }};transition:transform .15s;color:oklch(0.5 0.01 250)"><polyline points="4,6 9,12 14,6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+              </div>
+              <sc-if value="{{ addressBookOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:0 18px 18px 18px;display:flex;flex-direction:column;gap:14px;border-top:1px solid oklch(0.94 0.003 250)">
+                  <div style="padding-top:14px">
+                    <div style="font-size:12.5px;color:oklch(0.55 0.01 250);margin-bottom:12px">Hubs available from the picker, including the built-in Global directory.</div>
+                    <div style="border:1px solid oklch(0.9 0.005 250);border-radius:8px;overflow:hidden;margin-bottom:10px">
+                      <div style="display:grid;grid-template-columns:1fr 1fr 64px;column-gap:12px;background:oklch(0.96 0.003 250);color:oklch(0.5 0.01 250);font-size:12px;padding:8px 12px">
+                        <div>Name</div><div>Address</div><div></div>
+                      </div>
+                      <sc-for list="{{ addressBook }}" as="ab" hint-placeholder-count="3">
+                        <div style="display:grid;grid-template-columns:1fr 1fr 64px;column-gap:12px;padding:8px 12px;border-top:1px solid oklch(0.94 0.003 250);align-items:center;font-size:12.5px">
+                          <div>{{ ab.name }}<sc-if value="{{ ab.builtin }}" hint-placeholder-val="{{ false }}"><span style="margin-left:6px;font-size:10.5px;font-weight:600;color:oklch(0.5 0.14 235);background:oklch(0.93 0.04 235);padding:2px 6px;border-radius:5px">BUILT-IN</span></sc-if></div>
+                          <div style="color:oklch(0.5 0.01 250);font-family:ui-monospace,monospace">{{ ab.address }}</div>
+                          <div>
+                            <sc-if value="{{ ab.canRemove }}" hint-placeholder-val="{{ false }}">
+                              <span onClick="{{ ab.remove }}" style="color:oklch(0.55 0.15 25);cursor:pointer">Remove</span>
+                            </sc-if>
+                          </div>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 64px;column-gap:12px;padding:0 12px">
+                      <input value="{{ newAddrName }}" onInput="{{ setNewAddrName }}" placeholder="Name" style="padding:8px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:12.5px;box-sizing:border-box;width:100%">
+                      <input value="{{ newAddrHost }}" onInput="{{ setNewAddrHost }}" placeholder="Address:Port" style="padding:8px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:12.5px;font-family:ui-monospace,monospace;box-sizing:border-box;width:100%">
+                      <button onClick="{{ addAddr }}" style="background:oklch(0.62 0.14 235);color:#fff;border:none;padding:8px 0;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;width:100%">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+
+            <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;overflow:hidden">
+              <div onClick="{{ toggleXplane }}" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer" style-hover="background:oklch(0.98 0.002 250)">
+                <div style="font-size:14px;font-weight:600">X-Plane</div>
+                <svg width="12" height="12" viewBox="0 0 18 18" fill="none" style="transform:{{ xplaneChevron }};transition:transform .15s;color:oklch(0.5 0.01 250)"><polyline points="4,6 9,12 14,6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+              </div>
+              <sc-if value="{{ xplaneOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:0 18px 18px 18px;display:flex;flex-direction:column;gap:14px;border-top:1px solid oklch(0.94 0.003 250)">
+                  <div style="display:flex;gap:10px;padding-top:14px">
+                    <button style="flex:1;background:#fff;border:1px solid oklch(0.85 0.005 250);padding:10px 14px;border-radius:7px;font-size:13px;cursor:pointer">Install Plugin...</button>
+                    <button style="flex:1;background:#fff;border:1px solid oklch(0.85 0.005 250);padding:10px 14px;border-radius:7px;font-size:13px;cursor:pointer">Install C++...</button>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="flex:1">
+                      <div style="font-size:12.5px;color:oklch(0.55 0.01 250);margin-bottom:6px">IP Address</div>
+                      <input style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13px;font-family:ui-monospace,monospace">
+                    </div>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;flex:none;padding-top:18px"><input type="checkbox">TCAS</label>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+
+            <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;overflow:hidden">
+              <div onClick="{{ toggleVariables }}" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer" style-hover="background:oklch(0.98 0.002 250)">
+                <div style="font-size:14px;font-weight:600">Variables</div>
+                <svg width="12" height="12" viewBox="0 0 18 18" fill="none" style="transform:{{ variablesChevron }};transition:transform .15s;color:oklch(0.5 0.01 250)"><polyline points="4,6 9,12 14,6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+              </div>
+              <sc-if value="{{ variablesOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:0 18px 18px 18px;display:flex;flex-direction:column;gap:0;border-top:1px solid oklch(0.94 0.003 250)">
+                  <div style="font-size:12.5px;color:oklch(0.55 0.01 250);padding:14px 0 10px 0">Models with non-default variable files assigned.</div>
+                  <sc-for list="{{ variablesList }}" as="v" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid oklch(0.94 0.003 250);font-size:13px">
+                      <div style="min-width:0">
+                        <div>{{ v.model }}</div>
+                        <div style="font-size:12px;color:oklch(0.55 0.01 250);font-family:ui-monospace,monospace">{{ v.files }}</div>
+                      </div>
+                      <span onClick="{{ v.edit }}" style="color:oklch(0.5 0.14 235);font-size:13px;font-weight:600;cursor:pointer;flex:none;margin-left:14px">Edit…</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isRecorder }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:18px;height:100%">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <h2 style="font-size:17px;margin:0">Recorder</h2>
+            <div style="display:flex;gap:8px">
+              <button onClick="{{ openRecording }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:7px 14px;border-radius:7px;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px">
+                <svg width="15" height="15" viewBox="0 0 18 18" fill="none"><polygon points="2,6 6,6 7.5,4 13,4 13,6" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"></polygon><polygon points="2,6 16,6 15,14 3,14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"></polygon></svg>
+                Open...
+              </button>
+              <button onClick="{{ addRecording }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:7px 14px;border-radius:7px;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px">
+                <svg width="15" height="15" viewBox="0 0 18 18" fill="none"><line x1="9" y1="4" x2="9" y2="14" stroke="currentColor" stroke-width="1.4"></line><line x1="4" y1="9" x2="14" y2="9" stroke="currentColor" stroke-width="1.4"></line></svg>
+                Add...
+              </button>
+              <button onClick="{{ saveRecording }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:7px 14px;border-radius:7px;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px">
+                <svg width="15" height="15" viewBox="0 0 18 18" fill="none"><rect x="3" y="3" width="12" height="12" rx="1" stroke="currentColor" stroke-width="1.3"></rect><rect x="6" y="3" width="6" height="4" fill="currentColor"></rect><rect x="5.5" y="10" width="7" height="4" fill="none" stroke="currentColor" stroke-width="1.2"></rect></svg>
+                Save...
+              </button>
+              <input ref="{{ recordingFileInputRef }}" type="file" accept=".jfr,.rec" style="display:none">
+              <a ref="{{ recordingSaveLinkRef }}" style="display:none"></a>
+            </div>
+          </div>
+
+          <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div onClick="{{ toggleRecording }}" title="Record" style="width:26px;height:26px;border-radius:50%;border:2px solid {{ recordBorder }};display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none">
+                <div style="width:12px;height:12px;border-radius:50%;background:{{ recordDotColor }}"></div>
+              </div>
+              <div onClick="{{ togglePlay }}" title="Play" style="{{ playBtnStyle }}width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none">
+                <svg width="12" height="12" viewBox="0 0 18 18" fill="currentColor"><polygon points="4,2 16,9 4,16"></polygon></svg>
+              </div>
+              <div onClick="{{ stopAll }}" title="Stop" style="width:26px;height:26px;border-radius:50%;border:1.5px solid oklch(0.75 0.01 250);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;color:oklch(0.4 0.01 250)">
+                <svg width="11" height="11" viewBox="0 0 18 18" fill="currentColor"><rect x="3" y="3" width="12" height="12"></rect></svg>
+              </div>
+              <div onClick="{{ toggleOverdub }}" title="Overdub — record on top of existing take" style="{{ overdubBtnStyle }}width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none">
+                <svg width="14" height="14" viewBox="0 0 18 18" fill="none"><circle cx="7" cy="7" r="4.2" fill="currentColor"></circle><circle cx="11.5" cy="11.5" r="4.2" fill="none" stroke="currentColor" stroke-width="1.4"></circle></svg>
+              </div>
+              <div style="font-family:ui-monospace,Consolas,monospace;font-size:13px;color:oklch(0.4 0.01 250)">{{ recordTime }} <span style="color:oklch(0.65 0.01 250)">/ {{ totalTime }}</span></div>
+              <div style="flex:1"></div>
+              <div onClick="{{ toggleLoop }}" title="Loop playback" style="{{ loopBtnStyle }}width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none">
+                <svg width="15" height="15" viewBox="0 0 18 18" fill="none"><path d="M4 7 C4 4.5 6 3 9 3 C12.5 3 14.5 5 14.5 7.5" stroke="currentColor" stroke-width="1.5" fill="none"></path><polygon points="14.5,4.5 14.5,8 11.5,6.5" fill="currentColor"></polygon><path d="M14 11 C14 13.5 12 15 9 15 C5.5 15 3.5 13 3.5 10.5" stroke="currentColor" stroke-width="1.5" fill="none"></path><polygon points="3.5,13.5 3.5,10 6.5,11.5" fill="currentColor"></polygon></svg>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:10px">
+              <div onClick="{{ trimStart }}" title="Trim from beginning to cursor" style="width:26px;height:26px;border-radius:7px;border:1.5px solid oklch(0.75 0.01 250);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;color:oklch(0.4 0.01 250)">
+                <svg width="18" height="16" viewBox="0 0 22 18" fill="none"><circle cx="3" cy="4.5" r="1.8" stroke="currentColor" stroke-width="1.4"></circle><circle cx="3" cy="13.5" r="1.8" stroke="currentColor" stroke-width="1.4"></circle><line x1="4.6" y1="5.6" x2="15" y2="9" stroke="currentColor" stroke-width="1.4"></line><line x1="4.6" y1="12.4" x2="15" y2="9" stroke="currentColor" stroke-width="1.4"></line><line x1="19" y1="2" x2="19" y2="16" stroke="currentColor" stroke-width="1.6"></line></svg>
+              </div>
+              <div onMouseDown="{{ startSeekDrag }}" title="Drag to move playhead" style="position:relative;flex:1;height:22px;display:flex;align-items:center;cursor:pointer">
+                <div style="width:100%;height:5px;background:oklch(0.88 0.005 250);border-radius:3px;position:relative;overflow:hidden">
+                  <div style="position:absolute;left:0;top:0;bottom:0;width:{{ playheadPct }}%;background:oklch(0.62 0.14 235);border-radius:3px"></div>
+                </div>
+                <div style="position:absolute;left:{{ playheadPct }}%;top:50%;width:14px;height:14px;border-radius:50%;background:#fff;border:2.5px solid oklch(0.62 0.14 235);box-shadow:0 1px 3px oklch(0.2 0.01 250 / 0.25);transform:translate(-50%,-50%);pointer-events:none"></div>
+              </div>
+              <div onClick="{{ trimEnd }}" title="Trim from cursor to end" style="width:26px;height:26px;border-radius:7px;border:1.5px solid oklch(0.75 0.01 250);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;color:oklch(0.4 0.01 250)">
+                <svg width="18" height="16" viewBox="0 0 22 18" fill="none"><line x1="3" y1="2" x2="3" y2="16" stroke="currentColor" stroke-width="1.6"></line><circle cx="19" cy="4.5" r="1.8" stroke="currentColor" stroke-width="1.4"></circle><circle cx="19" cy="13.5" r="1.8" stroke="currentColor" stroke-width="1.4"></circle><line x1="17.4" y1="5.6" x2="7" y2="9" stroke="currentColor" stroke-width="1.4"></line><line x1="17.4" y1="12.4" x2="7" y2="9" stroke="currentColor" stroke-width="1.4"></line></svg>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1;min-height:0">
+            <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
+              <div style="padding:12px 14px;font-size:13px;font-weight:600;border-bottom:1px solid oklch(0.92 0.005 250)">Aircraft to record</div>
+              <div style="overflow:auto;flex:1">
+                <sc-for list="{{ recordList }}" as="r" hint-placeholder-count="6">
+                  <label style="display:flex;align-items:center;gap:10px;padding:9px 14px;font-size:13px;border-bottom:1px solid oklch(0.96 0.003 250);cursor:pointer">
+                    <input type="checkbox" checked="{{ r.checked }}" onChange="{{ r.toggle }}">{{ r.callsign }}
+                    <span style="color:oklch(0.55 0.01 250);margin-left:auto">{{ r.model }}</span>
+                  </label>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="background:#fff;border:1px solid oklch(0.9 0.005 250);border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
+              <div style="padding:12px 14px;font-size:13px;font-weight:600;border-bottom:1px solid oklch(0.92 0.005 250)">Loaded recording — session_2609.rec</div>
+              <div style="overflow:auto;flex:1">
+                <sc-for list="{{ loadedList }}" as="l" hint-placeholder-count="6">
+                  <label style="display:flex;align-items:center;gap:10px;padding:9px 14px;font-size:13px;border-bottom:1px solid oklch(0.96 0.003 250);cursor:pointer">
+                    <input type="checkbox" checked="{{ l.checked }}" onChange="{{ l.toggle }}">{{ l.callsign }}
+                    <span style="color:oklch(0.55 0.01 250);margin-left:auto">{{ l.model }}</span>
+                  </label>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+
+  <sc-if value="{{ isEditingModel }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:oklch(0.2 0.01 250 / 0.45);display:flex;align-items:center;justify-content:center;z-index:50">
+      <div style="width:380px;background:#fff;border-radius:12px;box-shadow:0 20px 50px -10px oklch(0.2 0.01 250 / 0.4);overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid oklch(0.92 0.005 250)">
+          <div style="font-size:14.5px;font-weight:600">Substitution</div>
+          <div onClick="{{ closeModelEdit }}" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;font-size:14px;color:oklch(0.5 0.01 250)" style-hover="background:oklch(0.94 0.003 250)">✕</div>
+        </div>
+
+        <div style="padding:18px;display:flex;flex-direction:column;gap:16px">
+          <div>
+            <div style="font-size:12.5px;font-weight:600;margin-bottom:6px">This is the model to be replaced</div>
+            <div style="padding:9px 12px;border:1px solid oklch(0.9 0.005 250);border-radius:7px;font-size:13px;background:oklch(0.97 0.003 250);color:oklch(0.4 0.01 250)">{{ editModel.original }}</div>
+          </div>
+
+          <div>
+            <div style="font-size:12.5px;font-weight:600;margin-bottom:6px">Filter words</div>
+            <input value="{{ editModel.filter }}" onInput="{{ setEditFilter }}" placeholder="optional" style="width:100%;padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13px;box-sizing:border-box">
+          </div>
+
+          <div>
+            <div style="font-size:12.5px;font-weight:600;margin-bottom:6px">Select a type</div>
+            <select value="{{ editModel.type }}" onChange="{{ setEditType }}" style="width:100%;padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13px;background:#fff">
+              <sc-for list="{{ editModel.typeOptions }}" as="t" hint-placeholder-count="4"><option value="{{ t }}">{{ t }}</option></sc-for>
+            </select>
+          </div>
+
+          <div>
+            <div style="font-size:12.5px;font-weight:600;margin-bottom:6px">Select a variation</div>
+            <select value="{{ editModel.variation }}" onChange="{{ setEditVariation }}" style="width:100%;padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13px;background:#fff">
+              <sc-for list="{{ editModel.variationOptions }}" as="v" hint-placeholder-count="3"><option value="{{ v }}">{{ v }}</option></sc-for>
+            </select>
+          </div>
+
+          <div>
+            <div style="font-size:12.5px;font-weight:600;margin-bottom:6px">This is the replacement model</div>
+            <div style="padding:9px 12px;border:1px solid oklch(0.9 0.005 250);border-radius:7px;font-size:13px;background:oklch(0.97 0.003 250)">{{ editModel.preview }}</div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-top:1px solid oklch(0.92 0.005 250);background:oklch(0.98 0.002 250)">
+          <button onClick="{{ useOriginalModel }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:8px 16px;border-radius:7px;font-size:13px;cursor:pointer">Use Original</button>
+          <div style="display:flex;gap:8px">
+            <button onClick="{{ closeModelEdit }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:8px 18px;border-radius:7px;font-size:13px;cursor:pointer">Cancel</button>
+            <button onClick="{{ saveModelEdit }}" style="background:oklch(0.62 0.14 235);color:#fff;border:none;padding:8px 20px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isScanningModels }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:oklch(0.2 0.01 250 / 0.45);display:flex;align-items:center;justify-content:center;z-index:50">
+      <div style="width:560px;max-height:calc(100% - 40px);background:#fff;border-radius:12px;box-shadow:0 20px 50px -10px oklch(0.2 0.01 250 / 0.4);overflow:hidden;display:flex;flex-direction:column">
+        <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid oklch(0.92 0.005 250)">
+          <div style="font-size:14.5px;font-weight:600">Scan For Models</div>
+          <div onClick="{{ closeScanModels }}" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;font-size:14px;color:oklch(0.5 0.01 250)" style-hover="background:oklch(0.95 0.003 250)">✕</div>
+        </div>
+
+        <div style="padding:18px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;flex:1;min-height:0">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-size:13px;color:oklch(0.5 0.01 250)">Simulator:</div>
+            <div style="font-size:12.5px;font-weight:600;padding:4px 10px;border-radius:6px;background:oklch(0.95 0.03 25);color:oklch(0.4 0.14 25)">Not connected</div>
+          </div>
+
+          <div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px">Please specify the root folder for the simulator:</div>
+            <div style="display:flex;gap:8px">
+              <input style="flex:1;padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:12.5px;font-family:ui-monospace,monospace" placeholder="C:\...\Microsoft Flight Simulator">
+              <button style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:9px 16px;border-radius:7px;font-size:13px;cursor:pointer;flex:none">Browse...</button>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div style="border:1px solid oklch(0.88 0.005 250);border-radius:8px;overflow:hidden">
+              <div style="padding:8px 12px;font-size:12.5px;font-weight:600;background:oklch(0.96 0.003 250);border-bottom:1px solid oklch(0.88 0.005 250)">Subfolder</div>
+              <div style="height:90px;overflow:auto;display:flex;align-items:center;justify-content:center;font-size:12px;color:oklch(0.65 0.005 250)">No subfolders found</div>
+            </div>
+            <div style="border:1px solid oklch(0.88 0.005 250);border-radius:8px;overflow:hidden">
+              <div style="padding:8px 12px;font-size:12.5px;font-weight:600;background:oklch(0.96 0.003 250);border-bottom:1px solid oklch(0.88 0.005 250)">Add-on</div>
+              <div style="height:90px;overflow:auto;display:flex;align-items:center;justify-content:center;font-size:12px;color:oklch(0.65 0.005 250)">No add-ons found</div>
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px">Other folders to scan:</div>
+            <div style="border:1px solid oklch(0.88 0.005 250);border-radius:8px;height:70px;display:flex;align-items:center;justify-content:center;font-size:12px;color:oklch(0.65 0.005 250)">No additional folders added</div>
+          </div>
+        </div>
+
+        <div style="flex:none;display:flex;align-items:center;justify-content:flex-end;gap:14px;padding:14px 18px;border-top:1px solid oklch(0.92 0.005 250)">
+          <button onClick="{{ closeScanModels }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:8px 18px;border-radius:7px;font-size:13px;cursor:pointer">Cancel</button>
+          <button onClick="{{ closeScanModels }}" style="background:oklch(0.62 0.14 235);color:#fff;border:none;padding:8px 20px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">Scan</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isEditingVariables }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:oklch(0.2 0.01 250 / 0.45);display:flex;align-items:center;justify-content:center;z-index:50">
+      <div style="width:400px;max-height:calc(100% - 40px);background:#fff;border-radius:12px;box-shadow:0 20px 50px -10px oklch(0.2 0.01 250 / 0.4);overflow:hidden;display:flex;flex-direction:column">
+        <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid oklch(0.92 0.005 250)">
+          <div style="font-size:14.5px;font-weight:600">Variables</div>
+          <div onClick="{{ closeVariables }}" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;font-size:14px;color:oklch(0.5 0.01 250)" style-hover="background:oklch(0.95 0.003 250)">✕</div>
+        </div>
+
+        <div style="padding:18px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;flex:1;min-height:0">
+          <div>
+            <div style="font-size:12.5px;color:oklch(0.55 0.01 250);margin-bottom:6px">Filter words (optional)</div>
+            <input style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13px">
+          </div>
+          <div>
+            <div style="font-size:12.5px;color:oklch(0.55 0.01 250);margin-bottom:6px">Select a type:</div>
+            <select style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13px;background:#fff">
+              <option value="">—</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:12.5px;color:oklch(0.55 0.01 250);margin-bottom:6px">Select a variation:</div>
+            <select style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13px;background:#fff">
+              <option value="">—</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:12.5px;color:oklch(0.55 0.01 250);margin-bottom:6px">Model:</div>
+            <div style="padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13px;background:oklch(0.97 0.003 250);color:oklch(0.4 0.01 250)">{{ editingVariables.model }}</div>
+          </div>
+          <div>
+            <div style="font-size:12.5px;color:oklch(0.55 0.01 250);margin-bottom:6px">Variable Files:</div>
+            <div style="border:1px solid oklch(0.88 0.005 250);border-radius:7px;height:110px;overflow:auto;background:#fff">
+              <sc-for list="{{ editingVariables.files }}" as="vf" hint-placeholder-count="1">
+                <div style="padding:7px 10px;font-size:12.5px;border-bottom:1px solid oklch(0.96 0.003 250)">{{ vf }}</div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button style="flex:1;background:#fff;border:1px solid oklch(0.85 0.005 250);padding:9px 0;border-radius:7px;font-size:13px;cursor:pointer">Add...</button>
+            <button style="flex:1;background:#fff;border:1px solid oklch(0.85 0.005 250);padding:9px 0;border-radius:7px;font-size:13px;cursor:pointer">Remove</button>
+            <button style="flex:1;background:#fff;border:1px solid oklch(0.85 0.005 250);padding:9px 0;border-radius:7px;font-size:13px;cursor:pointer">Edit...</button>
+          </div>
+        </div>
+
+        <div style="flex:none;display:flex;align-items:center;justify-content:flex-end;padding:14px 18px;border-top:1px solid oklch(0.92 0.005 250)">
+          <button onClick="{{ closeVariables }}" style="background:oklch(0.62 0.14 235);color:#fff;border:none;padding:8px 24px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">OK</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isAboutOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:oklch(0.2 0.01 250 / 0.45);display:flex;align-items:center;justify-content:center;z-index:60">
+      <div style="width:340px;background:#fff;border-radius:12px;box-shadow:0 20px 50px -10px oklch(0.2 0.01 250 / 0.4);overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid oklch(0.92 0.005 250)">
+          <div style="font-size:14.5px;font-weight:600">About JoinFS</div>
+          <div onClick="{{ closeAbout }}" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;font-size:14px;color:oklch(0.5 0.01 250)" style-hover="background:oklch(0.95 0.003 250)">✕</div>
+        </div>
+        <div style="padding:22px 18px;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center">
+          <svg width="56" height="56" viewBox="0 0 64 64" style="flex:none;margin-bottom:4px">
+            <path fill="oklch(0.55 0.02 255)" d="M37.54,18.22Q37.19,17.94 36.24,17.85Q35.29,17.76 34.43,17.73Q33.57,17.69 32.85,17.75Q32.12,17.81 31.34,17.79Q30.56,17.76 29.7,17.72Q28.85,17.68 27.9,17.53Q26.95,17.37 26.38,17.44Q25.8,17.51 24.76,17.27Q23.72,17.02 23.15,16.99Q22.57,16.96 21.55,16.72Q20.52,16.48 19.57,16.47Q18.62,16.47 17.87,16.8Q17.13,17.14 16.24,17.01Q15.35,16.88 14.76,16.92Q14.18,16.96 13.27,16.61Q12.36,16.27 11.45,16.28Q10.55,16.29 9.61,16.6Q8.67,16.92 7.89,16.4Q7.11,15.89 6.36,16.13Q5.61,16.37 4.8,16.1Q4,15.83 3.66,17.01Q3.32,18.19 3.66,19.58Q4,20.96 4.89,20.56Q5.78,20.15 6.47,20.4Q7.17,20.66 8.25,20.93Q9.32,21.21 10.05,21.03Q10.78,20.85 11.6,20.4Q12.41,19.96 13.34,20.19Q14.27,20.41 14.93,20.59Q15.59,20.76 16.46,20.55Q17.34,20.34 18.07,20.35Q18.81,20.36 19.73,20.39Q20.65,20.43 21.51,20.32Q22.37,20.2 23.14,19.85Q23.91,19.49 24.83,19.5Q25.75,19.51 26.36,19.57Q26.97,19.62 27.86,19.75Q28.75,19.87 29.78,19.74Q30.82,19.61 31.54,19.5Q32.27,19.4 33.14,19.3Q34.01,19.19 34.7,19.24Q35.39,19.29 36.29,19.19Q37.19,19.09 37.54,18.79Q37.89,18.5 37.54,18.22Z M26.54,45.24Q26.19,44.98 25.4,44.87Q24.62,44.76 23.69,44.79Q22.76,44.81 22.02,44.64Q21.28,44.46 20.32,44.48Q19.37,44.5 18.42,44.61Q17.47,44.71 16.67,44.48Q15.86,44.25 14.9,44.11Q13.94,43.98 13.14,44.16Q12.35,44.33 11.43,43.94Q10.51,43.55 9.9,43.55Q9.29,43.54 8.39,43.92Q7.5,44.31 6.54,44.01Q5.59,43.71 4.79,43.9Q4,44.08 3.47,44.95Q2.94,45.81 3.47,46.42Q4,47.02 4.85,47.34Q5.69,47.66 6.63,47.22Q7.57,46.79 8.44,46.98Q9.31,47.17 10.2,47.2Q11.1,47.22 11.72,47.26Q12.33,47.29 13.19,47.15Q14.06,47.01 14.84,46.98Q15.63,46.95 16.64,46.67Q17.65,46.4 18.52,46.41Q19.4,46.41 20.39,46.39Q21.37,46.38 22.19,46.26Q23,46.15 23.7,46.12Q24.39,46.09 25.29,46.15Q26.19,46.21 26.54,45.85Q26.89,45.5 26.54,45.24Z"></path>
+            <path fill="oklch(0.75 0.01 250)" d="M60.17,18.5C60.28,17.52 60.34,16.4 60.06,15.7C59.92,15.48 59.52,15.48 59.38,15.7C59.1,16.4 59.16,17.52 59.27,18.5C59.16,19.48 59.1,20.6 59.38,21.3C59.52,21.52 59.92,21.52 60.06,21.3C60.34,20.6 60.28,19.48 60.17,18.5ZM60,18.5C60,17.88 59.16,17.58 58.04,17.49C56.36,17.3 53.56,17.21 51.04,17.3L42.64,18.02L40.4,18.16L39.39,18.5L40.4,18.84L42.64,18.98L51.04,19.7C53.56,19.79 56.36,19.7 58.04,19.51C59.16,19.42 60,19.12 60,18.5ZM56.64,18.5L54.54,7.16C54.34,6.12 53.14,5.93 52.16,6.07C51.32,6.21 50.84,6.68 50.82,7.38L52.92,18.5L50.82,29.62C50.84,30.32 51.32,30.79 52.16,30.93C53.14,31.07 54.34,30.88 54.54,29.84L56.64,18.5ZM54.9,18.5L52.8,7.55C52.61,6.52 51.4,6.32 50.42,6.46C49.58,6.6 49.11,7.08 49.08,7.78L51.18,18.5L49.08,29.22C49.11,29.92 49.58,30.4 50.42,30.54C51.4,30.68 52.61,30.48 52.8,29.45L54.9,18.5ZM43.76,18.5C43.42,16.26 42.58,14.16 41.46,14.1C40.57,14.08 40.18,14.86 40.2,15.84L40.4,18.5L40.2,21.16C40.18,22.14 40.57,22.92 41.46,22.9C42.58,22.84 43.42,20.74 43.76,18.5Z M49.17,45.5C49.28,44.52 49.34,43.4 49.06,42.7C48.92,42.48 48.52,42.48 48.38,42.7C48.1,43.4 48.16,44.52 48.27,45.5C48.16,46.48 48.1,47.6 48.38,48.3C48.52,48.52 48.92,48.52 49.06,48.3C49.34,47.6 49.28,46.48 49.17,45.5ZM49,45.5C49,44.88 48.16,44.58 47.04,44.49C45.36,44.3 42.56,44.21 40.04,44.3L31.64,45.02L29.4,45.16L28.39,45.5L29.4,45.84L31.64,45.98L40.04,46.7C42.56,46.79 45.36,46.7 47.04,46.51C48.16,46.42 49,46.12 49,45.5ZM45.64,45.5L43.54,34.16C43.34,33.12 42.14,32.93 41.16,33.07C40.32,33.21 39.84,33.68 39.82,34.38L41.92,45.5L39.82,56.62C39.84,57.32 40.32,57.79 41.16,57.93C42.14,58.07 43.34,57.88 43.54,56.84L45.64,45.5Z"></path>
+          </svg>
+          <div style="font-size:16px;font-weight:700">JoinFS</div>
+          <div style="font-size:13px;color:oklch(0.5 0.01 250)">Version 26.6.0</div>
+          <sc-if value="{{ newVersionAvailable }}" hint-placeholder-val="{{ false }}">
+            <a href="{{ downloadUrl }}" target="_blank" style="margin-top:4px;font-size:12.5px;color:oklch(0.55 0.16 235);text-decoration:none;font-weight:600" style-hover="text-decoration:underline">Download v{{ newVersionLabel }} →</a>
+          </sc-if>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:16px;width:100%">
+            <a href="https://joinfs.net/docs" target="_blank" style="font-size:12.5px;color:oklch(0.55 0.16 235);text-decoration:none" style-hover="text-decoration:underline">Documentation</a>
+            <div style="font-size:11.5px;color:oklch(0.6 0.01 250);line-height:1.5">Licensed under the MIT License.<br></br>© 2026 JoinFS Project. All rights reserved.</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;padding:14px 18px;border-top:1px solid oklch(0.92 0.005 250)">
+          <button onClick="{{ closeAbout }}" style="background:oklch(0.62 0.14 235);color:#fff;border:none;padding:8px 20px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">Close</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isEditingHeight }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:oklch(0.2 0.01 250 / 0.45);display:flex;align-items:center;justify-content:center;z-index:50">
+      <div style="width:360px;background:#fff;border-radius:12px;box-shadow:0 20px 50px -10px oklch(0.2 0.01 250 / 0.4);overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid oklch(0.92 0.005 250)">
+          <div style="font-size:14.5px;font-weight:600">Adjust Height</div>
+          <div onClick="{{ closeHeightEdit }}" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;font-size:14px;color:oklch(0.5 0.01 250)" style-hover="background:oklch(0.95 0.003 250)">✕</div>
+        </div>
+        <div style="padding:18px;display:flex;flex-direction:column;gap:12px">
+          <div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:6px">Model</div>
+            <div style="padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13px;background:oklch(0.97 0.003 250);color:oklch(0.4 0.01 250)">{{ editingHeight.model }}</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button onClick="{{ heightAdjustUp50 }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:9px 0;border-radius:7px;font-size:13px;cursor:pointer">+ 50 cm</button>
+              <button onClick="{{ heightAdjustUp5 }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:9px 0;border-radius:7px;font-size:13px;cursor:pointer">+ 5 cm</button>
+              <button onClick="{{ heightAdjustOff }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:9px 0;border-radius:7px;font-size:13px;cursor:pointer">Off</button>
+              <button onClick="{{ heightAdjustDown5 }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:9px 0;border-radius:7px;font-size:13px;cursor:pointer">- 5 cm</button>
+              <button onClick="{{ heightAdjustDown50 }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:9px 0;border-radius:7px;font-size:13px;cursor:pointer">- 50 cm</button>
+            </div>
+            <div>
+              <div style="font-size:13px;font-weight:600;margin-bottom:6px">Adjustment</div>
+              <div style="padding:9px 12px;border:1px solid oklch(0.88 0.005 250);border-radius:7px;font-size:13px;background:oklch(0.97 0.003 250);color:oklch(0.4 0.01 250);text-align:center">{{ editingHeight.adjustmentLabel }}</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 18px;border-top:1px solid oklch(0.92 0.005 250)">
+          <button onClick="{{ closeHeightEdit }}" style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:8px 18px;border-radius:7px;font-size:13px;cursor:pointer">Cancel</button>
+          <button onClick="{{ closeHeightEdit }}" style="background:oklch(0.62 0.14 235);color:#fff;border:none;padding:8px 20px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">OK</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isExplainingMatch }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:oklch(0.2 0.01 250 / 0.45);display:flex;align-items:center;justify-content:center;z-index:50">
+      <div style="width:600px;max-height:calc(100% - 40px);background:#fff;border-radius:12px;box-shadow:0 20px 50px -10px oklch(0.2 0.01 250 / 0.4);overflow:hidden;display:flex;flex-direction:column">
+        <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid oklch(0.92 0.005 250)">
+          <div style="font-size:14.5px;font-weight:600">Explain Match</div>
+          <div onClick="{{ closeExplainMatch }}" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;font-size:14px;color:oklch(0.5 0.01 250)" style-hover="background:oklch(0.95 0.003 250)">✕</div>
+        </div>
+        <div style="padding:18px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;flex:1;min-height:0">
+          <div style="flex:none;border:1px solid oklch(0.9 0.005 250);border-radius:8px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:12px;background:oklch(0.96 0.003 250);color:oklch(0.5 0.01 250);font-size:12px;padding:8px 12px">
+              <div>Attribute</div><div>Requested</div><div>Matched Model</div>
+            </div>
+            <sc-for list="{{ explainMatchRows }}" as="r" hint-placeholder-count="4">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:12px;padding:8px 12px;border-top:1px solid oklch(0.94 0.003 250);font-size:12.5px">
+                <div>{{ r.attribute }}</div><div>{{ r.requested }}</div><div>{{ r.matched }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px">Matching steps (in the order they were tried):</div>
+            <div style="border:1px solid oklch(0.9 0.005 250);border-radius:8px;height:140px;overflow:auto;background:oklch(0.98 0.002 250)">
+              <sc-for list="{{ explainMatchSteps }}" as="s" hint-placeholder-count="4">
+                <div style="padding:6px 12px;font-size:12.5px;border-bottom:1px solid oklch(0.94 0.003 250)">{{ s }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div style="flex:none;display:flex;align-items:center;gap:10px;padding:14px 18px;border-top:1px solid oklch(0.92 0.005 250)">
+          <button style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:8px 16px;border-radius:7px;font-size:13px;cursor:pointer">Open known-models list</button>
+          <div style="flex:1"></div>
+          <button style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:8px 16px;border-radius:7px;font-size:13px;cursor:pointer">Copy to clipboard</button>
+          <button style="background:#fff;border:1px solid oklch(0.85 0.005 250);padding:8px 16px;border-radius:7px;font-size:13px;cursor:pointer">Export Debug Bundle...</button>
+          <button onClick="{{ closeExplainMatch }}" style="background:oklch(0.62 0.14 235);color:#fff;border:none;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">Close</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</sc-if>
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const STATUS_COLORS = {
+  disconnected: {dot:'oklch(0.6 0.2 25)', bg:'oklch(0.95 0.03 25)', fg:'oklch(0.4 0.14 25)'},
+  connecting: {dot:'oklch(0.75 0.15 70)', bg:'oklch(0.95 0.05 70)', fg:'oklch(0.42 0.12 70)'},
+  connected: {dot:'oklch(0.6 0.16 145)', bg:'oklch(0.93 0.06 145)', fg:'oklch(0.32 0.09 145)'}
+};
+function fmtTime(sec) {
+  sec = Math.max(0, Math.round(sec || 0));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+function statusProps(prefix, state, labels, setState) {
+  const c = STATUS_COLORS[state];
+  const clickable = state !== 'connecting';
+  return {
+    [prefix+'Label']: labels[state],
+    [prefix+'DotStyle']: 'background:'+c.dot+';',
+    [prefix+'BtnStyle']: 'background:'+c.bg+';color:'+c.fg+';'+(clickable?'':'opacity:0.85;cursor:default;'),
+    ['toggle'+prefix.charAt(0).toUpperCase()+prefix.slice(1)]: () => {
+      if (!clickable) return;
+      if (state === 'connected') { setState('disconnected'); return; }
+      setState('connecting');
+      setTimeout(() => setState('connected'), 900);
+    }
+  };
+}
+class Component extends DCLogic {
+  state = {
+    tab: 'home', expanded: false, recording: false, selectedAircraft: null,
+    showOfflineHubs: false, ignoredHubs: ['NoiseAbatement Hub'], settingsOpen: null, onboarded: false, nickname: '', showSimbriefInput: false, simbriefUsername: '',
+    simState: 'connected', netState: 'disconnected', fpState: 'disconnected', simbriefPrompt: false, simbriefPromptValue: '',
+    addressBook: [
+      { name: 'Global', address: 'Global hubs mesh', builtin: true },
+      { name: 'Planet FsHub', address: 'fshub.io:24192' },
+      { name: 'AirSherpa', address: 'airsherpa.net:24192' },
+      { name: "Aidan's Hub", address: 'aidan-hub.net:24192', requiresPassword: true },
+      { name: 'swiss and europe', address: '85.195.0.14:24192' }
+    ],
+    selectedAddr: 'Planet FsHub', hasNewChat: true,
+    fp: { callsign: 'HB-TDX', type: 'BE35.0.tt', rules: 'VFR', from: '', to: '', altitude: '', route: '', remarks: '', simbrief: 'HBTDXnav' },
+    newAddrName: '', newAddrHost: '',
+    editingModel: null, editFilter: '', editType: null, editVariation: null, modelOverrides: {},
+    monitorFilters: { nodeStats: false, packets: false, network: true, variables: false },
+    recordChecked: { 'LV-ALB': true, '9H-WDR': true, 'A320': false, 'AAL2693': true, 'ASXGS': true, 'AUI5501': false },
+    loadedChecked: { '6Knotts': true, 'ADF320': true, 'Breizh Punisher': false, 'CarGuy86': true, 'David18': false, 'DiegoCuervo': true }
+  };
+
+  go(tab) { return () => this.setState({ tab, expanded: true }); }
+
+  toggleHubRow(name) { this.setState(s => ({ expandedHub: s.expandedHub === name ? null : name })); }
+
+  joinHub(name, status) {
+    if (status === 'Password') { this.openPasswordPrompt(name, () => this.setState({ tab: 'network', expandedHub: name })); return; }
+    this.setState({ tab: 'network', expandedHub: name });
+  }
+
+  openPasswordPrompt(hubName, onConfirm) { this.setState({ passwordPrompt: { hubName, onConfirm }, passwordPromptValue: '' }); }
+
+  performSimbriefImport() {
+    this.setState(s => ({ fp: { ...s.fp, callsign: s.fp.callsign || 'HB-TDX', type: 'BE35.0.tt', rules: 'VFR', route: 'LSZH DCT KLO DCT LSGG', remarks: 'Imported from SimBrief' } }));
+  }
+
+  addHubToAddressBook(name) {
+    this.setState(s => s.addressBook.some(a => a.name === name) ? null : {
+      addressBook: [...s.addressBook, { name, address: '' }]
+    });
+  }
+
+  sortHubsBy(key) {
+    this.setState(s => ({
+      hubSortKey: key,
+      hubSortDir: s.hubSortKey === key && s.hubSortDir === 'asc' ? 'desc' : 'asc'
+    }));
+  }
+
+  sortAcBy(key) {
+    this.setState(s => ({
+      acSortKey: key,
+      acSortDir: s.acSortKey === key && s.acSortDir === 'asc' ? 'desc' : 'asc'
+    }));
+  }
+
+  renderVals() {
+    const t = this.state.tab;
+    const expanded = this.state.expanded;
+    const navRowStyle = (key) => `display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13.5px;color:${t===key?'#fff':'oklch(0.75 0.01 255)'};${t===key?'background:oklch(0.27 0.02 255);font-weight:600':''}`;
+    const navStyle = {
+      home: navRowStyle('home'), network: navRowStyle('network'), session: navRowStyle('session'),
+      chat: navRowStyle('chat'), aircraft: navRowStyle('aircraft'), models: navRowStyle('models'),
+      log: navRowStyle('log'), recorder: navRowStyle('recorder'), settings: navRowStyle('settings'),
+      flightplan: navRowStyle('flightplan'), objects: navRowStyle('objects')
+    };
+
+    const fp = this.state.fp;
+    const setFp = {};
+    ['callsign','type','rules','from','to','altitude','route','remarks','simbrief'].forEach(k => {
+      setFp[k] = (e) => this.setState(s => ({ fp: { ...s.fp, [k]: e.target.value } }));
+    });
+
+    const statusRow = (status) => status==='Online' ? 'color:oklch(0.5 0.14 145);font-weight:600' :
+      status==='Global' ? 'color:oklch(0.5 0.14 235);font-weight:600' :
+      status==='Password' ? 'color:oklch(0.55 0.01 250)' :
+      status==='Offline' ? 'color:oklch(0.6 0.01 250)' : 'color:oklch(0.6 0.15 40);font-weight:600';
+
+    const addressBook = this.state.addressBook.map(a => ({
+      ...a, canRemove: !a.builtin,
+      remove: () => this.setState(s => ({ addressBook: s.addressBook.filter(x => x.name !== a.name) }))
+    }));
+
+    const hubs = [
+      ['Planet FsHub','Online',24,24,'26.4.0','The official FsHub community server for JoinFS pilots — casual flying, weekly group flights, and a friendly ATC crew.','discord.gg/planetfshub','Sat Oct 4, 18:00 UTC — Group flight KJFK→KBOS'],
+      ['AirSherpa','Online',6,6,'3.2.17','Small mountain-flying focused hub.','',''],
+      ['DigitalThemePark','Online',5,5,'3.2.17','','teamspeak.dtp-network.com',''],
+      ['swiss and europe','Global',4,4,'3.2.17','Regional hub covering Swiss and European routes.','','Sun Oct 12, 17:00 UTC — Alps VFR tour'],
+      ['Flight Unlimited Network','Online',0,0,'26.4.0','','',''],
+      ['Aidan\'s Hub','Password',0,0,'26.5.0','Private hub, invite only.','',''],
+      ['Retro Flight Club','Offline',0,0,'26.3.1','Vintage aircraft community, currently offline.','',''],
+      ['NoiseAbatement Hub','Online',3,3,'26.4.0','Community hub focused on noise-abatement procedures around busy airports.','',''],
+    ].map(([name,status,users,aircraft,version,about,voice,nextEvent]) => ({
+      name, status, users, aircraft, version, statusStyle: statusRow(status),
+      about, voice, nextEvent, isExpanded: name === this.state.expandedHub,
+      ignored: (this.state.ignoredHubs || []).includes(name),
+      ignoreLabel: (this.state.ignoredHubs || []).includes(name) ? 'Unignore' : 'Ignore',
+      rowStyle: (this.state.ignoredHubs || []).includes(name) ? 'text-decoration:line-through;color:oklch(0.65 0.005 250);' : '',
+      toggleIgnore: (e) => { e.stopPropagation(); this.setState(s => ({ ignoredHubs: (s.ignoredHubs || []).includes(name) ? s.ignoredHubs.filter(n => n !== name) : [...(s.ignoredHubs || []), name] })); },
+      toggle: () => this.toggleHubRow(name),
+      addToAddressBook: () => this.addHubToAddressBook(name),
+      join: () => this.joinHub(name, status)
+    })).filter(h => this.state.showOfflineHubs || h.status !== 'Offline');
+    const hubSortKey = this.state.hubSortKey || 'name';
+    const hubSortDir = this.state.hubSortDir || 'asc';
+    hubs.sort((a, b) => {
+      const av = a[hubSortKey], bv = b[hubSortKey];
+      const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv));
+      return hubSortDir === 'asc' ? cmp : -cmp;
+    });
+    const hubSortIndicators = { name: '', status: '', users: '', aircraft: '', version: '' };
+    hubSortIndicators[hubSortKey] = hubSortDir === 'asc' ? ' \u2191' : ' \u2193';
+
+    const connStyle = 'color:oklch(0.5 0.14 145);font-weight:600';
+    const users = [
+      ['6Knotts','ASXGS','Yes',36,1,'Microsoft Flight Simulator 2024','Legacy'],
+      ['ADF320','A320','Yes',162,1,'Prepar3D v5','Legacy'],
+      ['azizba213','','Yes',123,1,'Microsoft Flight Simulator 2024','Legacy'],
+      ['Breizh Punisher','F-SLCD','Yes',38,1,'X-Plane','Legacy'],
+      ['CarGuy86','G-HUGE','Yes',108,1,'Microsoft Flight Simulator 2024','Legacy'],
+      ['David18','ASXGS','Yes',22,1,'Microsoft Flight Simulator 2020',''],
+      ['DiegoCuervo','LV-OPA','Yes',255,1,'Microsoft Flight Simulator 2024','Legacy'],
+      ['HB-TDX','HB-TDX','Yes',0,1,'Microsoft Flight Simulator 2024',''],
+    ].map(([nick,callsign,connected,latency,aircraft,simulator,protocol]) => {
+      const settings = (this.state.sessionSettings || {})[nick] || { cockpitEntry: false, handOverControls: false, multipleObjects: false };
+      const setSettings = (patch) => this.setState(s => ({ sessionSettings: { ...s.sessionSettings, [nick]: { ...settings, ...patch } } }));
+      return {
+        nick, callsign, connected, latency, aircraft, simulator, protocol,
+        objectsExported: aircraft + (settings.multipleObjects ? aircraft : 0),
+        port: 6809 + (nick.length % 40), version: protocol==='Legacy' ? '18.2.4' : '26.4.0',
+        connStyle, protoStyle: protocol==='Legacy' ? 'color:oklch(0.55 0.15 25);font-weight:600' : '',
+        isIgnored: (this.state.ignoredPeers || []).includes(nick),
+        ignoreLabel: (this.state.ignoredPeers || []).includes(nick) ? 'Unignore' : 'Ignore',
+        rowStyle: (this.state.ignoredPeers || []).includes(nick) ? 'text-decoration:line-through;color:oklch(0.65 0.005 250);' : '',
+        isExpanded: this.state.expandedUser === nick,
+        toggle: () => this.setState(s => ({ expandedUser: s.expandedUser === nick ? null : nick })),
+        cockpitEntry: settings.cockpitEntry, multipleObjects: settings.multipleObjects,
+        handOverControls: settings.cockpitEntry && settings.handOverControls,
+        handOverDisabled: !settings.cockpitEntry,
+        handOverStyle: settings.cockpitEntry ? 'cursor:pointer' : 'cursor:not-allowed;color:oklch(0.65 0.005 250)',
+        toggleCockpitEntry: () => setSettings({ cockpitEntry: !settings.cockpitEntry }),
+        toggleHandOverControls: () => settings.cockpitEntry && setSettings({ handOverControls: !settings.handOverControls }),
+        toggleMultipleObjects: () => setSettings({ multipleObjects: !settings.multipleObjects }),
+        save: (e) => { e.stopPropagation(); this.setState(s => ({ savedPeers: [...(s.savedPeers||[]).filter(n=>n!==nick), nick] })); },
+        ignore: (e) => { e.stopPropagation(); this.setState(s => ({ ignoredPeers: (s.ignoredPeers||[]).includes(nick) ? s.ignoredPeers.filter(n=>n!==nick) : [...(s.ignoredPeers||[]), nick] })); }
+      };
+    });
+
+    const selectedAc = this.state.selectedAircraft;
+    const acActionsMain = (cs) => [
+      {label:'Substitute…'},{label:'Explain Match…'},{label:'Copy Flight Plan…'},{label:'Assign Variables…'},
+      {label:'Adjust Height…'},{label:"Follow '"+cs+"'"},{label:'Enter Cockpit'},
+      {label:'Track Heading On Hdg'},{label:'Track Bearing On Hdg'},{label:'Copy Weather'},{label:'Remove From Recorder'}
+    ];
+    const acActionsInclude = [
+      {label:'Include All Hub Aircraft'},{label:'Include All Simulator Aircraft'}
+    ];
+    const aircraftRaw = [
+      ['LV-ALB','',4528.6,357,1607,53,'GC1a Swift (Factory)',true],
+      ['9H-WDR','Pastou',390.3,311,34461,445,'Airbus H145 Red Carpet (A)',true],
+      ['A320','ADF320',3411.4,63,24,0,'GC1a Swift (Factory) (D)',true],
+      ['AAL2693','Jcfoster',4549.4,96,597,0,'PC-12 D-FCAH (A)',true],
+      ['ASXGS','David18',8813.0,32,4992,263,'Black Square B36TP Bonanza',true],
+      ['AUI5501','Jeka28',8818.2,44,3150,217,'GC1a Swift (Factory) (D)',true],
+      ['C-GTLX','Nacho',6306.6,22,39164,525,'GC1a Swift (Factory) (D)',true],
+      ['CTO75','Nicksrun75',458.6,285,1898,172,'C208B Cargo (Cargo 01)',true],
+    ];
+    const acSortKey = this.state.acSortKey || null;
+    const acSortDir = this.state.acSortDir || 'asc';
+    const acFieldIdx = { callsign:0, owner:1, distance:2, heading:3, altitude:4, gs:5, model:6 };
+    if (acSortKey) {
+      const idx = acFieldIdx[acSortKey];
+      aircraftRaw.sort((a, b) => {
+        const av = a[idx], bv = b[idx];
+        const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv));
+        return acSortDir === 'asc' ? cmp : -cmp;
+      });
+    }
+    const acSortIndicators = { callsign:'', owner:'', distance:'', heading:'', altitude:'', gs:'', model:'' };
+    if (acSortKey) acSortIndicators[acSortKey] = acSortDir === 'asc' ? ' \u2191' : ' \u2193';
+    const aircraft = aircraftRaw.map(([callsign,owner,distance,heading,altitude,gs,model,recording]) => {
+      const expanded = selectedAc === callsign;
+      return {
+        callsign, owner, distance: distance.toLocaleString()+' nm', heading, altitude: altitude.toLocaleString()+' ft', gs, model, recording,
+        distStyle: distance>3000?'color:oklch(0.6 0.15 40)':'',
+        isIgnored: (this.state.ignoredAircraft || []).includes(callsign),
+        ignoreLabel: (this.state.ignoredAircraft || []).includes(callsign) ? 'Unignore' : 'Ignore',
+        rowStyle: (expanded ? 'background:oklch(0.94 0.03 235);' : '') + ((this.state.ignoredAircraft || []).includes(callsign) ? 'text-decoration:line-through;color:oklch(0.65 0.005 250);' : ''),
+        expanded,
+        select: () => this.setState(s => ({ selectedAircraft: s.selectedAircraft === callsign ? null : callsign })),
+        toggleIgnore: (e) => { e.stopPropagation(); this.setState(s => ({ ignoredAircraft: (s.ignoredAircraft || []).includes(callsign) ? s.ignoredAircraft.filter(c => c !== callsign) : [...(s.ignoredAircraft || []), callsign] })); },
+        stopClick: (e) => e.stopPropagation(),
+        actionsMain: acActionsMain(callsign).map(act => act.label === 'Substitute…' ? { ...act, onClick: (e) => { e.preventDefault(); this.setState({ editingModel: { original: model.replace(/\s*\([^)]*\)\s*$/,''), substitute: this.state.modelOverrides[model.replace(/\s*\([^)]*\)\s*$/,'')] || model }, editFilter: '', editType: null, editVariation: null }); } } : act.label === 'Assign Variables…' ? { ...act, onClick: (e) => { e.preventDefault(); this.setState({ editingVariables: { model, files: ['ListBox_Sets'] } }); } } : act.label === 'Adjust Height…' ? { ...act, onClick: (e) => { e.preventDefault(); this.setState({ heightAdjustments: { ...(this.state.heightAdjustments||{}) }, editingHeightModel: model }); } } : act.label === 'Explain Match…' ? { ...act, onClick: (e) => { e.preventDefault(); this.setState({ explainingMatchModel: model }); } } : act),
+        actionsInclude: acActionsInclude,
+        squawk: String(1200 + (callsign.length * 37) % 6600).padStart(4,'0'),
+        com1: (118 + (callsign.length % 17) / 10).toFixed(3),
+        com2: (121 + (owner.length % 9) / 10).toFixed(3),
+        bearing: heading + '°',
+        originalModel: model.replace(/\s*\([^)]*\)\s*$/,''),
+        simulator: 'Microsoft Flight Simulator 2024',
+        flightPlan: owner ? callsign + ' — VFR, ' + Math.round(distance/50) + ' nm route' : 'No flight plan filed',
+        remarks: 'None'
+      };
+    });
+
+    const objSortKey = this.state.objSortKey || null;
+    const objSortDir = this.state.objSortDir || 'asc';
+    const objFieldIdx = { owner:0, model:1, count:2, bearing:3, distance:4 };
+    const objectsRaw = [
+      ['Pastou','Airbus H145 Red Carpet (A)',3,45,390.3,true,false,false],
+      ['Jcfoster','PC-12 D-FCAH (A)',1,96,4549.4,true,false,false],
+      ['David18','Black Square B36TP Bonanza',2,32,8813.0,false,false,false],
+      ['Jeka28','GC1a Swift (Factory) (D)',1,44,8818.2,true,true,false],
+      ['Nacho','GC1a Swift (Factory) (D)',4,22,6306.6,true,false,true],
+      ['Nicksrun75','C208B Cargo (Cargo 01)',1,285,458.6,false,false,false],
+    ];
+    if (objSortKey) {
+      const idx = objFieldIdx[objSortKey];
+      objectsRaw.sort((a, b) => {
+        const av = a[idx], bv = b[idx];
+        const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv));
+        return objSortDir === 'asc' ? cmp : -cmp;
+      });
+    }
+    const objSortIndicators = { owner:'', model:'', count:'', bearing:'', distance:'' };
+    if (objSortKey) objSortIndicators[objSortKey] = objSortDir === 'asc' ? ' \u2191' : ' \u2193';
+    const objOverrides = this.state.objOverrides || {};
+    const objSort = (key) => () => this.setState(s => ({ objSortKey: key, objSortDir: s.objSortKey === key && s.objSortDir === 'asc' ? 'desc' : 'asc' }));
+    const objects = objectsRaw.map(([owner,model,count,bearing,distance,broadcast,ignoreOwner,ignoreModel]) => {
+      const ov = objOverrides[owner] || {};
+      const cur = { broadcast: ov.broadcast ?? broadcast, ignoreOwner: ov.ignoreOwner ?? ignoreOwner, ignoreModel: ov.ignoreModel ?? ignoreModel };
+      const setOv = (patch) => this.setState(s => ({ objOverrides: { ...(s.objOverrides||{}), [owner]: { ...cur, ...patch } } }));
+      return {
+        owner, model, count, bearing, distance: distance.toLocaleString()+' nm',
+        broadcast: cur.broadcast, ignoreOwner: cur.ignoreOwner, ignoreModel: cur.ignoreModel,
+        rowStyle: cur.ignoreOwner || cur.ignoreModel ? 'color:oklch(0.65 0.005 250)' : '',
+        toggleBroadcast: () => setOv({ broadcast: !cur.broadcast }),
+        toggleIgnoreOwner: () => setOv({ ignoreOwner: !cur.ignoreOwner }),
+        toggleIgnoreModel: () => setOv({ ignoreModel: !cur.ignoreModel })
+      };
+    }).filter(o => this.state.listIgnoredObjects || !(o.ignoreOwner || o.ignoreModel));
+
+    const defaultOriginals = ['Default SingleProp','Default TwinProp','Default Airliner','Default Rotorcraft','Default Glider','Default Fighter','Default Bomber','Default FourProp'];
+    const models = [
+      ['Default SingleProp','GC1a Swift - factory'],
+      ['Default TwinProp','OV-10 Bronco Montelimar'],
+      ['Default Airliner','PMDG 777-200ER GE PMDG House'],
+      ['Default Rotorcraft','CH-1 N-1981'],
+      ['Default Glider','K21 D-1258'],
+      ['Default Fighter','MiG-15Bis BARE METAL'],
+      ['Default Bomber','Latecoere 631'],
+      ['Default FourProp','Junkers Ju52/3m Modern'],
+    ].map(([original,substitute]) => ({
+      original, substitute: this.state.modelOverrides[original] || substitute, removable: false,
+      edit: (e) => { e.stopPropagation(); this.setState({ editingModel: { original, substitute: this.state.modelOverrides[original] || substitute }, editFilter: '', editType: null, editVariation: null }); }
+    }));
+    Object.keys(this.state.modelOverrides).filter(k => !defaultOriginals.includes(k)).forEach(original => {
+      const substitute = this.state.modelOverrides[original];
+      models.push({
+        original, substitute, removable: true,
+        edit: (e) => { e.stopPropagation(); this.setState({ editingModel: { original, substitute }, editFilter: '', editType: null, editVariation: null }); },
+        remove: (e) => { e.stopPropagation(); this.setState(s => { const mo = { ...s.modelOverrides }; delete mo[original]; return { modelOverrides: mo }; }); }
+      });
+    });
+
+    const MODEL_TYPE_OPTIONS = ['GC1a Swift - factory','OV-10 Bronco Montelimar','PMDG 777-200ER GE PMDG House','CH-1 N-1981','K21 D-1258','MiG-15Bis BARE METAL','Latecoere 631','Junkers Ju52/3m Modern'];
+    const MODEL_VARIATION_OPTIONS = ['Factory','Livery A','Livery B'];
+    let editModel = null;
+    if (this.state.editingModel) {
+      const row = this.state.editingModel;
+      const [curType, curVariation] = row.substitute.includes(' [+] ') ? row.substitute.split(' [+] ') : [row.substitute, 'Factory'];
+      const type = this.state.editType || curType;
+      const variation = this.state.editVariation || curVariation;
+      editModel = {
+        original: row.original, filter: this.state.editFilter,
+        type, variation, typeOptions: MODEL_TYPE_OPTIONS, variationOptions: MODEL_VARIATION_OPTIONS,
+        preview: type + ' [+] ' + variation
+      };
+    }
+
+    const logLines = [
+      "16:05:30.866 - Delisting aircraft 'F-SLCD' - Model 'Robin DR401'",
+      "16:05:30.880 - Listing aircraft 'F-MAGK' from '05776-64988-6112/10' - Model 'Tecnam P2012 Traveller Combi'",
+      "16:05:30.901 - Listing aircraft 'ASXGS' from '53713-39253-6112/7' - Model 'FFX P180 Medevac'",
+      "16:05:30.919 - Listing aircraft 'C-SR88' from '04579-46071-6112/3' - Model 'TFDi Design MD-11 GE CF6-80c'",
+      "16:05:32.340 - Delisting aircraft 'TOM738' from '00153-57060-6112/66' - Model 'PMDG 737-800 TUI Airways'",
+      "16:06:25.027 - ERROR Unable to get weather observation",
+      "16:07:08.856 - Removed node '24943-43180-6112/200'",
+    ];
+
+    const recordModels = { 'LV-ALB':'GC1a Swift', '9H-WDR':'Airbus H145', 'A320':'A320 Family', 'AAL2693':'PC-12', 'ASXGS':'B36TP Bonanza', 'AUI5501':'GC1a Swift' };
+    const totalSec = this.state.totalSec ?? 92;
+    const playheadSec = Math.min(totalSec, this.state.playheadSec ?? 7);
+    const recordList = Object.keys(this.state.recordChecked).map(cs => ({
+      callsign: cs, model: recordModels[cs], checked: this.state.recordChecked[cs],
+      toggle: () => this.setState(s => ({ recordChecked: { ...s.recordChecked, [cs]: !s.recordChecked[cs] } }))
+    }));
+    const loadedModels = { '6Knotts':'Bonanza', 'ADF320':'A320', 'Breizh Punisher':'F-SLCD', 'CarGuy86':'A380-800', 'David18':'Cessna 172', 'DiegoCuervo':'737-800' };
+    const loadedList = Object.keys(this.state.loadedChecked).map(cs => ({
+      callsign: cs, model: loadedModels[cs], checked: this.state.loadedChecked[cs],
+      toggle: () => this.setState(s => ({ loadedChecked: { ...s.loadedChecked, [cs]: !s.loadedChecked[cs] } }))
+    }));
+
+    const chatLines = [
+      {from:'6Knotts', text:'anyone else at KJFK right now?'},
+      {from:'ADF320', text:'just departed, heading your way'},
+      {from:'Breizh Punisher', text:'weather looks rough over the Atlantic tonight'},
+    ];
+
+    return {
+      navStyle,
+      goHome: this.go('home'), goNetwork: this.go('network'), goSession: this.go('session'),
+      goChat: () => { this.go('chat')(); this.setState({ hasNewChat: false }); }, goAircraft: this.go('aircraft'), goModelsTab: this.go('models'),
+      goObjects: this.go('objects'),
+      isExplainingMatch: !!this.state.explainingMatchModel,
+      closeExplainMatch: () => this.setState({ explainingMatchModel: null }),
+      explainMatchRows: [
+        { attribute: 'Manufacturer', requested: 'Generic', matched: (this.state.explainingMatchModel || '').split(' ')[0] || '' },
+        { attribute: 'Category', requested: 'SingleProp', matched: 'SingleProp' },
+        { attribute: 'Livery', requested: 'Default', matched: 'Closest available' },
+        { attribute: 'ICAO Type', requested: 'Unknown', matched: 'Fallback' }
+      ],
+      explainMatchSteps: [
+        '1. Exact title match — not found.',
+        '2. ICAO + livery match — not found.',
+        '3. ICAO match, any livery — not found.',
+        '4. Category fallback match — matched "' + (this.state.explainingMatchModel || '') + '".'
+      ],
+      isEditingHeight: !!this.state.editingHeightModel,
+      editingHeight: (() => {
+        const m = this.state.editingHeightModel || '';
+        const cm = (this.state.heightAdjustments || {})[m] || 0;
+        return { model: m, adjustmentLabel: cm === 0 ? 'Off' : (cm > 0 ? '+' : '') + cm + ' cm' };
+      })(),
+      closeHeightEdit: () => this.setState({ editingHeightModel: null }),
+      isAboutOpen: !!this.state.isAboutOpen,
+      openAbout: () => this.setState({ isAboutOpen: true }),
+      closeAbout: () => this.setState({ isAboutOpen: false }),
+      newVersionAvailable: true,
+      newVersionLabel: '26.7.0',
+      downloadUrl: 'https://joinfs.net/download',
+      heightAdjustUp50: () => this.setState(s => ({ heightAdjustments: { ...(s.heightAdjustments||{}), [s.editingHeightModel]: ((s.heightAdjustments||{})[s.editingHeightModel] || 0) + 50 } })),
+      heightAdjustUp5: () => this.setState(s => ({ heightAdjustments: { ...(s.heightAdjustments||{}), [s.editingHeightModel]: ((s.heightAdjustments||{})[s.editingHeightModel] || 0) + 5 } })),
+      heightAdjustOff: () => this.setState(s => ({ heightAdjustments: { ...(s.heightAdjustments||{}), [s.editingHeightModel]: 0 } })),
+      heightAdjustDown5: () => this.setState(s => ({ heightAdjustments: { ...(s.heightAdjustments||{}), [s.editingHeightModel]: ((s.heightAdjustments||{})[s.editingHeightModel] || 0) - 5 } })),
+      heightAdjustDown50: () => this.setState(s => ({ heightAdjustments: { ...(s.heightAdjustments||{}), [s.editingHeightModel]: ((s.heightAdjustments||{})[s.editingHeightModel] || 0) - 50 } })),
+      isOnboarding: !this.state.onboarded,
+      nickname: this.state.nickname,
+      setNickname: (e) => this.setState({ nickname: e.target.value }),
+      showSimbriefInput: this.state.showSimbriefInput,
+      toggleSimbriefInput: () => this.setState(s => ({ showSimbriefInput: !s.showSimbriefInput })),
+      simbriefUsername: this.state.simbriefUsername,
+      setSimbriefUsername: (e) => this.setState({ simbriefUsername: e.target.value }),
+      onboardingDisabled: !this.state.nickname.trim(),
+      onboardingBtnStyle: this.state.nickname.trim() ? 'background:oklch(0.62 0.14 235);color:#fff;cursor:pointer' : 'background:oklch(0.9 0.005 250);color:oklch(0.6 0.005 250);cursor:not-allowed',
+      finishOnboarding: () => this.state.nickname.trim() && this.setState({ onboarded: true }),
+      objects, objSortIndicators,
+      sortObjByOwner: objSort('owner'), sortObjByModel: objSort('model'), sortObjByCount: objSort('count'),
+      sortObjByBearing: objSort('bearing'), sortObjByDistance: objSort('distance'),
+      refreshObjects: () => {},
+      openObjectSubstitute: () => this.setState({ editingModel: { original: 'GC1a Swift (Factory)', substitute: this.state.modelOverrides['GC1a Swift (Factory)'] || 'GC1a Swift (Factory)' }, editFilter: '', editType: null, editVariation: null }),
+      groupByModel: !!this.state.groupByModel,
+      toggleGroupByModel: () => this.setState(s => ({ groupByModel: !s.groupByModel })),
+      listIgnoredObjects: !!this.state.listIgnoredObjects,
+      toggleListIgnoredObjects: () => this.setState(s => ({ listIgnoredObjects: !s.listIgnoredObjects })),
+      goLog: this.go('log'), goSettings: this.go('settings'), goRecorder: this.go('recorder'),
+      isHome: t==='home', isNetwork: t==='network', isSession: t==='session', isChat: t==='chat',
+      isAircraft: t==='aircraft', isModels: t==='models', isLog: t==='log', isSettings: t==='settings',
+      isRecorder: t==='recorder', isFlightPlan: t==='flightplan', isObjects: t==='objects',
+      monitorFilterChips: [
+        ['nodeStats','Node Statistics'], ['packets','Received Packets'], ['network','Network'], ['variables','Variables']
+      ].map(([key,label]) => {
+        const on = !!this.state.monitorFilters[key];
+        return {
+          label,
+          toggle: () => this.setState(s => ({ monitorFilters: { ...s.monitorFilters, [key]: !s.monitorFilters[key] } })),
+          style: on ? 'background:oklch(0.93 0.05 235);color:oklch(0.35 0.12 235);border:1px solid oklch(0.8 0.08 235);' : 'background:#fff;color:oklch(0.5 0.01 250);border:1px solid oklch(0.85 0.005 250);',
+          dotStyle: on ? 'background:oklch(0.55 0.16 235);' : 'background:oklch(0.8 0.005 250);'
+        };
+      }),
+      recordingFileInputRef: this.recordingFileInputRef || (this.recordingFileInputRef = React.createRef()),
+      recordingSaveLinkRef: this.recordingSaveLinkRef || (this.recordingSaveLinkRef = React.createRef()),
+      openRecording: () => this.recordingFileInputRef.current && this.recordingFileInputRef.current.click(),
+      addRecording: () => this.recordingFileInputRef.current && this.recordingFileInputRef.current.click(),
+      saveRecording: () => {
+        const a = this.recordingSaveLinkRef.current;
+        if (!a) return;
+        const blob = new Blob([''], { type: 'application/octet-stream' });
+        a.href = URL.createObjectURL(blob);
+        a.download = 'recording.jfr';
+        a.click();
+      },
+      goFlightPlan: this.go('flightplan'), fp, setFp,
+      importFromSimbrief: () => {
+        if ((this.state.simbriefUsername || '').trim()) { this.performSimbriefImport(); return; }
+        this.setState({ simbriefPrompt: true, simbriefPromptValue: '' });
+      },
+      isSimbriefPrompt: !!this.state.simbriefPrompt,
+      simbriefPromptValue: this.state.simbriefPromptValue || '',
+      setSimbriefPromptValue: (e) => this.setState({ simbriefPromptValue: e.target.value }),
+      closeSimbriefPrompt: () => this.setState({ simbriefPrompt: false }),
+      confirmSimbriefPrompt: () => { this.setState({ simbriefUsername: this.state.simbriefPromptValue.trim(), simbriefPrompt: false }); this.performSimbriefImport(); },
+      clearFp: () => this.setState({ fp: { callsign: '', type: '', rules: 'VFR', from: '', to: '', altitude: '', route: '', remarks: '', simbrief: '' } }),
+      hubs, users, aircraft, models, logLines, chatLines, recordList, loadedList,
+      hubSortIndicators, acSortIndicators,
+      sortAcByCallsign: () => this.sortAcBy('callsign'),
+      sortAcByOwner: () => this.sortAcBy('owner'),
+      sortAcByDistance: () => this.sortAcBy('distance'),
+      sortAcByHeading: () => this.sortAcBy('heading'),
+      sortAcByAltitude: () => this.sortAcBy('altitude'),
+      sortAcByGs: () => this.sortAcBy('gs'),
+      sortAcByModel: () => this.sortAcBy('model'),
+      showOfflineHubs: this.state.showOfflineHubs,
+      toggleShowOfflineHubs: () => this.setState(s => ({ showOfflineHubs: !s.showOfflineHubs })),
+      sortByName: () => this.sortHubsBy('name'),
+      sortByStatus: () => this.sortHubsBy('status'),
+      sortByUsers: () => this.sortHubsBy('users'),
+      sortByAircraft: () => this.sortHubsBy('aircraft'),
+      sortByVersion: () => this.sortHubsBy('version'),
+      stopClick: (e) => e.stopPropagation(),
+      addressBook, selectedAddr: this.state.selectedAddr,
+      selectAddr: (e) => this.setState({ selectedAddr: e.target.value }),
+      newAddrName: this.state.newAddrName, newAddrHost: this.state.newAddrHost,
+      setNewAddrName: (e) => this.setState({ newAddrName: e.target.value }),
+      setNewAddrHost: (e) => this.setState({ newAddrHost: e.target.value }),
+      showChatBadge: !expanded && this.state.hasNewChat, hasNewChat: this.state.hasNewChat,
+      ...statusProps('sim', this.state.simState, {disconnected:'Connect',connecting:'Connecting…',connected:'Disconnect'}, (s)=>this.setState({simState:s})),
+      simStateLabel: {disconnected:'Disconnected',connecting:'Connecting…',connected:'Connected'}[this.state.simState],
+      netStateLabel: {disconnected:'Disconnected',connecting:'Connecting…',connected:'Connected'}[this.state.netState],
+      fpStateLabel: {disconnected:'Not loaded',connecting:'Fetching…',connected:'Loaded'}[this.state.fpState],
+      ...statusProps('net', this.state.netState, {disconnected:'Join',connecting:'Connecting…',connected:'Disconnect'}, (s)=>this.setState({netState:s})),
+      ...statusProps('fp', this.state.fpState, {disconnected:'Fetch',connecting:'Fetching…',connected:'Loaded'}, (s)=>this.setState({fpState:s})),
+      toggleNet: () => {
+        if (this.state.netState === 'connecting') return;
+        if (this.state.netState === 'connected') { this.setState({ netState: 'disconnected' }); return; }
+        const hub = addressBook.find(a => a.name === this.state.selectedAddr);
+        const connect = () => { this.setState({ netState: 'connecting' }); setTimeout(() => this.setState({ netState: 'connected' }), 900); };
+        if (hub && hub.requiresPassword) { this.openPasswordPrompt(hub.name, connect); return; }
+        connect();
+      },
+      isPasswordPrompt: !!this.state.passwordPrompt,
+      passwordPromptHubName: (this.state.passwordPrompt && this.state.passwordPrompt.hubName) || '',
+      passwordPromptValue: this.state.passwordPromptValue || '',
+      setPasswordPromptValue: (e) => this.setState({ passwordPromptValue: e.target.value }),
+      closePasswordPrompt: () => this.setState({ passwordPrompt: null }),
+      confirmPasswordPrompt: () => { const cb = this.state.passwordPrompt && this.state.passwordPrompt.onConfirm; this.setState({ passwordPrompt: null }); if (cb) cb(); },
+      openChat: () => this.setState({ expanded: true, tab: 'chat', hasNewChat: false }),
+      addAddr: () => this.setState(s => s.newAddrName.trim() ? {
+        addressBook: [...s.addressBook, { name: s.newAddrName.trim(), address: s.newAddrHost.trim() }],
+        newAddrName: '', newAddrHost: ''
+      } : {}),
+      goModels: this.go('models'),
+      whazzupEnabled: this.state.whazzupEnabled ?? true,
+      whazzupDisabled: !(this.state.whazzupEnabled ?? true),
+      whazzupSubStyle: (this.state.whazzupEnabled ?? true) ? 'color:oklch(0.55 0.01 250)' : 'color:oklch(0.75 0.005 250);cursor:not-allowed',
+      toggleWhazzup: () => this.setState(s => ({ whazzupEnabled: !(s.whazzupEnabled ?? true) })),
+      isScanningModels: !!this.state.isScanningModels,
+      openScanModels: () => this.setState({ isScanningModels: true }),
+      closeScanModels: () => this.setState({ isScanningModels: false }),
+      uiOpen: this.state.settingsOpen === 'ui',
+      simulatorOpen: this.state.settingsOpen === 'simulator',
+      networkSettingsOpen: this.state.settingsOpen === 'networkSettings',
+      addressBookOpen: this.state.settingsOpen === 'addressBook',
+      hubOpen: this.state.settingsOpen === 'hub',
+      xplaneOpen: this.state.settingsOpen === 'xplane',
+      uiChevron: this.state.settingsOpen === 'ui' ? 'rotate(180deg)' : 'rotate(0deg)',
+      simulatorChevron: this.state.settingsOpen === 'simulator' ? 'rotate(180deg)' : 'rotate(0deg)',
+      networkSettingsChevron: this.state.settingsOpen === 'networkSettings' ? 'rotate(180deg)' : 'rotate(0deg)',
+      addressBookChevron: this.state.settingsOpen === 'addressBook' ? 'rotate(180deg)' : 'rotate(0deg)',
+      hubChevron: this.state.settingsOpen === 'hub' ? 'rotate(180deg)' : 'rotate(0deg)',
+      xplaneChevron: this.state.settingsOpen === 'xplane' ? 'rotate(180deg)' : 'rotate(0deg)',
+      toggleUi: () => this.setState(s => ({ settingsOpen: s.settingsOpen === 'ui' ? null : 'ui' })),
+      toggleSimulator: () => this.setState(s => ({ settingsOpen: s.settingsOpen === 'simulator' ? null : 'simulator' })),
+      toggleNetworkSettings: () => this.setState(s => ({ settingsOpen: s.settingsOpen === 'networkSettings' ? null : 'networkSettings' })),
+      toggleAddressBook: () => this.setState(s => ({ settingsOpen: s.settingsOpen === 'addressBook' ? null : 'addressBook' })),
+      toggleHub: () => this.setState(s => ({ settingsOpen: s.settingsOpen === 'hub' ? null : 'hub' })),
+      toggleXplane: () => this.setState(s => ({ settingsOpen: s.settingsOpen === 'xplane' ? null : 'xplane' })),
+      variablesOpen: this.state.settingsOpen === 'variables',
+      variablesChevron: this.state.settingsOpen === 'variables' ? 'rotate(180deg)' : 'rotate(0deg)',
+      toggleVariables: () => this.setState(s => ({ settingsOpen: s.settingsOpen === 'variables' ? null : 'variables' })),
+      variablesList: [
+        { model: 'GC1a Swift (Factory)', files: 'ListBox_Sets', edit: () => this.setState({ editingVariables: { model: 'GC1a Swift (Factory)', files: ['ListBox_Sets'] } }) },
+        { model: 'PMDG 777-200ER GE PMDG House', files: 'Custom_FMC_Vars, ListBox_Sets', edit: () => this.setState({ editingVariables: { model: 'PMDG 777-200ER GE PMDG House', files: ['Custom_FMC_Vars', 'ListBox_Sets'] } }) },
+        { model: 'CH-1 N-1981', files: 'Rotor_Vars', edit: () => this.setState({ editingVariables: { model: 'CH-1 N-1981', files: ['Rotor_Vars'] } }) }
+      ],
+      isEditingVariables: !!this.state.editingVariables,
+      editingVariables: this.state.editingVariables || { model: '', files: [] },
+      closeVariables: () => this.setState({ editingVariables: null }),
+      hubFields: [
+        { label: 'Domain', placeholder: 'e.g. joinfs.example.com' },
+        { label: 'Name', placeholder: 'Public hub name' },
+        { label: 'About', placeholder: 'Short description' },
+        { label: 'Voice Server', placeholder: 'Voice server address' },
+        { label: 'Next Event', placeholder: 'Next scheduled event' }
+      ],
+      isEditingModel: !!this.state.editingModel, editModel,
+      setEditFilter: e => this.setState({ editFilter: e.target.value }),
+      setEditType: e => this.setState({ editType: e.target.value }),
+      setEditVariation: e => this.setState({ editVariation: e.target.value }),
+      closeModelEdit: () => this.setState({ editingModel: null }),
+      useOriginalModel: () => this.setState(s => ({
+        modelOverrides: { ...s.modelOverrides, [s.editingModel.original]: s.editingModel.original },
+        editingModel: null
+      })),
+      saveModelEdit: () => this.setState(s => ({
+        modelOverrides: { ...s.modelOverrides, [editModel.original]: editModel.preview },
+        editingModel: null
+      })),
+      toggleRecording: () => this.setState(s => ({ recording: !s.recording, overdubbing: false, playing: false })),
+      recordBorder: this.state.recording ? 'oklch(0.55 0.2 25)' : 'oklch(0.75 0.01 250)',
+      recordDotColor: this.state.recording ? 'oklch(0.55 0.2 25)' : 'oklch(0.6 0.01 250)',
+      recordTime: fmtTime(playheadSec),
+      togglePlay: () => this.setState(s => ({ playing: !s.playing, recording: false, overdubbing: false })),
+      playBtnStyle: this.state.playing ? 'background:oklch(0.62 0.14 235);color:#fff;border:2px solid oklch(0.62 0.14 235);' : 'background:#fff;color:oklch(0.4 0.01 250);border:1.5px solid oklch(0.75 0.01 250);',
+      stopAll: () => this.setState({ recording: false, playing: false, overdubbing: false }),
+      toggleOverdub: () => this.setState(s => ({ overdubbing: !s.overdubbing, recording: !s.overdubbing, playing: false })),
+      overdubBtnStyle: this.state.overdubbing ? 'background:oklch(0.7 0.14 55);color:#fff;border:2px solid oklch(0.7 0.14 55);' : 'background:#fff;color:oklch(0.4 0.01 250);border:1.5px solid oklch(0.75 0.01 250);',
+      toggleLoop: () => this.setState(s => ({ loopEnabled: !s.loopEnabled })),
+      loopBtnStyle: this.state.loopEnabled ? 'background:oklch(0.62 0.14 235);color:#fff;border:2px solid oklch(0.62 0.14 235);' : 'background:#fff;color:oklch(0.4 0.01 250);border:1.5px solid oklch(0.75 0.01 250);',
+      totalTime: fmtTime(totalSec),
+      playheadPct: totalSec ? (playheadSec / totalSec * 100) : 0,
+      seekTimeline: (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const pct = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+        this.setState({ playheadSec: Math.round(pct * totalSec) });
+      },
+      startSeekDrag: (e) => {
+        e.preventDefault();
+        const rect = e.currentTarget.getBoundingClientRect();
+        const update = (clientX) => {
+          const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+          this.setState({ playheadSec: Math.round(pct * totalSec) });
+        };
+        update(e.clientX);
+        const onMove = (ev) => update(ev.clientX);
+        const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      },
+      trimStart: () => this.setState(s => {
+        const ph = s.playheadSec || 0;
+        return { totalSec: Math.max(1, (s.totalSec ?? 92) - ph), playheadSec: 0 };
+      }),
+      trimEnd: () => this.setState(s => {
+        const ph = s.playheadSec || 0;
+        return { totalSec: Math.max(1, ph), playheadSec: Math.max(1, ph) };
+      }),
+      isCollapsedView: !expanded,
+      isExpandedView: expanded,
+      toggleExpand: () => this.setState(s => ({ expanded: !s.expanded })),
+      expandIcon: '⤢',
+      panelSize: expanded ? 'width:min(1200px,calc(100vw - 48px));height:min(760px,calc(100vh - 48px))' : 'width:376px;height:190px',
+      panelRadius: expanded ? '14px' : '12px'
+    };
+  }
+}
+
+</script>
+</body>
+</html>
