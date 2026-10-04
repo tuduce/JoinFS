@@ -6,6 +6,7 @@
         x:Class="JoinFS.UI.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="{Binding SessionLabel}"
+        Topmost="{Binding Settings.UserInterface.AlwaysOnTop}"
         Width="376" Height="190"
         CanResize="False"
         WindowStartupLocation="Manual"

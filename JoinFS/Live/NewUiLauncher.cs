@@ -26,6 +26,7 @@ namespace JoinFS.Live
                 Settings = new LiveSettingsStore(main),
                 AddressBook = new LiveAddressBookStore(main),
                 Updates = new LiveUpdateChecker(main),
+                Preferences = new LivePreferencesStore(main),
             }, [], main.MonitorEvent);
         }
     }

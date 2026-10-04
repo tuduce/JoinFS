@@ -251,6 +251,69 @@ public interface ISettingsStore
     void Save(UserSettings settings);
 }
 
+/// <summary>
+/// What the Settings tab edits besides the profile (nickname, SimBrief name, broadcast and scan options, which <see cref="UserSettings"/> keeps).
+/// The defaults are those of a fresh install.
+/// </summary>
+public sealed class Preferences
+{
+    // User Interface
+    public bool AlwaysOnTop { get; set; }
+    public bool AutoRefresh { get; set; } = true;
+    public bool ToolTips { get; set; } = true;
+
+    // Simulator
+    public bool ConnectOnLaunch { get; set; } = true;
+    public bool ElevationCorrection { get; set; }
+    public int CircleOfActivityNm { get; set; } = 5;
+    public int FollowDistanceM { get; set; } = 80;
+    public bool AutoImportSimbrief { get; set; }
+
+    // The floating label above other aircraft. X-Plane only.
+    public bool ShowNickname { get; set; } = true;
+    public bool ShowCallsign { get; set; } = true;
+    public bool ShowDistance { get; set; }
+    public bool ShowAltitude { get; set; }
+    public bool ShowSpeed { get; set; }
+
+    /// <summary>"#RRGGBB".</summary>
+    public string LabelColor { get; set; } = "#F2C400";
+
+    // Network
+    public bool ChooseOwnPort { get; set; }
+    public int LocalPort { get; set; } = 40383;
+    public bool JoinGlobalAtLaunch { get; set; } = true;
+    public bool LowBandwidth { get; set; }
+    public bool GenerateWhazzup { get; set; } = true;
+    public bool WhazzupIncludeGlobalUsers { get; set; } = true;
+    public bool WhazzupIncludeAi { get; set; }
+    public string Password { get; set; } = "";
+
+    // Hub Mode (Public)
+    public bool HubMode { get; set; }
+    public string HubDomain { get; set; } = "";
+    public string HubName { get; set; } = "";
+    public string HubAbout { get; set; } = "";
+    public string HubVoice { get; set; } = "";
+    public string HubEvent { get; set; } = "";
+
+    // X-Plane
+    public string XPlaneAddress { get; set; } = "";
+    public bool Tcas { get; set; }
+
+    public Preferences Clone() => (Preferences)MemberwiseClone();
+}
+
+/// <summary>
+/// Reads and applies the <see cref="Preferences"/>. Saving applies them to the running app: a new port is opened,
+/// hub mode starts or stops the hub, and so on. It is called on every change, so it must do nothing for what did not change.
+/// </summary>
+public interface IPreferencesStore
+{
+    Preferences Load();
+    void Save(Preferences preferences);
+}
+
 /// <summary>What only the window can do: clipboard, files, the browser.</summary>
 public interface IPlatform
 {
@@ -281,4 +344,5 @@ public sealed record AppServices(
     IUpdateChecker Updates,
     IAppInfo App,
     ISettingsStore Settings,
-    IPlatform Platform);
+    IPlatform Platform,
+    IPreferencesStore Preferences);
