@@ -1297,11 +1297,12 @@ public class ExplainMatchTests
 
 public class AdjustHeightTests
 {
+    private static AdjustHeightViewModel Open(int start, List<int> saved) => new(new HeightAdjustment("Model", start), saved.Add);
+
     [Fact]
     public void The_steppers_add_and_off_resets_with_the_label_following()
     {
-        Rig rig = new();
-        AdjustHeightViewModel height = new("M", rig.Main.Profile);
+        AdjustHeightViewModel height = Open(0, []);
         Assert.Equal("Off", height.AdjustmentLabel);
 
         height.Up50Command.Execute(null);
@@ -1315,19 +1316,83 @@ public class AdjustHeightTests
     }
 
     [Fact]
+    public void It_starts_on_the_adjustment_the_model_has()
+    {
+        AdjustHeightViewModel height = Open(-15, []);
+
+        Assert.Equal(-15, height.AdjustmentCm);
+        Assert.Equal("-15 cm", height.AdjustmentLabel);
+        Assert.Equal("Model", height.Model);
+    }
+
+    [Fact]
     public void Ok_keeps_the_adjustment_and_cancel_throws_it_away()
     {
-        Rig rig = new();
-        AdjustHeightViewModel cancelled = new("M", rig.Main.Profile);
+        List<int> saved = [];
+
+        AdjustHeightViewModel cancelled = Open(0, saved);
         cancelled.Up50Command.Execute(null);
         cancelled.CloseCommand.Execute(null);
-        Assert.Equal(0, rig.Main.Profile.GetHeightAdjustmentCm("M"));
+        Assert.Empty(saved);
 
-        AdjustHeightViewModel confirmed = new("M", rig.Main.Profile);
+        AdjustHeightViewModel confirmed = Open(0, saved);
         confirmed.Up5Command.Execute(null);
         confirmed.OkCommand.Execute(null);
-        Assert.Equal(5, rig.Main.Profile.GetHeightAdjustmentCm("M"));
-        Assert.Equal(5, new AdjustHeightViewModel("M", rig.Main.Profile).AdjustmentCm);
+        Assert.Equal([5], saved);
+    }
+
+    [Fact]
+    public void Off_then_ok_saves_zero()
+    {
+        List<int> saved = [];
+        AdjustHeightViewModel height = Open(30, saved);
+
+        height.OffCommand.Execute(null);
+        height.OkCommand.Execute(null);
+
+        Assert.Equal([0], saved);
+    }
+
+    [Fact]
+    public void The_aircraft_list_opens_the_adjustment_of_that_aircraft_and_keeps_it()
+    {
+        Rig rig = new();
+        AircraftRowViewModel row = rig.Main.Aircraft.Rows.Single(r => r.Callsign == "A320");
+
+        row.Actions.Single(a => a.Label.StartsWith("Adjust Height")).Command.Execute(null);
+        AdjustHeightViewModel height = Assert.IsType<AdjustHeightViewModel>(rig.Main.Overlay);
+        height.Up50Command.Execute(null);
+        height.OkCommand.Execute(null);
+
+        row.Actions.Single(a => a.Label.StartsWith("Adjust Height")).Command.Execute(null);
+        Assert.Equal(50, Assert.IsType<AdjustHeightViewModel>(rig.Main.Overlay).AdjustmentCm);
+    }
+
+    [Fact]
+    public void An_aircraft_with_no_model_to_adjust_opens_nothing()
+    {
+        ScriptedTraffic traffic = new() { Height = null };
+        AppServices services = JoinFS.UI.Services.Fake.FakeServices.Create(TimeSpan.Zero, new Services.UserSettings { Onboarded = true, Nickname = "Me" }) with { Traffic = traffic };
+        MainViewModel main = new(services);
+
+        main.Aircraft.Rows[0].Actions.Single(a => a.Label.StartsWith("Adjust Height")).Command.Execute(null);
+
+        Assert.Null(main.Overlay);
+    }
+
+    [Fact]
+    public void The_adjustment_is_written_for_the_aircraft_that_was_opened()
+    {
+        ScriptedTraffic traffic = new();
+        AppServices services = JoinFS.UI.Services.Fake.FakeServices.Create(TimeSpan.Zero, new Services.UserSettings { Onboarded = true, Nickname = "Me" }) with { Traffic = traffic };
+        MainViewModel main = new(services);
+        main.Aircraft.Rows[0].Actions.Single(a => a.Label.StartsWith("Adjust Height")).Command.Execute(null);
+
+        AdjustHeightViewModel height = (AdjustHeightViewModel)main.Overlay!;
+        height.Down5Command.Execute(null);
+        height.OkCommand.Execute(null);
+
+        Assert.Equal(["height a=-5"], traffic.Writes);
     }
 }
 
@@ -1816,6 +1881,9 @@ public sealed class ScriptedTraffic : ITrafficSource
         return Objects ??= [Obj("o1")];
     }
 
+    public HeightAdjustment? Height { get; set; } = new("Model", 0);
+    public HeightAdjustment? GetHeightAdjustment(string aircraftId) => Height;
+    public void SetHeightAdjustment(string aircraftId, int centimetres) => Writes.Add($"height {aircraftId}={centimetres}");
     public MatchExplanation? Explanation { get; set; } = new("A", "Result: Auto - matched 'Model'", null, [], [], "Models come from the test.", "# Match Report - A");
     public Task<MatchExplanation?> ExplainMatchAsync(string aircraftId) => Task.FromResult(Explanation);
     public ModelTarget? AircraftModel { get; set; } = new("Model");

@@ -96,6 +96,11 @@ public sealed record ModelRule(string Original, string Substitute, bool IsDefaul
 /// <param name="IsMasquerade">Changing it changes what others see of your own aircraft, not what you see of theirs.</param>
 public sealed record ModelTarget(string Model, string Livery = "", int TypeRole = 0, bool IsMasquerade = false);
 
+/// <summary>The height adjustment of a model: a vertical offset, kept per model and applied to every aircraft that shows it.</summary>
+/// <param name="Model">The model the adjustment is kept for, as it is named.</param>
+/// <param name="Centimetres">Zero means off.</param>
+public sealed record HeightAdjustment(string Model, int Centimetres);
+
 /// <summary>A model picked by its type and variation. Together they name one model.</summary>
 public sealed record ModelChoice(string Type, string Variation);
 

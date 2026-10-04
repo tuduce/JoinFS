@@ -311,8 +311,11 @@ public sealed partial class AircraftViewModel : ObservableObject
     internal void AssignVariables(AircraftRowViewModel row) =>
         _shell.ShowOverlay(new VariablesOverlayViewModel(row.Model, ["ListBox_Sets"], _platform));
 
-    internal void AdjustHeight(AircraftRowViewModel row) =>
-        _shell.ShowOverlay(new AdjustHeightViewModel(row.Model, _profile));
+    internal void AdjustHeight(AircraftRowViewModel row)
+    {
+        if (Source.GetHeightAdjustment(row.Id) is { } current)
+            _shell.ShowOverlay(new AdjustHeightViewModel(current, cm => Source.SetHeightAdjustment(row.Id, cm)));
+    }
 
     internal void CopyFlightPlan(AircraftRowViewModel row) => _ = _platform.CopyTextAsync(row.FlightPlan);
 
