@@ -33,6 +33,7 @@ namespace JoinFS.Live
                 Preferences = new LivePreferencesStore(main),
                 Models = new LiveModelCatalog(main),
                 Variables = new LiveVariablesCatalog(main),
+                Monitor = new LiveMonitorSource(main),
                 ModelScan = new LiveModelScanSource(main),
                 XPlaneScan = new LiveXPlaneScanSource(main),
             }, [], main.MonitorEvent);

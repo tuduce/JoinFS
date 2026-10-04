@@ -410,8 +410,21 @@ public sealed class FakeRecorderSource : IRecorderSource
 
 public sealed class FakeMonitorSource : IMonitorSource
 {
-    public IReadOnlyList<string> GetLogLines() => SampleData.LogLines;
-    public int FramesPerSecond => 48;
+    private readonly List<string> _lines = [.. SampleData.LogLines];
+
+    public IReadOnlyList<string> GetLogLines() => [.. _lines];
+    public int? FramesPerSecond => 48;
+
+    public bool ShowNetwork { get; set; } = true;
+    public bool ShowVariables { get; set; }
+
+    public void WriteNodeStatistics() => _lines.Add("== NODE STATS ==");
+    public void WritePacketStatistics() => _lines.Add("== RECEIVED PACKETS ==");
+
+    public IReadOnlyList<string> LogFiles => [];
+
+    /// <summary>What happened in the simulation: a line is added to the log.</summary>
+    public void Log(string line) => _lines.Add(line);
 }
 
 public sealed class FakeUpdateChecker : IUpdateChecker

@@ -319,61 +319,13 @@ namespace JoinFS
 
         private void Context_Monitor_Node_Click(object sender, EventArgs e)
         {
-            main.MonitorEvent("== NODE STATS ==");
-            main.MonitorEvent("Session ID : " + main.network.Snapshot.Suid);
-            main.MonitorEvent("Node Count : " + main.network.Snapshot.PeerCount);
-            main.MonitorEvent("Routing Nodes : " + main.network.Snapshot.RelayCount);
-            main.MonitorEvent("Guaranteed Incoming : " + main.network.Snapshot.GuaranteedInCount);
-            main.MonitorEvent("Guaranteed Outgoing : " + main.network.Snapshot.GuaranteedOutCount);
-            // check for hub
-            if (main.settingsHub)
-            {
-                main.MonitorEvent("Online Users : " + main.network.Users.OnlineUserCount);
-            }
+            main.monitor.WriteNodeStatistics();
             RefreshWindow();
         }
 
         private void Context_Monitor_Packet_Click(object sender, EventArgs e)
         {
-            main.MonitorEvent("== RECEIVED PACKETS ==");
-            main.MonitorEvent("ID : Minute : Hour : Day : Total (count b/s)");
-            main.MonitorEvent("Join : " + Stats.Join);
-            main.MonitorEvent("JoinReply : " + Stats.JoinReply);
-            main.MonitorEvent("JoinFail : " + Stats.JoinFail);
-            main.MonitorEvent("Login : " + Stats.Login);
-            main.MonitorEvent("LoginFail : " + Stats.LoginFail);
-            main.MonitorEvent("Leave : " + Stats.Leave);
-            main.MonitorEvent("AddNode : " + Stats.AddNode);
-            main.MonitorEvent("Pulse : " + Stats.Pulse);
-            main.MonitorEvent("PulseResponse : " + Stats.PulseResponse);
-            main.MonitorEvent("GuaranteedDone : " + Stats.GuaranteedDone);
-            main.MonitorEvent("Pathfinder : " + Stats.Pathfinder);
-            main.MonitorEvent("PathfinderResponse : " + Stats.PathfinderResponse);
-            main.MonitorEvent("ObjectPosition : " + Stats.ObjectPosition);
-            main.MonitorEvent("AircraftPosition : " + Stats.AircraftPosition);
-            main.MonitorEvent("SimEvent : " + Stats.SimEvent);
-            main.MonitorEvent("WeatherRequest : " + Stats.WeatherRequest);
-            main.MonitorEvent("WeatherReply : " + Stats.WeatherReply);
-            main.MonitorEvent("WeatherUpdate : " + Stats.WeatherUpdate);
-            main.MonitorEvent("SharedData : " + Stats.SharedData);
-            main.MonitorEvent("StatusRequest : " + Stats.StatusRequest);
-            main.MonitorEvent("Status : " + Stats.Status);
-            main.MonitorEvent("HubList : " + Stats.HubList);
-            main.MonitorEvent("RemoveObject : " + Stats.RemoveObject);
-            main.MonitorEvent("UserListRequest : " + Stats.UserListRequest);
-            main.MonitorEvent("UserList : " + Stats.UserList);
-            main.MonitorEvent("UserList2 : " + Stats.UserList2);
-            main.MonitorEvent("UserPositionRequest : " + Stats.UserPositionRequest);
-            main.MonitorEvent("UserPositions : " + Stats.UserPositions);
-            main.MonitorEvent("SessionCommsRequest : " + Stats.SessionCommsRequest);
-            main.MonitorEvent("Notes : " + Stats.Notes);
-            main.MonitorEvent("UserNuidRequest : " + Stats.UserNuidRequest);
-            main.MonitorEvent("UserNuid : " + Stats.UserNuid);
-            main.MonitorEvent("Online : " + Stats.Online);
-            main.MonitorEvent("FlightPlanRequest : " + Stats.FlightPlanRequest);
-            main.MonitorEvent("FlightPlan : " + Stats.FlightPlan);
-            main.MonitorEvent("WrongVersion : " + Stats.WrongVersion);
-            main.MonitorEvent("Total : " + Stats.Total);
+            main.monitor.WritePacketStatistics();
             RefreshWindow();
         }
 
