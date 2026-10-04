@@ -452,6 +452,33 @@
     <Setter Property="BorderBrush" Value="{DynamicResource AccentChipBorderBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource AccentChipTextBrush}" />
   </Style>
+  <!-- The same chip as a button, for what is done once. -->
+  <Style Selector="Button.chip">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderButtonBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Padding" Value="12,6" />
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.chip /template/ ContentPresenter#PART_ContentPresenter, Button.chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderButtonBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+  </Style>
+  <Style Selector="Button.chip:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AccentChipBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentChipBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentChipTextBrush}" />
+  </Style>
+  <Style Selector="Button.chip Ellipse.dot">
+    <Setter Property="Width" Value="7" />
+    <Setter Property="Height" Value="7" />
+    <Setter Property="Fill" Value="{DynamicResource DotOffBrush}" />
+  </Style>
+
   <Style Selector="ToggleButton.chip Ellipse.dot">
     <Setter Property="Width" Value="7" />
     <Setter Property="Height" Value="7" />

@@ -40,7 +40,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         FlightPlan = new FlightPlanViewModel(services.FlightPlan, services.SimBrief, Profile, this);
         Recorder = new RecorderViewModel(services.Recorder, services.Traffic, RecordSelection, services.Platform);
         Chat = new ChatViewModel(services.Chat);
-        Monitor = new MonitorViewModel(services.Monitor);
+        Monitor = new MonitorViewModel(services.Monitor, services.Platform);
         Settings = new SettingsViewModel(Profile, AddressBook, services.Preferences, services.Variables, services.Models, services.XPlanePlugin, services.XPlaneScan, services.ModelScan, this, services.Platform, () => Simulator.IsConnected, services.App.IsXPlaneBuild);
 
         // The strip's flight-plan button fetches from SimBrief. If a username is still needed the prompt comes first and
@@ -234,6 +234,9 @@ public sealed partial class MainViewModel : ObservableObject, IShell
                 break;
             case TabId.Models:
                 ModelMatching.Refresh();
+                break;
+            case TabId.Monitor:
+                Monitor.Refresh();
                 break;
             case TabId.FlightPlan:
                 FlightPlan.Refresh();

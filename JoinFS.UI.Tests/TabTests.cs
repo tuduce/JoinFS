@@ -1783,8 +1783,8 @@ public class ChatMonitorHomeTests
         MonitorViewModel monitor = new Rig().Main.Monitor;
 
         Assert.Equal([false, false, true, false], monitor.Filters.Select(f => f.IsOn));
-        monitor.Filters[0].ToggleCommand.Execute(null);
-        Assert.True(monitor.Filters[0].IsOn);
+        monitor.Filters[3].ToggleCommand.Execute(null);
+        Assert.True(monitor.Filters[3].IsOn);
         Assert.Equal("FPS: 48", monitor.FpsText);
     }
 

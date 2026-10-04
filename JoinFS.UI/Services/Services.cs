@@ -276,10 +276,29 @@ public interface IRecorderSource
     int LoadedRecordingSeconds { get; }
 }
 
+/// <summary>The log of what JoinFS is doing, and what is added to it.</summary>
 public interface IMonitorSource
 {
+    /// <summary>The last lines of the log. When there are more than that, the first lines say so.</summary>
     IReadOnlyList<string> GetLogLines();
-    int FramesPerSecond { get; }
+
+    /// <summary>How many frames the simulator draws in a second, measured since this was last read. Null when it cannot be told.</summary>
+    int? FramesPerSecond { get; }
+
+    /// <summary>Log what the network does with each object, as it happens.</summary>
+    bool ShowNetwork { get; set; }
+
+    /// <summary>Log the variables of each object, as they are recorded.</summary>
+    bool ShowVariables { get; set; }
+
+    /// <summary>Writes what the network knows of its nodes to the log, once.</summary>
+    void WriteNodeStatistics();
+
+    /// <summary>Writes how many of each kind of packet were received to the log, once.</summary>
+    void WritePacketStatistics();
+
+    /// <summary>The log files that exist: this run's and the last run's.</summary>
+    IReadOnlyList<string> LogFiles { get; }
 }
 
 /// <summary>What the X-Plane "Scan For Models" dialog starts from and looks at on disk (XPLANE build only).</summary>
