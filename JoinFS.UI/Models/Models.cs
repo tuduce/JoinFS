@@ -109,7 +109,16 @@ public sealed record VariableAssignment(string Model, IReadOnlyList<string> File
     public string FilesText => string.Join(", ", Files);
 }
 
-public sealed record ChatMessage(string From, string Text);
+/// <summary>A line of the chat: a message from a pilot of the session, or a line JoinFS says to you alone (the answer to a "." command).</summary>
+/// <param name="From">The pilot's nickname. Empty for a line of JoinFS's own.</param>
+/// <param name="Callsign">The callsign the pilot was flying under, or empty.</param>
+/// <param name="Time">When it came, to put the lines in order and tell lines apart that read alike.</param>
+/// <param name="IsLocal">A line of JoinFS's own, shown only to you and not kept.</param>
+public sealed record ChatMessage(string From, string Text, string Callsign = "", double Time = 0, bool IsLocal = false)
+{
+    /// <summary>Who said it, ready to put before the text: the nickname, the callsign after it when there is one, and a colon. Empty for a line of JoinFS's own.</summary>
+    public string Label => From.Length == 0 ? "" : (Callsign.Length == 0 ? From : From + " · " + Callsign) + ": ";
+}
 
 public sealed record RecordedAircraft(string Callsign, string Model);
 

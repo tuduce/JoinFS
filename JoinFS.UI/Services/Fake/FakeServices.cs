@@ -394,8 +394,15 @@ public sealed class FakeChatSource : IChatSource
 {
     private readonly List<ChatMessage> _messages = [.. SampleData.Chat];
 
-    public IReadOnlyList<ChatMessage> GetMessages() => _messages;
-    public void Send(string text) => _messages.Add(new ChatMessage("You", text));
+    public IReadOnlyList<ChatMessage> GetMessages() => [.. _messages];
+
+    public bool IsConnected { get; set; } = true;
+    public bool CanSend { get; set; } = true;
+
+    public void Send(string text) => _messages.Add(new ChatMessage("You", text, Time: _messages.Count + 1));
+
+    /// <summary>What the others said: a line is added to the chat.</summary>
+    public void Say(string from, string text) => _messages.Add(new ChatMessage(from, text, Time: _messages.Count + 1));
 
     public bool HasUnread { get; private set; } = true;
     public void MarkRead() => HasUnread = false;

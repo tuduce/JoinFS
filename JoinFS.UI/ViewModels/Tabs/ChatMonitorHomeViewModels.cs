@@ -6,7 +6,7 @@ using JoinFS.UI.Services;
 
 namespace JoinFS.UI.ViewModels.Tabs;
 
-/// <summary>Chat tab: the message list and a composer. The README flags the look for a later visual pass.</summary>
+/// <summary>Chat tab: what is said in the session, and a line to say something. Without a session there is nobody to talk to.</summary>
 public sealed partial class ChatViewModel : ObservableObject
 {
     private readonly IChatSource _source;
@@ -14,25 +14,68 @@ public sealed partial class ChatViewModel : ObservableObject
     public ChatViewModel(IChatSource source)
     {
         _source = source;
-        foreach (ChatMessage message in source.GetMessages())
-            Messages.Add(message);
+        Refresh();
     }
 
     public ObservableCollection<ChatMessage> Messages { get; } = [];
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ComposerHint))]
+    private bool _isConnected;
+
+    /// <summary>What the empty line says: how to chat, or that there is nobody to chat with yet.</summary>
+    public string ComposerHint => IsConnected ? "Type a message" : "Join a hub to chat";
+
+    [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
     private string _draft = "";
 
-    private bool CanSend => !string.IsNullOrWhiteSpace(Draft);
+    private bool CanSend => !string.IsNullOrWhiteSpace(Draft) && _source.CanSend;
+
+    /// <summary>
+    /// Reads the chat again. The lines only ever come at the end and the old ones expire at the start, so what is shown is moved up,
+    /// not rebuilt.
+    /// </summary>
+    public void Refresh()
+    {
+        IReadOnlyList<ChatMessage> lines = _source.GetMessages();
+
+        // The lines already shown that are still in the new ones: the new ones start with them, after the ones that expired.
+        int expired = 0;
+        while (expired < Messages.Count && !StartsWith(lines, Messages, expired))
+            expired++;
+
+        for (int i = 0; i < expired; i++)
+            Messages.RemoveAt(0);
+        for (int i = Messages.Count; i < lines.Count; i++)
+            Messages.Add(lines[i]);
+
+        IsConnected = _source.IsConnected;
+        // Whether a message can be sent now changes with the time, not only with what is typed.
+        SendCommand.NotifyCanExecuteChanged();
+    }
+
+    // Do the lines shown, from the one at <skip>, start the new lines?
+    private static bool StartsWith(IReadOnlyList<ChatMessage> lines, IList<ChatMessage> shown, int skip)
+    {
+        int count = shown.Count - skip;
+        if (count > lines.Count)
+            return false;
+        for (int i = 0; i < count; i++)
+        {
+            if (lines[i] != shown[skip + i])
+                return false;
+        }
+        return true;
+    }
 
     [RelayCommand(CanExecute = nameof(CanSend))]
     private void Send()
     {
-        string text = Draft.Trim();
-        _source.Send(text);
-        Messages.Add(new ChatMessage("You", text));
+        _source.Send(Draft.Trim());
         Draft = "";
+        // What was said is among the lines, as it is for everyone.
+        Refresh();
     }
 }
 
