@@ -358,6 +358,33 @@ namespace JoinFS.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The connection was lost and the hub rejected the saved credentials (they may have changed). Please enter them again to reconnect..
+        /// </summary>
+        internal static string ReconnectCredentialsRejected {
+            get {
+                return ResourceManager.GetString("ReconnectCredentialsRejected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Connection lost - trying to reconnect automatically..
+        /// </summary>
+        internal static string Tip_NetworkReconnecting {
+            get {
+                return ResourceManager.GetString("Tip_NetworkReconnecting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Connection lost. Automatic reconnect could not re-establish it within the last {0} minutes. Try reconnecting manually when you are ready..
+        /// </summary>
+        internal static string ReconnectGaveUp {
+            get {
+                return ResourceManager.GetString("ReconnectGaveUp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid email or password.
         /// </summary>
         internal static string InvalidEmail {

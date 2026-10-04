@@ -776,5 +776,13 @@
   </data>
   <data name="Recorder_AutoSaved" xml:space="preserve">
     <value>Запись сохранена: {0}</value>
+  <data name="ReconnectCredentialsRejected" xml:space="preserve">
+    <value>Соединение потеряно, и хаб отклонил сохранённые учётные данные (возможно, они изменились). Введите их снова, чтобы подключиться.</value>
+  </data>
+  <data name="Tip_NetworkReconnecting" xml:space="preserve">
+    <value>Соединение потеряно: выполняется автоматическое переподключение.</value>
+  </data>
+  <data name="ReconnectGaveUp" xml:space="preserve">
+    <value>Соединение потеряно. Автоматическое переподключение не удалось восстановить за последние {0} мин. Подключитесь вручную, когда будете готовы.</value>
   </data>
 </root>

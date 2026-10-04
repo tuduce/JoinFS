@@ -1,0 +1,182 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:RecordingXRay.ViewModels"
+             xmlns:c="using:RecordingXRay.Views.Controls"
+             x:Class="RecordingXRay.Views.InspectorView"
+             x:DataType="vm:InspectorViewModel">
+
+  <Border Classes="panel">
+    <Grid RowDefinitions="Auto,*">
+
+      <!-- Header: frame type, where it is from, flags, Fields | Raw, Copy -->
+      <Border Grid.Row="0" IsVisible="{Binding HasFrame}" Padding="16,12" BorderBrush="{StaticResource RaisedBrush}"
+              BorderThickness="0,0,0,1">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+            <Ellipse Grid.Column="0" Width="10" Height="10" Margin="0,0,10,0"
+                     Fill="{Binding Kind, Converter={x:Static c:KindBrushConverter.Instance}}" />
+            <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+              <TextBlock Text="{Binding TypeName}" FontSize="16" FontWeight="SemiBold" />
+              <TextBlock Classes="muted" FontSize="12" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <Border Grid.Column="2" Classes="segmented" VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal">
+                <Button Classes="seg" Classes.active="{Binding IsFields}" Content="Fields" Command="{Binding ShowFieldsModeCommand}" />
+                <Button Classes="seg" Classes.active="{Binding IsRaw}" Content="Raw" Command="{Binding ShowRawModeCommand}" />
+              </StackPanel>
+            </Border>
+            <Button Grid.Column="3" Classes="ghost" Width="32" Height="32" Margin="8,0,0,0" BorderThickness="1"
+                    BorderBrush="{StaticResource RaisedBrush}" Command="{Binding CopyCommand}"
+                    AutomationProperties.Name="Copy frame as text" ToolTip.Tip="Copy frame as text">
+              <Path Classes="icon" Data="{StaticResource IconCopy}" Stroke="{StaticResource Text2Brush}" />
+            </Button>
+          </Grid>
+
+          <ItemsControl ItemsSource="{Binding Flags}" IsVisible="{Binding HasFlags}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" Spacing="6" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:FlagChip">
+                <Border Classes="flag" Classes.on="{Binding IsOn}">
+                  <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                    <Path Classes="icon" Data="{StaticResource IconCheck}" IsVisible="{Binding IsOn}" />
+                    <Path Classes="icon" Data="{StaticResource IconDash}" IsVisible="{Binding !IsOn}" />
+                    <TextBlock Text="{Binding Text}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <TextBlock Grid.Row="0" Grid.RowSpan="2" Classes="muted" Text="Select a frame to inspect it"
+                 IsVisible="{Binding IsEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+      <!-- Fields: instruments and cards -->
+      <ScrollViewer Grid.Row="1" IsVisible="{Binding ShowCards}" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="16,12" Spacing="12">
+
+          <Grid ColumnDefinitions="*,12,*" IsVisible="{Binding HasInstruments}">
+            <Border Grid.Column="0" Classes="card" Padding="8,10">
+              <StackPanel Spacing="6" HorizontalAlignment="Center">
+                <c:AttitudeIndicator Width="148" Height="148" Pitch="{Binding PitchRadians}" Bank="{Binding BankRadians}"
+                                     AutomationProperties.Name="Attitude indicator" />
+                <TextBlock Classes="caption" Text="ATTITUDE" HorizontalAlignment="Center" />
+                <TextBlock Classes="mono" FontSize="11" Foreground="{StaticResource Text2Brush}" Text="{Binding AttitudeText}"
+                           HorizontalAlignment="Center" />
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="card" Padding="8,10">
+              <StackPanel Spacing="6" HorizontalAlignment="Center">
+                <c:HeadingDial Width="148" Height="148" Heading="{Binding HeadingRadians}"
+                               AutomationProperties.Name="Heading dial" />
+                <TextBlock Classes="caption" Text="HEADING" HorizontalAlignment="Center" />
+                <TextBlock Classes="mono" FontSize="11" Foreground="{StaticResource Text2Brush}" Text="{Binding HeadingText}"
+                           HorizontalAlignment="Center" />
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <ItemsControl ItemsSource="{Binding Cards}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Spacing="12" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:FieldCard">
+                <Border Classes="card">
+                  <StackPanel>
+                    <TextBlock Classes="caption" Text="{Binding Title}" Margin="0,0,0,6" />
+                    <ItemsControl ItemsSource="{Binding Rows}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:FieldRow">
+                          <Border Classes="fieldrow" CornerRadius="5" Margin="-6,0" Padding="6,0" Height="26">
+                            <Grid ColumnDefinitions="70,*,Auto">
+                              <TextBlock Foreground="{StaticResource KeyLabelBrush}" Text="{Binding Key}" VerticalAlignment="Center" />
+                              <TextBlock Grid.Column="1" Classes="mono muted" FontSize="11.5" Text="{Binding Degrees}"
+                                         HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" />
+                              <TextBlock Grid.Column="2" Classes="mono" FontSize="12.5" Foreground="{StaticResource StrongTextBrush}"
+                                         Text="{Binding Value}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <Border Classes="card" IsVisible="{Binding HasControls}">
+            <StackPanel>
+              <TextBlock Classes="caption" Text="CONTROLS (RAW)" Margin="0,0,0,6" />
+              <ItemsControl ItemsSource="{Binding Controls}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ControlRow">
+                    <Border Classes="fieldrow" CornerRadius="5" Margin="-6,0" Padding="6,0" Height="26">
+                      <Grid ColumnDefinitions="82,*,52">
+                        <TextBlock Foreground="{StaticResource KeyLabelBrush}" Text="{Binding Key}" VerticalAlignment="Center" />
+                        <c:ValueBar Grid.Column="1" Value="{Binding Fraction}" IsCentered="{Binding IsCentered}"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBlock Grid.Column="2" Classes="mono" FontSize="12.5" Foreground="{StaticResource StrongTextBrush}"
+                                   Text="{Binding RawText}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Fields: variables table -->
+      <Panel Grid.Row="1" IsVisible="{Binding ShowVariables}">
+      <Grid RowDefinitions="Auto,Auto,*" DataContext="{Binding Variables}" x:DataType="vm:VariablesViewModel">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="16,12,16,8">
+          <TextBox Classes="field" Text="{Binding FilterText}" Watermark="Filter by id, name or value"
+                   AutomationProperties.Name="Filter variables" />
+          <TextBlock Grid.Column="1" Classes="muted" FontSize="12" Text="{Binding CountText}" Margin="12,0,0,0"
+                     VerticalAlignment="Center" />
+        </Grid>
+        <Grid Grid.Row="1" ColumnDefinitions="90,*,150" Height="28" Background="{StaticResource CardBrush}">
+          <Button Classes="ghost" Command="{Binding SortByCommand}" CommandParameter="{x:Static vm:VariableSort.Id}"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="16,0" Height="28" CornerRadius="0"
+                  FontSize="10.5" Foreground="{StaticResource MutedBrush}" Content="{Binding IdHeader}" />
+          <Button Grid.Column="1" Classes="ghost" Command="{Binding SortByCommand}" CommandParameter="{x:Static vm:VariableSort.Name}"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="10,0" Height="28" CornerRadius="0"
+                  FontSize="10.5" Foreground="{StaticResource MutedBrush}" Content="{Binding NameHeader}" />
+          <Button Grid.Column="2" Classes="ghost" Command="{Binding SortByCommand}" CommandParameter="{x:Static vm:VariableSort.Value}"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Right" Padding="10,0,16,0" Height="28" CornerRadius="0"
+                  FontSize="10.5" Foreground="{StaticResource MutedBrush}" Content="{Binding ValueHeader}" />
+        </Grid>
+        <ListBox Grid.Row="2" Classes="flat" ItemsSource="{Binding View}" AutomationProperties.Name="Variables"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:VariableRow">
+              <Grid ColumnDefinitions="90,*,150" Height="28">
+                <TextBlock Classes="mono muted" FontSize="12" Text="{Binding IdText}" Margin="12,0,0,0" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Foreground="{StaticResource Text2Brush}" Text="{Binding Name}" Margin="10,0"
+                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Classes="mono" FontSize="12.5" Foreground="{StaticResource StrongTextBrush}"
+                           Text="{Binding Value}" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Value}" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+      </Panel>
+
+      <!-- Raw -->
+      <TextBox Grid.Row="1" Classes="raw" IsVisible="{Binding ShowRaw}" IsReadOnly="True" AcceptsReturn="True"
+               Text="{Binding RawText, Mode=OneWay}" AutomationProperties.Name="Raw frame text" />
+    </Grid>
+  </Border>
+</UserControl>

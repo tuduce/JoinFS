@@ -776,5 +776,13 @@
   </data>
   <data name="Recorder_AutoSaved" xml:space="preserve">
     <value>Registrazione salvata: {0}</value>
+  <data name="ReconnectCredentialsRejected" xml:space="preserve">
+    <value>La connessione è stata persa e l&apos;hub ha rifiutato le credenziali salvate (potrebbero essere cambiate). Inseriscile di nuovo per riconnetterti.</value>
+  </data>
+  <data name="Tip_NetworkReconnecting" xml:space="preserve">
+    <value>Connessione persa: riconnessione automatica in corso.</value>
+  </data>
+  <data name="ReconnectGaveUp" xml:space="preserve">
+    <value>Connessione persa. La riconnessione automatica non è riuscita a ripristinarla negli ultimi {0} minuti. Riprova a connetterti manualmente quando sei pronto.</value>
   </data>
 </root>

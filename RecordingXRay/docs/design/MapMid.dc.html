@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RecordingXRay map, mid-flight</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#0B0E16}
+</style>
+</helmet>
+<div style="width: 550px; height: 514px">
+  <dc-import name="Map" time="298.689" selected="G-CTAN" accent="{{accent}}" hint-size="550px,514px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF8A3D"},"$preview":{"width":550,"height":514}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#FF8A3D' };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Empty.dc.html": { "h": 900, "title": "No recording open", "w": 1440, "x": 1520, "y": 0 },
+    "Main.dc.html": { "h": 900, "title": "Recording loaded", "w": 1440, "x": 0, "y": 0 },
+    "Map.dc.html": { "h": 514, "is_interactive": true, "title": "Map: cursor at start", "w": 550, "x": 0, "y": 1020 },
+    "MapMid.dc.html": { "h": 514, "is_interactive": true, "title": "Map: cursor mid-flight, G-CTAN selected", "w": 550, "x": 630, "y": 1020 },
+    "Proto.dc.html": { "h": 806, "is_interactive": true, "title": "Prototype: selection, cursor and follow", "w": 1240, "x": 0, "y": 1654 }
+  },
+  "createdOnFiles": { "at": "2026-10-03T12:00:00Z", "v": 1 },
+  "designSystems": [],
+  "launch": { "view": "canvas" },
+  "notes": {
+    "m1": {
+      "fill": "green",
+      "text": "Map behaviour\nClick (or Enter on) a marker to select that aircraft\nThe entire flight is always drawn: past of the cursor bright and solid, future dim and dashed\nSelecting keeps the cursor if the lane has data at that time, otherwise jumps to the lane's first or last frame\nFollow keeps the map centred on the selected aircraft\nThe map boards and the prototype below are interactive",
+      "w": 560,
+      "x": 1260,
+      "y": 1020
+    },
+    "m2": {
+      "fill": "green",
+      "text": "Try in the prototype\nCursor at 4:58, select T3: its lane ended at 3:40, so the cursor jumps to its last frame\nClick the timeline near 0:20, then select T7 John: its lane starts at 0:57, so the cursor jumps to its first frame\nSelect G-CTAN at 4:58: it has data, so the cursor stays\nTurn on Follow and select different aircraft",
+      "w": 560,
+      "x": 1320,
+      "y": 1654
+    },
+    "n1": {
+      "fill": "blue",
+      "text": "Avalonia mapping\nWindow: ExtendClientAreaToDecorations, FluentTheme dark\nFrame list: ListBox/ItemsRepeater (virtualized, 144k frames)\nMap: Mapsui MapControl; trail = two layers (past / future) split at the cursor time; Follow = Map.Navigator.CenterOn\nTimeline: custom Control that draws a density histogram per aircraft\nSelection rule: one SelectAircraft(id) in the view model, used by map markers and timeline tracks\nInspector cards: ItemsControl of Border + Grid\nInstruments: small custom-drawn Controls\nPanes: GridSplitter\nOpen: StorageProvider.OpenFilePickerAsync, plus drag and drop",
+      "w": 560,
+      "x": 0,
+      "y": 2540
+    },
+    "n2": {
+      "fill": "orange",
+      "text": "Mock-up placeholders\nOnly YR-SCD's start marker and first frame time (0.026 s) use real data; every other lane extent, all trails and the mid-flight coordinates are illustrative\nGraticule stands in for real basemap tiles\nTimeline lane texture is illustrative: the real one is drawn from frame times\nControl bars assume a raw range of -16383..16383",
+      "w": 560,
+      "x": 640,
+      "y": 2540
+    },
+    "t1": {
+      "kind": "title1",
+      "maxW": 2960,
+      "text": "RecordingXRay: timeline-style refresh",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    }
+  },
+  "order": ["Main.dc.html", "Empty.dc.html", "Map.dc.html", "MapMid.dc.html", "Proto.dc.html"],
+  "pages": [],
+  "title": "RecordingXRay Redesign"
+}

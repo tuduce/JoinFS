@@ -776,5 +776,13 @@
   </data>
   <data name="Recorder_AutoSaved" xml:space="preserve">
     <value>Enregistrement sauvegardé : {0}</value>
+  <data name="ReconnectCredentialsRejected" xml:space="preserve">
+    <value>La connexion a été perdue et le hub a rejeté les identifiants enregistrés (ils ont peut-être changé). Saisissez-les à nouveau pour vous reconnecter.</value>
+  </data>
+  <data name="Tip_NetworkReconnecting" xml:space="preserve">
+    <value>Connexion perdue : reconnexion automatique en cours.</value>
+  </data>
+  <data name="ReconnectGaveUp" xml:space="preserve">
+    <value>Connexion perdue. La reconnexion automatique n&apos;a pas pu la rétablir au cours des {0} dernières minutes. Reconnectez-vous manuellement quand vous serez prêt.</value>
   </data>
 </root>

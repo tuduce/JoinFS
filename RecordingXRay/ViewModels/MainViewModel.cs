@@ -1,0 +1,248 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using RecordingXRay.Services;
+
+namespace RecordingXRay.ViewModels;
+
+public enum StatusKind
+{
+    Ready,
+    Loading,
+    Loaded,
+    Error,
+}
+
+/// <summary>An entry in the recent files list.</summary>
+public sealed record RecentFile(string Path, string FileName, string Directory, System.Windows.Input.ICommand? Open = null);
+
+public partial class MainViewModel : ObservableObject
+{
+    public const int MaxRecentFiles = 5;
+
+    private readonly ISettingsStore settingsStore;
+    private readonly AppSettings settings;
+    private readonly ITileSource? tiles;
+    private int loadGeneration;
+
+    /// <param name="resolveName">Maps a variable id to its name. Defaults to the JoinFS variable tables, loaded on first use.</param>
+    /// <param name="tiles">Where the map's basemap comes from. None (the default) gives a map without a basemap.</param>
+    /// <param name="settingsStore">Where recent files and options are kept. Defaults to memory only.</param>
+    public MainViewModel(Func<uint, string>? resolveName = null, ITileSource? tiles = null, ISettingsStore? settingsStore = null)
+    {
+        if (resolveName is null)
+        {
+            Lazy<VariableLookup> lookup = new(VariableLookup.Create);
+            resolveName = id => lookup.Value.Resolve(id);
+        }
+
+        this.tiles = tiles;
+        this.settingsStore = settingsStore ?? new MemorySettingsStore();
+        settings = this.settingsStore.Load();
+        recentFiles = settings.RecentFiles.Where(File.Exists).Take(MaxRecentFiles).Select(ToRecent).ToArray();
+
+        Browser = new FrameBrowserViewModel();
+        Inspector = new InspectorViewModel(resolveName);
+        Browser.FrameSelected += OnFrameSelected;
+    }
+
+    /// <summary>Asks the user for a recording file. Set by the window; returns null when cancelled.</summary>
+    public Func<Task<string?>>? PickFile { get; set; }
+
+    /// <summary>Puts text on the clipboard. Set by the window.</summary>
+    public Func<string, Task>? CopyText
+    {
+        get => Inspector.CopyText;
+        set => Inspector.CopyText = value;
+    }
+
+    public FrameBrowserViewModel Browser { get; }
+
+    public InspectorViewModel Inspector { get; }
+
+    /// <summary>Every aircraft, then every object, of the loaded recording.</summary>
+    [ObservableProperty]
+    private IReadOnlyList<LaneViewModel> lanes = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRecording), nameof(IsEmpty))]
+    private RecordingFile? recording;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFile), nameof(FileName), nameof(FileDirectory), nameof(WindowTitle))]
+    private string? filePath;
+
+    /// <summary>True while a file is being dragged over the window.</summary>
+    [ObservableProperty]
+    private bool isDragOver;
+
+    /// <summary>Recently opened recordings, newest first, shown on the empty screen.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRecent))]
+    private IReadOnlyList<RecentFile> recentFiles;
+
+    public bool HasRecent => RecentFiles.Count > 0;
+
+    public string WindowTitle => HasFile ? $"{FileName} - RecordingXRay" : "RecordingXRay";
+
+    [ObservableProperty]
+    private RecordingSummary summary = RecordingSummary.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasError))]
+    private string? errorMessage;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusText), nameof(IsStatusReady), nameof(IsStatusLoading), nameof(IsStatusLoaded), nameof(IsStatusError))]
+    private StatusKind status = StatusKind.Ready;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(OpenCommand))]
+    private bool isLoading;
+
+    [ObservableProperty]
+    private IReadOnlyList<SummaryItem> summaryItems = BuildItems(RecordingSummary.Empty);
+
+    public bool HasRecording => Recording is not null;
+
+    public bool IsEmpty => Recording is null;
+
+    public bool HasFile => !string.IsNullOrEmpty(FilePath);
+
+    public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+
+    /// <summary>Folder part of <see cref="FilePath"/> including the trailing separator, for the address pill.</summary>
+    public string FileDirectory
+    {
+        get
+        {
+            string? directory = HasFile ? Path.GetDirectoryName(FilePath) : null;
+            return string.IsNullOrEmpty(directory)
+                ? string.Empty
+                : directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        }
+    }
+
+    public string FileName => HasFile ? Path.GetFileName(FilePath)! : "No recording open";
+
+    public string StatusText => Status switch
+    {
+        StatusKind.Loading => "Loading…",
+        StatusKind.Loaded => "Recording loaded",
+        StatusKind.Error => "Unable to read recording",
+        _ => "Ready",
+    };
+
+    public bool IsStatusReady => Status == StatusKind.Ready;
+
+    public bool IsStatusLoading => Status == StatusKind.Loading;
+
+    public bool IsStatusLoaded => Status == StatusKind.Loaded;
+
+    public bool IsStatusError => Status == StatusKind.Error;
+
+    [RelayCommand(CanExecute = nameof(CanOpen))]
+    private async Task OpenAsync()
+    {
+        string? path = PickFile is null ? null : await PickFile();
+        if (!string.IsNullOrEmpty(path))
+        {
+            await LoadAsync(path);
+        }
+    }
+
+    private bool CanOpen() => !IsLoading;
+
+    [RelayCommand]
+    private void DismissError() => ErrorMessage = null;
+
+    [RelayCommand]
+    private void ClearRecent() => SetRecent([]);
+
+    private RecentFile ToRecent(string path) =>
+        new(path, Path.GetFileName(path), Path.GetDirectoryName(path) ?? string.Empty, new AsyncRelayCommand(() => LoadAsync(path)));
+
+    private void SetRecent(IEnumerable<string> paths)
+    {
+        string[] list = paths.Take(MaxRecentFiles).ToArray();
+        RecentFiles = list.Select(ToRecent).ToArray();
+        settings.RecentFiles = [.. list];
+        settingsStore.Save(settings);
+    }
+
+    private void RememberRecent(string path) =>
+        SetRecent(new[] { path }.Concat(RecentFiles.Select(r => r.Path).Where(p => !string.Equals(p, path, StringComparison.OrdinalIgnoreCase))));
+
+    private void ForgetRecent(string path) =>
+        SetRecent(RecentFiles.Select(r => r.Path).Where(p => !string.Equals(p, path, StringComparison.OrdinalIgnoreCase)));
+
+    /// <summary>
+    /// Reads a recording on a background thread. On failure the previously loaded recording stays in place
+    /// and the message is shown in the error banner.
+    /// </summary>
+    public async Task LoadAsync(string path)
+    {
+        int generation = ++loadGeneration;
+        IsLoading = true;
+        Status = StatusKind.Loading;
+        ErrorMessage = null;
+
+        try
+        {
+            (RecordingFile file, RecordingSummary summary, LaneViewModel[] laneList) = await Task.Run(() =>
+            {
+                RecordingFile file = RecordingReader.Read(path);
+                LaneViewModel[] laneList = file.Aircraft.Concat<RecordedObject>(file.Objects)
+                    .Select(source => new LaneViewModel(source)).ToArray();
+                return (file, RecordingSummary.From(file), laneList);
+            });
+
+            if (generation != loadGeneration)
+            {
+                return;
+            }
+
+            Recording = file;
+            FilePath = path;
+            Summary = summary;
+            SummaryItems = BuildItems(summary);
+            Status = StatusKind.Loaded;
+
+            ResetForRecording(laneList, summary.DurationSeconds);
+            RememberRecent(path);
+        }
+        catch (Exception ex)
+        {
+            if (generation != loadGeneration)
+            {
+                return;
+            }
+
+            ErrorMessage = $"{Path.GetFileName(path)}: {ex.Message}";
+            Status = StatusKind.Error;
+            if (!File.Exists(path))
+            {
+                ForgetRecent(path); // a recent file that has gone away is dropped from the list
+            }
+        }
+        finally
+        {
+            if (generation == loadGeneration)
+            {
+                IsLoading = false;
+            }
+        }
+    }
+
+    internal static IReadOnlyList<SummaryItem> BuildItems(RecordingSummary summary)
+    {
+        bool placeholder = ReferenceEquals(summary, RecordingSummary.Empty);
+        return
+        [
+            new("VERSION", summary.Version, IsPlaceholder: placeholder),
+            new("AIRCRAFT", summary.Aircraft, IsPlaceholder: placeholder),
+            new("OBJECTS", summary.Objects, IsPlaceholder: placeholder),
+            new("FRAMES", summary.Frames, IsPlaceholder: placeholder),
+            new("DURATION", summary.Duration, summary.DurationClock, placeholder),
+        ];
+    }
+}

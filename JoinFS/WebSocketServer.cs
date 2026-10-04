@@ -29,6 +29,11 @@ namespace JoinFS
 
         // WebSocket state
         readonly List<WebSocket> _clients = [];
+        // One send at a time per client: WebSocket.SendAsync throws InvalidOperationException if a
+        // second call overlaps a still-pending one, which the broadcast loop's catch previously
+        // treated as a dead client and evicted - even though it was healthy, just slow to drain a
+        // prior tick's send. Keyed by the same WebSocket instance kept in _clients.
+        readonly Dictionary<WebSocket, SemaphoreSlim> _sendLocks = [];
         readonly object _clientLock = new();
         readonly CancellationTokenSource _cts = new();
         readonly Thread _listenThread;
@@ -36,9 +41,18 @@ namespace JoinFS
         // Change detection
         readonly Dictionary<Guid, AircraftSnapshot> _previous = [];
 
+        // Aircraft currently skipped for an implausible position, so the warning logs once per
+        // aircraft per bad streak instead of every tick (which would flood the log for a peer/hub
+        // stuck sending garbled positions) - cleared on recovery or disappearance, same pass as
+        // _previous's own stale cleanup below.
+        readonly HashSet<Guid> _warnedImplausible = [];
+
         struct AircraftSnapshot
         {
             public string callsign, nickname, guid;
+            // "pilot" (a real connected pilot), "recorded" (Recorder-replayed) or "ai" (other
+            // non-pilot traffic) - mirrors the desktop Aircraft Dialog's (R)/(A) distinction
+            public string trafficType;
             public string registration, icaoAirline, flightNumber;
             public double altitude, speed, latitude, longitude;
             public int heading;
@@ -119,8 +133,10 @@ namespace JoinFS
                 catch (Exception) when (_cts.IsCancellationRequested) { break; }
                 catch (Exception ex)
                 {
-                    if (main.settingsWebSocketLog)
-                        main.monitor.Write($"WebSocket accept error: {ex.Message}");
+                    // a real accept failure, not routine chatter - no silent errors
+                    main.monitor.Write($"WebSocket accept error: {ex.Message}");
+                    // don't spin a core if GetContext() is in a persistently faulting state
+                    Thread.Sleep(1000);
                 }
             }
 
@@ -137,12 +153,16 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                if (main.settingsWebSocketLog)
-                    main.monitor.Write($"WebSocket upgrade error: {ex.Message}");
+                // a real upgrade failure, not routine chatter - no silent errors
+                main.monitor.Write($"WebSocket upgrade error: {ex.Message}");
                 return;
             }
 
-            lock (_clientLock) _clients.Add(ws);
+            lock (_clientLock)
+            {
+                _clients.Add(ws);
+                _sendLocks[ws] = new SemaphoreSlim(1, 1);
+            }
             if (main.settingsWebSocketLog)
                 main.monitor.Write($"WebSocket client connected ({_clients.Count} total)");
 
@@ -160,7 +180,13 @@ namespace JoinFS
             catch { /* client disconnected */ }
             finally
             {
-                lock (_clientLock) _clients.Remove(ws);
+                SemaphoreSlim sendLock;
+                lock (_clientLock)
+                {
+                    _clients.Remove(ws);
+                    _sendLocks.Remove(ws, out sendLock);
+                }
+                sendLock?.Dispose();
                 if (main.settingsWebSocketLog)
                     main.monitor.Write($"WebSocket client disconnected ({_clients.Count} remaining)");
                 ws.Dispose();
@@ -172,12 +198,15 @@ namespace JoinFS
         AircraftSnapshot SnapshotFromAircraft(Sim.Aircraft aircraft)
         {
             var snap = new AircraftSnapshot();
-            snap.guid = main.network.Peers.GetNodeGuid(aircraft.ownerNuid).ToString();
+            snap.guid = main.network.Peers.GetAircraftIdentityGuid(aircraft.ownerNuid, aircraft.netId, aircraft.simId).ToString();
             snap.callsign = aircraft.flightPlan.callsign;
             snap.registration = aircraft.flightPlan.registration;
             snap.icaoAirline = aircraft.flightPlan.icaoAirline;
             snap.flightNumber = aircraft.flightPlan.flightNumber;
             snap.nickname = main.network.Peers.GetNodeName(aircraft.ownerNuid);
+            // mirrors the desktop Aircraft Dialog's (R)/(A) distinction, so a map consumer can
+            // distinguish a replayed/AI aircraft from a real pilot without a separate lookup
+            snap.trafficType = aircraft.user ? "pilot" : (aircraft.owner == Sim.Obj.Owner.Recorder ? "recorded" : "ai");
 
             var pos = aircraft.Position;
             if (pos != null)
@@ -233,6 +262,8 @@ namespace JoinFS
             snap.icaoAirline = user.flightPlan.icaoAirline;
             snap.flightNumber = user.flightPlan.flightNumber;
             snap.nickname = user.nickname;
+            // global hub users are always real connected pilots
+            snap.trafficType = "pilot";
             snap.latitude  = user.latitude;
             snap.longitude = user.longitude;
             snap.altitude  = user.altitude;
@@ -253,7 +284,7 @@ namespace JoinFS
         }
 
         static bool SnapshotsEqual(in AircraftSnapshot a, in AircraftSnapshot b) =>
-            a.callsign == b.callsign && a.nickname == b.nickname &&
+            a.callsign == b.callsign && a.nickname == b.nickname && a.trafficType == b.trafficType &&
             a.registration == b.registration && a.icaoAirline == b.icaoAirline && a.flightNumber == b.flightNumber &&
             a.altitude == b.altitude && a.speed == b.speed &&
             a.latitude == b.latitude && a.longitude == b.longitude &&
@@ -273,12 +304,13 @@ namespace JoinFS
             callsign = s.callsign,
             registration = s.registration,
             // "" for General Aviation (no explicit airline data and the callsign doesn't shape-match a
-            // commercial flight) - see Sim.DeriveIcaoAirlineFromCallsign, applied in
+            // commercial flight) - see CallsignRules.DeriveIcaoAirline, applied in
             // Network.SendFlightPlanMessage before this snapshot is taken, so this already reflects a
             // callsign-derived fallback when nothing more authoritative supplied one.
             icaoAirline = s.icaoAirline,
             flightNumber = s.flightNumber,
             nickname = s.nickname,
+            trafficType = s.trafficType,
             guid     = s.guid,
             altitude = Math.Round(s.altitude, 0),
             speed    = Math.Round(s.speed, 1),
@@ -303,10 +335,40 @@ namespace JoinFS
             onGround = s.onGround
         };
 
+        // Newtonsoft throws on NaN/Infinity by default; a single stray non-finite value in one
+        // aircraft record would otherwise take down the whole feed (and, via the work-thread
+        // failure streak, the process). Emit 0 for those instead.
+        static readonly JsonSerializerSettings _jsonSettings = new() { FloatFormatHandling = FloatFormatHandling.DefaultValue };
+
+        // A snapshot whose position didn't survive decoding (wire-format mismatch upstream): skip
+        // it rather than publish 1e202 / int.MinValue to every client.
+        static bool PlausibleSnapshot(in AircraftSnapshot s) =>
+            double.IsFinite(s.latitude) && double.IsFinite(s.longitude) && double.IsFinite(s.altitude)
+            && Math.Abs(s.latitude) <= 90.0 && Math.Abs(s.longitude) <= 180.0
+            && s.altitude >= -2000.0 && s.altitude <= 300000.0
+            && s.heading >= -360 && s.heading <= 360;
+
         // Called from DoWork() inside conch lock
         public void DoWork()
         {
+            try
+            {
+                DoWorkInner();
+            }
+            catch (Exception ex)
+            {
+                // never let the feed feed the work-thread failure streak (Program.cs escalates
+                // 5 throws in 5 s to a full shutdown) - but never swallow it silently either: an
+                // exception escaping DoWorkInner is always unexpected, so this logs regardless of
+                // the websocketlog setting (no silent errors).
+                main.monitor.Write($"WebSocket DoWork error: {ex.Message}");
+            }
+        }
+
+        void DoWorkInner()
+        {
             var changedSnaps = new List<AircraftSnapshot>();
+            var seen = new HashSet<Guid>();
 
             // --- sim aircraft ---
             if (main.sim != null)
@@ -315,10 +377,20 @@ namespace JoinFS
                 {
                     if (obj is not Sim.Aircraft aircraft) continue;
 
-                    Guid key = main.network.Peers.GetNodeGuid(aircraft.ownerNuid);
-                    if (key == Guid.Empty) key = new Guid(aircraft.simId, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                    Guid key = main.network.Peers.GetAircraftIdentityGuid(aircraft.ownerNuid, aircraft.netId, aircraft.simId);
+                    // tracked here (not just on the plausible path below) so a transient bad streak
+                    // doesn't make the stale-cleanup pass below mistake this aircraft for one that
+                    // disappeared and prune its _previous entry out from under it
+                    seen.Add(key);
 
                     var snap = SnapshotFromAircraft(aircraft);
+                    if (!PlausibleSnapshot(in snap))
+                    {
+                        if (_warnedImplausible.Add(key))
+                            main.monitor.Write($"[WS] skipping {aircraft.flightPlan.callsign}: implausible position (peer/hub version mismatch?)");
+                        continue;
+                    }
+                    _warnedImplausible.Remove(key);
 
                     bool existed = _previous.TryGetValue(key, out var prev);
                     _previous[key] = snap;
@@ -347,6 +419,8 @@ namespace JoinFS
                     {
                         Guid key = user.guid;
                         var snap = SnapshotFromHubUser(user);
+                        if (!PlausibleSnapshot(in snap)) continue;
+                        seen.Add(key);
 
                         bool existed = _previous.TryGetValue(key, out var prev);
                         _previous[key] = snap;
@@ -362,34 +436,94 @@ namespace JoinFS
                 }
             }
 
+            // drop change-detection/warned-implausible state for aircraft/users that are gone (was
+            // an unbounded leak) - _warnedImplausible can hold keys _previous never did (an
+            // aircraft that's never once been plausible never entered _previous), so it's pruned
+            // against the same "seen this tick" set independently rather than only when _previous
+            // happens to be ahead of it.
+            if (_previous.Count > seen.Count)
+            {
+                var stale = new List<Guid>();
+                foreach (var k in _previous.Keys)
+                    if (!seen.Contains(k)) stale.Add(k);
+                foreach (var k in stale) _previous.Remove(k);
+            }
+            if (_warnedImplausible.Count > 0)
+            {
+                _warnedImplausible.RemoveWhere(k => !seen.Contains(k));
+            }
+
             if (changedSnaps.Count == 0) return;
 
             // serialize outside the lock, broadcast off the work thread
             var jsonObjs = new List<object>(changedSnaps.Count);
             foreach (var s in changedSnaps) jsonObjs.Add(ToJson(s));
-            string message = JsonConvert.SerializeObject(new { type = "aircraft_update", aircraft = jsonObjs });
+            string message = JsonConvert.SerializeObject(new { type = "aircraft_update", aircraft = jsonObjs }, _jsonSettings);
 
             List<WebSocket> snapshot;
             lock (_clientLock) snapshot = [.. _clients];
 
             if (snapshot.Count == 0) return;
 
-            bool log = main.settingsWebSocketLog;
             Task.Run(async () =>
             {
                 var bytes = Encoding.UTF8.GetBytes(message);
                 var segment = new ArraySegment<byte>(bytes);
+                var dead = new List<WebSocket>();
                 foreach (var ws in snapshot)
                 {
-                    if (ws.State != WebSocketState.Open) continue;
+                    if (ws.State != WebSocketState.Open) { dead.Add(ws); continue; }
+
+                    SemaphoreSlim sendLock;
+                    lock (_clientLock)
+                    {
+                        if (!_sendLocks.TryGetValue(ws, out sendLock)) continue; // disconnected since the snapshot was taken
+                    }
+
+                    // One send in flight per client at a time: a second DoWork tick can fire
+                    // before a slow client's previous SendAsync has finished, and WebSocket.SendAsync
+                    // throws InvalidOperationException on an overlapping call - which used to evict
+                    // a perfectly healthy, just-slow client as if it had errored.
                     try
                     {
-                        await ws.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
+                        await sendLock.WaitAsync(_cts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break; // server shutting down
+                    }
+                    try
+                    {
+                        // bound every send: a client that stops draining must not stall delivery
+                        // to the others, and must actually get evicted
+                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        await ws.SendAsync(segment, WebSocketMessageType.Text, true, cts.Token);
                     }
                     catch (Exception ex)
                     {
-                        if (log) main.monitor.Write($"WebSocket send error: {ex.Message}");
+                        dead.Add(ws);
+                        // a genuine send failure (the per-client lock above rules out the
+                        // overlapping-send false positive) - a client silently disappearing with no
+                        // trace is exactly what no-silent-errors is meant to prevent
+                        main.monitor.Write($"WebSocket send error (dropping client): {ex.Message}");
                     }
+                    finally
+                    {
+                        sendLock.Release();
+                    }
+                }
+                if (dead.Count > 0)
+                {
+                    lock (_clientLock)
+                    {
+                        foreach (var ws in dead)
+                        {
+                            _clients.Remove(ws);
+                            if (_sendLocks.Remove(ws, out var removedLock)) removedLock.Dispose();
+                        }
+                    }
+                    foreach (var ws in dead)
+                        try { ws.Dispose(); } catch { }
                 }
             });
         }
@@ -406,6 +540,11 @@ namespace JoinFS
                 try { ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Server shutting down", CancellationToken.None).Wait(1000); }
                 catch { /* ignore */ }
                 ws.Dispose();
+            }
+            lock (_clientLock)
+            {
+                foreach (var sendLock in _sendLocks.Values) sendLock.Dispose();
+                _sendLocks.Clear();
             }
 
             _listenThread.Join(3000);

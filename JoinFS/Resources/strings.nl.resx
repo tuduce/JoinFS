@@ -779,5 +779,13 @@
   </data>
   <data name="Recorder_AutoSaved" xml:space="preserve">
     <value>Opname opgeslagen: {0}</value>
+  <data name="ReconnectCredentialsRejected" xml:space="preserve">
+    <value>De verbinding is verbroken en de hub heeft de opgeslagen inloggegevens geweigerd (mogelijk zijn ze gewijzigd). Voer ze opnieuw in om opnieuw te verbinden.</value>
+  </data>
+  <data name="Tip_NetworkReconnecting" xml:space="preserve">
+    <value>Verbinding verbroken - er wordt automatisch opnieuw verbonden.</value>
+  </data>
+  <data name="ReconnectGaveUp" xml:space="preserve">
+    <value>Verbinding verbroken. Automatisch opnieuw verbinden is de afgelopen {0} minuten niet gelukt. Maak handmatig opnieuw verbinding wanneer je klaar bent.</value>
   </data>
 </root>

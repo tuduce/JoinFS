@@ -258,7 +258,7 @@ namespace JoinFS
                 writer.WriteLine("INTEGER||LIGHT POTENTIOMETER:2|percent|LIGHT_POTENTIOMETER_2_SET|INJECTED");
                 writer.WriteLine("INTEGER||LIGHT POTENTIOMETER:3|percent|LIGHT_POTENTIOMETER_3_SET|INJECTED");
                 writer.WriteLine("INTEGER||LIGHT POTENTIOMETER:24|percent|LIGHT_POTENTIOMETER_24_SET|INJECTED");
-                //writer.WriteLine("FLOAT|sim/flightmodel/controls/lsplrdef|SPOILERS HANDLE POSITION|position|SPOILERS_SET*16383");
+                writer.WriteLine("FLOAT|sim/flightmodel/controls/lsplrdef|SPOILERS HANDLE POSITION|percent over 100|SPOILERS_SET*16383|INJECTED");
                 //writer.WriteLine("FLOAT|sim/flightmodel/controls/tailhook_ratio|TAILHOOK POSITION|position|SET_TAIL_HOOK_HANDLE*16383");
                 //writer.WriteLine("FLOAT||FOLDING WING LEFT PERCENT|position");
                 //writer.WriteLine("FLOAT||FOLDING WING RIGHT PERCENT|position");

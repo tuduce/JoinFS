@@ -18,3 +18,4 @@ docs/captures/*.pcapng
 docs/captures/*.pcap
 # BenchmarkDotNet run output (JoinFS.Benchmarks): lands wherever `dotnet run` was invoked from.
 BenchmarkDotNet.Artifacts/
+/artifacts/

@@ -232,6 +232,36 @@ namespace JoinFS
             return Nodes.TryGetValue(nuid, out Node value) ? value.guid : Guid.Empty;
         }
 
+        /// <summary>
+        /// Get a stable identity guid for one aircraft, suitable for keying per-aircraft state
+        /// (websocket feed, webhook change-detection, etc). GetNodeGuid() returns one guid per
+        /// OWNER: every locally-owned object (invalid ownerNuid) collapses onto this node's own
+        /// guid, and a single remote peer broadcasting more than one aircraft at once collapses
+        /// onto that peer's guid - so fold in netId, the field callers already pair with
+        /// ownerNuid everywhere to distinguish individual aircraft objects, to get a distinct,
+        /// stable identity per aircraft rather than per owner. Falls back to a simId-derived guid
+        /// if the owner isn't recognised at all (mirrors GetNodeGuid's Guid.Empty fallback).
+        /// </summary>
+        /// <param name="ownerNuid">Aircraft's owner node (Aircraft.ownerNuid)</param>
+        /// <param name="netId">Aircraft's network id, unique per owner (Aircraft.netId)</param>
+        /// <param name="simId">Aircraft's local sim object id, used only as the unrecognised-owner fallback seed (Aircraft.simId)</param>
+        public Guid GetAircraftIdentityGuid(NodeId ownerNuid, uint netId, uint simId)
+        {
+            Guid baseGuid = GetNodeGuid(ownerNuid);
+            if (baseGuid == Guid.Empty)
+            {
+                baseGuid = new Guid(simId, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+            }
+
+            byte[] bytes = baseGuid.ToByteArray();
+            byte[] netIdBytes = BitConverter.GetBytes(netId);
+            for (int i = 0; i < 4; i++)
+            {
+                bytes[12 + i] ^= netIdBytes[i];
+            }
+            return new Guid(bytes);
+        }
+
         public string GetNodeCallsign(NodeId nuid)
         {
             if (GetNodeAtc(nuid, out string airport, out int level))
