@@ -216,6 +216,7 @@ namespace JoinFS
             Settings.Default.WhazzupAI = Check_WhazzupAI.CheckState == CheckState.Checked;
             // update auto refresh
             Settings.Default.AutoRefresh = Check_AutoRefresh.CheckState == CheckState.Checked;
+            // TODO(newui-cleanup): early updates no longer exist. Remove this setting, its checkbox and the EarlyUpdate reads in MainForm.
             // update early
             Settings.Default.EarlyUpdate = Check_EarlyUpdate.CheckState == CheckState.Checked;
 
@@ -301,6 +302,7 @@ namespace JoinFS
             main.settingsPassword = Text_Password.Text.TrimStart(' ').TrimEnd(' ');
             Settings.Default.Password = main.settingsPassword;
 
+            // TODO(newui-review): the new UI's Settings tab has no ATC mode, airport, level, frequency or Euroscope. Decide where they live (the Atc view?) before the forms go.
             // ATC mode
             bool atcMode = (Check_ATC.CheckState == CheckState.Checked);
             // check if mode has changed
@@ -390,6 +392,7 @@ namespace JoinFS
             main.settingsTcas = Check_TCAS.CheckState == CheckState.Checked;
             Settings.Default.TCAS = main.settingsTcas;
 
+            // TODO(newui-cleanup): users no longer choose the indicator colours. Remove the colour settings, these buttons and every form that reads Colour*Background/Colour*Text.
             // update setting
             Settings.Default.ColourActiveBackground = Label_Active.BackColor;
             Settings.Default.ColourActiveText = Label_Active.ForeColor;
@@ -833,6 +836,7 @@ namespace JoinFS
             }
         }
 
+        // TODO(newui-review): the new UI's Settings tab has no "reset settings". Decide whether it needs one.
         private void Button_Reset_Click(object sender, EventArgs e)
         {
             // Confirm

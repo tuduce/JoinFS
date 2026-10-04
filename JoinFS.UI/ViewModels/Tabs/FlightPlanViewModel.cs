@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using JoinFS.UI.Models;
@@ -9,6 +10,7 @@ namespace JoinFS.UI.ViewModels.Tabs;
 /// <summary>
 /// Flight Plan tab: the plan filed for the user's aircraft, and "Import from SimBrief".
 /// The SimBrief username is asked for once, ever: a stored one is used straight away.
+/// The tab shows the live plan until the user edits it; from then on their edits stay, unsaved, until Save or Clear.
 /// </summary>
 public sealed partial class FlightPlanViewModel : ObservableObject
 {
@@ -16,6 +18,10 @@ public sealed partial class FlightPlanViewModel : ObservableObject
     private readonly ISimBriefClient _simBrief;
     private readonly ProfileViewModel _profile;
     private readonly IShell _shell;
+
+    // Set while the fields are being filled from somewhere else, so that is not taken for an edit.
+    private bool _applying;
+    private bool _hasUnsavedEdits;
 
     public FlightPlanViewModel(IFlightPlanStore store, ISimBriefClient simBrief, ProfileViewModel profile, IShell shell)
     {
@@ -37,59 +43,108 @@ public sealed partial class FlightPlanViewModel : ObservableObject
     [ObservableProperty] private string _route = "";
     [ObservableProperty] private string _remarks = "";
 
+    /// <summary>What the last import did, in words: the route imported, or that SimBrief had nothing. Empty otherwise.</summary>
+    [ObservableProperty]
+    private string _status = "";
+
     /// <summary>Raised after a successful import, so the strip's flight-plan button can show "Loaded".</summary>
     public event EventHandler? Imported;
 
     public FlightPlanData ToData() => new(Callsign, Type, Rules, From, To, Altitude, Route, Remarks);
 
-    /// <summary>Clearing leaves the callsign and type blank too, and the rules back on VFR.</summary>
-    [RelayCommand]
-    private void Clear() => Apply(new FlightPlanData("", "", "VFR", "", "", "", "", ""));
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (!_applying && e.PropertyName is nameof(Callsign) or nameof(Type) or nameof(Rules) or nameof(From) or nameof(To) or nameof(Altitude) or nameof(Route) or nameof(Remarks))
+            _hasUnsavedEdits = true;
+    }
 
-    [RelayCommand]
-    private void Save() => _store.Save(ToData());
+    /// <summary>Reads the live plan again, unless the user is in the middle of editing it.</summary>
+    public void Refresh()
+    {
+        if (!_hasUnsavedEdits)
+            Apply(_store.Load());
+    }
 
+    /// <summary>Clearing leaves the callsign and type blank too, and the rules back on VFR. It takes Save to make it the plan.</summary>
     [RelayCommand]
-    private Task ImportFromSimbrief() => TryImportFromSimbriefAsync();
+    private void Clear()
+    {
+        Apply(new FlightPlanData("", "", "VFR", "", "", "", "", ""));
+        _hasUnsavedEdits = true;
+        Status = "";
+        _simBrief.Reset();
+    }
+
+    /// <summary>Makes the fields the user's plan. The plan is then read back: the live app fills what was left blank.</summary>
+    [RelayCommand]
+    private void Save()
+    {
+        _store.Save(ToData());
+        _hasUnsavedEdits = false;
+        Apply(_store.Load());
+    }
+
+    /// <summary>The link on the tab: the imported plan is shown to be checked and saved.</summary>
+    [RelayCommand]
+    private Task ImportFromSimbrief() => TryImportFromSimbriefAsync(commit: false);
 
     /// <summary>
     /// Imports now if a SimBrief username is stored; otherwise asks for it once, then imports.
     /// Returns false when the import is waiting on that prompt rather than done.
+    /// With <paramref name="commit"/> the plan is made the user's at once and sent to the network, as the strip's button does.
     /// </summary>
-    public async Task<bool> TryImportFromSimbriefAsync()
+    public async Task<bool> TryImportFromSimbriefAsync(bool commit = false)
     {
         if (!_profile.HasSimbriefUsername)
         {
             _shell.ShowOverlay(new SimbriefPromptViewModel(username =>
             {
                 _profile.SimbriefUsername = username;
-                return PerformImportAsync();
+                return PerformImportAsync(commit);
             }));
             return false;
         }
 
-        await PerformImportAsync();
+        await PerformImportAsync(commit);
         return true;
     }
 
-    private async Task PerformImportAsync()
+    private async Task PerformImportAsync(bool commit)
     {
-        FlightPlanData fetched = await _simBrief.FetchAsync(_profile.SimbriefUsername, CancellationToken.None);
+        Status = "";
+        FlightPlanData? fetched = await _simBrief.FetchAsync(_profile.SimbriefUsername, commit, CancellationToken.None);
+        if (fetched is null)
+        {
+            // What is shown stays: a failed import never blanks the plan.
+            Status = "SimBrief has no flight plan for this user.";
+            return;
+        }
 
-        // The aircraft's own callsign stays if it has one; everything else comes from SimBrief.
-        Apply(fetched with { Callsign = string.IsNullOrEmpty(Callsign) ? fetched.Callsign : Callsign });
+        // SimBrief knows the callsign it was filed under; if it gave none, the aircraft's own stays.
+        Apply(fetched with { Callsign = string.IsNullOrEmpty(fetched.Callsign) ? Callsign : fetched.Callsign });
+        _hasUnsavedEdits = !commit;
+        Status = $"Imported {fetched.From} → {fetched.To}";
         Imported?.Invoke(this, EventArgs.Empty);
     }
 
     private void Apply(FlightPlanData plan)
     {
-        Callsign = plan.Callsign;
-        Type = plan.Type;
-        Rules = plan.Rules;
-        From = plan.From;
-        To = plan.To;
-        Altitude = plan.Altitude;
-        Route = plan.Route;
-        Remarks = plan.Remarks;
+        _applying = true;
+        try
+        {
+            Callsign = plan.Callsign;
+            Type = plan.Type;
+            Rules = plan.Rules;
+            From = plan.From;
+            To = plan.To;
+            Altitude = plan.Altitude;
+            Route = plan.Route;
+            Remarks = plan.Remarks;
+        }
+        finally
+        {
+            _applying = false;
+        }
     }
 }

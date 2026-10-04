@@ -15,8 +15,12 @@ namespace JoinFS.Live
         /// </summary>
         public static void Run(Main main)
         {
+            // the plan and SimBrief share what an import brings that the tab has no field for
+            LiveFlightPlanSource flightPlan = new(main);
             UiHost.Run(platform => FakeServices.Create(TimeSpan.FromMilliseconds(900), platform: platform) with
             {
+                FlightPlan = flightPlan,
+                SimBrief = flightPlan,
                 Simulator = new LiveSimulatorLink(main),
                 Network = new LiveNetworkLink(main),
                 Session = new LiveSessionSource(main),

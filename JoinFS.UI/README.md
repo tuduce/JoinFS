@@ -56,6 +56,7 @@ the launcher instead of opening the WinForms forms when started with `-newui`.
 | `ITrafficSource`, objects part (Objects tab) | **Live**: the objects as the old `ObjectsForm` listed them (grouped by owner and model when the `GroupObjects` setting is on, which "Group by model" now is). Only objects of the network can be ignored (owner or model, through the `log`); only your own can be broadcast: one object (sim thread), all of a model (`log`), the VRS TacPack and Everything (settings). Substitute is disabled until the Model Matching work. Not yet exercised against real objects (none were present when it was tried) |
 | `IHubDirectory` (Network Hubs tab) | **Live**: the hubs the old `HubsForm` listed, read from the app's hub list (online or not, ignored or not); a hub is joined by its address as the old double click did. Add to / Remove From Address Book edits `bookmarks2.txt` through `main.addressBook`; Ignore is the `log` ignore list, by guid and by address. The list is read when the tab opens and once a second after |
 | `IPreferencesStore` (the Settings cards: User Interface, Simulator, Network, Hub Mode, X-Plane) | **Live**: `Settings.Default`, plus the app's own copies (`settingsPort`, `settingsHub*`, `settingsWhazzup*`, `settingsTcas`, …), as the old `SettingsForm`'s OK did. The cards have no OK: every change is saved at once, and `Settings.Default` is written to disk half a second after the last one. A save acts only on what changed: a new port is opened (when the box loses focus, and only if it is a whole port), hub mode starts or stops the hub, Show Nickname removes the injected aircraft, Low bandwidth goes to the network. Hub mode needs a name of 3 characters, as before; until it has one the card shows why and saves nothing. Always on top is applied to the window. Auto refresh and Tool tips are saved, but the new UI does not use them yet |
+| `IFlightPlanStore` and `ISimBriefClient` (Flight Plan tab, the strip's Flight Plan button) | **Live**, both in `LiveFlightPlanSource`. The plan is the sim thread's `userFlightPlan`: read from `Sim.View`, changed by a posted command, as `FlightPlanForm`'s OK did (the callsign is then "set by user", the airline follows the callsign, a blank callsign or type is the aircraft's own again). The tab shows the live plan until the user edits it, then keeps their edits until Save or Clear. SimBrief is the old fetch (`Sim.FetchSimBriefAsync`). **The strip's button** fetches, makes the plan the user's and sends it to the network at once, as the old SimBrief button did, and shows `simBriefFetchState` (fetching, loaded; "not loaded" for nothing asked yet and for a failed fetch); clicking "Loaded" only forgets the fetch. **The tab's link** only fills the fields, to be checked and saved, as the old dialog's import did. A registration and an alternate that an import brings, which the tab has no field for, reach the plan on Save. Not yet tried live with a real SimBrief user: only "no plan found" |
 | The rest | Fake |
 
 Not handled yet: the old login dialog (email and password, `JoinResult.LoginRequired`), and the message that a remembered password
@@ -66,6 +67,18 @@ a release build. It is off by default there because the reference adds the Avalo
 not opened with `-newui`, so anything that only a form handled (the scheduled plugin install, login and nickname prompts) does not happen.
 
 The onboarding card has no simulator-folder section yet. The old `InitialSetupForm` asked for it when auto-detection failed.
+
+## Left for later
+
+Old things the new UI does not take over. Each is marked in the code with a `TODO(newui-cleanup)` or `TODO(newui-review)` comment, so
+`git grep "TODO(newui-"` lists them.
+
+| Marker | What | Where |
+|---|---|---|
+| cleanup | **Early update.** Early updates no longer exist: remove the setting, the checkbox and the reads | `SettingsForm.cs`, `MainForm.cs` (three reads) |
+| cleanup | **Indicator colours.** Users no longer choose them: remove the `Colour*` settings, the buttons in `SettingsForm` and every form that reads them (all the old forms) | `SettingsForm.cs` |
+| review | **ATC mode** (airport, level, frequency, Euroscope). Decide where it lives, presumably the Atc view | `SettingsForm.cs` |
+| review | **Reset settings.** Does the new UI need one? | `SettingsForm.cs` |
 
 ## Layout
 

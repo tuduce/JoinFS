@@ -79,12 +79,21 @@ namespace JoinFS
         /// Any thread: the OFP is fetched into a copy and applied on the sim thread, which owns the
         /// flight plan; the task completes once it has been applied.
         /// </summary>
-        public async Task<bool> RefreshUserFlightPlanFromSimBriefAsync()
+        public async Task<bool> RefreshUserFlightPlanFromSimBriefAsync() =>
+            await FetchSimBriefAsync(Settings.Default.SimBriefUsername, apply: true) != null;
+
+        /// <summary>
+        /// Fetch <paramref name="username"/>'s latest SimBrief OFP, and set <see cref="simBriefFetchState"/> for the SimBrief button.
+        /// With <paramref name="apply"/> it is also applied to the user's flight plan (the task completes once it has been);
+        /// without, the plan is only returned, for a dialog to show before the pilot commits it. Any thread.
+        /// </summary>
+        /// <returns>The fetched plan, or null when no usable OFP was found</returns>
+        public async Task<FlightPlan> FetchSimBriefAsync(string username, bool apply)
         {
             simBriefFetchState = SimBriefFetchState.Fetching;
             FlightPlan fetched = new();
-            bool ok = await JoinFS.SimBrief.FetchAsync(Settings.Default.SimBriefUsername, fetched, main);
-            if (ok)
+            bool ok = await JoinFS.SimBrief.FetchAsync(username, fetched, main);
+            if (ok && apply)
             {
                 TaskCompletionSource applied = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 main.PostToSim(() =>
@@ -101,7 +110,7 @@ namespace JoinFS
                 await applied.Task;
             }
             simBriefFetchState = ok ? SimBriefFetchState.Success : SimBriefFetchState.Failed;
-            return ok;
+            return ok ? fetched : null;
         }
 
         /// <summary>

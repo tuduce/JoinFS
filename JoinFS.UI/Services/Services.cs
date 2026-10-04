@@ -160,9 +160,20 @@ public interface IFlightPlanStore
     void Save(FlightPlanData plan);
 }
 
-public interface ISimBriefClient
+/// <summary>
+/// SimBrief, and the state of the last fetch, which the strip's Flight Plan button shows: fetching is connecting, a plan fetched is
+/// connected, and nothing fetched yet, a failed fetch and a <see cref="Reset"/> are disconnected.
+/// </summary>
+public interface ISimBriefClient : IConnectionLink
 {
-    Task<FlightPlanData> FetchAsync(string username, CancellationToken cancellationToken);
+    /// <summary>
+    /// Fetches the user's latest plan. With <paramref name="commit"/> it is also made the user's plan and sent to the network, as the
+    /// strip's button does; without, it is only returned, to be shown and committed with Save. Null when SimBrief has no plan for the user.
+    /// </summary>
+    Task<FlightPlanData?> FetchAsync(string username, bool commit, CancellationToken cancellationToken);
+
+    /// <summary>Forgets the last fetch: the strip's button goes back to "not loaded". The plan itself stays.</summary>
+    void Reset();
 }
 
 public interface IChatSource

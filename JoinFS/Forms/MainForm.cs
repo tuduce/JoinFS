@@ -237,6 +237,7 @@ namespace JoinFS
             try
             {
                 string url;
+                // TODO(newui-cleanup): early updates no longer exist; remove the setting and this branch.
                 if (Settings.Default.EarlyUpdate)
                 {
                     url = "https://raw.githubusercontent.com/tuduce/JoinFS/refs/heads/main/JoinFS/util/version.txt";
@@ -643,6 +644,7 @@ namespace JoinFS
                             if (result == DialogResult.Yes)
                             {
                                 // check for early update
+                                // TODO(newui-cleanup): early updates no longer exist; remove the setting and this branch.
                                 if (Settings.Default.EarlyUpdate)
                                 {
                                     // open install page
@@ -2036,6 +2038,7 @@ namespace JoinFS
                 if (result == DialogResult.Yes)
                 {
                     // check for early update
+                    // TODO(newui-cleanup): early updates no longer exist; remove the setting and this branch.
                     if (Settings.Default.EarlyUpdate)
                     {
                         //string sc = Program.Code("https://joinfs.net/development.html", true, 1234);

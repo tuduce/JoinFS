@@ -48,7 +48,11 @@
             <TextBox Text="{Binding Remarks}" />
           </StackPanel>
 
-          <Button Classes="link strong" Command="{Binding ImportFromSimbriefCommand}" Content="Import from SimBrief" />
+          <StackPanel Orientation="Horizontal" Spacing="14">
+            <Button Classes="link strong" Command="{Binding ImportFromSimbriefCommand}" Content="Import from SimBrief" />
+            <TextBlock Text="{Binding Status}" Classes="label" VerticalAlignment="Center"
+                       IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
 
           <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,4,0,0">
             <Button Grid.Column="0" Command="{Binding ClearCommand}" Content="Clear" Padding="18,9" CornerRadius="8" />
