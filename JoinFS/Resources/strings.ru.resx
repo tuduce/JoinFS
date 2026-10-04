@@ -776,6 +776,7 @@
   </data>
   <data name="Recorder_AutoSaved" xml:space="preserve">
     <value>Запись сохранена: {0}</value>
+  </data>
   <data name="ReconnectCredentialsRejected" xml:space="preserve">
     <value>Соединение потеряно, и хаб отклонил сохранённые учётные данные (возможно, они изменились). Введите их снова, чтобы подключиться.</value>
   </data>

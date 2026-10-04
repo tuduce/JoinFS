@@ -776,6 +776,7 @@
   </data>
   <data name="Recorder_AutoSaved" xml:space="preserve">
     <value>Grabación guardada: {0}</value>
+  </data>
   <data name="ReconnectCredentialsRejected" xml:space="preserve">
     <value>Se perdió la conexión y el hub rechazó las credenciales guardadas (puede que hayan cambiado). Introdúcelas de nuevo para reconectar.</value>
   </data>

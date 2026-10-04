@@ -776,6 +776,7 @@
   </data>
   <data name="Recorder_AutoSaved" xml:space="preserve">
     <value>Aufnahme gespeichert: {0}</value>
+  </data>
   <data name="ReconnectCredentialsRejected" xml:space="preserve">
     <value>Die Verbindung wurde unterbrochen und der Hub hat die gespeicherten Zugangsdaten abgelehnt (evtl. wurden sie geändert). Bitte gib sie erneut ein, um dich wieder zu verbinden.</value>
   </data>
