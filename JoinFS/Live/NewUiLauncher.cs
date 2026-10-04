@@ -34,6 +34,7 @@ namespace JoinFS.Live
                 Models = new LiveModelCatalog(main),
                 Variables = new LiveVariablesCatalog(main),
                 Monitor = new LiveMonitorSource(main),
+                Chat = new LiveChatSource(main),
                 ModelScan = new LiveModelScanSource(main),
                 XPlaneScan = new LiveXPlaneScanSource(main),
             }, [], main.MonitorEvent);

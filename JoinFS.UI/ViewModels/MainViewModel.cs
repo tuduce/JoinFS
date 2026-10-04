@@ -207,9 +207,28 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         ShowPasswordRequest();
         FollowJoinedHubLabel();
         Hubs.SyncJoined();
+        FollowChat();
 
         if (++_polls % LiveListEvery == 0)
             RefreshVisibleTab();
+    }
+
+    /// <summary>
+    /// The chat is read often while it is on screen (what is said should appear as it is said), and it is all read there. Elsewhere only
+    /// whether something came that has not been seen is asked, for the dot.
+    /// </summary>
+    private void FollowChat()
+    {
+        if (IsExpanded && SelectedTab == TabId.Chat)
+        {
+            Chat.Refresh();
+            _services.Chat.MarkRead();
+            HasNewChat = false;
+        }
+        else
+        {
+            HasNewChat = _services.Chat.HasUnread;
+        }
     }
 
     /// <summary>Reads the live data of the tab that is on screen. Nothing is read for a tab nobody is looking at.</summary>

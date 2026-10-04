@@ -260,9 +260,19 @@ public interface ISimBriefClient : IConnectionLink
     void Reset();
 }
 
+/// <summary>The chat of the session you are in: what the pilots say, and a line to say something.</summary>
 public interface IChatSource
 {
+    /// <summary>The lines, oldest first: what was said in the session lately, and the answers JoinFS gave to commands.</summary>
     IReadOnlyList<ChatMessage> GetMessages();
+
+    /// <summary>True while there is a session to talk in. Without one, the chat is empty and nothing can be said.</summary>
+    bool IsConnected { get; }
+
+    /// <summary>True when a message can be sent now: connected, and not just after another, which is how the old window kept from flooding.</summary>
+    bool CanSend { get; }
+
+    /// <summary>Says <paramref name="text"/> to the session. A line that starts with "." is a command, answered to you alone.</summary>
     void Send(string text);
 
     /// <summary>True while messages arrived that the user has not seen. Drives the unread dot.</summary>

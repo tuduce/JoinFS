@@ -4,11 +4,18 @@
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              x:Class="JoinFS.UI.Views.Tabs.ChatView"
              x:DataType="tvm:ChatViewModel">
+  <UserControl.Styles>
+    <!-- A line of JoinFS's own, the answer to a command: it is not a pilot's. -->
+    <Style Selector="TextBlock.local">
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+      <Setter Property="FontStyle" Value="Italic" />
+    </Style>
+  </UserControl.Styles>
   <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
     <TextBlock Text="Chat" Classes="h2" />
 
     <Border Grid.Row="1" Classes="card">
-      <ScrollViewer>
+      <ScrollViewer x:Name="MessageScroll">
         <ItemsControl ItemsSource="{Binding Messages}" Margin="16">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
@@ -17,7 +24,7 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="m:ChatMessage">
-              <TextBlock FontSize="13.5" TextWrapping="Wrap"><Run Text="{Binding From, StringFormat='{}{0}:', Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" " /><Run Text="{Binding Text, Mode=OneWay}" /></TextBlock>
+              <TextBlock FontSize="13.5" TextWrapping="Wrap" Classes.local="{Binding IsLocal}"><Run Text="{Binding Label, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="{Binding Text, Mode=OneWay}" /></TextBlock>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
@@ -25,7 +32,7 @@
     </Border>
 
     <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="10">
-      <TextBox Classes="large" Text="{Binding Draft}" Watermark="Type a message">
+      <TextBox Classes="large" Text="{Binding Draft}" Watermark="{Binding ComposerHint}" IsEnabled="{Binding IsConnected}">
         <TextBox.KeyBindings>
           <KeyBinding Gesture="Enter" Command="{Binding SendCommand}" />
         </TextBox.KeyBindings>
