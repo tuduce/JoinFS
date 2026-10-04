@@ -4,7 +4,7 @@ using JoinFS.UI.Services;
 namespace JoinFS.UI.ViewModels;
 
 /// <summary>
-/// What the user entered once and keeps: nickname, SimBrief username, height adjustments.
+/// What the user entered once and keeps: nickname, SimBrief username.
 /// Every change is written straight back to the <see cref="ISettingsStore"/>, so "ask once, remember" holds across runs.
 /// </summary>
 public sealed partial class ProfileViewModel : ObservableObject
@@ -106,18 +106,6 @@ public sealed partial class ProfileViewModel : ObservableObject
         _settings.Onboarded = true;
         Save();
         OnPropertyChanged(nameof(Onboarded));
-    }
-
-    /// <summary>Per-model height offset in centimetres. Zero means off.</summary>
-    public int GetHeightAdjustmentCm(string model) => _settings.HeightAdjustmentsCm.GetValueOrDefault(model);
-
-    public void SetHeightAdjustmentCm(string model, int centimetres)
-    {
-        if (centimetres == 0)
-            _settings.HeightAdjustmentsCm.Remove(model);
-        else
-            _settings.HeightAdjustmentsCm[model] = centimetres;
-        Save();
     }
 
     private void Save() => _store.Save(_settings);

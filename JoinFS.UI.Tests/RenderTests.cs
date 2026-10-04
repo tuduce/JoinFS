@@ -179,7 +179,7 @@ public class RenderTests
             ("password", new PasswordPromptViewModel("Aidan's Hub", _ => Task.CompletedTask)),
             ("simbrief", new SimbriefPromptViewModel(_ => Task.CompletedTask)),
             ("substitute", new SubstituteViewModel(new JoinFS.UI.Models.ModelTarget("GC1a Swift (Factory)"), new JoinFS.UI.Models.ModelChoice("GC1a Swift - factory", "Factory"), rig.Services.Models)),
-            ("height", new AdjustHeightViewModel("GC1a Swift (Factory)", main.Profile)),
+            ("height", new AdjustHeightViewModel(new JoinFS.UI.Models.HeightAdjustment("GC1a Swift (Factory)", 15), _ => { })),
             ("explain", new ExplainMatchViewModel(new JoinFS.UI.Models.MatchExplanation("A320", "Result: Default - matched 'GC1a Swift'", "The ICAO type was guessed from the title.", [new JoinFS.UI.Models.ExplainRow("Category", "SingleProp", "SingleProp (+60)", true), new JoinFS.UI.Models.ExplainRow("Livery", "Default", "Closest available")], ["1. Exact title match - not found.", "2. Category fallback - matched."], "Models come from the simulator.", "# Match Report - A320"), rig.Services.Models, rig.Platform)),
             ("variables", new VariablesOverlayViewModel("PMDG 777-200ER GE PMDG House", ["Custom_FMC_Vars", "ListBox_Sets"], rig.Platform)),
             ("scan", new ScanModelsViewModel(false, rig.Platform)),

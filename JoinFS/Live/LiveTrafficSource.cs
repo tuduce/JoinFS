@@ -290,7 +290,7 @@ namespace JoinFS.Live
             Same(view.TrackHeadingObject, aircraft) || Same(view.TrackBearingObject, aircraft);
 
         /// <summary>
-        /// What the old context menu enabled for this aircraft. Variables and Adjust Height are left off until those are live.
+        /// What the old context menu enabled for this aircraft. Variables is left off until that is live.
         /// </summary>
         static AircraftActions Can(Sim.Aircraft aircraft, SimSnapshot view)
         {
@@ -311,6 +311,12 @@ namespace JoinFS.Live
                 if ((aircraft.subModel != null && aircraft.subTrace != null) || aircraft.owner == Sim.Obj.Owner.Me)
                 {
                     can |= AircraftActions.ExplainMatch;
+                }
+
+                // only an aircraft JoinFS creates, with a model standing in for its owner's, has a height to adjust
+                if (aircraft.Injected && aircraft.subModel != null)
+                {
+                    can |= AircraftActions.AdjustHeight;
                 }
             }
 
@@ -382,6 +388,36 @@ namespace JoinFS.Live
                 return LiveMatchExplanation.Build(main, aircraft, aircraft.subModel, aircraft.subType, aircraft.subTrace);
             }
             return null;
+        }
+
+        public HeightAdjustment GetHeightAdjustment(string aircraftId)
+        {
+            Sim.Aircraft aircraft = Find(aircraftId);
+            if (aircraft == null || main.sim == null || !aircraft.Injected || aircraft.subModel == null)
+            {
+                return null;
+            }
+
+            lock (main.conch)
+            {
+                return new HeightAdjustment(aircraft.subModel.longType, main.sim.GetHeightAdjustment(aircraft.subModel));
+            }
+        }
+
+        public void SetHeightAdjustment(string aircraftId, int centimetres)
+        {
+            Sim.Aircraft aircraft = Find(aircraftId);
+            if (aircraft == null || main.sim == null || !aircraft.Injected || aircraft.subModel == null)
+            {
+                return;
+            }
+
+            lock (main.conch)
+            {
+                // the store is kept per model and read by the sim thread as it places the aircraft
+                main.sim.UpdateHeightAdjustment(aircraft.subModel, centimetres);
+            }
+            main.ScheduleHeightAdjustmentSave();
         }
 
         public void SetRecording(string aircraftId, bool recording)

@@ -132,13 +132,14 @@ public sealed partial class SubstituteViewModel : OverlayViewModel
 /// <summary>"Adjust Height": a per-model Y offset in steps of 5 or 50 cm. Cancel throws the edits away.</summary>
 public sealed partial class AdjustHeightViewModel : OverlayViewModel
 {
-    private readonly ProfileViewModel _profile;
+    private readonly Action<int> _save;
 
-    public AdjustHeightViewModel(string model, ProfileViewModel profile)
+    /// <param name="save">Keeps the adjustment. Called with the centimetres when OK is pressed.</param>
+    public AdjustHeightViewModel(HeightAdjustment current, Action<int> save)
     {
-        Model = model;
-        _profile = profile;
-        _adjustmentCm = profile.GetHeightAdjustmentCm(model);
+        Model = current.Model;
+        _save = save;
+        _adjustmentCm = current.Centimetres;
     }
 
     public override string Title => "Adjust Height";
@@ -169,7 +170,7 @@ public sealed partial class AdjustHeightViewModel : OverlayViewModel
     [RelayCommand]
     private void Ok()
     {
-        _profile.SetHeightAdjustmentCm(Model, AdjustmentCm);
+        _save(AdjustmentCm);
         Close();
     }
 }

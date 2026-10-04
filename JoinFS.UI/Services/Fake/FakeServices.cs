@@ -238,6 +238,20 @@ public sealed class FakeTrafficSource : ITrafficSource
             $"# Match Report - {aircraft.Callsign}"));
     }
 
+    private readonly Dictionary<string, int> _heights = [];
+
+    public HeightAdjustment? GetHeightAdjustment(string aircraftId)
+    {
+        AircraftInfo? aircraft = SampleData.Aircraft.Concat(SampleData.HubAircraft).Concat(SampleData.SimulatorAircraft).FirstOrDefault(a => a.Id == aircraftId);
+        return aircraft is null ? null : new HeightAdjustment(aircraft.Model, _heights.GetValueOrDefault(aircraft.Model));
+    }
+
+    public void SetHeightAdjustment(string aircraftId, int centimetres)
+    {
+        if (GetHeightAdjustment(aircraftId) is { } current)
+            _heights[current.Model] = centimetres;
+    }
+
     public ModelTarget? GetObjectModel(string objectId)
     {
         ObjectInfo? obj = SampleData.Objects.FirstOrDefault(o => o.Id == objectId || "group:" + o.Owner + "/" + o.Model == objectId);

@@ -148,6 +148,15 @@ public interface ITrafficSource
     /// Null when there is nothing to explain: the aircraft is gone, or its model was never matched.
     /// </summary>
     Task<MatchExplanation?> ExplainMatchAsync(string aircraftId);
+
+    /// <summary>
+    /// The height adjustment of the model the aircraft shows. Null when there is nothing to adjust: only a model that stands in for
+    /// the owner's, on an aircraft JoinFS creates, has an adjustment.
+    /// </summary>
+    HeightAdjustment? GetHeightAdjustment(string aircraftId);
+
+    /// <summary>Sets the adjustment of the model the aircraft shows, and keeps it. Zero turns it off.</summary>
+    void SetHeightAdjustment(string aircraftId, int centimetres);
 }
 
 /// <summary>
@@ -281,7 +290,6 @@ public sealed class UserSettings
     public bool Onboarded { get; set; }
     public string Nickname { get; set; } = "";
     public string? SimbriefUsername { get; set; }
-    public Dictionary<string, int> HeightAdjustmentsCm { get; set; } = new();
 
     // The broadcast options shared by Settings → Simulator and the Objects tab.
     public bool BroadcastTacpack { get; set; }
