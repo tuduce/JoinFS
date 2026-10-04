@@ -147,9 +147,12 @@ namespace JoinFS.Live
             }
         }
 
-        // Explain Match is not wired yet; nothing reaches it, since the aircraft list does not offer it.
-        public IReadOnlyList<ExplainRow> Explain(string model) => [];
+        public string KnownModelsFile()
+        {
+            string filename = main.substitution?.MakeModelsFilename();
+            return !string.IsNullOrEmpty(filename) && System.IO.File.Exists(filename) ? filename : null;
+        }
 
-        public IReadOnlyList<string> ExplainSteps(string model) => [];
+        public void WriteDebugBundle(string zipPath, string report) => LiveMatchExplanation.WriteBundle(main, zipPath, report);
     }
 }

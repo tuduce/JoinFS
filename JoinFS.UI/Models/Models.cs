@@ -108,7 +108,21 @@ public sealed record ChatMessage(string From, string Text);
 
 public sealed record RecordedAircraft(string Callsign, string Model);
 
-public sealed record ExplainRow(string Attribute, string Requested, string Matched);
+/// <param name="Matched">The matched value, followed by "(+N)" when the attribute added to the score.</param>
+/// <param name="Decisive">This attribute decided the match; the row is highlighted.</param>
+public sealed record ExplainRow(string Attribute, string Requested, string Matched, bool Decisive = false);
+
+/// <summary>
+/// How the model of an aircraft was chosen: what was asked for against what was matched, and the steps tried. Plain text, ready to show.
+/// </summary>
+/// <param name="Callsign">The aircraft.</param>
+/// <param name="Outcome">The result in one line, or that there is no match yet.</param>
+/// <param name="Note">A warning about the matched model (its ICAO type was guessed or corrected), or null.</param>
+/// <param name="Steps">What each tier tried, in order, and the other candidates considered.</param>
+/// <param name="Source">Where the list of known models comes from.</param>
+/// <param name="Report">All of it as a Markdown report: what "Copy to clipboard" copies and the debug bundle holds.</param>
+public sealed record MatchExplanation(
+    string Callsign, string Outcome, string? Note, IReadOnlyList<ExplainRow> Rows, IReadOnlyList<string> Steps, string Source, string Report);
 
 public sealed record FlightPlanData(
     string Callsign, string Type, string Rules, string From, string To, string Altitude, string Route, string Remarks);

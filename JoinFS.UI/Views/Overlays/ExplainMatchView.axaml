@@ -5,8 +5,20 @@
              xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
              x:Class="JoinFS.UI.Views.Overlays.ExplainMatchView"
              x:DataType="ovm:ExplainMatchViewModel">
+  <UserControl.Styles>
+    <!-- The attribute that decided the match is marked, as the old window coloured its row. -->
+    <Style Selector="Border.decisive">
+      <Setter Property="Background" Value="{DynamicResource AccentTintBrush}" />
+    </Style>
+  </UserControl.Styles>
   <c:ModalCard Width="600" Title="{Binding Title}" CloseCommand="{Binding CloseCommand}" ShowClose="{Binding IsDismissable}">
     <StackPanel Spacing="16">
+      <TextBlock Text="{Binding Outcome}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+      <Border Classes="card" CornerRadius="8" Padding="12,8" Background="{DynamicResource DangerTintBrush}"
+              IsVisible="{Binding Note, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Text="{Binding Note}" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource DangerTextBrush}" />
+      </Border>
+
       <Border Classes="card" CornerRadius="8">
         <StackPanel>
           <Border Classes="tableHeader" Padding="12,8">
@@ -19,7 +31,8 @@
           <ItemsControl ItemsSource="{Binding Rows}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="m:ExplainRow">
-                <Border BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="12,8">
+                <Border BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="12,8"
+                        Classes.decisive="{Binding Decisive}">
                   <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12" TextElement.FontSize="12.5">
                     <TextBlock Grid.Column="0" Text="{Binding Attribute}" TextWrapping="Wrap" />
                     <TextBlock Grid.Column="1" Text="{Binding Requested}" TextWrapping="Wrap" />
@@ -48,12 +61,16 @@
           </ScrollViewer>
         </Border>
       </StackPanel>
+
+      <TextBlock Text="{Binding Source}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource Muted2Brush}" />
+      <TextBlock Text="{Binding Status}" FontSize="12.5" TextWrapping="Wrap"
+                 IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
     </StackPanel>
     <c:ModalCard.Footer>
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
-        <Button Grid.Column="0" Command="{Binding OpenKnownModelsListCommand}" Content="Open known-models list" Padding="16,8" />
-        <Button Grid.Column="2" Command="{Binding CopyToClipboardCommand}" Content="Copy to clipboard" Padding="16,8" />
-        <Button Grid.Column="3" Command="{Binding ExportDebugBundleCommand}" Content="Export Debug Bundle..." Padding="16,8" />
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
+        <Button Grid.Column="0" Command="{Binding OpenKnownModelsListCommand}" Content="Open known-models list" Padding="12,8" />
+        <Button Grid.Column="2" Command="{Binding CopyToClipboardCommand}" Content="Copy to clipboard" Padding="12,8" />
+        <Button Grid.Column="3" Command="{Binding ExportDebugBundleCommand}" Content="Export Debug Bundle..." Padding="12,8" />
         <Button Grid.Column="4" Classes="primary" Command="{Binding CloseCommand}" Content="Close" Padding="18,8" />
       </Grid>
     </c:ModalCard.Footer>

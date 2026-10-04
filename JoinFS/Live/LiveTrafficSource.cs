@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using JoinFS.Properties;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
@@ -289,7 +290,7 @@ namespace JoinFS.Live
             Same(view.TrackHeadingObject, aircraft) || Same(view.TrackBearingObject, aircraft);
 
         /// <summary>
-        /// What the old context menu enabled for this aircraft. Explain Match, Variables and Adjust Height are left off until those are live.
+        /// What the old context menu enabled for this aircraft. Variables and Adjust Height are left off until those are live.
         /// </summary>
         static AircraftActions Can(Sim.Aircraft aircraft, SimSnapshot view)
         {
@@ -301,10 +302,16 @@ namespace JoinFS.Live
                 can |= AircraftActions.Record;
             }
 
-            // a model can only be replaced by one the simulator has
             if (view.Connected)
             {
+                // a model can only be replaced by one the simulator has
                 can |= AircraftActions.Substitute;
+
+                // an aircraft that went through the matching can say how; your own never does, it is matched on request, as a preview
+                if ((aircraft.subModel != null && aircraft.subTrace != null) || aircraft.owner == Sim.Obj.Owner.Me)
+                {
+                    can |= AircraftActions.ExplainMatch;
+                }
             }
 
             // you cannot ignore yourself or the recorder, only other users and the simulator's own aircraft
@@ -348,6 +355,33 @@ namespace JoinFS.Live
 #else
             return new ModelTarget(aircraft.ownerModel, "", aircraft.typerole, IsMasquerade: !aircraft.Injected);
 #endif
+        }
+
+        public async Task<MatchExplanation> ExplainMatchAsync(string aircraftId)
+        {
+            Sim.Aircraft aircraft = Find(aircraftId);
+            if (aircraft == null || main.substitution == null)
+            {
+                return null;
+            }
+
+            if (aircraft.owner == Sim.Obj.Owner.Me)
+            {
+                // Your own aircraft never goes through Match() for real (Masquerade() drives what is sent), so the real scorer is run now, purely
+                // as a preview. It never touches subModel, subType or subTrace, so it cannot change what the others see.
+#if FS2024
+                var (model, type, trace) = await main.substitution.Match(aircraft.ownerModel, aircraft.ownerLivery, aircraft.ownerIcaoType, aircraft.ownerIcaoAirline, aircraft.ownerClassCode, aircraft.ownerWtc, aircraft.ownerClassCodeConfirmed, aircraft.typerole, aircraft.flightPlan.registration);
+#else
+                var (model, type, trace) = await main.substitution.Match(aircraft.ownerModel, aircraft.ownerIcaoType, aircraft.ownerIcaoAirline, aircraft.ownerClassCode, aircraft.ownerWtc, aircraft.ownerClassCodeConfirmed, aircraft.typerole, aircraft.flightPlan.registration);
+#endif
+                return LiveMatchExplanation.Build(main, aircraft, model, type, trace);
+            }
+
+            if (aircraft.subTrace != null)
+            {
+                return LiveMatchExplanation.Build(main, aircraft, aircraft.subModel, aircraft.subType, aircraft.subTrace);
+            }
+            return null;
         }
 
         public void SetRecording(string aircraftId, bool recording)
