@@ -384,7 +384,7 @@ namespace JoinFS
         {
             if (main.recorder.Active)
             {
-                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.Name + ": " + Resources.Strings.RecorderStr);
+                MessageBox.Show(Resources.Strings.Recorder_ActiveLoad, Main.Name + ": " + Resources.Strings.RecorderStr);
             }
             else
             {
@@ -435,7 +435,7 @@ namespace JoinFS
             // check if recorder is active
             if (main.recorder.Active)
             {
-                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.Name + ": " + Resources.Strings.RecorderStr);
+                MessageBox.Show(Resources.Strings.Recorder_ActiveSave, Main.Name + ": " + Resources.Strings.RecorderStr);
             }
             else if (main.recorder.Empty)
             {
@@ -451,7 +451,7 @@ namespace JoinFS
         {
             if (main.recorder.Active)
             {
-                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.Name + ": " + Resources.Strings.RecorderStr);
+                MessageBox.Show(Resources.Strings.Recorder_ActiveLoad, Main.Name + ": " + Resources.Strings.RecorderStr);
             }
             else
             {

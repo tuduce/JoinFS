@@ -771,4 +771,13 @@
   <data name="FlightPlan_AltitudeTooltip" xml:space="preserve">
     <value>Kruishoogte of vlieghoogte, bijv. 35000 of FL350</value>
   </data>
+  <data name="Recorder_ActiveLoad" xml:space="preserve">
+    <value>Het laden van een opname stopt de huidige weergave en het geïnjecteerde verkeer verdwijnt voor gebruikers die jou meerdere objecten toestaan. Stop eerst de recorder (Recorder|Stop) en laad daarna de opname.</value>
+  </data>
+  <data name="Recorder_ActiveSave" xml:space="preserve">
+    <value>Stop de recorder (Recorder|Stop) voordat je opslaat.</value>
+  </data>
+  <data name="Recorder_AutoSaved" xml:space="preserve">
+    <value>Opname opgeslagen: {0}</value>
+  </data>
 </root>

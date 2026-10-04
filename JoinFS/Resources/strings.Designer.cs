@@ -745,6 +745,33 @@ namespace JoinFS.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Loading a recording stops the current replay, and the traffic injected for other users (who allow multiple objects for you) disappears for them. Stop the recorder first (Recorder|Stop), then load the recording..
+        /// </summary>
+        internal static string Recorder_ActiveLoad {
+            get {
+                return ResourceManager.GetString("Recorder_ActiveLoad", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Stop the recorder (Recorder|Stop) before saving..
+        /// </summary>
+        internal static string Recorder_ActiveSave {
+            get {
+                return ResourceManager.GetString("Recorder_ActiveSave", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Recording saved: {0}.
+        /// </summary>
+        internal static string Recorder_AutoSaved {
+            get {
+                return ResourceManager.GetString("Recorder_AutoSaved", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Recorder.
         /// </summary>
         internal static string RecorderStr {

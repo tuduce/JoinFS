@@ -768,4 +768,13 @@
   <data name="FlightPlan_AltitudeTooltip" xml:space="preserve">
     <value>Altitude de croisière ou niveau de vol, ex. 35000 ou FL350</value>
   </data>
+  <data name="Recorder_ActiveLoad" xml:space="preserve">
+    <value>Le chargement d’un enregistrement arrête la lecture en cours : le trafic injecté disparaît pour les utilisateurs qui t’autorisent plusieurs objets. Arrête d’abord l’enregistreur (Recorder|Stop), puis charge l’enregistrement.</value>
+  </data>
+  <data name="Recorder_ActiveSave" xml:space="preserve">
+    <value>Arrête l’enregistreur (Recorder|Stop) avant de sauvegarder.</value>
+  </data>
+  <data name="Recorder_AutoSaved" xml:space="preserve">
+    <value>Enregistrement sauvegardé : {0}</value>
+  </data>
 </root>

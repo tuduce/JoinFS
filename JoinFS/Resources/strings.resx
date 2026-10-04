@@ -768,4 +768,13 @@
   <data name="FlightPlan_AltitudeTooltip" xml:space="preserve">
     <value>Cruise altitude or flight level, e.g. 35000 or FL350</value>
   </data>
+  <data name="Recorder_ActiveLoad" xml:space="preserve">
+    <value>Loading a recording stops the current replay, and the traffic injected for other users (who allow multiple objects for you) disappears for them. Stop the recorder first (Recorder|Stop), then load the recording.</value>
+  </data>
+  <data name="Recorder_ActiveSave" xml:space="preserve">
+    <value>Stop the recorder (Recorder|Stop) before saving.</value>
+  </data>
+  <data name="Recorder_AutoSaved" xml:space="preserve">
+    <value>Recording saved: {0}</value>
+  </data>
 </root>

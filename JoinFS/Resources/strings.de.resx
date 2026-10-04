@@ -768,4 +768,13 @@
   <data name="FlightPlan_AltitudeTooltip" xml:space="preserve">
     <value>Reiseflughöhe oder Flugfläche, z. B. 35000 oder FL350</value>
   </data>
+  <data name="Recorder_ActiveLoad" xml:space="preserve">
+    <value>Das Laden einer Aufnahme beendet die laufende Wiedergabe. Der von dir eingespielte Verkehr verschwindet dann für Nutzer, die dir mehrere Objekte erlauben. Beende zuerst den Recorder (Recorder|Stop) und lade dann die Aufnahme.</value>
+  </data>
+  <data name="Recorder_ActiveSave" xml:space="preserve">
+    <value>Beende den Recorder (Recorder|Stop), bevor du speicherst.</value>
+  </data>
+  <data name="Recorder_AutoSaved" xml:space="preserve">
+    <value>Aufnahme gespeichert: {0}</value>
+  </data>
 </root>

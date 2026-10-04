@@ -549,6 +549,8 @@ namespace JoinFS
 
         private void RefreshWindows(object sender, System.EventArgs e)
         {
+            HideExpiredRecordingSaved();
+
             // check if refresh is already active
             if (refreshActive)
             {
@@ -1107,12 +1109,46 @@ namespace JoinFS
             {
                 string path = main.recorder.AutoSave(main.documentsPath, objects, DateTime.Now);
                 main.MonitorEvent("Recorder: auto-saved the previous recording to '" + path + "'.");
+                ShowRecordingSaved(path);
                 unsaved = false;
                 return true;
             }
             catch (Exception ex)
             {
                 return ReportAutoSaveFailure(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Status-bar hint (visible without the Recorder window, e.g. for VR users) for a few seconds
+        /// </summary>
+        const double RECORDING_SAVED_SECONDS = 10.0;
+        ToolStripStatusLabel recordingSavedLabel;
+        DateTime recordingSavedUntil;
+
+        void ShowRecordingSaved(string path)
+        {
+            if (recordingSavedLabel == null)
+            {
+                recordingSavedLabel = new ToolStripStatusLabel
+                {
+                    BorderSides = ToolStripStatusLabelBorderSides.Left,
+                    ForeColor = Color.Gray
+                };
+                StatusStrip_Main.Items.Add(recordingSavedLabel);
+                StatusStrip_Main.ShowItemToolTips = true;
+            }
+            recordingSavedLabel.Text = string.Format(Resources.Strings.Recorder_AutoSaved, Path.GetFileName(path));
+            recordingSavedLabel.ToolTipText = path;
+            recordingSavedLabel.Visible = true;
+            recordingSavedUntil = DateTime.UtcNow.AddSeconds(RECORDING_SAVED_SECONDS);
+        }
+
+        void HideExpiredRecordingSaved()
+        {
+            if (recordingSavedLabel != null && recordingSavedLabel.Visible && DateTime.UtcNow > recordingSavedUntil)
+            {
+                recordingSavedLabel.Visible = false;
             }
         }
 

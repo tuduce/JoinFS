@@ -768,4 +768,13 @@
   <data name="FlightPlan_AltitudeTooltip" xml:space="preserve">
     <value>Altitud de crucero o nivel de vuelo, ej. 35000 o FL350</value>
   </data>
+  <data name="Recorder_ActiveLoad" xml:space="preserve">
+    <value>Al cargar una grabación se detiene la reproducción actual y el tráfico inyectado desaparece para los usuarios que te permiten varios objetos. Detén primero la grabadora (Recorder|Stop) y carga después la grabación.</value>
+  </data>
+  <data name="Recorder_ActiveSave" xml:space="preserve">
+    <value>Detén la grabadora (Recorder|Stop) antes de guardar.</value>
+  </data>
+  <data name="Recorder_AutoSaved" xml:space="preserve">
+    <value>Grabación guardada: {0}</value>
+  </data>
 </root>

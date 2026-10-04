@@ -768,4 +768,13 @@
   <data name="FlightPlan_AltitudeTooltip" xml:space="preserve">
     <value>순항 고도 또는 비행 고도, 예: 35000 또는 FL350</value>
   </data>
+  <data name="Recorder_ActiveLoad" xml:space="preserve">
+    <value>녹화를 불러오면 현재 재생이 중지되고, 여러 개체를 허용한 사용자에게는 주입된 트래픽이 사라집니다. 먼저 레코더를 중지(Recorder|Stop)한 다음 녹화를 불러오세요.</value>
+  </data>
+  <data name="Recorder_ActiveSave" xml:space="preserve">
+    <value>저장하기 전에 레코더를 중지(Recorder|Stop)하세요.</value>
+  </data>
+  <data name="Recorder_AutoSaved" xml:space="preserve">
+    <value>녹화 저장됨: {0}</value>
+  </data>
 </root>
