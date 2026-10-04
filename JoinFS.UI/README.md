@@ -35,6 +35,10 @@ Where the live app keeps what the wired screens change, under `%LOCALAPPDATA%\Jo
 
 ## Live wiring
 
+The two connection buttons follow the real state. `MainViewModel.Poll()` (a UI timer calls it four times a second) reads each link's
+`State`; a click only asks for a change, and the button changes when the app does. A click while "connecting" gives up the attempt.
+The flight-plan button is not live: it is local to the UI.
+
 `JoinFS.UI` is a library; `UiHost.Run(services, args)` starts it on the calling thread. `JoinFS/Live/` (in the JoinFS project, so it can
 see `Main`) holds the adapters and `NewUiLauncher`, which builds `AppServices` from the fakes and swaps in the real ones. `Main()` calls
 the launcher instead of opening the WinForms forms when started with `-newui`.
@@ -45,9 +49,12 @@ the launcher instead of opening the WinForms forms when started with `-newui`.
 | `ISettingsStore` (nickname, SimBrief name, broadcast and scan options) | **Live**: `Settings.Default`, plus the app's own copies (`settingsNickname`, `settingsScan`). Onboarding is shown while the nickname has fewer than 2 characters, as `MainForm` did |
 | `IAddressBookStore` | **Live**: `bookmarks2.txt` through `main.addressBook`, with the built-in Global entry in front; the picked entry is `JoinAddress` |
 | `IUpdateChecker` | **Live**: the same `version.txt` the forms read |
-| `ISimulatorLink`, `INetworkLink`, `IHubDirectory`, `ISessionSource`, `ITrafficSource`, the rest | Fake |
+| `ISimulatorLink` (the Simulator button) | **Live**: state from `sim.View` (the sim thread's snapshot); a click goes to the sim thread through `ToggleSimulator()`, as the old button did |
+| `INetworkLink` (the Network button, Join, Create, password) | **Live**: state from the session snapshot, mapped by the old button's own rule (`NetworkButtonStyle`); Join is `Main.Join(name)`, Disconnect leaves the session, Create is leave then create. A protected session is answered as the old window did: the remembered password first, then a prompt |
+| `IHubDirectory`, `ISessionSource`, `ITrafficSource`, the rest | Fake |
 
-Model overrides and height adjustments are not in `Settings` yet; they stay in memory until the substitution wiring.
+Not handled yet: the old login dialog (email and password, `JoinResult.LoginRequired`), and the message that a remembered password
+was rejected. Model overrides and height adjustments are not in `Settings` yet; they stay in memory until the substitution wiring.
 
 `-newui` exists only in builds with `NEWUI` defined. That is every `-Debug` configuration except CONSOLE; pass `-p:NewUi=true` to turn it on for
 a release build. It is off by default there because the reference adds the Avalonia libraries to what the installers ship. The forms are

@@ -17,11 +17,13 @@ namespace JoinFS.Live
         {
             UiHost.Run(platform => FakeServices.Create(TimeSpan.FromMilliseconds(900), platform: platform) with
             {
+                Simulator = new LiveSimulatorLink(main),
+                Network = new LiveNetworkLink(main),
                 App = new LiveAppInfo(),
                 Settings = new LiveSettingsStore(main),
                 AddressBook = new LiveAddressBookStore(main),
                 Updates = new LiveUpdateChecker(main),
-            }, []);
+            }, [], main.MonitorEvent);
         }
     }
 }

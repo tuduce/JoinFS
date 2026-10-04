@@ -1,4 +1,6 @@
 using JoinFS.Live;
+using JoinFS.Net;
+using JoinFS.UI.Models;
 
 namespace JoinFS.Tests.Live;
 
@@ -61,5 +63,17 @@ public class LiveAdapterTests
         Assert.Equal(Main.Name, info.SessionLabel);
         Assert.False(info.IsXPlaneBuild); // the tests build FS2024-Debug
         Assert.StartsWith("https://", info.DownloadUrl);
+    }
+
+    [Theory]
+    [InlineData(SessionState.Connected, false, false, ConnectionState.Connected)]
+    [InlineData(SessionState.Connecting, false, false, ConnectionState.Connecting)]
+    [InlineData(SessionState.Unconnected, false, false, ConnectionState.Disconnected)]
+    [InlineData(SessionState.Unconnected, false, true, ConnectionState.Connecting)] // still looking for the user to join
+    [InlineData(SessionState.Unconnected, true, false, ConnectionState.Connecting)] // lost every peer and retrying
+    [InlineData(SessionState.Connected, true, false, ConnectionState.Connecting)] // the retry stays orange until it succeeds
+    public void The_network_button_state_is_the_old_buttons_colour(SessionState state, bool reconnecting, bool joiningUser, ConnectionState expected)
+    {
+        Assert.Equal(expected, LiveNetworkLink.MapState(state, reconnecting, joiningUser));
     }
 }

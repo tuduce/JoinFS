@@ -25,8 +25,10 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Profile = new ProfileViewModel(services.Settings);
         AddressBook = new AddressBookViewModel(services.AddressBook);
 
-        Simulator = new ConnectionViewModel(ConnectionLabels.Simulator, services.Simulator.ConnectAsync, services.Simulator.DisconnectAsync);
-        Network = new ConnectionViewModel(ConnectionLabels.Network, ct => _networkAction(ct), services.Network.DisconnectAsync, requestConnect: JoinSelectedAsync);
+        Simulator = new ConnectionViewModel(ConnectionLabels.Simulator, services.Simulator.ConnectAsync, services.Simulator.DisconnectAsync,
+            observed: services.Simulator.ReportsState);
+        Network = new ConnectionViewModel(ConnectionLabels.Network, ct => _networkAction(ct), services.Network.DisconnectAsync,
+            requestConnect: JoinSelectedAsync, observed: services.Network.ReportsState);
 
         Home = new HomeViewModel(this, services.Session, services.Traffic, services.App, services.Platform);
         Hubs = new HubsViewModel(services.Hubs, services.Network, AddressBook, this, ignoredHubs: ["NoiseAbatement Hub"]);
@@ -138,6 +140,44 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     private OverlayViewModel? _overlay;
 
     public bool IsOverlayOpen => Overlay is not null;
+
+    private PasswordPromptViewModel? _passwordPrompt;
+
+    /// <summary>
+    /// Brings what the live app does by itself onto the screen: the state of the Simulator and Network buttons, and a hub asking for its
+    /// password. Call it regularly from the UI thread (every quarter of a second is plenty). Does nothing new on the fakes.
+    /// </summary>
+    public void Poll()
+    {
+        _services.Simulator.Poll();
+        _services.Network.Poll();
+        Simulator.Sync(_services.Simulator.State);
+        Network.Sync(_services.Network.State);
+        ShowPasswordRequest();
+    }
+
+    private void ShowPasswordRequest()
+    {
+        string? hub = _services.Network.PasswordRequestedBy;
+        if (hub is null)
+            return;
+
+        // Asked already and still showing; or the user is in the middle of something else, so ask again at the next poll.
+        if (_passwordPrompt is not null && ReferenceEquals(Overlay, _passwordPrompt))
+            return;
+        if (Overlay is not null)
+            return;
+
+        _passwordPrompt = new PasswordPromptViewModel(
+            hub,
+            password =>
+            {
+                _services.Network.SubmitPassword(password);
+                return Task.CompletedTask;
+            },
+            onCancel: _services.Network.CancelPasswordRequest);
+        ShowOverlay(_passwordPrompt);
+    }
 
     partial void OnSelectedTabChanged(TabId value) => RefreshNav();
     partial void OnHasNewChatChanged(bool value) => RefreshNav();
