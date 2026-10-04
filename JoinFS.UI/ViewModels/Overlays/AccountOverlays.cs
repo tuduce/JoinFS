@@ -23,7 +23,10 @@ public sealed partial class OnboardingViewModel : OverlayViewModel
     [ObservableProperty]
     private string _simbriefUsername = "";
 
-    private bool CanContinue => !string.IsNullOrWhiteSpace(Nickname);
+    /// <summary>The app wants at least this many characters; a shorter nickname used to be replaced by a generated one.</summary>
+    public const int MinNicknameLength = 2;
+
+    private bool CanContinue => Nickname.Trim().Length >= MinNicknameLength;
 
     [RelayCommand]
     private void ToggleSimbriefInput() => ShowSimbriefInput = !ShowSimbriefInput;

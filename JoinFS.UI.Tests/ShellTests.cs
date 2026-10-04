@@ -125,6 +125,9 @@ public class ShellTests
         onboarding.Nickname = "   ";
         Assert.False(onboarding.ContinueCommand.CanExecute(null));
 
+        onboarding.Nickname = " M "; // one letter is too short for the app
+        Assert.False(onboarding.ContinueCommand.CanExecute(null));
+
         onboarding.Nickname = " Maverick ";
         Assert.True(onboarding.ContinueCommand.CanExecute(null));
         onboarding.ContinueCommand.Execute(null);
