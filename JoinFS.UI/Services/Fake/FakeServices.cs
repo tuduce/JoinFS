@@ -253,7 +253,12 @@ public sealed class FakeVariablesCatalog : IVariablesCatalog
 
 public sealed class FakeSimBriefClient(TimeSpan latency) : ISimBriefClient
 {
-    public async Task<FlightPlanData> FetchAsync(string username, CancellationToken cancellationToken)
+    public bool ReportsState => false;
+    public ConnectionState State => ConnectionState.Disconnected;
+    public void Poll() { }
+    public void Reset() { }
+
+    public async Task<FlightPlanData?> FetchAsync(string username, bool commit, CancellationToken cancellationToken)
     {
         await Task.Delay(latency, cancellationToken);
         return new FlightPlanData("HB-TDX", "BE35.0.tt", "VFR", "LSZH", "LSGG", "5500", "LSZH DCT KLO DCT LSGG", "Imported from SimBrief");

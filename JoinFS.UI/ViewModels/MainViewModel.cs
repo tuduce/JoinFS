@@ -45,12 +45,19 @@ public sealed partial class MainViewModel : ObservableObject, IShell
 
         // The strip's flight-plan button fetches from SimBrief. If a username is still needed the prompt comes first and
         // the import finishes after it, so this attempt ends "not loaded" and the import itself reports back through Imported.
-        // That also covers an import started from the Flight Plan tab.
+        // That also covers an import started from the Flight Plan tab. The button makes what it fetches the user's plan at once, as the
+        // old SimBrief button did; the tab's own link only shows it. Clicking "Loaded" forgets the fetch, the plan stays.
         FlightPlanLoad = new ConnectionViewModel(ConnectionLabels.FlightPlan, async _ =>
-        {
-            if (!await FlightPlan.TryImportFromSimbriefAsync())
-                throw new OperationCanceledException();
-        });
+            {
+                if (!await FlightPlan.TryImportFromSimbriefAsync(commit: true))
+                    throw new OperationCanceledException();
+            },
+            disconnect: () =>
+            {
+                services.SimBrief.Reset();
+                return Task.CompletedTask;
+            },
+            observed: services.SimBrief.ReportsState);
         FlightPlan.Imported += (_, _) => FlightPlanLoad.SetState(ConnectionState.Connected);
 
         // Save in the Session tab changes the address book; the strip's hub picker has to show it.
@@ -193,8 +200,10 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     {
         _services.Simulator.Poll();
         _services.Network.Poll();
+        _services.SimBrief.Poll();
         Simulator.Sync(_services.Simulator.State);
         Network.Sync(_services.Network.State);
+        FlightPlanLoad.Sync(_services.SimBrief.State);
         ShowPasswordRequest();
         FollowJoinedHubLabel();
         Hubs.SyncJoined();
@@ -222,6 +231,9 @@ public sealed partial class MainViewModel : ObservableObject, IShell
                 break;
             case TabId.Aircraft:
                 Aircraft.Refresh();
+                break;
+            case TabId.FlightPlan:
+                FlightPlan.Refresh();
                 break;
             case TabId.Objects:
                 Objects.Refresh();
