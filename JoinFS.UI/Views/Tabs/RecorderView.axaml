@@ -4,7 +4,7 @@
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              x:Class="JoinFS.UI.Views.Tabs.RecorderView"
              x:DataType="tvm:RecorderViewModel">
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="18">
+  <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="18">
 
     <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
       <TextBlock Text="Recorder" Classes="h2" VerticalAlignment="Center" />
@@ -61,7 +61,7 @@
                   ToolTip.Tip="Trim from beginning to cursor" AutomationProperties.Name="Trim start">
             <c:Icon Source="{DynamicResource IconTrimStart}" Width="18" Height="16" />
           </Button>
-          <c:SeekBar Grid.Column="1" Fraction="{Binding PlayheadFraction}" ToolTip.Tip="Drag to move playhead" />
+          <c:SeekBar Grid.Column="1" Fraction="{Binding PlayheadFraction}" IsEnabled="{Binding CanSeek}" ToolTip.Tip="Drag to move playhead" />
           <Button Grid.Column="2" Classes="transport square" Command="{Binding TrimEndCommand}"
                   ToolTip.Tip="Trim from cursor to end" AutomationProperties.Name="Trim end">
             <c:Icon Source="{DynamicResource IconTrimEnd}" Width="18" Height="16" />
@@ -102,10 +102,11 @@
           <ScrollViewer Grid.Row="1">
             <ItemsControl ItemsSource="{Binding LoadedAircraft}">
               <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="tvm:RecordItemViewModel">
+                <DataTemplate x:DataType="tvm:LoadedAircraftViewModel">
                   <Border Padding="14,9" BorderBrush="{DynamicResource SurfaceHeaderBrush}" BorderThickness="0,0,0,1">
                     <Grid ColumnDefinitions="*,Auto">
-                      <CheckBox IsChecked="{Binding IsChecked}" Content="{Binding Callsign}" />
+                      <!-- Unticked, an aircraft is out of playback, and its tick is grey until the recording is loaded again. -->
+                      <CheckBox IsChecked="{Binding IsChecked}" IsEnabled="{Binding CanTick}" Content="{Binding Callsign}" />
                       <TextBlock Grid.Column="1" Text="{Binding Model}" Foreground="{DynamicResource Muted2Brush}" VerticalAlignment="Center" />
                     </Grid>
                   </Border>
@@ -116,5 +117,7 @@
         </Grid>
       </Border>
     </Grid>
+
+    <TextBlock Grid.Row="3" Text="{Binding Status}" Classes="label" IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
   </Grid>
 </UserControl>

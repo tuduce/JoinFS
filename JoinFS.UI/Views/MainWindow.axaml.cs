@@ -40,6 +40,30 @@ public partial class MainWindow : Window
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
     }
 
+    private bool _closeConfirmed;
+
+    // A recording that was not saved is asked about before the window goes, as the old window did. It closes once the user has answered.
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        base.OnClosing(e);
+        if (_closeConfirmed || _viewModel is not { } viewModel || !viewModel.Recorder.HasUnsavedRecording)
+            return;
+
+        e.Cancel = true;
+        _ = AskThenCloseAsync(viewModel);
+    }
+
+    private async Task AskThenCloseAsync(MainViewModel viewModel)
+    {
+        // the question needs room
+        viewModel.IsExpanded = true;
+        if (await viewModel.Recorder.AskToSaveAsync())
+        {
+            _closeConfirmed = true;
+            Close();
+        }
+    }
+
     private void OnOpened(object? sender, EventArgs e)
     {
         // Like the design, start in the bottom-left of the screen.

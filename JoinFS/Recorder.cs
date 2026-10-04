@@ -565,6 +565,11 @@ namespace JoinFS
             /// </summary>
             public bool playing = false;
             /// <summary>
+            /// The object is left out of playback (<see cref="Recorder.Skip"/>). Its frames stay, so it is still saved with the recording.
+            /// A recording that is loaded again has no skipped objects.
+            /// </summary>
+            public bool skipped = false;
+            /// <summary>
             /// Offset between recorder time and object time
             /// </summary>
             public double timeOffset = 0.0;
@@ -623,6 +628,12 @@ namespace JoinFS
             /// </summary>
             public void Play()
             {
+                // a skipped object stays out of playback
+                if (skipped)
+                {
+                    return;
+                }
+
                 // start at beginning
                 frameIndex = 0;
                 playbackAnglesValid = false;
@@ -898,12 +909,34 @@ namespace JoinFS
         public double EndTimeView => System.Threading.Volatile.Read(ref endTimeView);
 
         /// <summary>
+        /// An aircraft of the recording, as other threads see it
+        /// </summary>
+        public sealed record AircraftView(uint Id, string Callsign, string Model, bool Skipped);
+
+        volatile AircraftView[] aircraftView = [];
+
+        /// <summary>
+        /// The aircraft of the recording as of the sim thread's last pass (any thread)
+        /// </summary>
+        public AircraftView[] AircraftSnapshot => aircraftView;
+
+        /// <summary>
         /// Publish what other threads read (sim thread)
         /// </summary>
         public void PublishStatus()
         {
             System.Threading.Volatile.Write(ref endTimeView, EndTime);
             idsView = objList.ConvertAll(o => o.id).ToArray();
+
+            List<AircraftView> aircraft = [];
+            foreach (var obj in objList)
+            {
+                if (obj is Aircraft recorded)
+                {
+                    aircraft.Add(new AircraftView(recorded.id, recorded.callsign, recorded.model, recorded.skipped));
+                }
+            }
+            aircraftView = aircraft.ToArray();
         }
 
         /// <summary>
@@ -1409,6 +1442,24 @@ namespace JoinFS
 
                 // remove from list
                 objList.Remove(obj);
+            }
+        }
+
+        /// <summary>
+        /// Leave an object out of playback, now and until the recording is loaded again (sim thread). It is not taken out of the
+        /// recording: it is still saved with it.
+        /// </summary>
+        public void Skip(uint id)
+        {
+            // get object
+            Obj obj = objList.Find(o => o.id == id);
+            if (obj != null)
+            {
+                obj.skipped = true;
+                // stop it, and take it out of the sim, if it is being played
+                obj.StopPlaying();
+                main.sim ?. RemoveObject(new NodeId(), obj.id);
+                PublishStatus();
             }
         }
 

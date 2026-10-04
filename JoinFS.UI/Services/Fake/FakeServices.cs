@@ -408,11 +408,148 @@ public sealed class FakeChatSource : IChatSource
     public void MarkRead() => HasUnread = false;
 }
 
+/// <summary>
+/// A recorder that keeps the state the real one does: what is recording, playing and paused, the time, and the length of the take.
+/// Time only moves when a test calls <see cref="Advance"/>.
+/// </summary>
 public sealed class FakeRecorderSource : IRecorderSource
 {
-    public IReadOnlyList<RecordedAircraft> GetLoadedRecording() => SampleData.LoadedRecordList;
-    public string LoadedRecordingName => "session_2609.rec";
-    public int LoadedRecordingSeconds => 92;
+    private List<RecordedAircraft> _aircraft;
+    private bool _recording, _playing, _paused;
+    private double _time, _end;
+
+    /// <param name="empty">Nothing is recorded or loaded.</param>
+    public FakeRecorderSource(bool empty = false)
+    {
+        _aircraft = empty ? [] : [.. SampleData.LoadedRecordList.Select((a, i) => a with { Id = "r" + i })];
+        _end = empty ? 0 : 92;
+        LoadedRecordingName = empty ? "" : "session_2609.jfs";
+    }
+
+    public bool Empty => _aircraft.Count == 0 && _end == 0;
+
+    public RecorderStatus GetStatus() => new(_recording, _playing, _paused, Empty, _playing || _recording ? _time : 0, _end);
+    public IReadOnlyList<RecordedAircraft> GetLoadedRecording() => [.. _aircraft];
+    public string LoadedRecordingName { get; private set; }
+    public bool Loop { get; set; }
+    public string RecordingFolder => @"C:\Recordings";
+
+    /// <summary>What was asked for, in order, so a test can see it.</summary>
+    public List<string> Calls { get; } = [];
+
+    public void Advance(double seconds)
+    {
+        if (_paused || !(_playing || _recording))
+            return;
+
+        _time += seconds;
+        if (_recording)
+            _end = Math.Max(_end, _time);
+        else if (_time > _end)
+        {
+            if (Loop)
+                _time = 0;
+            else
+                Stop();
+        }
+    }
+
+    public void Record()
+    {
+        Calls.Add("record");
+        _recording = _playing = _paused = false;
+        _aircraft = [new RecordedAircraft("Me", "Bonanza", "m0")];
+        _recording = true;
+        _time = 0;
+        _end = 0;
+        LoadedRecordingName = "";
+    }
+
+    public void TogglePlay()
+    {
+        Calls.Add("play");
+        if (_playing)
+        {
+            _paused = !_paused;
+        }
+        else if (!Empty && !_recording)
+        {
+            _playing = true;
+            _paused = false;
+            _time = 0;
+        }
+    }
+
+    public void Overdub()
+    {
+        Calls.Add("overdub");
+        if (Empty || _recording)
+            return;
+        if (!_playing)
+        {
+            _playing = true;
+            _time = 0;
+        }
+        _recording = true;
+    }
+
+    public void Stop()
+    {
+        Calls.Add("stop");
+        _recording = _playing = _paused = false;
+        _time = 0;
+    }
+
+    public void Seek(double seconds)
+    {
+        Calls.Add("seek " + seconds);
+        _time = seconds;
+    }
+
+    public void TrimStart()
+    {
+        Calls.Add("trim start");
+        _end = Math.Max(0, _end - _time);
+        _time = 0;
+    }
+
+    public void TrimEnd()
+    {
+        Calls.Add("trim end");
+        _end = _time;
+    }
+
+    public void SkipAircraft(string aircraftId)
+    {
+        Calls.Add("skip " + aircraftId);
+        _aircraft = [.. _aircraft.Select(a => a.Id == aircraftId ? a with { Skipped = true } : a)];
+    }
+
+    public Task OpenAsync(string path, bool append)
+    {
+        Calls.Add((append ? "add " : "open ") + path);
+        if (path.Contains("bad", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("This recording is an old version and no longer supported with this version of JoinFS");
+
+        List<RecordedAircraft> loaded = [.. SampleData.LoadedRecordList.Select((a, i) => a with { Id = (append ? "a" : "o") + i })];
+        _aircraft = append ? [.. _aircraft, .. loaded] : loaded;
+        _end = append ? _end + 92 : 92;
+        if (!append)
+            LoadedRecordingName = Path.GetFileName(path);
+        // as the old window did, a recording that is opened plays
+        _recording = false;
+        _playing = true;
+        _paused = false;
+        _time = 0;
+        return Task.CompletedTask;
+    }
+
+    public Task SaveAsync(string path)
+    {
+        Calls.Add("save " + path);
+        LoadedRecordingName = Path.GetFileName(path);
+        return Task.CompletedTask;
+    }
 }
 
 public sealed class FakeMonitorSource : IMonitorSource
@@ -551,7 +688,8 @@ public sealed class NullPlatform : IPlatform
     public Task CopyTextAsync(string text) { Copied.Add(text); return Task.CompletedTask; }
     public void OpenUrl(string url) => OpenedUrls.Add(url);
     public Task OpenFileAsync(string path) { OpenedFiles.Add(path); return Task.CompletedTask; }
-    public Task<string?> PickOpenFileAsync(string title, string? startFolder = null) { LastStartFolder = startFolder; return Task.FromResult(PickedFile); }
-    public Task<string?> PickSaveFileAsync(string title, string suggestedName) => Task.FromResult<string?>(null);
+    public Task<string?> PickOpenFileAsync(string title, string? startFolder = null, string? extension = null) { LastStartFolder = startFolder; return Task.FromResult(PickedFile); }
+    public string? SavePath { get; set; }
+    public Task<string?> PickSaveFileAsync(string title, string suggestedName, string? startFolder = null, string? extension = null) => Task.FromResult(SavePath);
     public Task<string?> PickFolderAsync(string title) => Task.FromResult<string?>(null);
 }

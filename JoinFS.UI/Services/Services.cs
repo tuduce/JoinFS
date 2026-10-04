@@ -280,10 +280,56 @@ public interface IChatSource
     void MarkRead();
 }
 
+/// <summary>
+/// The recorder: a take of the aircraft that were ticked to record, which can be played back, laid over, trimmed, saved and loaded.
+/// </summary>
 public interface IRecorderSource
-{    IReadOnlyList<RecordedAircraft> GetLoadedRecording();
+{
+    /// <summary>What the recorder is doing now. Read often while the tab is shown.</summary>
+    RecorderStatus GetStatus();
+
+    /// <summary>The aircraft of the recording that is in the recorder, with whether each is left out of playback.</summary>
+    IReadOnlyList<RecordedAircraft> GetLoadedRecording();
+
+    /// <summary>The name of the file the recording was loaded from or last saved to. Empty for one just recorded.</summary>
     string LoadedRecordingName { get; }
-    int LoadedRecordingSeconds { get; }
+
+    /// <summary>Play the recording again when it ends.</summary>
+    bool Loop { get; set; }
+
+    /// <summary>The folder recordings were last opened from or saved to, to start the file dialogs on.</summary>
+    string RecordingFolder { get; }
+
+    /// <summary>Starts a new recording of the aircraft ticked to record. What was in the recorder is gone.</summary>
+    void Record();
+
+    /// <summary>Starts playing the recording; while it plays, pauses it, and while it is paused, goes on.</summary>
+    void TogglePlay();
+
+    /// <summary>Plays the recording and records on top of it.</summary>
+    void Overdub();
+
+    void Stop();
+
+    /// <summary>Moves playback to this many seconds from the start.</summary>
+    void Seek(double seconds);
+
+    /// <summary>Cuts what is before the playhead.</summary>
+    void TrimStart();
+
+    /// <summary>Cuts what is after the playhead.</summary>
+    void TrimEnd();
+
+    /// <summary>Leaves an aircraft out of playback until the recording is loaded again. It is still saved with the recording.</summary>
+    void SkipAircraft(string aircraftId);
+
+    /// <summary>
+    /// Loads a recording file, or with <paramref name="append"/> adds it after the end of the one in the recorder, and plays it.
+    /// Throws with what to tell the user when the file cannot be used.
+    /// </summary>
+    Task OpenAsync(string path, bool append);
+
+    Task SaveAsync(string path);
 }
 
 /// <summary>The log of what JoinFS is doing, and what is added to it.</summary>
@@ -482,8 +528,10 @@ public interface IPlatform
     /// <summary>Opens a file of the user's in the program that goes with it. Unlike <see cref="OpenUrl"/>, which is for web links only.</summary>
     Task OpenFileAsync(string path);
 
-    Task<string?> PickOpenFileAsync(string title, string? startFolder = null);
-    Task<string?> PickSaveFileAsync(string title, string suggestedName);
+    /// <param name="extension">Only files of this kind are offered, without the dot ("jfs").</param>
+    Task<string?> PickOpenFileAsync(string title, string? startFolder = null, string? extension = null);
+
+    Task<string?> PickSaveFileAsync(string title, string suggestedName, string? startFolder = null, string? extension = null);
     Task<string?> PickFolderAsync(string title);
 }
 

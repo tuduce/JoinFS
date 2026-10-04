@@ -27,12 +27,15 @@ public sealed class AvaloniaPlatform(Func<TopLevel?> topLevel) : IPlatform
             await top.Launcher.LaunchFileAsync(file);
     }
 
-    public async Task<string?> PickOpenFileAsync(string title, string? startFolder = null)
+    private static FilePickerFileType[]? KindOf(string? extension) =>
+        extension is null ? null : [new FilePickerFileType("JoinFS files") { Patterns = ["*." + extension] }];
+
+    public async Task<string?> PickOpenFileAsync(string title, string? startFolder = null, string? extension = null)
     {
         if (topLevel()?.StorageProvider is not { } storage)
             return null;
 
-        FilePickerOpenOptions options = new() { Title = title, AllowMultiple = false };
+        FilePickerOpenOptions options = new() { Title = title, AllowMultiple = false, FileTypeFilter = KindOf(extension) };
         if (startFolder is not null && Directory.Exists(startFolder))
             options.SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(new Uri(startFolder));
 
@@ -40,11 +43,22 @@ public sealed class AvaloniaPlatform(Func<TopLevel?> topLevel) : IPlatform
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }
 
-    public async Task<string?> PickSaveFileAsync(string title, string suggestedName)
+    public async Task<string?> PickSaveFileAsync(string title, string suggestedName, string? startFolder = null, string? extension = null)
     {
         if (topLevel()?.StorageProvider is not { } storage)
             return null;
-        var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions { Title = title, SuggestedFileName = suggestedName });
+
+        FilePickerSaveOptions options = new()
+        {
+            Title = title,
+            SuggestedFileName = suggestedName,
+            DefaultExtension = extension,
+            FileTypeChoices = KindOf(extension),
+        };
+        if (startFolder is not null && Directory.Exists(startFolder))
+            options.SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(new Uri(startFolder));
+
+        var file = await storage.SaveFilePickerAsync(options);
         return file?.TryGetLocalPath();
     }
 

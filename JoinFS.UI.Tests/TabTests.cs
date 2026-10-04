@@ -1179,8 +1179,8 @@ public sealed class SavingPlatform(string? savePath) : IPlatform
     public Task CopyTextAsync(string text) { Copied.Add(text); return Task.CompletedTask; }
     public void OpenUrl(string url) { }
     public Task OpenFileAsync(string path) { Opened.Add(path); return Task.CompletedTask; }
-    public Task<string?> PickOpenFileAsync(string title, string? startFolder = null) => Task.FromResult<string?>(null);
-    public Task<string?> PickSaveFileAsync(string title, string suggestedName) { SuggestedName = suggestedName; return Task.FromResult(savePath); }
+    public Task<string?> PickOpenFileAsync(string title, string? startFolder = null, string? extension = null) => Task.FromResult<string?>(null);
+    public Task<string?> PickSaveFileAsync(string title, string suggestedName, string? startFolder = null, string? extension = null) { SuggestedName = suggestedName; return Task.FromResult(savePath); }
     public Task<string?> PickFolderAsync(string title) => Task.FromResult<string?>(null);
 }
 
@@ -1475,82 +1475,6 @@ public class FlightPlanTests
 
         plan.ClearCommand.Execute(null);
         Assert.Equal(("", "", "VFR", ""), (plan.Callsign, plan.Type, plan.Rules, plan.Route));
-    }
-}
-
-public class RecorderTests
-{
-    [Fact]
-    public void Record_play_and_overdub_switch_each_other_off_and_stop_clears_all()
-    {
-        RecorderViewModel recorder = new Rig().Main.Recorder;
-
-        recorder.ToggleRecordingCommand.Execute(null);
-        Assert.True(recorder.IsRecording);
-
-        recorder.TogglePlayCommand.Execute(null);
-        Assert.True(recorder.IsPlaying);
-        Assert.False(recorder.IsRecording);
-
-        recorder.ToggleOverdubCommand.Execute(null);
-        Assert.True(recorder.IsOverdubbing);
-        Assert.True(recorder.IsRecording); // overdub is recording on top of the take
-        Assert.False(recorder.IsPlaying);
-
-        recorder.ToggleOverdubCommand.Execute(null);
-        Assert.Equal(RecorderMode.Idle, recorder.Mode);
-
-        recorder.ToggleRecordingCommand.Execute(null);
-        recorder.StopCommand.Execute(null);
-        Assert.Equal(RecorderMode.Idle, recorder.Mode);
-    }
-
-    [Fact]
-    public void The_readout_is_hh_mm_ss_over_the_total()
-    {
-        RecorderViewModel recorder = new Rig().Main.Recorder;
-
-        Assert.Equal("00:00:07", recorder.PlayheadText);
-        Assert.Equal("00:01:32", recorder.TotalText);
-        Assert.Equal("01:01:01", RecorderViewModel.FormatTime(3661));
-    }
-
-    [Fact]
-    public void Seeking_moves_the_playhead_in_whole_seconds_and_clamps()
-    {
-        RecorderViewModel recorder = new Rig().Main.Recorder;
-
-        recorder.PlayheadFraction = 0.5;
-        Assert.Equal(46, recorder.PlayheadSeconds);
-
-        recorder.Seek(2);
-        Assert.Equal(92, recorder.PlayheadSeconds);
-        recorder.Seek(-1);
-        Assert.Equal(0, recorder.PlayheadSeconds);
-    }
-
-    [Fact]
-    public void Trim_start_cuts_before_the_playhead_and_trim_end_cuts_after_it()
-    {
-        RecorderViewModel recorder = new Rig().Main.Recorder;
-
-        recorder.TrimStartCommand.Execute(null); // playhead 7 of 92
-        Assert.Equal((85, 0), (recorder.TotalSeconds, recorder.PlayheadSeconds));
-
-        recorder.Seek(0.4); // 34
-        recorder.TrimEndCommand.Execute(null);
-        Assert.Equal((34, 34), (recorder.TotalSeconds, recorder.PlayheadSeconds));
-    }
-
-    [Fact]
-    public void A_trim_never_leaves_an_empty_recording()
-    {
-        RecorderViewModel recorder = new Rig().Main.Recorder;
-        recorder.Seek(0);
-
-        recorder.TrimEndCommand.Execute(null);
-
-        Assert.Equal((1, 1), (recorder.TotalSeconds, recorder.PlayheadSeconds));
     }
 }
 

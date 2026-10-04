@@ -38,7 +38,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Objects = new ObjectsViewModel(services.Traffic, services.Models, Profile, this);
         ModelMatching = new ModelMatchingViewModel(services.Models, this);
         FlightPlan = new FlightPlanViewModel(services.FlightPlan, services.SimBrief, Profile, this);
-        Recorder = new RecorderViewModel(services.Recorder, services.Traffic, RecordSelection, services.Platform);
+        Recorder = new RecorderViewModel(services.Recorder, services.Traffic, RecordSelection, services.Platform, this);
         Chat = new ChatViewModel(services.Chat);
         Monitor = new MonitorViewModel(services.Monitor, services.Platform);
         Settings = new SettingsViewModel(Profile, AddressBook, services.Preferences, services.Variables, services.Models, services.XPlanePlugin, services.XPlaneScan, services.ModelScan, this, services.Platform, () => Simulator.IsConnected, services.App.IsXPlaneBuild);
@@ -209,6 +209,10 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Hubs.SyncJoined();
         FollowChat();
 
+        // the playhead moves as the take plays, so the transport is read every time while it is shown
+        if (IsExpanded && SelectedTab == TabId.Recorder)
+            Recorder.Refresh();
+
         if (++_polls % LiveListEvery == 0)
             RefreshVisibleTab();
     }
@@ -256,6 +260,9 @@ public sealed partial class MainViewModel : ObservableObject, IShell
                 break;
             case TabId.Monitor:
                 Monitor.Refresh();
+                break;
+            case TabId.Recorder:
+                Recorder.Refresh();
                 break;
             case TabId.FlightPlan:
                 FlightPlan.Refresh();
