@@ -231,9 +231,6 @@
   <data name="Options_Record" xml:space="preserve">
     <value>Begin onmiddellijk met opnemen.</value>
   </data>
-  <data name="Private" xml:space="preserve">
-    <value>Paswoord</value>
-  </data>
   <data name="RecorderEmpty" xml:space="preserve">
     <value>De recorder is leeg. Kies 'Recorder | Record' in het menu om een ​​opname te maken.</value>
   </data>
