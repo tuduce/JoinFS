@@ -146,6 +146,40 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     public bool IsOverlayOpen => Overlay is not null;
 
     private PasswordPromptViewModel? _passwordPrompt;
+
+    // How long the label of a joined hub may outlive a network that never started, in polls (about three seconds).
+    private const int LabelGracePolls = 12;
+    private bool _labelSawNetwork;
+    private int _labelIdlePolls;
+
+    private void ShowJoinedHubLabel(string name)
+    {
+        _labelSawNetwork = false;
+        _labelIdlePolls = 0;
+        AddressBook.ShowTransient(name);
+    }
+
+    private void ClearJoinedHubLabel() => AddressBook.ClearTransient();
+
+    /// <summary>
+    /// The label belongs to the hub that was joined, so it goes when the network has left it. A join takes a moment to show
+    /// as connecting, so the network must have been seen on its way, or the grace has run out, before "disconnected" counts.
+    /// </summary>
+    private void FollowJoinedHubLabel()
+    {
+        if (AddressBook.TransientLabel is null)
+            return;
+
+        if (!Network.IsDisconnected)
+        {
+            _labelSawNetwork = true;
+            _labelIdlePolls = 0;
+        }
+        else if (_labelSawNetwork || ++_labelIdlePolls > LabelGracePolls)
+        {
+            ClearJoinedHubLabel();
+        }
+    }
     private int _polls;
 
     // The live lists are re-read once a second (every fourth poll) and only while they are on screen.
@@ -162,6 +196,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Simulator.Sync(_services.Simulator.State);
         Network.Sync(_services.Network.State);
         ShowPasswordRequest();
+        FollowJoinedHubLabel();
 
         if (++_polls % LiveListEvery == 0)
             RefreshVisibleTab();
@@ -237,7 +272,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
 
     /// <summary>What the strip's Network button does while disconnected: join the hub picked in the strip.</summary>
     private Task JoinSelectedAsync() =>
-        AddressBook.Selected is { } selected ? JoinAsync(selected.Entry) : Task.CompletedTask;
+        AddressBook.EffectiveSelection is { } selected ? JoinAsync(selected.Entry) : Task.CompletedTask;
 
     // --- IShell ---
 
@@ -276,6 +311,9 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         if (Network.IsConnecting)
             return null;
 
+        // A mesh of your own is not a hub of the directory: the picker goes back to its pick.
+        ClearJoinedHubLabel();
+
         string? code = null;
         _networkAction = async ct => code = await _services.Network.CreateMeshAsync(ct);
         if (Network.IsConnected)
@@ -286,8 +324,11 @@ public sealed partial class MainViewModel : ObservableObject, IShell
 
     private async Task ConnectToAsync(AddressBookEntry hub, string? password)
     {
-        // The picker shows the hub that was joined, when the address book has it.
-        AddressBook.Select(hub.Name);
+        // The picker shows the hub that was joined: its entry when the address book has it, otherwise just its name as the current text.
+        if (AddressBook.Select(hub.Name))
+            ClearJoinedHubLabel();
+        else
+            ShowJoinedHubLabel(hub.Name);
         _networkAction = ct => _services.Network.JoinAsync(hub, password, ct);
 
         if (Network.IsConnected)

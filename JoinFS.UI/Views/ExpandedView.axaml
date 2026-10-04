@@ -58,7 +58,8 @@
     <DockPanel Grid.Column="1">
       <Border DockPanel.Dock="Top" Background="{DynamicResource SurfaceBrush}"
               BorderBrush="{DynamicResource BorderCardBrush}" BorderThickness="0,0,0,1" Padding="24,8">
-        <Grid ColumnDefinitions="56,20,170,20,56,20,56,*">
+        <!-- The hub picker is wider than the design's 170px: it also shows the name of a joined hub, which can be long. -->
+        <Grid ColumnDefinitions="56,20,240,20,56,20,56,*">
           <c:ConnectorNode Grid.Column="0" DataContext="{Binding Simulator}"
                            Icon="{DynamicResource IconAircraft}" Title="Simulator" ButtonTip="Connect to simulator" />
           <Border Grid.Column="1" Classes="wire" />

@@ -13,13 +13,15 @@
     <Grid ColumnDefinitions="Auto,*">
       <c:Icon Source="{DynamicResource IconHubs}" Width="13" Height="13" Margin="0,0,7,0"
               Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+      <!-- A hub joined from the directory is not in the list: its name is the combo's text while nothing is picked. -->
       <ComboBox Grid.Column="1" Classes="bare"
                 ItemsSource="{Binding AddressBook.Entries}"
                 SelectedItem="{Binding AddressBook.Selected}"
+                PlaceholderText="{Binding AddressBook.TransientLabel}"
                 VerticalAlignment="Center">
         <ComboBox.ItemTemplate>
           <DataTemplate x:DataType="vm:AddressBookRow">
-            <TextBlock Text="{Binding Name}" />
+            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
           </DataTemplate>
         </ComboBox.ItemTemplate>
       </ComboBox>

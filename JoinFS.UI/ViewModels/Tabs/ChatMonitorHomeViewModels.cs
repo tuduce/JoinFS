@@ -109,7 +109,7 @@ public sealed partial class HomeViewModel : ObservableObject
         OnPropertyChanged(nameof(AircraftTracked));
     }
 
-    public string HubName => _main.AddressBook.Selected?.Name ?? "—";
+    public string HubName => _main.AddressBook.TransientLabel ?? _main.AddressBook.EffectiveSelection?.Name ?? "—";
     public int ConnectedUsers => _session.GetPeers().Count;
     public int AircraftTracked => _traffic.GetAircraft().Count;
 
