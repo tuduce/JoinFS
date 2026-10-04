@@ -207,7 +207,7 @@ public class ShellTests
         rig.Main.OpenAboutCommand.Execute(null);
         OverlayViewModel first = rig.Main.Overlay!;
 
-        rig.Main.ShowOverlay(new ScanModelsViewModel(false, rig.Platform));
+        rig.Main.ShowOverlay(new ScanModelsViewModel(rig.Services.ModelScan, false, rig.Platform));
         OverlayViewModel second = rig.Main.Overlay!;
         first.Close();
 

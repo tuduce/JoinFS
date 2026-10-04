@@ -23,6 +23,26 @@ namespace JoinFS.Live
 
         public bool HasModels => main.substitution != null && main.substitution.models.Count > 0;
 
+        public string ScanStatus
+        {
+            get
+            {
+                Substitution substitution = main.substitution;
+                if (substitution == null)
+                {
+                    return "";
+                }
+                if (substitution.ScanRunning)
+                {
+                    return "Scanning for models...";
+                }
+                int count = substitution.models.Count;
+                return count == 0
+                    ? "No models are known yet. Scan for models from Settings, Simulator."
+                    : count.ToString("N0", System.Globalization.CultureInfo.CurrentCulture) + (count == 1 ? " model known." : " models known.");
+            }
+        }
+
         /// <summary>
         /// The model as the old list showed its substitute: the title, and in FS2024 the livery after it
         /// </summary>

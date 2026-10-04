@@ -69,15 +69,17 @@ public sealed partial class SimulatorSettingsViewModel : PersistedSettingsSectio
     private readonly Func<bool> _isSimulatorConnected;
     private readonly IPlatform _platform;
     private readonly IXPlaneScanSource _xplaneScan;
+    private readonly IModelScanSource _modelScan;
 
     // Same bounds as the WinForms track bars.
     public const int CircleMinNm = 2, CircleMaxNm = 600;
     public const int FollowMinM = 20, FollowMaxM = 1000;
 
-    internal SimulatorSettingsViewModel(Action<SettingsSectionViewModel> toggle, PreferencesSession preferences, ProfileViewModel profile, IShell shell, Func<bool> isSimulatorConnected, IPlatform platform, IXPlaneScanSource xplaneScan, bool isXPlaneBuild)
+    internal SimulatorSettingsViewModel(Action<SettingsSectionViewModel> toggle, PreferencesSession preferences, ProfileViewModel profile, IShell shell, Func<bool> isSimulatorConnected, IPlatform platform, IXPlaneScanSource xplaneScan, IModelScanSource modelScan, bool isXPlaneBuild)
         : base("Simulator", toggle, preferences)
     {
         _xplaneScan = xplaneScan;
+        _modelScan = modelScan;
         IsXPlaneBuild = isXPlaneBuild;
         Profile = profile;
         _shell = shell;
@@ -174,7 +176,7 @@ public sealed partial class SimulatorSettingsViewModel : PersistedSettingsSectio
     private void OpenModelScanning() =>
         _shell.ShowOverlay(IsXPlaneBuild
             ? new ScanXPlaneModelsViewModel(Profile, _xplaneScan, _platform)
-            : new ScanModelsViewModel(_isSimulatorConnected(), _platform));
+            : new ScanModelsViewModel(_modelScan, _isSimulatorConnected(), _platform));
 
     [RelayCommand]
     private void OpenModelMatching() => _shell.GoTo(TabId.Models);
@@ -481,11 +483,11 @@ public sealed partial class VariableAssignmentViewModel : ObservableObject
 public sealed class SettingsViewModel : ObservableObject
 {
     /// <param name="isXPlaneBuild">Only the XPLANE build has the X-Plane card.</param>
-    public SettingsViewModel(ProfileViewModel profile, AddressBookViewModel addressBook, IPreferencesStore preferences, IVariablesCatalog variables, IModelCatalog models, IXPlanePluginInstaller xplaneInstaller, IXPlaneScanSource xplaneScan,
+    public SettingsViewModel(ProfileViewModel profile, AddressBookViewModel addressBook, IPreferencesStore preferences, IVariablesCatalog variables, IModelCatalog models, IXPlanePluginInstaller xplaneInstaller, IXPlaneScanSource xplaneScan, IModelScanSource modelScan,
         IShell shell, IPlatform platform, Func<bool> isSimulatorConnected, bool isXPlaneBuild)
     {
         PreferencesSession session = new(preferences);
-        Simulator = new SimulatorSettingsViewModel(Toggle, session, profile, shell, isSimulatorConnected, platform, xplaneScan, isXPlaneBuild);
+        Simulator = new SimulatorSettingsViewModel(Toggle, session, profile, shell, isSimulatorConnected, platform, xplaneScan, modelScan, isXPlaneBuild);
         UserInterface = new UserInterfaceSettingsViewModel(Toggle, session);
         Network = new NetworkSettingsViewModel(Toggle, session);
         HubMode = new HubModeSettingsViewModel(Toggle, session);

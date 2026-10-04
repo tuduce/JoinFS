@@ -197,6 +197,9 @@ public interface IModelCatalog
     /// <summary>The model stands for itself again.</summary>
     void ClearSubstitute(ModelTarget target);
 
+    /// <summary>How the models stand, in a line for the Model Matching tab: how many are known, or that a scan is running.</summary>
+    string ScanStatus { get; }
+
     /// <summary>The file that lists the models the simulator has, or null when it has not been written yet.</summary>
     string? KnownModelsFile();
 
@@ -289,6 +292,43 @@ public interface IXPlaneScanSource
 
     /// <summary>The folders under the X-Plane folder's Aircraft folder. Empty when there is no such folder.</summary>
     IReadOnlyList<string> ListAircraftFolders(string xplaneFolder);
+
+    /// <summary>Remembers the folders and scans them in the background. False when a scan is already running.</summary>
+    bool Scan(string xplaneFolder, IReadOnlyList<string> aircraftFolders);
+}
+
+/// <summary>An add-on that Scan For Models can include.</summary>
+/// <param name="Key">What the scan knows it by. It is kept in the saved choice, so it does not change.</param>
+/// <param name="Name">What the user is shown.</param>
+public sealed record ScanAddOn(string Key, string Name, bool Selected);
+
+/// <summary>Where Scan For Models looks, for every simulator but X-Plane (which has <see cref="IXPlaneScanSource"/>), and what starts it.</summary>
+public interface IModelScanSource
+{
+    string SimulatorName { get; }
+
+    /// <summary>The simulator's folder, as chosen last time.</summary>
+    string SimFolder { get; }
+
+    /// <summary>What the folder is asked for: the Packages folder of Microsoft Flight Simulator, the root folder of the others.</summary>
+    string FolderPrompt { get; }
+
+    /// <summary>Only simulators with a single SimObjects folder have subfolders to choose from; Microsoft Flight Simulator nests them per package.</summary>
+    bool ListsSubfolders { get; }
+
+    /// <summary>The subfolders that were scanned last time.</summary>
+    IReadOnlyList<string> InitialSubfolders { get; }
+
+    /// <summary>The folders under the simulator folder's SimObjects folder. Empty when there is no such folder.</summary>
+    IReadOnlyList<string> ListSubfolders(string simFolder);
+
+    IReadOnlyList<ScanAddOn> AddOns { get; }
+
+    /// <summary>The other folders that were scanned last time.</summary>
+    IReadOnlyList<string> AdditionalFolders { get; }
+
+    /// <summary>Remembers the choice and scans in the background. False when a scan is already running.</summary>
+    bool Scan(string simFolder, IReadOnlyList<string> subfolders, IReadOnlyList<string> addOns, IReadOnlyList<string> additionalFolders);
 }
 
 /// <summary>Installs the JoinFS plugin into an X-Plane folder (XPLANE build only).</summary>
@@ -439,4 +479,5 @@ public sealed record AppServices(
     IAppInfo App,
     ISettingsStore Settings,
     IPlatform Platform,
-    IPreferencesStore Preferences);
+    IPreferencesStore Preferences,
+    IModelScanSource ModelScan);
