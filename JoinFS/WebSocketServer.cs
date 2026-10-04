@@ -214,7 +214,8 @@ namespace JoinFS
                 snap.latitude  = pos.geo.z * (180.0 / Math.PI);
                 snap.longitude = pos.geo.x * (180.0 / Math.PI);
                 snap.altitude  = pos.geo.y * Sim.FEET_PER_METRE;
-                snap.heading   = (int)(pos.angles.y * 180.0 / Math.PI);
+                // compass 0-359: playback's running heading is unwrapped (361, 722, ...) and would fail Vector.IsPlausibleHeading
+                snap.heading   = Vector.HeadingDegrees(pos.angles.y);
                 snap.onGround  = pos.ground != 0;
             }
 
@@ -346,7 +347,7 @@ namespace JoinFS
             double.IsFinite(s.latitude) && double.IsFinite(s.longitude) && double.IsFinite(s.altitude)
             && Math.Abs(s.latitude) <= 90.0 && Math.Abs(s.longitude) <= 180.0
             && s.altitude >= -2000.0 && s.altitude <= 300000.0
-            && s.heading >= -360 && s.heading <= 360;
+            && Vector.IsPlausibleHeading(s.heading);
 
         // Called from DoWork() inside conch lock
         public void DoWork()
