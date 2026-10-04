@@ -307,6 +307,22 @@
     <None Include="Installer\ShortcutsDlg.wxs" />
   </ItemGroup>
 
+  <!-- The Avalonia UI (JoinFS.UI), started with -newui. On for the -Debug configurations, opt in elsewhere with -p:NewUi=true.
+       Off by default for release builds, because it adds the Avalonia libraries to what the installers ship. Never in CONSOLE. -->
+  <PropertyGroup>
+    <NewUi Condition=" '$(NewUi)' == '' AND $(Configuration.EndsWith('-Debug')) ">true</NewUi>
+    <NewUi Condition=" '$(NewUi)' != 'true' OR '$(Configuration)' == 'CONSOLE' OR '$(Configuration)' == 'CONSOLE-Debug' ">false</NewUi>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(NewUi)' == 'true' ">
+    <DefineConstants>$(DefineConstants);NEWUI</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition=" '$(NewUi)' == 'true' ">
+    <ProjectReference Include="..\JoinFS.UI\JoinFS.UI.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition=" '$(NewUi)' != 'true' ">
+    <Compile Remove="Live\**" />
+  </ItemGroup>
+
   <Target Name="BuildAll">
     <MSBuild Projects="$(MSBuildProjectFile)" Properties="Configuration=FS2024" />
     <MSBuild Projects="$(MSBuildProjectFile)" Properties="Configuration=FS2020" />

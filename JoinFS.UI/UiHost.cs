@@ -1,0 +1,59 @@
+using Avalonia;
+using Avalonia.Controls;
+using JoinFS.UI.Services;
+using JoinFS.UI.Services.Fake;
+
+namespace JoinFS.UI;
+
+/// <summary>
+/// How a program starts the UI. JoinFS passes services built on the live app; the dev launcher passes the fakes.
+/// Run blocks on the calling thread until the window is closed, so call it from the thread that should own the UI.
+/// </summary>
+public static class UiHost
+{
+    private static Func<IPlatform, AppServices>? _servicesFactory;
+    private static string[] _args = [];
+
+    /// <summary>The window's platform services (clipboard, file pickers, browser). Give it to the adapters that need one.</summary>
+    public static IPlatform Platform { get; } = new AvaloniaPlatform(() => MainWindowOrNull);
+
+    internal static Window? MainWindowOrNull { get; set; }
+
+    internal static string[] Args => _args;
+
+    internal static AppServices CreateServices()
+    {
+        if (_servicesFactory is not null)
+            return _servicesFactory(Platform);
+
+        // No host: the fakes, with the prototype's 900 ms connect.
+        // "--skip-onboarding" starts as a returning user; "--xplane" shows what the XPLANE build shows.
+        UserSettings? settings = _args.Contains("--skip-onboarding") ? new UserSettings { Onboarded = true, Nickname = "HB-TDX" } : null;
+        return FakeServices.Create(TimeSpan.FromMilliseconds(900), settings, Platform, xplaneBuild: _args.Contains("--xplane"));
+    }
+
+    /// <param name="servicesFactory">Builds the services, given the window's platform services.</param>
+    public static void Run(Func<IPlatform, AppServices> servicesFactory, string[] args)
+    {
+        _servicesFactory = servicesFactory;
+        Start(args);
+    }
+
+    public static void RunOnFakeServices(string[] args)
+    {
+        _servicesFactory = null;
+        Start(args);
+    }
+
+    private static void Start(string[] args)
+    {
+        _args = args;
+        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+    }
+
+    // Also used by the previewer and the headless tests.
+    public static AppBuilder BuildAvaloniaApp() =>
+        AppBuilder.Configure<App>()
+            .UsePlatformDetect()
+            .LogToTrace();
+}

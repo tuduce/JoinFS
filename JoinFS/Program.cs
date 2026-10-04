@@ -121,6 +121,11 @@ namespace JoinFS
         public bool settingsMultiObjects = false;
         public bool settingsMinimized = false;
         public bool settingsNoGui = false;
+
+        /// <summary>
+        /// Start the Avalonia UI instead of the WinForms forms (builds with NEWUI only)
+        /// </summary>
+        public bool settingsNewUi = false;
         public bool settingsNoSim = false;
         public bool settingsLoop = false;
         public bool settingsXplane = false;
@@ -545,6 +550,10 @@ namespace JoinFS
 
                             case "-nogui":
                                 settingsNoGui = true;
+                                break;
+
+                            case "-newui":
+                                settingsNewUi = true;
                                 break;
 
                             case "-quit":
@@ -2390,6 +2399,14 @@ namespace JoinFS
 #endif
                 }
             }
+#if NEWUI
+            else if (main.settingsNewUi && main.shutdown == null)
+            {
+                // launch the new gui, on this thread, in place of the forms. Until every service is wired
+                // (see Live/), the ones that are not run on JoinFS.UI's fakes.
+                JoinFS.Live.NewUiLauncher.Run(main);
+            }
+#endif
 #if !CONSOLE
             else if (main.shutdown == null)
             {
