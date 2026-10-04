@@ -117,6 +117,18 @@ public interface ITrafficSource
     /// <summary>Takes the weather the aircraft reports.</summary>
     void CopyWeather(string aircraftId);
 
+    /// <summary>Merge the objects of one owner and model into one row with a count.</summary>
+    bool GroupObjects { get; set; }
+
+    /// <summary>Broadcasts or stops broadcasting one object. Not for a group; not for objects of the network.</summary>
+    void SetObjectBroadcast(string objectId, bool broadcast);
+
+    /// <summary>Broadcasts or stops broadcasting every object of a model, and the objects of its kind that come later.</summary>
+    void SetModelBroadcast(string originalModel, bool broadcast);
+
+    void SetIgnoreOwner(string objectId, bool ignored);
+    void SetIgnoreModel(string objectId, bool ignored);
+
     IReadOnlyList<ObjectInfo> GetObjects();
 }
 

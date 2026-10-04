@@ -604,14 +604,74 @@ public class AircraftAndObjectsTests
     }
 
     [Fact]
-    public void Ticking_ignore_owner_hides_the_row()
+    public void Ticking_ignore_owner_goes_to_the_service_and_hides_the_row()
     {
-        ObjectsViewModel objects = new Rig().Main.Objects;
+        Rig rig = new();
+        ObjectsViewModel objects = rig.Main.Objects;
         ObjectRowViewModel row = objects.Rows[0];
 
         row.IgnoreOwner = true;
 
         Assert.DoesNotContain(row, objects.Rows);
+        Assert.Contains(rig.Services.Traffic.GetObjects(), o => o.Id == row.Id && o.IgnoreOwner);
+    }
+
+    [Fact]
+    public void Ticking_broadcast_goes_to_the_service_and_a_refresh_does_not_write_it_back()
+    {
+        ScriptedTraffic traffic = new();
+        ObjectsViewModel objects = new(traffic, new JoinFS.UI.Services.Fake.FakeModelCatalog(),
+            new ProfileViewModel(new JoinFS.UI.Services.Fake.InMemorySettingsStore()), new NullShell());
+        ObjectRowViewModel row = objects.Rows.Single();
+        Assert.Empty(traffic.Writes);
+
+        row.Broadcast = true;
+        Assert.Equal(["object broadcast o1=True"], traffic.Writes);
+
+        traffic.Objects = [traffic.Obj("o1") with { Broadcast = false }];
+        objects.Refresh();
+        Assert.False(row.Broadcast);
+        Assert.Single(traffic.Writes); // the refresh wrote nothing
+    }
+
+    [Fact]
+    public void An_object_that_cannot_be_broadcast_or_ignored_does_not_write_a_tick()
+    {
+        ScriptedTraffic traffic = new();
+        traffic.Objects = [traffic.Obj("o1") with { CanBroadcast = false, CanIgnore = false }];
+        ObjectsViewModel objects = new(traffic, new JoinFS.UI.Services.Fake.FakeModelCatalog(),
+            new ProfileViewModel(new JoinFS.UI.Services.Fake.InMemorySettingsStore()), new NullShell());
+        ObjectRowViewModel row = objects.Rows.Single();
+
+        row.Broadcast = true;
+        row.IgnoreModel = true;
+
+        Assert.Empty(traffic.Writes);
+        Assert.False(row.CanBroadcast);
+        Assert.False(row.CanIgnore);
+    }
+
+    [Fact]
+    public void A_refresh_updates_object_rows_in_place_adds_new_ones_and_drops_the_ones_gone()
+    {
+        ScriptedTraffic traffic = new();
+        ObjectsViewModel objects = new(traffic, new JoinFS.UI.Services.Fake.FakeModelCatalog(),
+            new ProfileViewModel(new JoinFS.UI.Services.Fake.InMemorySettingsStore()), new NullShell());
+        ObjectRowViewModel a = objects.Rows.Single();
+        a.SelectCommand.Execute(null);
+
+        traffic.Objects = [traffic.Obj("o2"), traffic.Obj("o1") with { Count = 5 }];
+        objects.Refresh();
+
+        Assert.Equal(["o2", "o1"], objects.Rows.Select(r => r.Id));
+        Assert.Same(a, objects.Rows[1]);
+        Assert.True(a.IsSelected);
+        Assert.Equal(5, a.Count);
+
+        traffic.Objects = [traffic.Obj("o2")];
+        objects.Refresh();
+        Assert.Equal(["o2"], objects.Rows.Select(r => r.Id));
+        Assert.Null(objects.SelectedRow);
     }
 
     [Fact]
@@ -634,7 +694,7 @@ public class AircraftAndObjectsTests
         ObjectRowViewModel row = new Rig().Main.Objects.Rows.First(r => !r.Broadcast);
 
         Assert.Equal(
-            ["Substitute…", "Broadcast This Object", $"Broadcast All '{row.Model}'", "Broadcast VRS TacPack", "Broadcast Everything"],
+            ["Substitute…", "Broadcast This Object", $"Broadcast All '{row.Info.OriginalModel}'", "Broadcast VRS TacPack", "Broadcast Everything"],
             row.Actions.Select(a => a.Label));
     }
 
@@ -651,9 +711,11 @@ public class AircraftAndObjectsTests
         Assert.Equal("Stop Broadcasting This Object", thisObject.Label);
 
         model.Command.Execute(null);
-        Assert.Equal($"Stop Broadcasting All '{row.Model}'", model.Label);
+        objects.Refresh();
+        Assert.Equal($"Stop Broadcasting All '{row.Info.OriginalModel}'", model.Label);
         model.Command.Execute(null);
-        Assert.Equal($"Broadcast All '{row.Model}'", model.Label);
+        objects.Refresh();
+        Assert.Equal($"Broadcast All '{row.Info.OriginalModel}'", model.Label);
 
         tacpack.Command.Execute(null);
         everything.Command.Execute(null);
@@ -666,12 +728,14 @@ public class AircraftAndObjectsTests
     [Fact]
     public void The_model_link_covers_every_row_of_that_model()
     {
-        ObjectsViewModel objects = new Rig().Main.Objects;
+        Rig rig = new();
+        ObjectsViewModel objects = rig.Main.Objects;
         objects.ListIgnoredObjects = true; // two rows of this model are ignored in the sample
-        ObjectRowViewModel[] same = [.. objects.Rows.Where(r => r.Model == "GC1a Swift (Factory) (D)")];
+        ObjectRowViewModel[] same = [.. objects.Rows.Where(r => r.Info.OriginalModel == "GC1a Swift (Factory)")];
         Assert.True(same.Length > 1);
 
         same[0].Actions[2].Command.Execute(null);
+        objects.Refresh();
 
         Assert.All(same, r => Assert.StartsWith("Stop Broadcasting All", r.Actions[2].Label));
     }
@@ -690,14 +754,36 @@ public class AircraftAndObjectsTests
     }
 
     [Fact]
-    public void While_grouped_by_model_broadcasting_a_single_object_is_unavailable()
+    public void Grouping_by_model_merges_the_rows_with_a_count_and_makes_this_object_unavailable()
     {
-        ObjectsViewModel objects = new Rig().Main.Objects;
-        ActionLink thisObject = objects.Rows[0].Actions[1];
-        Assert.True(thisObject.Command.CanExecute(null));
+        Rig rig = new();
+        ObjectsViewModel objects = rig.Main.Objects;
+        objects.ListIgnoredObjects = true;
+        int ungrouped = objects.Rows.Count;
+        Assert.True(objects.Rows[0].Actions[1].Command.CanExecute(null));
 
         objects.GroupByModel = true;
-        Assert.False(thisObject.Command.CanExecute(null));
+
+        Assert.True(rig.Services.Traffic.GroupObjects);
+        Assert.True(objects.Rows.Count <= ungrouped);
+        Assert.All(objects.Rows, r => Assert.False(r.Actions[1].Command.CanExecute(null)));
+        Assert.Equal(objects.Rows.Sum(r => r.Count), rig.Services.Traffic.GetObjects().Sum(o => o.Count));
+
+        objects.GroupByModel = false;
+        Assert.Equal(ungrouped, objects.Rows.Count);
+    }
+
+    [Fact]
+    public void The_table_checkbox_of_a_group_is_its_models_broadcast()
+    {
+        Rig rig = new();
+        ObjectsViewModel objects = rig.Main.Objects;
+        objects.GroupByModel = true;
+        ObjectRowViewModel group = objects.Rows[0];
+
+        group.Broadcast = true;
+
+        Assert.Contains(rig.Services.Traffic.GetObjects(), o => o.OriginalModel == group.Info.OriginalModel && o.ModelBroadcast);
     }
 
     [Fact]
@@ -711,7 +797,7 @@ public class AircraftAndObjectsTests
     }
 
     [Fact]
-    public void Substitute_needs_a_selected_row()
+    public void Substitute_needs_a_selected_row_that_can_be_substituted()
     {
         Rig rig = new();
         ObjectsViewModel objects = rig.Main.Objects;
@@ -720,8 +806,30 @@ public class AircraftAndObjectsTests
         objects.Rows[0].SelectCommand.Execute(null);
         Assert.True(objects.SubstituteCommand.CanExecute(null));
         objects.SubstituteCommand.Execute(null);
-
         Assert.IsType<SubstituteViewModel>(rig.Main.Overlay);
+
+        ScriptedTraffic traffic = new();
+        traffic.Objects = [traffic.Obj("o1") with { CanSubstitute = false }];
+        ObjectsViewModel live = new(traffic, new JoinFS.UI.Services.Fake.FakeModelCatalog(),
+            new ProfileViewModel(new JoinFS.UI.Services.Fake.InMemorySettingsStore()), new NullShell());
+        live.Rows[0].SelectCommand.Execute(null);
+        Assert.False(live.SubstituteCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void A_poll_reads_the_objects_only_while_the_tab_is_open()
+    {
+        ScriptedTraffic traffic = new();
+        AppServices services = JoinFS.UI.Services.Fake.FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true, Nickname = "Me" }) with { Traffic = traffic };
+        MainViewModel main = new(services);
+        int atStart = traffic.ObjectReads;
+
+        for (int i = 0; i < 8; i++)
+            main.Poll();
+        Assert.Equal(atStart, traffic.ObjectReads);
+
+        main.GoTo(TabId.Objects);
+        Assert.True(traffic.ObjectReads > atStart);
     }
 }
 
@@ -1314,7 +1422,23 @@ public sealed class ScriptedTraffic : ITrafficSource
         return Aircraft;
     }
 
-    public IReadOnlyList<ObjectInfo> GetObjects() => [];
+    public List<ObjectInfo> Objects { get; set; }
+    public int ObjectReads { get; private set; }
+
+    public ObjectInfo Obj(string id) =>
+        new(id, "Owner", "Model (A)", "Model", 1, 90, 5, false, false, false, false, true, true, true);
+
+    public IReadOnlyList<ObjectInfo> GetObjects()
+    {
+        ObjectReads++;
+        return Objects ??= [Obj("o1")];
+    }
+
+    public bool GroupObjects { get; set; }
+    public void SetObjectBroadcast(string objectId, bool broadcast) => Writes.Add($"object broadcast {objectId}={broadcast}");
+    public void SetModelBroadcast(string originalModel, bool broadcast) => Writes.Add($"model broadcast {originalModel}={broadcast}");
+    public void SetIgnoreOwner(string objectId, bool ignored) => Writes.Add($"ignore owner {objectId}={ignored}");
+    public void SetIgnoreModel(string objectId, bool ignored) => Writes.Add($"ignore model {objectId}={ignored}");
     public bool IncludeHubAircraft { get; set; }
     public bool IncludeSimulatorAircraft { get; set; }
     public bool InCockpit => false;

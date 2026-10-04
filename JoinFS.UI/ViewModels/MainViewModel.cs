@@ -183,6 +183,9 @@ public sealed partial class MainViewModel : ObservableObject, IShell
             case TabId.Aircraft:
                 Aircraft.Refresh();
                 break;
+            case TabId.Objects:
+                Objects.Refresh();
+                break;
         }
     }
 

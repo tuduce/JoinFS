@@ -152,7 +152,53 @@ public sealed class FakeTrafficSource : ITrafficSource
     public void TrackBearing(string aircraftId) => _tracked = aircraftId;
     public void StopTracking() => _tracked = null;
     public void CopyWeather(string aircraftId) { }
-    public IReadOnlyList<ObjectInfo> GetObjects() => SampleData.Objects;
+    private readonly Dictionary<string, (bool? Broadcast, bool? IgnoreOwner, bool? IgnoreModel)> _object = [];
+    private readonly HashSet<string> _modelBroadcast = [];
+
+    public bool GroupObjects { get; set; }
+
+    public IReadOnlyList<ObjectInfo> GetObjects()
+    {
+        IEnumerable<ObjectInfo> rows = SampleData.Objects.Select(o =>
+        {
+            var state = _object.GetValueOrDefault(o.Id);
+            return o with
+            {
+                Broadcast = state.Broadcast ?? o.Broadcast,
+                IgnoreOwner = state.IgnoreOwner ?? o.IgnoreOwner,
+                IgnoreModel = state.IgnoreModel ?? o.IgnoreModel,
+                ModelBroadcast = _modelBroadcast.Contains(o.OriginalModel),
+            };
+        });
+
+        if (!GroupObjects)
+            return [.. rows];
+
+        // One row per owner and model, with the count, like the old window's grouping.
+        return [.. rows.GroupBy(o => (o.Owner, o.Model)).Select(g => g.First() with
+        {
+            Id = "group:" + g.Key.Owner + "/" + g.Key.Model,
+            Count = g.Sum(o => o.Count),
+            Bearing = null,
+            DistanceNm = null,
+            Broadcast = g.First().ModelBroadcast,
+        })];
+    }
+
+    public void SetObjectBroadcast(string objectId, bool broadcast) => Set(objectId, s => (broadcast, s.IgnoreOwner, s.IgnoreModel));
+    public void SetIgnoreOwner(string objectId, bool ignored) => Set(objectId, s => (s.Broadcast, ignored, s.IgnoreModel));
+    public void SetIgnoreModel(string objectId, bool ignored) => Set(objectId, s => (s.Broadcast, s.IgnoreOwner, ignored));
+
+    public void SetModelBroadcast(string originalModel, bool broadcast)
+    {
+        if (broadcast)
+            _modelBroadcast.Add(originalModel);
+        else
+            _modelBroadcast.Remove(originalModel);
+    }
+
+    private void Set(string objectId, Func<(bool? Broadcast, bool? IgnoreOwner, bool? IgnoreModel), (bool? Broadcast, bool? IgnoreOwner, bool? IgnoreModel)> change) =>
+        _object[objectId] = change(_object.GetValueOrDefault(objectId));
 }
 
 public sealed class FakeModelCatalog : IModelCatalog
