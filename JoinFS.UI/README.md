@@ -18,10 +18,20 @@ dotnet run --project JoinFS.UI.Dev -- --xplane           # what the XPLANE build
 # inside the real app (a -Debug build; see "Live wiring"), the wired services real and the rest still fake
 dotnet build JoinFS\JoinFS.csproj -c FS2024-Debug -p:Platform=x64
 JoinFS\bin\FS2024-Debug\net8.0-windows\JoinFS-FS2024-Debug.exe -newui
+# or: dotnet run --project JoinFS\JoinFS.csproj -c FS2024-Debug -p:Platform=x64 --launch-profile "New UI"
 
 dotnet test JoinFS.UI.Tests/JoinFS.UI.Tests.csproj
 JOINFS_UI_SCREENSHOTS=<folder> dotnet test ...           # also keeps a PNG of every screen
 ```
+
+## How to tell which one you are running
+
+The title bar of the fake launcher reads "JoinFS-FS2024 (fake data)". Anything you change there lives in memory and is gone when the window
+closes: nothing is saved. The live app's title bar is the build name (for example "JoinFS-FS2024-Debug"). A build started without `-newui`
+opens the old forms.
+
+Where the live app keeps what the wired screens change, under `%LOCALAPPDATA%\JoinFS-<build>\`: the address book is `bookmarks2.txt`
+(one `name=address` per line), and the app's log (`log-<port>.txt`) says "Saved N entries in the address book" each time.
 
 ## Live wiring
 

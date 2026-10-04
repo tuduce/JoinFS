@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "New UI": {
+      "commandName": "Project",
+      "commandLineArgs": "-newui"
+    },
+    "New UI, no simulator": {
+      "commandName": "Project",
+      "commandLineArgs": "-newui -nosim"
+    }
+  }
+}
