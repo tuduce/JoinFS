@@ -171,6 +171,46 @@ public class FlightPlanLiveTests
         Assert.Equal([false], simBrief.Commits);
     }
 
+    // ---- saving a plan loads it, whatever it came from
+
+    [Fact]
+    public void Saving_a_plan_from_the_tab_turns_the_strips_button_to_loaded()
+    {
+        (MainViewModel main, _, _) = Open();
+        Assert.True(main.FlightPlanLoad.IsDisconnected);
+
+        main.FlightPlan.From = "LSZH";
+        main.FlightPlan.To = "LSGG";
+        main.FlightPlan.SaveCommand.Execute(null);
+
+        Assert.True(main.FlightPlanLoad.IsConnected);
+        Assert.Equal("Loaded", main.FlightPlanLoad.StateLabel);
+    }
+
+    [Fact]
+    public async Task Saving_an_imported_plan_keeps_the_strips_button_loaded()
+    {
+        (MainViewModel main, _, _) = Open();
+
+        await main.FlightPlan.ImportFromSimbriefCommand.ExecuteAsync(null); // shown only
+        main.FlightPlan.SaveCommand.Execute(null);
+
+        Assert.True(main.FlightPlanLoad.IsConnected);
+    }
+
+    [Fact]
+    public void Saving_a_cleared_plan_turns_the_strips_button_back_to_not_loaded()
+    {
+        (MainViewModel main, _, _) = Open();
+        main.FlightPlan.Route = "A B";
+        main.FlightPlan.SaveCommand.Execute(null);
+
+        main.FlightPlan.ClearCommand.Execute(null);
+        main.FlightPlan.SaveCommand.Execute(null);
+
+        Assert.True(main.FlightPlanLoad.IsDisconnected);
+    }
+
     // ---- the tab follows the live plan
 
     [Fact]
