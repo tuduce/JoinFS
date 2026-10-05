@@ -1,5 +1,5 @@
 # Starts the JoinFS test build with the position estimation log on (-estimationlog) and the
-# position estimator under test (-estimator), after recording how far this PC's clock is from a
+# position estimator and clock model under test (-estimator, -clock), after recording how far this PC's clock is from a
 # public time server. Called by the
 # "Start JoinFS - ..." batch files in the package root.
 # Windows PowerShell 5.1 compatible, ASCII only.
@@ -8,7 +8,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Build,
     # the estimator for the other aircraft (JoinFS/Estimation/EstimationRegistry.cs)
-    [string]$Estimator = 'ClassicFixed'
+    [string]$Estimator = 'ClassicFixed',
+    # the clock model that ages the other aircraft's samples (RttHalf is the old one)
+    [string]$Clock = 'MinOffset'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -67,7 +69,7 @@ catch {
 }
 $lines | Set-Content -Path $clockFile -Encoding ASCII
 
-Write-Host "Starting JoinFS ($Build) with the position log on, estimator $Estimator..."
-Start-Process -FilePath $exe -ArgumentList '-estimationlog', '-estimator', $Estimator -WorkingDirectory (Split-Path $exe)
+Write-Host "Starting JoinFS ($Build) with the position log on, estimator $Estimator, clock $Clock..."
+Start-Process -FilePath $exe -ArgumentList '-estimationlog', '-estimator', $Estimator, '-clock', $Clock -WorkingDirectory (Split-Path $exe)
 Write-Host "Done. Fly as usual; afterwards close JoinFS and run 'Collect test logs'."
 Start-Sleep -Seconds 4

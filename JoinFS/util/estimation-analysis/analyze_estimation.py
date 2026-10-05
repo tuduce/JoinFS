@@ -413,7 +413,7 @@ def find_owner(direction, sessions):
             if len(inside) < 0.8 * len(seg[::50]):
                 continue
             lag = statistics.median(direction.receiver.clock.to_utc(s.receivedAt) - ses.clock.to_utc(s.netTime) for s in inside)
-            if -3.0 < lag < 3.0:    # the PCs' clocks may be a second or two apart
+            if -10.0 < lag < 10.0:  # the PCs' clocks may be seconds apart (CRISTII5DESK ran 3.6 s off on 2026-10-04)
                 matched.append(seg)
         n = sum(len(s) for s in matched)
         if matched and (best is None or n > best[0]):

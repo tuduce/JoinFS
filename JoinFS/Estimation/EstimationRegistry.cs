@@ -17,6 +17,7 @@ namespace JoinFS.Estimation
         static readonly Dictionary<string, Func<IClockModel>> clocks = new()
         {
             [DefaultClock] = () => new RttHalfClock(),
+            [MinOffsetClock.Name] = () => new MinOffsetClock(),
         };
 
         static readonly Dictionary<string, Func<IStateEstimator>> estimators = new()
@@ -27,6 +28,23 @@ namespace JoinFS.Estimation
 
         public static IEnumerable<string> ClockNames => clocks.Keys;
         public static IEnumerable<string> EstimatorNames => estimators.Keys;
+
+        /// <summary>
+        /// The clock model new objects get (the -clock command-line option). Set once at start-up,
+        /// before any object exists.
+        /// </summary>
+        public static string SelectedClock { get; private set; } = DefaultClock;
+
+        /// <summary>Choose the clock model new objects get; false, and no change, when the name is unknown</summary>
+        public static bool SelectClock(string name)
+        {
+            if (name == null || clocks.ContainsKey(name) == false)
+            {
+                return false;
+            }
+            SelectedClock = name;
+            return true;
+        }
 
         /// <summary>A new clock model by name - the default one when the name is unknown</summary>
         public static IClockModel CreateClock(string name = DefaultClock) =>

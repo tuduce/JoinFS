@@ -402,14 +402,18 @@ namespace JoinFS
                 }
             }
 
-            // position estimation options (-estimator, -dispatchtime)
+            // position estimation options (-estimator, -clock, -dispatchtime)
             if (main.settingsUnknownEstimator != null)
             {
                 main.MonitorEvent("ERROR - Unknown estimator '" + main.settingsUnknownEstimator + "', known: " + string.Join(", ", EstimationRegistry.EstimatorNames));
             }
-            if (main.settingsEstimationLog || EstimationRegistry.SelectedEstimator != EstimationRegistry.DefaultEstimator || main.settingsDispatchTime)
+            if (main.settingsUnknownClock != null)
             {
-                main.MonitorEvent("Position estimator - " + EstimationRegistry.SelectedEstimator + ", own samples stamped by " +
+                main.MonitorEvent("ERROR - Unknown clock model '" + main.settingsUnknownClock + "', known: " + string.Join(", ", EstimationRegistry.ClockNames));
+            }
+            if (main.settingsEstimationLog || EstimationRegistry.SelectedEstimator != EstimationRegistry.DefaultEstimator || EstimationRegistry.SelectedClock != EstimationRegistry.DefaultClock || main.settingsDispatchTime)
+            {
+                main.MonitorEvent("Position estimator - " + EstimationRegistry.SelectedEstimator + ", clock " + EstimationRegistry.SelectedClock + ", own samples stamped by " +
                     (main.settingsDispatchTime ? "dispatch time" : "the simulator's clock where it has one"));
             }
         }

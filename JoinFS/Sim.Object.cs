@@ -115,7 +115,7 @@ namespace JoinFS
             IClockModel clock;
             IStateEstimator estimator;
             SimClockStamper stamper;
-            public IClockModel Clock => clock ??= EstimationRegistry.CreateClock();
+            public IClockModel Clock => clock ??= EstimationRegistry.CreateClock(EstimationRegistry.SelectedClock);
             /// <summary>Times this object's own samples for sending (sim thread only)</summary>
             public SimClockStamper Stamper => stamper ??= new SimClockStamper();
             public IStateEstimator Estimator => estimator ??= EstimationRegistry.CreateEstimator(EstimationRegistry.SelectedEstimator);

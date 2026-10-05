@@ -20,9 +20,12 @@ Written 2026-10-01. Status:
   estimators (§6.3) are done. Replaying `.jfs` recordings through an impairment model, and
   shadow mode, are open.
 - Phase 3: `ClassicFixed` (F3, F4) is built and has been the default since 2026-10-04 (`-estimator
-  Classic` selects the old one); see §7.2 and §6.4. F6, F9 and the X-Plane quick win are open.
+  Classic` selects the old one); see §7.2 and §6.4. F9 is settled by the SDK documentation (F9 row
+  in §2). The X-Plane quick win is open.
 - Phase 4: sim-time stamping is built for MSFS (F2) and field-tested (§6.4). X-Plane's is open.
-- Phases 5–8 are open; §6.4 lists the next steps.
+- Phase 5: the passive fallback, `MinOffsetClock` (`-clock MinOffset`), is built and in the tester
+  package, not yet the default; see §6.5 and §7.3. The NTP-style exchange on JFP2 is open.
+- Phases 6–8 are open; §6.4 lists the next steps.
 
 **Prior art in the repo:**
 
@@ -168,25 +171,26 @@ Quaternion math.**
 
 ## 2. Where accuracy is lost (findings)
 
-Ranked by the expected effect on formation flying.
+Ranked by the expected effect on formation flying. The Status column shows what is built; the
+status as of 2026-10-05.
 
-| # | Finding | Effect |
-|---|---|---|
-| F1 | **Latency comes from node RTT/2 (×1.04 fudge), not from the sample's real age.** The RTT is a single unfiltered legacy Pulse sample per second. It is 0 until the first answer, so the start has no compensation. It never ages after loss. RTT/2 assumes symmetric paths. | Along-track error ≈ v × (latency error). 20 ms off at 150 m/s gives 3 m. |
-| F2 | **The timestamp is the dispatch time, not the sim sample time.** Sim-thread wakeup and SimConnect queueing jitter (a few ms, more under load) are stamped into `netTime`, and `SendDue` picks "first frame after 50 ms". | Jitter goes straight into the extrapolation horizon. |
-| F3 | **The acceleration term is doubled.** `Extrapolate` uses `a·t²`; kinematics is `½·a·t²`. | At 2 g in a turn and t = 0.15 s: 0.22 m extra, growing with t². With t = 0.3 s it is about 0.9 m. |
-| F4 | **Body rates are added to Euler angles.** `angles += ω_body·t` ignores the body→Euler kinematics: heading rate = (q·sinφ + r·cosφ)/cosθ. In a 60° banked turn the yaw rate in the body frame is about half the heading rate. Heading wrap is not handled in extrapolation. | Heading is predicted wrong in every banked turn. On FS2020/2024 that attitude is forced every frame, so the error is visible directly. |
-| F5 | **Constant-acceleration world model during turns.** In a coordinated turn the velocity vector **rotates**. Constant-a extrapolation is the second-order Taylor approximation, which diverges as t grows and with noisy `Acceleration World`. A coordinated-turn (constant turn rate) model is exact for steady turns. | Cross-track error in sustained turns, which is the formation case. |
-| F6 | **The RTT low-pass runs per frame** (alpha 0.75 on the new value). | It filters almost nothing, depends on frame rate, and carries RTT spikes straight into the horizon. |
-| F7 | **There is no clock offset model.** `netRealTime` hides the latency (see 1.3), which is why F1's RTT term is needed at all. | It couples the estimator to the transport's RTT. |
-| F8 | **The steering controller is P on position, with an ad hoc 0.3× on angular velocity.** There is no damping term on velocity error, the gain is fixed (1.5 s⁻¹, about 0.67 s time constant), and the reset thresholds are binary. | Visible lag and overshoot on manoeuvre onset, and snaps at resets. |
-| F9 | **The `OBJECT_VELOCITY` definition declares `Acceleration Body X/Y/Z` with unit "radians per second"** ([SimConnectInterface.cs:207-209](../JoinFS/SimConnectInterface.cs#L207-L209)). | Needs verification: the acceleration we write may be mis-scaled or ignored. |
-| F10 | **Spherical earth (R = 6 371 009 m) is used for the m→rad scale**, while the sims use WGS-84. The meridional radius varies from 6 335 to 6 400 km. | Up to about 1% of the extrapolated distance, about 0.4 m over 45 m. Low priority. |
-| F11 | **20 Hz fixed rate, no event-driven sends.** A sudden roll-in is only seen up to 50 ms later, plus latency. | Error spikes at manoeuvre onsets. |
-| F12 | **Control inputs (aileron/elevator/rudder) are sent but only animate surfaces**, and are not used to predict rate onset. | A missed lead signal of about 50–150 ms. |
-| F13 | **The X-Plane sender reports at 10 Hz.** Its timestamp is about one frame off the dataref read. | Twice the update gap of MSFS, so twice the manoeuvre-onset error. |
-| F14 | **The X-Plane receiver has no latency compensation at all.** Arrivals are stamped in 0.1 s batches, and the estimator is a separate C++ copy (duplicated logic, which violates DRY). | The full one-way latency (plus up to 100 ms) is uncompensated. At 150 m/s with 50 ms latency that is 7.5 m or more. This is likely the largest single error in X-Plane formations. |
-| F15 | **Small bugs.** The plugin's 50 m snap uses signed deltas. `Quaternion.Slerp` lacks the shortest-path sign flip. | Rare large excursions, and a long-way rotation in playback. |
+| # | Finding | Effect | Status |
+|---|---|---|---|
+| F1 | **Latency comes from node RTT/2 (×1.04 fudge), not from the sample's real age.** The RTT is a single unfiltered legacy Pulse sample per second. It is 0 until the first answer, so the start has no compensation. It never ages after loss. RTT/2 assumes symmetric paths. | Along-track error ≈ v × (latency error). 20 ms off at 150 m/s gives 3 m. | Open; `MinOffsetClock` replaces RTT/2 (§6.5), field test pending |
+| F2 | **The timestamp is the dispatch time, not the sim sample time.** Sim-thread wakeup and SimConnect queueing jitter (a few ms, more under load) are stamped into `netTime`, and `SendDue` picks "first frame after 50 ms". | Jitter goes straight into the extrapolation horizon. | **Done** for FS2020/2024 (§7.2); field-confirmed (§6.4). FSX, P3D and X-Plane open |
+| F3 | **The acceleration term is doubled.** `Extrapolate` uses `a·t²`; kinematics is `½·a·t²`. | At 2 g in a turn and t = 0.15 s: 0.22 m extra, growing with t². With t = 0.3 s it is about 0.9 m. | **Done** in `ClassicFixed`, the default (§7.2) |
+| F4 | **Body rates are added to Euler angles.** `angles += ω_body·t` ignores the body→Euler kinematics: heading rate = (q·sinφ + r·cosφ)/cosθ. In a 60° banked turn the yaw rate in the body frame is about half the heading rate. Heading wrap is not handled in extrapolation. | Heading is predicted wrong in every banked turn. On FS2020/2024 that attitude is forced every frame, so the error is visible directly. | **Done** in `ClassicFixed`; field-confirmed (§6.4) |
+| F5 | **Constant-acceleration world model during turns.** In a coordinated turn the velocity vector **rotates**. Constant-a extrapolation is the second-order Taylor approximation, which diverges as t grows and with noisy `Acceleration World`. A coordinated-turn (constant turn rate) model is exact for steady turns. | Cross-track error in sustained turns, which is the formation case. | Open (phase 6); no measurable gain at a 60 ms horizon (§6.2) |
+| F6 | **The RTT low-pass runs per frame** (alpha 0.75 on the new value). | It filters almost nothing, depends on frame rate, and carries RTT spikes straight into the horizon. | Open; `MinOffsetClock` reads the minimum, not a per-frame RTT (§6.5) |
+| F7 | **There is no clock offset model.** `netRealTime` hides the latency (see 1.3), which is why F1's RTT term is needed at all. | It couples the estimator to the transport's RTT. | Open; `MinOffsetClock` reads the clock offset directly (§6.5), field test pending |
+| F8 | **The steering controller is P on position, with an ad hoc 0.3× on angular velocity.** There is no damping term on velocity error, the gain is fixed (1.5 s⁻¹, about 0.67 s time constant), and the reset thresholds are binary. | Visible lag and overshoot on manoeuvre onset, and snaps at resets. | Open (phase 6) |
+| F9 | **The `OBJECT_VELOCITY` definition declares `Acceleration Body X/Y/Z` with unit "radians per second"** ([SimConnectInterface.cs:207-209](../JoinFS/SimConnectInterface.cs#L207-L209)). | Needs verification: the acceleration we write may be mis-scaled or ignored. | Settled by the SDK documentation: `ACCELERATION BODY X/Y/Z` are not settable and are in ft/s², so the sim ignores what we write. The extrapolation reads `Acceleration World` in m/s², which is right. The wrong unit string is harmless; left as is. |
+| F10 | **Spherical earth (R = 6 371 009 m) is used for the m→rad scale**, while the sims use WGS-84. The meridional radius varies from 6 335 to 6 400 km. | Up to about 1% of the extrapolated distance, about 0.4 m over 45 m. Low priority. | Open; low priority |
+| F11 | **20 Hz fixed rate, no event-driven sends.** A sudden roll-in is only seen up to 50 ms later, plus latency. | Error spikes at manoeuvre onsets. | Open (phase 7) |
+| F12 | **Control inputs (aileron/elevator/rudder) are sent but only animate surfaces**, and are not used to predict rate onset. | A missed lead signal of about 50–150 ms. | Open (phase 8) |
+| F13 | **The X-Plane sender reports at 10 Hz.** Its timestamp is about one frame off the dataref read. | Twice the update gap of MSFS, so twice the manoeuvre-onset error. | Open (X-Plane quick win) |
+| F14 | **The X-Plane receiver has no latency compensation at all.** Arrivals are stamped in 0.1 s batches, and the estimator is a separate C++ copy (duplicated logic, which violates DRY). | The full one-way latency (plus up to 100 ms) is uncompensated. At 150 m/s with 50 ms latency that is 7.5 m or more. This is likely the largest single error in X-Plane formations. | Open (X-Plane quick win) |
+| F15 | **Small bugs.** The plugin's 50 m snap uses signed deltas. `Quaternion.Slerp` lacks the shortest-path sign flip. | Rare large excursions, and a long-way rotation in playback. | Open (X-Plane quick win) |
 
 ---
 
@@ -196,7 +200,8 @@ Ordered by benefit/cost. "JFP2" means the field goes into the JFP2 `PositionUpda
 schema version, negotiated per message class at Hello). The legacy wire stays frozen; legacy peers
 just keep today's behaviour.
 
-1. **Sample timestamp from the sim, not dispatch time** (fixes F2).
+1. **Sample timestamp from the sim, not dispatch time** (fixes F2). *Done for FS2020/2024 (§7.2);
+   open for X-Plane (including the 20 Hz rate), FSX and P3D.*
    - MSFS: add `SIMULATION TIME` (seconds, sim-rate aware) to `AIRCRAFT_POSITION`. Keep a
      per-object mapping from sim time to `ElapsedTime`, using the minimum of
      (dispatch − simulation time) over a window to remove dispatch jitter.
@@ -204,7 +209,8 @@ just keep today's behaviour.
      raise the rate to 20 Hz or every frame (fixes F13).
    - The sent `NetTime` becomes "sender clock at sample", without jitter. No wire change is needed
      for this part.
-2. **Clock-offset estimation per peer, then sample age = now − (netTime + offset)** (fixes F1 and
+2. **Clock-offset estimation per peer, then sample age = now − (netTime + offset)** *(the passive
+   fallback is built, §7.3; the exchange is open)* (fixes F1 and
    F7, and makes relays transparent). Use NTP-style four-timestamp exchanges on JFP2's own
    keep-alive or Hello traffic, filtered:
    - minimum-RTT sample selection;
@@ -222,26 +228,29 @@ just keep today's behaviour.
      still much better than the per-frame RTT/2.
    - **Interim fix.** Until then, filter the RTT on the network thread (median or EWMA over samples,
      not frames), age it after lost pulses, and treat 0 as "unknown".
-3. **Sender-side dead-reckoning threshold (DIS / IEEE 1278 style)** (fixes F11).
+3. **Sender-side dead-reckoning threshold (DIS / IEEE 1278 style)** (fixes F11). *Open.*
    - The sender runs the *same* estimator the receiver runs on its own last-sent state.
    - When predicted vs actual error exceeds a threshold (e.g. 0.3 m or 1° when a peer is within
      about 200 m), it sends immediately instead of waiting for the 20 Hz slot.
    - The extra sends are only for nearby peers (reuse `intervalMasks` distance info). This works
      with legacy peers too: they just see a higher rate.
-4. **Turn-consistent kinematic state** (fixes F4 and F5).
+4. **Turn-consistent kinematic state** (fixes F4 and F5). *Partly done: the receiver converts the body
+   rates properly through a quaternion (F4, §7.2). Angular acceleration, load factor and the
+   coordinated-turn model (F5) are open.*
    - Send attitude as a quaternion (or keep Euler but convert rates properly on the receiver).
    - Send body rates p,q,r (already sent) **plus** angular acceleration from a sender-side finite
      difference over 2–3 frames.
    - Optionally send `Acceleration Body` / load factor as well. In a coordinated turn the turn rate
      follows from g·tanφ / V, which is a consistency check against noisy `Acceleration World`.
-5. **Lead signals for manoeuvre onset** (fixes F12). Aileron/elevator/rudder positions are already
+5. **Lead signals for manoeuvre onset** (fixes F12). *Open.* Aileron/elevator/rudder positions are already
    on the wire. An estimator may use them to predict rate onset (roll rate ≈ k·aileron, with k
    learned online per aircraft from the observed p vs aileron). This is optional and experimental:
    a good candidate for the plugin architecture.
-6. **Sim rate and pause state.** Include `SIMULATION RATE` (MSFS) or `sim/time/sim_speed` (X-Plane).
+6. **Sim rate and pause state.** *Open: pause exists; the stamper copes with other rates, by falling
+   back or starting over, but does not use the rate.* Include `SIMULATION RATE` (MSFS) or `sim/time/sim_speed` (X-Plane).
    The receiver then scales the horizon or refuses to extrapolate when the sender runs at a
    non-1× rate. Pause already exists as a flag.
-7. **WGS-84 local tangent plane** (fixes F10). Do extrapolation in an ENU/NED frame around the
+7. **WGS-84 local tangent plane** (fixes F10). *Open.* Do extrapolation in an ENU/NED frame around the
    sample, with proper ellipsoid radii, then convert back.
 
 Expected combined effect, estimated before measurement:
@@ -625,7 +634,7 @@ predictions, including other pilots' traffic on 2026-10-02). In turns (|bank| �
 
 **Session.** The same two MSFS 2024 PCs, from 19:04 to 20:19 UTC. Both ran the tester package built
 from `86a0cfe` (the same change as `a979145` on this branch, before a rebase) with `ClassicFixed`
-and sim-time stamps. About 79 000 predictions per direction and about 20.8 ms each way. The comparison is with the `Classic` sessions of
+and sim-time stamps. About 79 000 predictions per direction; the fastest way took 17.2 ms and the round trip was 35.5 ms. The comparison is with the `Classic` sessions of
 2026-10-01 to 03 in the same upload; its analysis was done with `analyze-estimation`.
 
 | | Classic, earlier sessions | ClassicFixed + sim-time stamps |
@@ -644,10 +653,12 @@ and sim-time stamps. About 79 000 predictions per direction and about 20.8 ms ea
   fell from about 2.5 m to under 0.9 m.
 - **F4 is confirmed in the simulator**, not only in the replay: the heading error in turns fell by an
   order of magnitude, and the cross track is at 0.01 m.
-- **The along-track median rose** by about 0.1–0.15 m (0.4 m for YR-SCD, 0.2 m for HB-TDX), which is
-  1–3 ms of bias. The most likely cause is the stamper's minimum-offset rule (§7.2), which stamps
-  the samples as early as the least-delayed ones. It is small next to the p95 gain, and open.
-- **The timing p95 rose** from 2.8 to 4.8 ms for YR-SCD (3.1 ms for HB-TDX), which fits the same bias.
+- **The along-track median rose** by about 0.1–0.2 m (0.4 m for YR-SCD, 0.2 m for HB-TDX). The
+  cause is the clock model, not the stamper (§6.5): `RttHalfClock` gave ages 3.2 and 1.7 ms too low
+  tonight, and 3 ms at 135 m/s is 0.4 m. On the earlier days its bias was the other way (+0.3 to
+  +0.6 ms), so it moves with the path.
+- **The timing p95 is now the largest error left.** It is 3.2–4.9 ms, which at 150 m/s is
+  0.5–0.7 m, about the along-track p95 itself.
 - **Rare large errors remain** (13–16 episodes over 10 m per direction):
   - 40–70 m along track for a fraction of a second, one of the predicted and drawn positions off
     while the other is right. They coincide with gaps in the samples (pauses, hitches).
@@ -660,27 +671,62 @@ and sim-time stamps. About 79 000 predictions per direction and about 20.8 ms ea
 
 **Next steps**, in this order:
 
-1. **Look at the median bias.** Plot the stamp offset against the simulator's frame times, and
-   compare the minimum-offset window (1 s) with a quantile or a longer one. Aim at a median
-   along-track error below the old 0.17–0.29 m while keeping the p95 gain.
+1. **Field-test `MinOffsetClock`** (§6.5): the tester package starts it. Expect the timing p95 and
+   the along-track median to fall to the sub-millisecond level the offline scoring shows.
 2. **The remaining rare large errors.** The 19:17 and 19:21 jumps are explained (YR-SCD following
    HB-TDX). The 18 m replay mismatch is not; find the sample that causes it. Then check how the
    receiver draws a sender's jump (a hard reset, not a long steer), using those two episodes.
-3. **F9 and F6.** Check the `OBJECT_VELOCITY` acceleration units now that ½·a·t² is the default,
-   and make the RTT filter per frame.
+3. **F9** is settled (F9 row in §2); F6 is replaced by `MinOffsetClock`.
 4. **Other simulators and rates.** Collect one session each from FS2020 and from FSX/P3D (the same
    code, unvalidated), and one with a sim rate other than 1×.
 5. **X-Plane quick win.** A 20 Hz sender, drain the link every frame, send the sample age to the
    plugin, fix the snap sign and `Slerp`, and bump `DATA_VERSION` on both sides; then X-Plane
    sim-time stamps. Use `fake_xplane_plugin.py` first, and be careful here.
-6. **`OffsetClock` (phase 5), only if a link needs it.** The tool aligns the PCs from their own
-   traffic, so it cannot see an asymmetry between the two ways; on this 41 ms link the along-track
-   error is already under 1 m at p95. Wait for a log from a long or asymmetric link (a hub in
-   another country, a mobile connection) before building it.
+6. **The NTP-style exchange on JFP2 (phase 5, the rest).** The passive clock assumes the two ways
+   of the path take the same time, like the old one. A real exchange needs a log from a long or
+   asymmetric link to show a difference, and the alignment in the analysis tool cannot see one
+   either.
 7. **Steering and angular acceleration (phase 6).** Bank is the largest attitude error left at a
    200 ms horizon; at the 60–70 ms horizon in use it is already small.
 8. **Not justified by the data:** Kalman/IMM (phase 8) and the sender dead-reckoning threshold
    (phase 7).
+
+### 6.5 Clock models scored on the field logs (2026-10-05)
+
+The estimator is now close to exact, so the age it is given is what is left (§6.4). The estimation
+log has each prediction's age (`predAge`), and with both PCs on one time line the true age is
+known, so any clock model computable from the logged samples (stamp, arrival, round trip) can be
+scored. `JoinFS/util/estimation-analysis/compare_clocks.py` does it, one day at a time.
+
+**The model scored**, as `MinOffsetClock` (§7.3) computes it: the age of a sample is the time since
+it arrived, plus how much later than the fastest sample of the last 10 s it arrived, plus half the
+smallest round trip of the last minute.
+
+Error = model age − true age, in ms (p5 / p50 / p95; then |error| p95):
+
+| session | PC watching | logged (`RttHalf`) | `MinOffset` |
+|---|---|---|---|
+| 2026-10-04, sim-time stamps | FLIGHTSIM | −4.9 / −3.2 / −1.1; 4.9 | −0.8 / −0.3 / 0.05; 0.8 |
+| | CRISTII5DESK | −3.1 / −1.7 / 0.2; 3.2 | −0.4 / −0.1 / 0.1; 0.4 |
+| 2026-10-02, dispatch stamps | FLIGHTSIM | 0.1 / 0.6 / 2.7; 2.8 | −0.2 / 0.1 / 0.3; 0.4 |
+| | CRISTII5DESK | −0.3 / 0.3 / 2.4; 2.4 | 0.0 / 0.2 / 0.4; 0.4 |
+| 2026-10-01, dispatch stamps | FLIGHTSIM | −0.1 / 0.5 / 3.5; 3.5 | −0.3 / 0.0 / 0.3; 0.4 |
+| | CRISTII5DESK | −1.5 / 0.0 / 2.7; 3.0 | 0.0 / 0.2 / 0.5; 0.5 |
+
+- **What it shows.** The old clock errs by 2.4–4.9 ms (p95) on every session and its median moves
+  from −3 to +0.6 ms with the path; the minimum-offset clock holds below 1 ms on all of them.
+- **Variants tried** on the logs (not kept): a 5 s window is as good with more noise; 30 s drifts
+  on one path; a 10th or 25th percentile instead of the minimum leaves a −1 to −4 ms bias on
+  tonight's logs; a median round trip over 10 s is worse than the raw one.
+- **The limit of the test.** The two PCs are aligned by taking the fastest sample each way to have
+  the same delay, which is also what the minimum-offset clock assumes. So it scores how well the
+  clocks follow the path's variation, not an asymmetry between the ways; the old clock assumes the
+  same. The 3 ms bias of the old clock tonight is real against that reference, and the along-track
+  error agrees with it (0.4 m at 135 m/s).
+- **The analysis tool** needed a fix to read tonight with both PCs: it matched a sender's session
+  only when the PCs' clocks were within 3 s, and CRISTII5DESK ran 3.6 s off; the limit is now 10 s.
+  With it, tonight's one-way delays are 17.6–17.8 / 19.7–21.2 / 24.5–26.2 ms (p5 / p50 / p95).
+  The §6.4 error figures hardly changed.
 
 ---
 
@@ -790,11 +836,32 @@ attitude every frame, so the fix shows directly in the drawn aircraft. The teste
 
 **Still open from phases 3 and 4:**
 
-- F6, the per-frame RTT filter;
-- F9, checking the `OBJECT_VELOCITY` acceleration units;
+- F6, the per-frame RTT filter, which `MinOffsetClock` replaces (§7.3);
+- F9, which the SDK documentation settles (F9 row in §2);
 - the X-Plane quick win (F13, F14, F15) and X-Plane's sim-time stamps;
 - a sim rate other than 1×. The stamper copes, falling back or starting over, but does not use
   the rate.
+
+### 7.3 Phase 5, the passive clock, as built (2026-10-05)
+
+[MinOffsetClock.cs](../JoinFS/Estimation/MinOffsetClock.cs), `-clock MinOffset`. `RttHalf` stays
+the default until a field session confirms it; the tester package starts `MinOffset`.
+
+- **Offset.** Arrival minus stamp of each sample goes into 10 buckets of 1 s; the smallest is the
+  offset plus the least delay.
+- **Round trip.** The network side's value goes into 12 buckets of 5 s; half the smallest,
+  ignoring 0 and 9999, is the least one-way delay. Both windows are a few numbers, so they are
+  cheap to read every frame and to copy.
+- **Age** = time since the newest sample arrived + how much later than the fastest it was + the
+  least one-way delay. Without a link (recorder playback, local updates) the last term is 0.
+- **Restart.** When ten samples in a row arrive more than 0.3 s later than the fastest of the
+  window (the sender's clock stepped, or its sim restarted), the window starts over. A step the
+  other way takes effect at once.
+- **Per object**, like `RttHalf`, behind the same `IClockModel`. `Reset` forgets the sender but not
+  the round trip; `CopyFrom` copies it all.
+- **Tests:** `MinOffsetClockTests` (steady stream, a late sample, minimum not average, a permanent
+  delay forgotten after the window, a clock step, unknown round trips, playback, reset, copy).
+- **Not built:** the NTP-style exchange on JFP2 Pulse classes 5/6.
 
 ## 8. Critical files
 

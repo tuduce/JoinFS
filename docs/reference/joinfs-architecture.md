@@ -542,7 +542,9 @@ functions in `SimMessageMapper`.
    - asks the clock for the sample's age;
    - asks the estimator for the state at that age;
    - lets the steering law (`ISteeringLaw`) compute the command it applies through SimConnect.
-   The estimator is chosen at start-up with `-estimator <name>` (default `Classic`). The X-Plane
+   The estimator is chosen at start-up with `-estimator <name>` (default `ClassicFixed`; `Classic` is
+   the original), and the clock with `-clock <name>` (default `RttHalf`; `MinOffset` reads the
+   sender's clock offset off the fastest samples). The X-Plane
    plugin still does its own estimation (`AdvancePosition` in `JoinFS-XP`). See
    `docs/position-estimation-plan.md`.
 
