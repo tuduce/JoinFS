@@ -58,8 +58,8 @@
                             <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="4"><TextBlock Text="Bearing" /><TextBlock Classes="strong" Text="{Binding Bearing}" /></StackPanel>
                             <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Spacing="4"><TextBlock Text="COM1" /><TextBlock Classes="strong" Text="{Binding Com1}" /></StackPanel>
                             <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="4"><TextBlock Text="COM2" /><TextBlock Classes="strong" Text="{Binding Com2}" /></StackPanel>
-                            <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="4"><TextBlock Text="Simulator" /><TextBlock Classes="strong" Text="{Binding Simulator}" TextWrapping="Wrap" /></StackPanel>
-                            <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="4"><TextBlock Text="Original Model" /><TextBlock Classes="strong" Text="{Binding OriginalModel}" TextWrapping="Wrap" /></StackPanel>
+                            <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*" ColumnSpacing="4"><TextBlock Text="Simulator" /><TextBlock Grid.Column="1" Classes="strong" Text="{Binding Simulator}" TextWrapping="Wrap" /></Grid>
+                            <Grid Grid.Row="3" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*" ColumnSpacing="4"><TextBlock Text="Original Model" /><TextBlock Grid.Column="1" Classes="strong" Text="{Binding OriginalModel}" TextWrapping="Wrap" /></Grid>
                           </Grid>
                           <Border BorderBrush="{DynamicResource BorderCardBrush}" BorderThickness="0,1,0,0" Margin="0,4,0,0" Padding="0,8,0,0">
                             <StackPanel Spacing="4">
