@@ -989,7 +989,7 @@ namespace JoinFS
                         if (position != null)
                         {
                             // change state
-                            userAircraft.variableSet.UpdateInteger(headingVuid, (int)(position.angles.y * 180.0 / Math.PI));
+                            userAircraft.variableSet.UpdateInteger(headingVuid, Vector.HeadingDegrees(position.angles.y));
                         }
                     }
                     // check if tracking by bearing
@@ -1005,7 +1005,7 @@ namespace JoinFS
                             // get bearing
                             double bearing = Vector.GeodesicBearing(userPosition.geo.x, userPosition.geo.z, objPosition.geo.x, objPosition.geo.z);
                             // change state
-                            userAircraft.variableSet.UpdateInteger(headingVuid, (int)(bearing *= 180.0 / Math.PI));
+                            userAircraft.variableSet.UpdateInteger(headingVuid, Vector.HeadingDegrees(bearing));
                         }
                     }
                 }
