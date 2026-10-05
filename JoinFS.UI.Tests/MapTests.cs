@@ -496,6 +496,36 @@ public class MapViewRenderTests
     }
 
     [AvaloniaFact]
+    public void A_map_that_follows_the_aircraft_shows_them_all_after_it_is_resized_but_one_the_user_moved_stays()
+    {
+        MapMarker[] markers = [new("A", "HB-TDX", 47.45, 8.55, 90), new("B", "FAR", -33.9, 151.2, 0)];
+        (Window window, MapView map) = Open(new CheckerTiles(), markers);
+        Pump(5);
+
+        window.Width = 900;
+        window.Height = 700;
+        Pump(5);
+
+        foreach (MapMarker marker in markers)
+        {
+            Point at = map.Viewport.ToScreen(marker.Latitude, marker.Longitude);
+            Assert.InRange(at.X, 0, map.Bounds.Width);
+            Assert.InRange(at.Y, 0, map.Bounds.Height);
+        }
+
+        // after a drag the map is the user's: resizing leaves where it looks alone
+        window.MouseDown(new Point(300, 200), Avalonia.Input.MouseButton.Left);
+        window.MouseMove(new Point(250, 200));
+        window.MouseUp(new Point(250, 200), Avalonia.Input.MouseButton.Left);
+        double zoom = map.Viewport.Zoom;
+        window.Width = 640;
+        window.Height = 500;
+        Pump(5);
+        Assert.Equal(zoom, map.Viewport.Zoom);
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void The_wheel_zooms_in_and_keeps_the_page_from_scrolling()
     {
         (Window window, MapView map) = Open(new CheckerTiles(), [new("A", "HB-TDX", 47.45, 8.55, 90), new("B", "LSGG1", 46.2, 6.1, 0)]);
