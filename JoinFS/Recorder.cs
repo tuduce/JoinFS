@@ -917,6 +917,116 @@ namespace JoinFS
         public bool Empty { get { return (objList.Count == 0); } }
 
         /// <summary>
+        /// What each recorder action is allowed to do in a given state. The Recorder buttons and the
+        /// global hotkeys both ask these, so a hotkey can't fire what the button would have disabled
+        /// (Button.Enabled goes stale while the Recorder window is hidden).
+        /// </summary>
+        public static bool CanRecord(bool recording, bool playing) => !(recording || playing);
+        public static bool CanOverdub(bool recording, bool empty) => !recording && !empty;
+        public static bool CanPlay(bool recording, bool empty) => !recording && !empty;
+        public static bool CanStop(bool recording, bool playing) => recording || playing;
+
+        public bool CanRecord() => CanRecord(recording, playing);
+        public bool CanOverdub() => CanOverdub(recording, Empty);
+        public bool CanPlay() => CanPlay(recording, Empty);
+        public bool CanStop() => CanStop(recording, playing);
+
+        /// <summary>
+        /// The Record and Overdub hotkeys pressed during a recording stop it first (Record then
+        /// auto-saves it) and start a new one, since a hotkey user (VR) can't reach Stop. The buttons
+        /// stay disabled meanwhile.
+        /// </summary>
+        public static bool HotkeyRestartsRecording(bool recording) => recording;
+
+        /// <summary>
+        /// An overdub needs a track to overdub: on an empty recorder it is a plain record, which also
+        /// sets the start time that frames are stamped against
+        /// </summary>
+        public static bool ResolveOverdub(bool requested, bool empty) => requested && !empty;
+
+        /// <summary>
+        /// File name for an auto-saved recording: date, time and the first aircraft's callsign
+        /// </summary>
+        public static string BuildAutoSaveFileName(DateTime now, string firstCallsign)
+        {
+            string callsign = string.IsNullOrWhiteSpace(firstCallsign) ? "recording" : firstCallsign.Trim();
+            foreach (char invalid in Path.GetInvalidFileNameChars())
+            {
+                callsign = callsign.Replace(invalid, '_');
+            }
+            return now.ToString("yyyy-MM-dd_HHmmss", System.Globalization.CultureInfo.InvariantCulture) + "_" + callsign + ".jfs";
+        }
+
+        /// <summary>
+        /// Callsign of the first aircraft in a recording, empty if there is none
+        /// </summary>
+        public static string FirstCallsign(List<Obj> objects)
+        {
+            foreach (var obj in objects)
+            {
+                if (obj is Aircraft aircraft)
+                {
+                    return aircraft.callsign ?? "";
+                }
+            }
+            return "";
+        }
+
+        /// <summary>
+        /// A path in the folder for the file name that doesn't exist yet (-2, -3, ... appended)
+        /// </summary>
+        public static string UniquePath(string folder, string fileName)
+        {
+            string path = Path.Combine(folder, fileName);
+            string stem = Path.GetFileNameWithoutExtension(fileName);
+            string extension = Path.GetExtension(fileName);
+            for (int counter = 2; File.Exists(path); counter++)
+            {
+                path = Path.Combine(folder, stem + "-" + counter + extension);
+            }
+            return path;
+        }
+
+        /// <summary>
+        /// Write a copy of a recording (from <see cref="CopyForSave"/>) into the folder under an
+        /// automatic name, never overwriting a file. Returns the path; throws if it can't be written
+        /// (a partially written file is deleted first) - any thread
+        /// </summary>
+        public string AutoSave(string folder, List<Obj> objects, DateTime now)
+        {
+            string path = UniquePath(folder, BuildAutoSaveFileName(now, FirstCallsign(objects)));
+            using (var stream = new FileStream(path, FileMode.CreateNew))
+            {
+                try
+                {
+                    using var writer = new BinaryWriter(stream);
+                    Write(writer, objects);
+                }
+                catch
+                {
+                    stream.Dispose();
+                    TryDeleteQuietly(path);
+                    throw;
+                }
+            }
+            return path;
+        }
+
+        /// <summary>
+        /// Delete a file, ignoring failures (nothing sensible left to do about them) - any thread
+        /// </summary>
+        static void TryDeleteQuietly(string path)
+        {
+            try
+            {
+                File.Delete(path);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+            }
+        }
+
+        /// <summary>
         /// Time that playing or recording started
         /// </summary>
         double startTime;
@@ -1122,6 +1232,9 @@ namespace JoinFS
         /// </summary>
         public void StartRecord(bool overdub)
         {
+            // overdubbing nothing is recording
+            overdub = ResolveOverdub(overdub, Empty);
+
             // should not be recording
             if (main.sim != null && recording == false && (playing == false || overdub))
             {

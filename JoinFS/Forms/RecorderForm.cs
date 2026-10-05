@@ -91,10 +91,10 @@ namespace JoinFS
             }
 
             // set recorder menu items
-            bool recordEnabled = !main.recorder.Active;
-            bool overdubEnabled = !main.recorder.recording && !main.recorder.Empty;
-            bool playEnabled = !main.recorder.recording && !main.recorder.Empty;
-            bool stopEnabled = main.recorder.Active;
+            bool recordEnabled = main.recorder.CanRecord();
+            bool overdubEnabled = main.recorder.CanOverdub();
+            bool playEnabled = main.recorder.CanPlay();
+            bool stopEnabled = main.recorder.CanStop();
 
             if (Button_Record.Enabled != recordEnabled)
             {
@@ -231,9 +231,19 @@ namespace JoinFS
             main.InvokeOnSim(sim => { main.recorder.Jump(time); return true; });
         }
 
-        private void Button_Record_Click(object sender, EventArgs e)
+        public void Button_Record_Click(object sender, EventArgs e)
         {
-            main.mainForm ?. CheckRecording();
+            // the hotkeys call this too, so respect what the button would have disabled
+            if (main.recorder.CanRecord() == false)
+            {
+                return;
+            }
+
+            // keep the previous recording on disk (no dialog, hotkeys are used in VR); if that fails, keep it in memory
+            if (main.mainForm != null && main.mainForm.AutoSaveRecording() == false)
+            {
+                return;
+            }
 
             // start new recording (on the sim thread)
             main.InvokeOnSim(sim => { main.recorder.StartRecord(false); return true; });
@@ -249,8 +259,37 @@ namespace JoinFS
             RefreshWindow();
         }
 
-        private void Button_Play_Click(object sender, EventArgs e)
+        /// <summary>
+        /// Record hotkey: a running recording is stopped (and auto-saved by Record) and a new one started
+        /// </summary>
+        public void Hotkey_Record()
         {
+            if (Recorder.HotkeyRestartsRecording(main.recorder.recording))
+            {
+                Button_Stop_Click(null, EventArgs.Empty);
+            }
+            Button_Record_Click(null, EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// Overdub hotkey: a running recording or overdub is stopped and a new overdub pass started
+        /// </summary>
+        public void Hotkey_Overdub()
+        {
+            if (Recorder.HotkeyRestartsRecording(main.recorder.recording))
+            {
+                Button_Stop_Click(null, EventArgs.Empty);
+            }
+            Button_Overdub_Click(null, EventArgs.Empty);
+        }
+
+        public void Button_Play_Click(object sender, EventArgs e)
+        {
+            if (main.recorder.CanPlay() == false)
+            {
+                return;
+            }
+
             // on the sim thread
             main.InvokeOnSim(sim =>
             {
@@ -272,8 +311,13 @@ namespace JoinFS
 #endif
         }
 
-        private void Button_Stop_Click(object sender, EventArgs e)
+        public void Button_Stop_Click(object sender, EventArgs e)
         {
+            if (main.recorder.CanStop() == false)
+            {
+                return;
+            }
+
             main.InvokeOnSim(sim => { main.recorder.Stop(); return true; });
             
             RefreshWindow();
@@ -282,8 +326,19 @@ namespace JoinFS
 #endif
         }
 
-        private void Button_Overdub_Click(object sender, EventArgs e)
+        public void Button_Overdub_Click(object sender, EventArgs e)
         {
+            // overdubbing an empty recorder is a plain record
+            if (main.recorder.Empty)
+            {
+                Button_Record_Click(sender, e);
+                return;
+            }
+            if (main.recorder.CanOverdub() == false)
+            {
+                return;
+            }
+
             main.InvokeOnSim(sim =>
             {
                 main.recorder.StartPlay();
@@ -329,7 +384,7 @@ namespace JoinFS
         {
             if (main.recorder.Active)
             {
-                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.Name + ": " + Resources.Strings.RecorderStr);
+                MessageBox.Show(Resources.Strings.Recorder_ActiveLoad, Main.Name + ": " + Resources.Strings.RecorderStr);
             }
             else
             {
@@ -380,7 +435,7 @@ namespace JoinFS
             // check if recorder is active
             if (main.recorder.Active)
             {
-                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.Name + ": " + Resources.Strings.RecorderStr);
+                MessageBox.Show(Resources.Strings.Recorder_ActiveSave, Main.Name + ": " + Resources.Strings.RecorderStr);
             }
             else if (main.recorder.Empty)
             {
@@ -396,7 +451,7 @@ namespace JoinFS
         {
             if (main.recorder.Active)
             {
-                MessageBox.Show("Recorder is currently active. Choose 'Recorder|Stop' from the menu before opening a recording.", Main.Name + ": " + Resources.Strings.RecorderStr);
+                MessageBox.Show(Resources.Strings.Recorder_ActiveLoad, Main.Name + ": " + Resources.Strings.RecorderStr);
             }
             else
             {

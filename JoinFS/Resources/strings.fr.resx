@@ -243,8 +243,20 @@
   <data name="Shortcuts_Network" xml:space="preserve">
     <value>Activer / désactiver l'état du réseau</value>
   </data>
+  <data name="Shortcuts_Overdub" xml:space="preserve">
+    <value>Commencer l'enregistrement en overdub</value>
+  </data>
+  <data name="Shortcuts_Record" xml:space="preserve">
+    <value>Commencer à enregistrer l'avion sélectionné</value>
+  </data>
+  <data name="Shortcuts_Replay" xml:space="preserve">
+    <value>Lecture / pause de l'avion stocké dans l'enregistreur</value>
+  </data>
   <data name="Shortcuts_Simulator" xml:space="preserve">
     <value>Activer / désactiver l'état du simulateur</value>
+  </data>
+  <data name="Shortcuts_Stop" xml:space="preserve">
+    <value>Arrêter l'enregistrement / la lecture</value>
   </data>
   <data name="SingleProp" xml:space="preserve">
     <value>Unique Prop</value>
@@ -755,6 +767,15 @@
   </data>
   <data name="FlightPlan_AltitudeTooltip" xml:space="preserve">
     <value>Altitude de croisière ou niveau de vol, ex. 35000 ou FL350</value>
+  </data>
+  <data name="Recorder_ActiveLoad" xml:space="preserve">
+    <value>Le chargement d’un enregistrement arrête la lecture en cours : le trafic injecté disparaît pour les utilisateurs qui t’autorisent plusieurs objets. Arrête d’abord l’enregistreur (Recorder|Stop), puis charge l’enregistrement.</value>
+  </data>
+  <data name="Recorder_ActiveSave" xml:space="preserve">
+    <value>Arrête l’enregistreur (Recorder|Stop) avant de sauvegarder.</value>
+  </data>
+  <data name="Recorder_AutoSaved" xml:space="preserve">
+    <value>Enregistrement sauvegardé : {0}</value>
   </data>
   <data name="ReconnectCredentialsRejected" xml:space="preserve">
     <value>La connexion a été perdue et le hub a rejeté les identifiants enregistrés (ils ont peut-être changé). Saisissez-les à nouveau pour vous reconnecter.</value>

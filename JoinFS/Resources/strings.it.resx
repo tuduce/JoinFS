@@ -243,8 +243,20 @@
   <data name="Shortcuts_Network" xml:space="preserve">
     <value>Attiva / disattiva lo stato della rete</value>
   </data>
+  <data name="Shortcuts_Overdub" xml:space="preserve">
+    <value>Inizia la registrazione in sovraincisione</value>
+  </data>
+  <data name="Shortcuts_Record" xml:space="preserve">
+    <value>Inizia a registrare l'aereo selezionato</value>
+  </data>
+  <data name="Shortcuts_Replay" xml:space="preserve">
+    <value>Riprodurre / mettere in pausa l'aereo memorizzato nel registratore</value>
+  </data>
   <data name="Shortcuts_Simulator" xml:space="preserve">
     <value>Attiva / disattiva lo stato del simulatore</value>
+  </data>
+  <data name="Shortcuts_Stop" xml:space="preserve">
+    <value>Interrompere la registrazione / riproduzione</value>
   </data>
   <data name="SingleProp" xml:space="preserve">
     <value>Monomotore ad elica</value>
@@ -755,6 +767,15 @@
   </data>
   <data name="FlightPlan_AltitudeTooltip" xml:space="preserve">
     <value>Altitudine di crociera o livello di volo, es. 35000 o FL350</value>
+  </data>
+  <data name="Recorder_ActiveLoad" xml:space="preserve">
+    <value>Il caricamento di una registrazione interrompe la riproduzione in corso e il traffico iniettato scompare per gli utenti che ti consentono più oggetti. Ferma prima il registratore (Recorder|Stop), poi carica la registrazione.</value>
+  </data>
+  <data name="Recorder_ActiveSave" xml:space="preserve">
+    <value>Ferma il registratore (Recorder|Stop) prima di salvare.</value>
+  </data>
+  <data name="Recorder_AutoSaved" xml:space="preserve">
+    <value>Registrazione salvata: {0}</value>
   </data>
   <data name="ReconnectCredentialsRejected" xml:space="preserve">
     <value>La connessione è stata persa e l&apos;hub ha rifiutato le credenziali salvate (potrebbero essere cambiate). Inseriscile di nuovo per riconnetterti.</value>

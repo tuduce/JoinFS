@@ -285,8 +285,20 @@
   <data name="Shortcuts_Network" xml:space="preserve">
     <value>Toggle the network state on/off</value>
   </data>
+  <data name="Shortcuts_Overdub" xml:space="preserve">
+    <value>Start overdub recording</value>
+  </data>
+  <data name="Shortcuts_Record" xml:space="preserve">
+    <value>Start recording the selected aircraft</value>
+  </data>
+  <data name="Shortcuts_Replay" xml:space="preserve">
+    <value>Play/pause replay of the recorded aircraft</value>
+  </data>
   <data name="Shortcuts_Simulator" xml:space="preserve">
     <value>Toggle the simulator state on/off</value>
+  </data>
+  <data name="Shortcuts_Stop" xml:space="preserve">
+    <value>Stop recording/playing</value>
   </data>
   <data name="SingleProp" xml:space="preserve">
     <value>SingleProp</value>
@@ -755,6 +767,15 @@
   </data>
   <data name="FlightPlan_AltitudeTooltip" xml:space="preserve">
     <value>Cruise altitude or flight level, e.g. 35000 or FL350</value>
+  </data>
+  <data name="Recorder_ActiveLoad" xml:space="preserve">
+    <value>Loading a recording stops the current replay, and the traffic injected for other users (who allow multiple objects for you) disappears for them. Stop the recorder first (Recorder|Stop), then load the recording.</value>
+  </data>
+  <data name="Recorder_ActiveSave" xml:space="preserve">
+    <value>Stop the recorder (Recorder|Stop) before saving.</value>
+  </data>
+  <data name="Recorder_AutoSaved" xml:space="preserve">
+    <value>Recording saved: {0}</value>
   </data>
   <data name="ReconnectCredentialsRejected" xml:space="preserve">
     <value>The connection was lost and the hub rejected the saved credentials (they may have changed). Please enter them again to reconnect.</value>

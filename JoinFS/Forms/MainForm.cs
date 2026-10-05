@@ -297,6 +297,10 @@ namespace JoinFS
         public Shortcut handOverShortcut = new();
         public Shortcut enterShortcut = new();
         public Shortcut followShortcut = new();
+        public Shortcut recordShortcut = new();
+        public Shortcut overdubShortcut = new();
+        public Shortcut stopShortcut = new();
+        public Shortcut replayShortcut = new();
 
         /// <summary>
         /// Check if a particular key is pressed
@@ -386,6 +390,10 @@ namespace JoinFS
             LoadShortcut(Settings.Default.ShortcutHandOverKey, handOverShortcut);
             LoadShortcut(Settings.Default.ShortcutEnterKey, enterShortcut);
             LoadShortcut(Settings.Default.ShortcutFollowKey, followShortcut);
+            LoadShortcut(Settings.Default.ShortcutRecordKey, recordShortcut);
+            LoadShortcut(Settings.Default.ShortcutOverdubKey, overdubShortcut);
+            LoadShortcut(Settings.Default.ShortcutStopKey, stopShortcut);
+            LoadShortcut(Settings.Default.ShortcutReplayKey, replayShortcut);
         }
 
         /// <summary>
@@ -500,6 +508,34 @@ namespace JoinFS
                     main.aircraftForm?.Context_Aircraft_Follow_Click(null, EventArgs.Empty);
                 }
 #endif
+
+                // check if record key pressed
+                if (Settings.Default.ShortcutRecord && CombinationPressed(control, shift, alt, recordShortcut))
+                {
+                    // start recording
+                    main.recorderForm?.Hotkey_Record();
+                }
+
+                // check if overdub key pressed
+                if (Settings.Default.ShortcutOverdub && CombinationPressed(control, shift, alt, overdubShortcut))
+                {
+                    // start overdub
+                    main.recorderForm?.Hotkey_Overdub();
+                }
+
+                // check if stop key pressed
+                if (Settings.Default.ShortcutStop && CombinationPressed(control, shift, alt, stopShortcut))
+                {
+                    // stop recording/playing
+                    main.recorderForm?.Button_Stop_Click(null, EventArgs.Empty);
+                }
+
+                // check if replay key pressed
+                if (Settings.Default.ShortcutReplay && CombinationPressed(control, shift, alt, replayShortcut))
+                {
+                    // toggle replay/pause
+                    main.recorderForm?.Button_Play_Click(null, EventArgs.Empty);
+                }
             }
         }
 
@@ -513,6 +549,8 @@ namespace JoinFS
 
         private void RefreshWindows(object sender, System.EventArgs e)
         {
+            HideExpiredRecordingSaved();
+
             // check if refresh is already active
             if (refreshActive)
             {
@@ -1049,9 +1087,83 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Check if there is an unsaved recording
+        /// Write an unsaved recording to the documents folder without asking, so starting a new
+        /// recording (also by hotkey, e.g. in VR) never needs a dialog. Returns false if the
+        /// recording couldn't be saved and must be kept
         /// </summary>
-        public void CheckRecording()
+        public bool AutoSaveRecording()
+        {
+            if (unsaved == false || main.recorder.Empty)
+            {
+                return true;
+            }
+
+            // copy on the sim thread, which owns the recording
+            List<Recorder.Obj> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
+            if (objects == null)
+            {
+                return ReportAutoSaveFailure("the simulator thread did not respond");
+            }
+
+            try
+            {
+                string path = main.recorder.AutoSave(main.documentsPath, objects, DateTime.Now);
+                main.MonitorEvent("Recorder: auto-saved the previous recording to '" + path + "'.");
+                ShowRecordingSaved(path);
+                unsaved = false;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return ReportAutoSaveFailure(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Status-bar hint (visible without the Recorder window, e.g. for VR users) for a few seconds
+        /// </summary>
+        const double RECORDING_SAVED_SECONDS = 10.0;
+        ToolStripStatusLabel recordingSavedLabel;
+        DateTime recordingSavedUntil;
+
+        void ShowRecordingSaved(string path)
+        {
+            if (recordingSavedLabel == null)
+            {
+                recordingSavedLabel = new ToolStripStatusLabel
+                {
+                    BorderSides = ToolStripStatusLabelBorderSides.Left,
+                    ForeColor = Color.Gray
+                };
+                StatusStrip_Main.Items.Add(recordingSavedLabel);
+                StatusStrip_Main.ShowItemToolTips = true;
+            }
+            recordingSavedLabel.Text = string.Format(Resources.Strings.Recorder_AutoSaved, Path.GetFileName(path));
+            recordingSavedLabel.ToolTipText = path;
+            recordingSavedLabel.Visible = true;
+            recordingSavedUntil = DateTime.UtcNow.AddSeconds(RECORDING_SAVED_SECONDS);
+        }
+
+        void HideExpiredRecordingSaved()
+        {
+            if (recordingSavedLabel != null && recordingSavedLabel.Visible && DateTime.UtcNow > recordingSavedUntil)
+            {
+                recordingSavedLabel.Visible = false;
+            }
+        }
+
+        bool ReportAutoSaveFailure(string reason)
+        {
+            string message = "ERROR - Previous recording not saved (" + reason + "), so no new recording was started.";
+            main.MonitorEvent(message);
+            MessageBox.Show(message, Main.Name + ": " + Resources.Strings.RecorderStr);
+            return false;
+        }
+
+        /// <summary>
+        /// Ask whether to save an unsaved recording (when closing)
+        /// </summary>
+        public void PromptSaveRecording()
         {
             // check if recording is unsaved
             if (unsaved)
@@ -1142,7 +1254,7 @@ namespace JoinFS
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             // leave network
-            CheckRecording();
+            PromptSaveRecording();
 
             base.OnFormClosed(e);
         }
