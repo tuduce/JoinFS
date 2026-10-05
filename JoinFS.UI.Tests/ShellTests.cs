@@ -197,7 +197,7 @@ public class ShellTests
 
         ((AboutViewModel)rig.Main.Overlay!).OpenDocumentationCommand.Execute(null);
 
-        Assert.Equal(["https://joinfs.net/docs"], rig.Platform.OpenedUrls);
+        Assert.Equal(["https://github.com/tuduce/JoinFS/wiki"], rig.Platform.OpenedUrls);
     }
 
     [Fact]
