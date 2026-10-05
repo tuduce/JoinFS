@@ -50,6 +50,9 @@ public sealed partial class FlightPlanViewModel : ObservableObject
     /// <summary>Raised after a successful import, so the strip's flight-plan button can show "Loaded".</summary>
     public event EventHandler? Imported;
 
+    /// <summary>Raised after Save, with whether the plan saved is a filled one (true) or a cleared one (false).</summary>
+    public event EventHandler<bool>? Saved;
+
     public FlightPlanData ToData() => new(Callsign, Type, Rules, From, To, Altitude, Route, Remarks);
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
@@ -80,9 +83,11 @@ public sealed partial class FlightPlanViewModel : ObservableObject
     [RelayCommand]
     private void Save()
     {
-        _store.Save(ToData());
+        FlightPlanData plan = ToData();
+        _store.Save(plan);
         _hasUnsavedEdits = false;
         Apply(_store.Load());
+        Saved?.Invoke(this, !plan.IsBlank);
     }
 
     /// <summary>The link on the tab: the imported plan is shown to be checked and saved.</summary>

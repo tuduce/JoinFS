@@ -149,6 +149,10 @@ public sealed record MatchExplanation(
     string Callsign, string Outcome, string? Note, IReadOnlyList<ExplainRow> Rows, IReadOnlyList<string> Steps, string Source, string Report);
 
 public sealed record FlightPlanData(
-    string Callsign, string Type, string Rules, string From, string To, string Altitude, string Route, string Remarks);
+    string Callsign, string Type, string Rules, string From, string To, string Altitude, string Route, string Remarks)
+{
+    /// <summary>No route fields filled: a cleared plan. The callsign, type and rules do not count, the aircraft has those anyway.</summary>
+    public bool IsBlank => From.Length == 0 && To.Length == 0 && Route.Length == 0 && Remarks.Length == 0 && Altitude.Length == 0;
+}
 
 public sealed record UpdateInfo(string Version, string Url);

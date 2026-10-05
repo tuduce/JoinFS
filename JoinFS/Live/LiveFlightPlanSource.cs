@@ -22,6 +22,9 @@ namespace JoinFS.Live
         string pendingAlternate;
         bool hasPending;
 
+        // A filled plan has been saved from the tab since the last Reset. Only the UI thread touches it.
+        bool planSaved;
+
         public LiveFlightPlanSource(Main main)
         {
             this.main = main;
@@ -54,7 +57,16 @@ namespace JoinFS.Live
             hasPending = false;
 
             // blank route fields are a cleared plan: its alternate goes too
-            bool cleared = data.From.Length == 0 && data.To.Length == 0 && data.Route.Length == 0 && data.Remarks.Length == 0 && data.Altitude.Length == 0;
+            bool cleared = data.IsBlank;
+            if (cleared)
+            {
+                // nothing is loaded any more, whatever was fetched before
+                Reset();
+            }
+            else
+            {
+                planSaved = true;
+            }
 
             main.SimCommand(sim =>
             {
@@ -107,14 +119,16 @@ namespace JoinFS.Live
                     case Sim.SimBriefFetchState.Success:
                         return ConnectionState.Connected;
                     default:
-                        // not asked yet, or asked and nothing found: the button reads "not loaded" either way
-                        return ConnectionState.Disconnected;
+                        // a plan saved from the tab is loaded as much as one fetched; otherwise not asked yet, or asked and
+                        // nothing found: the button reads "not loaded"
+                        return planSaved ? ConnectionState.Connected : ConnectionState.Disconnected;
                 }
             }
         }
 
         public void Reset()
         {
+            planSaved = false;
             if (main.sim != null && main.sim.simBriefFetchState != Sim.SimBriefFetchState.Fetching)
             {
                 main.sim.simBriefFetchState = Sim.SimBriefFetchState.NotTriggered;

@@ -59,6 +59,8 @@ public sealed partial class MainViewModel : ObservableObject, IShell
             },
             observed: services.SimBrief.ReportsState);
         FlightPlan.Imported += (_, _) => FlightPlanLoad.SetState(ConnectionState.Connected);
+        // A plan saved from the tab is loaded too, whatever it came from; a cleared one is not.
+        FlightPlan.Saved += (_, filled) => FlightPlanLoad.SetState(filled ? ConnectionState.Connected : ConnectionState.Disconnected);
 
         // Save in the Session tab changes the address book; the strip's hub picker has to show it.
         Session.AddressBookChanged += (_, _) => AddressBook.Reload();
