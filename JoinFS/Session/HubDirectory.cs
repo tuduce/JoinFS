@@ -73,7 +73,7 @@ namespace JoinFS
                 this.level = (byte)level;
                 this.range = (byte)range;
                 this.ifr = ifr;
-                this.heading = (ushort)(heading * (180.0 / Math.PI));
+                this.heading = (ushort)Vector.HeadingDegrees(heading);
             }
         }
 

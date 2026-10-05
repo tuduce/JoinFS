@@ -2010,7 +2010,7 @@ namespace JoinFS
             if (aircraftPosition != null)
             {
                 // set heading
-                heading = ((int)(aircraftPosition.angles.y * 180.0 / Math.PI)).ToString("D3");
+                heading = Vector.HeadingDegrees(aircraftPosition.angles.y).ToString("D3");
                 // set altitude
                 altitude = (aircraftPosition.geo.y * Sim.FEET_PER_METRE).ToString("N0");
             }

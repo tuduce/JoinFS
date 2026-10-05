@@ -168,6 +168,39 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// A heading in radians as a compass heading in whole degrees, 0-359 (360 reads as 0, -90 as 270).
+        /// Rounded to the nearest degree, not truncated: 359 degrees is 358.99999999999994 after the radian round trip,
+        /// which truncation reports as 358.
+        /// For REPORTING only (websocket, Whazzup/hub lists, dialogs). Playback keeps an unwrapped running
+        /// heading on purpose (see Recorder.InterpolateAngles) that grows past 360 with every turn, and
+        /// reporting that raw made the websocket's plausibility check drop the aircraft after the first
+        /// clockwise crossing of north. Never feed this back into playback or the simulator.
+        /// </summary>
+        public static int HeadingDegrees(double radians)
+        {
+            if (!double.IsFinite(radians))
+            {
+                return 0;
+            }
+            double degrees = radians * (180.0 / Math.PI) % 360.0;
+            if (degrees < 0.0)
+            {
+                degrees += 360.0;
+            }
+            // 359.6 rounds to 360, and a tiny negative value (-1e-14) became 359.99999999999997: neither may report 360
+            int heading = (int)Math.Round(degrees, MidpointRounding.AwayFromZero);
+            return heading >= 360 ? 0 : heading;
+        }
+
+        /// <summary>
+        /// Guard against garbage in a reported heading (e.g. a hub user sending nonsense); the websocket skips an
+        /// aircraft that fails it. Playback cannot trip it any more because reporting goes through
+        /// <see cref="HeadingDegrees"/>; before that, the first clockwise crossing of north (361) silenced a
+        /// replayed aircraft until the recording was jumped.
+        /// </summary>
+        public static bool IsPlausibleHeading(int heading) => heading >= -360 && heading <= 360;
+
+        /// <summary>
         /// Difference between two sets of angles
         /// </summary>
         public static Vector AnglesDelta(Vector a, Vector b) => new(AngleDelta(a.x, b.x), AngleDelta(a.y, b.y), AngleDelta(a.z, b.z));

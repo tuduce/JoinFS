@@ -231,7 +231,7 @@ namespace JoinFS
                                     latitude = position.geo.z * (180.0 / Math.PI);
                                     longitude = position.geo.x * (180.0 / Math.PI);
                                     altitude = position.geo.y;
-                                    heading = (ushort)(position.angles.y * 180.0 / Math.PI);
+                                    heading = (ushort)Vector.HeadingDegrees(position.angles.y);
                                 }
 
                                 // write client entry for pilot

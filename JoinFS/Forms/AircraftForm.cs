@@ -327,7 +327,7 @@ namespace JoinFS
                     }
 
                     // set heading
-                    item.headingText = ((int)(aircraftPosition.angles.y * 180.0 / Math.PI)).ToString("D3");
+                    item.headingText = Vector.HeadingDegrees(aircraftPosition.angles.y).ToString("D3");
                     // set altitude
                     item.altitude = aircraftPosition.geo.y * Sim.FEET_PER_METRE;
                     item.altitudeText = item.altitude.ToString("N0");
