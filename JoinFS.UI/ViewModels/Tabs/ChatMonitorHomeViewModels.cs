@@ -201,25 +201,67 @@ public sealed partial class HomeViewModel : ObservableObject
     private readonly IAppInfo _app;
     private readonly IPlatform _platform;
 
-    public HomeViewModel(MainViewModel main, ISessionSource session, ITrafficSource traffic, IAppInfo app, IPlatform platform)
+    public HomeViewModel(MainViewModel main, ISessionSource session, ITrafficSource traffic, IAppInfo app, IPlatform platform, IMapTileSource mapTiles)
     {
         _main = main;
         _session = session;
         _traffic = traffic;
         _app = app;
         _platform = platform;
+        MapTiles = mapTiles;
 
         // The two states feed both the greeting and the hub name, so Home follows them live.
         main.Simulator.PropertyChanged += (_, _) => OnPropertyChanged(nameof(Subtitle));
         main.Network.PropertyChanged += (_, _) => OnPropertyChanged(nameof(Subtitle));
         main.AddressBook.PropertyChanged += (_, _) => OnPropertyChanged(nameof(HubName));
+        Refresh();
     }
 
-    /// <summary>Reads the counts again; the live numbers change while the tab is open.</summary>
+    /// <summary>The aircraft of the Aircraft list that have a position, for the map. Read again by <see cref="Refresh"/>.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasMapMarkers))]
+    private IReadOnlyList<MapMarker> _mapMarkers = [];
+
+    public bool HasMapMarkers => MapMarkers.Count > 0;
+
+    /// <summary>Where the map's pictures come from.</summary>
+    public IMapTileSource MapTiles { get; }
+
+    /// <summary>What the map has to say for the owners of its data. Empty when it has nothing to credit.</summary>
+    public string MapAttribution => MapTiles.Attribution;
+
+    public bool HasMapAttribution => MapAttribution.Length > 0;
+
+    /// <summary>Reads the counts and the aircraft on the map again; the live numbers change while the tab is open.</summary>
     public void Refresh()
     {
         OnPropertyChanged(nameof(ConnectedUsers));
         OnPropertyChanged(nameof(AircraftTracked));
+        MapMarkers = MarkersOf(_traffic.GetAircraft());
+    }
+
+    /// <summary>The aircraft that can be put on a map: those with a position, each once.</summary>
+    internal static List<MapMarker> MarkersOf(IEnumerable<AircraftInfo> aircraftList)
+    {
+        List<MapMarker> markers = [];
+        HashSet<string> seen = [];
+        foreach (AircraftInfo aircraft in aircraftList)
+        {
+            // no position yet, or the 0, 0 an aircraft has before its first one arrives
+            if (aircraft.Latitude is not { } latitude || aircraft.Longitude is not { } longitude || (latitude == 0 && longitude == 0))
+                continue;
+            if (!seen.Add(aircraft.Id))
+                continue;
+            markers.Add(new MapMarker(aircraft.Id, aircraft.Callsign, latitude, longitude, aircraft.Heading ?? 0));
+        }
+        return markers;
+    }
+
+    [RelayCommand]
+    private void OpenMapAttribution()
+    {
+        if (MapTiles.AttributionUrl.Length > 0)
+            _platform.OpenUrl(MapTiles.AttributionUrl);
     }
 
     public string HubName => _main.AddressBook.TransientLabel ?? _main.AddressBook.EffectiveSelection?.Name ?? "—";

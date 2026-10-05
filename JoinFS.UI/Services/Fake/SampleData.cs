@@ -51,15 +51,15 @@ public static class SampleData
     /// <summary>Shown when "Include All Hub Aircraft" is on: the aircraft of the other public hubs.</summary>
     public static IReadOnlyList<AircraftInfo> HubAircraft { get; } =
     [
-        Aircraft1("HUB-001", "Retro Flight Club", 1204.5, 90, 8500, 180, "Douglas DC-3", AircraftActions.None),
-        Aircraft1("HUB-002", "AirSherpa", 612.2, 270, 11500, 140, "Pilatus PC-6", AircraftActions.None),
+        Aircraft1("HUB-001", "Retro Flight Club", 1204.5, 90, 8500, 180, "Douglas DC-3", AircraftActions.None, 51.47, -0.45),
+        Aircraft1("HUB-002", "AirSherpa", 612.2, 270, 11500, 140, "Pilatus PC-6", AircraftActions.None, 46.95, 7.44),
     ];
 
     /// <summary>Shown when "Include All Simulator Aircraft" is on: the local simulator's own AI aircraft.</summary>
     public static IReadOnlyList<AircraftInfo> SimulatorAircraft { get; } =
     [
-        Aircraft1("AI-0001", "Sim (A)", 12.4, 45, 4000, 210, "Airbus A320neo (AI)", AircraftActions.Ignore | AircraftActions.Record),
-        Aircraft1("AI-0002", "Sim (A)", 30.1, 225, 12000, 330, "Boeing 737-800 (AI)", AircraftActions.Ignore | AircraftActions.Record),
+        Aircraft1("AI-0001", "Sim (A)", 12.4, 45, 4000, 210, "Airbus A320neo (AI)", AircraftActions.Ignore | AircraftActions.Record, 47.0, 8.2),
+        Aircraft1("AI-0002", "Sim (A)", 30.1, 225, 12000, 330, "Boeing 737-800 (AI)", AircraftActions.Ignore | AircraftActions.Record, 46.2, 6.1),
     ];
 
 
@@ -125,24 +125,24 @@ public static class SampleData
         "16:07:08.856 - Removed node '24943-43180-6112/200'",
     ];
 
-    private static AircraftInfo Aircraft1(string callsign, string owner, double distance, int heading, int altitude, double speed, string model, AircraftActions can) =>
+    private static AircraftInfo Aircraft1(string callsign, string owner, double distance, int heading, int altitude, double speed, string model, AircraftActions can, double? lat = null, double? lon = null) =>
         new(callsign, callsign, owner, distance, heading, altitude, speed, model,
             Bearing: heading, Squawk: "1200", Com1: "118.000", Com2: "121.500", Simulator: "Microsoft Flight Simulator 2024",
             OriginalModel: ModelNames.StripVariantSuffix(model), FlightPlan: "No flight plan filed", Remarks: "None",
-            AircraftLinkState.Created, Recording: false, Ignored: false, Tracked: false, can);
+            AircraftLinkState.Created, Recording: false, Ignored: false, Tracked: false, can, lat, lon);
 
     private static IReadOnlyList<AircraftInfo> BuildAircraft()
     {
-        (string Callsign, string Owner, double Distance, int Heading, int Altitude, int Gs, string Model)[] raw =
+        (string Callsign, string Owner, double Distance, int Heading, int Altitude, int Gs, string Model, double Lat, double Lon)[] raw =
         [
-            ("LV-ALB", "", 4528.6, 357, 1607, 53, "GC1a Swift (Factory)"),
-            ("9H-WDR", "Pastou", 390.3, 311, 34461, 445, "Airbus H145 Red Carpet (A)"),
-            ("A320", "ADF320", 3411.4, 63, 24, 0, "GC1a Swift (Factory) (D)"),
-            ("AAL2693", "Jcfoster", 4549.4, 96, 597, 0, "PC-12 D-FCAH (A)"),
-            ("ASXGS", "David18", 8813.0, 32, 4992, 263, "Black Square B36TP Bonanza"),
-            ("AUI5501", "Jeka28", 8818.2, 44, 3150, 217, "GC1a Swift (Factory) (D)"),
-            ("C-GTLX", "Nacho", 6306.6, 22, 39164, 525, "GC1a Swift (Factory) (D)"),
-            ("CTO75", "Nicksrun75", 458.6, 285, 1898, 172, "C208B Cargo (Cargo 01)"),
+            ("LV-ALB", "", 4528.6, 357, 1607, 53, "GC1a Swift (Factory)", -34.56, -58.42),
+            ("9H-WDR", "Pastou", 390.3, 311, 34461, 445, "Airbus H145 Red Carpet (A)", 40.10, 8.20),
+            ("A320", "ADF320", 3411.4, 63, 24, 0, "GC1a Swift (Factory) (D)", 40.47, -3.56),
+            ("AAL2693", "Jcfoster", 4549.4, 96, 597, 0, "PC-12 D-FCAH (A)", 25.80, -80.29),
+            ("ASXGS", "David18", 8813.0, 32, 4992, 263, "Black Square B36TP Bonanza", 35.55, 139.78),
+            ("AUI5501", "Jeka28", 8818.2, 44, 3150, 217, "GC1a Swift (Factory) (D)", 50.03, 8.57),
+            ("C-GTLX", "Nacho", 6306.6, 22, 39164, 525, "GC1a Swift (Factory) (D)", 45.47, -73.74),
+            ("CTO75", "Nicksrun75", 458.6, 285, 1898, 172, "C208B Cargo (Cargo 01)", 47.45, 8.55),
         ];
 
         // The prototype starts with these four recorded; squawk and radio frequencies are derived from the names until real data is wired in.
@@ -157,6 +157,7 @@ public static class SampleData
             OriginalModel: ModelNames.StripVariantSuffix(a.Model),
             FlightPlan: a.Owner.Length > 0 ? $"{a.Callsign} — VFR, {Math.Round(a.Distance / 50)} nm route" : "No flight plan filed",
             Remarks: "None",
-            AircraftLinkState.Created, recorded.Contains(a.Callsign), Ignored: false, Tracked: false, AircraftActions.All)).ToArray();
+            AircraftLinkState.Created, recorded.Contains(a.Callsign), Ignored: false, Tracked: false, AircraftActions.All,
+            Latitude: a.Lat, Longitude: a.Lon)).ToArray();
     }
 }

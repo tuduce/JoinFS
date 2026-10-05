@@ -160,8 +160,12 @@ namespace JoinFS.Live
             int? bearing = null;
             int? heading = null;
             int? altitude = null;
+            double? latitude = null, longitude = null;
             if (position != null)
             {
+                // geo is longitude and latitude in radians, and the altitude
+                longitude = position.geo.x * 180.0 / Math.PI;
+                latitude = position.geo.z * 180.0 / Math.PI;
                 heading = Compass((int)(position.angles.y * 180.0 / Math.PI));
                 altitude = (int)Math.Round(position.geo.y * Sim.FEET_PER_METRE);
                 if (userPosition != null)
@@ -199,7 +203,8 @@ namespace JoinFS.Live
                 IdOf(aircraft), aircraft.flightPlan.callsign, owner, distance, heading, altitude, speed, ModelText(aircraft, view),
                 bearing, squawk, com1, com2, main.network.Peers.GetNodeSimulator(aircraft.ownerNuid), aircraft.ownerModel,
                 FlightPlanText(aircraft.flightPlan), Dash(aircraft.flightPlan.remarks), link,
-                Recording: aircraft.record, Ignored: ignored, Tracked: IsTracked(aircraft, view), Can: Can(aircraft, view));
+                Recording: aircraft.record, Ignored: ignored, Tracked: IsTracked(aircraft, view), Can: Can(aircraft, view),
+                Latitude: latitude, Longitude: longitude);
         }
 
         /// <summary>
@@ -220,7 +225,8 @@ namespace JoinFS.Live
                 "hub:" + user.guid, user.flightPlan.callsign, user.nickname, distance, (int)user.heading, (int)user.altitude, user.speed,
                 user.flightPlan.icaoType, bearing, user.squawk.ToString(CultureInfo.InvariantCulture), "-", "-", "", user.flightPlan.icaoType,
                 FlightPlanText(user.flightPlan), Dash(user.flightPlan.remarks), AircraftLinkState.Created,
-                Recording: false, Ignored: false, Tracked: false, Can: AircraftActions.None);
+                Recording: false, Ignored: false, Tracked: false, Can: AircraftActions.None,
+                Latitude: user.latitude, Longitude: user.longitude);
         }
 
         static int Compass(int degrees) => ((degrees % 360) + 360) % 360;

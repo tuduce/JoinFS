@@ -1,5 +1,6 @@
 using System;
 using JoinFS.UI;
+using JoinFS.UI.Services;
 using JoinFS.UI.Services.Fake;
 
 namespace JoinFS.Live
@@ -38,6 +39,7 @@ namespace JoinFS.Live
                 Recorder = new LiveRecorderSource(main),
                 ModelScan = new LiveModelScanSource(main),
                 XPlaneScan = new LiveXPlaneScanSource(main),
+                MapTiles = new OsmTileSource("JoinFS/" + Main.Version + " (+https://github.com/tuduce/JoinFS)", System.IO.Path.Combine(main.storagePath, "map-tiles")),
             }, [], main.MonitorEvent);
         }
     }

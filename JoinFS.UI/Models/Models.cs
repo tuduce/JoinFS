@@ -60,13 +60,19 @@ public enum AircraftActions
 
 /// <summary>One row of the Aircraft table. Values that may not be known (no user aircraft to measure from, no position yet) are null.</summary>
 /// <param name="Id">Names the aircraft to the service. Opaque to the UI.</param>
+/// <param name="Latitude">Degrees north, for the Home map. Null with the position.</param>
+/// <param name="Longitude">Degrees east, for the Home map. Null with the position.</param>
 /// <param name="Owner">The pilot, marked "(R)" for a recorded aircraft and "(A)" for an AI aircraft.</param>
 /// <param name="Model">The model shown, marked "(S)" substituted, "(A)" automatic, "(D)" default or "(AI)".</param>
 public sealed record AircraftInfo(
     string Id, string Callsign, string Owner,
     double? DistanceNm, int? Heading, int? AltitudeFt, double SpeedKnots, string Model,
     int? Bearing, string Squawk, string Com1, string Com2, string Simulator, string OriginalModel, string FlightPlan, string Remarks,
-    AircraftLinkState Link, bool Recording, bool Ignored, bool Tracked, AircraftActions Can);
+    AircraftLinkState Link, bool Recording, bool Ignored, bool Tracked, AircraftActions Can,
+    double? Latitude = null, double? Longitude = null);
+
+/// <summary>An aircraft on the Home map: where it is (degrees) and which way it points (compass degrees).</summary>
+public sealed record MapMarker(string Id, string Callsign, double Latitude, double Longitude, int Heading);
 
 /// <summary>One row of the Objects table: a scenery or shared object, or (grouped by model) all the objects of one owner and model.</summary>
 /// <param name="Id">Names the row to the service. Opaque to the UI.</param>

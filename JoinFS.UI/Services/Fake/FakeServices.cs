@@ -34,7 +34,8 @@ public static class FakeServices
         Settings: new InMemorySettingsStore(settings),
         Platform: platform ?? new NullPlatform(),
         Preferences: new InMemoryPreferencesStore(),
-        ModelScan: new FakeModelScanSource());
+        ModelScan: new FakeModelScanSource(),
+        MapTiles: new NoMapTiles());
 }
 
 public sealed class FakeSimulatorLink(TimeSpan latency) : ISimulatorLink
@@ -366,6 +367,15 @@ public sealed class FakeVariablesCatalog : IVariablesCatalog
     public bool IsBuiltIn(string file) => Defaults.Contains(file);
 
     public void Apply() => Applied++;
+}
+
+/// <summary>A map without a picture: for tests and for running without a network. The markers still show on the empty ground.</summary>
+public sealed class NoMapTiles : IMapTileSource
+{
+    public string Attribution => "";
+    public string AttributionUrl => "";
+    public int MaxZoom => 19;
+    public Task<byte[]?> GetTileAsync(int zoom, int x, int y, CancellationToken cancellationToken) => Task.FromResult<byte[]?>(null);
 }
 
 public sealed class FakeSimBriefClient(TimeSpan latency) : ISimBriefClient

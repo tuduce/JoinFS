@@ -1,10 +1,11 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
              x:Class="JoinFS.UI.Views.Tabs.HomeView"
              x:DataType="tvm:HomeViewModel">
   <ScrollViewer>
-    <StackPanel MaxWidth="640" HorizontalAlignment="Left">
+    <StackPanel MaxWidth="900" HorizontalAlignment="Stretch">
       <TextBlock Text="Welcome back" FontSize="22" FontWeight="Bold" Margin="0,0,0,6" />
       <TextBlock Text="{Binding Subtitle}" TextWrapping="Wrap" FontSize="14" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,24" />
 
@@ -28,6 +29,29 @@
           </StackPanel>
         </Border>
       </Grid>
+
+      <!-- The aircraft of the Aircraft list, on a free map. Drag to move, wheel to zoom, double-click to zoom in. -->
+      <Border Classes="card" Margin="0,20,0,0" Height="420">
+        <Grid>
+          <c:MapView x:Name="Map" Markers="{Binding MapMarkers}" TileSource="{Binding MapTiles}" />
+
+          <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" Spacing="4">
+            <Button Click="OnZoomIn" Content="+" Width="34" Height="30" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="16" ToolTip.Tip="Zoom in" />
+            <Button Click="OnZoomOut" Content="&#x2212;" Width="34" Height="30" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="16" ToolTip.Tip="Zoom out" />
+            <Button Click="OnFit" Content="Fit" Width="34" Height="30" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="12" ToolTip.Tip="Show all aircraft" />
+          </StackPanel>
+
+          <TextBlock Text="No aircraft with a position yet" HorizontalAlignment="Center" VerticalAlignment="Center"
+                     Foreground="#52606D" FontSize="13" IsHitTestVisible="False"
+                     IsVisible="{Binding !HasMapMarkers}" />
+
+          <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Padding="6,1" CornerRadius="4,0,0,0"
+                  Background="#CCFFFFFF" IsVisible="{Binding HasMapAttribution}">
+            <Button Classes="link" Command="{Binding OpenMapAttributionCommand}" Content="{Binding MapAttribution}"
+                    FontSize="10.5" Padding="0" MinHeight="0" />
+          </Border>
+        </Grid>
+      </Border>
 
       <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,20,0,0">
         <Button Classes="link" Command="{Binding OpenDownloadCommand}" Content="Download" />

@@ -535,6 +535,25 @@ public interface IPlatform
     Task<string?> PickFolderAsync(string title);
 }
 
+/// <summary>
+/// The pictures the Home map is made of: slippy-map tiles (256 x 256 px, <c>z/x/y</c>, x and y counted from the top left of the
+/// Web Mercator world at zoom <c>z</c>). Which map it is, and who has to be credited for it, belongs to the source.
+/// </summary>
+public interface IMapTileSource
+{
+    /// <summary>What has to be shown on the map for the data's owners, e.g. "(c) OpenStreetMap contributors".</summary>
+    string Attribution { get; }
+
+    /// <summary>Where the attribution leads, or empty.</summary>
+    string AttributionUrl { get; }
+
+    /// <summary>The highest zoom the source has tiles for.</summary>
+    int MaxZoom { get; }
+
+    /// <summary>The encoded image (PNG or JPEG) of one tile, or null when there is none and none is coming (offline, not found).</summary>
+    Task<byte[]?> GetTileAsync(int zoom, int x, int y, CancellationToken cancellationToken);
+}
+
 /// <summary>Everything the view models need from the outside. Built once at startup.</summary>
 public sealed record AppServices(
     ISimulatorLink Simulator,
@@ -557,4 +576,5 @@ public sealed record AppServices(
     ISettingsStore Settings,
     IPlatform Platform,
     IPreferencesStore Preferences,
-    IModelScanSource ModelScan);
+    IModelScanSource ModelScan,
+    IMapTileSource MapTiles);
