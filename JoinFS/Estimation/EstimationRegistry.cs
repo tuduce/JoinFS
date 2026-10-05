@@ -15,11 +15,20 @@ namespace JoinFS.Estimation
         /// <summary>The original estimator, kept as the frozen reference (-estimator Classic)</summary>
         public const string ClassicName = "Classic";
         public const string DefaultEstimator = ClassicFixedEstimator.Name;
+        public const string DefaultSteering = "Classic";
 
         static readonly Dictionary<string, Func<IClockModel>> clocks = new()
         {
             [RttHalfName] = () => new RttHalfClock(),
             [MinOffsetClock.Name] = () => new MinOffsetClock(),
+        };
+
+        /// <summary>The catch-up rate of each steering law, per second of error</summary>
+        static readonly Dictionary<string, double> steeringGains = new()
+        {
+            [DefaultSteering] = ClassicSteering.CatchUpRate,
+            ["Gain4"] = 4.0,
+            ["Gain8"] = 8.0,
         };
 
         static readonly Dictionary<string, Func<IStateEstimator>> estimators = new()
@@ -30,6 +39,28 @@ namespace JoinFS.Estimation
 
         public static IEnumerable<string> ClockNames => clocks.Keys;
         public static IEnumerable<string> EstimatorNames => estimators.Keys;
+        public static IEnumerable<string> SteeringNames => steeringGains.Keys;
+
+        /// <summary>
+        /// The steering law new objects get (the -steering command-line option): a name, or
+        /// <see cref="SteeringSchedule.Alternate"/>. Set once at start-up.
+        /// </summary>
+        public static string SelectedSteering { get; private set; } = DefaultSteering;
+
+        /// <summary>Choose the steering law; false, and no change, when the name is unknown</summary>
+        public static bool SelectSteering(string name)
+        {
+            if (name == null || (name != SteeringSchedule.Alternate && steeringGains.ContainsKey(name) == false))
+            {
+                return false;
+            }
+            SelectedSteering = name;
+            return true;
+        }
+
+        /// <summary>A steering law by name - the default one when the name is unknown</summary>
+        public static ISteeringLaw CreateSteering(string name, bool setAttitudeEveryFrame, double groundAltitudeLimit) =>
+            new ClassicSteering(setAttitudeEveryFrame, groundAltitudeLimit, steeringGains.TryGetValue(name, out double gain) ? gain : steeringGains[DefaultSteering]);
 
         /// <summary>
         /// The clock model new objects get (the -clock command-line option). Set once at start-up,

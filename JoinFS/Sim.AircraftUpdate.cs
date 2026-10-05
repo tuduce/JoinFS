@@ -529,6 +529,7 @@ namespace JoinFS
                 aircraft.simPosition = new Pos(ref aircraftPosition);
                 // store current time
                 aircraft.simTime = simTime;
+                aircraft.simulationTime = simulationTime;
                 // positions may arrive every frame; the network and the recorder get them at the usual
                 // rate. Gated on the current time, not simTime: the X-Plane link re-sends an old sample
                 // (with its old time) to keep peers alive when the plugin goes quiet

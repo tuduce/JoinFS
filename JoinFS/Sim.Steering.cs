@@ -30,12 +30,16 @@ namespace JoinFS
         /// <summary>
         /// Steering for injected objects (Estimation/)
         /// </summary>
+        static ISteeringLaw CreateSteering(string name) =>
 #if (FS2020 || FS2024)
-        // FS2020 has an issue where the aircraft remains glued to the ground, so reset much earlier when the altitude diverts on the ground
-        readonly ISteeringLaw steering = new ClassicSteering(setAttitudeEveryFrame: true, groundAltitudeLimit: 0.2);
+            // FS2020 has an issue where the aircraft remains glued to the ground, so reset much earlier when the altitude diverts on the ground
+            EstimationRegistry.CreateSteering(name, setAttitudeEveryFrame: true, groundAltitudeLimit: 0.2);
 #else
-        readonly ISteeringLaw steering = new ClassicSteering(setAttitudeEveryFrame: false, groundAltitudeLimit: ClassicSteering.ResetDistance);
+            EstimationRegistry.CreateSteering(name, setAttitudeEveryFrame: false, groundAltitudeLimit: ClassicSteering.ResetDistance);
 #endif
+
+        /// <summary>The steering law (-steering), made on first use, once the command line has been read</summary>
+        SteeringSchedule steeringSchedule;
 
         /// <summary>
         /// Update object velocity in the simulator: predict where the object is now from its newest
@@ -50,10 +54,11 @@ namespace JoinFS
                 {
                     KinematicState sample = new(obj.netPosition, obj.netVelocity);
                     SteeringCommand command;
+                    steeringSchedule ??= new SteeringSchedule(CreateSteering, EstimationRegistry.SelectedSteering);
                     // check if object is paused
                     if (obj.paused)
                     {
-                        command = steering.Hold(sample);
+                        command = steeringSchedule.At(main.ElapsedTime, out _).Hold(sample);
                     }
                     else
                     {
@@ -63,7 +68,8 @@ namespace JoinFS
                         // the object's state now
                         double age = obj.Clock.SampleAge(now, peer);
                         KinematicState target = obj.Estimator.Predict(sample, age);
-                        estimationLog?.OnPrediction(obj, now, age, target);
+                        ISteeringLaw steering = steeringSchedule.At(now, out string steeringName);
+                        estimationLog?.OnPrediction(obj, now, age, target, steeringName);
                         command = steering.Steer(target, sample, obj.simPosition, now - obj.simTime);
                     }
                     ApplySteering(obj, command);

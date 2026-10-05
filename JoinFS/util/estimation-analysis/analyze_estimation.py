@@ -70,7 +70,7 @@ class Sample:
     __slots__ = ('owner', 'node', 'callsign', 'local', 'netTime', 'receivedAt', 'rtt', 'lat', 'lon', 'alt',
                  'pitch', 'bank', 'hdg', 'vx', 'vy', 'vz', 'avx', 'avy', 'avz', 'ax', 'ay', 'az', 'ground', 'paused',
                  'predLocal', 'predFrom', 'predAge', 'predLat', 'predLon', 'predAlt', 'predPitch', 'predBank', 'predHdg',
-                 'simTime', 'simLat', 'simLon', 'simAlt', 'simPitch', 'simBank', 'simHdg')
+                 'simTime', 'simLat', 'simLon', 'simAlt', 'simPitch', 'simBank', 'simHdg', 'simClock', 'steer')
 
 
 FIELDS = [('local', 'local'), ('netTime', 'netTime'), ('receivedAt', 'receivedAt'), ('rtt', 'rtt'),
@@ -135,6 +135,9 @@ class Session:
                 for attr, col in FIELDS:
                     setattr(s, attr, num(row[col]))
                 s.ground, s.paused = row['ground'] == '1', row['paused'] == '1'
+                # logs from 2026-10-05 on: the simulator's own clock at the sim position, and the steering law in force
+                s.simClock = num(row.get('simClock') or '')
+                s.steer = row.get('steer') or ''
                 self.objects[s.callsign].append(s)
         self.clock = ClockMap(clock_rows) if clock_rows else None
         # the PC's time zone, from the file name (local wall time) against the first clock row

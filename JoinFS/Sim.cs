@@ -402,7 +402,7 @@ namespace JoinFS
                 }
             }
 
-            // position estimation options (-estimator, -clock, -dispatchtime)
+            // position estimation options (-estimator, -clock, -steering, -dispatchtime)
             if (main.settingsUnknownEstimator != null)
             {
                 main.MonitorEvent("ERROR - Unknown estimator '" + main.settingsUnknownEstimator + "', known: " + string.Join(", ", EstimationRegistry.EstimatorNames));
@@ -411,9 +411,13 @@ namespace JoinFS
             {
                 main.MonitorEvent("ERROR - Unknown clock model '" + main.settingsUnknownClock + "', known: " + string.Join(", ", EstimationRegistry.ClockNames));
             }
-            if (main.settingsEstimationLog || EstimationRegistry.SelectedEstimator != EstimationRegistry.DefaultEstimator || EstimationRegistry.SelectedClock != EstimationRegistry.DefaultClock || main.settingsDispatchTime)
+            if (main.settingsUnknownSteering != null)
             {
-                main.MonitorEvent("Position estimator - " + EstimationRegistry.SelectedEstimator + ", clock " + EstimationRegistry.SelectedClock + ", own samples stamped by " +
+                main.MonitorEvent("ERROR - Unknown steering law '" + main.settingsUnknownSteering + "', known: " + SteeringSchedule.Alternate + ", " + string.Join(", ", EstimationRegistry.SteeringNames));
+            }
+            if (main.settingsEstimationLog || EstimationRegistry.SelectedSteering != EstimationRegistry.DefaultSteering || EstimationRegistry.SelectedEstimator != EstimationRegistry.DefaultEstimator || EstimationRegistry.SelectedClock != EstimationRegistry.DefaultClock || main.settingsDispatchTime)
+            {
+                main.MonitorEvent("Position estimator - " + EstimationRegistry.SelectedEstimator + ", clock " + EstimationRegistry.SelectedClock + ", steering " + EstimationRegistry.SelectedSteering + ", own samples stamped by " +
                     (main.settingsDispatchTime ? "dispatch time" : "the simulator's clock where it has one"));
             }
         }

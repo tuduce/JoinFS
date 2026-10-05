@@ -69,6 +69,40 @@ namespace JoinFS.Tests.Estimation
         }
 
         [Fact]
+        public void SampleRows_SayWhichSteeringWasInForce_AndTheSimulatorsClockForTheDrawnObject()
+        {
+            var writer = new StringWriter();
+            var log = new EstimationLog(writer, () => Utc);
+            var plane = Plane();
+
+            plane.netStateTime = 50.0;
+            log.OnPrediction(plane, 100.02, 0.1, new KinematicState(plane.netPosition, plane.netVelocity), "Gain4");
+            plane.simPosition = new Sim.Pos(new Vector(0.1000001, 1499.0, 0.8000001), new Vector(0.0, 1.0, 0.0), 0.0, 0);
+            plane.simTime = 100.01;
+            plane.simulationTime = 4321.25;
+            log.OnSample(plane, 100.05, 50.05, 100.04, 0.08);
+            // no simulator clock on this one, and no steering named
+            log.OnPrediction(plane, 100.07, 0.1, new KinematicState(plane.netPosition, plane.netVelocity));
+            plane.simulationTime = double.NaN;
+            log.OnSample(plane, 100.10, 50.10, 100.09, 0.08);
+
+            string[] rows = Rows(writer);
+            Assert.All(rows, row => Assert.Equal(Columns, row.Split(',').Length));
+            var first = Fields(rows[1]);
+            Assert.Equal("4321.250000", first["simClock"]);
+            Assert.Equal("Gain4", first["steer"]);
+            var second = Fields(rows[2]);
+            Assert.Equal("", second["simClock"]);
+            Assert.Equal("", second["steer"]);
+            // send rows have the same width, and no steering
+            log.OnSend(plane, 100.2, 4321.5, 100.19);
+            string send = Rows(writer)[3];
+            Assert.Equal(Columns, send.Split(',').Length);
+            Assert.Equal("", Fields(send)["steer"]);
+            Assert.Equal("4321.500000", Fields(send)["simClock"]);
+        }
+
+        [Fact]
         public void SampleRows_CarryTheSampleExactlyEnough()
         {
             var writer = new StringWriter();

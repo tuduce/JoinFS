@@ -13,7 +13,9 @@ namespace JoinFS.Estimation
     /// Rows, told apart by the first column:
     /// - "sample": a network or playback sample as it was accepted. It carries the sender's time
     ///   and our arrival time; the RTT to the owner; the sample's state; the newest prediction
-    ///   made before it arrived; and where the simulator last reported the object.
+    ///   made before it arrived, and the steering law that was in force (steer); and where the
+    ///   simulator last reported the object, with the simulator's own clock at that report
+    ///   (simClock, MSFS) so that the drawn object can be timed without the handling jitter.
     /// - "clock": local time against UTC, once a second. Logs from two machines whose clocks are
     ///   synchronised can then be put on one time line, which gives the true network delay.
     /// - "send": one of our own aircraft's samples was sent. local is when its message was
@@ -34,7 +36,7 @@ namespace JoinFS.Estimation
             "kind,utc,local,owner,node,netId,callsign,netTime,receivedAt,rtt," +
             "lat,lon,alt,pitch,bank,heading,vx,vy,vz,avx,avy,avz,ax,ay,az,ground,paused," +
             "predLocal,predFrom,predAge,predLat,predLon,predAlt,predPitch,predBank,predHeading," +
-            "simTime,simLat,simLon,simAlt,simPitch,simBank,simHeading,simClock";
+            "simTime,simLat,simLon,simAlt,simPitch,simBank,simHeading,simClock,steer";
 
         /// <summary>Columns in a row</summary>
         static readonly int ColumnCount = Header.Split(',').Length;
@@ -46,6 +48,7 @@ namespace JoinFS.Estimation
             public double from = double.NaN;
             public double age = double.NaN;
             public double lat, lon, alt, pitch, bank, heading;
+            public string steer;
         }
 
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
@@ -120,7 +123,7 @@ namespace JoinFS.Estimation
         /// The steering's prediction for <paramref name="obj"/> this frame, made from its newest
         /// sample (netStateTime) <paramref name="age"/> seconds on
         /// </summary>
-        public void OnPrediction(Sim.Obj obj, double now, double age, in KinematicState target)
+        public void OnPrediction(Sim.Obj obj, double now, double age, in KinematicState target, string steer = null)
         {
             Prediction prediction = predictions.GetOrCreateValue(obj);
             prediction.local = now;
@@ -132,6 +135,7 @@ namespace JoinFS.Estimation
             prediction.pitch = target.Position.angles.x;
             prediction.bank = target.Position.angles.z;
             prediction.heading = target.Position.angles.y;
+            prediction.steer = steer;
         }
 
         /// <summary>
@@ -169,9 +173,10 @@ namespace JoinFS.Estimation
                 line.Append(",,,,,,,,,");
             }
 
-            // where the simulator last reported the object (empty until it has)
+            // where the simulator last reported the object (empty until it has), and its own clock then
             Sim.Pos s = obj.simPosition;
-            if (obj.SimValid && s != null)
+            bool simulated = obj.SimValid && s != null;
+            if (simulated)
             {
                 line.Append(Time(obj.simTime)).Append(',');
                 AppendPosition(s.geo.z, s.geo.x, s.geo.y, s.angles.x, s.angles.z, s.angles.y);
@@ -180,8 +185,9 @@ namespace JoinFS.Estimation
             {
                 line.Append(",,,,,,,");
             }
-
-            // simClock is for send rows: left empty
+            line.Append(simulated ? Time(obj.simulationTime) : "").Append(',');
+            // the steering law that was in force when the prediction was made
+            line.Append(Text(prediction?.steer));
             Write(() => writer.WriteLine(line));
         }
 
@@ -203,7 +209,7 @@ namespace JoinFS.Estimation
                 .Append(obj.netId.ToString(Inv)).Append(',').Append(Text((obj as Sim.Aircraft)?.flightPlan.callsign)).Append(',')
                 .Append(Time(netTime));
             // the sample columns are left empty, up to simClock
-            line.Append(',', ColumnCount - 8).Append(Time(simClock));
+            line.Append(',', ColumnCount - 9).Append(Time(simClock)).Append(',');
             Write(() => writer.WriteLine(line));
         }
 

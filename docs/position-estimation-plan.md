@@ -26,7 +26,8 @@ Written 2026-10-01. Status:
 - Phase 5: the passive fallback, `MinOffsetClock`, is built, field-confirmed (§6.6) and the default
   since 2026-10-05 (`-clock RttHalf` selects the old one); see §6.5 and §7.3. The NTP-style
   exchange on JFP2 is open.
-- Phases 6–8 are open; §6.6 lists the next steps.
+- Phase 6 (steering) has started: the drawn error was analysed (§6.6) and a steering-gain
+  experiment is built, not yet flown (§7.4). Phases 7–8 are open; §6.6 lists the next steps.
 
 **Prior art in the repo:**
 
@@ -756,6 +757,33 @@ estimator to 0.22 mm at most, and the logged ages equal the model scored in §6.
   one an aircraft/sim restart on FLIGHTSIM, and after the first five minutes on the ground
   (226 gaps of 0.15–0.5 s) flying time was clean.
 
+**What the drawn error is made of** (analysis of the same session):
+
+- **Attitude** is drawn exactly: the drawn minus the true pitch, bank and heading are 0.01–0.1°
+  at p95.
+- **Along track** is zero-mean (median −0.05 and +0.07 m) and uncorrelated with the speed, the
+  climb rate, the sender's acceleration or its turn rate (|r| ≤ 0.06). Its spread, ±3–5 ms times the
+  speed, equals each PC's dispatch jitter of the old stamps (±3 ms on FLIGHTSIM, ±5 ms on
+  CRISTII5DESK). So it is mostly measurement noise: the log times the sim's position report by when
+  JoinFS handled it, not by when the simulator made it. The real along-track error is below the
+  0.6–1.1 m shown, by an amount not yet known; the log now carries the simulator's clock for it
+  (§7.4).
+- **Vertical and cross track are real**, and grow with bank. HB-TDX drawn on CRISTII5DESK, medians:
+
+  | \|bank\| | 0–15° | 30–45° | 60–75° | 75–90° | inverted (165–180°) |
+  |---|---|---|---|---|---|
+  | vertical | +0.04 m | −0.11 m | −0.22 m | −0.25 m | −0.51 m (p5 −1.16 m) |
+  | cross, p95 | 0.03 m | 0.19 m | 0.40 m | 0.45 m | 0.13 m |
+
+  The Rafale drawn on FLIGHTSIM sags far less (inverted: −0.07 m, p5 −0.35 m), so it depends on the
+  aircraft model or the PC. The vertical error also follows the sender's vertical acceleration
+  (r = 0.31 for HB-TDX).
+- **A likely cause** (a hypothesis, not yet tested): the steering is a proportional law at
+  1.5 s⁻¹ on position, chosen when the predictions were off by about a metre. Any force the simulator
+  keeps applying to the injected object (lift in a bank, gravity inverted) then leaves a steady
+  offset in proportion to 1/gain. The predictions are now good to about 0.1 m, so a stiffer gain
+  amplifies much less noise than it did.
+
 **Unexplained or open errors** (all rare):
 
 - **19:26:58–19:27:00 UTC.** FLIGHTSIM as sender, 130–146 m apart: the prediction was off by −128 m
@@ -771,9 +799,10 @@ estimator to 0.22 mm at most, and the logged ages equal the model scored in §6.
 
 **Next steps**, in this order:
 
-1. **Steering (phase 6, F8).** The drawn error is now the one that counts. Compare the drawn and
-   the predicted position per frame in the log, then try a PD law with blending and ground
-   hysteresis behind `ISteeringLaw`, and score it on the logged `sim` columns.
+1. **Fly the steering experiment** (§7.4): the tester package alternates the laws every two
+   minutes. Compare them with `compare_steering.py`, per phase. If a stiffer gain removes the
+   sag and the cross-track error without wobble, make it the default; if not, the next candidates
+   are an integral term and feed-forward of the simulator's push.
 2. **The sim-thread stall.** Find what holds the sim thread for 0.7 s with 20 items queued (the
    mailbox warning), since it makes the sender's samples stale.
 3. **The unexplained spikes.** Look at both PCs' monitor logs around 18:52:57, 19:05:20 and
@@ -919,6 +948,27 @@ default since 2026-10-05, after the field session in §6.6; `-clock RttHalf` sel
 - **Tests:** `MinOffsetClockTests` (steady stream, a late sample, minimum not average, a permanent
   delay forgotten after the window, a clock step, unknown round trips, playback, reset, copy).
 - **Not built:** the NTP-style exchange on JFP2 Pulse classes 5/6.
+
+### 7.4 Phase 6, the steering gain experiment, as built (2026-10-05)
+
+Nothing changes by default (`Classic`, 1.5 s⁻¹). Three additions make the experiment possible:
+
+- **Laws.** `ClassicSteering` takes the catch-up rate as a parameter. The registry has `Classic`
+  (1.5), `Gain4` (4) and `Gain8` (8); `-steering <name>` selects one.
+  `-steering alternate` cycles through all of them, 120 s each
+  ([SteeringSchedule.cs](../JoinFS/Estimation/SteeringSchedule.cs)). The laws keep no state, so a
+  switch is seamless. The tester package starts `alternate`.
+- **Log.** Sample rows have a new last column `steer`, the law in force when the prediction was
+  made, and `simClock` is now filled in the sample rows: the simulator's own clock at the sim's last
+  report of the object (MSFS; it was already read for the sender's stamps).
+- **Scoring.** `JoinFS/util/estimation-analysis/compare_steering.py` times each report by the
+  simulator's clock plus the smallest (handled − clock) of the last second, takes the sender's
+  true state at that moment, and tabulates the signed drawn error (along, cross, vertical) per law
+  and per phase (level, turning, steep, inverted). It also prints the same by handling time, which
+  is the noise reference.
+- **Tests:** the gain of each law, the registry and the schedule (`SteeringLawTests`), and the two
+  log columns (`EstimationLogTests`). The frozen `Classic` behaviour is unchanged
+  (`ClassicEquivalenceTests`).
 
 ## 8. Critical files
 

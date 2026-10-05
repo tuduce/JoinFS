@@ -544,7 +544,9 @@ functions in `SimMessageMapper`.
    - lets the steering law (`ISteeringLaw`) compute the command it applies through SimConnect.
    The estimator is chosen at start-up with `-estimator <name>` (default `ClassicFixed`; `Classic` is
    the original), and the clock with `-clock <name>` (default `MinOffset`, which reads the
-   sender's clock offset off the fastest samples; `RttHalf` is the original). The X-Plane
+   sender's clock offset off the fastest samples; `RttHalf` is the original).
+   The steering law is chosen with `-steering <name>` (default `Classic`; `alternate` cycles through
+   the laws for a flight-test comparison). The X-Plane
    plugin still does its own estimation (`AdvancePosition` in `JoinFS-XP`). See
    `docs/position-estimation-plan.md`.
 

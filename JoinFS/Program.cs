@@ -131,6 +131,8 @@ namespace JoinFS
         public string settingsUnknownEstimator = null;
         /// <summary>-clock named a clock model this build does not have (reported once the monitor is up), or null</summary>
         public string settingsUnknownClock = null;
+        /// <summary>-steering named a steering law this build does not have (reported once the monitor is up), or null</summary>
+        public string settingsUnknownSteering = null;
         /// <summary>Stamp own-aircraft samples with the time their message was handled, not the simulator's clock (Estimation/SimClockStamper)</summary>
         public bool settingsDispatchTime = false;
 
@@ -567,6 +569,15 @@ namespace JoinFS
                                 if (index < args.Length && Estimation.EstimationRegistry.SelectClock(args[index]) == false)
                                 {
                                     settingsUnknownClock = args[index];
+                                }
+                                break;
+
+                            case "-steering":
+                                // next parameter: the steering law for remote objects, or "alternate" (Estimation/EstimationRegistry)
+                                index++;
+                                if (index < args.Length && Estimation.EstimationRegistry.SelectSteering(args[index]) == false)
+                                {
+                                    settingsUnknownSteering = args[index];
                                 }
                                 break;
 

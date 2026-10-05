@@ -107,6 +107,8 @@ namespace JoinFS
             public bool broadcast = false;
             public double netStateTime = 0.0;
             public double simTime = 0.0;
+            /// <summary>The simulator's own clock at the last position report (MSFS), NaN when there is none - times the drawn object without the handling jitter</summary>
+            public double simulationTime = double.NaN;
 
             /// <summary>
             /// Following the sender's clock and predicting this object's state from network samples

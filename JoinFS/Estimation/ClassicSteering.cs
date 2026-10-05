@@ -9,13 +9,16 @@ namespace JoinFS.Estimation
     /// <param name="setAttitudeEveryFrame">Set the attitude directly every frame (FS2020/FS2024)</param>
     /// <param name="groundAltitudeLimit">Largest altitude error before a reset while on the ground,
     /// in metres. FS2020/FS2024 keep the aircraft glued to the ground, so they need it small.</param>
-    public sealed class ClassicSteering(bool setAttitudeEveryFrame, double groundAltitudeLimit) : ISteeringLaw
+    /// <param name="catchUpRate">Catch-up rate, per second of error. The classic 1.5 leaves a steady
+    /// offset where the simulator pushes the object off (the sag in a banked turn); a stiffer one
+    /// leaves less (docs/position-estimation-plan.md §6.6)</param>
+    public sealed class ClassicSteering(bool setAttitudeEveryFrame, double groundAltitudeLimit, double catchUpRate = ClassicSteering.CatchUpRate) : ISteeringLaw
     {
         /// <summary>Longest extrapolation of the measured position either way, in seconds</summary>
         public const double MaxMeasuredAge = 2.0;
         /// <summary>Largest error before a reset, in metres</summary>
         public const double ResetDistance = 50.0;
-        /// <summary>Catch-up rate, per second of error</summary>
+        /// <summary>The original catch-up rate, per second of error</summary>
         public const double CatchUpRate = 1.5;
 
         public SteeringCommand Hold(in KinematicState sample)
@@ -64,7 +67,7 @@ namespace JoinFS.Estimation
             Vector deltaAngles = Vector.AnglesDelta(simPosition.angles, netPosition.angles);
 
             // add delta to velocity to catch up
-            netVelocity.linear += deltaGeo * CatchUpRate;
+            netVelocity.linear += deltaGeo * catchUpRate;
 
             Vector attitude = null;
             // only catch up the orientation if no high angular turns are being made
@@ -73,7 +76,7 @@ namespace JoinFS.Estimation
                 if (Math.Abs(netVelocity.angular.x) < 0.2 && Math.Abs(netVelocity.angular.y) < 0.2 && Math.Abs(netVelocity.angular.z) < 0.2)
                 {
                     // add delta to angular velocity to catch up
-                    netVelocity.angular += deltaAngles * CatchUpRate;
+                    netVelocity.angular += deltaAngles * catchUpRate;
                 }
                 if (setAttitudeEveryFrame)
                 {
