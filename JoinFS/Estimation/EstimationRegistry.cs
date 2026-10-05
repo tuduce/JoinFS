@@ -9,14 +9,16 @@ namespace JoinFS.Estimation
     /// </summary>
     public static class EstimationRegistry
     {
-        public const string DefaultClock = "RttHalf";
+        /// <summary>The original clock model, kept as the frozen reference (-clock RttHalf)</summary>
+        public const string RttHalfName = "RttHalf";
+        public const string DefaultClock = MinOffsetClock.Name;
         /// <summary>The original estimator, kept as the frozen reference (-estimator Classic)</summary>
         public const string ClassicName = "Classic";
         public const string DefaultEstimator = ClassicFixedEstimator.Name;
 
         static readonly Dictionary<string, Func<IClockModel>> clocks = new()
         {
-            [DefaultClock] = () => new RttHalfClock(),
+            [RttHalfName] = () => new RttHalfClock(),
             [MinOffsetClock.Name] = () => new MinOffsetClock(),
         };
 

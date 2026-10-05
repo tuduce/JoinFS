@@ -8,7 +8,8 @@ namespace JoinFS.Tests.Estimation
         [Fact]
         public void Registry_GivesTheDefaults()
         {
-            Assert.IsType<RttHalfClock>(EstimationRegistry.CreateClock());
+            Assert.IsType<MinOffsetClock>(EstimationRegistry.CreateClock());
+            Assert.IsType<RttHalfClock>(EstimationRegistry.CreateClock(EstimationRegistry.RttHalfName));
             Assert.IsType<ClassicFixedEstimator>(EstimationRegistry.CreateEstimator());
             Assert.IsType<ClassicEstimator>(EstimationRegistry.CreateEstimator(EstimationRegistry.ClassicName));
             Assert.Contains(EstimationRegistry.DefaultClock, EstimationRegistry.ClockNames);
@@ -19,7 +20,7 @@ namespace JoinFS.Tests.Estimation
         public void Registry_FallsBackToTheDefaultForUnknownNames()
         {
             // names will come from settings, which may name an estimator this build does not have
-            Assert.IsType<RttHalfClock>(EstimationRegistry.CreateClock("NoSuchClock"));
+            Assert.IsType<MinOffsetClock>(EstimationRegistry.CreateClock("NoSuchClock"));
             Assert.IsType<ClassicFixedEstimator>(EstimationRegistry.CreateEstimator("NoSuchEstimator"));
         }
 

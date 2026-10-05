@@ -142,7 +142,7 @@ namespace JoinFS.Tests.Estimation
         }
 
         [Fact]
-        public void Registry_CreatesItByName_AndKeepsTheDefault()
+        public void Registry_CreatesItByName_AndItIsTheDefault()
         {
             Assert.IsType<MinOffsetClock>(EstimationRegistry.CreateClock(MinOffsetClock.Name));
             Assert.Contains(MinOffsetClock.Name, EstimationRegistry.ClockNames);
@@ -150,7 +150,7 @@ namespace JoinFS.Tests.Estimation
             Assert.False(EstimationRegistry.SelectClock("NoSuchClock"));
             Assert.False(EstimationRegistry.SelectClock(null));
             Assert.Equal(selected, EstimationRegistry.SelectedClock);
-            Assert.IsType<RttHalfClock>(EstimationRegistry.CreateClock());
+            Assert.IsType<MinOffsetClock>(EstimationRegistry.CreateClock());
         }
     }
 }

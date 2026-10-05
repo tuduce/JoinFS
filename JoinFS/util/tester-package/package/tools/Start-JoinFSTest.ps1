@@ -9,7 +9,7 @@ param(
     [string]$Build,
     # the estimator for the other aircraft (JoinFS/Estimation/EstimationRegistry.cs)
     [string]$Estimator = 'ClassicFixed',
-    # the clock model that ages the other aircraft's samples (RttHalf is the old one)
+    # the clock model that ages the other aircraft's samples (MinOffset; RttHalf is the old one)
     [string]$Clock = 'MinOffset'
 )
 
