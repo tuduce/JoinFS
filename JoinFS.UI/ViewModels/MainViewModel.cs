@@ -30,7 +30,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Network = new ConnectionViewModel(ConnectionLabels.Network, ct => _networkAction(ct), services.Network.DisconnectAsync,
             requestConnect: JoinSelectedAsync, observed: services.Network.ReportsState);
 
-        Home = new HomeViewModel(this, services.Session, services.Traffic, services.App, services.Platform);
+        Home = new HomeViewModel(this, services.Session, services.Traffic, services.App, services.Platform, services.MapTiles);
         Hubs = new HubsViewModel(services.Hubs, services.Network, this);
         Session = new SessionViewModel(services.Session);
         RecordSelection = new RecordSelection();
