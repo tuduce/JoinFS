@@ -43,6 +43,7 @@ public sealed class MapView : Control
     private bool _autoFit = true;
     private bool _needsFit = true;
     private string _fittedIds = "";
+    private Size _lastSize;
 
     private bool _dragging;
     private Point _dragFrom;
@@ -229,6 +230,10 @@ public sealed class MapView : Control
             return;
 
         _viewport.Resize(Bounds.Width, Bounds.Height);
+        // while the map follows the aircraft it shows all of them at whatever size it is
+        if (_autoFit && Bounds.Size != _lastSize)
+            _needsFit = true;
+        _lastSize = Bounds.Size;
         if (_needsFit)
         {
             IReadOnlyList<MapMarker> markers = Markers ?? [];
