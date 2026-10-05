@@ -26,8 +26,7 @@
     </StackPanel>
     <c:ModalCard.Footer>
       <StackPanel Classes="footer">
-        <Button Command="{Binding CloseCommand}" Content="Cancel" Padding="18,8" />
-        <Button Classes="primary" Command="{Binding OkCommand}" Content="OK" />
+        <Button Classes="primary" Command="{Binding CloseCommand}" Content="Close" />
       </StackPanel>
     </c:ModalCard.Footer>
   </c:ModalCard>
