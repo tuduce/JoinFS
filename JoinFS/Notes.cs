@@ -292,7 +292,7 @@ namespace JoinFS
                 main.network.Comms.SendCommsNoteMessage(main.guid, nickname, callsign, noteId, 0.0f, channel, text);
 #if !CONSOLE
                 // check for comms window
-                if (main.sessionForm.Visible)
+                if (main.sessionForm != null && main.sessionForm.Visible)
                 {
                     // refresh
                     if (main.mainForm != null)
@@ -330,7 +330,7 @@ namespace JoinFS
             }
 #if !CONSOLE
             // check for comms window
-            if (main.sessionForm.Visible)
+            if (main.sessionForm != null && main.sessionForm.Visible)
             {
                 // refresh
                 if (main.mainForm != null)
