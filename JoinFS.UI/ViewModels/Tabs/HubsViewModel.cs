@@ -113,8 +113,8 @@ public sealed partial class HubsViewModel : ObservableObject
         NameColumn = _sort.Add("name", "Name", r => r.Name);
         StatusColumn = _sort.Add("status", "Status", r => r.Status);
         UsersColumn = _sort.Add("users", "Users", r => r.Users);
-        AircraftColumn = _sort.Add("aircraft", "Aircraft", r => r.Aircraft);
-        VersionColumn = _sort.Add("version", "Version", r => r.Version);
+        AircraftColumn = _sort.Add("aircraft", "Aircraft", r => r.Aircraft, highestFirst: true);
+        VersionColumn = _sort.Add("version", "Version", r => new VersionKey(r.Version), highestFirst: true);
 
         Refresh();
     }

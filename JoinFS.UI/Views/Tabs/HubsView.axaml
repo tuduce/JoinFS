@@ -31,39 +31,41 @@
           <ItemsControl ItemsSource="{Binding Rows}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="tvm:HubRowViewModel">
-                <StackPanel>
-                  <Button Classes="rowButton" Classes.ignored="{Binding IsIgnored}" Command="{Binding ToggleExpandedCommand}">
-                    <Grid ColumnDefinitions="*,90,60,70,90" ColumnSpacing="10" Margin="10,7">
-                      <TextBlock Grid.Column="0" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="1" Classes="status" Text="{Binding Status}"
-                                 Classes.online="{Binding IsOnline}" Classes.global="{Binding IsGlobal}"
-                                 Classes.password="{Binding IsPassword}" Classes.offline="{Binding IsOffline}" />
-                      <TextBlock Grid.Column="2" Text="{Binding Users}" />
-                      <TextBlock Grid.Column="3" Text="{Binding Aircraft}" />
-                      <TextBlock Grid.Column="4" Text="{Binding Version}" Foreground="{DynamicResource Muted2Brush}" />
-                    </Grid>
-                  </Button>
+                <Border Classes="row">
+                  <StackPanel>
+                    <Button Classes="rowButton" Classes.ignored="{Binding IsIgnored}" Command="{Binding ToggleExpandedCommand}">
+                      <Grid ColumnDefinitions="*,90,60,70,90" ColumnSpacing="10" Margin="10,7">
+                        <TextBlock Grid.Column="0" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="1" Classes="status" Text="{Binding Status}"
+                                   Classes.online="{Binding IsOnline}" Classes.global="{Binding IsGlobal}"
+                                   Classes.password="{Binding IsPassword}" Classes.offline="{Binding IsOffline}" />
+                        <TextBlock Grid.Column="2" Text="{Binding Users}" />
+                        <TextBlock Grid.Column="3" Text="{Binding Aircraft}" />
+                        <TextBlock Grid.Column="4" Text="{Binding Version}" Foreground="{DynamicResource Muted2Brush}" />
+                      </Grid>
+                    </Button>
 
-                  <Border Classes="expanded" IsVisible="{Binding IsExpanded}">
-                    <Grid ColumnDefinitions="360,1,Auto" ColumnSpacing="32" HorizontalAlignment="Left">
-                      <StackPanel Grid.Column="0" Spacing="8">
-                        <TextBlock Classes="caps" Text="INFO" />
-                        <TextBlock TextWrapping="Wrap"><Run Text="About: " FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding About, Mode=OneWay}" /></TextBlock>
-                        <TextBlock TextWrapping="Wrap"><Run Text="Voice Server: " FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding Voice, Mode=OneWay}" /></TextBlock>
-                        <TextBlock TextWrapping="Wrap"><Run Text="Next Event: " FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding NextEvent, Mode=OneWay}" /></TextBlock>
-                      </StackPanel>
-                      <Border Grid.Column="1" Classes="vrule" />
-                      <StackPanel Grid.Column="2" Spacing="10">
-                        <TextBlock Classes="caps" Text="ACTIONS" />
-                        <StackPanel Orientation="Horizontal" Spacing="16">
-                          <Button Classes="link positive" Command="{Binding JoinCommand}" Content="{Binding JoinLabel}" />
-                          <Button Classes="link" Command="{Binding ToggleSaveCommand}" Content="{Binding SaveLabel}" />
-                          <Button Classes="link" Command="{Binding ToggleIgnoreCommand}" Content="{Binding IgnoreLabel}" />
+                    <Border Classes="expanded" IsVisible="{Binding IsExpanded}">
+                      <Grid ColumnDefinitions="360,1,Auto" ColumnSpacing="32" HorizontalAlignment="Left">
+                        <StackPanel Grid.Column="0" Spacing="8">
+                          <TextBlock Classes="caps" Text="INFO" />
+                          <TextBlock TextWrapping="Wrap"><Run Text="About: " FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding About, Mode=OneWay}" /></TextBlock>
+                          <TextBlock TextWrapping="Wrap"><Run Text="Voice Server: " FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding Voice, Mode=OneWay}" /></TextBlock>
+                          <TextBlock TextWrapping="Wrap"><Run Text="Next Event: " FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding NextEvent, Mode=OneWay}" /></TextBlock>
                         </StackPanel>
-                      </StackPanel>
-                    </Grid>
-                  </Border>
-                </StackPanel>
+                        <Border Grid.Column="1" Classes="vrule" />
+                        <StackPanel Grid.Column="2" Spacing="10">
+                          <TextBlock Classes="caps" Text="ACTIONS" />
+                          <StackPanel Orientation="Horizontal" Spacing="16">
+                            <Button Classes="link positive" Command="{Binding JoinCommand}" Content="{Binding JoinLabel}" />
+                            <Button Classes="link" Command="{Binding ToggleSaveCommand}" Content="{Binding SaveLabel}" />
+                            <Button Classes="link" Command="{Binding ToggleIgnoreCommand}" Content="{Binding IgnoreLabel}" />
+                          </StackPanel>
+                        </StackPanel>
+                      </Grid>
+                    </Border>
+                  </StackPanel>
+                </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>

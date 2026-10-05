@@ -30,57 +30,59 @@
           <ItemsControl ItemsSource="{Binding Rows}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="tvm:PeerRowViewModel">
-                <StackPanel>
-                  <Button Classes="rowButton" Classes.ignored="{Binding IsIgnored}" Command="{Binding ToggleExpandedCommand}">
-                    <Grid ColumnDefinitions="*,110,90,70,220,80,80" ColumnSpacing="10" Margin="10,7">
-                      <TextBlock Grid.Column="0" Text="{Binding Nick}" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="1" Text="{Binding Callsign}" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="2" Classes="status online" Text="{Binding Connected}" />
-                      <TextBlock Grid.Column="3" Text="{Binding Latency}" />
-                      <TextBlock Grid.Column="4" Text="{Binding Simulator}" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="5" Text="{Binding Version}" Foreground="{DynamicResource Muted2Brush}" />
-                      <TextBlock Grid.Column="6" Classes="status" Classes.legacy="{Binding IsLegacy}" Text="{Binding Protocol}" />
-                    </Grid>
-                  </Button>
+                <Border Classes="row">
+                  <StackPanel>
+                    <Button Classes="rowButton" Classes.ignored="{Binding IsIgnored}" Command="{Binding ToggleExpandedCommand}">
+                      <Grid ColumnDefinitions="*,110,90,70,220,80,80" ColumnSpacing="10" Margin="10,7">
+                        <TextBlock Grid.Column="0" Text="{Binding Nick}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="1" Text="{Binding Callsign}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="2" Classes="status online" Text="{Binding Connected}" />
+                        <TextBlock Grid.Column="3" Text="{Binding Latency}" />
+                        <TextBlock Grid.Column="4" Text="{Binding Simulator}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="5" Text="{Binding Version}" Foreground="{DynamicResource Muted2Brush}" />
+                        <TextBlock Grid.Column="6" Classes="status" Classes.legacy="{Binding IsLegacy}" Text="{Binding Protocol}" />
+                      </Grid>
+                    </Button>
 
-                  <Border Classes="expanded" IsVisible="{Binding IsExpanded}">
-                    <Grid ColumnDefinitions="Auto,1,Auto,1,Auto" ColumnSpacing="32" HorizontalAlignment="Left">
-                      <StackPanel Grid.Column="0" Spacing="10" MinWidth="160">
-                        <TextBlock Classes="caps" Text="INFO" />
-                        <StackPanel Spacing="6" TextElement.Foreground="{DynamicResource Text3Brush}">
-                          <StackPanel Orientation="Horizontal" Spacing="4">
-                            <TextBlock Classes="strong" Text="{Binding Aircraft}" /><TextBlock Text="Aircraft" />
-                          </StackPanel>
-                          <StackPanel Orientation="Horizontal" Spacing="4">
-                            <TextBlock Classes="strong" Text="{Binding ObjectsExported}" /><TextBlock Text="Objects Exported" />
-                          </StackPanel>
-                          <StackPanel Orientation="Horizontal" Spacing="4">
-                            <TextBlock Text="Network Port" /><TextBlock Classes="strong" Text="{Binding Port}" />
+                    <Border Classes="expanded" IsVisible="{Binding IsExpanded}">
+                      <Grid ColumnDefinitions="Auto,1,Auto,1,Auto" ColumnSpacing="32" HorizontalAlignment="Left">
+                        <StackPanel Grid.Column="0" Spacing="10" MinWidth="160">
+                          <TextBlock Classes="caps" Text="INFO" />
+                          <StackPanel Spacing="6" TextElement.Foreground="{DynamicResource Text3Brush}">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                              <TextBlock Classes="strong" Text="{Binding Aircraft}" /><TextBlock Text="Aircraft" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                              <TextBlock Classes="strong" Text="{Binding ObjectsExported}" /><TextBlock Text="Objects Exported" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                              <TextBlock Text="Network Port" /><TextBlock Classes="strong" Text="{Binding Port}" />
+                            </StackPanel>
                           </StackPanel>
                         </StackPanel>
-                      </StackPanel>
 
-                      <Border Grid.Column="1" Classes="vrule" IsVisible="{Binding IsOther}" />
+                        <Border Grid.Column="1" Classes="vrule" IsVisible="{Binding IsOther}" />
 
-                      <StackPanel Grid.Column="2" Spacing="10" MinWidth="220" IsVisible="{Binding IsOther}">
-                        <TextBlock Classes="caps" Text="SETTINGS" />
-                        <CheckBox IsChecked="{Binding CockpitEntry}" Content="Allow Cockpit Entry" />
-                        <CheckBox Margin="22,0,0,0" IsChecked="{Binding HandOverControls}" IsEnabled="{Binding CanHandOverControls}" Content="Hand Over Controls" />
-                        <CheckBox IsChecked="{Binding MultipleObjects}" Content="Allow Multiple Objects" />
-                      </StackPanel>
-
-                      <Border Grid.Column="3" Classes="vrule" IsVisible="{Binding IsOther}" />
-
-                      <StackPanel Grid.Column="4" Spacing="10" IsVisible="{Binding IsOther}">
-                        <TextBlock Classes="caps" Text="ACTIONS" />
-                        <StackPanel Orientation="Horizontal" Spacing="16">
-                          <Button Classes="link" Command="{Binding ToggleSaveCommand}" Content="{Binding SaveLabel}" />
-                          <Button Classes="link" Command="{Binding ToggleIgnoreCommand}" Content="{Binding IgnoreLabel}" />
+                        <StackPanel Grid.Column="2" Spacing="10" MinWidth="220" IsVisible="{Binding IsOther}">
+                          <TextBlock Classes="caps" Text="SETTINGS" />
+                          <CheckBox IsChecked="{Binding CockpitEntry}" Content="Allow Cockpit Entry" />
+                          <CheckBox Margin="22,0,0,0" IsChecked="{Binding HandOverControls}" IsEnabled="{Binding CanHandOverControls}" Content="Hand Over Controls" />
+                          <CheckBox IsChecked="{Binding MultipleObjects}" Content="Allow Multiple Objects" />
                         </StackPanel>
-                      </StackPanel>
-                    </Grid>
-                  </Border>
-                </StackPanel>
+
+                        <Border Grid.Column="3" Classes="vrule" IsVisible="{Binding IsOther}" />
+
+                        <StackPanel Grid.Column="4" Spacing="10" IsVisible="{Binding IsOther}">
+                          <TextBlock Classes="caps" Text="ACTIONS" />
+                          <StackPanel Orientation="Horizontal" Spacing="16">
+                            <Button Classes="link" Command="{Binding ToggleSaveCommand}" Content="{Binding SaveLabel}" />
+                            <Button Classes="link" Command="{Binding ToggleIgnoreCommand}" Content="{Binding IgnoreLabel}" />
+                          </StackPanel>
+                        </StackPanel>
+                      </Grid>
+                    </Border>
+                  </StackPanel>
+                </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
