@@ -12,7 +12,7 @@ namespace JoinFS.Live
         public string SessionLabel => Main.Name;
 
         // the link the old About box opened
-        public string DocumentationUrl => "https://joinfs.net";
+        public string DocumentationUrl => "https://github.com/tuduce/JoinFS/wiki";
 
         // where the old update prompt sent people
         public string DownloadUrl => "https://github.com/tuduce/JoinFS/releases";
