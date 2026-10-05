@@ -129,12 +129,12 @@ public sealed partial class SubstituteViewModel : OverlayViewModel
     }
 }
 
-/// <summary>"Adjust Height": a per-model Y offset in steps of 5 or 50 cm. Cancel throws the edits away.</summary>
+/// <summary>"Adjust Height": a per-model Y offset in steps of 5 or 50 cm. Every step is applied at once; Off takes the adjustment away.</summary>
 public sealed partial class AdjustHeightViewModel : OverlayViewModel
 {
     private readonly Action<int> _save;
 
-    /// <param name="save">Keeps the adjustment. Called with the centimetres when OK is pressed.</param>
+    /// <param name="save">Applies and keeps the adjustment. Called with the centimetres each time it changes.</param>
     public AdjustHeightViewModel(HeightAdjustment current, Action<int> save)
     {
         Model = current.Model;
@@ -152,6 +152,8 @@ public sealed partial class AdjustHeightViewModel : OverlayViewModel
 
     public string AdjustmentLabel => AdjustmentCm == 0 ? "Off" : $"{(AdjustmentCm > 0 ? "+" : "")}{AdjustmentCm} cm";
 
+    partial void OnAdjustmentCmChanged(int value) => _save(value);
+
     [RelayCommand]
     private void Up50() => AdjustmentCm += 50;
 
@@ -166,13 +168,6 @@ public sealed partial class AdjustHeightViewModel : OverlayViewModel
 
     [RelayCommand]
     private void Off() => AdjustmentCm = 0;
-
-    [RelayCommand]
-    private void Ok()
-    {
-        _save(AdjustmentCm);
-        Close();
-    }
 }
 
 /// <summary>"Explain Match": a read-only comparison of what was asked for and what was matched, and the steps tried.</summary>

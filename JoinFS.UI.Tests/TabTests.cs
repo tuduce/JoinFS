@@ -1330,31 +1330,43 @@ public class AdjustHeightTests
     }
 
     [Fact]
-    public void Ok_keeps_the_adjustment_and_cancel_throws_it_away()
+    public void Every_step_is_applied_at_once_and_opening_it_applies_nothing()
     {
         List<int> saved = [];
 
-        AdjustHeightViewModel cancelled = Open(0, saved);
-        cancelled.Up50Command.Execute(null);
-        cancelled.CloseCommand.Execute(null);
+        AdjustHeightViewModel height = Open(10, saved);
         Assert.Empty(saved);
 
-        AdjustHeightViewModel confirmed = Open(0, saved);
-        confirmed.Up5Command.Execute(null);
-        confirmed.OkCommand.Execute(null);
-        Assert.Equal([5], saved);
+        height.Up50Command.Execute(null);
+        height.Down5Command.Execute(null);
+        height.Up5Command.Execute(null);
+
+        Assert.Equal([60, 55, 60], saved);
     }
 
     [Fact]
-    public void Off_then_ok_saves_zero()
+    public void Closing_keeps_what_was_applied()
+    {
+        List<int> saved = [];
+        AdjustHeightViewModel height = Open(0, saved);
+
+        height.Up5Command.Execute(null);
+        height.CloseCommand.Execute(null);
+
+        Assert.Equal([5], saved); // nothing more happens on close, and nothing is taken back
+    }
+
+    [Fact]
+    public void Off_applies_zero_at_once_and_does_nothing_when_it_already_is()
     {
         List<int> saved = [];
         AdjustHeightViewModel height = Open(30, saved);
 
         height.OffCommand.Execute(null);
-        height.OkCommand.Execute(null);
+        height.OffCommand.Execute(null);
 
         Assert.Equal([0], saved);
+        Assert.Equal("Off", height.AdjustmentLabel);
     }
 
     [Fact]
@@ -1366,7 +1378,7 @@ public class AdjustHeightTests
         row.Actions.Single(a => a.Label.StartsWith("Adjust Height")).Command.Execute(null);
         AdjustHeightViewModel height = Assert.IsType<AdjustHeightViewModel>(rig.Main.Overlay);
         height.Up50Command.Execute(null);
-        height.OkCommand.Execute(null);
+        height.CloseCommand.Execute(null);
 
         row.Actions.Single(a => a.Label.StartsWith("Adjust Height")).Command.Execute(null);
         Assert.Equal(50, Assert.IsType<AdjustHeightViewModel>(rig.Main.Overlay).AdjustmentCm);
@@ -1394,7 +1406,7 @@ public class AdjustHeightTests
 
         AdjustHeightViewModel height = (AdjustHeightViewModel)main.Overlay!;
         height.Down5Command.Execute(null);
-        height.OkCommand.Execute(null);
+        height.CloseCommand.Execute(null);
 
         Assert.Equal(["height a=-5"], traffic.Writes);
     }
