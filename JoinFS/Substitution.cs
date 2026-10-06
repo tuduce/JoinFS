@@ -451,7 +451,7 @@ namespace JoinFS
         /// <see cref="models"/> - call after every reassignment of that field. The first model per
         /// key wins (TryAdd, not an indexer set), matching List&lt;T&gt;.Find's first-match semantics.
         /// </summary>
-        void RebuildTitleIndex()
+        internal void RebuildTitleIndex()
         {
             Dictionary<string, Model> byTitle = new(StringComparer.Ordinal);
 #if FS2024
@@ -591,7 +591,7 @@ namespace JoinFS
         /// <summary>
         /// Load the bundled ICAO Doc8643 reference dataset (process-lifetime, loaded once)
         /// </summary>
-        void LoadDoc8643Index()
+        internal void LoadDoc8643Index()
         {
             // already loaded
             if (doc8643Lookup.Count > 0) return;
