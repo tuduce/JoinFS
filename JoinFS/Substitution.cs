@@ -3027,6 +3027,45 @@ namespace JoinFS
             return main.storagePath + Path.DirectorySeparatorChar + "models - " + (main.sim != null ? main.sim.GetSimulatorName() : "null") + ".txt";
         }
 
+        /// <summary>The cache of measured model data that sits next to the models file (the models file format itself is unchanged).</summary>
+        public string MakeSpecsFilename()
+        {
+            return main.storagePath + Path.DirectorySeparatorChar + "specs - " + (main.sim != null ? main.sim.GetSimulatorName() : "null") + ".txt";
+        }
+
+        /// <summary>Give the loaded models the measured data stored by the last save; a missing or damaged file just means nothing is attached.</summary>
+        void AttachCachedSpecs(List<Model> loaded)
+        {
+            try
+            {
+                string filename = MakeSpecsFilename();
+                if (!File.Exists(filename)) return;
+
+                var cached = Matching.SpecCacheFile.Read(File.ReadLines(filename));
+                foreach (var model in loaded)
+                {
+                    if (model.specs == null && cached.TryGetValue((model.title, model.variation), out var specs)) model.specs = specs;
+                }
+            }
+            catch (Exception ex)
+            {
+                // the cache is only an optimisation - never let it stop the models from loading
+                main.MonitorEvent("Could not read the measured model data: " + ex.Message);
+            }
+        }
+
+        void SaveCachedSpecs(List<Model> toSave)
+        {
+            try
+            {
+                File.WriteAllLines(MakeSpecsFilename(), Matching.SpecCacheFile.Write(toSave));
+            }
+            catch (Exception ex)
+            {
+                main.MonitorEvent("Could not save the measured model data: " + ex.Message);
+            }
+        }
+
         /// <summary>
         /// Make the filename from the simulator name and version
         /// </summary>
@@ -3153,6 +3192,8 @@ namespace JoinFS
                         }
                         }
 
+                        AttachCachedSpecs(loaded);
+
                         lock (writeLock)
                         {
                             models = loaded;
@@ -3210,6 +3251,7 @@ namespace JoinFS
                         writer.WriteLine(model.title + "[+]" + model.manufacturer + "[+]" + model.type + "[+]" + model.variation + "[+]" + model.index + "[+]" + typeroleName + "[+]" + model.smokeCount + "[+]" + model.folder + "[+]" + model.icaoType + "[+]" + model.wtc + "[+]" + model.icaoAirline + "[+]" + (model.classCodeConfirmed ? model.classCode : "") + "[+]" + model.classCodeConfirmed);
                     }
                     writer.Close();
+                    SaveCachedSpecs(models);
 
                     // message
                     main.MonitorEvent("Saved " + models.Count + ((models.Count == 1) ? " model" : " models"));
