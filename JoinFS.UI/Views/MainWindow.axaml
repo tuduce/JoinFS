@@ -1,5 +1,5 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
         xmlns:c="using:JoinFS.UI.Views.Controls"
         xmlns:v="using:JoinFS.UI.Views"
         xmlns:vm="using:JoinFS.UI.ViewModels"
@@ -7,7 +7,7 @@
         x:DataType="vm:MainViewModel"
         Title="{Binding SessionLabel}"
         Topmost="{Binding Settings.UserInterface.AlwaysOnTop}"
-        Width="376" Height="190"
+        Width="376" Height="204"
         CanResize="False"
         WindowStartupLocation="Manual"
         Background="{DynamicResource SurfaceBrush}"
@@ -36,7 +36,7 @@
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
             <!-- New chat message: only while collapsed. -->
             <Button Classes="ghost" IsVisible="{Binding ShowChatBadge}" Command="{Binding OpenChatCommand}"
-                    ToolTip.Tip="New chat message" AutomationProperties.Name="New chat message">
+                    ToolTip.Tip="{l:T 'New chat message'}" AutomationProperties.Name="{l:T 'New chat message'}">
               <Panel>
                 <c:Icon Source="{DynamicResource IconChat}" Width="16" Height="16" />
                 <Ellipse Width="7" Height="7" Margin="0,-6,-9,0" HorizontalAlignment="Right" VerticalAlignment="Top"
@@ -44,17 +44,17 @@
                          Stroke="{DynamicResource SurfaceBrush}" StrokeThickness="1.5" />
               </Panel>
             </Button>
-            <Button Classes="ghost" Command="{Binding ToggleExpandCommand}" ToolTip.Tip="Expand/collapse" AutomationProperties.Name="Expand or collapse">
+            <Button Classes="ghost" Command="{Binding ToggleExpandCommand}" ToolTip.Tip="{l:T 'Expand/collapse'}" AutomationProperties.Name="{l:T 'Expand or collapse'}">
               <c:Icon Source="{DynamicResource IconExpand}" Width="14" Height="14" />
             </Button>
-            <Button Classes="ghost" Click="OnMinimizeClick" ToolTip.Tip="Minimize" AutomationProperties.Name="Minimize">
+            <Button Classes="ghost" Click="OnMinimizeClick" ToolTip.Tip="{l:T 'Minimize'}" AutomationProperties.Name="{l:T 'Minimize'}">
               <c:Icon Source="{DynamicResource IconMinimize}" Width="14" Height="14" />
             </Button>
-            <Button x:Name="MaximizeButton" Classes="ghost" Click="OnMaximizeClick" ToolTip.Tip="Maximize" AutomationProperties.Name="Maximize"
+            <Button x:Name="MaximizeButton" Classes="ghost" Click="OnMaximizeClick" ToolTip.Tip="{l:T 'Maximize'}" AutomationProperties.Name="{l:T 'Maximize'}"
                     IsEnabled="{Binding IsExpanded}">
               <c:Icon Source="{DynamicResource IconMaximize}" Width="14" Height="14" />
             </Button>
-            <Button Classes="ghost close" Click="OnCloseClick" ToolTip.Tip="Close" AutomationProperties.Name="Close">
+            <Button Classes="ghost close" Click="OnCloseClick" ToolTip.Tip="{l:T 'Close'}" AutomationProperties.Name="{l:T 'Close'}">
               <c:Icon Source="{DynamicResource IconClose}" Width="14" Height="14" />
             </Button>
           </StackPanel>

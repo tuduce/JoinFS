@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 
@@ -105,7 +106,7 @@ public sealed partial class SubstituteViewModel : OverlayViewModel
         Picker = new ModelPickerViewModel(catalog, current);
     }
 
-    public override string Title => "Substitution";
+    public override string Title => Loc.T("Substitution");
 
     /// <summary>The model to be replaced, with its livery when it has one.</summary>
     public string Original => _target.Livery.Length > 0 ? _target.Model + VariationSeparator + _target.Livery : _target.Model;
@@ -142,7 +143,7 @@ public sealed partial class AdjustHeightViewModel : OverlayViewModel
         _adjustmentCm = current.Centimetres;
     }
 
-    public override string Title => "Adjust Height";
+    public override string Title => Loc.T("Adjust Height");
 
     public string Model { get; }
 
@@ -150,7 +151,7 @@ public sealed partial class AdjustHeightViewModel : OverlayViewModel
     [NotifyPropertyChangedFor(nameof(AdjustmentLabel))]
     private int _adjustmentCm;
 
-    public string AdjustmentLabel => AdjustmentCm == 0 ? "Off" : $"{(AdjustmentCm > 0 ? "+" : "")}{AdjustmentCm} cm";
+    public string AdjustmentLabel => AdjustmentCm == 0 ? Loc.T("Off") : $"{(AdjustmentCm > 0 ? "+" : "")}{AdjustmentCm} cm";
 
     partial void OnAdjustmentCmChanged(int value) => _save(value);
 
@@ -184,7 +185,7 @@ public sealed partial class ExplainMatchViewModel : OverlayViewModel
         _platform = platform;
     }
 
-    public override string Title => "Explain Match: " + _explanation.Callsign;
+    public override string Title => Loc.F("Explain Match: {0}", _explanation.Callsign);
 
     public string Outcome => _explanation.Outcome;
 
@@ -211,18 +212,18 @@ public sealed partial class ExplainMatchViewModel : OverlayViewModel
     private async Task ExportDebugBundleAsync()
     {
         string suggested = $"JoinFS-MatchDebug-{_explanation.Callsign}-{DateTime.Now:yyyyMMdd-HHmmss}.zip";
-        string? path = await _platform.PickSaveFileAsync("Export debug bundle", suggested);
+        string? path = await _platform.PickSaveFileAsync(Loc.T("Export debug bundle"), suggested);
         if (path is null)
             return;
 
         try
         {
             _catalog.WriteDebugBundle(path, _explanation.Report);
-            Status = "Saved " + path;
+            Status = Loc.F("Saved {0}", path);
         }
         catch (Exception ex)
         {
-            Status = "Could not create the bundle: " + ex.Message;
+            Status = Loc.F("Could not create the bundle: {0}", ex.Message);
         }
     }
 
@@ -231,7 +232,7 @@ public sealed partial class ExplainMatchViewModel : OverlayViewModel
     {
         string? file = _catalog.KnownModelsFile();
         if (file is null)
-            Status = "There is no known-models list yet. Scan for models first.";
+            Status = Loc.T("There is no known-models list yet. Scan for models first.");
         else
             _ = _platform.OpenFileAsync(file);
     }
@@ -267,7 +268,7 @@ public sealed partial class VariablesOverlayViewModel : OverlayViewModel
         LoadFiles();
     }
 
-    public override string Title => "Variables";
+    public override string Title => Loc.T("Variables");
 
     /// <summary>False for X-Plane: the model is the one given, so the picker is not shown.</summary>
     public bool CanPickModel { get; }
@@ -308,7 +309,7 @@ public sealed partial class VariablesOverlayViewModel : OverlayViewModel
     private async Task AddAsync()
     {
         string folder = _variables.FilesFolder;
-        string? path = await _platform.PickOpenFileAsync("Add variable file", folder);
+        string? path = await _platform.PickOpenFileAsync(Loc.T("Add variable file"), folder);
         if (path is null)
             return;
 
@@ -316,7 +317,7 @@ public sealed partial class VariablesOverlayViewModel : OverlayViewModel
         string root = folder.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase))
         {
-            Status = "Choose a file from the Variables folder: " + folder;
+            Status = Loc.F("Choose a file from the Variables folder: {0}", folder);
             return;
         }
 

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 using JoinFS.UI.ViewModels.Overlays;
@@ -36,21 +37,21 @@ public sealed partial class AircraftRowViewModel : ObservableObject
                 _owner.Source.SetRecording(Id, _recordFlag.IsOn);
         };
 
-        _substitute = new("Substitute…", new RelayCommand(() => _ = _owner.SubstituteAsync(this), () => Info.Can.HasFlag(AircraftActions.Substitute)));
-        _explain = new("Explain Match…", new RelayCommand(() => _ = _owner.ExplainMatchAsync(this), () => Info.Can.HasFlag(AircraftActions.ExplainMatch)));
-        _copyFlightPlan = new("Copy Flight Plan…", new RelayCommand(() => _owner.CopyFlightPlan(this), () => Info.Can.HasFlag(AircraftActions.FlightPlan)));
-        _variables = new("Assign Variables…", new RelayCommand(() => _owner.AssignVariables(this), () => Info.Can.HasFlag(AircraftActions.Variables)));
-        _height = new("Adjust Height…", new RelayCommand(() => _owner.AdjustHeight(this), () => Info.Can.HasFlag(AircraftActions.AdjustHeight)));
+        _substitute = new(Loc.T("Substitute…"), new RelayCommand(() => _ = _owner.SubstituteAsync(this), () => Info.Can.HasFlag(AircraftActions.Substitute)));
+        _explain = new(Loc.T("Explain Match…"), new RelayCommand(() => _ = _owner.ExplainMatchAsync(this), () => Info.Can.HasFlag(AircraftActions.ExplainMatch)));
+        _copyFlightPlan = new(Loc.T("Copy Flight Plan…"), new RelayCommand(() => _owner.CopyFlightPlan(this), () => Info.Can.HasFlag(AircraftActions.FlightPlan)));
+        _variables = new(Loc.T("Assign Variables…"), new RelayCommand(() => _owner.AssignVariables(this), () => Info.Can.HasFlag(AircraftActions.Variables)));
+        _height = new(Loc.T("Adjust Height…"), new RelayCommand(() => _owner.AdjustHeight(this), () => Info.Can.HasFlag(AircraftActions.AdjustHeight)));
         _follow = new("", new RelayCommand(() => _owner.Source.Follow(Id), () => Info.Can.HasFlag(AircraftActions.Follow)));
         _enter = new("", new RelayCommand(() => _owner.Source.EnterCockpit(Id), () => _owner.InCockpit || Info.Can.HasFlag(AircraftActions.EnterCockpit)));
-        _trackHeading = new("Track Heading On Hdg", new RelayCommand(() => _owner.Source.TrackHeading(Id), () => Info.Can.HasFlag(AircraftActions.Track)));
-        _trackBearing = new("Track Bearing On Hdg", new RelayCommand(() => _owner.Source.TrackBearing(Id), () => Info.Can.HasFlag(AircraftActions.Track)));
-        _copyWeather = new("Copy Weather", new RelayCommand(() => _owner.Source.CopyWeather(Id), () => Info.Can.HasFlag(AircraftActions.CopyWeather)));
+        _trackHeading = new(Loc.T("Track Heading On Hdg"), new RelayCommand(() => _owner.Source.TrackHeading(Id), () => Info.Can.HasFlag(AircraftActions.Track)));
+        _trackBearing = new(Loc.T("Track Bearing On Hdg"), new RelayCommand(() => _owner.Source.TrackBearing(Id), () => Info.Can.HasFlag(AircraftActions.Track)));
+        _copyWeather = new(Loc.T("Copy Weather"), new RelayCommand(() => _owner.Source.CopyWeather(Id), () => Info.Can.HasFlag(AircraftActions.CopyWeather)));
         _record = new("", new RelayCommand(() => Recording = !Recording, () => Info.Can.HasFlag(AircraftActions.Record)));
         _includeHub = new("", new RelayCommand(_owner.ToggleIncludeHubAircraft));
         _includeSimulator = new("", new RelayCommand(_owner.ToggleIncludeSimulatorAircraft));
         _ignore = new("", new RelayCommand(() => _owner.SetIgnored(this, !IsIgnored), () => Info.Can.HasFlag(AircraftActions.Ignore)));
-        _stopTracking = new("Stop Tracking", new RelayCommand(_owner.Source.StopTracking, () => _owner.IsTracking));
+        _stopTracking = new(Loc.T("Stop Tracking"), new RelayCommand(_owner.Source.StopTracking, () => _owner.IsTracking));
 
         // The order the design lays them out in, three to a row.
         Actions =
@@ -107,7 +108,7 @@ public sealed partial class AircraftRowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IgnoreLabel))]
     private bool _isIgnored;
 
-    public string IgnoreLabel => IsIgnored ? "Unignore" : "Ignore";
+    public string IgnoreLabel => IsIgnored ? Loc.T("Unignore") : Loc.T("Ignore");
 
     /// <summary>Included in the recording. The same flag as in the Recorder tab's list.</summary>
     public bool Recording
@@ -147,11 +148,11 @@ public sealed partial class AircraftRowViewModel : ObservableObject
     /// <summary>Words each link by the state it acts on, and re-asks whether it is available.</summary>
     internal void RefreshActions()
     {
-        _follow.Label = $"Follow '{Callsign}'";
-        _enter.Label = _owner.InCockpit ? "Leave Cockpit" : "Enter Cockpit";
-        _record.Label = Recording ? "Remove From Recorder" : "Add To Recorder";
-        _includeHub.Label = _owner.IncludeHubAircraft ? "Exclude Hub Aircraft" : "Include All Hub Aircraft";
-        _includeSimulator.Label = _owner.IncludeSimulatorAircraft ? "Exclude Simulator Aircraft" : "Include All Simulator Aircraft";
+        _follow.Label = Loc.F("Follow '{0}'", Callsign);
+        _enter.Label = _owner.InCockpit ? Loc.T("Leave Cockpit") : Loc.T("Enter Cockpit");
+        _record.Label = Recording ? Loc.T("Remove From Recorder") : Loc.T("Add To Recorder");
+        _includeHub.Label = _owner.IncludeHubAircraft ? Loc.T("Exclude Hub Aircraft") : Loc.T("Include All Hub Aircraft");
+        _includeSimulator.Label = _owner.IncludeSimulatorAircraft ? Loc.T("Exclude Simulator Aircraft") : Loc.T("Include All Simulator Aircraft");
         _ignore.Label = IgnoreLabel;
 
         foreach (ActionLink link in Actions)
@@ -202,13 +203,13 @@ public sealed partial class AircraftViewModel : ObservableObject
         _shell = shell;
 
         _sort = new SortController<AircraftRowViewModel>(Rebuild);
-        CallsignColumn = _sort.Add("callsign", "Callsign", r => r.Callsign);
-        OwnerColumn = _sort.Add("owner", "Owner", r => r.Owner);
-        DistanceColumn = _sort.Add("distance", "Distance", r => r.DistanceValue);
-        HeadingColumn = _sort.Add("heading", "Heading", r => r.HeadingValue);
-        AltitudeColumn = _sort.Add("altitude", "Altitude", r => r.AltitudeValue);
-        GroundSpeedColumn = _sort.Add("gs", "GS", r => r.SpeedValue);
-        ModelColumn = _sort.Add("model", "Sub Model", r => r.Model);
+        CallsignColumn = _sort.Add("callsign", Loc.T("Callsign"), r => r.Callsign);
+        OwnerColumn = _sort.Add("owner", Loc.T("Owner"), r => r.Owner);
+        DistanceColumn = _sort.Add("distance", Loc.T("Distance"), r => r.DistanceValue);
+        HeadingColumn = _sort.Add("heading", Loc.T("Heading"), r => r.HeadingValue);
+        AltitudeColumn = _sort.Add("altitude", Loc.T("Altitude"), r => r.AltitudeValue);
+        GroundSpeedColumn = _sort.Add("gs", Loc.T("GS"), r => r.SpeedValue);
+        ModelColumn = _sort.Add("model", Loc.T("Sub Model"), r => r.Model);
 
         Refresh();
     }

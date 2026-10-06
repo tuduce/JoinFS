@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 
@@ -19,14 +20,14 @@ public sealed partial class AboutViewModel : OverlayViewModel
         Update = update;
     }
 
-    public override string Title => "About JoinFS";
+    public override string Title => Loc.T("About JoinFS");
 
     public UpdateInfo? Update { get; }
 
-    public string VersionText => $"Version {_app.Version}";
+    public string VersionText => Loc.F("Version {0}", _app.Version);
     public bool NewVersionAvailable => Update is not null;
-    public string DownloadText => Update is null ? "" : $"Download v{Update.Version} →";
-    public string License => "Licensed under the MIT License.";
+    public string DownloadText => Update is null ? "" : Loc.F("Download v{0} →", Update.Version);
+    public string License => Loc.T("Licensed under the MIT License.");
     public string Copyright => _app.Copyright;
 
     [RelayCommand]

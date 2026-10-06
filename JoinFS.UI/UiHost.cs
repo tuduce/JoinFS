@@ -1,5 +1,7 @@
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Services;
 using JoinFS.UI.Services.Fake;
 
@@ -54,6 +56,21 @@ public static class UiHost
     private static void Start(string[] args)
     {
         _args = args;
+
+        // "--lang de" shows the UI in another language than the system's (de es fr it ko nl pt ru; anything else is English).
+        int lang = Array.IndexOf(args, "--lang");
+        if (lang >= 0 && lang + 1 < args.Length)
+        {
+            try
+            {
+                Loc.Culture = CultureInfo.GetCultureInfo(args[lang + 1]);
+            }
+            catch (CultureNotFoundException)
+            {
+                Log("Unknown language: " + args[lang + 1]);
+            }
+        }
+
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

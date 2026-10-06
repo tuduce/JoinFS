@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 
@@ -105,12 +106,12 @@ namespace JoinFS.Live
             double now = main.ElapsedTime;
             if (text.Equals(".help", StringComparison.OrdinalIgnoreCase))
             {
-                commandLines.Add(new ChatMessage("", "Command list:", Time: now, IsLocal: true));
-                commandLines.Add(new ChatMessage("", ".help - Show the command list", Time: now + 0.001, IsLocal: true));
+                commandLines.Add(new ChatMessage("", Loc.T("Command list:"), Time: now, IsLocal: true));
+                commandLines.Add(new ChatMessage("", Loc.T(".help - Show the command list"), Time: now + 0.001, IsLocal: true));
             }
             else
             {
-                commandLines.Add(new ChatMessage("", "Unknown command, '" + text + "'", Time: now, IsLocal: true));
+                commandLines.Add(new ChatMessage("", Loc.F("Unknown command, '{0}'", text), Time: now, IsLocal: true));
             }
         }
 

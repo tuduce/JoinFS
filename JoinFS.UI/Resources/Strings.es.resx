@@ -1,0 +1,1005 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name=".help - Show the command list" xml:space="preserve">
+    <value>.help: mostrar la lista de comandos</value>
+  </data>
+  <data name="[Click 'View Logs' to see full log files]" xml:space="preserve">
+    <value>[Pulse «Ver registros» para ver los archivos de registro completos]</value>
+  </data>
+  <data name="A scan is already running." xml:space="preserve">
+    <value>Ya hay un escaneo en curso.</value>
+  </data>
+  <data name="About" xml:space="preserve">
+    <value>Acerca de</value>
+  </data>
+  <data name="About JoinFS" xml:space="preserve">
+    <value>Acerca de JoinFS</value>
+  </data>
+  <data name="About: " xml:space="preserve">
+    <value>Acerca de: </value>
+  </data>
+  <data name="ACTIONS" xml:space="preserve">
+    <value>ACCIONES</value>
+  </data>
+  <data name="Add" xml:space="preserve">
+    <value>Añadir</value>
+  </data>
+  <data name="Add recording" xml:space="preserve">
+    <value>Añadir grabación</value>
+  </data>
+  <data name="Add to Address Book" xml:space="preserve">
+    <value>Añadir a la libreta de direcciones</value>
+  </data>
+  <data name="Add To Recorder" xml:space="preserve">
+    <value>Añadir a la grabadora</value>
+  </data>
+  <data name="Add variable file" xml:space="preserve">
+    <value>Agregar archivo de variables</value>
+  </data>
+  <data name="Add-on" xml:space="preserve">
+    <value>Complemento</value>
+  </data>
+  <data name="Add..." xml:space="preserve">
+    <value>Añadir...</value>
+  </data>
+  <data name="Address" xml:space="preserve">
+    <value>Dirección</value>
+  </data>
+  <data name="Address Book" xml:space="preserve">
+    <value>Libreta de direcciones</value>
+  </data>
+  <data name="Address:Port" xml:space="preserve">
+    <value>Dirección:puerto</value>
+  </data>
+  <data name="Adjust Height" xml:space="preserve">
+    <value>Ajustar altura</value>
+  </data>
+  <data name="Adjust Height…" xml:space="preserve">
+    <value>Ajustar altura…</value>
+  </data>
+  <data name="Adjustment" xml:space="preserve">
+    <value>Ajuste</value>
+  </data>
+  <data name="Aircraft" xml:space="preserve">
+    <value>Aeronave</value>
+  </data>
+  <data name="Aircraft Folders" xml:space="preserve">
+    <value>Carpetas de aviones</value>
+  </data>
+  <data name="Aircraft to record" xml:space="preserve">
+    <value>Aeronaves a grabar</value>
+  </data>
+  <data name="Aircraft tracked" xml:space="preserve">
+    <value>Aeronaves rastreadas</value>
+  </data>
+  <data name="Allow Cockpit Entry" xml:space="preserve">
+    <value>Permitir la entrada a la cabina</value>
+  </data>
+  <data name="Allow Multiple Objects" xml:space="preserve">
+    <value>Permitir múltiples objetos</value>
+  </data>
+  <data name="Already at the end of the recording." xml:space="preserve">
+    <value>Ya está al final de la grabación.</value>
+  </data>
+  <data name="Already at the start of the recording." xml:space="preserve">
+    <value>Ya está al principio de la grabación.</value>
+  </data>
+  <data name="alt" xml:space="preserve">
+    <value>alt</value>
+  </data>
+  <data name="Altitude" xml:space="preserve">
+    <value>Altitud</value>
+  </data>
+  <data name="Always on top" xml:space="preserve">
+    <value>Siempre visible</value>
+  </data>
+  <data name="Assign Variables…" xml:space="preserve">
+    <value>Asignar variables…</value>
+  </data>
+  <data name="Attribute" xml:space="preserve">
+    <value>Atributo</value>
+  </data>
+  <data name="Auto broadcast VRS TacPack" xml:space="preserve">
+    <value>Autodifusión VRS TacPack</value>
+  </data>
+  <data name="Auto import SimBrief flight plan" xml:space="preserve">
+    <value>Importar automáticamente el plan de vuelo de SimBrief</value>
+  </data>
+  <data name="Auto refresh" xml:space="preserve">
+    <value>Actualizar automáticamente</value>
+  </data>
+  <data name="Bearing" xml:space="preserve">
+    <value>Marcación</value>
+  </data>
+  <data name="Broadcast" xml:space="preserve">
+    <value>Difundir</value>
+  </data>
+  <data name="Broadcast All '{0}'" xml:space="preserve">
+    <value>Difundir todos los '{0}'</value>
+  </data>
+  <data name="Broadcast Everything" xml:space="preserve">
+    <value>Difundir todo</value>
+  </data>
+  <data name="Broadcast This Object" xml:space="preserve">
+    <value>Difundir este objeto</value>
+  </data>
+  <data name="Broadcast VRS TacPack" xml:space="preserve">
+    <value>Difundir VRS TacPack</value>
+  </data>
+  <data name="Browse..." xml:space="preserve">
+    <value>Examinar...</value>
+  </data>
+  <data name="Builds the list of aircraft models JoinFS can substitute during a flight." xml:space="preserve">
+    <value>Crea la lista de modelos de aeronave que JoinFS puede sustituir durante un vuelo.</value>
+  </data>
+  <data name="BUILT-IN" xml:space="preserve">
+    <value>INTEGRADO</value>
+  </data>
+  <data name="Callsign" xml:space="preserve">
+    <value>Indicativo</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="Chat" xml:space="preserve">
+    <value>Chat</value>
+  </data>
+  <data name="Choose a file from the Variables folder: {0}" xml:space="preserve">
+    <value>Elija un archivo de la carpeta Variables: {0}</value>
+  </data>
+  <data name="Choose my own port" xml:space="preserve">
+    <value>Elige mi propio puerto</value>
+  </data>
+  <data name="Choose..." xml:space="preserve">
+    <value>Elegir...</value>
+  </data>
+  <data name="Circle of activity: {0} nm" xml:space="preserve">
+    <value>Círculo de actividad: {0} nm</value>
+  </data>
+  <data name="Clear" xml:space="preserve">
+    <value>Limpiar</value>
+  </data>
+  <data name="Click header to sort objects" xml:space="preserve">
+    <value>Clic en el encabezado para ordenar</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Cerrar</value>
+  </data>
+  <data name="Command list:" xml:space="preserve">
+    <value>Lista de comandos:</value>
+  </data>
+  <data name="Connect" xml:space="preserve">
+    <value>Conectar</value>
+  </data>
+  <data name="Connect simulator on launch" xml:space="preserve">
+    <value>Conectar el simulador al iniciar</value>
+  </data>
+  <data name="Connect the simulator and join a hub to start flying together." xml:space="preserve">
+    <value>Conecte el simulador y únase a un hub para empezar a volar juntos.</value>
+  </data>
+  <data name="Connect to hub" xml:space="preserve">
+    <value>Conectar con el hub</value>
+  </data>
+  <data name="Connect to simulator" xml:space="preserve">
+    <value>Conectar con el simulador</value>
+  </data>
+  <data name="Connected" xml:space="preserve">
+    <value>Conectado</value>
+  </data>
+  <data name="Connected users" xml:space="preserve">
+    <value>Usuarios conectados</value>
+  </data>
+  <data name="Connecting…" xml:space="preserve">
+    <value>Conectando…</value>
+  </data>
+  <data name="Continue" xml:space="preserve">
+    <value>Continuar</value>
+  </data>
+  <data name="Controls the floating label JoinFS draws above other aircraft in X-Plane." xml:space="preserve">
+    <value>Controla la etiqueta flotante que JoinFS dibuja sobre las demás aeronaves en X-Plane.</value>
+  </data>
+  <data name="Copy Flight Plan…" xml:space="preserve">
+    <value>Copiar plan de vuelo…</value>
+  </data>
+  <data name="Copy to clipboard" xml:space="preserve">
+    <value>Copiar al portapapeles</value>
+  </data>
+  <data name="Copy Weather" xml:space="preserve">
+    <value>Copiar el tiempo</value>
+  </data>
+  <data name="Could not create the bundle: {0}" xml:space="preserve">
+    <value>No se pudo crear el paquete: {0}</value>
+  </data>
+  <data name="Count" xml:space="preserve">
+    <value>Total</value>
+  </data>
+  <data name="Create" xml:space="preserve">
+    <value>Crear</value>
+  </data>
+  <data name="Create Your Own Mesh" xml:space="preserve">
+    <value>Crear su propia malla</value>
+  </data>
+  <data name="cruise" xml:space="preserve">
+    <value>crucero</value>
+  </data>
+  <data name="CSL folder:" xml:space="preserve">
+    <value>carpeta CSL:</value>
+  </data>
+  <data name="Disconnect" xml:space="preserve">
+    <value>Desconectar</value>
+  </data>
+  <data name="Disconnected" xml:space="preserve">
+    <value>Desconectado</value>
+  </data>
+  <data name="Distance" xml:space="preserve">
+    <value>Distancia</value>
+  </data>
+  <data name="Documentation" xml:space="preserve">
+    <value>Documentación</value>
+  </data>
+  <data name="Domain" xml:space="preserve">
+    <value>Dominio</value>
+  </data>
+  <data name="Don't Save" xml:space="preserve">
+    <value>No guardar</value>
+  </data>
+  <data name="Download" xml:space="preserve">
+    <value>Descargar</value>
+  </data>
+  <data name="Download v{0} →" xml:space="preserve">
+    <value>Descargar v{0} →</value>
+  </data>
+  <data name="Drag to move playhead" xml:space="preserve">
+    <value>Arrastre para mover el cabezal</value>
+  </data>
+  <data name="e.g. joinfs.example.com" xml:space="preserve">
+    <value>p. ej., joinfs.example.com</value>
+  </data>
+  <data name="Edit..." xml:space="preserve">
+    <value>Editar...</value>
+  </data>
+  <data name="Edit…" xml:space="preserve">
+    <value>Editar…</value>
+  </data>
+  <data name="Elevation Correction" xml:space="preserve">
+    <value>Corrección de elevación</value>
+  </data>
+  <data name="Enable Hub Mode" xml:space="preserve">
+    <value>Activar modo hub</value>
+  </data>
+  <data name="Enter a port from 1 to 65535." xml:space="preserve">
+    <value>Introduzca un puerto de 1 a 65535.</value>
+  </data>
+  <data name="Enter Cockpit" xml:space="preserve">
+    <value>Entrar en la cabina</value>
+  </data>
+  <data name="Exclude Hub Aircraft" xml:space="preserve">
+    <value>Excluir aeronaves de hubs</value>
+  </data>
+  <data name="Exclude Simulator Aircraft" xml:space="preserve">
+    <value>Excluir aeronaves del simulador</value>
+  </data>
+  <data name="Expand or collapse" xml:space="preserve">
+    <value>Expandir o contraer</value>
+  </data>
+  <data name="Expand/collapse" xml:space="preserve">
+    <value>Expandir/contraer</value>
+  </data>
+  <data name="Explain Match: {0}" xml:space="preserve">
+    <value>Explicar coincidencia: {0}</value>
+  </data>
+  <data name="Explain Match…" xml:space="preserve">
+    <value>Explicar Coincidencia…</value>
+  </data>
+  <data name="Export debug bundle" xml:space="preserve">
+    <value>Exportar paquete de depuración</value>
+  </data>
+  <data name="Export Debug Bundle..." xml:space="preserve">
+    <value>Exportar paquete de depuración...</value>
+  </data>
+  <data name="Fetch" xml:space="preserve">
+    <value>Obtener</value>
+  </data>
+  <data name="Fetch flight plan from Simbrief" xml:space="preserve">
+    <value>Obtener el plan de vuelo de SimBrief</value>
+  </data>
+  <data name="Fetching…" xml:space="preserve">
+    <value>Obteniendo…</value>
+  </data>
+  <data name="Filter words" xml:space="preserve">
+    <value>Filtrar palabras</value>
+  </data>
+  <data name="Filter words (optional)" xml:space="preserve">
+    <value>Filtrar palabras (opcional)</value>
+  </data>
+  <data name="Fit" xml:space="preserve">
+    <value>Ajustar</value>
+  </data>
+  <data name="Flight Plan" xml:space="preserve">
+    <value>Plan de vuelo</value>
+  </data>
+  <data name="Flight Plan: " xml:space="preserve">
+    <value>Plan de vuelo: </value>
+  </data>
+  <data name="Follow '{0}'" xml:space="preserve">
+    <value>Seguir a '{0}'</value>
+  </data>
+  <data name="Follow distance: {0} m" xml:space="preserve">
+    <value>Distancia de seguimiento: {0} m</value>
+  </data>
+  <data name="FPS: {0}" xml:space="preserve">
+    <value>FPS: {0}</value>
+  </data>
+  <data name="From" xml:space="preserve">
+    <value>Desde</value>
+  </data>
+  <data name="FS2024 models via SimConnect" xml:space="preserve">
+    <value>Modelos de FS2024 mediante SimConnect</value>
+  </data>
+  <data name="Generate CSL objects for installed aircraft" xml:space="preserve">
+    <value>Generar objetos CSL para aeronaves instaladas</value>
+  </data>
+  <data name="Generate WhazzUp" xml:space="preserve">
+    <value>Generar WhazzUp</value>
+  </data>
+  <data name="Generating CSL objects may take several minutes. You may need to restart X-Plane when complete." xml:space="preserve">
+    <value>La generación de objetos CSL puede tardar varios minutos. Es posible que deba reiniciar X-Plane cuando esté completo.</value>
+  </data>
+  <data name="Global" xml:space="preserve">
+    <value>Global</value>
+  </data>
+  <data name="Group by model" xml:space="preserve">
+    <value>Agrupar por modelo</value>
+  </data>
+  <data name="GS" xml:space="preserve">
+    <value>Velocidad</value>
+  </data>
+  <data name="Hand Over Controls" xml:space="preserve">
+    <value>Ceder los controles</value>
+  </data>
+  <data name="Heading" xml:space="preserve">
+    <value>Rumbo</value>
+  </data>
+  <data name="Home" xml:space="preserve">
+    <value>Inicio</value>
+  </data>
+  <data name="Hub" xml:space="preserve">
+    <value>Hub</value>
+  </data>
+  <data name="Hub Mode (Public)" xml:space="preserve">
+    <value>Modo Hub (público)</value>
+  </data>
+  <data name="Hubs available from the picker, including the built-in Global directory." xml:space="preserve">
+    <value>Hubs disponibles en el selector, incluido el directorio Global integrado.</value>
+  </data>
+  <data name="Ignore" xml:space="preserve">
+    <value>Ignorar</value>
+  </data>
+  <data name="Ignore Model" xml:space="preserve">
+    <value>Ignorar modelo</value>
+  </data>
+  <data name="Ignore Owner" xml:space="preserve">
+    <value>Ignorar propietario</value>
+  </data>
+  <data name="Import" xml:space="preserve">
+    <value>Importar</value>
+  </data>
+  <data name="Import from SimBrief" xml:space="preserve">
+    <value>Importar de SimBrief</value>
+  </data>
+  <data name="Imported {0} → {1}" xml:space="preserve">
+    <value>Se importó {0} → {1}</value>
+  </data>
+  <data name="include AI" xml:space="preserve">
+    <value>incluir IA</value>
+  </data>
+  <data name="Include All Hub Aircraft" xml:space="preserve">
+    <value>Incluir todas las aeronaves de hubs</value>
+  </data>
+  <data name="Include All Simulator Aircraft" xml:space="preserve">
+    <value>Incluir todos los aviones del simulador</value>
+  </data>
+  <data name="include global users" xml:space="preserve">
+    <value>incluir usuarios globales</value>
+  </data>
+  <data name="INFO" xml:space="preserve">
+    <value>INFORMACIÓN</value>
+  </data>
+  <data name="Install" xml:space="preserve">
+    <value>Instalar</value>
+  </data>
+  <data name="Install C++..." xml:space="preserve">
+    <value>Instalar C++...</value>
+  </data>
+  <data name="Install Plugin..." xml:space="preserve">
+    <value>Instalar Complemento...</value>
+  </data>
+  <data name="Install the JoinFS plugin into your X-Plane folder:" xml:space="preserve">
+    <value>Instale el complemento de JoinFS en su carpeta de X-Plane:</value>
+  </data>
+  <data name="Install X-Plane Plugin" xml:space="preserve">
+    <value>Instalar complemento de X-Plane</value>
+  </data>
+  <data name="IP Address" xml:space="preserve">
+    <value>Dirección IP</value>
+  </data>
+  <data name="Join" xml:space="preserve">
+    <value>Unirse</value>
+  </data>
+  <data name="Join a hub to chat" xml:space="preserve">
+    <value>Únase a un hub para chatear</value>
+  </data>
+  <data name="Join global session at launch" xml:space="preserve">
+    <value>Únase a la sesión global al inicio</value>
+  </data>
+  <data name="Label text colour" xml:space="preserve">
+    <value>Color del texto de la etiqueta</value>
+  </data>
+  <data name="Latency" xml:space="preserve">
+    <value>Latencia</value>
+  </data>
+  <data name="Leave" xml:space="preserve">
+    <value>Salir</value>
+  </data>
+  <data name="Leave Cockpit" xml:space="preserve">
+    <value>Salir de la cabina</value>
+  </data>
+  <data name="level" xml:space="preserve">
+    <value>Nivel</value>
+  </data>
+  <data name="Licensed under the MIT License." xml:space="preserve">
+    <value>Con licencia MIT.</value>
+  </data>
+  <data name="List ignored objects" xml:space="preserve">
+    <value>Lista de objetos ignorados</value>
+  </data>
+  <data name="Loaded" xml:space="preserve">
+    <value>Cargado</value>
+  </data>
+  <data name="Loaded recording — {0}" xml:space="preserve">
+    <value>Grabación cargada: {0}</value>
+  </data>
+  <data name="Loop" xml:space="preserve">
+    <value>Bucle</value>
+  </data>
+  <data name="Loop playback" xml:space="preserve">
+    <value>Repetir reproducción</value>
+  </data>
+  <data name="Low bandwidth" xml:space="preserve">
+    <value>Ancho de banda bajo</value>
+  </data>
+  <data name="Matched Model" xml:space="preserve">
+    <value>Modelo coincidente</value>
+  </data>
+  <data name="Matching steps (in the order they were tried):" xml:space="preserve">
+    <value>Pasos de coincidencia (en el orden en que se intentaron):</value>
+  </data>
+  <data name="Maximize" xml:space="preserve">
+    <value>Maximizar</value>
+  </data>
+  <data name="Minimize" xml:space="preserve">
+    <value>Minimizar</value>
+  </data>
+  <data name="Model" xml:space="preserve">
+    <value>Modelo</value>
+  </data>
+  <data name="Model Matching" xml:space="preserve">
+    <value>Coincidencia de Modelos</value>
+  </data>
+  <data name="Model scan on connect" xml:space="preserve">
+    <value>Escanear modelos al conectar</value>
+  </data>
+  <data name="Model:" xml:space="preserve">
+    <value>Modelo:</value>
+  </data>
+  <data name="Models with non-default variable files assigned." xml:space="preserve">
+    <value>Modelos con archivos de variables no predeterminados asignados.</value>
+  </data>
+  <data name="Monitor" xml:space="preserve">
+    <value>Monitor</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>Nombre</value>
+  </data>
+  <data name="Network" xml:space="preserve">
+    <value>Red</value>
+  </data>
+  <data name="Network Hubs" xml:space="preserve">
+    <value>Hubs de red</value>
+  </data>
+  <data name="Network Port" xml:space="preserve">
+    <value>Puerto de red</value>
+  </data>
+  <data name="New chat message" xml:space="preserve">
+    <value>Nuevo mensaje de chat</value>
+  </data>
+  <data name="Next Event" xml:space="preserve">
+    <value>Próximo evento</value>
+  </data>
+  <data name="Next Event: " xml:space="preserve">
+    <value>Próximo evento: </value>
+  </data>
+  <data name="Next scheduled event" xml:space="preserve">
+    <value>Próximo evento programado</value>
+  </data>
+  <data name="Nickname" xml:space="preserve">
+    <value>Apodo</value>
+  </data>
+  <data name="Nickname shown to other pilots" xml:space="preserve">
+    <value>Apodo que ven los demás pilotos</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="No add-ons found" xml:space="preserve">
+    <value>No se encontraron complementos</value>
+  </data>
+  <data name="No additional folders added" xml:space="preserve">
+    <value>No se añadieron más carpetas</value>
+  </data>
+  <data name="No aircraft with a position yet" xml:space="preserve">
+    <value>Aún no hay aeronaves con posición</value>
+  </data>
+  <data name="No flight plan filed" xml:space="preserve">
+    <value>No se presentó ningún plan de vuelo</value>
+  </data>
+  <data name="No models are known yet. Scan for models first (Settings, Simulator)." xml:space="preserve">
+    <value>Aún no se conoce ningún modelo. Primero escanee modelos (Ajustes, Simulador).</value>
+  </data>
+  <data name="No models are known yet. Scan for models from Settings, Simulator." xml:space="preserve">
+    <value>Aún no se conoce ningún modelo. Escanee modelos desde Ajustes, Simulador.</value>
+  </data>
+  <data name="No subfolders found" xml:space="preserve">
+    <value>No se encontraron subcarpetas</value>
+  </data>
+  <data name="Node Statistics" xml:space="preserve">
+    <value>Estadísticas de nodos</value>
+  </data>
+  <data name="Not connected" xml:space="preserve">
+    <value>No conectado</value>
+  </data>
+  <data name="Not loaded" xml:space="preserve">
+    <value>No cargado</value>
+  </data>
+  <data name="not saved" xml:space="preserve">
+    <value>sin guardar</value>
+  </data>
+  <data name="nothing recorded" xml:space="preserve">
+    <value>nada grabado</value>
+  </data>
+  <data name="Objects" xml:space="preserve">
+    <value>Objetos</value>
+  </data>
+  <data name="Objects Exported" xml:space="preserve">
+    <value>Objetos exportados</value>
+  </data>
+  <data name="Off" xml:space="preserve">
+    <value>Apagado</value>
+  </data>
+  <data name="Offline" xml:space="preserve">
+    <value>Sin conexión</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Online" xml:space="preserve">
+    <value>En línea</value>
+  </data>
+  <data name="Open full view" xml:space="preserve">
+    <value>Abrir vista completa</value>
+  </data>
+  <data name="Open known-models list" xml:space="preserve">
+    <value>Abrir lista de modelos conocidos</value>
+  </data>
+  <data name="Open Model Matching →" xml:space="preserve">
+    <value>Abrir coincidencia de modelos →</value>
+  </data>
+  <data name="Open Model Scanning..." xml:space="preserve">
+    <value>Abrir escaneo de modelos...</value>
+  </data>
+  <data name="Open recording" xml:space="preserve">
+    <value>Abrir grabación</value>
+  </data>
+  <data name="Open..." xml:space="preserve">
+    <value>Abrir...</value>
+  </data>
+  <data name="optional" xml:space="preserve">
+    <value>opcional</value>
+  </data>
+  <data name="Original Model" xml:space="preserve">
+    <value>Modelo Original</value>
+  </data>
+  <data name="Other folders to scan (one to a line):" xml:space="preserve">
+    <value>Otras carpetas que escanear (una por línea):</value>
+  </data>
+  <data name="Overdub" xml:space="preserve">
+    <value>Sobregrabar</value>
+  </data>
+  <data name="Overdub — record on top of existing take" xml:space="preserve">
+    <value>Sobregrabar: grabar encima de la toma existente</value>
+  </data>
+  <data name="Owner" xml:space="preserve">
+    <value>Propietario</value>
+  </data>
+  <data name="Password" xml:space="preserve">
+    <value>Contraseña</value>
+  </data>
+  <data name="Password Required" xml:space="preserve">
+    <value>Se requiere contraseña</value>
+  </data>
+  <data name="Pending" xml:space="preserve">
+    <value>Pendiente</value>
+  </data>
+  <data name="Pick a panel from the sidebar to manage hubs, session traffic, aircraft, or model matching." xml:space="preserve">
+    <value>Elija un panel de la barra lateral para gestionar hubs, el tráfico de la sesión, aeronaves o la coincidencia de modelos.</value>
+  </data>
+  <data name="Play" xml:space="preserve">
+    <value>Reproducir</value>
+  </data>
+  <data name="Please specify the 'Flight Simulator Packages' folder:" xml:space="preserve">
+    <value>Especifique la carpeta «Flight Simulator Packages»:</value>
+  </data>
+  <data name="Please specify the root folder for the simulator:" xml:space="preserve">
+    <value>Especifique la carpeta raíz del simulador:</value>
+  </data>
+  <data name="Protocol" xml:space="preserve">
+    <value>Protocolo</value>
+  </data>
+  <data name="Public hub name" xml:space="preserve">
+    <value>Nombre del hub público</value>
+  </data>
+  <data name="Public Hubs" xml:space="preserve">
+    <value>Hubs públicos</value>
+  </data>
+  <data name="Received Packets" xml:space="preserve">
+    <value>Paquetes recibidos</value>
+  </data>
+  <data name="Record" xml:space="preserve">
+    <value>Grabar</value>
+  </data>
+  <data name="Recorder" xml:space="preserve">
+    <value>Grabadora</value>
+  </data>
+  <data name="Recording not saved: the simulator thread did not respond. Please try again." xml:space="preserve">
+    <value>No se guardó la grabación: el hilo del simulador no respondió. Inténtelo de nuevo.</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>Actualizar</value>
+  </data>
+  <data name="Remarks" xml:space="preserve">
+    <value>Observación</value>
+  </data>
+  <data name="Remarks: " xml:space="preserve">
+    <value>Observación: </value>
+  </data>
+  <data name="Remove" xml:space="preserve">
+    <value>Eliminar</value>
+  </data>
+  <data name="Remove From Address Book" xml:space="preserve">
+    <value>Quitar de la libreta de direcciones</value>
+  </data>
+  <data name="Remove From Recorder" xml:space="preserve">
+    <value>Quitar de la grabadora</value>
+  </data>
+  <data name="Requested" xml:space="preserve">
+    <value>Solicitado</value>
+  </data>
+  <data name="Route" xml:space="preserve">
+    <value>Ruta</value>
+  </data>
+  <data name="Rules" xml:space="preserve">
+    <value>Reglas</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>Guardar</value>
+  </data>
+  <data name="Save recording" xml:space="preserve">
+    <value>Guardar grabación</value>
+  </data>
+  <data name="Save..." xml:space="preserve">
+    <value>Guardar...</value>
+  </data>
+  <data name="Saved {0}" xml:space="preserve">
+    <value>Se guardó {0}</value>
+  </data>
+  <data name="Scan" xml:space="preserve">
+    <value>Escanear</value>
+  </data>
+  <data name="Scan at launch" xml:space="preserve">
+    <value>Escanear al iniciar</value>
+  </data>
+  <data name="Scan For Models" xml:space="preserve">
+    <value>Escanear modelos</value>
+  </data>
+  <data name="Scanning for models..." xml:space="preserve">
+    <value>Escaneando modelos...</value>
+  </data>
+  <data name="Select a type" xml:space="preserve">
+    <value>Seleccione un tipo</value>
+  </data>
+  <data name="Select a type:" xml:space="preserve">
+    <value>Seleccione un tipo:</value>
+  </data>
+  <data name="Select a variation" xml:space="preserve">
+    <value>Seleccione una variación</value>
+  </data>
+  <data name="Select a variation:" xml:space="preserve">
+    <value>Seleccione una variación:</value>
+  </data>
+  <data name="Select an object in the table first" xml:space="preserve">
+    <value>Seleccione primero un objeto de la tabla</value>
+  </data>
+  <data name="Select the main simulator folder" xml:space="preserve">
+    <value>Seleccione la carpeta principal del simulador</value>
+  </data>
+  <data name="Select the root X-Plane folder" xml:space="preserve">
+    <value>Seleccione la carpeta raíz de X-Plane</value>
+  </data>
+  <data name="Send" xml:space="preserve">
+    <value>Enviar</value>
+  </data>
+  <data name="Session" xml:space="preserve">
+    <value>Sesión</value>
+  </data>
+  <data name="Settings" xml:space="preserve">
+    <value>Ajustes</value>
+  </data>
+  <data name="Short description" xml:space="preserve">
+    <value>Descripción breve</value>
+  </data>
+  <data name="SHOW (THIS SESSION)" xml:space="preserve">
+    <value>MOSTRAR (ESTA SESIÓN)</value>
+  </data>
+  <data name="Show all aircraft" xml:space="preserve">
+    <value>Mostrar todas las aeronaves</value>
+  </data>
+  <data name="Show Altitude" xml:space="preserve">
+    <value>Mostrar altitud</value>
+  </data>
+  <data name="Show Callsign" xml:space="preserve">
+    <value>Mostrar indicativo</value>
+  </data>
+  <data name="Show Distance" xml:space="preserve">
+    <value>Mostrar distancia</value>
+  </data>
+  <data name="Show Nickname" xml:space="preserve">
+    <value>Mostrar apodo</value>
+  </data>
+  <data name="Show Offline Hubs" xml:space="preserve">
+    <value>Mostrar hubs sin conexión</value>
+  </data>
+  <data name="Show Speed" xml:space="preserve">
+    <value>Mostrar velocidad</value>
+  </data>
+  <data name="SimBrief has no flight plan for this user." xml:space="preserve">
+    <value>SimBrief no tiene ningún plan de vuelo para este usuario.</value>
+  </data>
+  <data name="SimBrief username" xml:space="preserve">
+    <value>Nombre de usuario Simbrief</value>
+  </data>
+  <data name="Simulator" xml:space="preserve">
+    <value>Simulador</value>
+  </data>
+  <data name="Simulator and network are both connected." xml:space="preserve">
+    <value>El simulador y la red están conectados.</value>
+  </data>
+  <data name="Simulator:" xml:space="preserve">
+    <value>Simulador:</value>
+  </data>
+  <data name="Skip CSL objects already done" xml:space="preserve">
+    <value>Omitir objetos CSL ya realizados</value>
+  </data>
+  <data name="Specify X-Plane folder:" xml:space="preserve">
+    <value>Especificar carpeta X-Plane:</value>
+  </data>
+  <data name="Squawk" xml:space="preserve">
+    <value>Squawk</value>
+  </data>
+  <data name="Status" xml:space="preserve">
+    <value>Estado</value>
+  </data>
+  <data name="Stop" xml:space="preserve">
+    <value>Detener</value>
+  </data>
+  <data name="Stop Broadcasting All '{0}'" xml:space="preserve">
+    <value>Dejar de difundir todos los '{0}'</value>
+  </data>
+  <data name="Stop Broadcasting Everything" xml:space="preserve">
+    <value>Dejar de difundir todo</value>
+  </data>
+  <data name="Stop Broadcasting This Object" xml:space="preserve">
+    <value>Dejar de difundir este objeto</value>
+  </data>
+  <data name="Stop Broadcasting VRS TacPack" xml:space="preserve">
+    <value>Dejar de difundir VRS TacPack</value>
+  </data>
+  <data name="Stop Tracking" xml:space="preserve">
+    <value>Detener el seguimiento</value>
+  </data>
+  <data name="Sub Model" xml:space="preserve">
+    <value>Modelo sustituto</value>
+  </data>
+  <data name="Subfolder" xml:space="preserve">
+    <value>Subcarpeta</value>
+  </data>
+  <data name="Substitute Model" xml:space="preserve">
+    <value>Modelo Sustituto</value>
+  </data>
+  <data name="Substitute models used when an exact match isn't installed." xml:space="preserve">
+    <value>Modelos sustitutos que se usan cuando no hay una coincidencia exacta instalada.</value>
+  </data>
+  <data name="Substitute..." xml:space="preserve">
+    <value>Sustituir...</value>
+  </data>
+  <data name="Substitute…" xml:space="preserve">
+    <value>Sustituir…</value>
+  </data>
+  <data name="Substitution" xml:space="preserve">
+    <value>Sustitución</value>
+  </data>
+  <data name="TCAS" xml:space="preserve">
+    <value>TCAS</value>
+  </data>
+  <data name="The hub name must be at least {0} characters long." xml:space="preserve">
+    <value>El nombre del hub debe tener al menos {0} caracteres.</value>
+  </data>
+  <data name="The network is connected. Connect the simulator to fly with them." xml:space="preserve">
+    <value>La red está conectada. Conecte el simulador para volar con ellos.</value>
+  </data>
+  <data name="The recorder is active. Stop it first." xml:space="preserve">
+    <value>La grabadora está activa. Deténgala primero.</value>
+  </data>
+  <data name="The recorder is empty. Record something first." xml:space="preserve">
+    <value>La grabadora está vacía. Grabe algo primero.</value>
+  </data>
+  <data name="The recording was not saved: {0}" xml:space="preserve">
+    <value>No se guardó la grabación: {0}</value>
+  </data>
+  <data name="The simulator is connected. Join a hub to see other pilots." xml:space="preserve">
+    <value>El simulador está conectado. Únase a un hub para ver a otros pilotos.</value>
+  </data>
+  <data name="There are no log files yet." xml:space="preserve">
+    <value>Aún no hay archivos de registro.</value>
+  </data>
+  <data name="There is no known-models list yet. Scan for models first." xml:space="preserve">
+    <value>Aún no hay una lista de modelos conocidos. Primero escanee modelos.</value>
+  </data>
+  <data name="This is the model to be replaced" xml:space="preserve">
+    <value>Este es el modelo a reemplazar</value>
+  </data>
+  <data name="This is the replacement model" xml:space="preserve">
+    <value>Este es el modelo de reemplazo</value>
+  </data>
+  <data name="To" xml:space="preserve">
+    <value>A</value>
+  </data>
+  <data name="Tool Tips" xml:space="preserve">
+    <value>Sugerencias</value>
+  </data>
+  <data name="Track Bearing On Hdg" xml:space="preserve">
+    <value>Seguir marcación en HDG</value>
+  </data>
+  <data name="Track Heading On Hdg" xml:space="preserve">
+    <value>Seguir rumbo en HDG</value>
+  </data>
+  <data name="Trim end" xml:space="preserve">
+    <value>Recortar final</value>
+  </data>
+  <data name="Trim from beginning to cursor" xml:space="preserve">
+    <value>Recortar desde el principio hasta el cursor</value>
+  </data>
+  <data name="Trim from cursor to end" xml:space="preserve">
+    <value>Recortar desde el cursor hasta el final</value>
+  </data>
+  <data name="Trim start" xml:space="preserve">
+    <value>Recortar inicio</value>
+  </data>
+  <data name="Type" xml:space="preserve">
+    <value>Tipo</value>
+  </data>
+  <data name="Type a message" xml:space="preserve">
+    <value>Escriba un mensaje</value>
+  </data>
+  <data name="Unignore" xml:space="preserve">
+    <value>Dejar de ignorar</value>
+  </data>
+  <data name="Unknown command, '{0}'" xml:space="preserve">
+    <value>Comando desconocido: '{0}'</value>
+  </data>
+  <data name="Unsaved Recording" xml:space="preserve">
+    <value>Grabación no guardada</value>
+  </data>
+  <data name="Use Original" xml:space="preserve">
+    <value>Usar original</value>
+  </data>
+  <data name="User Interface" xml:space="preserve">
+    <value>Interfaz de usuario</value>
+  </data>
+  <data name="Users" xml:space="preserve">
+    <value>Usuarios</value>
+  </data>
+  <data name="Using SimBrief?" xml:space="preserve">
+    <value>¿Usa SimBrief?</value>
+  </data>
+  <data name="Variable Files:" xml:space="preserve">
+    <value>Archivos variables:</value>
+  </data>
+  <data name="Variables" xml:space="preserve">
+    <value>Variables</value>
+  </data>
+  <data name="Version" xml:space="preserve">
+    <value>Versión</value>
+  </data>
+  <data name="Version {0}" xml:space="preserve">
+    <value>Versión {0}</value>
+  </data>
+  <data name="View Logs..." xml:space="preserve">
+    <value>Ver registros...</value>
+  </data>
+  <data name="Voice Server" xml:space="preserve">
+    <value>Servidor de voz</value>
+  </data>
+  <data name="Voice server address" xml:space="preserve">
+    <value>Dirección del servidor de voz</value>
+  </data>
+  <data name="Voice Server: " xml:space="preserve">
+    <value>Servidor de voz: </value>
+  </data>
+  <data name="Welcome back" xml:space="preserve">
+    <value>Bienvenido de nuevo</value>
+  </data>
+  <data name="Welcome to JoinFS" xml:space="preserve">
+    <value>Bienvenido a JoinFS</value>
+  </data>
+  <data name="Would you like to save your current recording?" xml:space="preserve">
+    <value>¿Le gustaría guardar su grabación actual?</value>
+  </data>
+  <data name="X-Plane" xml:space="preserve">
+    <value>X-Plane</value>
+  </data>
+  <data name="X-Plane folder" xml:space="preserve">
+    <value>Carpeta de X-Plane</value>
+  </data>
+  <data name="X-Plane label" xml:space="preserve">
+    <value>Etiqueta de X-Plane</value>
+  </data>
+  <data name="X-PLANE ONLY" xml:space="preserve">
+    <value>SOLO X-PLANE</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>Sí</value>
+  </data>
+  <data name="You can change this later in Settings." xml:space="preserve">
+    <value>Puede cambiarlo más tarde en Ajustes.</value>
+  </data>
+  <data name="Your nickname" xml:space="preserve">
+    <value>Su apodo</value>
+  </data>
+  <data name="Zoom in" xml:space="preserve">
+    <value>Acercar</value>
+  </data>
+  <data name="Zoom out" xml:space="preserve">
+    <value>Alejar</value>
+  </data>
+  <data name="{0} model known." xml:space="preserve">
+    <value>{0} modelo conocido.</value>
+  </data>
+  <data name="{0} models known." xml:space="preserve">
+    <value>{0} modelos conocidos.</value>
+  </data>
+  <data name="{0} requires a password to join." xml:space="preserve">
+    <value>{0} requiere una contraseña para unirse.</value>
+  </data>
+</root>

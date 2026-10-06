@@ -75,6 +75,20 @@ not opened with `-newui`, so anything that only a form handled (the scheduled pl
 
 The onboarding card has no simulator-folder section yet. The old `InitialSetupForm` asked for it when auto-detection failed.
 
+## Languages
+
+The UI is in the languages the old forms had: German, Spanish, French, Italian, Korean, Dutch, Portuguese (Brazilian) and Russian,
+and English for any other. The language is the operating system's, as the forms' was. To see another one, start with `-lang de`
+(`--lang de` for the dev launcher), or run the render tests in it:
+`JOINFS_UI_LANG=de JOINFS_UI_SCREENSHOTS=<folder> dotnet test JoinFS.UI.Tests --filter RenderTests`.
+
+The texts are in `Resources/Strings*.resx`, keyed by their English text (see `Resources/README.md`). Where a text had an equivalent
+in the old forms, its translation is the old one, unless it was wrong for its new place (the old forms' "Save" was "Favorite" in Italian
+and Dutch). The others were translated for this UI. The language is read when the UI starts; there is no switch while it runs.
+
+Not translated: the unit symbols (nm, ft, kt), the names of protocols (Legacy, JFP2), the Match Report that Explain Match copies
+or exports (it is meant for the developers), the log lines, and the data of the hubs and the aircraft.
+
 ## Left for later
 
 Old things the new UI does not take over. Each is marked in the code with a `TODO(newui-cleanup)` or `TODO(newui-review)` comment, so

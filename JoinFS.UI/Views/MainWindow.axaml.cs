@@ -12,8 +12,8 @@ namespace JoinFS.UI.Views;
 
 public partial class MainWindow : Window
 {
-    // Collapsed is the design's 376 x 190 panel; expanded is min(1200, screen - 48) x min(760, screen - 48).
-    private const double CollapsedWidth = 376, CollapsedHeight = 190;
+    // Collapsed is the design's 376 wide panel, 14 taller than its 190 for the version line; expanded is min(1200, screen - 48) x min(760, screen - 48).
+    private const double CollapsedWidth = 376, CollapsedHeight = 204;
     private const double ExpandedMaxWidth = 1200, ExpandedMaxHeight = 760;
     private const double ScreenMargin = 24;
     private static readonly TimeSpan ResizeDuration = TimeSpan.FromMilliseconds(380);
@@ -100,8 +100,11 @@ public partial class MainWindow : Window
         _toHeight = expanded ? Math.Min(ExpandedMaxHeight, area.Height / scale - 2 * ScreenMargin) : CollapsedHeight;
         _anchor = new PixelPoint(Position.X, Position.Y + (int)(Height * scale));
 
-        // Resizing by hand is only for the full view.
+        // Resizing by hand is only for the full view. Its minimum size would clamp a collapse partway,
+        // so it is lifted for the animation and restored at the end.
         CanResize = false;
+        MinWidth = 0;
+        MinHeight = 0;
         _resizeStart = DateTime.UtcNow;
         _resizeTimer.Start();
     }

@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 
 namespace JoinFS.UI.ViewModels;
@@ -9,9 +10,10 @@ public sealed record ConnectionLabels(
     string Disconnected, string Connecting, string Connected,
     string ActionDisconnected, string ActionConnecting, string ActionConnected)
 {
-    public static ConnectionLabels Simulator { get; } = new("Disconnected", "Connecting…", "Connected", "Connect", "Connecting…", "Disconnect");
-    public static ConnectionLabels Network { get; } = new("Disconnected", "Connecting…", "Connected", "Join", "Connecting…", "Disconnect");
-    public static ConnectionLabels FlightPlan { get; } = new("Not loaded", "Fetching…", "Loaded", "Fetch", "Fetching…", "Loaded");
+    // Properties, not fields: the words are looked up when asked for, so they follow the language.
+    public static ConnectionLabels Simulator => new(Loc.T("Disconnected"), Loc.T("Connecting…"), Loc.T("Connected"), Loc.T("Connect"), Loc.T("Connecting…"), Loc.T("Disconnect"));
+    public static ConnectionLabels Network => new(Loc.T("Disconnected"), Loc.T("Connecting…"), Loc.T("Connected"), Loc.T("Join"), Loc.T("Connecting…"), Loc.T("Disconnect"));
+    public static ConnectionLabels FlightPlan => new(Loc.T("Not loaded"), Loc.T("Fetching…"), Loc.T("Loaded"), Loc.T("Fetch"), Loc.T("Fetching…"), Loc.T("Loaded"));
 }
 
 /// <summary>

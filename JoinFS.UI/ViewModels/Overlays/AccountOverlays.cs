@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 
 namespace JoinFS.UI.ViewModels.Overlays;
 
@@ -10,7 +11,7 @@ public sealed partial class OnboardingViewModel : OverlayViewModel
 
     public OnboardingViewModel(ProfileViewModel profile) => _profile = profile;
 
-    public override string Title => "Welcome to JoinFS";
+    public override string Title => Loc.T("Welcome to JoinFS");
     public override bool IsDismissable => false;
 
     [ObservableProperty]
@@ -60,10 +61,10 @@ public sealed partial class PasswordPromptViewModel : OverlayViewModel
             _onCancel?.Invoke();
     }
 
-    public override string Title => "Password Required";
+    public override string Title => Loc.T("Password Required");
 
     public string HubName { get; }
-    public string Message => $"{HubName} requires a password to join.";
+    public string Message => Loc.F("{0} requires a password to join.", HubName);
 
     [ObservableProperty]
     private string _password = "";
@@ -84,7 +85,7 @@ public sealed partial class SimbriefPromptViewModel : OverlayViewModel
 
     public SimbriefPromptViewModel(Func<string, Task> onConfirm) => _onConfirm = onConfirm;
 
-    public override string Title => "Import from SimBrief";
+    public override string Title => Loc.T("Import from SimBrief");
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ImportCommand))]

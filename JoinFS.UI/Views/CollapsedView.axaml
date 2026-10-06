@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:c="using:JoinFS.UI.Views.Controls"
              xmlns:v="using:JoinFS.UI.Views"
              xmlns:vm="using:JoinFS.UI.ViewModels"
@@ -7,28 +7,32 @@
              x:DataType="vm:MainViewModel">
   <!-- The small view: Simulator → Hub → Network, and a link to open the full window. -->
   <StackPanel Margin="16" Spacing="12">
-    <Grid ColumnDefinitions="56,20,*,20,56">
-      <c:ConnectorNode Grid.Column="0" DataContext="{Binding Simulator}"
-                       Icon="{DynamicResource IconAircraft}" Title="Simulator" ButtonTip="Connect to simulator" />
+    <!-- The outer columns are wider than the 56px nodes so the centred labels ("Disconnected") stay inside the window. -->
+    <Grid ColumnDefinitions="72,16,*,16,72">
+      <c:ConnectorNode Grid.Column="0" DataContext="{Binding Simulator}" HorizontalAlignment="Center"
+                       Icon="{DynamicResource IconAircraft}" Title="{l:T 'Simulator'}" ButtonTip="{l:T 'Connect to simulator'}" />
       <Border Grid.Column="1" Classes="wire" />
 
       <StackPanel Grid.Column="2">
         <Panel Height="42">
           <v:HubPicker Height="36" VerticalAlignment="Center" />
         </Panel>
-        <TextBlock Text="Hub" Classes="label" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+        <TextBlock Text="{l:T 'Hub'}" Classes="label" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
       </StackPanel>
 
       <Border Grid.Column="3" Classes="wire" />
-      <c:ConnectorNode Grid.Column="4" DataContext="{Binding Network}"
-                       Icon="{DynamicResource IconNetworkNode}" Title="Network" ButtonTip="Connect to hub" />
+      <c:ConnectorNode Grid.Column="4" DataContext="{Binding Network}" HorizontalAlignment="Center"
+                       Icon="{DynamicResource IconNetworkNode}" Title="{l:T 'Network'}" ButtonTip="{l:T 'Connect to hub'}" />
     </Grid>
 
-    <Button Classes="link" Command="{Binding ToggleExpandCommand}" HorizontalAlignment="Center" FontSize="11.5" AutomationProperties.Name="Open full view">
+    <Button Classes="link" Command="{Binding ToggleExpandCommand}" HorizontalAlignment="Center" FontSize="11.5" AutomationProperties.Name="{l:T 'Open full view'}">
       <StackPanel Orientation="Horizontal" Spacing="4">
-        <TextBlock Text="Open full view" VerticalAlignment="Center" />
+        <TextBlock Text="{l:T 'Open full view'}" VerticalAlignment="Center" />
         <c:Icon Source="{DynamicResource IconExpand}" Width="11" Height="11" VerticalAlignment="Center" />
       </StackPanel>
     </Button>
+
+    <TextBlock Text="{Binding Version, StringFormat='v{0}'}" FontSize="11" Foreground="{DynamicResource Muted2Brush}"
+               HorizontalAlignment="Center" Margin="0,-6,0,0" />
   </StackPanel>
 </UserControl>

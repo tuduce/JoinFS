@@ -1,18 +1,18 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              x:Class="JoinFS.UI.Views.Tabs.ModelMatchingView"
              x:DataType="tvm:ModelMatchingViewModel">
   <ScrollViewer>
     <StackPanel Spacing="14">
-      <TextBlock Text="Model Matching" Classes="h2" />
+      <TextBlock Text="{l:T 'Model Matching'}" Classes="h2" />
       <TextBlock Text="{Binding ScanStatus}" Classes="label" IsVisible="{Binding ScanStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
       <Border Classes="card">
         <StackPanel>
           <Border Classes="tableHeader">
             <Grid ColumnDefinitions="*,*,150" ColumnSpacing="10" TextElement.FontSize="12" TextElement.Foreground="{DynamicResource MutedBrush}">
-              <TextBlock Grid.Column="0" Text="Original Model" />
-              <TextBlock Grid.Column="1" Text="Substitute Model" />
+              <TextBlock Grid.Column="0" Text="{l:T 'Original Model'}" />
+              <TextBlock Grid.Column="1" Text="{l:T 'Substitute Model'}" />
             </Grid>
           </Border>
           <ItemsControl ItemsSource="{Binding Rows}">
@@ -23,8 +23,8 @@
                     <TextBlock Grid.Column="0" Text="{Binding Original}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="1" Text="{Binding Substitute}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
-                      <Button Classes="link" FontSize="12.5" Command="{Binding EditCommand}" Content="Edit…" />
-                      <Button Classes="link danger" IsVisible="{Binding IsRemovable}" Command="{Binding RemoveCommand}" Content="Remove" />
+                      <Button Classes="link" FontSize="12.5" Command="{Binding EditCommand}" Content="{l:T 'Edit…'}" />
+                      <Button Classes="link danger" IsVisible="{Binding IsRemovable}" Command="{Binding RemoveCommand}" Content="{l:T 'Remove'}" />
                     </StackPanel>
                   </Grid>
                 </Border>

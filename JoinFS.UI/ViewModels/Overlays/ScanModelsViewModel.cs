@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Services;
 
 namespace JoinFS.UI.ViewModels.Overlays;
@@ -45,11 +46,11 @@ public sealed partial class ScanModelsViewModel : OverlayViewModel
         RefreshSubfolders();
     }
 
-    public override string Title => "Scan For Models";
+    public override string Title => Loc.T("Scan For Models");
 
     public string SimulatorName => _source.SimulatorName;
     public bool SimulatorConnected { get; }
-    public string SimulatorLabel => SimulatorConnected ? "Connected" : "Not connected";
+    public string SimulatorLabel => SimulatorConnected ? Loc.T("Connected") : Loc.T("Not connected");
 
     /// <summary>What the folder is asked for; it differs from one simulator to another.</summary>
     public string FolderPrompt => _source.FolderPrompt;
@@ -80,7 +81,7 @@ public sealed partial class ScanModelsViewModel : OverlayViewModel
     [RelayCommand]
     private async Task BrowseAsync()
     {
-        string? folder = await _platform.PickFolderAsync("Select the main simulator folder");
+        string? folder = await _platform.PickFolderAsync(Loc.T("Select the main simulator folder"));
         if (folder is not null)
             RootFolder = folder;
     }
@@ -97,7 +98,7 @@ public sealed partial class ScanModelsViewModel : OverlayViewModel
 
         if (!_source.Scan(RootFolder.Trim(), subfolders, addOns, others))
         {
-            Status = "A scan is already running.";
+            Status = Loc.T("A scan is already running.");
             return;
         }
         Close();

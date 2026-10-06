@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:c="using:JoinFS.UI.Views.Controls"
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              x:Class="JoinFS.UI.Views.Tabs.RecorderView"
@@ -7,21 +7,21 @@
   <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="18">
 
     <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
-      <TextBlock Text="Recorder" Classes="h2" VerticalAlignment="Center" />
+      <TextBlock Text="{l:T 'Recorder'}" Classes="h2" VerticalAlignment="Center" />
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
         <Button Command="{Binding OpenCommand}" FontSize="12.5">
           <StackPanel Orientation="Horizontal" Spacing="6">
-            <c:Icon Source="{DynamicResource IconOpen}" Width="15" Height="15" /><TextBlock Text="Open..." />
+            <c:Icon Source="{DynamicResource IconOpen}" Width="15" Height="15" /><TextBlock Text="{l:T 'Open...'}" />
           </StackPanel>
         </Button>
         <Button Command="{Binding AddCommand}" FontSize="12.5">
           <StackPanel Orientation="Horizontal" Spacing="6">
-            <c:Icon Source="{DynamicResource IconAdd}" Width="15" Height="15" /><TextBlock Text="Add..." />
+            <c:Icon Source="{DynamicResource IconAdd}" Width="15" Height="15" /><TextBlock Text="{l:T 'Add...'}" />
           </StackPanel>
         </Button>
         <Button Command="{Binding SaveCommand}" FontSize="12.5">
           <StackPanel Orientation="Horizontal" Spacing="6">
-            <c:Icon Source="{DynamicResource IconSave}" Width="15" Height="15" /><TextBlock Text="Save..." />
+            <c:Icon Source="{DynamicResource IconSave}" Width="15" Height="15" /><TextBlock Text="{l:T 'Save...'}" />
           </StackPanel>
         </Button>
       </StackPanel>
@@ -32,18 +32,18 @@
       <StackPanel Spacing="14">
         <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto" ColumnSpacing="12">
           <Button Grid.Column="0" Classes="transport record" Classes.on="{Binding IsRecording}" BorderThickness="2"
-                  Command="{Binding ToggleRecordingCommand}" ToolTip.Tip="Record" AutomationProperties.Name="Record">
+                  Command="{Binding ToggleRecordingCommand}" ToolTip.Tip="{l:T 'Record'}" AutomationProperties.Name="{l:T 'Record'}">
             <Ellipse Width="12" Height="12" />
           </Button>
           <Button Grid.Column="1" Classes="transport" Classes.on="{Binding IsPlaying}"
-                  Command="{Binding TogglePlayCommand}" ToolTip.Tip="Play" AutomationProperties.Name="Play">
+                  Command="{Binding TogglePlayCommand}" ToolTip.Tip="{l:T 'Play'}" AutomationProperties.Name="{l:T 'Play'}">
             <c:Icon Source="{DynamicResource IconPlay}" Width="12" Height="12" />
           </Button>
-          <Button Grid.Column="2" Classes="transport" Command="{Binding StopCommand}" ToolTip.Tip="Stop" AutomationProperties.Name="Stop">
+          <Button Grid.Column="2" Classes="transport" Command="{Binding StopCommand}" ToolTip.Tip="{l:T 'Stop'}" AutomationProperties.Name="{l:T 'Stop'}">
             <c:Icon Source="{DynamicResource IconStop}" Width="11" Height="11" />
           </Button>
           <Button Grid.Column="3" Classes="transport overdub" Classes.on="{Binding IsOverdubbing}"
-                  Command="{Binding ToggleOverdubCommand}" ToolTip.Tip="Overdub — record on top of existing take" AutomationProperties.Name="Overdub">
+                  Command="{Binding ToggleOverdubCommand}" ToolTip.Tip="{l:T 'Overdub — record on top of existing take'}" AutomationProperties.Name="{l:T 'Overdub'}">
             <c:Icon Source="{DynamicResource IconOverdub}" Width="14" Height="14" />
           </Button>
           <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -51,19 +51,19 @@
             <TextBlock Text="{Binding TotalText, StringFormat='/ {0}'}" Classes="mono" Foreground="{DynamicResource DisabledBrush}" />
           </StackPanel>
           <Button Grid.Column="6" Classes="transport" Classes.on="{Binding LoopEnabled}"
-                  Command="{Binding ToggleLoopCommand}" ToolTip.Tip="Loop playback" AutomationProperties.Name="Loop">
+                  Command="{Binding ToggleLoopCommand}" ToolTip.Tip="{l:T 'Loop playback'}" AutomationProperties.Name="{l:T 'Loop'}">
             <c:Icon Source="{DynamicResource IconLoop}" Width="15" Height="15" />
           </Button>
         </Grid>
 
         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
           <Button Grid.Column="0" Classes="transport square" Command="{Binding TrimStartCommand}"
-                  ToolTip.Tip="Trim from beginning to cursor" AutomationProperties.Name="Trim start">
+                  ToolTip.Tip="{l:T 'Trim from beginning to cursor'}" AutomationProperties.Name="{l:T 'Trim start'}">
             <c:Icon Source="{DynamicResource IconTrimStart}" Width="18" Height="16" />
           </Button>
-          <c:SeekBar Grid.Column="1" Fraction="{Binding PlayheadFraction}" IsEnabled="{Binding CanSeek}" ToolTip.Tip="Drag to move playhead" />
+          <c:SeekBar Grid.Column="1" Fraction="{Binding PlayheadFraction}" IsEnabled="{Binding CanSeek}" ToolTip.Tip="{l:T 'Drag to move playhead'}" />
           <Button Grid.Column="2" Classes="transport square" Command="{Binding TrimEndCommand}"
-                  ToolTip.Tip="Trim from cursor to end" AutomationProperties.Name="Trim end">
+                  ToolTip.Tip="{l:T 'Trim from cursor to end'}" AutomationProperties.Name="{l:T 'Trim end'}">
             <c:Icon Source="{DynamicResource IconTrimEnd}" Width="18" Height="16" />
           </Button>
         </Grid>
@@ -75,7 +75,7 @@
       <Border Grid.Column="0" Classes="card">
         <Grid RowDefinitions="Auto,*">
           <Border Padding="14,12" BorderBrush="{DynamicResource BorderHeaderBrush}" BorderThickness="0,0,0,1">
-            <TextBlock Text="Aircraft to record" FontWeight="SemiBold" />
+            <TextBlock Text="{l:T 'Aircraft to record'}" FontWeight="SemiBold" />
           </Border>
           <ScrollViewer Grid.Row="1">
             <ItemsControl ItemsSource="{Binding LiveAircraft}">

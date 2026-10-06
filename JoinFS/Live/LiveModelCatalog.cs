@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 
@@ -34,12 +35,12 @@ namespace JoinFS.Live
                 }
                 if (substitution.ScanRunning)
                 {
-                    return "Scanning for models...";
+                    return Loc.T("Scanning for models...");
                 }
                 int count = substitution.models.Count;
                 return count == 0
-                    ? "No models are known yet. Scan for models from Settings, Simulator."
-                    : count.ToString("N0", System.Globalization.CultureInfo.CurrentCulture) + (count == 1 ? " model known." : " models known.");
+                    ? Loc.T("No models are known yet. Scan for models from Settings, Simulator.")
+                    : Loc.F(count == 1 ? "{0} model known." : "{0} models known.", count.ToString("N0", System.Globalization.CultureInfo.CurrentCulture));
             }
         }
 
