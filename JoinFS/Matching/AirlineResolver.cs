@@ -32,7 +32,8 @@ namespace JoinFS.Matching
 
         static readonly char[] Separators = [' ', '-', '_', '.', ',', '/', '&', '\'', '(', ')', '|'];
 
-        readonly HashSet<string> codes = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>The one parsed airline list (validity, names, IATA codes); this class adds the name indexes.</summary>
+        AirlineDirectory directory = AirlineDirectory.FromLines([]);
         readonly Dictionary<string, HashSet<string>> byIata = new(StringComparer.OrdinalIgnoreCase);
         /// <summary>normalized name (with and without generic words) -> ICAO codes</summary>
         readonly Dictionary<string, HashSet<string>> byName = new(StringComparer.OrdinalIgnoreCase);
@@ -40,27 +41,24 @@ namespace JoinFS.Matching
         /// <summary>every airline with its full name, for the full-text fallback</summary>
         readonly List<(string icao, string name)> names = [];
 
-        readonly Dictionary<string, string> nameByCode = new(StringComparer.OrdinalIgnoreCase);
 
         public static AirlineResolver Empty { get; } = new();
 
         public static AirlineResolver FromFile(string path) => FromLines(File.ReadAllLines(path));
 
-        public static AirlineResolver FromLines(IEnumerable<string> lines)
+        public static AirlineResolver FromLines(IEnumerable<string> lines) => From(AirlineDirectory.FromLines(lines));
+
+        /// <summary>Index an already parsed airline list - there is only one parser of ICAO_Airlines.dat.</summary>
+        public static AirlineResolver From(AirlineDirectory directory)
         {
-            AirlineResolver resolver = new();
-            foreach (var line in lines)
+            AirlineResolver resolver = new() { directory = directory };
+            foreach (var entry in directory.Entries)
             {
-                string[] parts = line.Split('\t');
-                if (parts.Length < 3 || parts[0].Trim().Length == 0) continue;
-                string icao = parts[0].Trim();
-                resolver.codes.Add(icao);
-                resolver.names.Add((icao, parts[2].Trim()));
-                resolver.nameByCode.TryAdd(icao, parts[2].Trim());
-                AddTo(resolver.byIata, parts[1].Trim(), icao);
-                AddTo(resolver.byName, Normalize(parts[2], dropNoise: false), icao);
-                string core = Normalize(parts[2], dropNoise: true);
-                if (core.Length >= 4) AddTo(resolver.byName, core, icao);
+                resolver.names.Add((entry.Icao, entry.Name));
+                AddTo(resolver.byIata, entry.Iata, entry.Icao);
+                AddTo(resolver.byName, Normalize(entry.Name, dropNoise: false), entry.Icao);
+                string core = Normalize(entry.Name, dropNoise: true);
+                if (core.Length >= 4) AddTo(resolver.byName, core, entry.Icao);
             }
             return resolver;
         }
@@ -73,9 +71,9 @@ namespace JoinFS.Matching
         }
 
         /// <summary>The airline's name for an ICAO code ("SAA" -> "South African Airways"), or "" when unknown.</summary>
-        public string NameOf(string icaoCode) => icaoCode != null && nameByCode.TryGetValue(icaoCode.Trim(), out var name) ? name : "";
+        public string NameOf(string icaoCode) => icaoCode == null ? "" : directory.NameOf(icaoCode.Trim().ToUpperInvariant());
 
-        public bool IsKnownCode(string value) => value.Length == 3 && codes.Contains(value);
+        public bool IsKnownCode(string value) => value.Length == 3 && directory.IsIcao(value.ToUpperInvariant());
 
         /// <summary>Lower-case letters/digits of the name; optionally without generic words ("FedEx Express" -> "fedex").</summary>
         static string Normalize(string text, bool dropNoise)

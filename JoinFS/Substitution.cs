@@ -608,7 +608,14 @@ namespace JoinFS
         /// <summary>
         /// Load the bundled ICAO Doc8643 reference dataset (process-lifetime, loaded once)
         /// </summary>
+        static readonly object doc8643Lock = new();
+
         internal void LoadDoc8643Index()
+        {
+            lock (doc8643Lock) LoadDoc8643IndexLocked();
+        }
+
+        void LoadDoc8643IndexLocked()
         {
             // already loaded
             if (doc8643Lookup.Count > 0) return;
@@ -653,51 +660,10 @@ namespace JoinFS
         static bool IsRecognizedIcaoType(string icaoType) => icaoType.Length > 0 && doc8643Lookup.ContainsKey(icaoType);
 
         /// <summary>
-        /// ICAO airline operator code -> airline name, e.g. "CFG" -> "condor" (bundled from opennav.com)
-        /// </summary>
-        static readonly Dictionary<string, string> icaoAirlineNames = new(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>
-        /// Load the bundled ICAO airline code reference dataset (process-lifetime, loaded once)
-        /// </summary>
-        void LoadIcaoAirlineIndex()
-        {
-            // already loaded
-            if (icaoAirlineNames.Count > 0) return;
-
-            try
-            {
-                using var stream = new MemoryStream(Properties.Resources_XPLANE.ICAO_Airlines);
-                using var reader = new StreamReader(stream);
-                string line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    string[] parts = line.Split('\t');
-                    if (parts.Length != 3) continue;
-
-                    string code = parts[0];
-                    string name = parts[2];
-
-                    if (code.Length != 3 || name.Length == 0) continue;
-
-                    if (icaoAirlineNames.ContainsKey(code) == false)
-                    {
-                        // first-wins (alphabetically-first code for a shared name is usually the primary operator)
-                        icaoAirlineNames.Add(code, name);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                main.MonitorEvent("Error parsing ICAO airline dataset: " + ex.Message);
-            }
-        }
-
-        /// <summary>
         /// True when code is a real, recognized ICAO airline operator code - used to reject bogus/non-standard
         /// values some add-ons report via SimConnect's ATC AIRLINE (e.g. a flight-number-style string).
         /// </summary>
-        static bool IsKnownIcaoAirline(string code) => code.Length == 3 && icaoAirlineNames.ContainsKey(code);
+        internal static bool IsKnownIcaoAirline(string code) => code.Length == 3 && AirlineDirectory.Bundled.IsIcao(code.ToUpperInvariant());
 
         /// <summary>
         /// True when needle appears in haystack as a standalone token - not immediately adjacent to another
@@ -727,11 +693,11 @@ namespace JoinFS
         /// airline name that appears in the text. Used only when a live ATC AIRLINE value doesn't look like
         /// a real ICAO code, e.g. "FSC739" reported for a Condor-liveried aircraft instead of "CFG".
         /// </summary>
-        static string GuessIcaoAirlineFromText(string text)
+        internal static string GuessIcaoAirlineFromText(string text)
         {
             (string code, int matchLength) best = ("", 0);
 
-            foreach (var pair in icaoAirlineNames)
+            foreach (var pair in AirlineDirectory.Bundled.Names)
             {
                 string needle = pair.Value;
                 if (needle.Length >= 4 && needle.Length > best.matchLength && ContainsToken(text, needle))
@@ -3942,7 +3908,6 @@ namespace JoinFS
                 // load ICAO Doc8643 reference data (needed by LoadModels() to derive classCode/typerole)
                 LoadDoc8643Index();
                 // load ICAO airline code reference data (used to validate/correct live ATC AIRLINE values)
-                LoadIcaoAirlineIndex();
                 // load models from file
                 LoadModels();
 

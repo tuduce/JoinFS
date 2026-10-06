@@ -28,7 +28,7 @@ namespace JoinFS.Matching
         static readonly System.Lazy<Doc8643> doc8643 = new(() => Doc8643.FromLines(Lines(Properties.Resources_XPLANE.XPMP2_Doc8643)));
         static readonly System.Lazy<ReferenceSpecs> reference = new(() => ReferenceSpecs.FromBytes(Properties.Resources_XPLANE.Aircraft_Specs));
         static readonly System.Lazy<RelatedTypes> related = new(() => RelatedTypes.FromLines(Lines(Properties.Resources_XPLANE.XPMP2_related)));
-        static readonly System.Lazy<AirlineResolver> airlines = new(() => AirlineResolver.FromLines(Lines(Properties.Resources_XPLANE.ICAO_Airlines)));
+        static readonly System.Lazy<AirlineResolver> airlines = new(() => AirlineResolver.From(AirlineDirectory.Bundled));
 
         public static Doc8643 Doc8643 => doc8643.Value;
         public static ReferenceSpecs Reference => reference.Value;
