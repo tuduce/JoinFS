@@ -34,9 +34,9 @@ namespace JoinFS.Tests
         // ---- engine switch ----------------------------------------------------------------------------------------------
 
         [Fact]
-        public void Classic_is_the_default_engine()
+        public void The_new_engine_is_the_default_engine()
         {
-            Assert.Equal(MatchingEngine.Classic, new Sub(null!).engine);
+            Assert.Equal(MatchingEngine.New, new Sub(null!).engine);
             Assert.Equal(0, (int)MatchingEngine.Classic);
             Assert.Equal(1, (int)MatchingEngine.New);
         }

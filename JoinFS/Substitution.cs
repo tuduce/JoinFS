@@ -4544,8 +4544,8 @@ namespace JoinFS
             return engine == MatchingEngine.New ? MatchWithNewEngine(request) : MatchClassic(request);
         }
 
-        /// <summary>Which matching engine <see cref="Resolve"/> uses. Classic until the new one has proven itself.</summary>
-        public volatile MatchingEngine engine = MatchingEngine.Classic;
+        /// <summary>Which matching engine <see cref="Resolve"/> uses. The new engine is the default; Classic stays selectable (Settings).</summary>
+        public volatile MatchingEngine engine = MatchingEngine.New;
 
         /// <summary>The new engine; it reads the live model list, so one instance serves the whole session.</summary>
         Matching.CombinedMatcher newMatcher;

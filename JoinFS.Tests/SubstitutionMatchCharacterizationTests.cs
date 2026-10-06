@@ -5,7 +5,8 @@ namespace JoinFS.Tests
     /// <summary>
     /// Characterization tests: they pin what <see cref="Sub.Match"/> does TODAY, scenario by scenario, so the matching
     /// engine can be refactored and extended without changing the classic behaviour by accident. Nothing here is a wish - each
-    /// expectation was observed on the unmodified code. Compiled against the FS2024 build (livery parameter).
+    /// expectation was observed on the unmodified code - they run the CLASSIC engine explicitly, the new engine is the default now.
+    /// Compiled against the FS2024 build (livery parameter).
     /// </summary>
     public class SubstitutionMatchCharacterizationTests
     {
@@ -16,7 +17,7 @@ namespace JoinFS.Tests
 
         static Sub Create(params Sub.Model[] models)
         {
-            var substitution = new Sub(null!);
+            var substitution = new Sub(null!) { engine = MatchingEngine.Classic };
             substitution.LoadDoc8643Index();
             substitution.models = [.. models];
             substitution.RebuildTitleIndex();
