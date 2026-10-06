@@ -38,37 +38,27 @@ namespace JoinFS
         readonly CancellationTokenSource _cts = new();
         readonly Thread _listenThread;
 
-        // Change detection
-        readonly Dictionary<Guid, AircraftSnapshot> _previous = [];
+        // Change detection. The feed flushes at most once per interval (one batched message carrying every
+        // aircraft that changed), and re-sends a silent aircraft every keep-alive - kept well below the
+        // map's default 60 s stale-timeout, which purges aircraft that stop updating.
+        const double FlushIntervalSeconds = 0.05;   // 20 Hz
+        const double KeepAliveSeconds = 15.0;
+        readonly AircraftFeedFilter _filter;
+
+        // Clients that connected since the last tick; they get every known aircraft once, because the
+        // delta feed alone would show them an aircraft only when it next changes.
+        readonly System.Collections.Concurrent.ConcurrentQueue<WebSocket> _newClients = new();
 
         // Aircraft currently skipped for an implausible position, so the warning logs once per
         // aircraft per bad streak instead of every tick (which would flood the log for a peer/hub
         // stuck sending garbled positions) - cleared on recovery or disappearance, same pass as
-        // _previous's own stale cleanup below.
+        // the filter's own stale cleanup below.
         readonly HashSet<Guid> _warnedImplausible = [];
-
-        struct AircraftSnapshot
-        {
-            public string callsign, nickname, guid;
-            // "pilot" (a real connected pilot), "recorded" (Recorder-replayed) or "ai" (other
-            // non-pilot traffic) - mirrors the desktop Aircraft Dialog's (R)/(A) distinction
-            public string trafficType;
-            public string registration, icaoAirline, flightNumber;
-            public double altitude, speed, latitude, longitude;
-            public int heading;
-            public string com1, com2, squawk;
-            public string icaoType, from, to, rules, route, remarks, livery;
-            public int gear;
-            public double flaps;
-            public int lightNav, lightBeacon, lightLanding, lightTaxi, lightStrobe;
-            public bool eng1, eng2, eng3, eng4;
-            public double rotorRpm;
-            public bool onGround;
-        }
 
         public WebSocketServer(Main main)
         {
             this.main = main;
+            _filter = new AircraftFeedFilter(() => main.ElapsedTime, FlushIntervalSeconds, KeepAliveSeconds);
 
             vuidCom1   = VariableMgr.CreateVuid("com active frequency:1");
             vuidCom2   = VariableMgr.CreateVuid("com active frequency:2");
@@ -163,6 +153,7 @@ namespace JoinFS
                 _clients.Add(ws);
                 _sendLocks[ws] = new SemaphoreSlim(1, 1);
             }
+            _newClients.Enqueue(ws);
             if (main.settingsWebSocketLog)
                 main.monitor.Write($"WebSocket client connected ({_clients.Count} total)");
 
@@ -284,57 +275,46 @@ namespace JoinFS
             return snap;
         }
 
-        static bool SnapshotsEqual(in AircraftSnapshot a, in AircraftSnapshot b) =>
-            a.callsign == b.callsign && a.nickname == b.nickname && a.trafficType == b.trafficType &&
-            a.registration == b.registration && a.icaoAirline == b.icaoAirline && a.flightNumber == b.flightNumber &&
-            a.altitude == b.altitude && a.speed == b.speed &&
-            a.latitude == b.latitude && a.longitude == b.longitude &&
-            a.heading == b.heading &&
-            a.com1 == b.com1 && a.com2 == b.com2 && a.squawk == b.squawk &&
-            a.icaoType == b.icaoType && a.from == b.from && a.to == b.to &&
-            a.rules == b.rules && a.route == b.route && a.remarks == b.remarks && a.livery == b.livery &&
-            a.gear == b.gear && a.flaps == b.flaps &&
-            a.lightNav == b.lightNav && a.lightBeacon == b.lightBeacon &&
-            a.lightLanding == b.lightLanding && a.lightTaxi == b.lightTaxi && a.lightStrobe == b.lightStrobe &&
-            a.eng1 == b.eng1 && a.eng2 == b.eng2 && a.eng3 == b.eng3 && a.eng4 == b.eng4 &&
-            a.rotorRpm == b.rotorRpm &&
-            a.onGround == b.onGround;
-
-        static object ToJson(in AircraftSnapshot s) => new
+        static object ToJson(in AircraftSnapshot snapshot)
         {
-            callsign = s.callsign,
-            registration = s.registration,
-            // "" for General Aviation (no explicit airline data and the callsign doesn't shape-match a
-            // commercial flight) - see CallsignRules.DeriveIcaoAirline, applied in
-            // Network.SendFlightPlanMessage before this snapshot is taken, so this already reflects a
-            // callsign-derived fallback when nothing more authoritative supplied one.
-            icaoAirline = s.icaoAirline,
-            flightNumber = s.flightNumber,
-            nickname = s.nickname,
-            trafficType = s.trafficType,
-            guid     = s.guid,
-            altitude = Math.Round(s.altitude, 0),
-            speed    = Math.Round(s.speed, 1),
-            heading  = s.heading,
-            latitude = Math.Round(s.latitude, 6),
-            longitude= Math.Round(s.longitude, 6),
-            com1     = s.com1,
-            com2     = s.com2,
-            squawk   = s.squawk,
-            icaoType = s.icaoType,
-            from     = s.from,
-            to       = s.to,
-            rules    = s.rules,
-            route    = s.route,
-            remarks  = s.remarks,
-            livery   = s.livery,
-            gear     = s.gear,
-            flaps    = Math.Round(s.flaps, 3),
-            lights   = new { nav = s.lightNav, beacon = s.lightBeacon, landing = s.lightLanding, taxi = s.lightTaxi, strobe = s.lightStrobe },
-            engines  = new { eng1Running = s.eng1, eng2Running = s.eng2, eng3Running = s.eng3, eng4Running = s.eng4 },
-            rotorRpm = Math.Round(s.rotorRpm, 1),
-            onGround = s.onGround
-        };
+            // rounded here and nowhere else, so the wire values and the change detection cannot drift apart
+            AircraftSnapshot s = snapshot.Rounded();
+            return new
+            {
+                callsign = s.callsign,
+                registration = s.registration,
+                // "" for General Aviation (no explicit airline data and the callsign doesn't shape-match a
+                // commercial flight) - see CallsignRules.DeriveIcaoAirline, applied in
+                // Network.SendFlightPlanMessage before this snapshot is taken, so this already reflects a
+                // callsign-derived fallback when nothing more authoritative supplied one.
+                icaoAirline = s.icaoAirline,
+                flightNumber = s.flightNumber,
+                nickname = s.nickname,
+                trafficType = s.trafficType,
+                guid     = s.guid,
+                altitude = s.altitude,
+                speed    = s.speed,
+                heading  = s.heading,
+                latitude = s.latitude,
+                longitude= s.longitude,
+                com1     = s.com1,
+                com2     = s.com2,
+                squawk   = s.squawk,
+                icaoType = s.icaoType,
+                from     = s.from,
+                to       = s.to,
+                rules    = s.rules,
+                route    = s.route,
+                remarks  = s.remarks,
+                livery   = s.livery,
+                gear     = s.gear,
+                flaps    = s.flaps,
+                lights   = new { nav = s.lightNav, beacon = s.lightBeacon, landing = s.lightLanding, taxi = s.lightTaxi, strobe = s.lightStrobe },
+                engines  = new { eng1Running = s.eng1, eng2Running = s.eng2, eng3Running = s.eng3, eng4Running = s.eng4 },
+                rotorRpm = s.rotorRpm,
+                onGround = s.onGround
+            };
+        }
 
         // Newtonsoft throws on NaN/Infinity by default; a single stray non-finite value in one
         // aircraft record would otherwise take down the whole feed (and, via the work-thread
@@ -368,102 +348,116 @@ namespace JoinFS
 
         void DoWorkInner()
         {
-            var changedSnaps = new List<AircraftSnapshot>();
+            // runs every work-loop pass (~200/s): only evaluate and publish on the flush tick
+            if (!_filter.FlushDue()) return;
+
+            var due = new List<AircraftSnapshot>();
             var seen = new HashSet<Guid>();
 
-            // --- sim aircraft ---
-            if (main.sim != null)
-            {
-                foreach (var obj in main.sim.View.Objects)
-                {
-                    if (obj is not Sim.Aircraft aircraft) continue;
-
-                    Guid key = main.network.Peers.GetAircraftIdentityGuid(aircraft.ownerNuid, aircraft.netId, aircraft.simId);
-                    // tracked here (not just on the plausible path below) so a transient bad streak
-                    // doesn't make the stale-cleanup pass below mistake this aircraft for one that
-                    // disappeared and prune its _previous entry out from under it
-                    seen.Add(key);
-
-                    var snap = SnapshotFromAircraft(aircraft);
-                    if (!PlausibleSnapshot(in snap))
-                    {
-                        if (_warnedImplausible.Add(key))
-                            main.monitor.Write($"[WS] skipping {aircraft.flightPlan.callsign}: implausible position (peer/hub version mismatch?)");
-                        continue;
-                    }
-                    _warnedImplausible.Remove(key);
-
-                    bool existed = _previous.TryGetValue(key, out var prev);
-                    _previous[key] = snap;
-
-                    if (main.settingsWebSocketLog && !existed)
-                    {
-                        if (aircraft.variableSet == null)
-                            main.monitor.Write($"[WS-DBG] {aircraft.flightPlan.callsign}: variableSet=NULL");
-                        else
-                            main.monitor.Write($"[WS-DBG] {aircraft.flightPlan.callsign}: variableSet OK, integers.Count={aircraft.variableSet.integers.Count}, com1_raw={aircraft.variableSet.GetInteger(vuidCom1)}, gear_raw={aircraft.variableSet.GetInteger(vuidGear)}");
-                    }
-
-                    if (existed && !SnapshotsEqual(snap, prev))
-                        changedSnaps.Add(snap);
-                    else if (!existed)
-                        changedSnaps.Add(snap); // send initial state on first appearance
-                }
-            }
-
-            // --- global hub users ---
-            if (main.settingsWhazzupPublic)
-            {
-                foreach (var hub in main.network.Hubs.List)
-                {
-                    foreach (var user in hub.userList)
-                    {
-                        Guid key = user.guid;
-                        var snap = SnapshotFromHubUser(user);
-                        if (!PlausibleSnapshot(in snap)) continue;
-                        seen.Add(key);
-
-                        bool existed = _previous.TryGetValue(key, out var prev);
-                        _previous[key] = snap;
-
-                        if (main.settingsWebSocketLog && !existed)
-                            main.monitor.Write($"[WS-DBG-HUB] {user.flightPlan.callsign} ({user.nickname}): hub user, no variableSet, squawk={user.squawk}, freq={user.frequency}");
-
-                        if (existed && !SnapshotsEqual(snap, prev))
-                            changedSnaps.Add(snap);
-                        else if (!existed)
-                            changedSnaps.Add(snap);
-                    }
-                }
-            }
+            CollectSimAircraft(due, seen);
+            CollectHubUsers(due, seen);
 
             // drop change-detection/warned-implausible state for aircraft/users that are gone (was
-            // an unbounded leak) - _warnedImplausible can hold keys _previous never did (an
-            // aircraft that's never once been plausible never entered _previous), so it's pruned
-            // against the same "seen this tick" set independently rather than only when _previous
-            // happens to be ahead of it.
-            if (_previous.Count > seen.Count)
-            {
-                var stale = new List<Guid>();
-                foreach (var k in _previous.Keys)
-                    if (!seen.Contains(k)) stale.Add(k);
-                foreach (var k in stale) _previous.Remove(k);
-            }
+            // an unbounded leak) - _warnedImplausible can hold keys the filter never did (an
+            // aircraft that's never once been plausible never entered it), so it's pruned
+            // against the same "seen this tick" set independently.
+            _filter.Retain(seen);
             if (_warnedImplausible.Count > 0)
             {
                 _warnedImplausible.RemoveWhere(k => !seen.Contains(k));
             }
 
-            if (changedSnaps.Count == 0) return;
+            SendEverythingToNewClients();
 
+            if (due.Count == 0) return;
+            List<WebSocket> clients;
+            lock (_clientLock) clients = [.. _clients];
+            Send(BuildMessage(due), clients);
+        }
+
+        void CollectSimAircraft(List<AircraftSnapshot> due, HashSet<Guid> seen)
+        {
+            if (main.sim == null) return;
+
+            foreach (var obj in main.sim.View.Objects)
+            {
+                if (obj is not Sim.Aircraft aircraft) continue;
+
+                Guid key = main.network.Peers.GetAircraftIdentityGuid(aircraft.ownerNuid, aircraft.netId, aircraft.simId);
+                // tracked here (not just on the plausible path below) so a transient bad streak
+                // doesn't make the stale-cleanup pass mistake this aircraft for one that
+                // disappeared and drop its filter state out from under it
+                seen.Add(key);
+
+                var snap = SnapshotFromAircraft(aircraft);
+                if (!PlausibleSnapshot(in snap))
+                {
+                    if (_warnedImplausible.Add(key))
+                        main.monitor.Write($"[WS] skipping {aircraft.flightPlan.callsign}: implausible position (peer/hub version mismatch?)");
+                    continue;
+                }
+                _warnedImplausible.Remove(key);
+
+                bool known = _filter.Contains(key);
+                if (main.settingsWebSocketLog && !known)
+                {
+                    if (aircraft.variableSet == null)
+                        main.monitor.Write($"[WS-DBG] {aircraft.flightPlan.callsign}: variableSet=NULL");
+                    else
+                        main.monitor.Write($"[WS-DBG] {aircraft.flightPlan.callsign}: variableSet OK, integers.Count={aircraft.variableSet.integers.Count}, com1_raw={aircraft.variableSet.GetInteger(vuidCom1)}, gear_raw={aircraft.variableSet.GetInteger(vuidGear)}");
+                }
+
+                if (_filter.ShouldSend(key, in snap))
+                    due.Add(snap);
+            }
+        }
+
+        void CollectHubUsers(List<AircraftSnapshot> due, HashSet<Guid> seen)
+        {
+            if (!main.settingsWhazzupPublic) return;
+
+            foreach (var hub in main.network.Hubs.List)
+            {
+                foreach (var user in hub.userList)
+                {
+                    Guid key = user.guid;
+                    var snap = SnapshotFromHubUser(user);
+                    if (!PlausibleSnapshot(in snap)) continue;
+                    seen.Add(key);
+
+                    if (main.settingsWebSocketLog && !_filter.Contains(key))
+                        main.monitor.Write($"[WS-DBG-HUB] {user.flightPlan.callsign} ({user.nickname}): hub user, no variableSet, squawk={user.squawk}, freq={user.frequency}");
+
+                    if (_filter.ShouldSend(key, in snap))
+                        due.Add(snap);
+                }
+            }
+        }
+
+        // A client that connected since the last tick gets every aircraft the filter knows, sent to it
+        // alone: the delta feed would otherwise show it a parked aircraft only when that next changes.
+        void SendEverythingToNewClients()
+        {
+            List<WebSocket> newClients = null;
+            while (_newClients.TryDequeue(out var ws))
+                (newClients ??= []).Add(ws);
+            if (newClients == null) return;
+
+            var known = new List<AircraftSnapshot>(_filter.Known());
+            if (known.Count == 0) return;
+            Send(BuildMessage(known), newClients);
+        }
+
+        static string BuildMessage(List<AircraftSnapshot> snapshots)
+        {
             // serialize outside the lock, broadcast off the work thread
-            var jsonObjs = new List<object>(changedSnaps.Count);
-            foreach (var s in changedSnaps) jsonObjs.Add(ToJson(s));
-            string message = JsonConvert.SerializeObject(new { type = "aircraft_update", aircraft = jsonObjs }, _jsonSettings);
+            var jsonObjs = new List<object>(snapshots.Count);
+            foreach (var s in snapshots) jsonObjs.Add(ToJson(s));
+            return JsonConvert.SerializeObject(new { type = "aircraft_update", aircraft = jsonObjs }, _jsonSettings);
+        }
 
-            List<WebSocket> snapshot;
-            lock (_clientLock) snapshot = [.. _clients];
-
+        void Send(string message, List<WebSocket> snapshot)
+        {
             if (snapshot.Count == 0) return;
 
             Task.Run(async () =>
