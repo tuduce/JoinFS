@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Services;
 
 namespace JoinFS.UI.ViewModels.Overlays;
@@ -35,7 +36,7 @@ public sealed partial class ScanXPlaneModelsViewModel : OverlayViewModel
         RefreshFolders();
     }
 
-    public override string Title => "Scan For Models";
+    public override string Title => Loc.T("Scan For Models");
 
     [ObservableProperty]
     private string _xplaneFolder;
@@ -76,7 +77,7 @@ public sealed partial class ScanXPlaneModelsViewModel : OverlayViewModel
     public ProfileViewModel Profile => _profile;
 
     /// <summary>What the old dialog warned of before it generated CSL objects. Shown while generating.</summary>
-    public const string CslWarning = "Generating CSL objects may take several minutes. You may need to restart X-Plane when complete.";
+    public static string CslWarning => Loc.T("Generating CSL objects may take several minutes. You may need to restart X-Plane when complete.");
 
     /// <summary>Why the scan did not start, when it needs saying. Empty otherwise.</summary>
     [ObservableProperty]
@@ -89,7 +90,7 @@ public sealed partial class ScanXPlaneModelsViewModel : OverlayViewModel
     [RelayCommand]
     private async Task BrowseAsync()
     {
-        string? folder = await _platform.PickFolderAsync("Select the root X-Plane folder");
+        string? folder = await _platform.PickFolderAsync(Loc.T("Select the root X-Plane folder"));
         if (folder is not null)
             XplaneFolder = folder;
     }
@@ -101,7 +102,7 @@ public sealed partial class ScanXPlaneModelsViewModel : OverlayViewModel
         IReadOnlyList<string> folders = [.. AircraftFolders.Where(f => f.IsChecked).Select(f => f.Name)];
         if (!_source.Scan(XplaneFolder.Trim(), folders))
         {
-            Status = "A scan is already running.";
+            Status = Loc.T("A scan is already running.");
             return;
         }
         Close();

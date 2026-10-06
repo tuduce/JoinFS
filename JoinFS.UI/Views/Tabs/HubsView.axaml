@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              x:Class="JoinFS.UI.Views.Tabs.HubsView"
              x:DataType="tvm:HubsViewModel">
@@ -7,12 +7,12 @@
     <StackPanel>
       <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,14">
         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-          <TextBlock Text="Public Hubs" Classes="h2" />
+          <TextBlock Text="{l:T 'Public Hubs'}" Classes="h2" />
           <TextBlock Text="{Binding HubCount, StringFormat='({0})'}" Classes="count" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
-          <CheckBox IsChecked="{Binding ShowOfflineHubs}" Content="Show Offline Hubs" Foreground="{DynamicResource MutedBrush}" />
-          <Button Command="{Binding RefreshCommand}" Content="Refresh" />
+          <CheckBox IsChecked="{Binding ShowOfflineHubs}" Content="{l:T 'Show Offline Hubs'}" Foreground="{DynamicResource MutedBrush}" />
+          <Button Command="{Binding RefreshCommand}" Content="{l:T 'Refresh'}" />
         </StackPanel>
       </Grid>
 
@@ -48,14 +48,14 @@
                     <Border Classes="expanded" IsVisible="{Binding IsExpanded}">
                       <Grid ColumnDefinitions="360,1,Auto" ColumnSpacing="32" HorizontalAlignment="Left">
                         <StackPanel Grid.Column="0" Spacing="8">
-                          <TextBlock Classes="caps" Text="INFO" />
-                          <TextBlock TextWrapping="Wrap"><Run Text="About: " FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding About, Mode=OneWay}" /></TextBlock>
-                          <TextBlock TextWrapping="Wrap"><Run Text="Voice Server: " FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding Voice, Mode=OneWay}" /></TextBlock>
-                          <TextBlock TextWrapping="Wrap"><Run Text="Next Event: " FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding NextEvent, Mode=OneWay}" /></TextBlock>
+                          <TextBlock Classes="caps" Text="{l:T 'INFO'}" />
+                          <TextBlock TextWrapping="Wrap"><Run Text="{l:T 'About: '}" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding About, Mode=OneWay}" /></TextBlock>
+                          <TextBlock TextWrapping="Wrap"><Run Text="{l:T 'Voice Server: '}" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding Voice, Mode=OneWay}" /></TextBlock>
+                          <TextBlock TextWrapping="Wrap"><Run Text="{l:T 'Next Event: '}" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding NextEvent, Mode=OneWay}" /></TextBlock>
                         </StackPanel>
                         <Border Grid.Column="1" Classes="vrule" />
                         <StackPanel Grid.Column="2" Spacing="10">
-                          <TextBlock Classes="caps" Text="ACTIONS" />
+                          <TextBlock Classes="caps" Text="{l:T 'ACTIONS'}" />
                           <StackPanel Orientation="Horizontal" Spacing="16">
                             <Button Classes="link positive" Command="{Binding JoinCommand}" Content="{Binding JoinLabel}" />
                             <Button Classes="link" Command="{Binding ToggleSaveCommand}" Content="{Binding SaveLabel}" />
@@ -72,14 +72,14 @@
         </StackPanel>
       </Border>
 
-      <TextBlock Text="Create Your Own Mesh" Classes="h2" Margin="0,28,0,14" />
+      <TextBlock Text="{l:T 'Create Your Own Mesh'}" Classes="h2" Margin="0,28,0,14" />
       <Border Classes="card" Padding="18">
         <StackPanel Orientation="Horizontal" Spacing="12">
           <Border Background="{DynamicResource SurfaceHeaderBrush}" BorderBrush="{DynamicResource BorderInputBrush}"
                   BorderThickness="1" CornerRadius="8" Padding="16,8">
             <TextBlock Text="{Binding MeshCode}" Classes="mono" FontSize="16" FontWeight="SemiBold" LetterSpacing="1" />
           </Border>
-          <Button Classes="primary" Command="{Binding CreateMeshCommand}" Content="Create" VerticalAlignment="Center" />
+          <Button Classes="primary" Command="{Binding CreateMeshCommand}" Content="{l:T 'Create'}" VerticalAlignment="Center" />
         </StackPanel>
       </Border>
     </StackPanel>

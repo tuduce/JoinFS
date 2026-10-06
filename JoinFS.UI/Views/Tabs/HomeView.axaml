@@ -1,30 +1,30 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              xmlns:c="using:JoinFS.UI.Views.Controls"
              x:Class="JoinFS.UI.Views.Tabs.HomeView"
              x:DataType="tvm:HomeViewModel">
   <!-- One screen, no scrolling: the greeting and the three figures take what they need and the map gets all the rest. -->
   <Grid MaxWidth="900" HorizontalAlignment="Stretch" RowDefinitions="Auto,Auto,Auto,*,Auto">
-    <TextBlock Grid.Row="0" Text="Welcome back" FontSize="22" FontWeight="Bold" Margin="0,0,0,4" />
+    <TextBlock Grid.Row="0" Text="{l:T 'Welcome back'}" FontSize="22" FontWeight="Bold" Margin="0,0,0,4" />
     <TextBlock Grid.Row="1" Text="{Binding Subtitle}" TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,12" />
 
     <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="10" Margin="0,0,0,12">
       <Border Grid.Column="0" Classes="card" Padding="12,7">
         <StackPanel>
-          <TextBlock Text="Hub" FontSize="11" Foreground="{DynamicResource Muted2Brush}" />
+          <TextBlock Text="{l:T 'Hub'}" FontSize="11" Foreground="{DynamicResource Muted2Brush}" />
           <TextBlock Text="{Binding HubName}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
         </StackPanel>
       </Border>
       <Border Grid.Column="1" Classes="card" Padding="12,7">
         <StackPanel>
-          <TextBlock Text="Connected users" FontSize="11" Foreground="{DynamicResource Muted2Brush}" />
+          <TextBlock Text="{l:T 'Connected users'}" FontSize="11" Foreground="{DynamicResource Muted2Brush}" />
           <TextBlock Text="{Binding ConnectedUsers}" FontSize="14" FontWeight="SemiBold" />
         </StackPanel>
       </Border>
       <Border Grid.Column="2" Classes="card" Padding="12,7">
         <StackPanel>
-          <TextBlock Text="Aircraft tracked" FontSize="11" Foreground="{DynamicResource Muted2Brush}" />
+          <TextBlock Text="{l:T 'Aircraft tracked'}" FontSize="11" Foreground="{DynamicResource Muted2Brush}" />
           <TextBlock Text="{Binding AircraftTracked}" FontSize="14" FontWeight="SemiBold" />
         </StackPanel>
       </Border>
@@ -36,12 +36,12 @@
         <c:MapView x:Name="Map" Markers="{Binding MapMarkers}" TileSource="{Binding MapTiles}" />
 
         <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" Spacing="4">
-          <Button Click="OnZoomIn" Content="+" Width="34" Height="30" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="16" ToolTip.Tip="Zoom in" />
-          <Button Click="OnZoomOut" Content="&#x2212;" Width="34" Height="30" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="16" ToolTip.Tip="Zoom out" />
-          <Button Click="OnFit" Content="Fit" Width="34" Height="30" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="12" ToolTip.Tip="Show all aircraft" />
+          <Button Click="OnZoomIn" Content="+" Width="34" Height="30" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="16" ToolTip.Tip="{l:T 'Zoom in'}" />
+          <Button Click="OnZoomOut" Content="&#x2212;" Width="34" Height="30" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="16" ToolTip.Tip="{l:T 'Zoom out'}" />
+          <Button Click="OnFit" Content="{l:T 'Fit'}" Width="34" Height="30" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="12" ToolTip.Tip="{l:T 'Show all aircraft'}" />
         </StackPanel>
 
-        <TextBlock Text="No aircraft with a position yet" HorizontalAlignment="Center" VerticalAlignment="Center"
+        <TextBlock Text="{l:T 'No aircraft with a position yet'}" HorizontalAlignment="Center" VerticalAlignment="Center"
                    Foreground="#52606D" FontSize="13" IsHitTestVisible="False"
                    IsVisible="{Binding !HasMapMarkers}" />
 
@@ -54,7 +54,7 @@
     </Border>
 
     <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="16" Margin="0,8,0,0">
-      <Button Classes="link" Command="{Binding OpenDownloadCommand}" Content="Download" />
+      <Button Classes="link" Command="{Binding OpenDownloadCommand}" Content="{l:T 'Download'}" />
     </StackPanel>
   </Grid>
 </UserControl>

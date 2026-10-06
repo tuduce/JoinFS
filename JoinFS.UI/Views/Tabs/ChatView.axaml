@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:m="using:JoinFS.UI.Models"
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              x:Class="JoinFS.UI.Views.Tabs.ChatView"
@@ -12,7 +12,7 @@
     </Style>
   </UserControl.Styles>
   <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
-    <TextBlock Text="Chat" Classes="h2" />
+    <TextBlock Text="{l:T 'Chat'}" Classes="h2" />
 
     <Border Grid.Row="1" Classes="card">
       <ScrollViewer x:Name="MessageScroll">
@@ -37,7 +37,7 @@
           <KeyBinding Gesture="Enter" Command="{Binding SendCommand}" />
         </TextBox.KeyBindings>
       </TextBox>
-      <Button Grid.Column="1" Classes="primary" Command="{Binding SendCommand}" Content="Send" Padding="20,10" CornerRadius="8" FontSize="13.5" />
+      <Button Grid.Column="1" Classes="primary" Command="{Binding SendCommand}" Content="{l:T 'Send'}" Padding="20,10" CornerRadius="8" FontSize="13.5" />
     </Grid>
   </Grid>
 </UserControl>

@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              xmlns:vm="using:JoinFS.UI.ViewModels"
              x:Class="JoinFS.UI.Views.Tabs.AircraftView"
@@ -7,10 +7,10 @@
   <Grid RowDefinitions="Auto,*" RowSpacing="14">
     <Grid ColumnDefinitions="*,Auto">
       <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-        <TextBlock Text="Aircraft" Classes="h2" />
+        <TextBlock Text="{l:T 'Aircraft'}" Classes="h2" />
         <TextBlock Text="{Binding AircraftCount, StringFormat='({0})'}" Classes="count" />
       </StackPanel>
-      <Button Grid.Column="1" Command="{Binding RefreshCommand}" Content="Refresh" />
+      <Button Grid.Column="1" Command="{Binding RefreshCommand}" Content="{l:T 'Refresh'}" />
     </Grid>
 
     <Border Grid.Row="1" Classes="card">
@@ -24,7 +24,7 @@
             <Button Grid.Column="4" Classes="th" Command="{Binding AltitudeColumn.SortCommand}" Content="{Binding AltitudeColumn.Header}" />
             <Button Grid.Column="5" Classes="th" Command="{Binding GroundSpeedColumn.SortCommand}" Content="{Binding GroundSpeedColumn.Header}" />
             <Button Grid.Column="6" Classes="th" Command="{Binding ModelColumn.SortCommand}" Content="{Binding ModelColumn.Header}" />
-            <TextBlock Grid.Column="7" Text="Record" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+            <TextBlock Grid.Column="7" Text="{l:T 'Record'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
           </Grid>
         </Border>
 
@@ -44,27 +44,27 @@
                         <TextBlock Grid.Column="4" Text="{Binding Altitude}" />
                         <TextBlock Grid.Column="5" Text="{Binding GroundSpeed}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Grid.Column="6" Text="{Binding Model}" TextTrimming="CharacterEllipsis" />
-                        <CheckBox Grid.Column="7" IsChecked="{Binding Recording}" IsEnabled="{Binding CanRecord}" MinHeight="0" Padding="0" AutomationProperties.Name="Record" />
+                        <CheckBox Grid.Column="7" IsChecked="{Binding Recording}" IsEnabled="{Binding CanRecord}" MinHeight="0" Padding="0" AutomationProperties.Name="{l:T 'Record'}" />
                       </Grid>
                     </Button>
 
                     <Border Classes="expanded" IsVisible="{Binding IsExpanded}">
                       <Grid ColumnDefinitions="300,1,Auto" ColumnSpacing="32" HorizontalAlignment="Left">
                         <StackPanel Grid.Column="0" Spacing="8">
-                          <TextBlock Classes="caps" Text="INFO" />
+                          <TextBlock Classes="caps" Text="{l:T 'INFO'}" />
                           <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6"
                                 TextElement.Foreground="{DynamicResource Text3Brush}">
-                            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="4"><TextBlock Text="Squawk" /><TextBlock Classes="strong" Text="{Binding Squawk}" /></StackPanel>
-                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="4"><TextBlock Text="Bearing" /><TextBlock Classes="strong" Text="{Binding Bearing}" /></StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="4"><TextBlock Text="{l:T 'Squawk'}" /><TextBlock Classes="strong" Text="{Binding Squawk}" /></StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="4"><TextBlock Text="{l:T 'Bearing'}" /><TextBlock Classes="strong" Text="{Binding Bearing}" /></StackPanel>
                             <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Spacing="4"><TextBlock Text="COM1" /><TextBlock Classes="strong" Text="{Binding Com1}" /></StackPanel>
                             <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="4"><TextBlock Text="COM2" /><TextBlock Classes="strong" Text="{Binding Com2}" /></StackPanel>
-                            <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*" ColumnSpacing="4"><TextBlock Text="Simulator" /><TextBlock Grid.Column="1" Classes="strong" Text="{Binding Simulator}" TextWrapping="Wrap" /></Grid>
-                            <Grid Grid.Row="3" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*" ColumnSpacing="4"><TextBlock Text="Original Model" /><TextBlock Grid.Column="1" Classes="strong" Text="{Binding OriginalModel}" TextWrapping="Wrap" /></Grid>
+                            <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*" ColumnSpacing="4"><TextBlock Text="{l:T 'Simulator'}" /><TextBlock Grid.Column="1" Classes="strong" Text="{Binding Simulator}" TextWrapping="Wrap" /></Grid>
+                            <Grid Grid.Row="3" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*" ColumnSpacing="4"><TextBlock Text="{l:T 'Original Model'}" /><TextBlock Grid.Column="1" Classes="strong" Text="{Binding OriginalModel}" TextWrapping="Wrap" /></Grid>
                           </Grid>
                           <Border BorderBrush="{DynamicResource BorderCardBrush}" BorderThickness="0,1,0,0" Margin="0,4,0,0" Padding="0,8,0,0">
                             <StackPanel Spacing="4">
-                              <TextBlock TextWrapping="Wrap"><Run Text="Flight Plan: " FontWeight="SemiBold" Foreground="{DynamicResource TextStrongBrush}" /><Run Text="{Binding FlightPlan, Mode=OneWay}" /></TextBlock>
-                              <TextBlock TextWrapping="Wrap"><Run Text="Remarks: " FontWeight="SemiBold" Foreground="{DynamicResource TextStrongBrush}" /><Run Text="{Binding Remarks, Mode=OneWay}" /></TextBlock>
+                              <TextBlock TextWrapping="Wrap"><Run Text="{l:T 'Flight Plan: '}" FontWeight="SemiBold" Foreground="{DynamicResource TextStrongBrush}" /><Run Text="{Binding FlightPlan, Mode=OneWay}" /></TextBlock>
+                              <TextBlock TextWrapping="Wrap"><Run Text="{l:T 'Remarks: '}" FontWeight="SemiBold" Foreground="{DynamicResource TextStrongBrush}" /><Run Text="{Binding Remarks, Mode=OneWay}" /></TextBlock>
                             </StackPanel>
                           </Border>
                         </StackPanel>
@@ -72,7 +72,7 @@
                         <Border Grid.Column="1" Classes="vrule" />
 
                         <StackPanel Grid.Column="2" Spacing="10">
-                          <TextBlock Classes="caps" Text="ACTIONS" />
+                          <TextBlock Classes="caps" Text="{l:T 'ACTIONS'}" />
                           <ItemsControl ItemsSource="{Binding Actions}">
                             <ItemsControl.ItemsPanel>
                               <ItemsPanelTemplate>

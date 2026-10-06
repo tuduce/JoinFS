@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 
@@ -24,7 +25,7 @@ public sealed partial class ChatViewModel : ObservableObject
     private bool _isConnected;
 
     /// <summary>What the empty line says: how to chat, or that there is nobody to chat with yet.</summary>
-    public string ComposerHint => IsConnected ? "Type a message" : "Join a hub to chat";
+    public string ComposerHint => IsConnected ? Loc.T("Type a message") : Loc.T("Join a hub to chat");
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
@@ -123,10 +124,10 @@ public sealed partial class MonitorViewModel : ObservableObject
         _platform = platform;
         Filters =
         [
-            new("nodeStats", "Node Statistics", false, _ => { source.WriteNodeStatistics(); Refresh(); }, oneShot: true),
-            new("packets", "Received Packets", false, _ => { source.WritePacketStatistics(); Refresh(); }, oneShot: true),
-            new("network", "Network", source.ShowNetwork, on => source.ShowNetwork = on),
-            new("variables", "Variables", source.ShowVariables, on => source.ShowVariables = on),
+            new("nodeStats", Loc.T("Node Statistics"), false, _ => { source.WriteNodeStatistics(); Refresh(); }, oneShot: true),
+            new("packets", Loc.T("Received Packets"), false, _ => { source.WritePacketStatistics(); Refresh(); }, oneShot: true),
+            new("network", Loc.T("Network"), source.ShowNetwork, on => source.ShowNetwork = on),
+            new("variables", Loc.T("Variables"), source.ShowVariables, on => source.ShowVariables = on),
         ];
         Refresh();
     }
@@ -158,7 +159,7 @@ public sealed partial class MonitorViewModel : ObservableObject
         for (int i = LogLines.Count; i < lines.Count; i++)
             LogLines.Add(lines[i]);
 
-        FpsText = _source.FramesPerSecond is int fps ? $"FPS: {fps}" : "";
+        FpsText = _source.FramesPerSecond is int fps ? Loc.F("FPS: {0}", fps) : "";
     }
 
     // Do the lines shown, from the one at <skip>, start the new lines?
@@ -182,7 +183,7 @@ public sealed partial class MonitorViewModel : ObservableObject
         IReadOnlyList<string> files = _source.LogFiles;
         if (files.Count == 0)
         {
-            Status = "There are no log files yet.";
+            Status = Loc.T("There are no log files yet.");
             return;
         }
 
@@ -270,10 +271,10 @@ public sealed partial class HomeViewModel : ObservableObject
 
     public string Subtitle => (_main.Simulator.IsConnected, _main.Network.IsConnected) switch
     {
-        (true, true) => "Simulator and network are both connected. Pick a panel from the sidebar to manage hubs, session traffic, aircraft, or model matching.",
-        (false, false) => "Connect the simulator and join a hub to start flying together. Pick a panel from the sidebar to manage hubs, session traffic, aircraft, or model matching.",
-        (true, false) => "The simulator is connected. Join a hub to see other pilots. Pick a panel from the sidebar to manage hubs, session traffic, aircraft, or model matching.",
-        (false, true) => "The network is connected. Connect the simulator to fly with them. Pick a panel from the sidebar to manage hubs, session traffic, aircraft, or model matching.",
+        (true, true) => Loc.T("Simulator and network are both connected.") + " " + Loc.T("Pick a panel from the sidebar to manage hubs, session traffic, aircraft, or model matching."),
+        (false, false) => Loc.T("Connect the simulator and join a hub to start flying together.") + " " + Loc.T("Pick a panel from the sidebar to manage hubs, session traffic, aircraft, or model matching."),
+        (true, false) => Loc.T("The simulator is connected. Join a hub to see other pilots.") + " " + Loc.T("Pick a panel from the sidebar to manage hubs, session traffic, aircraft, or model matching."),
+        (false, true) => Loc.T("The network is connected. Connect the simulator to fly with them.") + " " + Loc.T("Pick a panel from the sidebar to manage hubs, session traffic, aircraft, or model matching."),
     };
 
     [RelayCommand]

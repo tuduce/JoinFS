@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 using JoinFS.UI.ViewModels.Overlays;
@@ -122,14 +123,14 @@ public sealed partial class FlightPlanViewModel : ObservableObject
         if (fetched is null)
         {
             // What is shown stays: a failed import never blanks the plan.
-            Status = "SimBrief has no flight plan for this user.";
+            Status = Loc.T("SimBrief has no flight plan for this user.");
             return;
         }
 
         // SimBrief knows the callsign it was filed under; if it gave none, the aircraft's own stays.
         Apply(fetched with { Callsign = string.IsNullOrEmpty(fetched.Callsign) ? Callsign : fetched.Callsign });
         _hasUnsavedEdits = !commit;
-        Status = $"Imported {fetched.From} → {fetched.To}";
+        Status = Loc.F("Imported {0} → {1}", fetched.From, fetched.To);
         Imported?.Invoke(this, EventArgs.Empty);
     }
 

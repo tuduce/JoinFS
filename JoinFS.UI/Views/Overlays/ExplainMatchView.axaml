@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:c="using:JoinFS.UI.Views.Controls"
              xmlns:m="using:JoinFS.UI.Models"
              xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
@@ -23,9 +23,9 @@
         <StackPanel>
           <Border Classes="tableHeader" Padding="12,8">
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12" TextElement.FontSize="12" TextElement.Foreground="{DynamicResource MutedBrush}">
-              <TextBlock Grid.Column="0" Text="Attribute" />
-              <TextBlock Grid.Column="1" Text="Requested" />
-              <TextBlock Grid.Column="2" Text="Matched Model" />
+              <TextBlock Grid.Column="0" Text="{l:T 'Attribute'}" />
+              <TextBlock Grid.Column="1" Text="{l:T 'Requested'}" />
+              <TextBlock Grid.Column="2" Text="{l:T 'Matched Model'}" />
             </Grid>
           </Border>
           <ItemsControl ItemsSource="{Binding Rows}">
@@ -46,7 +46,7 @@
       </Border>
 
       <StackPanel Spacing="8">
-        <TextBlock Text="Matching steps (in the order they were tried):" FontSize="13" FontWeight="SemiBold" />
+        <TextBlock Text="{l:T 'Matching steps (in the order they were tried):'}" FontSize="13" FontWeight="SemiBold" />
         <Border Classes="card" CornerRadius="8" Height="140" Background="{DynamicResource SurfaceHoverBrush}">
           <ScrollViewer>
             <ItemsControl ItemsSource="{Binding Steps}">
@@ -68,10 +68,10 @@
     </StackPanel>
     <c:ModalCard.Footer>
       <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
-        <Button Grid.Column="0" Command="{Binding OpenKnownModelsListCommand}" Content="Open known-models list" Padding="12,8" />
-        <Button Grid.Column="2" Command="{Binding CopyToClipboardCommand}" Content="Copy to clipboard" Padding="12,8" />
-        <Button Grid.Column="3" Command="{Binding ExportDebugBundleCommand}" Content="Export Debug Bundle..." Padding="12,8" />
-        <Button Grid.Column="4" Classes="primary" Command="{Binding CloseCommand}" Content="Close" Padding="18,8" />
+        <Button Grid.Column="0" Command="{Binding OpenKnownModelsListCommand}" Content="{l:T 'Open known-models list'}" Padding="12,8" />
+        <Button Grid.Column="2" Command="{Binding CopyToClipboardCommand}" Content="{l:T 'Copy to clipboard'}" Padding="12,8" />
+        <Button Grid.Column="3" Command="{Binding ExportDebugBundleCommand}" Content="{l:T 'Export Debug Bundle...'}" Padding="12,8" />
+        <Button Grid.Column="4" Classes="primary" Command="{Binding CloseCommand}" Content="{l:T 'Close'}" Padding="18,8" />
       </Grid>
     </c:ModalCard.Footer>
   </c:ModalCard>

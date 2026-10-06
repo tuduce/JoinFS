@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:c="using:JoinFS.UI.Views.Controls"
              xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
              x:Class="JoinFS.UI.Views.Overlays.AboutView"
@@ -14,7 +14,7 @@
               Content="{Binding DownloadText}" FontSize="12.5" HorizontalAlignment="Center" Margin="0,4,0,0"
               Foreground="{DynamicResource AccentLinkStrongBrush}" />
       <StackPanel Spacing="6" Margin="0,16,0,0">
-        <Button Classes="link" Command="{Binding OpenDocumentationCommand}" Content="Documentation" FontSize="12.5"
+        <Button Classes="link" Command="{Binding OpenDocumentationCommand}" Content="{l:T 'Documentation'}" FontSize="12.5"
                 Foreground="{DynamicResource AccentLinkStrongBrush}" />
         <StackPanel>
           <TextBlock Text="{Binding License}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" />
@@ -24,7 +24,7 @@
     </StackPanel>
     <c:ModalCard.Footer>
       <StackPanel Classes="footer">
-        <Button Classes="primary" Command="{Binding CloseCommand}" Content="Close" />
+        <Button Classes="primary" Command="{Binding CloseCommand}" Content="{l:T 'Close'}" />
       </StackPanel>
     </c:ModalCard.Footer>
   </c:ModalCard>

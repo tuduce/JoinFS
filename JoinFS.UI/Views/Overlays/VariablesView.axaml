@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:c="using:JoinFS.UI.Views.Controls"
              xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
              x:Class="JoinFS.UI.Views.Overlays.VariablesView"
@@ -11,41 +11,41 @@
       <Panel DataContext="{Binding Picker}">
         <StackPanel Spacing="14" x:DataType="ovm:ModelPickerViewModel">
           <StackPanel Spacing="6">
-            <TextBlock Text="Filter words (optional)" Classes="label" />
+            <TextBlock Text="{l:T 'Filter words (optional)'}" Classes="label" />
             <TextBox Text="{Binding FilterWords}" />
           </StackPanel>
           <StackPanel Spacing="6">
-            <TextBlock Text="Select a type:" Classes="label" />
+            <TextBlock Text="{l:T 'Select a type:'}" Classes="label" />
             <ComboBox ItemsSource="{Binding Types}" SelectedItem="{Binding SelectedType}" />
           </StackPanel>
           <StackPanel Spacing="6">
-            <TextBlock Text="Select a variation:" Classes="label" />
+            <TextBlock Text="{l:T 'Select a variation:'}" Classes="label" />
             <ComboBox ItemsSource="{Binding Variations}" SelectedItem="{Binding SelectedVariation}" />
           </StackPanel>
         </StackPanel>
       </Panel>
       </Panel>
       <StackPanel Spacing="6">
-        <TextBlock Text="Model:" Classes="label" />
+        <TextBlock Text="{l:T 'Model:'}" Classes="label" />
         <Border Classes="readonly"><TextBlock Text="{Binding Model}" Foreground="{DynamicResource Text2Brush}" TextWrapping="Wrap" /></Border>
       </StackPanel>
       <StackPanel Spacing="6">
-        <TextBlock Text="Variable Files:" Classes="label" />
+        <TextBlock Text="{l:T 'Variable Files:'}" Classes="label" />
         <Border Classes="card" CornerRadius="7" Height="110" BorderBrush="{DynamicResource BorderInputBrush}">
           <ListBox ItemsSource="{Binding Files}" SelectedItem="{Binding SelectedFile}" FontSize="12.5" Background="Transparent" Padding="0" />
         </Border>
       </StackPanel>
       <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
-        <Button Grid.Column="0" Command="{Binding AddCommand}" Content="Add..." Padding="0,9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
-        <Button Grid.Column="1" Command="{Binding RemoveCommand}" Content="Remove" Padding="0,9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
-        <Button Grid.Column="2" Command="{Binding EditCommand}" Content="Edit..." Padding="0,9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+        <Button Grid.Column="0" Command="{Binding AddCommand}" Content="{l:T 'Add...'}" Padding="0,9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+        <Button Grid.Column="1" Command="{Binding RemoveCommand}" Content="{l:T 'Remove'}" Padding="0,9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+        <Button Grid.Column="2" Command="{Binding EditCommand}" Content="{l:T 'Edit...'}" Padding="0,9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
       </Grid>
       <TextBlock Text="{Binding Status}" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}"
                  IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
     </StackPanel>
     <c:ModalCard.Footer>
       <StackPanel Classes="footer">
-        <Button Classes="primary" Command="{Binding OkCommand}" Content="OK" Padding="24,8" />
+        <Button Classes="primary" Command="{Binding OkCommand}" Content="{l:T 'OK'}" Padding="24,8" />
       </StackPanel>
     </c:ModalCard.Footer>
   </c:ModalCard>

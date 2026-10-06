@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Services;
 
 namespace JoinFS.Live
@@ -32,8 +33,8 @@ namespace JoinFS.Live
         public string SimFolder => main.substitution?.simFolder ?? "";
 
         public string FolderPrompt => IsMsfs
-            ? "Please specify the 'Flight Simulator Packages' folder:"
-            : "Please specify the root folder for the simulator:";
+            ? Loc.T("Please specify the 'Flight Simulator Packages' folder:")
+            : Loc.T("Please specify the root folder for the simulator:");
 
         // a modern MSFS Packages folder nests SimObjects separately per installed package, so there is no single folder to list
         public bool ListsSubfolders => !IsMsfs;
@@ -74,7 +75,7 @@ namespace JoinFS.Live
 
                 if (SimulatorName == MSFS_2024)
                 {
-                    addOns.Add(new ScanAddOn(MY_MSFS_2024, "FS2024 models via SimConnect", selected.Contains(MY_MSFS_2024)));
+                    addOns.Add(new ScanAddOn(MY_MSFS_2024, Loc.T("FS2024 models via SimConnect"), selected.Contains(MY_MSFS_2024)));
                 }
                 else if (SimulatorName == MSFS_2020)
                 {

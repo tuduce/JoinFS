@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 using JoinFS.UI.ViewModels.Overlays;
@@ -26,7 +27,7 @@ public sealed partial class ObjectRowViewModel : ObservableObject
         Info = info;
         _owner = owner;
 
-        _substitute = new("Substitute…", new RelayCommand(() => _ = _owner.SubstituteAsync(this), () => Info.CanSubstitute));
+        _substitute = new(Loc.T("Substitute…"), new RelayCommand(() => _ = _owner.SubstituteAsync(this), () => Info.CanSubstitute));
         _thisObject = new("", new RelayCommand(() => Broadcast = !Broadcast, () => Info.CanBroadcast && !IsGroup));
         _model = new("", new RelayCommand(() => _owner.Source.SetModelBroadcast(Info.OriginalModel, !Info.ModelBroadcast), () => Info.CanBroadcast));
         _tacpack = new("", new RelayCommand(() => _owner.Profile.BroadcastTacpack = !_owner.Profile.BroadcastTacpack));
@@ -139,10 +140,10 @@ public sealed partial class ObjectRowViewModel : ObservableObject
     /// <summary>Words each broadcast link by its current state, and re-asks whether it is available.</summary>
     internal void RefreshLinks()
     {
-        _thisObject.Label = Broadcast ? "Stop Broadcasting This Object" : "Broadcast This Object";
-        _model.Label = Info.ModelBroadcast ? $"Stop Broadcasting All '{Info.OriginalModel}'" : $"Broadcast All '{Info.OriginalModel}'";
-        _tacpack.Label = _owner.Profile.BroadcastTacpack ? "Stop Broadcasting VRS TacPack" : "Broadcast VRS TacPack";
-        _everything.Label = _owner.Profile.BroadcastEverything ? "Stop Broadcasting Everything" : "Broadcast Everything";
+        _thisObject.Label = Broadcast ? Loc.T("Stop Broadcasting This Object") : Loc.T("Broadcast This Object");
+        _model.Label = Info.ModelBroadcast ? Loc.F("Stop Broadcasting All '{0}'", Info.OriginalModel) : Loc.F("Broadcast All '{0}'", Info.OriginalModel);
+        _tacpack.Label = _owner.Profile.BroadcastTacpack ? Loc.T("Stop Broadcasting VRS TacPack") : Loc.T("Broadcast VRS TacPack");
+        _everything.Label = _owner.Profile.BroadcastEverything ? Loc.T("Stop Broadcasting Everything") : Loc.T("Broadcast Everything");
 
         foreach (ActionLink link in Actions)
             (link.Command as RelayCommand)?.NotifyCanExecuteChanged();
@@ -170,11 +171,11 @@ public sealed partial class ObjectsViewModel : ObservableObject
         _syncingGroup = false;
 
         _sort = new SortController<ObjectRowViewModel>(Rebuild);
-        OwnerColumn = _sort.Add("owner", "Owner", r => r.Owner);
-        ModelColumn = _sort.Add("model", "Model", r => r.Model);
-        CountColumn = _sort.Add("count", "Count", r => r.Count);
-        BearingColumn = _sort.Add("bearing", "Bearing", r => r.BearingValue);
-        DistanceColumn = _sort.Add("distance", "Distance", r => r.DistanceValue);
+        OwnerColumn = _sort.Add("owner", Loc.T("Owner"), r => r.Owner);
+        ModelColumn = _sort.Add("model", Loc.T("Model"), r => r.Model);
+        CountColumn = _sort.Add("count", Loc.T("Count"), r => r.Count);
+        BearingColumn = _sort.Add("bearing", Loc.T("Bearing"), r => r.BearingValue);
+        DistanceColumn = _sort.Add("distance", Loc.T("Distance"), r => r.DistanceValue);
 
         // The TacPack and Everything links read the profile, which Settings → Simulator also edits.
         profile.PropertyChanged += OnProfileChanged;

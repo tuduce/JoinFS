@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:c="using:JoinFS.UI.Views.Controls"
              xmlns:v="using:JoinFS.UI.Views"
              xmlns:vm="using:JoinFS.UI.ViewModels"
@@ -61,20 +61,20 @@
         <!-- The hub picker is wider than the design's 170px: it also shows the name of a joined hub, which can be long. -->
         <Grid ColumnDefinitions="56,20,240,20,56,20,56,*">
           <c:ConnectorNode Grid.Column="0" DataContext="{Binding Simulator}"
-                           Icon="{DynamicResource IconAircraft}" Title="Simulator" ButtonTip="Connect to simulator" />
+                           Icon="{DynamicResource IconAircraft}" Title="{l:T 'Simulator'}" ButtonTip="{l:T 'Connect to simulator'}" />
           <Border Grid.Column="1" Classes="wire" />
 
           <StackPanel Grid.Column="2">
             <v:HubPicker Height="42" />
-            <TextBlock Text="Hub" Classes="label" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+            <TextBlock Text="{l:T 'Hub'}" Classes="label" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
           </StackPanel>
 
           <Border Grid.Column="3" Classes="wire" />
           <c:ConnectorNode Grid.Column="4" DataContext="{Binding Network}"
-                           Icon="{DynamicResource IconNetworkNode}" Title="Network" ButtonTip="Connect to hub" />
+                           Icon="{DynamicResource IconNetworkNode}" Title="{l:T 'Network'}" ButtonTip="{l:T 'Connect to hub'}" />
           <Border Grid.Column="5" Classes="wire" />
           <c:ConnectorNode Grid.Column="6" DataContext="{Binding FlightPlanLoad}"
-                           Icon="{DynamicResource IconFlightPlan}" Title="Flight Plan" ButtonTip="Fetch flight plan from Simbrief" />
+                           Icon="{DynamicResource IconFlightPlan}" Title="{l:T 'Flight Plan'}" ButtonTip="{l:T 'Fetch flight plan from Simbrief'}" />
         </Grid>
       </Border>
 

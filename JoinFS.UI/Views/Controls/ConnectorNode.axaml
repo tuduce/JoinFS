@@ -16,8 +16,8 @@
     </Button>
     <!-- Negative side margins give the labels room to run past the 56px column, centred, like the design. -->
     <StackPanel Margin="-30,6,-30,0" HorizontalAlignment="Center">
-      <TextBlock x:Name="TitleText" FontSize="12.5" Foreground="{DynamicResource Text2Brush}" TextAlignment="Center" />
-      <TextBlock Text="{Binding StateLabel}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextAlignment="Center" />
+      <TextBlock x:Name="TitleText" FontSize="12.5" Foreground="{DynamicResource Text2Brush}" TextAlignment="Center" HorizontalAlignment="Center" />
+      <TextBlock Text="{Binding StateLabel}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextAlignment="Center" HorizontalAlignment="Center" />
     </StackPanel>
   </StackPanel>
 </UserControl>

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 
@@ -25,7 +26,7 @@ public sealed partial class HubRowViewModel : ObservableObject
     public HubInfo Hub { get; private set; }
     public string Id => Hub.Id;
     public string Name => Hub.Name;
-    public string Status => Hub.Status.ToString();
+    public string Status => Loc.T(Hub.Status.ToString());
     public int Users => Hub.Users;
     public int Aircraft => Hub.Aircraft;
     public string Version => Hub.Version;
@@ -51,13 +52,13 @@ public sealed partial class HubRowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IgnoreLabel))]
     private bool _isIgnored;
 
-    public string IgnoreLabel => IsIgnored ? "Unignore" : "Ignore";
+    public string IgnoreLabel => IsIgnored ? Loc.T("Unignore") : Loc.T("Ignore");
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SaveLabel))]
     private bool _isSaved;
 
-    public string SaveLabel => IsSaved ? "Remove From Address Book" : "Add to Address Book";
+    public string SaveLabel => IsSaved ? Loc.T("Remove From Address Book") : Loc.T("Add to Address Book");
 
     /// <summary>Takes a newer reading of the same hub.</summary>
     internal void Update(HubInfo hub)
@@ -77,7 +78,7 @@ public sealed partial class HubRowViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(JoinCommand))]
     private bool _isJoined;
 
-    public string JoinLabel => IsJoined ? "Leave" : "Join";
+    public string JoinLabel => IsJoined ? Loc.T("Leave") : Loc.T("Join");
 
     // Leaving is always possible, even for a hub that could not be joined (it went offline while we were in it).
     private bool CanJoinOrLeave() => IsJoined || CanJoin;
@@ -110,11 +111,11 @@ public sealed partial class HubsViewModel : ObservableObject
         _meshCode = network.MeshCode;
 
         _sort = new SortController<HubRowViewModel>(Rebuild, initialKey: "name");
-        NameColumn = _sort.Add("name", "Name", r => r.Name);
-        StatusColumn = _sort.Add("status", "Status", r => r.Status);
-        UsersColumn = _sort.Add("users", "Users", r => r.Users);
-        AircraftColumn = _sort.Add("aircraft", "Aircraft", r => r.Aircraft, highestFirst: true);
-        VersionColumn = _sort.Add("version", "Version", r => new VersionKey(r.Version), highestFirst: true);
+        NameColumn = _sort.Add("name", Loc.T("Name"), r => r.Name);
+        StatusColumn = _sort.Add("status", Loc.T("Status"), r => r.Status);
+        UsersColumn = _sort.Add("users", Loc.T("Users"), r => r.Users);
+        AircraftColumn = _sort.Add("aircraft", Loc.T("Aircraft"), r => r.Aircraft, highestFirst: true);
+        VersionColumn = _sort.Add("version", Loc.T("Version"), r => new VersionKey(r.Version), highestFirst: true);
 
         Refresh();
     }

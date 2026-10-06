@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 
@@ -28,11 +29,12 @@ public sealed partial class PeerRowViewModel : ObservableObject
     public string Id => Peer.Id;
     public string Nick => Peer.Nick;
     public string Callsign => Peer.Callsign;
-    public string Connected => Peer.Connected;
+    // The peer says "Yes", "Route" or "No" (see PeerInfo); the table shows them in the language.
+    public string Connected => Peer.Connected switch { "Yes" => Loc.T("Yes"), "Route" => Loc.T("Route"), "No" => Loc.T("No"), var other => other };
     public int Latency => Peer.LatencyMs;
     public string Simulator => Peer.Simulator;
     public string Version => Peer.Version;
-    public string Protocol => Peer.Protocol;
+    public string Protocol => Peer.Protocol == "Pending" ? Loc.T("Pending") : Peer.Protocol;
 
     /// <summary>Released builds only speak the legacy wire, so the badge calls it out.</summary>
     public bool IsLegacy => Peer.IsLegacy;
@@ -77,7 +79,7 @@ public sealed partial class PeerRowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IgnoreLabel))]
     private bool _isIgnored;
 
-    public string IgnoreLabel => IsIgnored ? "Unignore" : "Ignore";
+    public string IgnoreLabel => IsIgnored ? Loc.T("Unignore") : Loc.T("Ignore");
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HandOverControls), nameof(CanHandOverControls))]
@@ -90,7 +92,7 @@ public sealed partial class PeerRowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(SaveLabel))]
     private bool _isSaved;
 
-    public string SaveLabel => IsSaved ? "Remove From Address Book" : "Save";
+    public string SaveLabel => IsSaved ? Loc.T("Remove From Address Book") : Loc.T("Save");
 
     private bool _handOverRequested;
 

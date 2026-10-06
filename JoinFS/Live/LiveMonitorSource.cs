@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Services;
 
 namespace JoinFS.Live
@@ -38,7 +39,7 @@ namespace JoinFS.Live
                 // as the old window did: say where the rest is
                 if (total > SHOWN_LINES)
                 {
-                    shown.Add("[Click 'View Logs' to see full log files]");
+                    shown.Add(Loc.T("[Click 'View Logs' to see full log files]"));
                     shown.Add("...");
                 }
                 shown.AddRange(lines);

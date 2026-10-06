@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using JoinFS.Properties;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 
@@ -154,9 +155,8 @@ namespace JoinFS.Live
             List<Recorder.Obj> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
             if (objects == null)
             {
-                string message = "Recording not saved: the simulator thread did not respond. Please try again.";
-                main.MonitorEvent("ERROR - " + message);
-                throw new InvalidOperationException(message);
+                main.MonitorEvent("ERROR - Recording not saved: the simulator thread did not respond. Please try again.");
+                throw new InvalidOperationException(Loc.T("Recording not saved: the simulator thread did not respond. Please try again."));
             }
 
             await Task.Run(() =>

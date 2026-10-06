@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 using JoinFS.UI.ViewModels.Overlays;
@@ -68,17 +69,17 @@ public sealed partial class MainViewModel : ObservableObject, IShell
 
         NavItems =
         [
-            new(this, TabId.Home, "Home", "IconHome"),
-            new(this, TabId.Network, "Network Hubs", "IconHubs"),
-            new(this, TabId.Session, "Session", "IconSession"),
-            new(this, TabId.Aircraft, "Aircraft", "IconAircraft"),
-            new(this, TabId.Objects, "Objects", "IconObjects"),
-            new(this, TabId.Models, "Model Matching", "IconModels"),
-            new(this, TabId.FlightPlan, "Flight Plan", "IconFlightPlan"),
-            new(this, TabId.Recorder, "Recorder", "IconRecorder"),
-            new(this, TabId.Chat, "Chat", "IconChat"),
-            new(this, TabId.Monitor, "Monitor", "IconMonitor"),
-            new(this, TabId.Settings, "Settings", "IconSettings"),
+            new(this, TabId.Home, Loc.T("Home"), "IconHome"),
+            new(this, TabId.Network, Loc.T("Network Hubs"), "IconHubs"),
+            new(this, TabId.Session, Loc.T("Session"), "IconSession"),
+            new(this, TabId.Aircraft, Loc.T("Aircraft"), "IconAircraft"),
+            new(this, TabId.Objects, Loc.T("Objects"), "IconObjects"),
+            new(this, TabId.Models, Loc.T("Model Matching"), "IconModels"),
+            new(this, TabId.FlightPlan, Loc.T("Flight Plan"), "IconFlightPlan"),
+            new(this, TabId.Recorder, Loc.T("Recorder"), "IconRecorder"),
+            new(this, TabId.Chat, Loc.T("Chat"), "IconChat"),
+            new(this, TabId.Monitor, Loc.T("Monitor"), "IconMonitor"),
+            new(this, TabId.Settings, Loc.T("Settings"), "IconSettings"),
         ];
 
         _hasNewChat = services.Chat.HasUnread;

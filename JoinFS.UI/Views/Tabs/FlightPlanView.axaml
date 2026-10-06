@@ -1,62 +1,62 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              x:Class="JoinFS.UI.Views.Tabs.FlightPlanView"
              x:DataType="tvm:FlightPlanViewModel">
   <ScrollViewer>
     <StackPanel Spacing="18">
-      <TextBlock Text="Flight Plan" Classes="h2" />
+      <TextBlock Text="{l:T 'Flight Plan'}" Classes="h2" />
 
       <Border Classes="card" Padding="20">
         <StackPanel Spacing="14">
           <Grid ColumnDefinitions="*,*,*" ColumnSpacing="14">
             <StackPanel Grid.Column="0" Spacing="5">
-              <TextBlock Text="Callsign" Classes="label" />
+              <TextBlock Text="{l:T 'Callsign'}" Classes="label" />
               <TextBox Text="{Binding Callsign}" />
             </StackPanel>
             <StackPanel Grid.Column="1" Spacing="5">
-              <TextBlock Text="Type" Classes="label" />
+              <TextBlock Text="{l:T 'Type'}" Classes="label" />
               <TextBox Text="{Binding Type}" />
             </StackPanel>
             <StackPanel Grid.Column="2" Spacing="5">
-              <TextBlock Text="Rules" Classes="label" />
+              <TextBlock Text="{l:T 'Rules'}" Classes="label" />
               <ComboBox ItemsSource="{Binding RulesOptions}" SelectedItem="{Binding Rules}" />
             </StackPanel>
           </Grid>
 
           <Grid ColumnDefinitions="*,*,*" ColumnSpacing="14">
             <StackPanel Grid.Column="0" Spacing="5">
-              <TextBlock Text="From" Classes="label" />
+              <TextBlock Text="{l:T 'From'}" Classes="label" />
               <TextBox Text="{Binding From}" />
             </StackPanel>
             <StackPanel Grid.Column="1" Spacing="5">
-              <TextBlock Text="To" Classes="label" />
+              <TextBlock Text="{l:T 'To'}" Classes="label" />
               <TextBox Text="{Binding To}" />
             </StackPanel>
             <StackPanel Grid.Column="2" Spacing="5">
-              <TextBlock Text="Altitude" Classes="label" />
+              <TextBlock Text="{l:T 'Altitude'}" Classes="label" />
               <TextBox Text="{Binding Altitude}" />
             </StackPanel>
           </Grid>
 
           <StackPanel Spacing="5">
-            <TextBlock Text="Route" Classes="label" />
+            <TextBlock Text="{l:T 'Route'}" Classes="label" />
             <TextBox Text="{Binding Route}" />
           </StackPanel>
           <StackPanel Spacing="5">
-            <TextBlock Text="Remarks" Classes="label" />
+            <TextBlock Text="{l:T 'Remarks'}" Classes="label" />
             <TextBox Text="{Binding Remarks}" />
           </StackPanel>
 
           <StackPanel Orientation="Horizontal" Spacing="14">
-            <Button Classes="link strong" Command="{Binding ImportFromSimbriefCommand}" Content="Import from SimBrief" />
+            <Button Classes="link strong" Command="{Binding ImportFromSimbriefCommand}" Content="{l:T 'Import from SimBrief'}" />
             <TextBlock Text="{Binding Status}" Classes="label" VerticalAlignment="Center"
                        IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
           </StackPanel>
 
           <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,4,0,0">
-            <Button Grid.Column="0" Command="{Binding ClearCommand}" Content="Clear" Padding="18,9" CornerRadius="8" />
-            <Button Grid.Column="2" Classes="primary" Command="{Binding SaveCommand}" Content="Save" Padding="22,9" CornerRadius="8" />
+            <Button Grid.Column="0" Command="{Binding ClearCommand}" Content="{l:T 'Clear'}" Padding="18,9" CornerRadius="8" />
+            <Button Grid.Column="2" Classes="primary" Command="{Binding SaveCommand}" Content="{l:T 'Save'}" Padding="22,9" CornerRadius="8" />
           </Grid>
         </StackPanel>
       </Border>

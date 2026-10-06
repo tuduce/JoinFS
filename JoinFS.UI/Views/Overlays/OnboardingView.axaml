@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
              x:Class="JoinFS.UI.Views.Overlays.OnboardingView"
              x:DataType="ovm:OnboardingViewModel">
@@ -8,14 +8,14 @@
           BoxShadow="{DynamicResource ModalShadow}">
     <StackPanel Spacing="6">
       <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" />
-      <TextBox Classes="compact" Text="{Binding Nickname}" Watermark="Your nickname">
+      <TextBox Classes="compact" Text="{Binding Nickname}" Watermark="{l:T 'Your nickname'}">
         <TextBox.KeyBindings>
           <KeyBinding Gesture="Enter" Command="{Binding ContinueCommand}" />
         </TextBox.KeyBindings>
       </TextBox>
-      <Button Classes="link strong" FontSize="11" Command="{Binding ToggleSimbriefInputCommand}" Content="Using SimBrief?" />
-      <TextBox Classes="compact" IsVisible="{Binding ShowSimbriefInput}" Text="{Binding SimbriefUsername}" Watermark="SimBrief username" />
-      <Button Classes="primary" Command="{Binding ContinueCommand}" Content="Continue" FontSize="12"
+      <Button Classes="link strong" FontSize="11" Command="{Binding ToggleSimbriefInputCommand}" Content="{l:T 'Using SimBrief?'}" />
+      <TextBox Classes="compact" IsVisible="{Binding ShowSimbriefInput}" Text="{Binding SimbriefUsername}" Watermark="{l:T 'SimBrief username'}" />
+      <Button Classes="primary" Command="{Binding ContinueCommand}" Content="{l:T 'Continue'}" FontSize="12"
               CornerRadius="6" Padding="0,6" Margin="0,2,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
     </StackPanel>
   </Border>

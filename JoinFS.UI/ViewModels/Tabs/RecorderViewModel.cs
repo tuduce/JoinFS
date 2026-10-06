@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 using JoinFS.UI.ViewModels.Overlays;
@@ -151,8 +152,8 @@ public sealed partial class RecorderViewModel : ObservableObject
     {
         get
         {
-            string what = LoadedRecordingName.Length > 0 ? LoadedRecordingName : _state.Empty ? "nothing recorded" : "not saved";
-            return $"Loaded recording — {what}";
+            string what = LoadedRecordingName.Length > 0 ? LoadedRecordingName : _state.Empty ? Loc.T("nothing recorded") : Loc.T("not saved");
+            return Loc.F("Loaded recording — {0}", what);
         }
     }
 
@@ -364,7 +365,7 @@ public sealed partial class RecorderViewModel : ObservableObject
     {
         if (_state.Time <= 0)
         {
-            Status = "Already at the start of the recording.";
+            Status = Loc.T("Already at the start of the recording.");
             return;
         }
 
@@ -379,7 +380,7 @@ public sealed partial class RecorderViewModel : ObservableObject
     {
         if (_state.Time >= _state.EndTime)
         {
-            Status = "Already at the end of the recording.";
+            Status = Loc.T("Already at the end of the recording.");
             return;
         }
 
@@ -390,7 +391,7 @@ public sealed partial class RecorderViewModel : ObservableObject
 
     // ---- files
 
-    private const string ActiveMessage = "The recorder is active. Stop it first.";
+    private static string ActiveMessage => Loc.T("The recorder is active. Stop it first.");
 
     [RelayCommand]
     private Task OpenAsync() => LoadAsync(append: false);
@@ -410,7 +411,7 @@ public sealed partial class RecorderViewModel : ObservableObject
         if (!append && !await AskToSaveAsync())
             return;
 
-        string? path = await _platform.PickOpenFileAsync(append ? "Add recording" : "Open recording", _source.RecordingFolder, Extension);
+        string? path = await _platform.PickOpenFileAsync(append ? Loc.T("Add recording") : Loc.T("Open recording"), _source.RecordingFolder, Extension);
         if (path is null)
             return;
 
@@ -441,11 +442,11 @@ public sealed partial class RecorderViewModel : ObservableObject
         }
         if (Empty)
         {
-            Status = "The recorder is empty. Record something first.";
+            Status = Loc.T("The recorder is empty. Record something first.");
             return false;
         }
 
-        string? path = await _platform.PickSaveFileAsync("Save recording", SuggestedName, _source.RecordingFolder, Extension);
+        string? path = await _platform.PickSaveFileAsync(Loc.T("Save recording"), SuggestedName, _source.RecordingFolder, Extension);
         if (path is null)
             return false;
 
@@ -455,7 +456,7 @@ public sealed partial class RecorderViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Status = "The recording was not saved: " + ex.Message;
+            Status = Loc.F("The recording was not saved: {0}", ex.Message);
             return false;
         }
 
@@ -474,7 +475,7 @@ public sealed partial class RecorderViewModel : ObservableObject
         if (!HasUnsavedRecording)
             return true;
 
-        ConfirmViewModel ask = new("Unsaved Recording", "Would you like to save your current recording?", "Save", "Don't Save");
+        ConfirmViewModel ask = new(Loc.T("Unsaved Recording"), Loc.T("Would you like to save your current recording?"), Loc.T("Save"), Loc.T("Don't Save"));
         _shell.ShowOverlay(ask);
         return await ask.Result switch
         {

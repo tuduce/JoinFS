@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Services;
 
 namespace JoinFS.UI.ViewModels.Overlays;
@@ -17,7 +18,7 @@ public sealed partial class InstallXPlanePluginViewModel : OverlayViewModel
         _folder = installer.SavedFolder;
     }
 
-    public override string Title => "Install X-Plane Plugin";
+    public override string Title => Loc.T("Install X-Plane Plugin");
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(InstallCommand))]
@@ -30,7 +31,7 @@ public sealed partial class InstallXPlanePluginViewModel : OverlayViewModel
     [RelayCommand]
     private async Task BrowseAsync()
     {
-        string? picked = await _platform.PickFolderAsync("X-Plane folder");
+        string? picked = await _platform.PickFolderAsync(Loc.T("X-Plane folder"));
         if (picked is not null)
             Folder = picked;
     }

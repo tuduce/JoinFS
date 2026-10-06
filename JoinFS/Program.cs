@@ -126,6 +126,10 @@ namespace JoinFS
         /// Start the Avalonia UI instead of the WinForms forms (builds with NEWUI only)
         /// </summary>
         public bool settingsNewUi = false;
+        /// <summary>
+        /// Language of the Avalonia UI (-lang de), instead of the system's
+        /// </summary>
+        public string settingsLanguage = "";
         public bool settingsNoSim = false;
         public bool settingsLoop = false;
         public bool settingsXplane = false;
@@ -554,6 +558,14 @@ namespace JoinFS
 
                             case "-newui":
                                 settingsNewUi = true;
+                                break;
+
+                            case "-lang":
+                                index++;
+                                if (index < args.Length)
+                                {
+                                    settingsLanguage = args[index];
+                                }
                                 break;
 
                             case "-quit":

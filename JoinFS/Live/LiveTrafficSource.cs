@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using JoinFS.Properties;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 
@@ -252,11 +253,11 @@ namespace JoinFS.Live
                 parts.Add(Dash(plan.departure) + " → " + Dash(plan.destination));
             }
             Add("", plan.rules);
-            Add("alt", plan.alternate);
-            Add("cruise", plan.speed);
-            Add("level", plan.altitude);
+            Add(Loc.T("alt"), plan.alternate);
+            Add(Loc.T("cruise"), plan.speed);
+            Add(Loc.T("level"), plan.altitude);
             Add("", plan.route);
-            return parts.Count > 0 ? string.Join(" · ", parts) : "No flight plan filed";
+            return parts.Count > 0 ? string.Join(" · ", parts) : Loc.T("No flight plan filed");
         }
 
         /// <summary>

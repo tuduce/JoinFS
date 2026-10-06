@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
 using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 using JoinFS.UI.ViewModels.Overlays;
@@ -76,7 +77,7 @@ public sealed partial class SimulatorSettingsViewModel : PersistedSettingsSectio
     public const int FollowMinM = 20, FollowMaxM = 1000;
 
     internal SimulatorSettingsViewModel(Action<SettingsSectionViewModel> toggle, PreferencesSession preferences, ProfileViewModel profile, IShell shell, Func<bool> isSimulatorConnected, IPlatform platform, IXPlaneScanSource xplaneScan, IModelScanSource modelScan, bool isXPlaneBuild)
-        : base("Simulator", toggle, preferences)
+        : base(Loc.T("Simulator"), toggle, preferences)
     {
         _xplaneScan = xplaneScan;
         _modelScan = modelScan;
@@ -144,8 +145,8 @@ public sealed partial class SimulatorSettingsViewModel : PersistedSettingsSectio
     [NotifyPropertyChangedFor(nameof(FollowLabel))]
     private int _followDistanceM;
 
-    public string CircleLabel => $"Circle of activity: {CircleOfActivityNm} nm";
-    public string FollowLabel => $"Follow distance: {FollowDistanceM} m";
+    public string CircleLabel => Loc.F("Circle of activity: {0} nm", CircleOfActivityNm);
+    public string FollowLabel => Loc.F("Follow distance: {0} m", FollowDistanceM);
 
     // The floating label JoinFS draws above other aircraft. X-Plane only.
     [ObservableProperty] private bool _showNickname;
@@ -185,7 +186,7 @@ public sealed partial class SimulatorSettingsViewModel : PersistedSettingsSectio
 public sealed partial class UserInterfaceSettingsViewModel : PersistedSettingsSectionViewModel
 {
     internal UserInterfaceSettingsViewModel(Action<SettingsSectionViewModel> toggle, PreferencesSession preferences)
-        : base("User Interface", toggle, preferences)
+        : base(Loc.T("User Interface"), toggle, preferences)
     {
         _alwaysOnTop = Prefs.AlwaysOnTop;
         _autoRefresh = Prefs.AutoRefresh;
@@ -211,7 +212,7 @@ public sealed partial class UserInterfaceSettingsViewModel : PersistedSettingsSe
 public sealed partial class NetworkSettingsViewModel : PersistedSettingsSectionViewModel
 {
     internal NetworkSettingsViewModel(Action<SettingsSectionViewModel> toggle, PreferencesSession preferences)
-        : base("Network", toggle, preferences)
+        : base(Loc.T("Network"), toggle, preferences)
     {
         Preferences p = Prefs;
         _chooseOwnPort = p.ChooseOwnPort;
@@ -252,7 +253,7 @@ public sealed partial class NetworkSettingsViewModel : PersistedSettingsSectionV
         int.TryParse(LocalPort.Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int port) && port is >= 1 and <= 65535 ? port : null;
 
     /// <summary>Shown while the port is chosen and what is typed is not a port; the port in use stays as it was.</summary>
-    public string? PortError => ChooseOwnPort && ParsedPort is null ? "Enter a port from 1 to 65535." : null;
+    public string? PortError => ChooseOwnPort && ParsedPort is null ? Loc.T("Enter a port from 1 to 65535.") : null;
 
     [ObservableProperty] private string _password;
 
@@ -298,14 +299,14 @@ public sealed partial class HubModeSettingsViewModel : PersistedSettingsSectionV
     private bool _loading = true;
 
     internal HubModeSettingsViewModel(Action<SettingsSectionViewModel> toggle, PreferencesSession preferences)
-        : base("Hub Mode (Public)", toggle, preferences)
+        : base(Loc.T("Hub Mode (Public)"), toggle, preferences)
     {
         // Typing in a field is a change of the card, so the fields call back into it.
-        _domain = new("Domain", "e.g. joinfs.example.com", FieldChanged);
-        _name = new("Name", "Public hub name", FieldChanged);
-        _about = new("About", "Short description", FieldChanged);
-        _voice = new("Voice Server", "Voice server address", FieldChanged);
-        _nextEvent = new("Next Event", "Next scheduled event", FieldChanged);
+        _domain = new(Loc.T("Domain"), Loc.T("e.g. joinfs.example.com"), FieldChanged);
+        _name = new(Loc.T("Name"), Loc.T("Public hub name"), FieldChanged);
+        _about = new(Loc.T("About"), Loc.T("Short description"), FieldChanged);
+        _voice = new(Loc.T("Voice Server"), Loc.T("Voice server address"), FieldChanged);
+        _nextEvent = new(Loc.T("Next Event"), Loc.T("Next scheduled event"), FieldChanged);
         Fields = [_domain, _name, _about, _voice, _nextEvent];
 
         Preferences p = Prefs;
@@ -340,7 +341,7 @@ public sealed partial class HubModeSettingsViewModel : PersistedSettingsSectionV
     {
         if (Enabled && _name.Value.Trim().Length < MinNameLength)
         {
-            NameError = $"The hub name must be at least {MinNameLength} characters long.";
+            NameError = Loc.F("The hub name must be at least {0} characters long.", MinNameLength);
             return false;
         }
 
@@ -355,7 +356,7 @@ public sealed partial class HubModeSettingsViewModel : PersistedSettingsSectionV
     }
 }
 
-public sealed class AddressBookSettingsViewModel(Action<SettingsSectionViewModel> toggle, AddressBookViewModel book) : SettingsSectionViewModel("Address Book", toggle)
+public sealed class AddressBookSettingsViewModel(Action<SettingsSectionViewModel> toggle, AddressBookViewModel book) : SettingsSectionViewModel(Loc.T("Address Book"), toggle)
 {
     public AddressBookViewModel Book { get; } = book;
 }
@@ -370,7 +371,7 @@ public sealed partial class XPlaneSettingsViewModel : PersistedSettingsSectionVi
     private readonly IPlatform _platform;
 
     internal XPlaneSettingsViewModel(Action<SettingsSectionViewModel> toggle, PreferencesSession preferences, IShell shell, IXPlanePluginInstaller installer, IPlatform platform)
-        : base("X-Plane", toggle, preferences)
+        : base(Loc.T("X-Plane"), toggle, preferences)
     {
         _shell = shell;
         _installer = installer;
@@ -407,7 +408,7 @@ public sealed partial class VariablesSettingsViewModel : SettingsSectionViewMode
     private readonly Dictionary<string, VariableAssignmentViewModel> _rowsByModel = [];
 
     internal VariablesSettingsViewModel(Action<SettingsSectionViewModel> toggle, IVariablesCatalog catalog, IModelCatalog models, IShell shell, IPlatform platform)
-        : base("Variables", toggle)
+        : base(Loc.T("Variables"), toggle)
     {
         _catalog = catalog;
         _models = models;
