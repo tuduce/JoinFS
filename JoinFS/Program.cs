@@ -139,6 +139,8 @@ namespace JoinFS
 
         /// <summary>The UDP port this instance uses - it also tells the per-instance log files apart</summary>
         public ushort ActivePort => settingsPortEnabled ? settingsPort : Network.DEFAULT_PORT;
+        /// <summary>Which model-matching engine resolves remote aircraft (Settings: ModelMatchingEngine, 0 = Classic, 1 = New)</summary>
+        public MatchingEngine settingsMatchingEngine = MatchingEngine.Classic;
 
         // elevated platform (helipad/ship deck/rooftop) ground-trust feature - command-line only, not persisted
         public bool settingsElevatedPlatformRecognition = true;
@@ -277,6 +279,7 @@ namespace JoinFS
                 settingsXplane = Settings.Default.XPlane;
                 settingsTcas = Settings.Default.TCAS;
                 settingsScan = Settings.Default.ModelScanOnConnection;
+                settingsMatchingEngine = Enum.IsDefined((MatchingEngine)Settings.Default.ModelMatchingEngine) ? (MatchingEngine)Settings.Default.ModelMatchingEngine : MatchingEngine.Classic;
 #if XPLANE || CONSOLE
                 settingsGenerateCsl = Settings.Default.GenerateCsl;
                 settingsSkipCsl = Settings.Default.SkipCsl;
@@ -891,7 +894,7 @@ namespace JoinFS
                 sim = new Sim(this);
                 network = new Network(this);
 #if !SERVER
-                substitution = new Substitution(this);
+                substitution = new Substitution(this) { engine = settingsMatchingEngine };
 
                 // try to resolve the simulator folder from the simulator's own recorded
                 // install location before ever asking the user - see SimPathDetector
