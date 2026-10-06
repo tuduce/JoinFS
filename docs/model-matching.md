@@ -1,7 +1,7 @@
 # Model matching
 
-How JoinFS decides which installed model stands in for a remote aircraft. Two engines exist side by side; **New is the default**, the
-**Classic** engine stays selectable with the setting `ModelMatchingEngine` (0 = Classic, 1 = New; stored in the user settings, switch in Settings).
+How JoinFS decides which installed model stands in for a remote aircraft. Two engines exist side by side; **New is the default**. The **Classic** engine is selected by starting JoinFS with the command line
+parameter `--classicmatching` (there is deliberately no setting and no UI switch; the parameter is listed in `--help` and in the Options dialog).
 
 ## Where it lives
 

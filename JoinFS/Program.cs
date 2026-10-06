@@ -139,7 +139,7 @@ namespace JoinFS
 
         /// <summary>The UDP port this instance uses - it also tells the per-instance log files apart</summary>
         public ushort ActivePort => settingsPortEnabled ? settingsPort : Network.DEFAULT_PORT;
-        /// <summary>Which model-matching engine resolves remote aircraft (Settings: ModelMatchingEngine, 0 = Classic, 1 = New, default New)</summary>
+        /// <summary>Which model-matching engine resolves remote aircraft: the new one, unless started with --classicmatching</summary>
         public MatchingEngine settingsMatchingEngine = MatchingEngine.New;
 
         // elevated platform (helipad/ship deck/rooftop) ground-trust feature - command-line only, not persisted
@@ -279,7 +279,6 @@ namespace JoinFS
                 settingsXplane = Settings.Default.XPlane;
                 settingsTcas = Settings.Default.TCAS;
                 settingsScan = Settings.Default.ModelScanOnConnection;
-                settingsMatchingEngine = Enum.IsDefined((MatchingEngine)Settings.Default.ModelMatchingEngine) ? (MatchingEngine)Settings.Default.ModelMatchingEngine : MatchingEngine.New;
 #if XPLANE || CONSOLE
                 settingsGenerateCsl = Settings.Default.GenerateCsl;
                 settingsSkipCsl = Settings.Default.SkipCsl;
@@ -632,6 +631,10 @@ namespace JoinFS
                                 settingsScan = true;
                                 break;
 
+                            case "-classicmatching":
+                                settingsMatchingEngine = MatchingEngine.Classic;
+                                break;
+
                             case "-elevatedplatformrecognition":
                                 // next parameter
                                 index++;
@@ -750,6 +753,7 @@ namespace JoinFS
                                 Console.WriteLine("  --multiobjects         " + Resources.Strings.Tip_MultiObjects);
                                 Console.WriteLine("  --simfolder \"<folder>\" " + Resources.Strings.Options_SimFolder);
                                 Console.WriteLine("  --scan                 " + Resources.Strings.ScanForModels);
+                                Console.WriteLine("  --classicmatching      " + Resources.Strings.Tip_ClassicMatching);
                                 Console.WriteLine("  --generatecsl          " + Resources.Strings.Option_GenerateCsl);
                                 Console.WriteLine("  --skipcsldone          " + Resources.Strings.Option_SkipCsl);
                                 Console.WriteLine("  --xplane               " + Resources.Strings.Tip_Xplane);

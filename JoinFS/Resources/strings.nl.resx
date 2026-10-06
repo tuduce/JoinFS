@@ -786,4 +786,13 @@
   <data name="ReconnectGaveUp" xml:space="preserve">
     <value>Verbinding verbroken. Automatisch opnieuw verbinden is de afgelopen {0} minuten niet gelukt. Maak handmatig opnieuw verbinding wanneer je klaar bent.</value>
   </data>
+  <data name="Tip_ClassicMatching" xml:space="preserve">
+    <value>Gebruik de klassieke modelkoppeling (alleen type, maatschappij en klasse) in plaats van de slimme</value>
+  </data>
+  <data name="MatchExplain_EngineNew" xml:space="preserve">
+    <value>Koppelmethode: slim (vergelijkt naast type, maatschappij en klasse ook grootte, gewicht, snelheid, motoren en fabrikant). Start JoinFS met --classicmatching voor de klassieke methode.</value>
+  </data>
+  <data name="MatchExplain_EngineClassic" xml:space="preserve">
+    <value>Koppelmethode: klassiek (vergelijkt alleen type, maatschappij, klassecode en turbulentiecategorie), gekozen met --classicmatching.</value>
+  </data>
 </root>

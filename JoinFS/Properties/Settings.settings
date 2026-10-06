@@ -314,9 +314,6 @@
     <Setting Name="ModelScanOnConnection" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
-    <Setting Name="ModelMatchingEngine" Type="System.Int32" Scope="User">
-      <Value Profile="(Default)">1</Value>
-    </Setting>
     <Setting Name="CommsTextColour" Type="System.Drawing.Color" Scope="User">
       <Value Profile="(Default)">11, 115, 16</Value>
     </Setting>

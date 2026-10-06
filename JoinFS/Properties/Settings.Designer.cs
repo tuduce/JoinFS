@@ -1270,19 +1270,7 @@ namespace JoinFS.Properties {
                 this["ModelScanOnConnection"] = value;
             }
         }
-
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("1")]
-        public int ModelMatchingEngine {
-            get {
-                return ((int)(this["ModelMatchingEngine"]));
-            }
-            set {
-                this["ModelMatchingEngine"] = value;
-            }
-        }
-
+        
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("11, 115, 16")]

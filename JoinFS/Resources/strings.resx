@@ -789,4 +789,13 @@
   <data name="ReconnectGaveUp" xml:space="preserve">
     <value>Connection lost. Automatic reconnect could not re-establish it within the last {0} minutes. Try reconnecting manually when you are ready.</value>
   </data>
+  <data name="Tip_ClassicMatching" xml:space="preserve">
+    <value>Use the classic model matching (type, airline and class only) instead of the smart matching</value>
+  </data>
+  <data name="MatchExplain_EngineNew" xml:space="preserve">
+    <value>Matching engine: smart (compares size, weight, speed, engines and manufacturer as well as type, airline and class). Start JoinFS with --classicmatching for the classic engine.</value>
+  </data>
+  <data name="MatchExplain_EngineClassic" xml:space="preserve">
+    <value>Matching engine: classic (compares type, airline, class code and wake category only), selected with --classicmatching.</value>
+  </data>
 </root>

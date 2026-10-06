@@ -4336,6 +4336,8 @@ namespace JoinFS
             public List<string> steps = [];
             /// <summary>Top scored candidates from the unified scorer, winner first - empty for fast-path/Default results</summary>
             public List<Candidate> topCandidates = [];
+            /// <summary>The matching engine that produced this trace; null when no engine was involved (a masquerade)</summary>
+            public MatchingEngine? engine = null;
         }
 
         /// <summary>
@@ -4541,7 +4543,9 @@ namespace JoinFS
         /// </summary>
         public (Model model, Type type, MatchTrace trace) Resolve(MatchRequest request)
         {
-            return engine == MatchingEngine.New ? MatchWithNewEngine(request) : MatchClassic(request);
+            var result = engine == MatchingEngine.New ? MatchWithNewEngine(request) : MatchClassic(request);
+            result.trace.engine = engine;
+            return result;
         }
 
         /// <summary>Which matching engine <see cref="Resolve"/> uses. The new engine is the default; Classic stays selectable (Settings).</summary>
