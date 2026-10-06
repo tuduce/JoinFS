@@ -317,6 +317,13 @@ namespace JoinFS
             public float[] embedding = null;
 
             /// <summary>
+            /// Physical aircraft data (size, weight, speeds, engines, gear) for the model-matching engine: measured from the model's own
+            /// configuration, or filled from the public reference for its ICAO type. Null until the matcher resolves it; never persisted
+            /// in models -             public float[] embedding = null;lt;sim            public float[] embedding = null;gt;.txt and never sent to other clients.
+            /// </summary>
+            public Matching.AircraftSpecs specs = null;
+
+            /// <summary>
             /// ICAO Doc8643 type designator, e.g. "EC45"/"A20N"
             /// </summary>
             public string icaoType = "";
@@ -688,7 +695,7 @@ namespace JoinFS
         /// at a boundary (e.g. stripping the space out of "...bus A32NX..." creates the substring "sA3", a
         /// real but completely unrelated ICAO designator that just happens to span that seam).
         /// </summary>
-        static bool ContainsToken(string haystack, string needle)
+        internal static bool ContainsToken(string haystack, string needle)
         {
             int searchFrom = 0;
             while (true)
@@ -4290,7 +4297,7 @@ namespace JoinFS
         /// titles/variations regardless of how dashes/underscores/spaces are used in either one
         /// (e.g. "D-AJOE" vs. a livery folder named "DAJOE_Eurowings_Europapark").
         /// </summary>
-        static string AlnumOnly(string s)
+        internal static string AlnumOnly(string s)
         {
             if (string.IsNullOrEmpty(s)) return "";
             Span<char> buf = stackalloc char[s.Length];
@@ -4307,7 +4314,7 @@ namespace JoinFS
         /// Match() falls through to the configured typerole Default instead of trusting a weak/coincidental
         /// signal (e.g. typerole-only or a short title-prefix match alone).
         /// </summary>
-        const int MinMatchScore = 20;
+        internal const int MinMatchScore = 20;
 
         /// <summary>
         /// Multiplier applied to a guessed (not confirmed) candidate's ICAO-type/class-code/WTC score
@@ -4316,7 +4323,7 @@ namespace JoinFS
         /// match (verified against a real mistagged-model case during design: 0.4 was not aggressive
         /// enough, 0.2 gives a clear margin).
         /// </summary>
-        const double GuessedSignalMultiplier = 0.2;
+        internal const double GuessedSignalMultiplier = 0.2;
 
         /// <summary>
         /// Score one candidate against the remote aircraft's reported/derived attributes. Every signal
@@ -4329,10 +4336,11 @@ namespace JoinFS
         /// Returns the total score, a per-MatchAttribute breakdown (for Explain Match's attribute grid),
         /// and a human-readable contribution list (for the trace/"other candidates considered" panel).
         /// </summary>
-        static void ScoreCandidate(Model candidate, string remoteIcaoType, string remoteClassCode, string remoteWtc,
+        internal static void ScoreCandidate(Model candidate, string remoteIcaoType, string remoteClassCode, string remoteWtc,
             string remoteIcaoAirline, string remoteRegistration, string remoteRegistrationAlnum, string remoteLivery,
             int remoteTyperole, string remoteTitle,
-            out int score, out Dictionary<MatchAttribute, int> attributeScores, out List<string> contributions)
+            out int score, out Dictionary<MatchAttribute, int> attributeScores, out List<string> contributions,
+            bool remoteAirlineGuessed = false, bool typeroleIsWeakHint = false)
         {
             int total = 0;
             Dictionary<MatchAttribute, int> attrScores = [];
@@ -4340,7 +4348,7 @@ namespace JoinFS
             double guessFactor = candidate.icaoGuessed ? GuessedSignalMultiplier : 1.0;
             // independent of guessFactor - icaoType and icaoAirline provenance are unrelated, a candidate
             // can have a confirmed icaoType but a text-guessed icaoAirline or vice versa
-            double airlineGuessFactor = candidate.icaoAirlineGuessed ? GuessedSignalMultiplier : 1.0;
+            double airlineGuessFactor = candidate.icaoAirlineGuessed || remoteAirlineGuessed ? GuessedSignalMultiplier : 1.0;
 
             void Add(MatchAttribute attr, double points, string detail)
             {
@@ -4413,7 +4421,7 @@ namespace JoinFS
                 {
                     Add(MatchAttribute.Typerole, 15, "same typerole");
                 }
-                else if (exactIcaoTypeMatch == false)
+                else if (exactIcaoTypeMatch == false && !typeroleIsWeakHint)
                 {
                     // a disagreeing typerole (e.g. a light business jet tagged Fighter/GA-bucket vs. an
                     // installed Airliner) is real evidence these are different-size aircraft, even when
@@ -4472,7 +4480,7 @@ namespace JoinFS
         public async Task<(Model model, Type type, MatchTrace trace)> Match(string title, string livery, string icaoType, string icaoAirline, string classCode, string wtc, bool classCodeConfirmed, int typerole, string registration = "")
         // in MSFS2024 aircraft livery is the model variation
         {
-            return Resolve(new MatchRequest(title, livery, icaoType, icaoAirline, classCode, wtc, classCodeConfirmed, typerole, registration));
+            return Resolve(new MatchRequest(title, livery, icaoType, icaoAirline, classCode, wtc, classCodeConfirmed, typerole, registration) { LiveryAware = true });
         }
 #else
         public async Task<(Model model, Type type, MatchTrace trace)> Match(string title, string icaoType, string icaoAirline, string classCode, string wtc, bool classCodeConfirmed, int typerole, string registration = "")
@@ -4487,7 +4495,25 @@ namespace JoinFS
         /// </summary>
         public (Model model, Type type, MatchTrace trace) Resolve(MatchRequest request)
         {
-            return MatchClassic(request);
+            return engine == MatchingEngine.New ? MatchWithNewEngine(request) : MatchClassic(request);
+        }
+
+        /// <summary>Which matching engine <see cref="Resolve"/> uses. Classic until the new one has proven itself.</summary>
+        public volatile MatchingEngine engine = MatchingEngine.Classic;
+
+        /// <summary>The new engine; it reads the live model list, so one instance serves the whole session.</summary>
+        Matching.CombinedMatcher newMatcher;
+
+        /// <summary>
+        /// The new matcher: explicit tiers as before, then identity signals + related types + physical similarity + plausibility gate,
+        /// deterministic order, and a refusal instead of a nonsense model.
+        /// </summary>
+        (Model model, Type type, MatchTrace trace) MatchWithNewEngine(MatchRequest request)
+        {
+            Matching.CombinedMatcher matcher = newMatcher ??= new Matching.CombinedMatcher(new Matching.SubstitutionCatalog(this), Matching.MatchingData.Reference,
+                airlines: Matching.MatchingData.Airlines, related: Matching.MatchingData.Related);
+            Matching.CombinedResult result = matcher.Match(request);
+            return (result.Model, result.Type, result.Trace);
         }
 
         /// <summary>
