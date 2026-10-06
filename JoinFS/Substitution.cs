@@ -1689,6 +1689,8 @@ namespace JoinFS
         string scanTexture = "";
         string scanIcaoAirline = "";
         string scanAtcId = "";
+        /// <summary>ICAO type designator of the scanned entry, when the source states one (X-Plane CSL ICAO/AIRLINE/LIVERY lines)</summary>
+        string scanIcaoType = "";
 
         /// <summary>
         /// Submit the current scanned names
@@ -1883,6 +1885,11 @@ namespace JoinFS
                         model.icaoAirlineGuessed = false;
                     }
                     model.atcId = scanAtcId;
+                    if (scanIcaoType.Length > 0 && model.icaoType.Length == 0)
+                    {
+                        model.icaoType = scanIcaoType;
+                        model.RefreshIcaoDerived(doc8643Lookup);
+                    }
 #if FS2024
                     if (model.icaoType.Length == 0)
                     {
@@ -1893,7 +1900,12 @@ namespace JoinFS
                 else
                 {
                     // add the model
-                    Model newModel = new(scanTitle, scanManufacturer, scanType, scanVariation, scanIndex, scanTyperole, "0", scanFolder, "", "", scanIcaoAirline, atcId: scanAtcId);
+                    Model newModel = new(scanTitle, scanManufacturer, scanType, scanVariation, scanIndex, scanTyperole, "0", scanFolder, scanIcaoType, "", scanIcaoAirline, atcId: scanAtcId);
+                    if (scanIcaoType.Length > 0)
+                    {
+                        // class code, wake category and a reliable typerole follow from the ICAO type
+                        newModel.RefreshIcaoDerived(doc8643Lookup);
+                    }
 #if FS2024
                     ApplyIcaoResult(newModel);
 #endif
@@ -1921,6 +1933,7 @@ namespace JoinFS
             scanTexture = "";
             scanFolder = "";
             scanIcaoAirline = "";
+            scanIcaoType = "";
             scanAtcId = "";
         }
 
@@ -2356,6 +2369,8 @@ namespace JoinFS
                                         scanManufacturer = manufacturer;
                                         // get type
                                         scanType = words[1];
+                                        // the CSL entry states the aircraft type and airline: keep them on the model (they used to be dropped)
+                                        (scanIcaoType, scanIcaoAirline) = Matching.XsbEntry.Identity(command, words);
                                         // get variation
                                         if (words.Length > 3) scanVariation = words[2] + " " + words[3];
                                         else if (words.Length == 3) scanVariation = words[2];
@@ -3101,6 +3116,10 @@ namespace JoinFS
                                     int.TryParse(parts[4], NumberStyles.Number, CultureInfo.InvariantCulture, out int index);
                                     // read new ICAO fields when present, tolerating files saved by an older build
                                     string icaoType = parts.Length > 8 ? parts[8] : "";
+#if XPLANE
+                                    // models files written before X-Plane CSL entries kept their ICAO type: the "type" column is that designator
+                                    if (icaoType.Length == 0 && IsRecognizedIcaoType(parts[2])) icaoType = parts[2];
+#endif
                                     string wtc = parts.Length > 9 ? parts[9] : "";
                                     string icaoAirline = parts.Length > 10 ? parts[10] : "";
                                     string classCode = parts.Length > 11 ? parts[11] : "";
