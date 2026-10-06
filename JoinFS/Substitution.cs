@@ -4471,10 +4471,40 @@ namespace JoinFS
 #if FS2024
         public async Task<(Model model, Type type, MatchTrace trace)> Match(string title, string livery, string icaoType, string icaoAirline, string classCode, string wtc, bool classCodeConfirmed, int typerole, string registration = "")
         // in MSFS2024 aircraft livery is the model variation
+        {
+            return Resolve(new MatchRequest(title, livery, icaoType, icaoAirline, classCode, wtc, classCodeConfirmed, typerole, registration));
+        }
 #else
         public async Task<(Model model, Type type, MatchTrace trace)> Match(string title, string icaoType, string icaoAirline, string classCode, string wtc, bool classCodeConfirmed, int typerole, string registration = "")
-#endif
         {
+            return Resolve(new MatchRequest(title, "", icaoType, icaoAirline, classCode, wtc, classCodeConfirmed, typerole, registration));
+        }
+#endif
+
+        /// <summary>
+        /// Resolve a request to an installed model. The one place that decides which matching engine runs; build-neutral, so every
+        /// simulator build (and the tests) share it. Synchronous: <see cref="Match"/> has never awaited anything.
+        /// </summary>
+        public (Model model, Type type, MatchTrace trace) Resolve(MatchRequest request)
+        {
+            return MatchClassic(request);
+        }
+
+        /// <summary>
+        /// The classic matcher: user substitution, exact title, one additive identity score, defaults, last resort.
+        /// Unchanged behaviour (pinned by SubstitutionMatchCharacterizationTests).
+        /// </summary>
+        (Model model, Type type, MatchTrace trace) MatchClassic(MatchRequest request)
+        {
+            string title = request.Title;
+            string livery = request.Livery;
+            string icaoType = request.IcaoType;
+            string icaoAirline = request.IcaoAirline;
+            string classCode = request.ClassCode;
+            string wtc = request.Wtc;
+            int typerole = request.Typerole;
+            string registration = request.Registration;
+
             Model model;
             Type type;
             MatchTrace trace = new();
