@@ -22,9 +22,14 @@ namespace JoinFS.Matching
         public string FamilyReason = "";
         public int CombinedScore;
         public ResolvedSpecs CandidateSpecs = new();
-        /// <summary>Set when the candidate is physically implausible and was not eligible (rotor vs fixed wing, absurd weight ratio)</summary>
-        public bool Excluded;
-        public string ExcludedReason = "";
+    }
+
+    /// <summary>Models of one title that were excluded as physically implausible, with the reason (rotor vs fixed wing, absurd weight ratio).</summary>
+    public sealed class ExcludedGroup
+    {
+        public string Title = "";
+        public string Reason = "";
+        public int Count;
     }
 
     /// <summary>Everything the report needs beyond the MatchTrace: remote data, full ranking, why nothing was plausible.</summary>
@@ -32,7 +37,12 @@ namespace JoinFS.Matching
     {
         public MatchRequest EffectiveRequest;
         public ResolvedSpecs RemoteSpecs = new();
+        /// <summary>The eligible candidates, best first. Implausible models are not ranked: see <see cref="ExcludedCount"/> and <see cref="ExcludedGroups"/>.</summary>
         public List<RankedCandidate> Ranking = [];
+        public int ExcludedCount;
+        /// <summary>The first excluded titles (at most <see cref="MaxExcludedGroups"/>) with their reason and number of liveries</summary>
+        public List<ExcludedGroup> ExcludedGroups = [];
+        public const int MaxExcludedGroups = 50;
         public bool NoPlausibleMatch;
         /// <summary>Notes about the request itself (alias correction ...)</summary>
         public List<string> RequestNotes = [];
@@ -80,6 +90,7 @@ namespace JoinFS.Matching
         readonly SimilarityScorer scorer;
         readonly AirlineResolver airlines;
         readonly RelatedTypes related;
+        readonly ModelSpecCache specCache;
 
         public CombinedMatcher(IMatchCatalog catalog, ReferenceSpecs reference, SimilarityScorer scorer = null, AirlineResolver airlines = null, RelatedTypes related = null)
         {
@@ -89,6 +100,7 @@ namespace JoinFS.Matching
             this.reference = reference;
             this.scorer = scorer ?? new SimilarityScorer();
             specResolver = new SpecResolver(reference, catalog.Doc8643);
+            specCache = new ModelSpecCache(specResolver);
         }
 
         /// <summary>
@@ -138,7 +150,7 @@ namespace JoinFS.Matching
             result.Trace.steps.AddRange(explanation.RequestNotes);
 
             (string remoteClass, string remoteWtc) = IdentityScorer.ResolveRemoteClass(request, catalog.Doc8643);
-            explanation.Ranking = Rank(request, remoteClass, remoteWtc, explanation.RemoteSpecs.Specs);
+            explanation.Ranking = Rank(request, remoteClass, remoteWtc, explanation.RemoteSpecs.Specs, explanation);
 
             RankedCandidate winner = explanation.Ranking.FirstOrDefault(IsAcceptable);
             if (winner != null)
@@ -266,19 +278,44 @@ namespace JoinFS.Matching
             return Copy(request, resolved, request.IcaoAirline, false);
         }
 
-        List<RankedCandidate> Rank(MatchRequest request, string remoteClass, string remoteWtc, AircraftSpecs remoteSpecs)
+        /// <summary>What depends only on a candidate's physical data - computed once per distinct spec set, not once per model.</summary>
+        sealed class GroupEvaluation
+        {
+            public SimilarityResult Similarity;
+            public int Points;
+            public int FamilyBonus;
+            public string FamilyReason = "";
+        }
+
+        List<RankedCandidate> Rank(MatchRequest request, string remoteClass, string remoteWtc, AircraftSpecs remoteSpecs, MatchExplanation explanation)
         {
             string registrationAlnum = TextTokens.AlnumOnly(request.Registration);
+            IReadOnlyList<Model> models = catalog.Models;
+            specCache.Validate(models);
+
+            // thousands of models share a handful of types (and liveries): judge each distinct spec set once
+            Dictionary<ResolvedSpecs, GroupEvaluation> groups = new(ReferenceEqualityComparer.Instance);
+            Dictionary<string, ExcludedGroup> excludedByTitle = new(StringComparer.Ordinal);
             List<RankedCandidate> ranked = [];
-            foreach (var model in catalog.Models)
+
+            foreach (var model in models)
             {
+                ResolvedSpecs candidateSpecs = specCache.For(model);
+                if (!groups.TryGetValue(candidateSpecs, out GroupEvaluation group))
+                {
+                    group = Evaluate(remoteSpecs, candidateSpecs);
+                    groups[candidateSpecs] = group;
+                }
+
+                if (group.Similarity.Gated)
+                {
+                    NoteExcluded(explanation, excludedByTitle, model, group.Similarity.GateReason);
+                    continue;
+                }
+
                 CandidateScore baselineScore = IdentityScorer.Score(model, request, remoteClass, remoteWtc, registrationAlnum, typeroleIsWeakHint: true);
                 AddRelatedTypePoints(baselineScore, model, request);
-                ResolvedSpecs candidateSpecs = specResolver.ForModel(model);
                 AddTitleInferredIdentity(baselineScore, model, candidateSpecs, request, remoteClass, remoteWtc);
-                SimilarityResult similarity = scorer.Compare(remoteSpecs, candidateSpecs.Specs);
-                int points = (int)Math.Round(SimilarityPointsMax * similarity.Score * similarity.Confidence);
-                (int familyBonus, string familyReason) = SameManufacturerRule(remoteSpecs, candidateSpecs.Specs);
 
                 ranked.Add(new RankedCandidate
                 {
@@ -287,23 +324,55 @@ namespace JoinFS.Matching
                     BaselineContributions = baselineScore.Contributions,
                     AttributeScores = baselineScore.AttributeScores,
                     CandidateSpecs = candidateSpecs,
-                    Similarity = similarity,
-                    SimilarityPoints = points,
-                    FamilyBonus = similarity.Gated ? 0 : familyBonus,
-                    FamilyReason = familyReason,
-                    CombinedScore = baselineScore.Score + points + (similarity.Gated ? 0 : familyBonus),
-                    Excluded = similarity.Gated,
-                    ExcludedReason = similarity.GateReason
+                    Similarity = group.Similarity,
+                    SimilarityPoints = group.Points,
+                    FamilyBonus = group.FamilyBonus,
+                    FamilyReason = group.FamilyReason,
+                    CombinedScore = baselineScore.Score + group.Points + group.FamilyBonus
                 });
             }
 
             // deterministic order: best score, then most alike, then title/variation alphabetically
-            return [.. ranked
-                .OrderBy(r => r.Excluded)
-                .ThenByDescending(r => r.CombinedScore)
-                .ThenByDescending(r => r.Similarity.Score)
-                .ThenBy(r => r.Model.title, StringComparer.Ordinal)
-                .ThenBy(r => r.Model.variation, StringComparer.Ordinal)];
+            ranked.Sort(CompareCandidates);
+            return ranked;
+        }
+
+        GroupEvaluation Evaluate(AircraftSpecs remoteSpecs, ResolvedSpecs candidateSpecs)
+        {
+            SimilarityResult similarity = scorer.Compare(remoteSpecs, candidateSpecs.Specs);
+            (int familyBonus, string familyReason) = similarity.Gated ? (0, "") : SameManufacturerRule(remoteSpecs, candidateSpecs.Specs);
+            return new GroupEvaluation
+            {
+                Similarity = similarity,
+                Points = (int)Math.Round(SimilarityPointsMax * similarity.Score * similarity.Confidence),
+                FamilyBonus = familyBonus,
+                FamilyReason = familyReason
+            };
+        }
+
+        static int CompareCandidates(RankedCandidate a, RankedCandidate b)
+        {
+            int byScore = b.CombinedScore.CompareTo(a.CombinedScore);
+            if (byScore != 0) return byScore;
+            int bySimilarity = b.Similarity.Score.CompareTo(a.Similarity.Score);
+            if (bySimilarity != 0) return bySimilarity;
+            int byTitle = string.CompareOrdinal(a.Model.title, b.Model.title);
+            return byTitle != 0 ? byTitle : string.CompareOrdinal(a.Model.variation, b.Model.variation);
+        }
+
+        static void NoteExcluded(MatchExplanation explanation, Dictionary<string, ExcludedGroup> byTitle, Model model, string reason)
+        {
+            explanation.ExcludedCount++;
+            if (byTitle.TryGetValue(model.title, out ExcludedGroup group))
+            {
+                group.Count++;
+            }
+            else if (explanation.ExcludedGroups.Count < MatchExplanation.MaxExcludedGroups)
+            {
+                group = new ExcludedGroup { Title = model.title, Reason = reason, Count = 1 };
+                byTitle[model.title] = group;
+                explanation.ExcludedGroups.Add(group);
+            }
         }
 
         /// <summary>
@@ -385,7 +454,7 @@ namespace JoinFS.Matching
 
         bool IsAcceptable(RankedCandidate candidate)
         {
-            if (candidate.Excluded || candidate.CombinedScore < Substitution.MinMatchScore) return false;
+            if (candidate.CombinedScore < Substitution.MinMatchScore) return false;
             bool comparable = candidate.Similarity.Confidence > 0;
             return !comparable || candidate.Similarity.Score >= MinSimilarity || candidate.AttributeScores.ContainsKey(MatchAttribute.IcaoType);
         }
@@ -397,13 +466,11 @@ namespace JoinFS.Matching
                 : model.classCode.Length == 3 && model.classCode == remoteClass ? MatchType.Category
                 : MatchType.Auto;
 
-            int eligible = explanation.Ranking.Count(r => !r.Excluded);
-            int excluded = explanation.Ranking.Count - eligible;
-            result.Trace.steps.Add($"Scoring (combined): {explanation.Ranking.Count} installed model(s) compared on JoinFS signals plus physical similarity; {excluded} excluded as physically implausible. " +
+            result.Trace.steps.Add($"Scoring (combined): {explanation.ModelCount} installed model(s) compared on JoinFS signals plus physical similarity; {explanation.ExcludedCount} excluded as physically implausible. " +
                 $"Winner '{model.title}' / '{model.variation}' scored {winner.CombinedScore} = {winner.BaselineScore} (JoinFS signals) + {winner.SimilarityPoints} (similarity {winner.Similarity.Score:0.00} x confidence {winner.Similarity.Confidence:0.00})" +
                 (winner.FamilyBonus > 0 ? $" + {winner.FamilyBonus} ({winner.FamilyReason})." : "."));
 
-            result.Trace.topCandidates = explanation.Ranking.Where(r => !r.Excluded).Take(5).Select(r => new MatchTrace.Candidate
+            result.Trace.topCandidates = explanation.Ranking.Take(5).Select(r => new MatchTrace.Candidate
             {
                 title = r.Model.title,
                 variation = r.Model.variation,
@@ -419,11 +486,11 @@ namespace JoinFS.Matching
         CombinedResult NoPlausible(CombinedResult result, MatchRequest request, string remoteClass, string remoteWtc, MatchExplanation explanation)
         {
             explanation.NoPlausibleMatch = true;
-            RankedCandidate best = explanation.Ranking.FirstOrDefault(r => !r.Excluded);
-            string why = explanation.Ranking.Count == 0
+            RankedCandidate best = explanation.Ranking.FirstOrDefault();
+            string why = explanation.ModelCount == 0
                 ? "no models are installed/scanned at all"
                 : best == null
-                    ? $"every installed model was excluded as physically implausible ({string.Join("; ", explanation.Ranking.Take(3).Select(r => "'" + r.Model.title + "': " + r.ExcludedReason))}{(explanation.Ranking.Count > 3 ? "; ..." : "")})"
+                    ? $"every installed model was excluded as physically implausible ({string.Join("; ", explanation.ExcludedGroups.Take(3).Select(g => "'" + g.Title + "': " + g.Reason))}{(explanation.ExcludedGroups.Count > 3 || explanation.ExcludedCount > 3 ? "; ..." : "")})"
                     : $"the best candidate '{best.Model.title}' reached {best.CombinedScore} (similarity {best.Similarity.Score:0.00}), below the acceptance rules";
             result.Trace.steps.Add($"Scoring (combined): no physically plausible installed model - {why}.");
 
@@ -432,7 +499,7 @@ namespace JoinFS.Matching
             if (catalog.DefaultModels.TryGetValue(request.Typerole, out string defaultKey) && catalog.Matches.TryGetValue(defaultKey, out var match))
             {
                 RankedCandidate defaultRank = explanation.Ranking.FirstOrDefault(r => r.Model.title == match.title);
-                if (defaultRank != null && !defaultRank.Excluded)
+                if (defaultRank != null)
                 {
                     result.Trace.steps.Add($"Default: using the configured default model for typerole '{requestedRole}' -> '{defaultRank.Model.title}'.");
                     Finish(result, defaultRank.Model, MatchType.Default, request, remoteClass, remoteWtc, null, MatchAttribute.Typerole);
