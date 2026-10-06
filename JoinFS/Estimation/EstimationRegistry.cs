@@ -29,6 +29,7 @@ namespace JoinFS.Estimation
             [DefaultSteering] = ClassicSteering.CatchUpRate,
             ["Gain4"] = 4.0,
             ["Gain8"] = 8.0,
+            ["Gain16"] = 16.0,
         };
 
         static readonly Dictionary<string, Func<IStateEstimator>> estimators = new()
@@ -40,6 +41,9 @@ namespace JoinFS.Estimation
         public static IEnumerable<string> ClockNames => clocks.Keys;
         public static IEnumerable<string> EstimatorNames => estimators.Keys;
         public static IEnumerable<string> SteeringNames => steeringGains.Keys;
+
+        /// <summary>The laws <see cref="SteeringSchedule.Alternate"/> cycles through: the original and the stiff candidates (Gain4 was in the 2026-10-06 flight and sits between)</summary>
+        public static readonly string[] AlternatedSteering = [DefaultSteering, "Gain8", "Gain16"];
 
         /// <summary>
         /// The steering law new objects get (the -steering command-line option): a name, or

@@ -5,7 +5,7 @@ namespace JoinFS.Estimation
 {
     /// <summary>
     /// Which steering law is in force at a given time. Normally one; with the selection
-    /// <see cref="Alternate"/> it cycles through all of the registered laws, a few minutes each, so
+    /// <see cref="Alternate"/> it cycles through <see cref="EstimationRegistry.AlternatedSteering"/>, a few minutes each, so
     /// that one flight compares them under the same conditions (the log says which was in force).
     /// The laws keep no state, so switching is seamless.
     /// </summary>
@@ -25,7 +25,7 @@ namespace JoinFS.Estimation
         /// <param name="selection">The law to use, or <see cref="Alternate"/></param>
         public SteeringSchedule(Func<string, ISteeringLaw> create, string selection, double period = PeriodSeconds)
         {
-            names = selection == Alternate ? EstimationRegistry.SteeringNames.ToArray() : [selection];
+            names = selection == Alternate ? EstimationRegistry.AlternatedSteering : [selection];
             laws = names.Select(create).ToArray();
             this.period = period;
         }

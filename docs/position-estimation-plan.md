@@ -26,8 +26,9 @@ Written 2026-10-01. Status:
 - Phase 5: the passive fallback, `MinOffsetClock`, is built, field-confirmed (§6.6) and the default
   since 2026-10-05 (`-clock RttHalf` selects the old one); see §6.5 and §7.3. The NTP-style
   exchange on JFP2 is open.
-- Phase 6 (steering) has started: the drawn error was analysed (§6.6) and a steering-gain
-  experiment is built, not yet flown (§7.4). Phases 7–8 are open; §6.6 lists the next steps.
+- Phase 6 (steering): the gain experiment was flown on 2026-10-06 and a stiffer gain cuts the
+  drawn cross-track and vertical error 2–3× (§6.7); it is not yet the default. A separate fault,
+  the drawn altitude freezing in fast dives, is under investigation (§6.7). Phases 7–8 are open.
 
 **Prior art in the repo:**
 
@@ -814,6 +815,78 @@ estimator to 0.22 mm at most, and the logged ages equal the model scored in §6.
 7. **Kalman/IMM and the sender dead-reckoning threshold** are not justified: the model error is
    already 0.1–0.2 m.
 
+### 6.7 Field results of the steering experiment (2026-10-06)
+
+**Session.** The same two MSFS 2024 PCs, 17:38–19:18 UTC, package `cfa6e17`: `ClassicFixed`,
+`MinOffset`, `-steering alternate` (`Classic`, `Gain4`, `Gain8`, 120 s each, in that order), about 22
+airborne minutes per law and PC. FLIGHTSIM flew HB-TDX; CRISTII5DESK flew YR-SCD, restarted its sim
+at 17:58 UTC and flew Tiger-41. Round trip 35.5 ms, one way 17.7–17.8 / 19.2–19.8 / 22.6–24.3 ms.
+CRISTII5DESK's sim was paused for a few minutes shortly before take-off (confirmed by the pilot),
+which is why its `simClock` stood still then.
+
+**Model.** The prediction is within 0.07 m along track at p95 and 0.11 m at p99 on both PCs, the age
+error p95 is 0.4–0.7 ms, and the senders' stamps are exact (±0.1 ms): the model is finished (§6.6).
+
+**Drawn error by law**, timed by the simulator's clock (`compare_steering.py`), p95 in metres, all
+phases; the paused stretch is left out:
+
+| | Classic | Gain4 | Gain8 |
+|---|---|---|---|
+| HB-TDX on CRISTII5DESK: along / cross / vertical | 0.446 / 0.070 / 0.150 | 0.460 / 0.047 / 0.093 | 0.458 / 0.023 / 0.050 |
+| …turning (30–60°): cross / vertical | 0.152 / 0.299 | 0.072 / 0.120 | 0.039 / 0.078 |
+| …inverted: cross / vertical | 0.137 / 0.181 | no data | 0.042 / 0.068 |
+| Tiger-41 on FLIGHTSIM: along / cross / vertical | 0.195 / 0.051 / 0.103 | 0.214 / 0.027 / 0.063 | 0.226 / 0.016 / 0.042 |
+| …turning: cross / vertical | 0.091 / 0.115 | 0.057 / 0.097 | 0.023 / 0.057 |
+
+- **A stiffer gain does what the hypothesis said** (§6.6): the cross-track and vertical errors fall
+  with the gain, `Gain8` by 2–3× against `Classic`, and in banked turns, where the sag was worst, by
+  3–4×.
+- **The along track does not change**: it is at the noise floor of the measurement, and the median
+  offset (+0.09 m on FLIGHTSIM, +0.2 m on CRISTII5DESK, about 3 ms at flying speed) is the same for
+  all three laws, so it is not the steering.
+- **The price is small:** the along-track p99 rises slightly with `Gain8` (0.30 → 0.36 m and
+  0.60 → 0.66 m), and the bank in turns on CRISTII5DESK is 0.53° against 0.40° for `Classic`
+  (on FLIGHTSIM it is better: 0.042° against 0.055°).
+- **Caveats:** the laws were flown in different two-minute slots, so the manoeuvre mix differs, and
+  steep and inverted samples are few. A gain of 8 s⁻¹ is stable at the frame rates seen here
+  (8 × 1/30 s = 0.27 per frame) but would not be below about 8 frames per second.
+
+**The drawn altitude freezes in fast descents** (not the steering, and old):
+
+- **What the log shows.** In 5 episodes (9 runs) of 0.5–3.6 s the simulator's reported altitude of the
+  injected aircraft stays at one exact value (1013.57, 2851.01, 1093.69, 2946.32, 1647.66 m) while the
+  sender descends at 25–45 m/s; the drawn aircraft ends up 12–135 m above the true one, then jumps
+  back. Horizontal tracking stays within 2–4 m throughout. Where the sim's attitude is logged, it
+  often reads level (pitch −0.0, bank 0.1) between rows with the right attitude: the aircraft flickers
+  between its attitude and level, which is the rapid roll, pitch and heading change the pilot sees,
+  with the position drifting from the real one until it snaps back.
+- **Not new, not the steering.** Constant-altitude runs also appear on 2026-10-02 and 10-05, with
+  `Classic` steering and the old clock, always in dives (down to −113 m/s), and under all three laws
+  tonight. They happen on both PCs at about the same time when the two aircraft dive along mountains
+  (1.0–1.5 km apart).
+- **Not the heading either.** Pull request #195 (compass 0–359 reporting) changes how headings are
+  reported in the websocket, Whazzup, the hub list and dialogs, and the user aircraft's heading-bug
+  variable; the playback and the injection keep the continuous value. It is in this build, and the
+  episodes are at headings of 25–260° with the simulator's heading equal to the sender's, never
+  near north.
+- **Not resolved by a reset.** The steering resets the object to the target when it is 50 m off, and
+  in the longest episode (125 m) that had no effect, so the simulator is not accepting vertical
+  commands for the object while it holds it.
+- **Hypothesis, untested:** the receiver's simulator has no terrain collision data where the injected
+  aircraft is (the aircraft is 1–1.5 km away, diving into mountains) and holds it. The log did not
+  carry the terrain; it now does: `elev` (the sender's ground altitude), `simElev` and `simAgl` (the
+  receiver's, for the injected object) and `simGround` (whether its sim thinks it is on the ground).
+  The next flight with a dive will say whether `simElev` is above the frozen altitude.
+
+**Next steps**, in this order:
+
+1. **Make `Gain8` the default**, or first try a stiffer one (`Gain16`) in the alternation; the
+   steady offset was still falling at 8.
+2. **Find the altitude freeze** with the new terrain columns on the next dive. If the simulator
+   holds the object for lack of terrain, the options are limited to detecting it and re-injecting
+   the object, or drawing it level until the terrain is there.
+3. **The remaining items** of §6.6: the sim-thread stall, other simulators and rates, X-Plane.
+
 ---
 
 ## 7. Implementation phases
@@ -954,13 +1027,16 @@ default since 2026-10-05, after the field session in §6.6; `-clock RttHalf` sel
 Nothing changes by default (`Classic`, 1.5 s⁻¹). Three additions make the experiment possible:
 
 - **Laws.** `ClassicSteering` takes the catch-up rate as a parameter. The registry has `Classic`
-  (1.5), `Gain4` (4) and `Gain8` (8); `-steering <name>` selects one.
-  `-steering alternate` cycles through all of them, 120 s each
+  (1.5), `Gain4` (4), `Gain8` (8) and `Gain16` (16); `-steering <name>` selects one.
+  `-steering alternate` cycles through `Classic`, `Gain8` and `Gain16` (since 2026-10-06; the first
+  flight had `Gain4` instead of `Gain16`), 120 s each
   ([SteeringSchedule.cs](../JoinFS/Estimation/SteeringSchedule.cs)). The laws keep no state, so a
   switch is seamless. The tester package starts `alternate`.
-- **Log.** Sample rows have a new last column `steer`, the law in force when the prediction was
-  made, and `simClock` is now filled in the sample rows: the simulator's own clock at the sim's last
-  report of the object (MSFS; it was already read for the sender's stamps).
+- **Log.** Sample rows have new last columns `steer`, the law in force when the prediction was
+  made, and `simClock`, filled in the sample rows: the simulator's own clock at the sim's last
+  report of the object (MSFS; it was already read for the sender's stamps). `elev`, `simElev`,
+  `simAgl` and `simGround` (added 2026-10-06) say what terrain the sender and the local simulator
+  have under the object, and whether the simulator has it on the ground.
 - **Scoring.** `JoinFS/util/estimation-analysis/compare_steering.py` times each report by the
   simulator's clock plus the smallest (handled − clock) of the last second, takes the sender's
   true state at that moment, and tabulates the signed drawn error (along, cross, vertical) per law

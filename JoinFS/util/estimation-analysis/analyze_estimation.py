@@ -363,41 +363,49 @@ def calibrate(directions):
     have the same one-way delay. The sum of the two ways does not depend on the alignment, so it
     checks the data against the measured round trip."""
     notes = []
-    by_pair = {(d.owner.pc, d.receiver.pc): d for d in directions if d.owner is not None}
+    # every direction between the same two PCs shares one time line: a renamed aircraft, or another
+    # session, is another direction of the pair
+    by_pair = defaultdict(list)
+    for d in directions:
+        if d.owner is not None:
+            by_pair[(d.owner.pc, d.receiver.pc)].append(d)
     done = set()
-    for (sender, receiver), d in by_pair.items():
-        back = by_pair.get((receiver, sender))
-        if back is None or (receiver, sender) in done:
+    for (sender, receiver), forward in by_pair.items():
+        backward = by_pair.get((receiver, sender))
+        if backward is None or (receiver, sender) in done:
             continue
         done.add((sender, receiver))
+        d, back = forward[0], backward[0]
 
-        def windows(direction, sender_side):
+        def windows(group, sender_side):
             """Fastest one-way delay per window, keyed by the window on the sender PC's line"""
             out = defaultdict(lambda: math.inf)
-            o = direction.owner
-            for s in direction.samples():
-                if s.paused:
-                    continue
-                if sender_side:
-                    sys_t, pc = o.clock.to_utc(s.netTime), o.pc
-                else:
-                    sys_t, pc = direction.receiver.clock.to_utc(s.receivedAt), direction.receiver.pc
-                k = int((sys_t + pc.correction(sys_t)) // CALIBRATION_WINDOW)
-                out[k] = min(out[k], direction.latency(s))
+            for direction in group:
+                o = direction.owner
+                for s in direction.samples():
+                    if s.paused:
+                        continue
+                    if sender_side:
+                        sys_t, pc = o.clock.to_utc(s.netTime), o.pc
+                    else:
+                        sys_t, pc = direction.receiver.clock.to_utc(s.receivedAt), direction.receiver.pc
+                    k = int((sys_t + pc.correction(sys_t)) // CALIBRATION_WINDOW)
+                    out[k] = min(out[k], direction.latency(s))
             return out
 
-        a = windows(d, True)        # sender -> receiver, by the sender's time
-        b = windows(back, False)    # receiver -> sender, by its arrival at the sender
-        raw_a = statistics.median(d.latency(s) for s in d.samples()[::10])
-        raw_b = statistics.median(back.latency(s) for s in back.samples()[::10])
-        rtt = pct([s.rtt for s in d.samples() if s.rtt > 0], .5)
+        a = windows(forward, True)        # sender -> receiver, by the sender's time
+        b = windows(backward, False)      # receiver -> sender, by its arrival at the sender
+        raw_a = statistics.median(direction.latency(s) for direction in forward for s in direction.samples()[::10])
+        raw_b = statistics.median(direction.latency(s) for direction in backward for s in direction.samples()[::10])
+        rtt = pct([s.rtt for direction in forward for s in direction.samples() if s.rtt > 0], .5)
         # shift the sender PC's line in each window so both ways have the same fastest delay
         # (correction() subtracts the shift: it adds to the delay one way and takes from the other)
         points = sorted(((k + 0.5) * CALIBRATION_WINDOW, (b[k] - a[k]) / 2) for k in a if k in b)
         if len(points) < 3:
             continue
         sender.shifts = points
-        d.calibrated = back.calibrated = True
+        for direction in forward + backward:
+            direction.calibrated = True
         shifts = [p for _, p in points]
         fastest = statistics.median((a[k] + b[k]) / 2 for k in a if k in b)
         notes.append((d, back, raw_a, raw_b, rtt, (min(shifts), statistics.median(shifts), max(shifts)), fastest))

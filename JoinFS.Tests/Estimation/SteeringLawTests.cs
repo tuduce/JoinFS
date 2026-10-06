@@ -19,6 +19,7 @@ namespace JoinFS.Tests.Estimation
         [InlineData("Classic", 1.5)]
         [InlineData("Gain4", 4.0)]
         [InlineData("Gain8", 8.0)]
+        [InlineData("Gain16", 16.0)]
         public void TheCatchUpRate_IsTheGainOfTheLaw(string name, double gain)
         {
             ISteeringLaw law = EstimationRegistry.CreateSteering(name, setAttitudeEveryFrame: true, groundAltitudeLimit: 0.2);
@@ -41,6 +42,7 @@ namespace JoinFS.Tests.Estimation
         {
             Assert.Contains("Classic", EstimationRegistry.SteeringNames);
             Assert.Contains("Gain4", EstimationRegistry.SteeringNames);
+            Assert.All(EstimationRegistry.AlternatedSteering, name => Assert.Contains(name, EstimationRegistry.SteeringNames));
             string selected = EstimationRegistry.SelectedSteering;
             try
             {
@@ -72,7 +74,7 @@ namespace JoinFS.Tests.Estimation
         [Fact]
         public void Alternating_CyclesThroughEveryLaw_APeriodEach()
         {
-            string[] names = EstimationRegistry.SteeringNames.ToArray();
+            string[] names = EstimationRegistry.AlternatedSteering;
             var schedule = new SteeringSchedule(name => EstimationRegistry.CreateSteering(name, true, 0.2), SteeringSchedule.Alternate, period: 60.0);
             Assert.True(names.Length > 1);
             for (int cycle = 0; cycle < 2; cycle++)

@@ -15,7 +15,11 @@ namespace JoinFS.Estimation
     ///   and our arrival time; the RTT to the owner; the sample's state; the newest prediction
     ///   made before it arrived, and the steering law that was in force (steer); and where the
     ///   simulator last reported the object, with the simulator's own clock at that report
-    ///   (simClock, MSFS) so that the drawn object can be timed without the handling jitter.
+    ///   (simClock, MSFS) so that the drawn object can be timed without the handling jitter; and
+    ///   the terrain: the sender's ground altitude under the sample (elev), and what the local
+    ///   simulator reports for the object (simElev, its height above ground simAgl, and whether
+    ///   it thinks the object is on the ground, simGround) - for fast dives, where the drawn
+    ///   altitude has been seen to freeze.
     /// - "clock": local time against UTC, once a second. Logs from two machines whose clocks are
     ///   synchronised can then be put on one time line, which gives the true network delay.
     /// - "send": one of our own aircraft's samples was sent. local is when its message was
@@ -36,10 +40,13 @@ namespace JoinFS.Estimation
             "kind,utc,local,owner,node,netId,callsign,netTime,receivedAt,rtt," +
             "lat,lon,alt,pitch,bank,heading,vx,vy,vz,avx,avy,avz,ax,ay,az,ground,paused," +
             "predLocal,predFrom,predAge,predLat,predLon,predAlt,predPitch,predBank,predHeading," +
-            "simTime,simLat,simLon,simAlt,simPitch,simBank,simHeading,simClock,steer";
+            "simTime,simLat,simLon,simAlt,simPitch,simBank,simHeading,simClock,steer,elev,simElev,simAgl,simGround";
 
         /// <summary>Columns in a row</summary>
         static readonly int ColumnCount = Header.Split(',').Length;
+
+        /// <summary>Index of the simClock column, where a send row carries the simulator's clock</summary>
+        static readonly int SimClockColumn = Array.IndexOf(Header.Split(','), "simClock");
 
         /// <summary>The newest prediction for an object, copied (the steering may reuse its objects)</summary>
         sealed class Prediction
@@ -187,7 +194,16 @@ namespace JoinFS.Estimation
             }
             line.Append(simulated ? Time(obj.simulationTime) : "").Append(',');
             // the steering law that was in force when the prediction was made
-            line.Append(Text(prediction?.steer));
+            line.Append(Text(prediction?.steer)).Append(',');
+            line.Append(Number(p.elevation, "F2")).Append(',');
+            if (simulated)
+            {
+                line.Append(Number(s.elevation, "F2")).Append(',').Append(Number(s.radarHeight, "F2")).Append(',').Append(s.ground.ToString(Inv));
+            }
+            else
+            {
+                line.Append(",,");
+            }
             Write(() => writer.WriteLine(line));
         }
 
@@ -209,7 +225,8 @@ namespace JoinFS.Estimation
                 .Append(obj.netId.ToString(Inv)).Append(',').Append(Text((obj as Sim.Aircraft)?.flightPlan.callsign)).Append(',')
                 .Append(Time(netTime));
             // the sample columns are left empty, up to simClock
-            line.Append(',', ColumnCount - 9).Append(Time(simClock)).Append(',');
+            // simClock, and the columns after it, are the only ones a send row fills in
+            line.Append(',', SimClockColumn - 7).Append(Time(simClock)).Append(',', ColumnCount - 1 - SimClockColumn);
             Write(() => writer.WriteLine(line));
         }
 

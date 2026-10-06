@@ -77,7 +77,8 @@ namespace JoinFS.Tests.Estimation
 
             plane.netStateTime = 50.0;
             log.OnPrediction(plane, 100.02, 0.1, new KinematicState(plane.netPosition, plane.netVelocity), "Gain4");
-            plane.simPosition = new Sim.Pos(new Vector(0.1000001, 1499.0, 0.8000001), new Vector(0.0, 1.0, 0.0), 0.0, 0);
+            plane.netPosition.elevation = 1480.25;
+            plane.simPosition = new Sim.Pos(new Vector(0.1000001, 1499.0, 0.8000001), new Vector(0.0, 1.0, 0.0), 1612.5, 1);
             plane.simTime = 100.01;
             plane.simulationTime = 4321.25;
             log.OnSample(plane, 100.05, 50.05, 100.04, 0.08);
@@ -91,6 +92,11 @@ namespace JoinFS.Tests.Estimation
             var first = Fields(rows[1]);
             Assert.Equal("4321.250000", first["simClock"]);
             Assert.Equal("Gain4", first["steer"]);
+            // the terrain: the sender's ground altitude, the local simulator's, and whether it has the object on the ground
+            Assert.Equal("1480.25", first["elev"]);
+            Assert.Equal("1612.50", first["simElev"]);
+            Assert.Equal("", first["simAgl"]);
+            Assert.Equal("1", first["simGround"]);
             var second = Fields(rows[2]);
             Assert.Equal("", second["simClock"]);
             Assert.Equal("", second["steer"]);

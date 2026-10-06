@@ -14,7 +14,7 @@ along track, cross track and vertical.
   that the jitter of when JoinFS handled the report drops out. Without it (older logs) the time it
   was handled is used, which adds a few ms of noise: along track, 3-5 ms x the speed.
 - Phases: level (|bank| < 10), turning (30-60), steep (60-120) and inverted (> 120 degrees of bank).
-- One day at a time (--from/--to): two sessions of the same pair of PCs share one time line.
+- A simulator clock that stands still (a paused sim) is left out.
 """
 import argparse, bisect, collections, datetime, math, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -83,12 +83,21 @@ def main():
         clock = SimClockMap()
         timed = 0
         total = 0
+        stood_still = 0
+        last_clock = -math.inf
         for s in sorted(S, key=lambda s: s.local):
             if math.isnan(s.simTime) or s.paused or s.ground:
                 continue
             total += 1
             handled = s.simTime
             if not math.isnan(s.simClock):
+                # a simulator clock that does not advance (the receiver's sim is paused): the report's
+                # time is unknown, and the offset it would teach the clock map is wrong - skip it
+                if s.simClock <= last_clock + 1e-9:
+                    stood_still += 1
+                    clock = SimClockMap()
+                    continue
+                last_clock = s.simClock
                 local = clock.local(handled, s.simClock)
                 timed += 1
             else:
@@ -105,7 +114,8 @@ def main():
                         store[(law, phase)].append(err)
                         store[(law, 'all')].append(err)
                         break
-        print(f"\n{r.pc.computer} sees {d.callsign}: {total} airborne reports, {timed} timed by the simulator's clock")
+        print(f"\n{r.pc.computer} sees {d.callsign}: {total} airborne reports, {timed} timed by the simulator's clock"
+              + (f", {stood_still} left out because the simulator's clock stood still (paused)" if stood_still else ""))
         for title, store in (("timed by the simulator's clock" if timed else "timed by when they were handled", rows),
                              ("timed by when they were handled (the noise reference)", raw)):
             if store is raw and not timed:
