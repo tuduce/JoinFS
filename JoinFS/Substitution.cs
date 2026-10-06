@@ -34,8 +34,18 @@ namespace JoinFS
         /// <summary>
         /// Constructor
         /// </summary>
+        /// <summary>Reads wing span, weight, speeds, engines and gear from a model's own cfg files (cached per folder)</summary>
+        readonly Matching.MeasuredSpecsReader measuredSpecsReader;
+
         public Substitution(Main main)
         {
+#if FS2024
+            // a livery package whose base container sits in another package is found through the sim's package index
+            measuredSpecsReader = new Matching.MeasuredSpecsReader(FindInstalledAircraftFolder);
+#else
+            measuredSpecsReader = new Matching.MeasuredSpecsReader();
+#endif
+
             // set main form
             this.main = main;
 
@@ -1149,6 +1159,13 @@ namespace JoinFS
         /// falling back to the package-name index (covers cross-package references, e.g. a standalone
         /// livery package's "../Helicopter_500E" pointing at an entirely separate installed package).
         /// </summary>
+        /// <summary>The installed aircraft folder with this leaf name (the package index), or null - used for a base container in another package.</summary>
+        string FindInstalledAircraftFolder(string leafName)
+        {
+            BuildPackageFolderIndexIfNeeded();
+            return packageFolderIndex.TryGetValue(leafName, out var folder) ? folder : null;
+        }
+
         string ResolveBaseContainer(string liveryFolder, string baseContainer)
         {
             try
@@ -2592,11 +2609,14 @@ namespace JoinFS
                             }
                             bool fileConfirmed = fileIcaoType.Length > 0;
 #endif
+                            // measured physical data of the aircraft folder (same for every livery/entry in the file)
+                            Matching.AircraftSpecs fileSpecs = measuredSpecsReader.ReadFolder(Path.GetDirectoryName(path));
                             // for each new model
                             for (int index = startIndex; index < scanWork.Count; index++)
                             {
                                 // set smoke count
                                 scanWork[index].smokeCount = smokeCount;
+                                scanWork[index].specs = fileSpecs;
 #if FS2024
                                 if (scanWork[index].icaoType.Length == 0 && fileConfirmed)
                                 {
