@@ -210,8 +210,8 @@ namespace JoinFS.Tests
         [InlineData("Beech Turbine Duke", "B60T")]
         [InlineData("Pitts Special", "PTS1")]
         [InlineData("Zivko Edge 540", "EDGE")]
-        [InlineData("Daher Kodiak 100", "KODI")]
-        [InlineData("Quest Kodiak 900", "X-K900")]
+        [InlineData("Daher Kodiak 100", "K100")]
+        [InlineData("Quest Kodiak 900", "K900")]
         [InlineData("Fieseler Fi 156 Storch", "F156")]
         [InlineData("Aveko VL-3", "VL3")]
         [InlineData("Comco Ikarus C42", "C42")]
@@ -239,7 +239,7 @@ namespace JoinFS.Tests
         [InlineData("ATR 42-600", "AT46")]
         [InlineData("Cirrus Vision SF50", "SF50")]
         [InlineData("Embraer E190", "E190")]
-        [InlineData("Kodiak 100 Series II", "KODI")]
+        [InlineData("Kodiak 100 Series II", "K100")]
         [InlineData("Cessna 414AW Chancellor", "C414")]
         [InlineData("Douglas DC-6", "DC6")]
         [InlineData("King Air 350i", "B350")]
@@ -326,16 +326,25 @@ namespace JoinFS.Tests
         }
 
         [Fact]
-        public void Kodiak_100_and_900_are_separate_rows_with_their_own_data()
+        public void Kodiak_100_and_900_are_separate_official_designators_with_their_own_data()
         {
-            var k100 = MatchingData.Reference.Find("KODI");
-            var k900 = MatchingData.Reference.Find("X-K900");
+            var k100 = MatchingData.Reference.Find("K100");
+            var k900 = MatchingData.Reference.Find("K900");
             Assert.NotNull(k100);
             Assert.NotNull(k900);
             Assert.True(k900!.MtowKg > k100!.MtowKg);
-            Assert.Equal("KODI", MatchingData.Reference.InferIcaoFromText("Daher Kodiak 100"));
-            Assert.Equal("X-K900", MatchingData.Reference.InferIcaoFromText("Daher Kodiak 900"));
-            Assert.Equal("X-K900", MatchingData.Reference.InferIcaoFromText("Quest Kodiak K900"));
+            Assert.True(MatchingData.Doc8643.IsRecognized("K100"));
+            Assert.True(MatchingData.Doc8643.IsRecognized("K900"));
+            Assert.Equal("K100", MatchingData.Reference.InferIcaoFromText("Daher Kodiak 100"));
+            Assert.Equal("K900", MatchingData.Reference.InferIcaoFromText("Daher Kodiak 900"));
+            Assert.Equal("K900", MatchingData.Reference.InferIcaoFromText("Quest Kodiak K900"));
+        }
+
+        [Fact]
+        public void The_obsolete_KODI_tag_is_not_a_designator_and_is_corrected_to_the_Kodiak_100()
+        {
+            Assert.False(MatchingData.Doc8643.IsRecognized("KODI"));
+            Assert.Equal("K100", MatchingData.Reference.ResolveAlias("KODI"));
         }
 
         [Fact]
