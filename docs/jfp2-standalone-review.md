@@ -66,7 +66,8 @@ To keep legacy frozen:
 ## A. Before 26.6 ships
 
 Five small changes that are cheap only before 26.6 freezes the first JFP2. Implementation started
-2026-10-07; implemented and independently reviewed the same day (uncommitted at the time of writing).
+2026-10-07; implemented and independently reviewed the same day, committed as `0119d21` on branch
+`jfp2-pre-26.6`.
 
 | Item | Change | Why | Status |
 |---|---|---|---|
@@ -147,8 +148,8 @@ adding the mesh.
    today. Making a mesh without it pass proves JFP2 stands alone. Add IPv6 endpoints and a
    per-destination NAT to `InMemoryNetwork` too.
 
-**Status, 2026-10-07: C1, C2 and C4 implemented and independently reviewed** (branch
-`jfp2-evolvability`).
+**Status, 2026-10-07: C1, C2 and C4 implemented and independently reviewed**, committed as
+`6c850d8` on branch `jfp2-evolvability`.
 - C1 and C2: `ClassDescriptor` and `Jfp2Profile` replace the six places and the static
   `CodecRegistry`; how to add a class or a version is spec §6.6. Position encode/decode got faster
   (about 92 → 69 ns and 52 → 35 ns), still allocation-free.
