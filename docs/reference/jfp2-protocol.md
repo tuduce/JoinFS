@@ -199,30 +199,47 @@ When `Guaranteed` is set, 4 bytes follow the fixed header:
 Behaviour, as implemented:
 - JFP2 guaranteed messages are single-datagram: index/count are always 0/1. Multi-segment delivery is
   reserved by the field layout but not used. A payload over the planned segment size (1000 bytes)
-  is sent as one datagram and logged; a received datagram with count > 1 is logged and dropped.
-  `Jfp2Reliability` holds this logic: pending segments and acks already carry the index, and
+  is sent as one datagram and logged; a received datagram with count > 1 is logged and dropped,
+  and **not acknowledged**, so its sender does not take a message that was never delivered as
+  delivered. `Jfp2Reliability` holds this logic: pending segments and acks already carry the index, and
   `Send`/`Reassemble` are where segmentation goes.
 - The sender retransmits every **2 s** until acknowledged, giving up after **180 s** (as legacy
   does). Each attempt goes through the target's next hop as it is then (§5.7), so a route change or
   a session that is demoted and verified again does not strand the message. While JFP2 has no hop
   to the target that agreed the message's schema version, the message waits; it is never handed to
   legacy.
-- Ids count up from a start taken from the clock, so a node that restarts does not reuse the ids
-  its peers still remember from before.
+- **The id rule.** A guaranteed id is unique per **(origin, final target)** within the 30 s
+  duplicate window; one message to several targets may share one, as legacy broadcasts do. A node
+  takes the ids of its own messages from one counter, which counts up from a start taken from the
+  clock, so a node that restarts does not reuse the ids its peers still remember from before. A
+  guaranteed id is never 0: the counter skips it, and inside a node 0 means "no origin id". A
+  relay that re-sends a message on its origin's behalf keeps the origin's id (below). Pending
+  segments are kept per (origin, final target, id, index), since a relay holds ids it did not
+  choose.
 - The receiver answers every guaranteed datagram, including duplicates, with an internal
   `GuaranteedDone` whose payload is the u16 `GuaranteedId` and the u8 `GuaranteedIndex` of the
   segment it acknowledges: always 3 bytes, like legacy's. A shorter `GuaranteedDone` acknowledges
-  nothing. It delivers the message only the first
-  time; ids are remembered for **30 s** for duplicate suppression, keyed by the true origin.
+  nothing. It delivers the message only the first time; ids are remembered for **30 s** for
+  duplicate suppression, keyed by (origin, id), the origin being the true sender, and reassembly
+  is keyed the same way.
   A message of a class that was never agreed with the neighbor is neither acknowledged nor
   delivered, so the sender does not take it as delivered.
 - When the acknowledged datagram arrived relayed (§4.5), the `GuaranteedDone` is itself sent
   `Forwarded`, with origin = the acknowledging node and target = the true sender, so it travels back
-  through the relay end to end. A relay that re-sent the message on the origin's behalf (translation
-  or a different schema version) acknowledges upstream itself, and consumes the downstream ack.
-  A relay consumes a Forwarded ack only if it sent the acknowledged message on behalf of the ack's
-  target; every other Forwarded ack is passed on. (Ids are only unique per sender, so an ack of the
-  origin's message can carry the id of one of the relay's own.)
+  through the relay end to end. A plain `GuaranteedDone` comes only from the neighbour that was the
+  final target of the sender's own message. Either way an ack names both ends, and the sender
+  clears exactly the pending segment of that (origin, final target, id, index): never another
+  target's copy, nor another origin's message with the same id.
+- **A relay that translates** (decodes and re-sends, to legacy or to another JFP2 schema version,
+  §7.7):
+  - deduplicates and reassembles per (origin, final target, id), so one origin's message for two
+    targets under one id reaches both;
+  - acknowledges upstream itself, with a `Forwarded` `GuaranteedDone` whose origin is the final
+    target and whose target is the original sender, so the sender clears the copy for that target;
+  - re-sending in JFP2, keeps the origin's id instead of taking one from its own counter (the final
+    target deduplicates by the origin's ids, where one of the relay's could collide with one of the
+    origin's own), and consumes the downstream ack, which names the origin and the target exactly.
+    Every other Forwarded ack is passed on.
 
 ### 4.5 Relay extension (Forwarded)
 
@@ -651,7 +668,9 @@ Simulator build symbols (`FS2020`, `FS2024`, `XPLANE`, `CONSOLE`, ...) never cha
 - **The target agreed a different version:** the relay decodes with the sender's version, and the
   core re-sends it encoded for the target's. A JFP2 Position goes out only after its object's
   Identity (§6.2), so a relay that forwards an Identity byte for byte also decodes it into its
-  identity cache, and remembers that the target has it.
+  identity cache, and remembers that the target has it. A guaranteed message is acknowledged
+  upstream in the target's name and re-sent under the origin's id; the target's ack, addressed to
+  the origin, ends at the relay (§4.4).
 - **The target doesn't speak JFP2 for that class:** the relaying node decodes the message into its
   canonical form and hands it to the application's network core. The core sends it to the target
   with whichever protocol reaches it — legacy, in practice — keeping the true sender:
@@ -660,9 +679,11 @@ Simulator build symbols (`FS2020`, `FS2024`, `XPLANE`, `CONSOLE`, ...) never cha
   - Identity is not forwarded as its own message. It updates a per-object cache that the legacy
     encoder inlines into the next position.
   - Guaranteed messages are delivered hop by hop: the relaying node acknowledges upstream in JFP2,
-    then sends a legacy guaranteed message downstream and consumes the legacy acknowledgement itself.
-    An upstream retransmission (its ack was lost) is acknowledged again but not sent downstream a
-    second time: the relay remembers the (origin, id) pairs it translated, like a receiver does.
+    with a `Forwarded` `GuaranteedDone` in the target's name (§4.4), then sends a legacy guaranteed
+    message downstream, with legacy's own ids, and consumes the legacy acknowledgement itself. An
+    upstream retransmission (its ack was lost) is acknowledged again but not sent downstream a
+    second time: the relay remembers the (origin, target, id) triples it translated, so one
+    origin's message for two targets under one id is translated for each.
 - **The reverse direction (legacy → JFP2)** never needs translation: every JFP2 node understands
   legacy today (§7.2; until B3), so the legacy relay carries it unchanged.
 

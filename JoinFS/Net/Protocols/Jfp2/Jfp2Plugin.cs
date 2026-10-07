@@ -73,6 +73,8 @@ namespace JoinFS.Net.Jfp2
         readonly byte[] datagramBuffer = new byte[16384 + 64];
         /// <summary>Who a send is on behalf of: this node, or (translation at a relay) the message's author.</summary>
         NodeId sendOrigin;
+        /// <summary>The guaranteed id a send on an origin's behalf keeps (<see cref="MessageMeta.OriginGuaranteedId"/>); 0 for this node's own sends.</summary>
+        ushort sendOriginId;
         readonly ushort firstGuaranteedId;
         readonly string build;
         double nextIdentitySweep;
@@ -209,7 +211,7 @@ namespace JoinFS.Net.Jfp2
             byte number = messageClass.MessageClass;
             if (messageClass.Guaranteed)
             {
-                reliability.Send(target.Id, sendOrigin, number, hop.AgreedAppVersion[number], payload);
+                reliability.Send(target.Id, sendOrigin, number, hop.AgreedAppVersion[number], payload, sendOriginId);
             }
             else
             {
@@ -219,15 +221,13 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>One attempt at a guaranteed segment, through the target's next hop as it is now.</summary>
         bool TransmitGuaranteed(NodeId target, NodeId origin, byte messageClass, byte version, ReadOnlySpan<byte> payload,
-            ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount, out NodeId hop)
+            ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount)
         {
             PeerSession session = NextHop(target, out _);
             if (session == null || session.AgreedAppVersion[messageClass] != version)
             {
-                hop = default;
                 return false;
             }
-            hop = session.Peer;
             SendVia(session, target, origin, EnvelopeFlags.Guaranteed, messageClass, payload, guaranteedId, guaranteedIndex, guaranteedCount);
             return true;
         }
@@ -249,19 +249,22 @@ namespace JoinFS.Net.Jfp2
         }
 
         /// <summary>
-        /// Acknowledge one segment of a guaranteed message to the neighbor it came from. When it was
-        /// relayed to us the ack is addressed to the true sender and travels back through that neighbor.
-        /// Payload: GuaranteedId (u16), GuaranteedIndex (u8).
+        /// Acknowledge one segment of a guaranteed message to the neighbor it came from. A message that
+        /// came to us relayed, or that we translate as a relay, is acknowledged end to end: a Forwarded
+        /// ack from <paramref name="acker"/> (the final target: this node, or the one a relay translates
+        /// for) to <paramref name="ackTo"/> (the message's origin), which travels back through that
+        /// neighbor and names both ends, so its origin clears exactly that target's copy. A message
+        /// straight from its origin gets a plain ack. Payload: GuaranteedId (u16), GuaranteedIndex (u8).
         /// </summary>
-        void SendGuaranteedDone(IPEndPoint endPoint, PeerSession hop, ushort guaranteedId, byte guaranteedIndex, NodeId? relayTrueOrigin)
+        void SendGuaranteedDone(IPEndPoint endPoint, PeerSession hop, ushort guaranteedId, byte guaranteedIndex, NodeId? ackTo, NodeId acker)
         {
             Span<byte> payload = stackalloc byte[GuaranteedDoneSize];
             BinaryPrimitives.WriteUInt16LittleEndian(payload, guaranteedId);
             payload[2] = guaranteedIndex;
-            if (relayTrueOrigin.HasValue)
+            if (ackTo.HasValue)
             {
                 SendDatagram(endPoint, EnvelopeFlags.Internal | EnvelopeFlags.Forwarded, MessageClasses.GuaranteedDone, hop.LocalAssignedId, hop.RemoteAssignedId, payload,
-                    origin: NameOf(Local), target: NameOf(relayTrueOrigin.Value));
+                    origin: NameOf(acker), target: NameOf(ackTo.Value));
             }
             else
             {

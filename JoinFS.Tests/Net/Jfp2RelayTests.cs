@@ -1,6 +1,7 @@
 using System.Net;
 using JoinFS.Net;
 using JoinFS.Net.Jfp2;
+using JoinFS.Net.Jfp2.Codecs;
 using JoinFS.Net.Legacy;
 
 namespace JoinFS.Tests.Net
@@ -276,6 +277,64 @@ namespace JoinFS.Tests.Net
 
         static bool IsGuaranteedApplication(byte[] data) =>
             data[0] == Envelope.Magic && (data[2] & (byte)EnvelopeFlags.Guaranteed) != 0 && (data[2] & (byte)EnvelopeFlags.Internal) == 0;
+
+        /// <summary>
+        /// A JFP2 node A and two legacy-only targets that it reaches only through a JFP2 hub: one message
+        /// of A to both may share an id (spec §4.4). The hub translates each for its own target,
+        /// deduplicating per (origin, target, id), so both arrive (keyed by (origin, id), the second was
+        /// taken for a duplicate); downstream, legacy delivers each with its own ids. Upstream, the hub
+        /// acknowledges each in its target's name, and A's own messages are cleared by those acks.
+        /// </summary>
+        [Fact]
+        public void TranslatingRelay_SameIdToTwoTargets_DeliversBoth()
+        {
+            var mesh = new TestMesh();
+            TestNode hub = mesh.Add("203.0.113.1", 6112, new LegacyPlugin(), new Jfp2Plugin());
+            TestNode a = mesh.Add("198.51.100.2", 6112, new LegacyPlugin(), new Jfp2Plugin());
+            TestNode b1 = mesh.Add("192.0.2.3", 6112, new LegacyPlugin());
+            TestNode b2 = mesh.Add("192.0.2.4", 6112, new LegacyPlugin());
+            mesh.Partition(a, b1);
+            mesh.Partition(a, b2);
+            hub.Core.Mesh.Create(false, 0, false, "");
+            foreach (TestNode node in new[] { a, b1, b2 }) node.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(25);
+            Assert.Equal(hub.Id, Jfp2Of(a).NextHopNode(b1.Id));
+            Assert.Equal(hub.Id, Jfp2Of(a).NextHopNode(b2.Id));
+
+            Assert.True(Jfp2Of(a).TryGetHopIds(hub.Id, out ushort local, out ushort remote));
+            byte[] payload = new byte[EventV1Codec.Size];
+            new EventV1Codec().Encode(new EventUpdate { ObjectId = 1, EventId = 4321 }, payload);
+            mesh.Network.Log.Clear();
+            foreach (TestNode target in new[] { b1, b2 })
+            {
+                var envelope = new Envelope(EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded, local, remote, MessageClasses.Event, 50, 0, 1,
+                    NodeName.FromLegacy(a.Id), NodeName.FromLegacy(target.Id));
+                byte[] datagram = new byte[envelope.WireSize + payload.Length];
+                payload.CopyTo(datagram, envelope.WriteTo(datagram));
+                a.Core.Transport.Send(hub.EndPoint, datagram);
+            }
+            mesh.Run(3);
+
+            foreach (TestNode target in new[] { b1, b2 })
+            {
+                var (meta, evt) = Assert.Single(target.MessagesWithMeta<EventUpdate>());
+                Assert.Equal(a.Id, meta.Sender);
+                Assert.Equal(4321u, evt.EventId);
+            }
+            List<Envelope> acks = mesh.Network.Log.Where(d => d.From.Equals(hub.EndPoint) && d.To.Equals(a.EndPoint) && d.Data[0] == Envelope.Magic)
+                .Select(d => Envelope.ReadFrom(d.Data, out _)).Where(e => e.IsInternal && e.RawMessageClass == MessageClasses.GuaranteedDone).ToList();
+            Assert.Equal([NodeName.FromLegacy(b1.Id), NodeName.FromLegacy(b2.Id)], acks.Select(e => e.Origin).ToList());
+            Assert.All(acks, e => Assert.True(e.IsForwarded && e.Target == NodeName.FromLegacy(a.Id)));
+            Assert.Equal(0, hub.Core.Plugins.OfType<LegacyPlugin>().Single().GuaranteedOutCount); // legacy's own acks consumed
+
+            // A's own messages to both: each cleared by the hub's ack in its target's name
+            a.Core.SendTo(b1.Id, new EventUpdate { ObjectId = 2, EventId = 1 }, true);
+            a.Core.SendTo(b2.Id, new EventUpdate { ObjectId = 2, EventId = 2 }, true);
+            mesh.Run(3);
+            Assert.Equal(0, Jfp2Of(a).GuaranteedPendingCount);
+            Assert.Contains(b1.Messages<EventUpdate>(), e => e.EventId == 1);
+            Assert.Contains(b2.Messages<EventUpdate>(), e => e.EventId == 2);
+        }
 
         [Fact]
         public void HelloWithoutNodeIdentity_IsIgnored()

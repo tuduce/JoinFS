@@ -735,6 +735,40 @@ namespace JoinFS.Tests.Net
             Assert.Equal(0, Jfp2Of(a).GuaranteedPendingCount);
         }
 
+        /// <summary>
+        /// A segment of a guaranteed message of several (count > 1) is something this build cannot
+        /// reassemble: it is dropped and not acknowledged, so the sender does not take a message that
+        /// was never delivered as delivered (§4.4). Count 1 is the control.
+        /// </summary>
+        [Fact]
+        public void GuaranteedSegmentOfSeveral_IsDroppedWithoutAck()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            Assert.True(Jfp2Of(a).TryGetHopIds(hub.Id, out ushort local, out ushort remote));
+            byte[] payload = new byte[EventV1Codec.Size];
+            new EventV1Codec().Encode(new EventUpdate { ObjectId = 8, EventId = 99 }, payload);
+            void Send(ushort id, byte count)
+            {
+                var envelope = new Envelope(EnvelopeFlags.Guaranteed, local, remote, MessageClasses.Event, id, 0, count);
+                byte[] datagram = new byte[envelope.WireSize + payload.Length];
+                payload.CopyTo(datagram, envelope.WriteTo(datagram));
+                a.Core.Transport.Send(hub.EndPoint, datagram);
+            }
+
+            mesh.Network.Log.Clear();
+            hub.Logs.Clear();
+            Send(61, 2);
+            mesh.Run(1);
+            Assert.Empty(hub.Messages<EventUpdate>());
+            Assert.DoesNotContain(mesh.Network.Log, d => d.From.Equals(hub.EndPoint) && IsGuaranteedDone(d.Data));
+            Assert.Contains(hub.Logs, l => l.Contains("dropped segment 0/2"));
+
+            Send(62, 1);
+            mesh.Run(1);
+            Assert.Equal(99u, Assert.Single(hub.Messages<EventUpdate>()).EventId);
+            Assert.Contains(mesh.Network.Log, d => d.From.Equals(hub.EndPoint) && IsGuaranteedDone(d.Data));
+        }
+
         // ------------------------------------------------ the build advertisement (§5.5)
 
         /// <summary>A hub and a node A, both JFP2 and saying which build they run, negotiated.</summary>

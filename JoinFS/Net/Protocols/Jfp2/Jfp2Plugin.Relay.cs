@@ -97,7 +97,7 @@ namespace JoinFS.Net.Jfp2
                 return;
             }
             if (envelope.IsInternal && envelope.RawMessageClass == MessageClasses.GuaranteedDone && TryReadGuaranteedDone(payload, out ushort id, out byte index)
-                && reliability.Acknowledge(origin, hop.Peer, ackFor: target, id, index))
+                && reliability.Acknowledge(acker: origin, ackedOrigin: target, id, index))
             {
                 return; // the ack of a message this node re-sent on the origin's behalf ends here
             }
@@ -137,21 +137,28 @@ namespace JoinFS.Net.Jfp2
                 host.Log(NetLogLevel.Network, "JFP2: relay from " + origin + " to " + target + " cannot be carried (class " + messageClass + ") - dropped");
                 return;
             }
+            if (!TryComplete(origin, target, envelope, payload, out ReadOnlySpan<byte> message))
+            {
+                return; // a segment this build cannot reassemble: dropped, not acknowledged
+            }
             if (envelope.IsGuaranteed)
             {
                 // this hop is complete once we have it; the downstream protocol takes over delivery.
-                // A retransmission means our ack was lost: ack again, but it was translated already.
-                SendGuaranteedDone(from, hop, envelope.GuaranteedId, envelope.GuaranteedIndex, null);
-                if (reliability.IsDuplicate(origin, envelope.GuaranteedId))
+                // The ack goes back end to end in the target's name, so the origin clears exactly the
+                // copy for this target. A retransmission means our ack was lost: ack again, but it was
+                // translated already - for this target: one id may go to several (origin, target, id).
+                SendGuaranteedDone(from, hop, envelope.GuaranteedId, envelope.GuaranteedIndex, origin, acker: target);
+                if (reliability.IsDuplicate(origin, target, envelope.GuaranteedId))
                 {
                     return;
                 }
             }
-            if (!TryComplete(origin, envelope, payload, out ReadOnlySpan<byte> message))
+            // a JFP2 re-send keeps the origin's id (OriginGuaranteedId); legacy uses its own, hop by hop
+            var meta = new MessageMeta
             {
-                return;
-            }
-            var meta = new MessageMeta { Sender = origin, Recipient = target, Guaranteed = envelope.IsGuaranteed, Forwarded = true };
+                Sender = origin, Recipient = target, Guaranteed = envelope.IsGuaranteed, Forwarded = true,
+                OriginGuaranteedId = envelope.IsGuaranteed ? envelope.GuaranteedId : (ushort)0,
+            };
             Decode(meta, messageClass, version, message);
         }
     }

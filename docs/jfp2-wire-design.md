@@ -670,7 +670,7 @@ B3 and later follow from appendix A, each with its own design approval.
 | 2 | Partial-class split of `Jfp2Plugin` | no | Done, reviewed |
 | 3 | Node names in Hello and Forwarded | yes | Done, reviewed |
 | 4 | Handshake, envelope and TLV rules | yes | Done, reviewed |
-| 5 | Guaranteed-id rule | yes | Not started |
+| 5 | Guaranteed-id rule | yes | Done, reviewed |
 | 6 | Field limits and the 1,200-byte ceiling | yes | Not started |
 | 7 | Observed endpoint | yes | Not started |
 | 8 | D2: false same-LAN detection | no | Not started |

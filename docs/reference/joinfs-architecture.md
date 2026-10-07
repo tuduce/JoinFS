@@ -416,9 +416,11 @@ Relaying and translation are generic: there is no code specific to a pair of pro
      byte also decodes it into the cache, since a position it translates needs it;
    - routes everything else to the target's plugin, keeping `Sender`, so it is credited to the true
      author;
-   - handles guaranteed messages hop by hop: the relaying node acknowledges upstream, sends a new
-     guaranteed message downstream, and consumes the downstream acknowledgement addressed to the
-     original author.
+   - handles guaranteed messages hop by hop: the relaying node acknowledges upstream (in JFP2, a
+     Forwarded ack in the target's name), sends a guaranteed message downstream, and consumes the
+     downstream acknowledgement addressed to the original author. A JFP2 re-send keeps the id the
+     origin gave the message, which the decoding plugin passes in `MessageMeta.OriginGuaranteedId`;
+     legacy uses its own ids.
 
 ```mermaid
 sequenceDiagram
@@ -426,7 +428,7 @@ sequenceDiagram
     participant H as Hub (JFP2 + legacy)
     participant B as B (legacy only)
     A->>H: JFP2 Forwarded Event (origin A, target B, guaranteed)
-    H-->>A: JFP2 GuaranteedDone
+    H-->>A: JFP2 Forwarded GuaranteedDone (origin B, target A)
     Note over H: Jfp2Plugin decodes → Deliver(Sender=A, Recipient=B)<br/>NetworkCore routes to LegacyPlugin
     H->>B: legacy SimEvent (header sender = A, Forward flag, guaranteed)
     B-->>H: legacy GuaranteedDone (addressed to A)

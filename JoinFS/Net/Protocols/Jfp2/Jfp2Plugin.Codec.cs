@@ -19,6 +19,8 @@ namespace JoinFS.Net.Jfp2
             }
             targets.Clear();
             sendOrigin = meta.Sender.Valid() ? meta.Sender : Local;
+            // a relay re-sending a guaranteed message on its origin's behalf keeps the origin's id
+            sendOriginId = sendOrigin != Local ? meta.OriginGuaranteedId : (ushort)0;
             if (meta.EndPoint != null)
             {
                 NodeId known = meta.Recipient.Valid() ? meta.Recipient : host.Peers.FindByEndPoint(meta.EndPoint)?.Id ?? default;
@@ -150,6 +152,10 @@ namespace JoinFS.Net.Jfp2
             {
                 // JFP2 carries one note per message: a bundle goes out as its notes
                 if (p.profile.ForKind<NoteUpdate>(MessageKind.Notes) is not { } messageClass) return;
+                if (m.Users.Count != 1 || m.Users[0].Notes.Count != 1)
+                {
+                    p.sendOriginId = 0; // an origin's id belongs to one message, not to each of several
+                }
                 foreach (NotesUser user in m.Users)
                 {
                     foreach (CommsNote note in user.Notes)
@@ -229,7 +235,8 @@ namespace JoinFS.Net.Jfp2
             {
                 if (envelope.RawMessageClass == MessageClasses.GuaranteedDone && TryReadGuaranteedDone(payload, out ushort id, out byte index))
                 {
-                    reliability.Acknowledge(sender, hop.Peer, envelope.IsForwarded ? Local : null, id, index);
+                    // from the final target (the neighbor, or the Forwarded ack's origin) for our message
+                    reliability.Acknowledge(sender, Local, id, index);
                 }
                 return;
             }
@@ -241,18 +248,19 @@ namespace JoinFS.Net.Jfp2
                 host.Log(NetLogLevel.Network, "JFP2: class " + envelope.RawMessageClass + " from " + hop.Peer + " was never agreed on - ignored");
                 return;
             }
+            // also before acking: a segment this build cannot reassemble is dropped, not acknowledged
+            if (!TryComplete(sender, Local, envelope, payload, out ReadOnlySpan<byte> message))
+            {
+                return;
+            }
             if (envelope.IsGuaranteed)
             {
                 // ack every copy: a duplicate means our ack was lost
-                SendGuaranteedDone(from, hop, envelope.GuaranteedId, envelope.GuaranteedIndex, envelope.IsForwarded ? sender : null);
-                if (reliability.IsDuplicate(sender, envelope.GuaranteedId))
+                SendGuaranteedDone(from, hop, envelope.GuaranteedId, envelope.GuaranteedIndex, envelope.IsForwarded ? sender : null, Local);
+                if (reliability.IsDuplicate(sender, Local, envelope.GuaranteedId))
                 {
                     return;
                 }
-            }
-            if (!TryComplete(sender, envelope, payload, out ReadOnlySpan<byte> message))
-            {
-                return;
             }
             var meta = new MessageMeta
             {
@@ -265,15 +273,19 @@ namespace JoinFS.Net.Jfp2
             Decode(meta, envelope.RawMessageClass, version, message);
         }
 
-        /// <summary>The whole message a datagram completes: its own payload, unless it is one segment of a guaranteed message.</summary>
-        bool TryComplete(NodeId sender, in Envelope envelope, ReadOnlySpan<byte> payload, out ReadOnlySpan<byte> message)
+        /// <summary>
+        /// The whole message a datagram completes: its own payload, unless it is one segment of a
+        /// guaranteed message from <paramref name="origin"/> for <paramref name="target"/>. False: drop
+        /// it, without acknowledging it.
+        /// </summary>
+        bool TryComplete(NodeId origin, NodeId target, in Envelope envelope, ReadOnlySpan<byte> payload, out ReadOnlySpan<byte> message)
         {
             if (!envelope.IsGuaranteed)
             {
                 message = payload;
                 return true;
             }
-            return reliability.Reassemble(sender, envelope.GuaranteedId, envelope.GuaranteedIndex, envelope.GuaranteedCount, payload, out message);
+            return reliability.Reassemble(origin, target, envelope.GuaranteedId, envelope.GuaranteedIndex, envelope.GuaranteedCount, payload, out message);
         }
 
         /// <summary>A class agreed on (a version above 0) is one of the profile's: decode it and hand it to the core.</summary>
