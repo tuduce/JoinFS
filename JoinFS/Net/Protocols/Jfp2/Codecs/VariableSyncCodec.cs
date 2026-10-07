@@ -41,6 +41,12 @@ namespace JoinFS.Net.Jfp2.Codecs
         /// <summary>Fixed header size: ObjectId (4) + entry count (1).</summary>
         public const int HeaderSize = 5;
 
+        /// <summary>Byte limit of a String8 value (UTF-8, without the length prefix; docs/jfp2-wire-design.md §4.6).</summary>
+        public const int StringValueLimit = 256;
+
+        /// <summary>The largest entry, a String8 at its limit: 263 bytes, so one entry always fits a message.</summary>
+        public const int MaxEntrySize = 4 + 1 + WireText.PrefixSize + StringValueLimit;
+
         /// <summary>Exact wire size of one entry: Vuid (4) + Kind (1) + the value, whose size depends
         /// on Kind (4 for Int32/Float32, 2 + UTF8 byte count for String8). Lets a caller size a send
         /// buffer precisely instead of assuming every entry is as large as the old fixed-width String8
@@ -49,7 +55,7 @@ namespace JoinFS.Net.Jfp2.Codecs
         {
             VariableKind.Int32 => 4,
             VariableKind.Float32 => 4,
-            VariableKind.String8 => WireText.MeasureString(e.StringValue),
+            VariableKind.String8 => WireText.MeasureString(e.StringValue, StringValueLimit),
             _ => throw new ArgumentOutOfRangeException(nameof(e), e.Kind, "unknown VariableKind"),
         };
 
@@ -71,7 +77,7 @@ namespace JoinFS.Net.Jfp2.Codecs
                         BinaryPrimitives.WriteSingleLittleEndian(dest.Slice(i, 4), e.FloatValue); i += 4;
                         break;
                     case VariableKind.String8:
-                        i += WireText.WriteString(dest.Slice(i), e.StringValue);
+                        i += WireText.WriteString(dest.Slice(i), e.StringValue, StringValueLimit);
                         break;
                 }
             }

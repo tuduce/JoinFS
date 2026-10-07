@@ -76,5 +76,35 @@ namespace JoinFS.Tests.Jfp2
             Assert.Equal(MessageClasses.Notes, messageClass.MessageClass);
             Assert.IsType<NotesV1Codec>(messageClass.Codec(1));
         }
+
+        /// <summary>
+        /// Every string is cut to its limit at a character boundary (docs/jfp2-wire-design.md §4.6), so
+        /// with every field at its limit the message is the largest NoteUpdate payload, 864 bytes.
+        /// </summary>
+        [Fact]
+        public void LongStrings_AreCutToTheirLimits()
+        {
+            var codec = new NotesV1Codec();
+            static NoteUpdate With(Func<int, string> text) => new()
+            {
+                NoteId = 99,
+                Channel = 3,
+                Nickname = text(NotesV1Codec.NicknameLimit),
+                Callsign = text(NotesV1Codec.CallsignLimit),
+                Text = text(NotesV1Codec.TextLimit),
+            };
+            byte[] buffer = new byte[4096];
+
+            Assert.Equal(864, NotesV1Codec.MaxSize);
+            Assert.Equal(NotesV1Codec.MaxSize, codec.Encode(With(LongText.Ascii), buffer));
+
+            NoteUpdate sent = With(LongText.Over);
+            int written = codec.Encode(sent, buffer);
+            NoteUpdate back = codec.Decode(buffer.AsSpan(0, written));
+
+            LongText.AssertCut(sent.Nickname, NotesV1Codec.NicknameLimit, back.Nickname);
+            LongText.AssertCut(sent.Callsign, NotesV1Codec.CallsignLimit, back.Callsign);
+            LongText.AssertCut(sent.Text, NotesV1Codec.TextLimit, back.Text);
+        }
     }
 }

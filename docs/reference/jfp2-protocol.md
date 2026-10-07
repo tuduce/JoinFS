@@ -109,7 +109,8 @@ end: JFP2 is the successor protocol, it will take over the mesh (review item B3)
 ## 4. Wire format
 
 All multi-byte integers are little-endian. Strings are UTF-8 with a **u16 length prefix**
-(`WireText`) — not the legacy 7-bit-encoded .NET `BinaryWriter` prefix.
+(`WireText`) — not the legacy 7-bit-encoded .NET `BinaryWriter` prefix. Every string field has a
+byte limit, and no datagram is larger than **1,200 bytes** (§6.7).
 
 ### 4.1 Fixed envelope (8 bytes)
 
@@ -197,12 +198,14 @@ When `Guaranteed` is set, 4 bytes follow the fixed header:
 | 3 | 1 | GuaranteedCount |
 
 Behaviour, as implemented:
-- JFP2 guaranteed messages are single-datagram: index/count are always 0/1. Multi-segment delivery is
-  reserved by the field layout but not used. A payload over the planned segment size (1000 bytes)
-  is sent as one datagram and logged; a received datagram with count > 1 is logged and dropped,
+- JFP2 guaranteed messages are single-datagram: index/count are always 0/1. Multi-segment delivery
+  is reserved by the field layout but not used. The field limits keep every payload within the
+  1,100-byte ceiling (§6.7), which is also the planned segment size
+  (`Jfp2Reliability.GuaranteedSegmentSize`); a payload over it can only come from a codec bug, and
+  is sent as one datagram and logged. A received datagram with count > 1 is logged and dropped,
   and **not acknowledged**, so its sender does not take a message that was never delivered as
-  delivered. `Jfp2Reliability` holds this logic: pending segments and acks already carry the index, and
-  `Send`/`Reassemble` are where segmentation goes.
+  delivered. `Jfp2Reliability` holds this logic: pending segments and acks already carry the
+  index, and `Send`/`Reassemble` are where segmentation goes.
 - The sender retransmits every **2 s** until acknowledged, giving up after **180 s** (as legacy
   does). Each attempt goes through the target's next hop as it is then (§5.7), so a route change or
   a session that is demoted and verified again does not strand the message. While JFP2 has no hop
@@ -558,7 +561,7 @@ before an object's first Position to a peer, and withholds Position until it can
 
 **IdentityV1** layout: `ObjectId u32`, `Flags u8` (IsAircraft 1, IsPlane 2, ClassCodeConfirmed 4),
 `TypeRole u8`, then strings: Callsign, Model, Livery, IcaoType, IcaoAirline, Registration,
-FlightNumber, ClassCode, Wtc.
+FlightNumber, ClassCode, Wtc, each within its limit (§6.7).
 
 This is a structural fix for §1.2: identity is one message class with one schema version, so there is
 no runtime/compile-time gating boundary for these fields to fall on either side of.
@@ -569,11 +572,11 @@ Replaces the legacy Integer/Float/String8 variable messages. Each entry carries 
 one code path handles every kind (closing docs/recording-protocol.md §7.2's bug class).
 
 **VariableSyncV1** layout: `ObjectId u32`, `Count u8`, then Count × entries of `Vuid u32`,
-`Kind u8` (0 Int32, 1 Float32, 2 String8), and a value (i32, f32, or u16-prefixed UTF-8 string with
-no length cap). Senders split an update into messages of at most **1000** payload bytes (and at
-most 255 entries, the count being one byte), so every datagram stays under a safe UDP MTU, as
-legacy's variable messages do. The owner of the object is the sender
-(or the relayed origin); there is no owner field.
+`Kind u8` (0 Int32, 1 Float32, 2 String8), and a value (i32, f32, or u16-prefixed UTF-8 string of
+at most 256 bytes, §6.7). Senders split an update into messages of at most **1000** payload bytes
+(and at most 255 entries, the count being one byte), so every datagram stays under a safe UDP MTU,
+as legacy's variable messages do. An entry is at most 263 bytes, so a single entry always fits.
+The owner of the object is the sender (or the relayed origin); there is no owner field.
 
 ### 6.4 Other v1 codecs
 
@@ -587,7 +590,7 @@ legacy's variable messages do. The owner of the object is the sender
 | Status | `Guid 16`, string AppVersion, `Users u16, AtcCount u16`, string AtcAirport, `AtcLevel u8`, `Planes, Helicopters, Boats, Vehicles u16 × 4`, `HubFlags u8` (HubEnabled 1, GlobalSession 2, PasswordRequired 4), strings Address, Name, About, Voip, NextEvent, Airport, `ActivityCircle i32` |
 
 Unlike legacy Status, JFP2 Status always carries every field; there are no conditional or
-EOF-sensed parts.
+EOF-sensed parts. The strings of every class have byte limits (§6.7).
 
 Notes carries one note per message. A bulk "all notes" reply is sent as one Notes message per note.
 
@@ -632,6 +635,42 @@ a test-only codec for a version that does not exist yet, and `Default.WithCapabi
 that advertises other capabilities. `Jfp2VersionSkewTests` does all three,
 including a relay translating between versions (§7.7), and `Jfp2WireCharacterizationTests` pins what
 the default profile sends.
+
+### 6.7 Field limits and the datagram ceiling
+
+No JFP2 datagram is larger than **1,200 bytes** (`Envelope.MaxDatagramSize`): IPv6's minimum MTU of
+1,280 less 48 bytes of IPv6 and UDP headers, with room for a tunnel. Headers are at most 28 bytes
+(8 fixed, 4 guaranteed, 16 Forwarded), and room is kept for 24 bytes of per-hop security
+(`docs/jfp2-wire-design.md` §2.5), so every v1 payload is at most **1,100 bytes**
+(`Envelope.MaxPayloadSize`). The v1 codecs guarantee this by construction: every string field has a
+byte limit (UTF-8 bytes, without the u16 length prefix), a constant in its codec next to the field
+(`IdentityV1Codec.CallsignLimit`, ...), and `MaxSize` is the codec's largest payload.
+
+- **Sender:** a longer text is cut to its limit at a UTF-8 character boundary, never inside a
+  character, so what goes out is still valid UTF-8. `WireText.WriteString` cuts, and it takes the
+  limit as a required argument, so no codec writes a string without one. A lone UTF-16 surrogate,
+  which is not text, goes out as U+FFFD.
+- **Receiver:** checks no limit. A v1 message is valid at any size that fits its datagram, and a
+  receiver accepts any datagram its buffer holds (16 KB).
+- **Legacy:** a text cut to a limit (a hub's About, a long note or route) can differ from what legacy
+  peers receive for the same message; legacy has no such limits.
+- A later schema version of a class may raise its limits once multi-segment delivery exists.
+
+| Class | Fixed bytes | String limits (bytes) | Largest payload |
+|---|---|---|---|
+| Position | 103 | — | 103 |
+| Identity | 6 + 9 prefixes = 24 | Callsign 32, Model 256, Livery 256, IcaoType 8, IcaoAirline 8, Registration 32, FlightNumber 16, ClassCode 16, Wtc 8 | 656 |
+| VariableSync | 5 + per entry 5 (+ 2 + string) | `String8` value 256: an entry is at most 263 bytes, so a single entry always fits; messages are at most 1,000 bytes (§6.3) | 1,000 |
+| Event | 12 | — | 12 |
+| FlightPlan | 4 + 13 prefixes = 30 | IcaoType 8, Departure 8, Destination 8, Rules 8, Route 512, Remarks 256, Alternate 8, Speed 16, Altitude 16, Callsign 32, Registration 32, IcaoAirline 8, FlightNumber 16 | 958 |
+| Notes | 26 + 3 prefixes = 32 | Nickname 32, Callsign 32, Text 768 | 864 |
+| Weather, WeatherReply | 2 | Metar 1,024 | 1,026 |
+| StatusRequest | 5 | — | 5 |
+| Status | 34 + 8 prefixes = 50 | AppVersion 32, AtcAirport 8, Address 128, Name 64, About 512, Voip 128, NextEvent 128, Airport 8 | 1,058 |
+
+The largest, Status at 1,058 bytes, would make a 1,086-byte datagram with every header, 1,110 with
+per-hop security; since Status is not guaranteed, relayed it is 1,082 (8 + 16 + 1,058). Handshakes
+are far below: about 100 bytes, their `Build` being at most 64 (§5.5).
 
 ## 7. Coexistence with the legacy protocol
 
@@ -704,6 +743,8 @@ recordings (explicit per-record-type versions instead of EOF-sensing) remains a 
 - dropping datagrams of another ProtoMajor or with flags this build cannot read;
 - next-hop origination of relayed traffic, and relay or translation at the hop;
 - single-datagram guaranteed delivery;
+- a byte limit for every string of the v1 codecs, which keeps every datagram within 1,200 bytes
+  (§6.7);
 - the v1 codecs for all ten application classes, each class one descriptor of a per-plugin profile
   (§6.6).
 

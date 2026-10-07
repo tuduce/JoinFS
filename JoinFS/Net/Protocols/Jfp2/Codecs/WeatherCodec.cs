@@ -23,10 +23,16 @@ namespace JoinFS.Net.Jfp2.Codecs
         public byte MessageClass => MessageClasses.WeatherReply;
         public byte SchemaVersion => 1;
 
+        /// <summary>Byte limit of Metar (UTF-8, without the length prefix; docs/jfp2-wire-design.md §4.6).</summary>
+        public const int MetarLimit = 1024;
+
+        /// <summary>The largest payload: Metar at its limit with its prefix.</summary>
+        public const int MaxSize = WireText.PrefixSize + MetarLimit;
+
         public int Encode(in WeatherReply v, Span<byte> dest)
         {
             var bytes = new List<byte>(64);
-            WireText.WriteString(bytes, v.Metar);
+            WireText.WriteString(bytes, v.Metar, MetarLimit);
             bytes.CopyTo(dest);
             return bytes.Count;
         }
@@ -43,10 +49,16 @@ namespace JoinFS.Net.Jfp2.Codecs
         public byte MessageClass => MessageClasses.Weather;
         public byte SchemaVersion => 1;
 
+        /// <summary>Byte limit of Metar (UTF-8, without the length prefix; docs/jfp2-wire-design.md §4.6).</summary>
+        public const int MetarLimit = 1024;
+
+        /// <summary>The largest payload: Metar at its limit with its prefix.</summary>
+        public const int MaxSize = WireText.PrefixSize + MetarLimit;
+
         public int Encode(in WeatherUpdate v, Span<byte> dest)
         {
             var bytes = new List<byte>(64);
-            WireText.WriteString(bytes, v.Metar);
+            WireText.WriteString(bytes, v.Metar, MetarLimit);
             bytes.CopyTo(dest);
             return bytes.Count;
         }

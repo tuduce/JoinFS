@@ -160,6 +160,16 @@ namespace JoinFS.Net.Jfp2
         public const int ForwardedExtraSize = NodeName.WireSize * 2;
 
         /// <summary>
+        /// No JFP2 datagram is larger (docs/reference/jfp2-protocol.md §6.7): IPv6's minimum MTU of
+        /// 1,280 less its headers, with room for a tunnel. The codecs' field limits guarantee it by
+        /// construction: with every header, every v1 message fits.
+        /// </summary>
+        public const int MaxDatagramSize = 1200;
+
+        /// <summary>The largest payload of any v1 message, so that it fits <see cref="MaxDatagramSize"/> with every header (28 bytes) and room for 24 bytes of later per-hop security.</summary>
+        public const int MaxPayloadSize = 1100;
+
+        /// <summary>
         /// The legacy header's version constant (LegacyWire.Version, 0x520B written little-endian,
         /// so byte 0 on the wire is 0x0B) - duplicated here so the two plugins stay independent
         /// (docs/reference/jfp2-protocol.md §3).

@@ -40,18 +40,26 @@ namespace JoinFS.Net.Jfp2.Codecs
         public byte MessageClass => MessageClasses.Notes;
         public byte SchemaVersion => 1;
 
+        // Byte limits of the string fields (UTF-8, without the length prefix; docs/jfp2-wire-design.md §4.6)
+        public const int NicknameLimit = 32;
+        public const int CallsignLimit = 32;
+        public const int TextLimit = 768;
+
+        /// <summary>The largest payload: 26 fixed bytes (Guid, NoteId, Age, Channel), then each string at its limit with its prefix.</summary>
+        public const int MaxSize = 26 + 3 * WireText.PrefixSize + NicknameLimit + CallsignLimit + TextLimit;
+
         public int Encode(in NoteUpdate v, Span<byte> dest)
         {
             var bytes = new List<byte>(96);
             bytes.AddRange(v.Guid.ToByteArray()); // 16 bytes
-            WireText.WriteString(bytes, v.Nickname);
-            WireText.WriteString(bytes, v.Callsign);
+            WireText.WriteString(bytes, v.Nickname, NicknameLimit);
+            WireText.WriteString(bytes, v.Callsign, CallsignLimit);
             Span<byte> fixedFields = stackalloc byte[4 + 4 + 2];
             BinaryPrimitives.WriteUInt32LittleEndian(fixedFields.Slice(0, 4), v.NoteId);
             BinaryPrimitives.WriteSingleLittleEndian(fixedFields.Slice(4, 4), v.Age);
             BinaryPrimitives.WriteUInt16LittleEndian(fixedFields.Slice(8, 2), v.Channel);
             bytes.AddRange(fixedFields.ToArray());
-            WireText.WriteString(bytes, v.Text);
+            WireText.WriteString(bytes, v.Text, TextLimit);
             bytes.CopyTo(dest);
             return bytes.Count;
         }

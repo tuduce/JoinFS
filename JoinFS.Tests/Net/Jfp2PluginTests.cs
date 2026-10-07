@@ -5,6 +5,7 @@ using JoinFS.Net;
 using JoinFS.Net.Jfp2;
 using JoinFS.Net.Jfp2.Codecs;
 using JoinFS.Net.Legacy;
+using JoinFS.Tests.Jfp2;
 
 namespace JoinFS.Tests.Net
 {
@@ -146,27 +147,99 @@ namespace JoinFS.Tests.Net
         }
 
         /// <summary>
-        /// Pins a known limit (docs/reference/jfp2-protocol.md §4.4): a guaranteed message longer than
-        /// one segment still goes out as a single datagram. When segmentation is implemented this
-        /// should expect ceil(size / GuaranteedSegmentSize) segments instead, as
+        /// A WeatherReply v1 for tests only that writes its Metar whole, with no limit: a codec that
+        /// breaks its field limits, the one way a payload can exceed the ceiling.
+        /// </summary>
+        sealed class UnlimitedWeatherReplyTestCodec : ICodec<WeatherReply>
+        {
+            public byte MessageClass => MessageClasses.WeatherReply;
+            public byte SchemaVersion => 1;
+
+            public int Encode(in WeatherReply value, Span<byte> dest)
+            {
+                int length = Encoding.UTF8.GetBytes(value.Metar, dest[2..]);
+                BinaryPrimitives.WriteUInt16LittleEndian(dest, (ushort)length);
+                return 2 + length;
+            }
+
+            public WeatherReply Decode(ReadOnlySpan<byte> src) =>
+                new() { Metar = Encoding.UTF8.GetString(src.Slice(2, BinaryPrimitives.ReadUInt16LittleEndian(src))) };
+        }
+
+        /// <summary>
+        /// Pins a known limit (docs/reference/jfp2-protocol.md §4.4): a guaranteed payload over the
+        /// 1,100-byte ceiling, which the field limits (§6.7) leave only to a codec bug, still goes out
+        /// as a single datagram, and is logged. When segmentation is implemented this should expect
+        /// ceil(size / GuaranteedSegmentSize) segments instead, as
         /// LegacyPluginGoldenTests.GuaranteedSegmentation does for legacy.
         /// </summary>
         [Fact]
         public void Jfp2Guaranteed_LongerThanOneSegment_IsSentUnsegmented()
         {
-            var (mesh, hub, a) = TwoNegotiated();
+            Jfp2Profile unlimited = Jfp2Profile.Default.With(
+                Jfp2Profile.Default.ForKind<WeatherReply>(MessageKind.WeatherReply).WithCodecs(new UnlimitedWeatherReplyTestCodec()));
+            var mesh = new TestMesh();
+            TestNode hub = mesh.Add("203.0.113.1", 6112, new LegacyPlugin(), new Jfp2Plugin(profile: unlimited));
+            TestNode a = mesh.Add("198.51.100.2", 6112, new LegacyPlugin(), new Jfp2Plugin(profile: unlimited));
+            hub.Core.Mesh.Create(false, 0, false, "");
+            a.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(3);
+            Assert.True(Jfp2Of(a).IsNegotiated(hub.Id));
 
-            string text = new('x', 2500);
+            string metar = new('x', 1500);
             mesh.Network.Log.Clear();
-            a.Core.SendTo(hub.Id, Note(text), true);
+            a.Core.SendTo(hub.Id, new WeatherReply { Metar = metar }, true);
             mesh.Run(1);
 
-            Assert.Equal(text, Assert.Single(hub.Messages<NotesBundle>()).Users[0].Notes[0].Text);
+            Assert.Equal(metar, Assert.Single(hub.Messages<WeatherReply>()).Metar);
             byte[] datagram = Assert.Single(mesh.Network.Log, d => d.From.Equals(a.EndPoint) && IsGuaranteedApplication(d.Data)).Data;
             Envelope envelope = Envelope.ReadFrom(datagram, out int header);
             Assert.Equal(0, envelope.GuaranteedIndex);
             Assert.Equal(1, envelope.GuaranteedCount);
             Assert.True(datagram.Length - header > Jfp2Reliability.GuaranteedSegmentSize);
+            Assert.Contains(a.Logs, l => l.Contains("1502 bytes is over the " + Envelope.MaxPayloadSize + "-byte ceiling"));
+        }
+
+        /// <summary>
+        /// A WeatherReply at its limit, the largest guaranteed v1 payload (1,026 bytes), is within the
+        /// ceiling, and not logged as over it.
+        /// </summary>
+        [Fact]
+        public void Jfp2Guaranteed_LargestV1Payload_IsWithinTheCeiling()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+
+            a.Core.SendTo(hub.Id, new WeatherReply { Metar = new('x', WeatherReplyV1Codec.MetarLimit) }, true);
+            mesh.Run(1);
+
+            Assert.Single(hub.Messages<WeatherReply>());
+            Assert.True(WeatherReplyV1Codec.MaxSize <= Jfp2Reliability.GuaranteedSegmentSize);
+            Assert.DoesNotContain(a.Logs, l => l.Contains("ceiling"));
+        }
+
+        /// <summary>
+        /// The field limits are JFP2's (docs/jfp2-wire-design.md §4.6): a note longer than the JFP2
+        /// limit is cut over JFP2 and arrives whole over legacy, which has no such limit.
+        /// </summary>
+        [Fact]
+        public void LongNote_IsCutOverJfp2_AndWholeOverLegacy()
+        {
+            var mesh = new TestMesh();
+            TestNode hub = Jfp2Node(mesh, "203.0.113.1");
+            TestNode modern = Jfp2Node(mesh, "198.51.100.2");
+            TestNode old = LegacyNode(mesh, "192.0.2.3");
+            hub.Core.Mesh.Create(false, 0, false, "");
+            modern.Core.Mesh.Join(hub.EndPoint, 0);
+            old.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(12);
+
+            string text = new('x', 2500);
+            hub.Core.SendTo(modern.Id, Note(text), true);
+            hub.Core.SendTo(old.Id, Note(text), true);
+            mesh.Run(1);
+
+            Assert.Equal(text[..NotesV1Codec.TextLimit], Assert.Single(modern.Messages<NotesBundle>()).Users[0].Notes[0].Text);
+            Assert.Equal(text, Assert.Single(old.Messages<NotesBundle>()).Users[0].Notes[0].Text);
         }
 
         /// <summary>
@@ -363,6 +436,132 @@ namespace JoinFS.Tests.Net
                 Assert.Equal(2, d.Data[1]);
                 Assert.Equal(0, d.Data[2] & ~(byte)Envelope.SupportedFlags);
             });
+        }
+
+        /// <summary>
+        /// Every class, every string longer than its field's limit (docs/jfp2-wire-design.md §4.6), so
+        /// that each message is the largest of its class.
+        /// </summary>
+        static void SendEveryClassAtItsLimits(TestNode from, TestNode to)
+        {
+            static string Text(int limit) => LongText.Ascii(limit);
+            from.Core.Objects.SetIdentity(from.Id, new IdentityUpdate
+            {
+                ObjectId = 3, IsAircraft = true, IsPlane = true, TypeRole = 1,
+                Callsign = Text(IdentityV1Codec.CallsignLimit), Model = Text(IdentityV1Codec.ModelLimit),
+                Livery = Text(IdentityV1Codec.LiveryLimit), IcaoType = Text(IdentityV1Codec.IcaoTypeLimit),
+                IcaoAirline = Text(IdentityV1Codec.IcaoAirlineLimit), Registration = Text(IdentityV1Codec.RegistrationLimit),
+                FlightNumber = Text(IdentityV1Codec.FlightNumberLimit), ClassCode = Text(IdentityV1Codec.ClassCodeLimit),
+                Wtc = Text(IdentityV1Codec.WtcLimit),
+            });
+            from.Core.SendTo(to.Id, new PositionUpdate { ObjectId = 3, NetTime = 1, Latitude = 1 }, false);
+            var entries = new List<VariableEntry>();
+            for (uint vuid = 1; vuid <= 10; vuid++)
+            {
+                entries.Add(new VariableEntry { Vuid = vuid, Kind = VariableKind.String8, StringValue = Text(VariableSyncV1Codec.StringValueLimit) });
+            }
+            for (uint vuid = 11; vuid <= 400; vuid++)
+            {
+                entries.Add(new VariableEntry { Vuid = vuid, Kind = VariableKind.Float32, FloatValue = vuid });
+            }
+            from.Core.SendTo(to.Id, new VariableSyncUpdate { ObjectId = 3, Entries = entries }, false);
+            from.Core.SendTo(to.Id, new EventUpdate { ObjectId = 3, EventId = 99, Data = 5 }, true);
+            from.Core.SendTo(to.Id, new FlightPlanUpdate
+            {
+                ObjectId = 3,
+                IcaoType = Text(FlightPlanV1Codec.IcaoTypeLimit), Departure = Text(FlightPlanV1Codec.DepartureLimit),
+                Destination = Text(FlightPlanV1Codec.DestinationLimit), Rules = Text(FlightPlanV1Codec.RulesLimit),
+                Route = Text(FlightPlanV1Codec.RouteLimit), Remarks = Text(FlightPlanV1Codec.RemarksLimit),
+                Alternate = Text(FlightPlanV1Codec.AlternateLimit), Speed = Text(FlightPlanV1Codec.SpeedLimit),
+                Altitude = Text(FlightPlanV1Codec.AltitudeLimit), Callsign = Text(FlightPlanV1Codec.CallsignLimit),
+                Registration = Text(FlightPlanV1Codec.RegistrationLimit), IcaoAirline = Text(FlightPlanV1Codec.IcaoAirlineLimit),
+                FlightNumber = Text(FlightPlanV1Codec.FlightNumberLimit),
+            }, false);
+            from.Core.SendTo(to.Id, new NotesBundle
+            {
+                Scope = CommsScope.Single,
+                Users =
+                [
+                    new NotesUser
+                    {
+                        Guid = Guid.NewGuid(), Nickname = Text(NotesV1Codec.NicknameLimit), Callsign = Text(NotesV1Codec.CallsignLimit),
+                        Notes = [new CommsNote { NoteId = 5, Channel = 1, Text = Text(NotesV1Codec.TextLimit) }],
+                    },
+                ],
+            }, true);
+            from.Core.SendTo(to.Id, new WeatherUpdate { Metar = Text(WeatherUpdateV1Codec.MetarLimit) }, false);
+            from.Core.SendTo(to.Id, new StatusUpdate
+            {
+                Guid = Guid.NewGuid(), AppVersion = Text(StatusV1Codec.AppVersionLimit), AtcAirport = Text(StatusV1Codec.AtcAirportLimit),
+                HubEnabled = true, Address = Text(StatusV1Codec.AddressLimit), Name = Text(StatusV1Codec.NameLimit),
+                About = Text(StatusV1Codec.AboutLimit), Voip = Text(StatusV1Codec.VoipLimit), NextEvent = Text(StatusV1Codec.NextEventLimit),
+                Airport = Text(StatusV1Codec.AirportLimit),
+            }, false);
+            from.Core.SendTo(to.Id, new StatusRequestUpdate { HubEnabled = true, HubListRequested = true, Uuid = 1 }, false);
+            from.Core.SendTo(to.Id, new WeatherReply { Metar = Text(WeatherReplyV1Codec.MetarLimit) }, true);
+        }
+
+        /// <summary>
+        /// No JFP2 datagram is larger than 1,200 bytes (docs/jfp2-wire-design.md §4.5): every class with
+        /// maximum-length strings in every field, guaranteed where the class is, relayed so that the
+        /// Forwarded extension is included, and sent directly; with the handshakes, keepalives and acks
+        /// that go with them.
+        /// </summary>
+        [Fact]
+        public void EveryJfp2DatagramSent_IsAtMost1200Bytes()
+        {
+            // a and b reach each other only through the hub, so their traffic is relayed (Forwarded)
+            var mesh = new TestMesh();
+            TestNode hub = Jfp2Node(mesh, "203.0.113.1");
+            TestNode a = Jfp2Node(mesh, "198.51.100.2");
+            TestNode b = Jfp2Node(mesh, "192.0.2.3");
+            mesh.Partition(a, b);
+            hub.Core.Mesh.Create(false, 0, false, "");
+            a.Core.Mesh.Join(hub.EndPoint, 0);
+            b.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(25);
+            Assert.Equal(hub.Id, Jfp2Of(a).NextHopNode(b.Id));
+
+            mesh.Network.Log.Clear();
+            SendEveryClassAtItsLimits(a, b);
+            SendEveryClassAtItsLimits(a, hub);
+            mesh.Run(12); // keepalives too
+
+            var sent = mesh.Network.Log.Where(d => d.Data[0] == Envelope.Magic).ToList();
+            Assert.All(sent, d => Assert.True(d.Data.Length <= Envelope.MaxDatagramSize, d.Data.Length + " bytes, class " + d.Data[7]));
+
+            // every class went through the relay to b, guaranteed where the class is, at its largest
+            var relayed = sent.Where(d => d.From.Equals(hub.EndPoint) && d.To.Equals(b.EndPoint)
+                && (d.Data[2] & (byte)EnvelopeFlags.Internal) == 0 && (d.Data[2] & (byte)EnvelopeFlags.Forwarded) != 0).ToList();
+            var largest = new Dictionary<byte, int>
+            {
+                [MessageClasses.Position] = PositionV1Codec.Size,
+                [MessageClasses.Identity] = IdentityV1Codec.MaxSize,
+                [MessageClasses.Event] = 12,
+                [MessageClasses.FlightPlan] = FlightPlanV1Codec.MaxSize,
+                [MessageClasses.Notes] = NotesV1Codec.MaxSize,
+                [MessageClasses.Weather] = WeatherUpdateV1Codec.MaxSize,
+                [MessageClasses.Status] = StatusV1Codec.MaxSize,
+                [MessageClasses.StatusRequest] = StatusRequestV1Codec.Size,
+                [MessageClasses.WeatherReply] = WeatherReplyV1Codec.MaxSize,
+            };
+            foreach (ClassDescriptor c in Jfp2Profile.Default.Classes)
+            {
+                byte[] datagram = relayed.First(d => d.Data[7] == c.MessageClass).Data;
+                int header = Envelope.FixedSize + Envelope.ForwardedExtraSize + (c.Guaranteed ? Envelope.GuaranteedExtraSize : 0);
+                Assert.Equal(c.Guaranteed, (datagram[2] & (byte)EnvelopeFlags.Guaranteed) != 0);
+                if (largest.TryGetValue(c.MessageClass, out int payload))
+                {
+                    Assert.Equal(header + payload, datagram.Length);
+                }
+            }
+            Assert.Equal(Envelope.FixedSize + Envelope.ForwardedExtraSize + 1058, relayed.Max(d => d.Data.Length)); // Status
+            Assert.True(relayed.Count(d => d.Data[7] == MessageClasses.VariableSync) > 1);
+
+            // and what was cut still arrived
+            Assert.Equal(StatusV1Codec.AboutLimit, b.Messages<StatusUpdate>().Single().About.Length);
+            Assert.Equal(NotesV1Codec.TextLimit, b.Messages<NotesBundle>().Single().Users[0].Notes[0].Text.Length);
+            Assert.Equal(400, b.Messages<VariableSyncUpdate>().Sum(m => m.Entries.Count));
         }
 
         // ------------------------------------------------ the handshake as the permanent entry point (§5.2)

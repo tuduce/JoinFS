@@ -65,5 +65,28 @@ namespace JoinFS.Tests.Jfp2
             Assert.IsType<WeatherReplyV1Codec>(reply.Codec(1));
             Assert.NotEqual(update.Guaranteed, reply.Guaranteed);
         }
+
+        /// <summary>
+        /// Metar is cut to its limit at a character boundary (docs/jfp2-wire-design.md §4.6), in both
+        /// classes; at its limit the message is the largest weather payload, 1,026 bytes.
+        /// </summary>
+        [Fact]
+        public void LongStrings_AreCutToTheirLimits()
+        {
+            var update = new WeatherUpdateV1Codec();
+            var reply = new WeatherReplyV1Codec();
+            byte[] buffer = new byte[4096];
+
+            Assert.Equal(1026, WeatherUpdateV1Codec.MaxSize);
+            Assert.Equal(1026, WeatherReplyV1Codec.MaxSize);
+            Assert.Equal(WeatherUpdateV1Codec.MaxSize, update.Encode(new WeatherUpdate { Metar = LongText.Ascii(WeatherUpdateV1Codec.MetarLimit) }, buffer));
+            Assert.Equal(WeatherReplyV1Codec.MaxSize, reply.Encode(new WeatherReply { Metar = LongText.Ascii(WeatherReplyV1Codec.MetarLimit) }, buffer));
+
+            string metar = LongText.Over(WeatherUpdateV1Codec.MetarLimit);
+            int written = update.Encode(new WeatherUpdate { Metar = metar }, buffer);
+            LongText.AssertCut(metar, WeatherUpdateV1Codec.MetarLimit, update.Decode(buffer.AsSpan(0, written)).Metar);
+            written = reply.Encode(new WeatherReply { Metar = metar }, buffer);
+            LongText.AssertCut(metar, WeatherReplyV1Codec.MetarLimit, reply.Decode(buffer.AsSpan(0, written)).Metar);
+        }
     }
 }

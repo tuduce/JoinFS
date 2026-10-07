@@ -48,16 +48,30 @@ namespace JoinFS.Net.Jfp2.Codecs
         public byte MessageClass => MessageClasses.Status;
         public byte SchemaVersion => 1;
 
+        // Byte limits of the string fields (UTF-8, without the length prefix; docs/jfp2-wire-design.md §4.6)
+        public const int AppVersionLimit = 32;
+        public const int AtcAirportLimit = 8;
+        public const int AddressLimit = 128;
+        public const int NameLimit = 64;
+        public const int AboutLimit = 512;
+        public const int VoipLimit = 128;
+        public const int NextEventLimit = 128;
+        public const int AirportLimit = 8;
+
+        /// <summary>The largest payload: 34 fixed bytes, then each string at its limit with its prefix.</summary>
+        public const int MaxSize = 34 + 8 * WireText.PrefixSize
+            + AppVersionLimit + AtcAirportLimit + AddressLimit + NameLimit + AboutLimit + VoipLimit + NextEventLimit + AirportLimit;
+
         public int Encode(in StatusUpdate v, Span<byte> dest)
         {
             var bytes = new List<byte>(160);
             bytes.AddRange(v.Guid.ToByteArray()); // 16 bytes
-            WireText.WriteString(bytes, v.AppVersion);
+            WireText.WriteString(bytes, v.AppVersion, AppVersionLimit);
 
             Span<byte> u16 = stackalloc byte[2];
             BinaryPrimitives.WriteUInt16LittleEndian(u16, v.Users); bytes.AddRange(u16.ToArray());
             BinaryPrimitives.WriteUInt16LittleEndian(u16, v.AtcCount); bytes.AddRange(u16.ToArray());
-            WireText.WriteString(bytes, v.AtcAirport);
+            WireText.WriteString(bytes, v.AtcAirport, AtcAirportLimit);
             bytes.Add((byte)v.AtcLevel);
             BinaryPrimitives.WriteUInt16LittleEndian(u16, v.Planes); bytes.AddRange(u16.ToArray());
             BinaryPrimitives.WriteUInt16LittleEndian(u16, v.Helicopters); bytes.AddRange(u16.ToArray());
@@ -66,12 +80,12 @@ namespace JoinFS.Net.Jfp2.Codecs
 
             byte hubFlags = (byte)((v.HubEnabled ? 1 : 0) | (v.GlobalSession ? 2 : 0) | (v.PasswordRequired ? 4 : 0));
             bytes.Add(hubFlags);
-            WireText.WriteString(bytes, v.Address);
-            WireText.WriteString(bytes, v.Name);
-            WireText.WriteString(bytes, v.About);
-            WireText.WriteString(bytes, v.Voip);
-            WireText.WriteString(bytes, v.NextEvent);
-            WireText.WriteString(bytes, v.Airport);
+            WireText.WriteString(bytes, v.Address, AddressLimit);
+            WireText.WriteString(bytes, v.Name, NameLimit);
+            WireText.WriteString(bytes, v.About, AboutLimit);
+            WireText.WriteString(bytes, v.Voip, VoipLimit);
+            WireText.WriteString(bytes, v.NextEvent, NextEventLimit);
+            WireText.WriteString(bytes, v.Airport, AirportLimit);
             Span<byte> i32 = stackalloc byte[4];
             BinaryPrimitives.WriteInt32LittleEndian(i32, v.ActivityCircle); bytes.AddRange(i32.ToArray());
 

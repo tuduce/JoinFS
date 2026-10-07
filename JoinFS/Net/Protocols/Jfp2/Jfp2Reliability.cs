@@ -24,10 +24,11 @@ namespace JoinFS.Net.Jfp2
     sealed class Jfp2Reliability
     {
         /// <summary>
-        /// Payload bytes per guaranteed segment once segmentation exists. Legacy uses 1000
-        /// (LegacyWire.MaxGuaranteedData) to stay under a safe UDP MTU.
+        /// Payload bytes per guaranteed segment once segmentation exists: the payload ceiling that
+        /// keeps a datagram within 1,200 bytes with every header (docs/reference/jfp2-protocol.md
+        /// §6.7). The field limits keep every v1 payload within it, so today a larger one is a codec bug.
         /// </summary>
-        public const int GuaranteedSegmentSize = 1000;
+        public const int GuaranteedSegmentSize = Envelope.MaxPayloadSize;
 
         const double RetryInterval = 2.0;
         const double ExpireTime = 180.0;
@@ -95,7 +96,8 @@ namespace JoinFS.Net.Jfp2
         {
             if (payload.Length > GuaranteedSegmentSize)
             {
-                host.Log(NetLogLevel.Network, "JFP2: guaranteed class " + messageClass + " payload of " + payload.Length + " bytes sent as one datagram (segmentation not implemented)");
+                host.Log(NetLogLevel.Network, "JFP2: guaranteed class " + messageClass + " payload of " + payload.Length + " bytes is over the "
+                    + GuaranteedSegmentSize + "-byte ceiling (a codec exceeds its field limits) - sent as one datagram");
             }
             double now = Now;
             var key = (origin, target, originId != 0 ? originId : NextId(), (byte)0);

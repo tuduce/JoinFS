@@ -671,7 +671,7 @@ B3 and later follow from appendix A, each with its own design approval.
 | 3 | Node names in Hello and Forwarded | yes | Done, reviewed |
 | 4 | Handshake, envelope and TLV rules | yes | Done, reviewed |
 | 5 | Guaranteed-id rule | yes | Done, reviewed |
-| 6 | Field limits and the 1,200-byte ceiling | yes | Not started |
+| 6 | Field limits and the 1,200-byte ceiling | yes | Done, reviewed |
 | 7 | Observed endpoint | yes | Not started |
 | 8 | D2: false same-LAN detection | no | Not started |
 | 9 | D1: hub relay budget (minion journal first) | no | Not started |
