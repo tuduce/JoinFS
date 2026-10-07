@@ -198,6 +198,78 @@ namespace JoinFS.Tests
             Assert.True(problems.Count == 0, "not in Doc8643 or without manufacturer: " + string.Join(", ", problems));
         }
 
+        [Theory]
+        [InlineData("Airbus A220-100", "BCS1")]
+        [InlineData("Airbus A220-300", "BCS3")]
+        [InlineData("Airbus H225", "EC25")]
+        [InlineData("DHC-7 Dash 7", "DHC7")]
+        [InlineData("DHC-2 Beaver", "DHC2")]
+        [InlineData("DHC-3 Otter", "DHC3")]
+        [InlineData("Cessna 177 Cardinal", "C177")]
+        [InlineData("Beech Duke", "BE60")]
+        [InlineData("Beech Turbine Duke", "B60T")]
+        [InlineData("Pitts Special", "PTS1")]
+        [InlineData("Zivko Edge 540", "EDGE")]
+        [InlineData("Daher Kodiak 100", "KODI")]
+        [InlineData("Quest Kodiak 900", "KODI")]
+        [InlineData("Fieseler Fi 156 Storch", "F156")]
+        [InlineData("Aveko VL-3", "VL3")]
+        [InlineData("Comco Ikarus C42", "C42")]
+        [InlineData("Flight Design CTLS", "FDCT")]
+        [InlineData("Breezer Sport", "BREZ")]
+        [InlineData("Lancair Legacy", "LEG2")]
+        [InlineData("Daher TBM 700", "TBM7")]
+        [InlineData("Tensor Gyrocopter", "GYRO")]
+        [InlineData("Pilatus PC-24", "PC24")]
+        [InlineData("Pilatus PC-9", "PC9")]
+        [InlineData("Autogyro Cavalon", "CLON")]
+        public void The_requested_aircraft_are_in_the_reference_data(string title, string icao)
+        {
+            Assert.NotNull(MatchingData.Reference.Find(icao));
+            Assert.Equal(icao, MatchingData.Reference.InferIcaoFromText(title));
+        }
+
+        [Theory]
+        [InlineData("Comanche 250", "PA24")]
+        [InlineData("Cessna Citation Longitude", "C700")]
+        [InlineData("Cessna Citation X", "C750")]
+        [InlineData("Baron B58", "BE58")]
+        [InlineData("Bonanza A36", "BE36")]
+        [InlineData("ATR 72-600", "AT76")]
+        [InlineData("ATR 42-600", "AT46")]
+        [InlineData("Cirrus Vision SF50", "SF50")]
+        [InlineData("Embraer E190", "E190")]
+        [InlineData("Kodiak 100 Series II", "KODI")]
+        [InlineData("Cessna 414AW Chancellor", "C414")]
+        [InlineData("Douglas DC-6", "DC6")]
+        [InlineData("King Air 350i", "B350")]
+        [InlineData("Learjet 35A", "LJ35")]
+        [InlineData("Diamond DA62", "DA62")]
+        [InlineData("Airbus H145", "EC45")]
+        [InlineData("HJet HA-420", "HDJT")]
+        [InlineData("Twin Otter", "DHC6")]
+        [InlineData("Hot Start Challenger 650", "CL60")]
+        [InlineData("Pilatus PC-12 NGX", "PC12")]
+        [InlineData("Hot Start TBM 900", "TBM9")]
+        [InlineData("Cessna 208B Grand Caravan", "C208")]
+        [InlineData("Embraer Phenom 100", "E50P")]
+        [InlineData("Cessna C510 Mustang", "C510")]
+        [InlineData("Beechcraft Starship", "STAR")]
+        [InlineData("Aerostar 600", "AEST")]
+        [InlineData("P180 Avanti", "P180")]
+        [InlineData("Airbus H160", "H160")]
+        [InlineData("Tiger Moth", "DH82")]
+        [InlineData("Pilatus PC-21", "PC21")]
+        [InlineData("GLF650 Business Jet", "GLF6")]
+        [InlineData("Embraer Legacy 650", "E35L")]
+        [InlineData("Zivko Edge 540", "EDGE")]
+        [InlineData("Cessna 310", "C310")]
+        [InlineData("Cessna 337 Skymaster", "C337")]
+        public void The_aircraft_the_community_survey_names_most_resolve_to_their_reference_row(string title, string icao)
+        {
+            Assert.Equal(icao, MatchingData.Reference.InferIcaoFromText(title));
+        }
+
         [Fact]
         public void Reference_keys_are_unique()
         {
