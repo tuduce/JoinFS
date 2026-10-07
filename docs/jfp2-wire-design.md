@@ -5,6 +5,8 @@ status in the table at the end.**
 Scope: what JFP2's first released wire (26.6) must look
 like so that the next few years of work (review `docs/jfp2-standalone-review.md`, items B1–B7) can
 be added without a second protocol version or a compatibility layer. Status table at the end.
+Line numbers cited as `Jfp2Plugin.cs:NNN` refer to that file as of commit `4918143`, before stage 2
+split it into `Jfp2Plugin.cs`, `.Handshake.cs`, `.Relay.cs` and `.Codec.cs`.
 
 ## Summary
 
@@ -662,7 +664,7 @@ B3 and later follow from appendix A, each with its own design approval.
 | Stage | Scope | Wire change | Status |
 |---|---|---|---|
 | 1 | Decision record §2.13 and spec | — | Done, reviewed |
-| 2 | Partial-class split of `Jfp2Plugin` | no | Not started |
+| 2 | Partial-class split of `Jfp2Plugin` | no | Done, reviewed |
 | 3 | Node names in Hello and Forwarded | yes | Not started |
 | 4 | Handshake, envelope and TLV rules | yes | Not started |
 | 5 | Guaranteed-id rule | yes | Not started |

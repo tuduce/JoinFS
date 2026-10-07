@@ -624,6 +624,6 @@ received into a session part through `IMessage.Dispatch`.
 | `JoinFS/Net/Service/` | `NetworkService`, `INetworkOutbox`, `NetworkSnapshot`, pooled queue items |
 | `JoinFS/Net/Transport/` | `IDatagramTransport`, `UdpTransport`, `InMemoryNetwork` |
 | `JoinFS/Net/Protocols/Legacy/` | `LegacyWire`, `LegacyPlugin`, `LegacyReliability` |
-| `JoinFS/Net/Protocols/Jfp2/` | `Jfp2Plugin`, `ClassDescriptor`, `Jfp2Profile`, `Envelope`, `Negotiation`, `Codecs/` |
+| `JoinFS/Net/Protocols/Jfp2/` | `Jfp2Plugin` (state, periodic work, datagrams out; `.Handshake.cs`: sessions, handshake, keepalive, occupants; `.Relay.cs`: next hop, relay; `.Codec.cs`: encoder, decode), `ClassDescriptor`, `Jfp2Profile`, `Envelope`, `Negotiation`, `Codecs/` |
 | `JoinFS/XPlaneLink.cs`, `JoinFS/XPlane.cs` | X-Plane plugin bridge |
 | `JoinFS.Tests/Legacy`, `JoinFS.Tests/Net`, `JoinFS.Tests/Jfp2`, `JoinFS.Tests/Session` | Network and session tests (§10) |
