@@ -347,6 +347,54 @@ namespace JoinFS.Tests
             Assert.Equal("K100", MatchingData.Reference.ResolveAlias("KODI"));
         }
 
+        // The bundled Doc8643 file is the XPMP2 copy; it was reconciled with the official list (doc8643.com) on 2026-10-07.
+        [Theory]
+        [InlineData("KODI")]
+        [InlineData("XV15")]
+        [InlineData("C526")]
+        [InlineData("DINO")]
+        [InlineData("F111")]
+        [InlineData("F16X")]
+        [InlineData("JS1")]
+        [InlineData("JS20")]
+        [InlineData("LJ85")]
+        [InlineData("C141")]
+        [InlineData("MS30")]
+        [InlineData("MS18")]
+        [InlineData("MS25")]
+        [InlineData("WG30")]
+        public void Designators_that_are_not_in_the_official_Doc8643_list_are_not_recognized(string designator)
+        {
+            Assert.False(MatchingData.Doc8643.IsRecognized(designator));
+        }
+
+        [Theory]
+        [InlineData("A411")]
+        [InlineData("AD21")]
+        [InlineData("BE22")]
+        [InlineData("C306")]
+        [InlineData("F402")]
+        [InlineData("F421")]
+        [InlineData("FD2E")]
+        [InlineData("FDF2")]
+        [InlineData("FMGO")]
+        [InlineData("GPRO")]
+        [InlineData("J400")]
+        [InlineData("J40E")]
+        [InlineData("J600")]
+        [InlineData("KITH")]
+        [InlineData("LAR1")]
+        [InlineData("PNTH")]
+        [InlineData("RISN")]
+        [InlineData("UL39")]
+        [InlineData("K100")]
+        [InlineData("K900")]
+        [InlineData("YS11")]
+        public void Official_Doc8643_designators_are_recognized(string designator)
+        {
+            Assert.True(MatchingData.Doc8643.IsRecognized(designator));
+        }
+
         [Fact]
         public void Reference_keys_are_unique()
         {
