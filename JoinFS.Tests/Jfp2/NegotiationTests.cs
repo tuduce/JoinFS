@@ -129,22 +129,23 @@ namespace JoinFS.Tests.Jfp2
         }
 
         [Fact]
-        public void HandshakeMessage_NodeIdentity_RoundTripsAndIsNotLeftInExtensions()
+        public void HandshakeMessage_Names_RoundTripAndAreNotLeftInExtensions()
         {
-            var hello = new HandshakeMessage { SelfAssignedId = 5, Node = new RelayNuid(0xCB007101, 6112, 20) };
+            NodeName key = NodeName.ReadFrom(new byte[] { 1, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11 });
+            var hello = new HandshakeMessage { SelfAssignedId = 5, Names = [NodeName.FromLegacy(new JoinFS.Net.NodeId(0xCB007101, 6112, 20)), key] };
             hello.Extensions[0x0100] = new byte[] { 9 };
 
             HandshakeMessage back = HandshakeMessage.Deserialize(hello.Serialize());
 
-            Assert.Equal(hello.Node, back.Node);
-            Assert.DoesNotContain(HandshakeMessage.NodeTag, back.Extensions.Keys);
+            Assert.Equal(hello.Names, back.Names);
+            Assert.DoesNotContain(HandshakeMessage.NamesTag, back.Extensions.Keys);
             Assert.Equal(new byte[] { 9 }, back.Extensions[0x0100]);
         }
 
         [Fact]
-        public void HandshakeMessage_WithoutNodeIdentity_HasNone()
+        public void HandshakeMessage_WithoutNames_HasNone()
         {
-            Assert.Null(HandshakeMessage.Deserialize(new HandshakeMessage { SelfAssignedId = 5 }.Serialize()).Node);
+            Assert.Empty(HandshakeMessage.Deserialize(new HandshakeMessage { SelfAssignedId = 5 }.Serialize()).Names);
         }
 
         [Fact]

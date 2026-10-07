@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using JoinFS.Net;
 using JoinFS.Net.Jfp2;
 using Xunit;
 
 namespace JoinFS.Tests.Jfp2
 {
     /// <summary>
-    /// The exact bytes of a Hello and a HelloAck: envelope, fixed fields, offer list, Node and Build
+    /// The exact bytes of a Hello and a HelloAck: envelope, fixed fields, offer list, Names and Build
     /// extensions. The handshake is JFP2's permanent entry point (docs/reference/jfp2-protocol.md §5.2):
     /// every build ever released must be able to start a handshake with every later one, so these
     /// bytes are a frozen spec, like JoinFS.Tests/Legacy/Fixtures. NEVER change them to make a test
@@ -26,7 +27,7 @@ namespace JoinFS.Tests.Jfp2
             "02 00" +                                // OfferCount
             "00 00 01 01" +                          // application Position [1, 1]
             "00 07 01 01" +                          // application Status [1, 1]
-            "01 00 07 00 01 71 00 CB E0 17 14" +     // TLV Node: 203.0.113.1, port 6112, local 20
+            "01 00 08 00 00 01 71 00 CB E0 17 14" +  // TLV Names: one name, kind 0, legacy id 203.0.113.1, port 6112, local 20
             "02 00 14 00 32 36 2E 36 2E 30 20 4A 6F 69 6E 46 53 2D 46 53 32 30 32 34"; // TLV Build: "26.6.0 JoinFS-FS2024"
 
         // its answer from 198.51.100.2:6112 (local 2), id 0x5678; offers Position at [1, 1]; build "26.6.0 JoinFS-CONSOLE"
@@ -38,7 +39,7 @@ namespace JoinFS.Tests.Jfp2
             "00" +                                   // Result: accepted
             "01 00" +                                // OfferCount
             "00 00 01 01" +                          // application Position [1, 1]
-            "01 00 07 00 02 64 33 C6 E0 17 02" +     // TLV Node: 198.51.100.2, port 6112, local 2
+            "01 00 08 00 00 02 64 33 C6 E0 17 02" +  // TLV Names: one name, kind 0, legacy id 198.51.100.2, port 6112, local 2
             "02 00 15 00 32 36 2E 36 2E 30 20 4A 6F 69 6E 46 53 2D 43 4F 4E 53 4F 4C 45"; // TLV Build: "26.6.0 JoinFS-CONSOLE"
 
         static byte[] Bytes(string hex) => Convert.FromHexString(hex.Replace(" ", ""));
@@ -57,7 +58,7 @@ namespace JoinFS.Tests.Jfp2
         {
             ProtoMajorMin = 2, ProtoMajorMax = 2, Capabilities = 0, SelfAssignedId = 0x1234, Result = 0,
             Offers = new List<SchemaOffer> { new(false, MessageClasses.Position, 1, 1), new(false, MessageClasses.Status, 1, 1) },
-            Node = new RelayNuid(0xCB007101, 6112, 20),
+            Names = [NodeName.FromLegacy(new NodeId(0xCB007101, 6112, 20))],
             Build = "26.6.0 JoinFS-FS2024",
         };
 
@@ -65,7 +66,7 @@ namespace JoinFS.Tests.Jfp2
         {
             ProtoMajorMin = 2, ProtoMajorMax = 2, Capabilities = 0, SelfAssignedId = 0x5678, Result = 0,
             Offers = new List<SchemaOffer> { new(false, MessageClasses.Position, 1, 1) },
-            Node = new RelayNuid(0xC6336402, 6112, 2),
+            Names = [NodeName.FromLegacy(new NodeId(0xC6336402, 6112, 2))],
             Build = "26.6.0 JoinFS-CONSOLE",
         };
 
@@ -94,7 +95,7 @@ namespace JoinFS.Tests.Jfp2
             Assert.Equal(0x1234, hello.SelfAssignedId);
             Assert.Equal(2, hello.Offers.Count);
             Assert.Equal(MessageClasses.Status, hello.Offers[1].MessageClass);
-            Assert.Equal(new RelayNuid(0xCB007101, 6112, 20), hello.Node);
+            Assert.Equal(NodeName.FromLegacy(new NodeId(0xCB007101, 6112, 20)), Assert.Single(hello.Names));
             Assert.Equal("26.6.0 JoinFS-FS2024", hello.Build);
             Assert.Empty(hello.Extensions);
         }
@@ -112,7 +113,7 @@ namespace JoinFS.Tests.Jfp2
             Assert.Equal(0, ack.Result);
             Assert.Equal(0x5678, ack.SelfAssignedId);
             Assert.Equal(new SchemaOffer(false, MessageClasses.Position, 1, 1), ack.Offers[0]);
-            Assert.Equal(new RelayNuid(0xC6336402, 6112, 2), ack.Node);
+            Assert.Equal(NodeName.FromLegacy(new NodeId(0xC6336402, 6112, 2)), Assert.Single(ack.Names));
             Assert.Equal("26.6.0 JoinFS-CONSOLE", ack.Build);
         }
     }

@@ -172,8 +172,33 @@ local JFP2_CAPABILITY_BITS = {
 
 -- JoinFS.Jfp2.HandshakeMessage extension tags (docs/reference/jfp2-protocol.md §5.5)
 local JFP2_TLV_TAG = {
-    [1] = "Node", [2] = "Build",
+    [1] = "Names", [2] = "Build",
 }
+
+-- JoinFS.Net.Jfp2.NodeName kinds (docs/reference/jfp2-protocol.md §4.9)
+local JFP2_NAME_KIND = {
+    [0] = "legacy id", [1] = "random key", [2] = "key-pair id", [255] = "group name",
+}
+
+-- A JFP2 node name: 8 bytes, a kind byte then 7 bytes by kind. Kind 0 holds a
+-- legacy Nuid in the legacy header's layout; other kinds are shown as hex.
+local function add_jfp2_name(tree, buffer, offset, label)
+    local kind = buffer(offset, 1):uint()
+    local kindName = JFP2_NAME_KIND[kind] or "unassigned"
+    local sub
+    if kind == 0 then
+        sub = tree:add(buffer(offset, 8), label .. ": " .. legacy_nuid_ip_string(buffer, offset + 1) ..
+            ":" .. buffer(offset + 5, 2):le_uint() .. "/" .. buffer(offset + 7, 1):uint() .. " (kind 0, " .. kindName .. ")")
+        sub:add(buffer(offset, 1), "Kind: 0 (" .. kindName .. ")")
+        add_legacy_nuid(sub, buffer, offset + 1, "Legacy id")
+    else
+        sub = tree:add(buffer(offset, 8), label .. ": kind " .. kind .. " (" .. kindName .. ") " ..
+            buffer(offset + 1, 7):bytes():tohex())
+        sub:add(buffer(offset, 1), "Kind: " .. kind .. " (" .. kindName .. ")")
+        sub:add(buffer(offset + 1, 7), "Value: " .. buffer(offset + 1, 7):bytes():tohex())
+    end
+    return offset + 8
+end
 
 ----------------------------------------------------------------------
 -- Legacy payload decoders (docs/network-protocol.md §8)
@@ -540,9 +565,10 @@ local function decode_jfp2_handshake(tree, buffer, offset, isAck)
             local tagName = JFP2_TLV_TAG[tag]
             local item = ext:add(buffer(offset, 4 + tlvLen), "Tag 0x" .. string.format("%04x", tag) ..
                 (tagName and (" (" .. tagName .. ")") or "") .. ", " .. tlvLen .. " bytes")
-            if tagName == "Node" and tlvLen == 7 then
-                add_legacy_nuid(item, buffer, offset + 4, legacy_nuid_ip_string(buffer, offset + 4) ..
-                    ":" .. buffer(offset + 8, 2):le_uint())
+            if tagName == "Names" and tlvLen >= 8 and tlvLen % 8 == 0 then
+                for i = 0, math.floor(tlvLen / 8) - 1 do
+                    add_jfp2_name(item, buffer, offset + 4 + i * 8, "Name " .. (i + 1))
+                end
             elseif tagName == "Build" and tlvLen > 0 then
                 item:add(buffer(offset + 4, tlvLen), "Build: " .. buffer(offset + 4, tlvLen):string(ENC_UTF_8))
             end
@@ -736,8 +762,8 @@ local function decode_jfp2_internal(tree, buffer, offset, class)
 end
 
 ----------------------------------------------------------------------
--- JFP2 dissector: 8-byte fixed envelope (+4-byte guaranteed extension),
--- docs/reference/jfp2-protocol.md §4.
+-- JFP2 dissector: 8-byte fixed envelope (+4-byte guaranteed extension,
+-- +16-byte Forwarded extension), docs/reference/jfp2-protocol.md §4.
 ----------------------------------------------------------------------
 
 local function dissect_jfp2(buffer, pinfo, tree)
@@ -782,6 +808,11 @@ local function dissect_jfp2(buffer, pinfo, tree)
         subtree:add(buffer(offset + 2, 1), "GuaranteedIndex: " .. buffer(offset + 2, 1):uint())
         subtree:add(buffer(offset + 3, 1), "GuaranteedCount: " .. buffer(offset + 3, 1):uint())
         offset = offset + 4
+    end
+
+    if isForwarded then
+        offset = add_jfp2_name(subtree, buffer, offset, "Origin")
+        offset = add_jfp2_name(subtree, buffer, offset, "Target")
     end
 
     local partitionNames = isInternal and JFP2_INTERNAL_CLASS or JFP2_APP_CLASS

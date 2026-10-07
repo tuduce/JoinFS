@@ -665,7 +665,7 @@ B3 and later follow from appendix A, each with its own design approval.
 |---|---|---|---|
 | 1 | Decision record §2.13 and spec | — | Done, reviewed |
 | 2 | Partial-class split of `Jfp2Plugin` | no | Done, reviewed |
-| 3 | Node names in Hello and Forwarded | yes | Not started |
+| 3 | Node names in Hello and Forwarded | yes | Done, reviewed |
 | 4 | Handshake, envelope and TLV rules | yes | Not started |
 | 5 | Guaranteed-id rule | yes | Not started |
 | 6 | Field limits and the 1,200-byte ceiling | yes | Not started |

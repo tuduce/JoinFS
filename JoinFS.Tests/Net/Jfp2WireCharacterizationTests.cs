@@ -58,7 +58,7 @@ namespace JoinFS.Tests.Net
                 "0A00" +                                           // ten offers, application classes at [1, 1], in this order:
                 "00070101" + "00080101" + "00010101" + "00020101" + "00000101" + // Status, StatusRequest, Identity, VariableSync, Position
                 "00030101" + "00040101" + "00050101" + "00060101" + "00090101" + // Event, FlightPlan, Notes, Weather, WeatherReply
-                "01000700017100CBE01701" +                         // TLV Node: 203.0.113.1, port 6112, local 1
+                "0100080000017100CBE01701" +                       // TLV Names: one name, kind 0, legacy id 203.0.113.1, port 6112, local 1
                 "02001400" + "32362E362E30204A6F696E46532D465332303234", // TLV Build: "26.6.0 JoinFS-FS2024"
                 hello);
         }

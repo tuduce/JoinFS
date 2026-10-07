@@ -13,12 +13,14 @@ namespace JoinFS.Net.Jfp2
     /// each neighbor, versioned codecs, guaranteed delivery (<see cref="Jfp2Reliability"/>), and relay
     /// of Forwarded envelopes.
     ///
-    /// JFP2 is a per-hop "link upgrader" (docs/network-plugin-architecture.md §2.4). A session is
-    /// with a NEIGHBOR: a node we exchange datagrams with directly, identified by the node id it
-    /// states in the handshake and never by the endpoint it answers from (two nodes can share one
-    /// public endpoint). A peer that is not a neighbor is reached through the neighbor that carries
-    /// its traffic (<see cref="NextHop"/>): the datagram goes to that hop in the hop's negotiated
-    /// schema, addressed end to end with Forwarded Origin/Target, and the hop either forwards it
+    /// Today JFP2 is a per-hop "link upgrader" (docs/network-plugin-architecture.md §2.4): the legacy
+    /// mesh holds membership and JFP2 carries what it negotiated with each neighbor. It is to become
+    /// the successor of legacy (§2.13 there). A session is with a NEIGHBOR: a node we exchange
+    /// datagrams with directly, identified by the name it states in the handshake and never by the
+    /// endpoint it answers from (two nodes can share one public endpoint). A peer that is not a
+    /// neighbor is reached through the neighbor that carries its traffic (<see cref="NextHop"/>): the
+    /// datagram goes to that hop in the hop's negotiated schema, addressed end to end with Forwarded
+    /// Origin/Target names (<see cref="NodeName"/>), and the hop either forwards it
     /// byte for byte (the target agreed the same schema) or decodes it and lets the core re-send it in
     /// the target's own terms (the generic translation path, design §2.6). Whatever a peer's hop
     /// cannot carry goes through the legacy plugin.
@@ -131,8 +133,18 @@ namespace JoinFS.Net.Jfp2
         NodeId Local => host.Identity.Id;
         double Now => host.Clock.Now;
 
-        static NodeId ToNodeId(RelayNuid r) => new(r.Ip, r.Port, r.Local);
-        static RelayNuid ToRelay(NodeId n) => new(n.ip, n.port, n.local);
+        /// <summary>
+        /// The name this node writes for a node: its kind-0 name, since every node has a legacy id
+        /// until the mesh runs over JFP2 (docs/reference/jfp2-protocol.md §4.9).
+        /// </summary>
+        static NodeName NameOf(NodeId node) => NodeName.FromLegacy(node);
+
+        /// <summary>
+        /// The node a name belongs to. This build resolves kind 0 only, and only to a valid node id: an
+        /// all-zero or ip-0 name would read as "this node" in the app. What carries any other name is
+        /// dropped (§4.9).
+        /// </summary>
+        static bool TryResolve(NodeName name, out NodeId node) => name.TryGetLegacy(out node) && node.Valid();
 
         // ================================================================== periodic
 
@@ -179,7 +191,7 @@ namespace JoinFS.Net.Jfp2
         // ================================================================== datagrams out
 
         void SendDatagram(IPEndPoint endPoint, EnvelopeFlags flags, byte messageClass, ushort senderPeerId, ushort recipientPeerId, ReadOnlySpan<byte> payload,
-            ushort guaranteedId = 0, byte guaranteedIndex = 0, byte guaranteedCount = 0, RelayNuid origin = default, RelayNuid target = default)
+            ushort guaranteedId = 0, byte guaranteedIndex = 0, byte guaranteedCount = 0, NodeName origin = default, NodeName target = default)
         {
             if (endPoint == null) return;
             var envelope = new Envelope(flags, senderPeerId, recipientPeerId, messageClass, guaranteedId, guaranteedIndex, guaranteedCount, origin, target);
@@ -234,7 +246,7 @@ namespace JoinFS.Net.Jfp2
                 flags |= EnvelopeFlags.Forwarded;
             }
             SendDatagram(hop.Endpoint, flags, messageClass, hop.LocalAssignedId, hop.RemoteAssignedId, payload, guaranteedId, guaranteedIndex, guaranteedCount,
-                forwarded ? ToRelay(origin) : default, forwarded ? ToRelay(target) : default);
+                forwarded ? NameOf(origin) : default, forwarded ? NameOf(target) : default);
         }
 
         /// <summary>
@@ -250,7 +262,7 @@ namespace JoinFS.Net.Jfp2
             if (relayTrueOrigin.HasValue)
             {
                 SendDatagram(endPoint, EnvelopeFlags.Internal | EnvelopeFlags.Forwarded, MessageClasses.GuaranteedDone, hop.LocalAssignedId, hop.RemoteAssignedId, payload,
-                    origin: ToRelay(Local), target: ToRelay(relayTrueOrigin.Value));
+                    origin: NameOf(Local), target: NameOf(relayTrueOrigin.Value));
             }
             else
             {

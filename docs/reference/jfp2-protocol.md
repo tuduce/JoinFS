@@ -90,7 +90,7 @@ peer identifier (docs/network-protocol.md §9.5).
 Three pieces:
 
 - **Envelope** (§4): a minimal header on every datagram — 8 bytes for the common unreliable case,
-  12 for guaranteed delivery, plus 14 when relayed.
+  12 for guaranteed delivery, plus 16 when relayed.
 - **Negotiation** (§5): a Hello/HelloAck handshake per peer, producing a flat per-message-class table
   of agreed schema versions and a set of agreed capabilities. Computed once, then only indexed.
 - **Codecs** (§6): one encoder/decoder per (message class, schema version). A new version of a class is
@@ -130,7 +130,7 @@ payload.
 | Bit | Name | Meaning |
 |---|---|---|
 | 0 | Guaranteed | Wants acknowledgement/retransmission; the 4-byte guaranteed extension follows (§4.4). |
-| 1 | Forwarded | Addressed by origin/target node ids instead of PeerIds; the 14-byte relay extension follows (§4.5). |
+| 1 | Forwarded | Addressed by origin/target node names instead of PeerIds; the 16-byte relay extension follows (§4.5). |
 | 2 | Coalesced | Payload is a sequence of sub-messages (§4.7). *Specified, not implemented*: no build sends it, and this one drops it (below). |
 | 3 | Internal | `RawMessageClass` indexes the internal partition (§4.3). |
 | 4–7 | Reserved | Zero on send. |
@@ -224,16 +224,16 @@ Behaviour, as implemented:
 
 ### 4.5 Relay extension (Forwarded)
 
-When `Forwarded` is set, 14 bytes follow the (optional) guaranteed extension:
+When `Forwarded` is set, 16 bytes follow the (optional) guaranteed extension:
 
 | Offset | Size | Field |
 |---|---|---|
-| 0 | 7 | OriginNode — who the message really comes from |
-| 7 | 7 | TargetNode — who it is ultimately for |
+| 0 | 8 | Origin — the name (§4.9) of the node the message really comes from |
+| 8 | 8 | Target — the name of the node it is ultimately for |
 
-Each node id has the legacy `Nuid` layout: `ip` (u32), `port` (u16), `local` (u8). Every mesh member
-already knows every other member's node id through the legacy mesh, so no new synchronization is
-needed.
+This build writes every node by its kind-0 name, its legacy node id. Every mesh member already knows
+every other member's legacy id through the legacy mesh, so no new synchronization is needed. A relay
+never rewrites the names; a relayed Position is 127 bytes (8 + 16 + 103).
 
 **Two levels of addressing.** Origin and Target are end to end. SenderPeerId and RecipientPeerId in
 the fixed header stay *hop-scoped*, exactly as on a direct datagram: they name the session between
@@ -242,9 +242,9 @@ therefore finds the neighbour session by id and never guesses it from the source
 rewrites the two ids, which sit at fixed offsets, when it passes a datagram on.
 
 Receiving rule, identical on every node:
-- **TargetNode is me:** consume it, attributing it to OriginNode and decoding it with the schema
-  agreed with the neighbour it came from.
-- **Otherwise:** relay it, but only if TargetNode is a *direct* neighbour (no relay involved in
+- **Target is one of my names:** consume it, attributing it to Origin and decoding it with the
+  schema agreed with the neighbour it came from. Names are compared as bytes, whatever their kind.
+- **Otherwise:** relay it, but only if Target is a *direct* neighbour (no relay involved in
   reaching it) and the node's relay budget (10 concurrent senders, shared with legacy relaying)
   allows it. That caps relaying at one hop.
   - If the target has a verified session with the relay and agreed the **same schema version** for
@@ -253,9 +253,12 @@ Receiving rule, identical on every node:
   - Otherwise — a legacy-only target, or a different version — decode the message and hand it to the
     translation path (§7.7), which re-sends it in the target's own terms. The translation path is
     thereby also a per-hop version adapter.
+- **A name it cannot resolve** (§4.9) — the Origin of a datagram it consumes, or the Origin or
+  Target of one it would relay: the datagram is dropped, logged at network level, and a guaranteed
+  one is not acknowledged, so its sender keeps retrying (until it gives up after 180 s).
 
 Both fields are always present. A single field whose meaning flips by direction was rejected: in
-neither role would that field equal the receiver's own id, so a node could not tell "relay further"
+neither role would that field equal the receiver's own name, so a node could not tell "relay further"
 from "consume".
 
 **Origination.** A node sends to a peer it does not reach directly through the neighbour that carries
@@ -280,6 +283,37 @@ bytes), `Port` (u16), `Local` (u8). Because each entry declares its own size, re
 understand IPv4 can skip IPv6 entries. Defined in `Envelope.cs`; unused until JFP2 carries mesh
 messages.
 
+### 4.9 Names
+
+Every reference to a node on the JFP2 wire is a **name** of 8 bytes (`NodeName`): the handshake's
+`Names` extension (§5.5) and the Forwarded extension (§4.5).
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 1 | Kind |
+| 1 | 7 | Value, by kind |
+
+| Kind | Value | Status |
+|---|---|---|
+| 0 | Legacy node id: `ip` (u32), `port` (u16), `local` (u8), little-endian, the legacy header's layout | Sent and resolved |
+| 1 | Random key, 56 bits, not all zero | Reserved: not sent by this build |
+| 2 | Key-pair id: the first 7 bytes of the SHA-256 of the node's public key | Reserved |
+| 3–254 | — | Unassigned |
+| 255 | Group name: `FF 00 00 00 00 00 00 00` = all members of the session | Reserved |
+
+All zero is "no node". Two names are equal when their 8 bytes are equal, whatever the kind.
+
+- **Which name a node writes for another:** its kind-0 name while it has a legacy id, otherwise its
+  key. Every node has a legacy id while legacy carries membership, so this build writes kind 0
+  only.
+- **Comparing** needs no kind: a node consumes a Forwarded datagram whose Target is one of its own
+  names, and relays the others.
+- **Resolving** (finding the node a name belongs to) is by kind 0 only, converted to the legacy id;
+  a kind-0 name whose ip is 0 (an all-zero name included) resolves to no node.
+  What carries a name of another kind is dropped where it would have to be resolved: a handshake
+  without a kind-0 name is from a node this build cannot place (§5.2), and a Forwarded datagram is
+  dropped without an acknowledgement (§4.5).
+
 ## 5. Capability and schema negotiation
 
 ### 5.1 Why per message class
@@ -292,7 +326,7 @@ no coupling between the decisions.
 
 Internal-partition messages. A node sends `Hello` to the route endpoint of each peer the mesh knows
 and does not reach through a relay. The reply goes back to the UDP source. Both messages say who is
-speaking (the `Node` extension, §5.5): a Hello names its sender, and a HelloAck names the node that
+speaking (the `Names` extension, §5.5): a Hello names its sender, and a HelloAck names the node that
 actually answered, which is what tells a node whether the peer it asked for, or another node sharing
 that endpoint, replied.
 
@@ -329,8 +363,10 @@ side of such a change the legacy fallback carries the session. `HandshakeGoldenT
 changes only with a deliberate change of the handshake, never to make a failing test pass.
 
 Behaviour, as implemented (`Jfp2Plugin`):
-- A Hello without a `Node`, or naming a node that isn't a known mesh peer, is ignored. The legacy
-  Join always happens first, and a build that doesn't say who it is stays on legacy.
+- A Hello whose `Names` hold no kind-0 name, or none of a known mesh peer, is ignored. The legacy
+  Join always happens first, and a build that doesn't say who it is stays on legacy. Names of other
+  kinds are skipped (§4.9), and so is a kind-0 name that holds no valid node id (ip 0). With several
+  kind-0 names, the speaker is the first that is a known mesh peer.
 - A Hello whose ProtoMajor range includes 2 (for example 2..3) is answered with `Result` `0`; one that
   excludes 2 is answered with `Result` `1`. Unknown extension tags are skipped.
 - The `Build` extension (§5.5) is remembered per session (and forgotten when a later handshake
@@ -344,7 +380,7 @@ Behaviour, as implemented (`Jfp2Plugin`):
 - A HelloAck is matched to the session by the id it is addressed to, and must name the node the Hello
   was for. If another node answers, that node owns the endpoint (see §5.7) and the peer we asked for
   is not there.
-- A HelloAck with `Result != 0` marks the peer `AssumedLegacy`.
+- A HelloAck with `Result != 0`, or without a valid kind-0 name (ip not 0), marks the peer `AssumedLegacy`.
 - Receiving a peer's Hello lets us *decode* what it sends. It does not make the session usable for
   *sending*: only the ack of our own Hello proves our datagrams reach that node.
 
@@ -391,7 +427,7 @@ so the handshake can grow without a new envelope version.
 
 | Tag | Name | Value |
 |---|---|---|
-| 1 | Node | 7 bytes, the legacy `Nuid` layout: the speaking node's own id. In a HelloAck, the node that answered. Required: a handshake message without it is treated as coming from a legacy-only peer. |
+| 1 | Names | The speaking node's own names (§4.9), 8 bytes each, preferred first; in a HelloAck, the names of the node that answered. This build sends one, its kind-0 name, and reads a value that is a whole number of names (a value of any other length is ignored). Required: a handshake message without a kind-0 name is treated as coming from a legacy-only peer. |
 | 2 | Build | UTF-8 text naming the speaking node's build, for diagnostics and for counting which builds speak JFP2; JoinFS sends `<version> <assembly name>`, e.g. `26.6.0 JoinFS-FS2024`. JoinFS sends and keeps only printable ASCII (`0x20`–`0x7E`), at most 64 bytes: a sender cleans it to that, and a receiver cuts the value to 64 bytes and drops every other character before using it, since it ends up in the log. Optional; nothing in the protocol depends on it. |
 
 ### 5.6 Peers that don't speak JFP2
@@ -599,8 +635,8 @@ recordings (explicit per-record-type versions instead of EOF-sensing) remains a 
 
 **Implemented:**
 - the envelope with its guaranteed and relay extensions, hop-scoped ids on relayed datagrams;
-- Hello/HelloAck with per-class negotiation, node identity, the build advertisement, and verified
-  sessions with a keepalive;
+- Hello/HelloAck with per-class negotiation, node names (kind 0, §4.9), the build advertisement,
+  and verified sessions with a keepalive;
 - dropping datagrams of another ProtoMajor or with flags this build cannot read;
 - next-hop origination of relayed traffic, and relay or translation at the hop;
 - single-datagram guaranteed delivery;
@@ -611,6 +647,7 @@ It was first field-tested against MSFS 2024 before the plugin architecture; the 
 topology in `JoinFS.Tests/Net/Jfp2RelayTests.cs` reproduces the failure of the next field test.
 
 **Specified, not implemented:**
+- name kinds other than 0 (§4.9)
 - PositionV2
 - Coalescing
 - the `Extended` escape hatch

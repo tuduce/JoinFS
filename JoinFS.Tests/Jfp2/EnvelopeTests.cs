@@ -1,3 +1,4 @@
+using JoinFS.Net;
 using JoinFS.Net.Jfp2;
 using Xunit;
 
@@ -140,73 +141,109 @@ namespace JoinFS.Tests.Jfp2
             Assert.Equal(0, envelope.GuaranteedCount);
         }
 
-        // Relay-addressing extension (EnvelopeFlags.Forwarded / Origin+TargetNuid) - see
+        // Relay-addressing extension (EnvelopeFlags.Forwarded / Origin+Target names) - see
         // docs/reference/jfp2-protocol.md §4.5 and §7.7. Both Origin and Target are
         // always carried (never a single field whose meaning flips by direction) so that any
-        // receiving node can decide "consume or relay further" purely by comparing TargetNuid to its
-        // own Nuid, regardless of whether it's playing hub or final-recipient role for this message.
+        // receiving node can decide "consume or relay further" purely by comparing Target to its
+        // own name, regardless of whether it's playing hub or final-recipient role for this message.
+
+        static NodeName Legacy(uint ip, ushort port, byte local) => NodeName.FromLegacy(new NodeId(ip, port, local));
+
+        /// <summary>
+        /// The Forwarded extension's exact bytes (§4.5, §4.9): after the guaranteed extension, the
+        /// origin's name then the target's, 8 bytes each, a kind byte first. A name of a kind this build
+        /// does not resolve is still read, and compared as bytes.
+        /// </summary>
+        [Fact]
+        public void Forwarded_CarriesTwoEightByteNames()
+        {
+            const string hex =
+                "FA 02 03 34 12 78 56 03" +   // magic, ProtoMajor 2, Guaranteed | Forwarded, sender 0x1234, recipient 0x5678, class Event
+                "E7 03 00 01" +               // GuaranteedId 999, index 0, count 1
+                "00 01 71 00 CB E0 17 14" +   // origin: kind 0, legacy id 203.0.113.1 (ip u32 LE), port 6112, local 20
+                "01 AA BB CC DD EE FF 11";    // target: kind 1 (a random key), 7 bytes of value
+            byte[] expected = System.Convert.FromHexString(hex.Replace(" ", ""));
+            NodeName origin = Legacy(0xCB007101, 6112, 20);
+            NodeName target = NodeName.ReadFrom(expected.AsSpan(20, 8));
+
+            var envelope = new Envelope(EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded, 0x1234, 0x5678, MessageClasses.Event, 999, 0, 1, origin, target);
+            byte[] written = new byte[envelope.WireSize];
+            Assert.Equal(28, envelope.WriteTo(written));
+            Assert.Equal(System.Convert.ToHexString(expected), System.Convert.ToHexString(written));
+
+            Envelope back = Envelope.ReadFrom(expected, out int consumed);
+            Assert.Equal(28, consumed);
+            Assert.Equal(origin, back.Origin);
+            Assert.Equal(0, back.Origin.Kind);
+            Assert.True(back.Origin.TryGetLegacy(out NodeId originId));
+            Assert.Equal(new NodeId(0xCB007101, 6112, 20), originId);
+            Assert.Equal(target, back.Target);
+            Assert.Equal(1, back.Target.Kind);
+            Assert.False(back.Target.TryGetLegacy(out _));
+            Assert.Equal("kind 1 AABBCCDDEEFF11", back.Target.ToString()); // the value in wire order, as the dissector shows it
+        }
 
         [Fact]
         public void WriteTo_ReadFrom_RoundTrips_WithRelayExtension()
         {
-            var origin = new RelayNuid(0x0A0B0C0D, 5555, 42);
-            var target = new RelayNuid(0x11223344, 7777, 9);
+            var origin = Legacy(0x0A0B0C0D, 5555, 42);
+            var target = Legacy(0x11223344, 7777, 9);
             var envelope = new Envelope(EnvelopeFlags.Forwarded, 0, 0, MessageClasses.Position, 0, 0, 0, origin, target);
-            byte[] buffer = new byte[Envelope.FixedSize + RelayNuid.WireSize * 2];
+            byte[] buffer = new byte[Envelope.FixedSize + NodeName.WireSize * 2];
 
             int written = envelope.WriteTo(buffer);
             Envelope back = Envelope.ReadFrom(buffer, out int consumed);
 
-            int expectedSize = Envelope.FixedSize + RelayNuid.WireSize * 2;
+            int expectedSize = Envelope.FixedSize + NodeName.WireSize * 2;
             Assert.Equal(expectedSize, written);
             Assert.Equal(expectedSize, consumed);
             Assert.True(back.IsForwarded);
-            Assert.Equal(origin, back.OriginNuid);
-            Assert.Equal(target, back.TargetNuid);
+            Assert.Equal(origin, back.Origin);
+            Assert.Equal(target, back.Target);
         }
 
         [Fact]
         public void WriteTo_ReadFrom_RoundTrips_WithGuaranteedAndRelayExtensions()
         {
-            // Both extensions present: Guaranteed's 4 bytes must land before Origin/TargetNuid's 14,
+            // Both extensions present: Guaranteed's 4 bytes must land before Origin/Target's 16,
             // per Envelope.WireSize's documented ordering.
-            var origin = new RelayNuid(0x7F000001, 8080, 1);
-            var target = new RelayNuid(0x7F000002, 8081, 1);
+            var origin = Legacy(0x7F000001, 8080, 1);
+            var target = Legacy(0x7F000002, 8081, 1);
             var envelope = new Envelope(EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded, 0, 0, MessageClasses.Event, 999, 0, 1, origin, target);
-            byte[] buffer = new byte[Envelope.FixedSize + Envelope.GuaranteedExtraSize + RelayNuid.WireSize * 2];
+            byte[] buffer = new byte[Envelope.FixedSize + Envelope.GuaranteedExtraSize + NodeName.WireSize * 2];
 
             int written = envelope.WriteTo(buffer);
             Envelope back = Envelope.ReadFrom(buffer, out int consumed);
 
-            int expectedSize = Envelope.FixedSize + Envelope.GuaranteedExtraSize + RelayNuid.WireSize * 2;
+            int expectedSize = Envelope.FixedSize + Envelope.GuaranteedExtraSize + NodeName.WireSize * 2;
             Assert.Equal(expectedSize, written);
             Assert.Equal(expectedSize, consumed);
             Assert.True(back.IsGuaranteed);
             Assert.True(back.IsForwarded);
             Assert.Equal(envelope.GuaranteedId, back.GuaranteedId);
-            Assert.Equal(origin, back.OriginNuid);
-            Assert.Equal(target, back.TargetNuid);
+            Assert.Equal(origin, back.Origin);
+            Assert.Equal(target, back.Target);
         }
 
         [Fact]
         public void WireSize_IncludesRelayExtensionOnlyWhenForwarded()
         {
-            var relayFields = (new RelayNuid(1, 2, 3), new RelayNuid(4, 5, 6));
+            var relayFields = (Legacy(1, 2, 3), Legacy(4, 5, 6));
             var notForwarded = new Envelope(EnvelopeFlags.None, 1, 2, MessageClasses.Position);
             var forwarded = new Envelope(EnvelopeFlags.Forwarded, 0, 0, MessageClasses.Position, 0, 0, 0, relayFields.Item1, relayFields.Item2);
             var both = new Envelope(EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded, 0, 0, MessageClasses.Event, 1, 0, 1, relayFields.Item1, relayFields.Item2);
 
             Assert.Equal(Envelope.FixedSize, notForwarded.WireSize);
-            Assert.Equal(Envelope.FixedSize + RelayNuid.WireSize * 2, forwarded.WireSize);
-            Assert.Equal(Envelope.FixedSize + Envelope.GuaranteedExtraSize + RelayNuid.WireSize * 2, both.WireSize);
+            Assert.Equal(Envelope.FixedSize + NodeName.WireSize * 2, forwarded.WireSize);
+            Assert.Equal(Envelope.FixedSize + Envelope.GuaranteedExtraSize + NodeName.WireSize * 2, both.WireSize);
         }
 
         [Fact]
         public void ReadFrom_ForwardedDatagramTooShortForExtension_Throws()
         {
-            byte[] full = new byte[Envelope.FixedSize + RelayNuid.WireSize * 2];
-            new Envelope(EnvelopeFlags.Forwarded, 0, 0, MessageClasses.Position, 0, 0, 0, new RelayNuid(1, 2, 3), new RelayNuid(4, 5, 6)).WriteTo(full);
-            byte[] truncated = full[..(Envelope.FixedSize + RelayNuid.WireSize)];
+            byte[] full = new byte[Envelope.FixedSize + NodeName.WireSize * 2];
+            new Envelope(EnvelopeFlags.Forwarded, 0, 0, MessageClasses.Position, 0, 0, 0, Legacy(1, 2, 3), Legacy(4, 5, 6)).WriteTo(full);
+            byte[] truncated = full[..(Envelope.FixedSize + NodeName.WireSize)];
 
             Assert.Throws<System.ArgumentException>(() => Envelope.ReadFrom(truncated, out _));
         }
@@ -288,8 +325,8 @@ namespace JoinFS.Tests.Jfp2
             var envelope = new Envelope(EnvelopeFlags.None, 1, 2, MessageClasses.Position);
 
             Assert.False(envelope.IsForwarded);
-            Assert.Equal(default, envelope.OriginNuid);
-            Assert.Equal(default, envelope.TargetNuid);
+            Assert.Equal(default, envelope.Origin);
+            Assert.Equal(default, envelope.Target);
         }
     }
 }

@@ -50,7 +50,7 @@ namespace JoinFS.Net.Jfp2
 
     /// <summary>
     /// A minimal length-prefixed, tag-value extension area appended to Hello/HelloAck. Anything not
-    /// anticipated by the fixed Hello layout (the node id and build that came first, a future auth
+    /// anticipated by the fixed Hello layout (the node names and build that came first, a future auth
     /// token, a vendor-specific extension, ...) can be added here without changing how any existing field
     /// is parsed - an unrecognized tag is simply skipped by its declared length instead of desyncing
     /// the rest of the message. This generalizes the one place the legacy protocol already does this
@@ -100,8 +100,8 @@ namespace JoinFS.Net.Jfp2
     /// </summary>
     public sealed class HandshakeMessage
     {
-        /// <summary>Extension tag carrying the sender's own node id (<see cref="Node"/>).</summary>
-        public const ushort NodeTag = 1;
+        /// <summary>Extension tag carrying the sender's own names (<see cref="Names"/>).</summary>
+        public const ushort NamesTag = 1;
 
         /// <summary>Extension tag carrying the sender's build (<see cref="Build"/>).</summary>
         public const ushort BuildTag = 2;
@@ -118,13 +118,15 @@ namespace JoinFS.Net.Jfp2
         public Dictionary<ushort, byte[]> Extensions = new();
 
         /// <summary>
-        /// Who is speaking: the sending node's own id (in a HelloAck, the node that actually answered).
-        /// The one thing an endpoint cannot tell you when several nodes share it (two nodes behind one
-        /// NAT port forward, a hub and a client), so a receiver binds a session to this and never to
-        /// the datagram's source. Travels as an extension so a build that does not know it still parses
-        /// the message; a peer that omits it is treated as legacy-only.
+        /// Who is speaking: the sending node's own names, preferred first (in a HelloAck, the node that
+        /// actually answered). The one thing an endpoint cannot tell you when several nodes share it
+        /// (two nodes behind one NAT port forward, a hub and a client), so a receiver binds a session
+        /// to a name and never to the datagram's source. This build sends one, kind 0 (its legacy id),
+        /// and binds by the kind-0 names it reads, skipping the others. Travels as an extension of
+        /// 8 bytes per name; a value that is not a whole number of names is ignored. Empty when the
+        /// sender named none (a peer that names none it can resolve is treated as legacy-only).
         /// </summary>
-        public RelayNuid? Node;
+        public List<NodeName> Names = new();
 
         /// <summary>
         /// Which build is speaking, as text (JoinFS sends its version and variant), so a hub can count
@@ -175,11 +177,14 @@ namespace JoinFS.Net.Jfp2
                 bytes.Add(offer.MinVersion);
                 bytes.Add(offer.MaxVersion);
             }
-            if (Node.HasValue)
+            if (Names.Count > 0)
             {
-                Span<byte> node = stackalloc byte[RelayNuid.WireSize];
-                Node.Value.WriteTo(node);
-                Tlv.Write(bytes, NodeTag, node);
+                var names = new byte[Names.Count * NodeName.WireSize];
+                for (int n = 0; n < Names.Count; n++)
+                {
+                    Names[n].WriteTo(names.AsSpan(n * NodeName.WireSize, NodeName.WireSize));
+                }
+                Tlv.Write(bytes, NamesTag, names);
             }
             string build = CleanBuild(Build);
             if (build != null)
@@ -188,7 +193,7 @@ namespace JoinFS.Net.Jfp2
             }
             foreach (var kv in Extensions)
             {
-                if (kv.Key != NodeTag && kv.Key != BuildTag) Tlv.Write(bytes, kv.Key, kv.Value);
+                if (kv.Key != NamesTag && kv.Key != BuildTag) Tlv.Write(bytes, kv.Key, kv.Value);
             }
             return bytes.ToArray();
         }
@@ -212,9 +217,12 @@ namespace JoinFS.Net.Jfp2
                 msg.Offers.Add(new SchemaOffer(isInternal, messageClass, min, max));
             }
             msg.Extensions = Tlv.ReadAll(src.Slice(i));
-            if (msg.Extensions.Remove(NodeTag, out byte[] node) && node.Length == RelayNuid.WireSize)
+            if (msg.Extensions.Remove(NamesTag, out byte[] names) && names.Length > 0 && names.Length % NodeName.WireSize == 0)
             {
-                msg.Node = RelayNuid.ReadFrom(node);
+                for (int n = 0; n < names.Length; n += NodeName.WireSize)
+                {
+                    msg.Names.Add(NodeName.ReadFrom(names.AsSpan(n, NodeName.WireSize)));
+                }
             }
             if (msg.Extensions.Remove(BuildTag, out byte[] build))
             {

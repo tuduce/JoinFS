@@ -231,7 +231,7 @@ namespace JoinFS.Tests.Net
             var hello = new HandshakeMessage
             {
                 ProtoMajorMin = Envelope.ProtoMajor, ProtoMajorMax = Envelope.ProtoMajor, SelfAssignedId = aId,
-                Node = new RelayNuid(a.Id.ip, a.Id.port, a.Id.local),
+                Names = [NodeName.FromLegacy(a.Id)],
                 Offers = [new SchemaOffer(false, MessageClasses.Position, 1, 1)],
             };
             SendRaw(a, hub, EnvelopeFlags.Internal, MessageClasses.Hello, hello.Serialize());
@@ -397,7 +397,7 @@ namespace JoinFS.Tests.Net
             var hello = new HandshakeMessage
             {
                 ProtoMajorMin = protoMajorMin, ProtoMajorMax = protoMajorMax, SelfAssignedId = aId,
-                Node = new RelayNuid(a.Id.ip, a.Id.port, a.Id.local),
+                Names = [NodeName.FromLegacy(a.Id)],
                 Offers = [new SchemaOffer(false, MessageClasses.Position, 1, 1)],
             };
             extend?.Invoke(hello);
@@ -448,7 +448,7 @@ namespace JoinFS.Tests.Net
 
         /// <summary>
         /// What this build actually sends as a handshake is what HandshakeGoldenTests pins: ProtoMajor 2,
-        /// Internal only, Node and Build - the build cleaned before it goes out.
+        /// Internal only, Names and Build - the build cleaned before it goes out.
         /// </summary>
         [Fact]
         public void Handshake_GoesOutInTheFrozenEnvelope()
@@ -465,11 +465,155 @@ namespace JoinFS.Tests.Net
                 Assert.Equal((byte)EnvelopeFlags.Internal, d.Data[2]);
                 HandshakeMessage message = HandshakeMessage.Deserialize(d.Data.AsSpan(Envelope.FixedSize));
                 bool fromHub = d.From.Equals(hub.EndPoint);
-                Assert.Equal(fromHub ? hub.Id : a.Id, new NodeId(message.Node!.Value.Ip, message.Node.Value.Port, message.Node.Value.Local));
+                Assert.True(Assert.Single(message.Names).TryGetLegacy(out NodeId named));
+                Assert.Equal(fromHub ? hub.Id : a.Id, named);
                 string build = fromHub ? "26.6.0 JoinFS-FS2024" : "26.6.0 JoinFS-CONSOLE";
                 Assert.Equal(build, message.Build);
                 Assert.True(d.Data.AsSpan().EndsWith(Encoding.ASCII.GetBytes(build))); // the last extension, as sent
             });
+        }
+
+        // ------------------------------------------------ node names (jfp2-protocol.md §4.9)
+
+        /// <summary>A name of kind 1 (a random key): a later build's, which this build cannot resolve.</summary>
+        static readonly NodeName KeyName = NodeName.ReadFrom(new byte[] { 1, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11 });
+
+        /// <summary>A hand-built Forwarded datagram from <paramref name="from"/> to its neighbor <paramref name="to"/>, in their session.</summary>
+        static void SendForwarded(TestNode from, TestNode to, EnvelopeFlags flags, byte messageClass, ReadOnlySpan<byte> payload, ushort guaranteedId,
+            NodeName origin, NodeName target)
+        {
+            Assert.True(Jfp2Of(from).TryGetHopIds(to.Id, out ushort local, out ushort remote));
+            bool guaranteed = (flags & EnvelopeFlags.Guaranteed) != 0;
+            var envelope = new Envelope(flags | EnvelopeFlags.Forwarded, local, remote, messageClass, guaranteedId, 0, (byte)(guaranteed ? 1 : 0), origin, target);
+            byte[] datagram = new byte[envelope.WireSize + payload.Length];
+            int header = envelope.WriteTo(datagram);
+            payload.CopyTo(datagram.AsSpan(header));
+            from.Core.Transport.Send(to.EndPoint, datagram);
+        }
+
+        /// <summary>
+        /// This build resolves kind-0 names only (§4.9): a Forwarded datagram naming another kind, as
+        /// its origin or as a target that is not this node, is dropped and, guaranteed, not
+        /// acknowledged, so its sender keeps retrying instead of taking it as delivered.
+        /// </summary>
+        [Fact]
+        public void ForwardedWithAnUnknownNameKind_IsDroppedAndNotAcknowledged()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            byte[] payload = new byte[64];
+            int n = new EventV1Codec().Encode(new EventUpdate { ObjectId = 8, EventId = 1234, Data = 1 }, payload);
+
+            mesh.Network.Log.Clear();
+            hub.Logs.Clear();
+            // from an origin named by a key, for the hub
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 41, KeyName, NodeName.FromLegacy(hub.Id));
+            // from a, for a node named by a key (the hub would relay it)
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 42, NodeName.FromLegacy(a.Id), KeyName);
+            mesh.Run(1);
+
+            Assert.Empty(hub.Messages<EventUpdate>());
+            Assert.DoesNotContain(mesh.Network.Log, d => d.From.Equals(hub.EndPoint) && IsGuaranteedDone(d.Data));
+            Assert.Equal(2, hub.Logs.Count(l => l.Contains("cannot resolve") && l.Contains("dropped")));
+            Assert.DoesNotContain(hub.Logs, l => l.Contains("ERROR"));
+
+            // the same datagram naming both by their legacy ids is delivered and acknowledged
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 43, NodeName.FromLegacy(a.Id), NodeName.FromLegacy(hub.Id));
+            mesh.Run(1);
+            var (meta, evt) = Assert.Single(hub.MessagesWithMeta<EventUpdate>());
+            Assert.Equal(a.Id, meta.Sender);
+            Assert.Equal(1234u, evt.EventId);
+            Assert.Contains(mesh.Network.Log, d => d.From.Equals(hub.EndPoint) && IsGuaranteedDone(d.Data));
+        }
+
+        /// <summary>
+        /// A kind-0 name with ip 0 (here all zero, "no node") holds no valid node id; resolved, it would
+        /// read as this node in the app. A Forwarded datagram from it is dropped and not acknowledged.
+        /// </summary>
+        [Fact]
+        public void ForwardedFromAZeroName_IsDroppedAndNotAcknowledged()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            byte[] payload = new byte[64];
+            int n = new EventV1Codec().Encode(new EventUpdate { ObjectId = 8, EventId = 1234, Data = 1 }, payload);
+
+            mesh.Network.Log.Clear();
+            hub.Logs.Clear();
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 44, default, NodeName.FromLegacy(hub.Id));
+            mesh.Run(1);
+
+            Assert.Empty(hub.Messages<EventUpdate>());
+            Assert.DoesNotContain(mesh.Network.Log, d => d.From.Equals(hub.EndPoint) && IsGuaranteedDone(d.Data));
+            Assert.Contains(hub.Logs, l => l.Contains("cannot resolve") && l.Contains("dropped"));
+        }
+
+        /// <summary>
+        /// At a relay: the target is the hub's direct neighbor b and resolves, but the origin is named
+        /// by a key. The hub cannot place who it relays for, so nothing goes to b and nothing is
+        /// acknowledged to a. The same datagram from a's legacy id is relayed (the control).
+        /// </summary>
+        [Fact]
+        public void RelayedFromAnUnresolvableOrigin_IsNotForwardedNorAcknowledged()
+        {
+            var mesh = new TestMesh();
+            TestNode hub = Jfp2Node(mesh, "203.0.113.1");
+            TestNode a = Jfp2Node(mesh, "198.51.100.2");
+            TestNode b = Jfp2Node(mesh, "192.0.2.3");
+            mesh.Partition(a, b);
+            hub.Core.Mesh.Create(false, 0, false, "");
+            a.Core.Mesh.Join(hub.EndPoint, 0);
+            b.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(25);
+            Assert.True(Jfp2Of(hub).IsNegotiated(b.Id));
+            byte[] payload = new byte[64];
+            int n = new EventV1Codec().Encode(new EventUpdate { ObjectId = 8, EventId = 1234, Data = 1 }, payload);
+
+            mesh.Network.Log.Clear();
+            hub.Logs.Clear();
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 45, KeyName, NodeName.FromLegacy(b.Id));
+            mesh.Run(1);
+
+            Assert.Empty(b.Messages<EventUpdate>());
+            Assert.DoesNotContain(mesh.Network.Log, d => d.From.Equals(hub.EndPoint) && d.To.Equals(b.EndPoint) && d.Data[0] == Envelope.Magic
+                && (d.Data[2] & (byte)EnvelopeFlags.Internal) == 0);
+            Assert.DoesNotContain(mesh.Network.Log, d => d.From.Equals(hub.EndPoint) && IsGuaranteedDone(d.Data));
+            Assert.Contains(hub.Logs, l => l.Contains("cannot resolve") && l.Contains("dropped"));
+
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 46, NodeName.FromLegacy(a.Id), NodeName.FromLegacy(b.Id));
+            mesh.Run(1);
+            var (meta, evt) = Assert.Single(b.MessagesWithMeta<EventUpdate>());
+            Assert.Equal(a.Id, meta.Sender);
+            Assert.Equal(1234u, evt.EventId);
+        }
+
+        /// <summary>
+        /// A later build lists a key beside its legacy id (stage 11 of docs/jfp2-wire-design.md): this
+        /// build skips the name it cannot resolve and binds the session by the legacy one. A Hello that
+        /// names only a key is from no node this build can place, and is ignored.
+        /// </summary>
+        [Fact]
+        public void HelloWithANameOfAnUnknownKindBesideALegacyName_BindsByTheLegacyName()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            Assert.Equal("JFP2", hub.Core.Route(a.Id, MessageKind.Notes)!.Name);
+
+            // the hand-made Hello offers Position only: the hub applying it to a's session shows it was bound to a
+            mesh.Network.Log.Clear();
+            hub.Logs.Clear();
+            SendHello(a, hub, 2, 2, hello => hello.Names = [KeyName, NodeName.FromLegacy(a.Id)]);
+            mesh.Run(0.1);
+
+            Assert.Equal(0, Assert.Single(HelloAcksTo(mesh, hub, a)).Result);
+            Assert.Contains(hub.Logs, l => l.Contains("Hello from " + a.Id + " at") && l.Contains("answered"));
+            Assert.Equal("Legacy", hub.Core.Route(a.Id, MessageKind.Notes)!.Name);
+            Assert.Equal("JFP2", hub.Core.Route(a.Id, MessageKind.Position)!.Name);
+
+            mesh.Network.Log.Clear();
+            hub.Logs.Clear();
+            SendHello(a, hub, 2, 2, hello => hello.Names = [KeyName]);
+            mesh.Run(0.1);
+
+            Assert.Empty(HelloAcksTo(mesh, hub, a));
+            Assert.Contains(hub.Logs, l => l.Contains("does not say who it is"));
         }
 
         // ------------------------------------------------ the build advertisement (§5.5)
@@ -622,7 +766,7 @@ namespace JoinFS.Tests.Net
             {
                 var flags = EnvelopeFlags.Forwarded | (guaranteed ? EnvelopeFlags.Guaranteed : 0);
                 var envelope = new Envelope(flags, hopLocal, hopRemote, messageClass, id, 0, (byte)(guaranteed ? 1 : 0),
-                    new RelayNuid(A.Id.ip, A.Id.port, A.Id.local), new RelayNuid(B.Id.ip, B.Id.port, B.Id.local));
+                    NodeName.FromLegacy(A.Id), NodeName.FromLegacy(B.Id));
                 byte[] data = new byte[envelope.WireSize + payload.Length];
                 int header = envelope.WriteTo(data);
                 payload.CopyTo(data.AsSpan(header));

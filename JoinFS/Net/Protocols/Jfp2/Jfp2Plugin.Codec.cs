@@ -210,13 +210,21 @@ namespace JoinFS.Net.Jfp2
                 return;
             }
 
-            if (envelope.IsForwarded && ToNodeId(envelope.TargetNuid) != Local)
+            // consumed when the target is one of our names (our kind-0 name, in this build), compared
+            // as bytes whatever the kind; relayed otherwise
+            if (envelope.IsForwarded && envelope.Target != NameOf(Local))
             {
                 Relay(from, hop, envelope, datagram, payload);
                 return;
             }
 
-            NodeId sender = envelope.IsForwarded ? ToNodeId(envelope.OriginNuid) : hop.Peer;
+            NodeId sender = hop.Peer;
+            if (envelope.IsForwarded && !TryResolve(envelope.Origin, out sender))
+            {
+                // not acknowledged either: a guaranteed sender keeps retrying until it can be placed
+                host.Log(NetLogLevel.Network, "JFP2: datagram from " + from + " names its origin " + envelope.Origin + ", which this build cannot resolve - dropped");
+                return;
+            }
             if (envelope.IsInternal)
             {
                 if (envelope.RawMessageClass == MessageClasses.GuaranteedDone && TryReadGuaranteedDone(payload, out ushort id, out byte index))

@@ -85,12 +85,17 @@ namespace JoinFS.Net.Jfp2
         /// e.g. a relayed ack), pass the datagram on with the two hop ids rewritten. Otherwise - a
         /// legacy-only target, or a different schema version - decode it and let the core re-send it in
         /// the target's terms, the one place translation happens since every node speaks legacy. An
-        /// Identity passed on is decoded for the core too, since a translated position needs it.
+        /// Identity passed on is decoded for the core too, since a translated position needs it. A
+        /// datagram whose origin or target this build cannot resolve (a name of any kind but 0) is
+        /// dropped, and not acknowledged.
         /// </summary>
         void Relay(IPEndPoint from, PeerSession hop, in Envelope envelope, ReadOnlySpan<byte> datagram, ReadOnlySpan<byte> payload)
         {
-            NodeId target = ToNodeId(envelope.TargetNuid);
-            NodeId origin = ToNodeId(envelope.OriginNuid);
+            if (!TryResolve(envelope.Target, out NodeId target) || !TryResolve(envelope.Origin, out NodeId origin))
+            {
+                host.Log(NetLogLevel.Network, "JFP2: relay from " + envelope.Origin + " to " + envelope.Target + " names a node this build cannot resolve - dropped");
+                return;
+            }
             if (envelope.IsInternal && envelope.RawMessageClass == MessageClasses.GuaranteedDone && TryReadGuaranteedDone(payload, out ushort id, out byte index)
                 && reliability.Acknowledge(origin, hop.Peer, ackFor: target, id, index))
             {

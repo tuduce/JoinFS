@@ -175,7 +175,7 @@ namespace JoinFS.Net.Jfp2
             Capabilities = LocalCapabilities,
             SelfAssignedId = session.LocalAssignedId,
             Result = result,
-            Node = ToRelay(Local),
+            Names = [NameOf(Local)],
             Build = build,
             Offers = new List<SchemaOffer>(profile.Offers),
         };
@@ -203,15 +203,43 @@ namespace JoinFS.Net.Jfp2
             session.Build = peerBuild;
         }
 
+        /// <summary>
+        /// Which node a handshake message comes from, by the names it lists: the first kind-0 name (the
+        /// only kind this build resolves) that is a known mesh peer, else the first kind-0 name (for the
+        /// "unknown node" log). False when it lists none, so the speaker cannot be placed.
+        /// </summary>
+        bool TryGetSpeaker(List<NodeName> names, out NodeId speaker)
+        {
+            speaker = default;
+            bool found = false;
+            foreach (NodeName name in names)
+            {
+                if (!TryResolve(name, out NodeId node))
+                {
+                    continue;
+                }
+                if (host.Peers.Contains(node))
+                {
+                    speaker = node;
+                    return true;
+                }
+                if (!found)
+                {
+                    speaker = node;
+                    found = true;
+                }
+            }
+            return found;
+        }
+
         void HandleHello(IPEndPoint from, ReadOnlySpan<byte> payload)
         {
             HandshakeMessage hello = HandshakeMessage.Deserialize(payload);
-            if (!hello.Node.HasValue)
+            if (!TryGetSpeaker(hello.Names, out NodeId sender))
             {
                 host.Log(NetLogLevel.Network, "JFP2: Hello from " + from + " does not say who it is - ignored (legacy-only peer)");
                 return;
             }
-            NodeId sender = ToNodeId(hello.Node.Value);
             // only nodes the mesh already knows (the legacy Join always happens first)
             if (!host.Peers.Contains(sender))
             {
@@ -253,7 +281,7 @@ namespace JoinFS.Net.Jfp2
                 return;
             }
             double now = Now;
-            if (ack.Result != 0 || !ack.Node.HasValue)
+            if (ack.Result != 0 || !TryGetSpeaker(ack.Names, out NodeId responder))
             {
                 session.AssumedLegacy = true;
                 session.RetryAt = now + HelloCooldown;
@@ -261,7 +289,6 @@ namespace JoinFS.Net.Jfp2
                 host.Log(NetLogLevel.Network, "JFP2: " + session.Peer + " refused or cannot identify itself - assuming legacy-only peer");
                 return;
             }
-            NodeId responder = ToNodeId(ack.Node.Value);
             if (!host.Peers.Contains(responder))
             {
                 host.Log(NetLogLevel.Network, "JFP2: HelloAck from unknown node " + responder + " - ignored");

@@ -22,33 +22,35 @@ namespace JoinFS.Net.Jfp2
         /// <summary>This datagram wants acknowledgement/retransmission - see the 4-byte extended
         /// header appended right after the fixed 8 bytes whenever this bit is set.</summary>
         Guaranteed = 1 << 0,
-        /// <summary>A 14-byte extension follows immediately after the (optional) Guaranteed
-        /// extension: OriginNuid (7 bytes, who this really came from) then TargetNuid (7 bytes, who
-        /// it's ultimately meant for) - always both, regardless of which leg of a relay hop this
-        /// datagram is on. SenderPeerId/RecipientPeerId are HOP-scoped: they name the session
-        /// between the two nodes that exchange THIS datagram (sender to relay, then relay to
-        /// target), exactly as on a direct datagram, so the receiver finds the neighbor session by id
-        /// and never by source endpoint. A relay rewrites the two ids (they sit at fixed offsets) when
-        /// it passes the datagram on; OriginNuid/TargetNuid are the end-to-end addressing.
+        /// <summary>A 16-byte extension follows immediately after the (optional) Guaranteed
+        /// extension: Origin (an 8-byte <see cref="NodeName"/>, who this really came from) then Target
+        /// (an 8-byte NodeName, who it's ultimately meant for) - always both, regardless of which leg
+        /// of a relay hop this datagram is on. SenderPeerId/RecipientPeerId are HOP-scoped: they name
+        /// the session between the two nodes that exchange THIS datagram (sender to relay, then relay
+        /// to target), exactly as on a direct datagram, so the receiver finds the neighbor session by
+        /// id and never by source endpoint. A relay rewrites the two ids (they sit at fixed offsets)
+        /// when it passes the datagram on; Origin/Target are the end-to-end addressing, and a relay
+        /// never rewrites them.
         ///
         /// Any node receiving a Forwarded datagram applies one uniform rule regardless of whether
         /// it's acting as the hub or the final recipient for this particular message (there is no
-        /// separate "hub mode" - every node runs identical logic): if TargetNuid is this node's own
-        /// Nuid, consume it, attributing the payload to OriginNuid instead of the physical sender's
-        /// endpoint; otherwise, forward the datagram to TargetNuid, but only if
-        /// TargetNuid is itself a direct neighbor of this node (RouteIsOwnEndPoint) - refuse (drop)
+        /// separate "hub mode" - every node runs identical logic): if Target is one of this node's own
+        /// names, consume it, attributing the payload to Origin instead of the physical sender's
+        /// endpoint; otherwise, forward the datagram to Target, but only if
+        /// Target is itself a direct neighbor of this node (RouteIsOwnEndPoint) - refuse (drop)
         /// otherwise. That direct-neighbor check is what caps relay at exactly one hop, matching the
         /// legacy mesh's own FLAG_FORWARD policy: a second hub would have to find its own direct
-        /// route to TargetNuid, which by construction it doesn't have if the original sender needed
+        /// route to Target, which by construction it doesn't have if the original sender needed
         /// this hub's relay in the first place. The payload is forwarded byte for byte only when the
         /// target agreed the same schema version as the origin's hop used; otherwise the relay
         /// decodes it and the core re-sends it in the target's own terms. See docs/reference/jfp2-protocol.md §7.7.
+        /// A name this build cannot resolve (any kind but 0) is dropped, and never acknowledged.
         ///
-        /// A single Nuid field whose meaning flips by direction was considered and rejected: it
+        /// A single name field whose meaning flips by direction was considered and rejected: it
         /// leaves the receiving node unable to tell, from the datagram alone, whether it should relay
         /// further or consume the message, since in neither role does that lone field ever equal the
-        /// receiver's own Nuid. Carrying both fields always removes the ambiguity at a modest fixed
-        /// cost (14 bytes instead of 7, only ever paid when relay is actually happening).</summary>
+        /// receiver's own name. Carrying both fields always removes the ambiguity at a modest fixed
+        /// cost (16 bytes instead of 8, only ever paid when relay is actually happening).</summary>
         Forwarded = 1 << 1,
         /// <summary>Payload is a sequence of coalesced sub-messages (each prefixed with its own
         /// MessageClass byte and a u16 length) rather than a single message body. Specified, not
@@ -156,6 +158,9 @@ namespace JoinFS.Net.Jfp2
         public const int FixedSize = 8;
         public const int GuaranteedExtraSize = 4;
 
+        /// <summary>The Forwarded extension: the origin's and the target's <see cref="NodeName"/>.</summary>
+        public const int ForwardedExtraSize = NodeName.WireSize * 2;
+
         /// <summary>
         /// The legacy header's version constant (LegacyWire.Version, 0x520B written little-endian,
         /// so byte 0 on the wire is 0x0B) - duplicated here so the two plugins stay independent
@@ -181,11 +186,11 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>Meaningful only when Flags.Forwarded is set - see EnvelopeFlags.Forwarded's doc
         /// comment. Default/unset otherwise.</summary>
-        public readonly RelayNuid OriginNuid;
+        public readonly NodeName Origin;
 
         /// <summary>Meaningful only when Flags.Forwarded is set - see EnvelopeFlags.Forwarded's doc
         /// comment. Default/unset otherwise.</summary>
-        public readonly RelayNuid TargetNuid;
+        public readonly NodeName Target;
 
         public Envelope(EnvelopeFlags flags, ushort senderPeerId, ushort recipientPeerId, byte rawMessageClass)
             : this(flags, senderPeerId, recipientPeerId, rawMessageClass, 0, 0, 0, default, default)
@@ -199,8 +204,8 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>Constructs a relayed envelope (Flags must include Forwarded). SenderPeerId/
         /// RecipientPeerId stay hop-scoped, as on any datagram (the session with the neighbor it goes
-        /// to); Origin/TargetNuid are end to end - see EnvelopeFlags.Forwarded's doc comment.</summary>
-        public Envelope(EnvelopeFlags flags, ushort senderPeerId, ushort recipientPeerId, byte rawMessageClass, ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount, RelayNuid originNuid, RelayNuid targetNuid)
+        /// to); Origin/Target are end to end - see EnvelopeFlags.Forwarded's doc comment.</summary>
+        public Envelope(EnvelopeFlags flags, ushort senderPeerId, ushort recipientPeerId, byte rawMessageClass, ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount, NodeName origin, NodeName target)
         {
             Flags = flags;
             SenderPeerId = senderPeerId;
@@ -209,8 +214,8 @@ namespace JoinFS.Net.Jfp2
             GuaranteedId = guaranteedId;
             GuaranteedIndex = guaranteedIndex;
             GuaranteedCount = guaranteedCount;
-            OriginNuid = originNuid;
-            TargetNuid = targetNuid;
+            Origin = origin;
+            Target = target;
         }
 
         public bool IsInternal => (Flags & EnvelopeFlags.Internal) != 0;
@@ -218,11 +223,11 @@ namespace JoinFS.Net.Jfp2
         public bool IsForwarded => (Flags & EnvelopeFlags.Forwarded) != 0;
 
         /// <summary>Total header size on the wire for this envelope: the fixed 8 bytes, plus the 4-byte
-        /// guaranteed-delivery extension when IsGuaranteed, plus the 14-byte Origin+TargetNuid
+        /// guaranteed-delivery extension when IsGuaranteed, plus the 16-byte Origin+Target
         /// extension when IsForwarded - the two extensions are independent and, when both present,
-        /// appear in that order (Guaranteed's 4 bytes, then Origin+TargetNuid's 14), immediately
+        /// appear in that order (Guaranteed's 4 bytes, then Origin+Target's 16), immediately
         /// before the payload.</summary>
-        public int WireSize => FixedSize + (IsGuaranteed ? GuaranteedExtraSize : 0) + (IsForwarded ? RelayNuid.WireSize * 2 : 0);
+        public int WireSize => FixedSize + (IsGuaranteed ? GuaranteedExtraSize : 0) + (IsForwarded ? ForwardedExtraSize : 0);
 
         /// <summary>
         /// True if the first two bytes of a received datagram are the legacy magic (0x520B, written
@@ -259,10 +264,10 @@ namespace JoinFS.Net.Jfp2
             }
             if (IsForwarded)
             {
-                OriginNuid.WriteTo(dest.Slice(offset, RelayNuid.WireSize));
-                offset += RelayNuid.WireSize;
-                TargetNuid.WriteTo(dest.Slice(offset, RelayNuid.WireSize));
-                offset += RelayNuid.WireSize;
+                Origin.WriteTo(dest.Slice(offset, NodeName.WireSize));
+                offset += NodeName.WireSize;
+                Target.WriteTo(dest.Slice(offset, NodeName.WireSize));
+                offset += NodeName.WireSize;
             }
             return offset;
         }
@@ -335,71 +340,22 @@ namespace JoinFS.Net.Jfp2
                 offset += GuaranteedExtraSize;
             }
 
-            RelayNuid originNuid = default;
-            RelayNuid targetNuid = default;
+            NodeName origin = default;
+            NodeName target = default;
             if ((flags & EnvelopeFlags.Forwarded) != 0)
             {
-                if (src.Length < offset + RelayNuid.WireSize * 2)
+                if (src.Length < offset + ForwardedExtraSize)
                     throw new ArgumentException("datagram shorter than the JFP2 relay-addressing extension it claims to carry");
-                originNuid = RelayNuid.ReadFrom(src.Slice(offset, RelayNuid.WireSize));
-                offset += RelayNuid.WireSize;
-                targetNuid = RelayNuid.ReadFrom(src.Slice(offset, RelayNuid.WireSize));
-                offset += RelayNuid.WireSize;
+                origin = NodeName.ReadFrom(src.Slice(offset, NodeName.WireSize));
+                offset += NodeName.WireSize;
+                target = NodeName.ReadFrom(src.Slice(offset, NodeName.WireSize));
+                offset += NodeName.WireSize;
             }
 
             bytesConsumed = offset;
-            envelope = new Envelope(flags, sender, recipient, msgClass, guaranteedId, guaranteedIndex, guaranteedCount, originNuid, targetNuid);
+            envelope = new Envelope(flags, sender, recipient, msgClass, guaranteedId, guaranteedIndex, guaranteedCount, origin, target);
             return true;
         }
-    }
-
-    /// <summary>
-    /// One half (Origin or Target) of a relayed JFP2 datagram's addressing extension
-    /// (EnvelopeFlags.Forwarded) - see that flag's doc comment for the full addressing scheme. Same
-    /// 7-byte wire shape as the legacy transport's LocalNode.Nuid (ip: uint, port: ushort, local:
-    /// byte, each little-endian - matching BinaryWriter's default, which is what LocalNode.Nuid.Write
-    /// uses) so the two types are trivially interconvertible, but defined independently here rather
-    /// than referencing LocalNode.Nuid directly, to avoid a reverse dependency from JoinFS.Jfp2 back
-    /// into the top-level LocalNode type. Reusing the legacy Nuid's identity (rather than PeerKey, or
-    /// a new hub-assigned id) needs no new synchronization: every mesh member already learns every
-    /// other member's Nuid via the existing legacy Join/AddNode propagation, regardless of direct
-    /// reachability, and JFP2 sessions are always layered on top of an already-established legacy
-    /// Node entry - see docs/reference/jfp2-protocol.md §7.7.
-    /// </summary>
-    public readonly struct RelayNuid
-    {
-        public const int WireSize = 7;
-
-        public readonly uint Ip;
-        public readonly ushort Port;
-        public readonly byte Local;
-
-        public RelayNuid(uint ip, ushort port, byte local)
-        {
-            Ip = ip;
-            Port = port;
-            Local = local;
-        }
-
-        public void WriteTo(Span<byte> dest)
-        {
-            BinaryPrimitives.WriteUInt32LittleEndian(dest.Slice(0, 4), Ip);
-            BinaryPrimitives.WriteUInt16LittleEndian(dest.Slice(4, 2), Port);
-            dest[6] = Local;
-        }
-
-        public static RelayNuid ReadFrom(ReadOnlySpan<byte> src)
-        {
-            uint ip = BinaryPrimitives.ReadUInt32LittleEndian(src.Slice(0, 4));
-            ushort port = BinaryPrimitives.ReadUInt16LittleEndian(src.Slice(4, 2));
-            byte local = src[6];
-            return new RelayNuid(ip, port, local);
-        }
-
-        public override bool Equals(object obj) => obj is RelayNuid other && Ip == other.Ip && Port == other.Port && Local == other.Local;
-        public override int GetHashCode() => System.HashCode.Combine(Ip, Port, Local);
-        public static bool operator ==(RelayNuid left, RelayNuid right) => left.Equals(right);
-        public static bool operator !=(RelayNuid left, RelayNuid right) => !left.Equals(right);
     }
 
     /// <summary>
