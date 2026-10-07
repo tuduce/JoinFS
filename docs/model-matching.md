@@ -27,6 +27,18 @@ type tags (`500E` -> `H500`) and title hints that identify untagged models. To a
 (a test checks that), run the tests. Values are compiled from public specifications and still to be verified row by row against type-certificate data
 sheets; do not copy text or tables from any source. A measured value from a model's own files always outranks a reference row.
 
+### Your own rows: `aircraft-specs.user.json`
+
+An optional file of the same name pattern and **exactly the same JSON format** can sit in the JoinFS storage folder next to `models - <sim>.txt` (`%LOCALAPPDATA%JoinFS-<Simulator>aircraft-specs.user.json`). It is read when the new engine is built (restart JoinFS after editing; the Classic engine ignores it) and merged over the bundled data by `ReferenceSpecs.WithUserOverrides`:
+
+- A type designator found in both: only the user row is used (it replaces the bundled row completely, including aliases and title hints). A new designator is added.
+- Aliases stay unique and official designators still rule: a user alias that is an official Doc8643 designator, the designator of any row, or already used by an earlier user row is dropped; a user alias wins over the same bundled alias on another row.
+- Nothing is fatal: an unreadable file, a row without `icao` or a duplicate designator is skipped, the bundled data stays, and one message names the first problems.
+
+Tests: `ReferenceUserOverridesTests` (merge rules, rejected aliases, bad files, uniqueness on the real data, and an end-to-end match changed by a user file).
+
+Bundled alias rules: an alias is never an official Doc8643 designator; family names such as `B747`, `B787`, `B777`, `A330`, `A340`, `A350`, `B767`, `B757`, `B727` are aliases of the family's most common variant.
+
 The remainder of this document is the rule set as implemented.
 
 ---

@@ -5,6 +5,7 @@ using System.Windows.Forms;
 #endif
 using System.IO;
 using System.Globalization;
+using System.Linq;
 using JoinFS.Properties;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -4554,13 +4555,32 @@ namespace JoinFS
         /// <summary>The new engine; it reads the live model list, so one instance serves the whole session.</summary>
         Matching.CombinedMatcher newMatcher;
 
+        /// <summary>The optional user file with own aircraft rows, same format as the built-in aircraft-specs.json (read when the matcher is built)</summary>
+        public const string UserReferenceFile = "aircraft-specs.user.json";
+
+        /// <summary>Where the user file is looked for; null = the storage folder (tests point it elsewhere)</summary>
+        public string userReferencePath;
+
+        /// <summary>The built-in reference data with the user file merged over it; problems in the file are reported once and never stop matching.</summary>
+        Matching.ReferenceSpecs LoadReferenceSpecs()
+        {
+            string path = userReferencePath ?? (main != null ? Path.Combine(main.storagePath, UserReferenceFile) : null);
+            List<string> problems = [];
+            Matching.ReferenceSpecs reference = Matching.ReferenceSpecs.WithUserOverridesFromFile(Matching.MatchingData.Reference, path, Matching.MatchingData.Doc8643.IsRecognized, problems);
+            if (problems.Count > 0 && main != null)
+            {
+                main.ShowMessage(UserReferenceFile + ": " + string.Join("; ", problems.Take(3)) + (problems.Count > 3 ? "; ..." : ""));
+            }
+            return reference;
+        }
+
         /// <summary>
         /// The new matcher: explicit tiers as before, then identity signals + related types + physical similarity + plausibility gate,
         /// deterministic order, and a refusal instead of a nonsense model.
         /// </summary>
         (Model model, Type type, MatchTrace trace) MatchWithNewEngine(MatchRequest request)
         {
-            Matching.CombinedMatcher matcher = newMatcher ??= new Matching.CombinedMatcher(new Matching.SubstitutionCatalog(this), Matching.MatchingData.Reference,
+            Matching.CombinedMatcher matcher = newMatcher ??= new Matching.CombinedMatcher(new Matching.SubstitutionCatalog(this), LoadReferenceSpecs(),
                 airlines: Matching.MatchingData.Airlines, related: Matching.MatchingData.Related);
             Matching.CombinedResult result = matcher.Match(request);
             return (result.Model, result.Type, result.Trace);

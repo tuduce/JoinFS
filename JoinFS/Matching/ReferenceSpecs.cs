@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 
 namespace JoinFS.Matching
@@ -50,6 +51,113 @@ namespace JoinFS.Matching
                 return reference;
             }
         }
+
+        /// <summary>
+        /// The built-in data with the user file aircraft-specs.user.json (same format) merged over it. A type designator found in both takes
+        /// the user row only. Aliases stay unique and official designators still rule: a user alias that is an official designator, another
+        /// row's designator or already used by an earlier user row is dropped; a user alias beats the same built-in alias on another row.
+        /// Nothing here is fatal: problems are added to <paramref name="problems"/> and the rest of the file still applies.
+        /// </summary>
+        public static ReferenceSpecs WithUserOverrides(ReferenceSpecs builtIn, string userJson, Func<string, bool> isOfficialDesignator, ICollection<string> problems)
+        {
+            List<Entry> userEntries = ReadUserEntries(userJson, problems);
+            if (userEntries.Count == 0) return builtIn;
+
+            HashSet<string> userDesignators = new(userEntries.Select(e => e.Icao), StringComparer.OrdinalIgnoreCase);
+            HashSet<string> designators = new(builtIn.entries.Select(e => e.Icao).Concat(userDesignators), StringComparer.OrdinalIgnoreCase);
+
+            HashSet<string> userAliases = new(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in userEntries)
+            {
+                entry.Aliases = ValidAliases(entry, designators, userAliases, isOfficialDesignator, problems);
+            }
+
+            ReferenceSpecs merged = new();
+            foreach (var entry in builtIn.entries)
+            {
+                if (userDesignators.Contains(entry.Icao)) continue;   // the user's row replaces it completely
+                merged.Add(entry.Aliases.Any(userAliases.Contains) ? WithAliases(entry, entry.Aliases.Where(a => !userAliases.Contains(a)).ToList()) : entry);
+            }
+            foreach (var entry in userEntries) merged.Add(entry);
+            return merged;
+        }
+
+        /// <summary>Like <see cref="WithUserOverrides"/> from a file; a missing file changes nothing, an unreadable one is reported.</summary>
+        public static ReferenceSpecs WithUserOverridesFromFile(ReferenceSpecs builtIn, string path, Func<string, bool> isOfficialDesignator, ICollection<string> problems)
+        {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return builtIn;
+            string json;
+            try
+            {
+                json = File.ReadAllText(path);
+            }
+            catch (Exception ex)
+            {
+                problems.Add($"cannot read {Path.GetFileName(path)}: {ex.Message}");
+                return builtIn;
+            }
+            return WithUserOverrides(builtIn, json, isOfficialDesignator, problems);
+        }
+
+        static List<Entry> ReadUserEntries(string userJson, ICollection<string> problems)
+        {
+            List<Entry> entries = [];
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(userJson);
+                if (doc.RootElement.ValueKind != JsonValueKind.Object || !doc.RootElement.TryGetProperty("aircraft", out var rows) || rows.ValueKind != JsonValueKind.Array)
+                {
+                    problems.Add("no aircraft list found");
+                    return entries;
+                }
+                HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+                int index = 0;
+                foreach (var row in rows.EnumerateArray())
+                {
+                    index++;
+                    try
+                    {
+                        Entry entry = ReadEntry(row);
+                        if (entry.Icao.Length == 0) throw new FormatException("empty icao");
+                        if (!seen.Add(entry.Icao)) problems.Add($"{entry.Icao}: designator appears more than once, the first row is used");
+                        else entries.Add(entry);
+                    }
+                    catch (Exception ex) when (ex is KeyNotFoundException or InvalidOperationException or FormatException)
+                    {
+                        problems.Add($"row {index} skipped: {ex.Message}");
+                    }
+                }
+            }
+            catch (JsonException ex)
+            {
+                problems.Add("not valid JSON: " + ex.Message);
+            }
+            return entries;
+        }
+
+        static List<string> ValidAliases(Entry entry, HashSet<string> designators, HashSet<string> alreadyUsed, Func<string, bool> isOfficialDesignator, ICollection<string> problems)
+        {
+            List<string> valid = [];
+            foreach (var alias in entry.Aliases)
+            {
+                if (isOfficialDesignator(alias)) problems.Add($"{entry.Icao}: alias {alias} is an official ICAO designator and cannot be an alias");
+                else if (designators.Contains(alias)) problems.Add($"{entry.Icao}: alias {alias} is the type designator of a row");
+                else if (!alreadyUsed.Add(alias)) problems.Add($"{entry.Icao}: alias {alias} is already used by another row of the file");
+                else valid.Add(alias);
+            }
+            return valid;
+        }
+
+        static Entry WithAliases(Entry entry, List<string> aliases) => new()
+        {
+            Icao = entry.Icao,
+            NonIcao = entry.NonIcao,
+            Name = entry.Name,
+            Manufacturer = entry.Manufacturer,
+            Aliases = aliases,
+            TitleHints = entry.TitleHints,
+            Specs = entry.Specs
+        };
 
         void Add(Entry entry)
         {
