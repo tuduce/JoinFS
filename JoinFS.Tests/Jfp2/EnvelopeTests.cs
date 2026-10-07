@@ -12,7 +12,7 @@ namespace JoinFS.Tests.Jfp2
         [Fact]
         public void WriteTo_ReadFrom_RoundTrips()
         {
-            var envelope = new Envelope(EnvelopeFlags.Coalesced, 1001, 2002, MessageClasses.Position);
+            var envelope = new Envelope(EnvelopeFlags.Internal, 1001, 2002, MessageClasses.GuaranteedDone);
             byte[] buffer = new byte[Envelope.FixedSize];
 
             int written = envelope.WriteTo(buffer);
@@ -209,6 +209,77 @@ namespace JoinFS.Tests.Jfp2
             byte[] truncated = full[..(Envelope.FixedSize + RelayNuid.WireSize)];
 
             Assert.Throws<System.ArgumentException>(() => Envelope.ReadFrom(truncated, out _));
+        }
+
+        // A datagram this build must not read (docs/reference/jfp2-protocol.md §4.1, §4.2): another
+        // ProtoMajor, or a flag bit outside SupportedFlags. TryReadFrom says so instead of throwing,
+        // so the plugin can drop it quietly.
+
+        static byte[] Datagram(EnvelopeFlags flags, byte messageClass)
+        {
+            byte[] datagram = new byte[Envelope.FixedSize + 4];
+            new Envelope(flags & Envelope.SupportedFlags, 1, 2, messageClass).WriteTo(datagram);
+            datagram[2] = (byte)flags;
+            return datagram;
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(3)]
+        [InlineData(255)]
+        public void TryReadFrom_OtherProtoMajor_IsUnsupported(byte major)
+        {
+            byte[] datagram = Datagram(EnvelopeFlags.None, MessageClasses.Position);
+            datagram[1] = major;
+
+            Assert.False(Envelope.TryReadFrom(datagram, out _, out _, out string unsupported));
+            Assert.Contains("ProtoMajor " + major, unsupported);
+            Assert.Throws<System.InvalidOperationException>(() => Envelope.ReadFrom(datagram, out _));
+        }
+
+        /// <summary>A later major version need not have an 8-byte header: byte 1 alone decides.</summary>
+        [Fact]
+        public void TryReadFrom_OtherProtoMajor_ShorterThanOurHeader_IsUnsupportedNotTruncated()
+        {
+            Assert.False(Envelope.TryReadFrom(new byte[] { Envelope.Magic, 3 }, out _, out _, out string unsupported));
+            Assert.Contains("ProtoMajor 3", unsupported);
+        }
+
+        [Theory]
+        [InlineData(EnvelopeFlags.Coalesced)]
+        [InlineData((EnvelopeFlags)(1 << 4))]
+        [InlineData((EnvelopeFlags)(1 << 5))]
+        [InlineData((EnvelopeFlags)(1 << 6))]
+        [InlineData((EnvelopeFlags)(1 << 7))]
+        [InlineData(EnvelopeFlags.Internal | (EnvelopeFlags)(1 << 7))]
+        public void TryReadFrom_FlagThisBuildCannotRead_IsUnsupported(EnvelopeFlags flags)
+        {
+            byte[] datagram = Datagram(flags, MessageClasses.Position);
+
+            Assert.False(Envelope.TryReadFrom(datagram, out _, out _, out string unsupported));
+            Assert.Contains("flag bits", unsupported);
+        }
+
+        [Fact]
+        public void SupportedFlags_AreExactlyGuaranteedForwardedAndInternal()
+        {
+            Assert.Equal(EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded | EnvelopeFlags.Internal, Envelope.SupportedFlags);
+        }
+
+        /// <summary>The handshake travels as ProtoMajor 2 forever, whatever ProtoMajor becomes (§5.2).</summary>
+        [Fact]
+        public void Handshake_IsWrittenWithTheHandshakeProtoMajor()
+        {
+            Assert.Equal(2, Envelope.HandshakeProtoMajor);
+            foreach (byte messageClass in new[] { MessageClasses.Hello, MessageClasses.HelloAck })
+            {
+                byte[] datagram = new byte[Envelope.FixedSize];
+                new Envelope(EnvelopeFlags.Internal, 1, 0, messageClass).WriteTo(datagram);
+                Assert.Equal(Envelope.HandshakeProtoMajor, datagram[1]);
+                Assert.True(Envelope.TryReadFrom(datagram, out Envelope back, out _, out _));
+                Assert.Equal(messageClass, back.RawMessageClass);
+            }
         }
 
         [Fact]

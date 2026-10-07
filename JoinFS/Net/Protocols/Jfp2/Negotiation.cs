@@ -2,6 +2,7 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Net;
+using System.Text;
 
 // Ported from ProtocolV2Reference/Negotiation.cs (docs/reference/jfp2-protocol.md §5) as part of
 // docs/protocol-v2-implementation-plan.md Phase 1. PeerSession gained two fields
@@ -49,8 +50,8 @@ namespace JoinFS.Net.Jfp2
 
     /// <summary>
     /// A minimal length-prefixed, tag-value extension area appended to Hello/HelloAck. Anything not
-    /// anticipated by the fixed Hello layout (a future auth token, a build string for diagnostics, a
-    /// vendor-specific extension, ...) can be added here later without changing how any existing field
+    /// anticipated by the fixed Hello layout (the node id and build that came first, a future auth
+    /// token, a vendor-specific extension, ...) can be added here without changing how any existing field
     /// is parsed - an unrecognized tag is simply skipped by its declared length instead of desyncing
     /// the rest of the message. This generalizes the one place the legacy protocol already does this
     /// (the Notes message's length-prefixed inner records, docs/network-protocol.md §8.9/§9.2) to the
@@ -91,11 +92,22 @@ namespace JoinFS.Net.Jfp2
     /// PeerId assignment IS the subject of this exchange, the very first Hello a node sends a new
     /// peer has no meaningful RecipientPeerId yet - the reply is simply addressed back to the UDP
     /// source IPEndPoint, exactly like the legacy Join/JoinReply exchange already does today.
+    ///
+    /// This is the permanent entry point of JFP2: its envelope (Envelope.HandshakeProtoMajor), its
+    /// fixed fields and its offer list layout never change. Anything new goes into the extension
+    /// area, and a later major version is agreed through ProtoMajorMin/Max inside it
+    /// (docs/reference/jfp2-protocol.md §5.2; pinned by HandshakeGoldenTests).
     /// </summary>
     public sealed class HandshakeMessage
     {
         /// <summary>Extension tag carrying the sender's own node id (<see cref="Node"/>).</summary>
         public const ushort NodeTag = 1;
+
+        /// <summary>Extension tag carrying the sender's build (<see cref="Build"/>).</summary>
+        public const ushort BuildTag = 2;
+
+        /// <summary>The longest <see cref="Build"/> sent or kept, in UTF-8 bytes.</summary>
+        public const int BuildMaxBytes = 64;
 
         public byte ProtoMajorMin;
         public byte ProtoMajorMax;
@@ -113,6 +125,33 @@ namespace JoinFS.Net.Jfp2
         /// the message; a peer that omits it is treated as legacy-only.
         /// </summary>
         public RelayNuid? Node;
+
+        /// <summary>
+        /// Which build is speaking, as text (JoinFS sends its version and variant), so a hub can count
+        /// which builds speak JFP2. Diagnostic only: nothing about the protocol depends on it,
+        /// negotiation alone does. Written and read through <see cref="CleanBuild"/>, so what goes on the
+        /// wire is always within its limits and what a peer sent is always safe to log. Null when the
+        /// sender did not say.
+        /// </summary>
+        public string Build;
+
+        /// <summary>
+        /// The build text as it may travel: printable ASCII only (0x20-0x7E; it comes from
+        /// unauthenticated Hellos and ends up in the log, so no control, bidi or zero-width
+        /// characters), at most <see cref="BuildMaxBytes"/> long. Null when nothing is left.
+        /// </summary>
+        public static string CleanBuild(ReadOnlySpan<char> text)
+        {
+            Span<char> clean = stackalloc char[BuildMaxBytes];
+            int length = 0;
+            foreach (char c in text)
+            {
+                if (c < 0x20 || c > 0x7E) continue;
+                clean[length++] = c;
+                if (length == BuildMaxBytes) break;
+            }
+            return length > 0 ? new string(clean[..length]) : null;
+        }
 
         public byte[] Serialize()
         {
@@ -142,9 +181,14 @@ namespace JoinFS.Net.Jfp2
                 Node.Value.WriteTo(node);
                 Tlv.Write(bytes, NodeTag, node);
             }
+            string build = CleanBuild(Build);
+            if (build != null)
+            {
+                Tlv.Write(bytes, BuildTag, Encoding.UTF8.GetBytes(build));
+            }
             foreach (var kv in Extensions)
             {
-                if (kv.Key != NodeTag) Tlv.Write(bytes, kv.Key, kv.Value);
+                if (kv.Key != NodeTag && kv.Key != BuildTag) Tlv.Write(bytes, kv.Key, kv.Value);
             }
             return bytes.ToArray();
         }
@@ -172,6 +216,10 @@ namespace JoinFS.Net.Jfp2
             {
                 msg.Node = RelayNuid.ReadFrom(node);
             }
+            if (msg.Extensions.Remove(BuildTag, out byte[] build))
+            {
+                msg.Build = CleanBuild(Encoding.UTF8.GetString(build, 0, Math.Min(build.Length, BuildMaxBytes)));
+            }
             return msg;
         }
     }
@@ -192,6 +240,13 @@ namespace JoinFS.Net.Jfp2
         public ushort LocalAssignedId; // what WE call ourselves to this peer (goes in SenderPeerId when we send to them)
         public ushort RemoteAssignedId; // what THEY call themselves (goes in RecipientPeerId when we send to them)
         public ulong AgreedCapabilities;
+
+        /// <summary>The build the peer said it runs in its last handshake message (<see cref="HandshakeMessage.Build"/>), or null.</summary>
+        public string Build;
+
+        /// <summary>A build was learned for this session (and logged at event level) at least once; later changes are logged at network level only.</summary>
+        public bool BuildLearned;
+
         public readonly byte[] AgreedAppVersion = new byte[256];
         public readonly byte[] AgreedInternalVersion = new byte[256];
 
@@ -250,10 +305,11 @@ namespace JoinFS.Net.Jfp2
     {
         /// <summary>
         /// Combine a local and a remote offer set into a per-class agreed version table. A class
-        /// either side never declared falls back to version 0, which by convention is always a
-        /// baseline schema every build understands (roughly the wire-compatible equivalent of what
-        /// the legacy protocol already carried for that concept) - so an unrecognized/newer class on
-        /// either side degrades gracefully instead of failing the whole handshake.
+        /// either side never declared, or whose ranges do not overlap, gets version 0, which means
+        /// "don't send this class to this peer" (docs/reference/jfp2-protocol.md §5.3): no codec has
+        /// version 0, and the message goes through the legacy plugin instead - so an
+        /// unrecognized/newer class on either side degrades gracefully instead of failing the whole
+        /// handshake.
         ///
         /// Every handshake (keepalives included) resolves from scratch, so a class the peer stopped
         /// offering (it restarted with another build) is no longer agreed. Returns true when the result

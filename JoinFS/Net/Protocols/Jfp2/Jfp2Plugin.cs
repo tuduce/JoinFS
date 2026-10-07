@@ -112,12 +112,15 @@ namespace JoinFS.Net.Jfp2
         /// <summary>Who a send is on behalf of: this node, or (translation at a relay) the message's author.</summary>
         NodeId sendOrigin;
         readonly ushort firstGuaranteedId;
+        readonly string build;
         double nextIdentitySweep;
 
         /// <param name="firstGuaranteedId">Where guaranteed ids start; production seeds it from the clock (see <see cref="Jfp2Reliability"/>).</param>
-        public Jfp2Plugin(ushort firstGuaranteedId = 1)
+        /// <param name="build">The build this node says it runs in its Hello/HelloAck (<see cref="HandshakeMessage.Build"/>, which cleans it on the way out); null says nothing.</param>
+        public Jfp2Plugin(ushort firstGuaranteedId = 1, string build = null)
         {
             this.firstGuaranteedId = firstGuaranteedId;
+            this.build = build;
             encoder = new Encoder(this);
         }
 
@@ -248,6 +251,9 @@ namespace JoinFS.Net.Jfp2
             local = remote = 0;
             return false;
         }
+
+        /// <summary>For tests and diagnostics: the build a neighbor said it runs in its last handshake message, or null.</summary>
+        public string BuildOf(NodeId neighbor) => sessions.TryGetValue(neighbor, out PeerSession session) ? session.Build : null;
 
         // ================================================================== periodic
 
@@ -425,14 +431,32 @@ namespace JoinFS.Net.Jfp2
             SelfAssignedId = session.LocalAssignedId,
             Result = result,
             Node = ToRelay(Local),
+            Build = build,
             Offers = new List<SchemaOffer>(LocalOffers),
         };
 
+        // Internal and nothing else: no flag a peer could need a capability to read
+        // (docs/reference/jfp2-protocol.md §4.2); the envelope goes out as Envelope.HandshakeProtoMajor
         void SendHello(IPEndPoint endPoint, PeerSession session) =>
             SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.Hello, session.LocalAssignedId, session.RemoteAssignedId, MakeHandshake(session, 0).Serialize());
 
         void SendHelloAck(IPEndPoint endPoint, PeerSession session, byte result) =>
             SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.HelloAck, session.LocalAssignedId, session.RemoteAssignedId, MakeHandshake(session, result).Serialize());
+
+        /// <summary>
+        /// Remember the build a neighbor says it runs (none: it restarted with a build that does not
+        /// say), and log it: the first one at event level, later changes at network level only, so
+        /// Hellos that keep changing it (buggy or forged) cannot flood the monitor.
+        /// </summary>
+        void LearnBuild(PeerSession session, string peerBuild)
+        {
+            if (peerBuild != null && peerBuild != session.Build)
+            {
+                host.Log(session.BuildLearned ? NetLogLevel.Network : NetLogLevel.Event, "JFP2: " + session.Peer + " runs build " + peerBuild);
+                session.BuildLearned = true;
+            }
+            session.Build = peerBuild;
+        }
 
         /// <summary>
         /// Send one application message toward <paramref name="target"/> through <paramref name="hop"/>:
@@ -681,7 +705,13 @@ namespace JoinFS.Net.Jfp2
 
         void Receive(IPEndPoint from, ReadOnlySpan<byte> datagram)
         {
-            Envelope envelope = Envelope.ReadFrom(datagram, out int consumed);
+            if (!Envelope.TryReadFrom(datagram, out Envelope envelope, out int consumed, out string unsupported))
+            {
+                // well formed for a build newer than this one (another ProtoMajor, a flag we cannot
+                // read): not an error, and it may arrive with every datagram from that peer
+                host.Log(NetLogLevel.Network, "JFP2: datagram from " + from + " uses " + unsupported + ", which this build cannot read - dropped");
+                return;
+            }
             ReadOnlySpan<byte> payload = datagram[consumed..];
 
             // the handshake is the only traffic that has no session yet; it says who is speaking itself
@@ -782,6 +812,8 @@ namespace JoinFS.Net.Jfp2
                 session = CreateSession(sender);
             }
             session.RemoteAssignedId = hello.SelfAssignedId;
+            LearnBuild(session, hello.Build);
+            // a range that includes ours (2..3 from a later build, say) is fine: we speak the common one
             if (hello.ProtoMajorMin > Envelope.ProtoMajor || hello.ProtoMajorMax < Envelope.ProtoMajor)
             {
                 SendHelloAck(from, session, result: 1);
@@ -848,6 +880,7 @@ namespace JoinFS.Net.Jfp2
                 return;
             }
             session.RemoteAssignedId = ack.SelfAssignedId;
+            LearnBuild(session, ack.Build);
             bool agreementChanged = Negotiator.Resolve(session, LocalCapabilities, LocalOffers, ack.Capabilities, ack.Offers);
             bool wasVerified = session.Verified;
             session.HandshakeComplete = true;

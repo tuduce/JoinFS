@@ -101,10 +101,10 @@ All multi-byte integers are little-endian. Strings are UTF-8 with a **u16 length
 | Offset | Size | Field | Notes |
 |---|---|---|---|
 | 0 | 1 | Magic | Always `0xFA`. |
-| 1 | 1 | ProtoMajor | `2`. A future breaking redesign would branch on this byte. |
+| 1 | 1 | ProtoMajor | `2`. A future breaking redesign would branch on this byte, so a receiver drops (logged at network level) a datagram with any other value: nothing after this byte need look the same. Hello and HelloAck always carry `2` (§5.2). |
 | 2 | 1 | Flags | §4.2. |
 | 3 | 2 | SenderPeerId | u16, assigned at handshake time (§5.2): the sender's own id for the session between the two nodes exchanging *this datagram*. |
-| 5 | 2 | RecipientPeerId | u16: the receiver's id for that session. A receiver finds the session by this id alone, never by source endpoint (§5.7). |
+| 5 | 2 | RecipientPeerId | u16: the receiver's id for that session. A receiver finds the session by this id alone, never by source endpoint (§5.7). `0` while the sender does not know it yet, which happens only on the first Hello to a peer; no session has id `0`. |
 | 7 | 1 | RawMessageClass | §4.3. |
 
 The optional extensions follow in this order: guaranteed (§4.4), then relay (§4.5), then the
@@ -116,9 +116,20 @@ payload.
 |---|---|---|
 | 0 | Guaranteed | Wants acknowledgement/retransmission; the 4-byte guaranteed extension follows (§4.4). |
 | 1 | Forwarded | Addressed by origin/target node ids instead of PeerIds; the 14-byte relay extension follows (§4.5). |
-| 2 | Coalesced | Payload is a sequence of sub-messages (§4.7). *Specified, not implemented.* |
+| 2 | Coalesced | Payload is a sequence of sub-messages (§4.7). *Specified, not implemented*: no build sends it, and this one drops it (below). |
 | 3 | Internal | `RawMessageClass` indexes the internal partition (§4.3). |
-| 4–7 | Reserved | Zero on send, ignored on receive. |
+| 4–7 | Reserved | Zero on send. |
+
+**Rule for flags.** A new flag may add a header extension or change the payload's framing, so a
+receiver that ignored it would misparse everything after it. Therefore:
+- **Receiver:** a datagram with any bit set other than `Guaranteed`, `Forwarded` and `Internal`
+  (`Envelope.SupportedFlags`) is dropped, logged at network level. That includes `Coalesced`, which
+  this build cannot parse.
+- **Sender:** any other bit is set only toward a neighbour with which the capability that defines
+  that bit was agreed (§5.4), and never on Hello/HelloAck, before any agreement exists. A new flag is
+  therefore always defined together with a capability. A relay that passes a datagram on byte for
+  byte (§4.5) is a sender too: it forwards such a datagram only to a target that agreed the same
+  capability.
 
 ### 4.3 Message classes
 
@@ -283,9 +294,27 @@ Payload (same shape for both; `Result` is meaningful only in HelloAck):
 | Offers | 4 × OfferCount | `Internal(1) MessageClass(1) MinVersion(1) MaxVersion(1)` |
 | Extensions | rest | TLV records, §5.5. |
 
+**The permanent entry point.** Hello/HelloAck is how every build, past and future, starts talking to
+every other, so it never changes:
+- the envelope: ProtoMajor `2` (`Envelope.HandshakeProtoMajor`, a constant of its own that stays `2`
+  even if `Envelope.ProtoMajor` moves), the `Internal` flag and no other, classes `0` and `1`;
+- the payload's fixed fields and the offer list layout above.
+
+Anything new goes into the extension area (§5.5). A future major version is reached by negotiating
+it inside a ProtoMajor-2 Hello: a build that speaks 2 and 3 would offer ProtoMajorMin `2`, Max `3`,
+which this build accepts and answers in 2. The major version is agreed per session, like the
+capabilities, not per class: every later datagram of that session uses it, except Hello and HelloAck
+(keepalives included), which always travel in ProtoMajor 2. `HandshakeGoldenTests`
+pins the exact bytes.
+
 Behaviour, as implemented (`Jfp2Plugin`):
 - A Hello without a `Node`, or naming a node that isn't a known mesh peer, is ignored. The legacy
   Join always happens first, and a build that doesn't say who it is stays on legacy.
+- A Hello whose ProtoMajor range includes 2 (for example 2..3) is answered with `Result` `0`; one that
+  excludes 2 is answered with `Result` `1`. Unknown extension tags are skipped.
+- The `Build` extension (§5.5) is remembered per session (and forgotten when a later handshake
+  omits it) and logged as `JFP2: <node> runs build <build>`: the first build learned for a session at
+  event level, later changes at network level only.
 - An unanswered Hello is retried every **2 s**. After **5** attempts the peer is marked
   `AssumedLegacy` (legacy only) and is tried again after **30 s**, or at once if it sends a Hello
   itself.
@@ -339,6 +368,7 @@ so the handshake can grow without a new envelope version.
 | Tag | Name | Value |
 |---|---|---|
 | 1 | Node | 7 bytes, the legacy `Nuid` layout: the speaking node's own id. In a HelloAck, the node that answered. Required: a handshake message without it is treated as coming from a legacy-only peer. |
+| 2 | Build | UTF-8 text naming the speaking node's build, for diagnostics and for counting which builds speak JFP2; JoinFS sends `<version> <assembly name>`, e.g. `26.6.0 JoinFS-FS2024`. JoinFS sends and keeps only printable ASCII (`0x20`–`0x7E`), at most 64 bytes: a sender cleans it to that, and a receiver cuts the value to 64 bytes and drops every other character before using it, since it ends up in the log. Optional; nothing in the protocol depends on it. |
 
 ### 5.6 Peers that don't speak JFP2
 
@@ -467,10 +497,11 @@ message kind, not per mesh:
 
 **7.3 Independent versions per class.** No class's version is coupled to another's (§5.1).
 
-**7.4 Reserved values are ignored, not rejected.** Undefined flag bits, TLV tags and (once
+**7.4 Reserved values are skipped, not rejected — except in the envelope.** TLV tags and (once
 implemented) coalesced sub-messages, extended classes and `PeerKey` families all declare their own
 size, so a reader can skip what it doesn't understand. This is the structural alternative to
-EOF-sensing (§1.3).
+EOF-sensing (§1.3). The envelope is the exception: an unknown ProtoMajor or flag bit can change where
+everything after it lies, so such a datagram is dropped (§4.1, §4.2).
 
 **7.5 No compile-time wire gating.** Codecs are selected only by the negotiated schema version.
 Simulator build symbols (`FS2020`, `FS2024`, `XPLANE`, `CONSOLE`, ...) never change a wire shape.
@@ -508,7 +539,9 @@ recordings (explicit per-record-type versions instead of EOF-sensing) remains a 
 
 **Implemented:**
 - the envelope with its guaranteed and relay extensions, hop-scoped ids on relayed datagrams;
-- Hello/HelloAck with per-class negotiation, node identity, and verified sessions with a keepalive;
+- Hello/HelloAck with per-class negotiation, node identity, the build advertisement, and verified
+  sessions with a keepalive;
+- dropping datagrams of another ProtoMajor or with flags this build cannot read;
 - next-hop origination of relayed traffic, and relay or translation at the hop;
 - single-datagram guaranteed delivery;
 - the v1 codecs for all ten application classes.
@@ -534,5 +567,8 @@ topology in `JoinFS.Tests/Net/Jfp2RelayTests.cs` reproduces the failure of the n
 - **Limits of verification behind a shared endpoint:** a node whose replies are steered to another
   node cannot verify the path back, so that direction stays on legacy (§5.7).
 - **Selective acknowledgement** and **coalescing policy** (batch window, eligible classes).
-- **Governance for ProtoMajor 3+:** a future breaking version should keep the magic/version-byte
-  dispatch before anything else is parsed.
+- **Governance for ProtoMajor 3+** — *resolved.* Hello/HelloAck is the permanent entry point: its
+  ProtoMajor-2 envelope, fixed fields and offer layout never change, anything new goes into the TLV
+  extension area, and a later major version is agreed through ProtoMajorMin/Max inside a
+  ProtoMajor-2 Hello (§5.2). Every other datagram keeps the magic/version-byte dispatch before
+  anything else is parsed, and a receiver drops a ProtoMajor or flag it does not know (§4.1, §4.2).

@@ -56,8 +56,9 @@ namespace JoinFS
 
             service = new NetworkService(credentialStoreFactory: folder => new CredentialStore(main.documentsPath, main.MonitorEvent));
             // the protocols this build speaks (legacy is built in; newer ones win per peer and
-            // message kind where both sides negotiated them)
-            service.AddPlugin(new Jfp2Plugin((ushort)System.Diagnostics.Stopwatch.GetTimestamp()));
+            // message kind where both sides negotiated them). JFP2 tells each neighbor which build
+            // this is, e.g. "26.6.0 JoinFS-FS2024".
+            service.AddPlugin(new Jfp2Plugin((ushort)System.Diagnostics.Stopwatch.GetTimestamp(), Main.Version + " " + Main.Name));
 
             Bootstrap = new NetBootstrap(service, host, main.settingsLocalAddress, Settings.Default.MyIp, host.Now);
             Peers = new PeerTable(service, this, host, host, host, main.log, host, host, host);

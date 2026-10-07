@@ -13,6 +13,9 @@ namespace JoinFS.Tests.Net
         public readonly List<NetworkEvent> Events = [];
         public readonly List<string> Logs = [];
 
+        /// <summary>The part of <see cref="Logs"/> logged at NetLogLevel.Event (always shown in the monitor).</summary>
+        public readonly List<string> EventLogs = [];
+
         /// <summary>Arrival time to pass with each datagram (null: let the core use its clock).</summary>
         public Func<double>? ReceiveTime;
 
@@ -37,6 +40,7 @@ namespace JoinFS.Tests.Net
         public void OnEvent(in NetworkEvent e)
         {
             if (e.Kind != NetworkEventKind.Log) Events.Add(e); else Logs.Add(e.Text);
+            if (e.Kind == NetworkEventKind.Log && e.Level == NetLogLevel.Event) EventLogs.Add(e.Text);
         }
 
         public IEnumerable<T> Messages<T>() => Received.Where(r => r.Message is T).Select(r => (T)r.Message);

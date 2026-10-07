@@ -45,10 +45,10 @@ namespace JoinFS.Tests.Net
             public readonly TestNode Hub, A, B;
             public IPEndPoint Steer;
 
-            public SharedEndpoint()
+            public SharedEndpoint(string hubBuild = null, string bBuild = null)
             {
-                Hub = Mesh.AddBehindNat("192.168.1.10", "203.0.113.1", 6112, new LegacyPlugin(), new Jfp2Plugin());
-                B = Mesh.AddBehindNat("192.168.1.20", "203.0.113.1", 6112, new LegacyPlugin(), new Jfp2Plugin());
+                Hub = Mesh.AddBehindNat("192.168.1.10", "203.0.113.1", 6112, new LegacyPlugin(), new Jfp2Plugin(build: hubBuild));
+                B = Mesh.AddBehindNat("192.168.1.20", "203.0.113.1", 6112, new LegacyPlugin(), new Jfp2Plugin(build: bBuild));
                 A = Mesh.Add("198.51.100.2", 6112, new LegacyPlugin(), new Jfp2Plugin());
                 Steer = Hub.EndPoint;
                 Mesh.Network.Nat = (from, to) =>
@@ -101,6 +101,29 @@ namespace JoinFS.Tests.Net
             Assert.Equal(-12.25, positionA.Latitude);
             Assert.Equal("Legacy", t.B.Core.Route(t.A.Id, MessageKind.Position)!.Name);
         }
+
+        /// <summary>
+        /// The router starts steering the shared endpoint to B, so A's keepalive Hello to the hub is
+        /// answered by B: the build in that HelloAck is B's, and must not be taken for the hub's.
+        /// </summary>
+        [Fact]
+        public void SharedEndpoint_HelloAckFromAnotherNode_DoesNotGiveItsBuildToThePeerAskedFor()
+        {
+            var t = new SharedEndpoint(hubBuild: "26.6.0 JoinFS-CONSOLE", bBuild: "26.6.0 JoinFS-FS2024");
+            // Hellos to A would tell A the builds themselves: keep them away, so only HelloAcks speak
+            t.Mesh.Network.Filter = (from, to, data) => !(to.Equals(t.A.EndPoint) && IsHello(data));
+            t.Mesh.Run(20);
+            Assert.Equal("26.6.0 JoinFS-CONSOLE", Jfp2Of(t.A).BuildOf(t.Hub.Id));
+
+            t.Steer = t.B.EndPoint;
+            t.Mesh.Run(10);
+
+            Assert.Contains(t.A.Logs, l => l.Contains(t.Hub.Id + " is not the node answering"));
+            Assert.Equal("26.6.0 JoinFS-CONSOLE", Jfp2Of(t.A).BuildOf(t.Hub.Id));
+        }
+
+        static bool IsHello(byte[] data) =>
+            data[0] == Envelope.Magic && (data[2] & (byte)EnvelopeFlags.Internal) != 0 && data[7] == MessageClasses.Hello;
 
         [Fact]
         public void SharedEndpoint_GuaranteedMessageThroughTheHub_IsAcknowledgedEndToEnd()

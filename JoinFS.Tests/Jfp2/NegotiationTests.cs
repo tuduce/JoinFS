@@ -12,6 +12,9 @@ namespace JoinFS.Tests.Jfp2
     // v1, peer B is one release behind (Position v1 only, Identity v1, never heard of VariableSync).
     public class NegotiationTests
     {
+        /// <summary>A handshake payload's fixed fields with no offers (§5.2): majors 2, capabilities 8, id 2, result 1, offer count 2.</summary>
+        const int HandshakeFixedSize = 15;
+
         static SchemaOffer[] OffersA() => new[]
         {
             new SchemaOffer(false, MessageClasses.Position, 1, 2),
@@ -142,6 +145,70 @@ namespace JoinFS.Tests.Jfp2
         public void HandshakeMessage_WithoutNodeIdentity_HasNone()
         {
             Assert.Null(HandshakeMessage.Deserialize(new HandshakeMessage { SelfAssignedId = 5 }.Serialize()).Node);
+        }
+
+        [Fact]
+        public void HandshakeMessage_Build_RoundTripsAndIsNotLeftInExtensions()
+        {
+            var hello = new HandshakeMessage { SelfAssignedId = 5, Build = "26.6.0 JoinFS-FS2024" };
+
+            HandshakeMessage back = HandshakeMessage.Deserialize(hello.Serialize());
+
+            Assert.Equal("26.6.0 JoinFS-FS2024", back.Build);
+            Assert.DoesNotContain(HandshakeMessage.BuildTag, back.Extensions.Keys);
+        }
+
+        [Fact]
+        public void HandshakeMessage_WithoutBuild_HasNone()
+        {
+            Assert.Null(HandshakeMessage.Deserialize(new HandshakeMessage { SelfAssignedId = 5 }.Serialize()).Build);
+            Assert.Null(HandshakeMessage.Deserialize(new HandshakeMessage { SelfAssignedId = 5, Build = "\r\n" }.Serialize()).Build);
+        }
+
+        /// <summary>
+        /// The build is free text from unauthenticated Hellos that ends up in the log: only printable
+        /// ASCII survives (no line breaks, bidi overrides, zero-width or line-separator characters), bounded.
+        /// </summary>
+        [Fact]
+        public void CleanBuild_KeepsPrintableAsciiOnly_AndCaps()
+        {
+            string dirty = "26.6\r\nERROR: fake\u0007\u202E\u200B\u2028\u00e9" + new string('x', 100);
+
+            Assert.Equal("26.6ERROR: fake" + new string('x', HandshakeMessage.BuildMaxBytes - 15), HandshakeMessage.CleanBuild(dirty));
+            Assert.Null(HandshakeMessage.CleanBuild((string)null));
+            Assert.Null(HandshakeMessage.CleanBuild("\u00e9\r\n"));
+        }
+
+        /// <summary>
+        /// Serialize cleans the build itself, so no caller can put control characters or an oversized
+        /// value on the wire: the TLV holds exactly the cleaned bytes.
+        /// </summary>
+        [Fact]
+        public void HandshakeMessage_Build_IsCleanedAndCappedOnSend()
+        {
+            string dirty = "26.6\r\n‮" + new string('x', 70000);
+            byte[] payload = new HandshakeMessage { SelfAssignedId = 5, Build = dirty }.Serialize();
+
+            Dictionary<ushort, byte[]> tlvs = Tlv.ReadAll(payload.AsSpan(HandshakeFixedSize));
+
+            Assert.Equal(Encoding.ASCII.GetBytes(HandshakeMessage.CleanBuild(dirty)), tlvs[HandshakeMessage.BuildTag]);
+            Assert.Equal(HandshakeMessage.BuildMaxBytes, tlvs[HandshakeMessage.BuildTag].Length);
+        }
+
+        /// <summary>
+        /// A peer that does not clean or cap its build (another implementation, or a forged Hello) is
+        /// cut to BuildMaxBytes before decoding, then cleaned.
+        /// </summary>
+        [Fact]
+        public void HandshakeMessage_Build_IsCleanedAndCappedOnReceive()
+        {
+            var bytes = new List<byte>(new HandshakeMessage { SelfAssignedId = 5 }.Serialize());
+            Tlv.Write(bytes, HandshakeMessage.BuildTag, Encoding.UTF8.GetBytes("x\ny\u202E" + new string('z', 300)));
+
+            HandshakeMessage back = HandshakeMessage.Deserialize(bytes.ToArray());
+
+            // the first 64 bytes: x, LF, y, U+202E (3 bytes), then 58 z
+            Assert.Equal("xy" + new string('z', HandshakeMessage.BuildMaxBytes - 6), back.Build);
         }
 
         [Fact]

@@ -10,7 +10,10 @@ namespace JoinFS.Net.Jfp2
 {
     /// <summary>
     /// Bit flags carried in every JFP2 envelope. Four bits reserved for future use, matching the
-    /// legacy transport header's own "plenty of spare bits" headroom.
+    /// legacy transport header's own "plenty of spare bits" headroom. A receiver drops a datagram
+    /// with any bit outside <see cref="Envelope.SupportedFlags"/>, so a sender sets another bit only
+    /// toward a neighbor that agreed the capability defining it, and never on Hello/HelloAck
+    /// (docs/reference/jfp2-protocol.md §4.2).
     /// </summary>
     [Flags]
     public enum EnvelopeFlags : byte
@@ -48,7 +51,8 @@ namespace JoinFS.Net.Jfp2
         /// cost (14 bytes instead of 7, only ever paid when relay is actually happening).</summary>
         Forwarded = 1 << 1,
         /// <summary>Payload is a sequence of coalesced sub-messages (each prefixed with its own
-        /// MessageClass byte and a u16 length) rather than a single message body.</summary>
+        /// MessageClass byte and a u16 length) rather than a single message body. Specified, not
+        /// implemented: no build sends it, and this one drops a datagram that carries it.</summary>
         Coalesced = 1 << 2,
         /// <summary>RawMessageClass indexes the internal/session-management partition rather than
         /// the application partition - see MessageClasses.</summary>
@@ -131,6 +135,24 @@ namespace JoinFS.Net.Jfp2
     {
         public const byte Magic = 0xFA;
         public const byte ProtoMajor = 2;
+
+        /// <summary>
+        /// The ProtoMajor Hello and HelloAck always travel with, whatever <see cref="ProtoMajor"/>
+        /// becomes. The handshake is the permanent entry point: its envelope and fixed fields never
+        /// change, so every build ever released can start one with every later build, and a later
+        /// major version is agreed inside it (HandshakeMessage.ProtoMajorMin/Max) rather than by
+        /// changing it (docs/reference/jfp2-protocol.md §5.2).
+        /// </summary>
+        public const byte HandshakeProtoMajor = 2;
+
+        /// <summary>
+        /// The flags this build can read. Any other bit may announce a header extension or a payload
+        /// framing this build does not know, which would shift what follows, so a datagram carrying one
+        /// is dropped rather than misparsed (docs/reference/jfp2-protocol.md §4.2). Coalesced is
+        /// specified but not implemented, so it is not here.
+        /// </summary>
+        public const EnvelopeFlags SupportedFlags = EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded | EnvelopeFlags.Internal;
+
         public const int FixedSize = 8;
         public const int GuaranteedExtraSize = 4;
 
@@ -143,7 +165,7 @@ namespace JoinFS.Net.Jfp2
 
         public readonly EnvelopeFlags Flags;
         public readonly ushort SenderPeerId;
-        public readonly ushort RecipientPeerId; // 0 = broadcast to the whole mesh, matching the legacy null-Nuid convention
+        public readonly ushort RecipientPeerId; // 0 = not known yet: the first Hello to a peer, before its id is learned. No session has id 0, so nothing else is addressed by it
         public readonly byte RawMessageClass;
 
         /// <summary>
@@ -176,7 +198,8 @@ namespace JoinFS.Net.Jfp2
         }
 
         /// <summary>Constructs a relayed envelope (Flags must include Forwarded). SenderPeerId/
-        /// RecipientPeerId should be 0 - see EnvelopeFlags.Forwarded's doc comment.</summary>
+        /// RecipientPeerId stay hop-scoped, as on any datagram (the session with the neighbor it goes
+        /// to); Origin/TargetNuid are end to end - see EnvelopeFlags.Forwarded's doc comment.</summary>
         public Envelope(EnvelopeFlags flags, ushort senderPeerId, ushort recipientPeerId, byte rawMessageClass, ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount, RelayNuid originNuid, RelayNuid targetNuid)
         {
             Flags = flags;
@@ -221,7 +244,7 @@ namespace JoinFS.Net.Jfp2
             if (dest.Length < WireSize)
                 throw new ArgumentException("destination buffer smaller than the JFP2 header (fixed + guaranteed/relay extensions, if any)");
             dest[0] = Magic;
-            dest[1] = ProtoMajor;
+            dest[1] = ProtoMajorFor(Flags, RawMessageClass);
             dest[2] = (byte)Flags;
             BinaryPrimitives.WriteUInt16LittleEndian(dest.Slice(3, 2), SenderPeerId);
             BinaryPrimitives.WriteUInt16LittleEndian(dest.Slice(5, 2), RecipientPeerId);
@@ -244,18 +267,59 @@ namespace JoinFS.Net.Jfp2
             return offset;
         }
 
-        public static Envelope ReadFrom(ReadOnlySpan<byte> src, out int bytesConsumed)
+        /// <summary>
+        /// The ProtoMajor a datagram is written with: <see cref="HandshakeProtoMajor"/> for Hello/HelloAck,
+        /// <see cref="ProtoMajor"/> for everything else (the same value today). Once a second major
+        /// version exists, a non-handshake datagram's major comes from the version agreed with that
+        /// neighbor in the handshake (per session, not per class), not from a constant.
+        /// </summary>
+        static byte ProtoMajorFor(EnvelopeFlags flags, byte rawMessageClass) =>
+            (flags & EnvelopeFlags.Internal) != 0 && (rawMessageClass == MessageClasses.Hello || rawMessageClass == MessageClasses.HelloAck)
+                ? HandshakeProtoMajor
+                : ProtoMajor;
+
+        /// <summary>Read the envelope of a datagram this build can read; throws on any other (see <see cref="TryReadFrom"/>).</summary>
+        public static Envelope ReadFrom(ReadOnlySpan<byte> src, out int bytesConsumed) =>
+            TryReadFrom(src, out Envelope envelope, out bytesConsumed, out string unsupported)
+                ? envelope
+                : throw new InvalidOperationException("JFP2 datagram this build cannot read: " + unsupported);
+
+        /// <summary>
+        /// Read the envelope of a received JFP2 datagram, or return false, saying why in
+        /// <paramref name="unsupported"/> (for the log), when this build must not read it: another
+        /// ProtoMajor (a later major version, whose header need not look like this one), or a flag
+        /// outside <see cref="SupportedFlags"/> (it may shift the payload). Such a datagram is well
+        /// formed for the build that sent it, so it is not an error; it is simply dropped. A datagram
+        /// too short for what it claims to carry still throws.
+        /// </summary>
+        public static bool TryReadFrom(ReadOnlySpan<byte> src, out Envelope envelope, out int bytesConsumed, out string unsupported)
         {
-            if (src.Length < FixedSize)
+            envelope = default;
+            bytesConsumed = 0;
+            unsupported = null;
+            if (src.Length < 2)
                 throw new ArgumentException("datagram shorter than the JFP2 fixed header");
             if (src[0] != Magic)
                 throw new InvalidOperationException("not a JFP2 datagram (bad magic byte)");
-            // src[1] (ProtoMajor) is where a future breaking redesign (JFP3) would branch to a
-            // completely different header layout; this only implements ProtoMajor 2.
+            // src[1] (ProtoMajor) is where a later breaking version branches to its own header layout,
+            // so nothing past it is read unless it is one this build knows
+            byte major = src[1];
+            if (major != ProtoMajor && major != HandshakeProtoMajor)
+            {
+                unsupported = "ProtoMajor " + major;
+                return false;
+            }
+            if (src.Length < FixedSize)
+                throw new ArgumentException("datagram shorter than the JFP2 fixed header");
             var flags = (EnvelopeFlags)src[2];
             ushort sender = BinaryPrimitives.ReadUInt16LittleEndian(src.Slice(3, 2));
             ushort recipient = BinaryPrimitives.ReadUInt16LittleEndian(src.Slice(5, 2));
             byte msgClass = src[7];
+            if ((flags & ~SupportedFlags) != 0)
+            {
+                unsupported = "flag bits 0x" + ((byte)(flags & ~SupportedFlags)).ToString("X2");
+                return false;
+            }
 
             int offset = FixedSize;
             ushort guaranteedId = 0;
@@ -284,7 +348,8 @@ namespace JoinFS.Net.Jfp2
             }
 
             bytesConsumed = offset;
-            return new Envelope(flags, sender, recipient, msgClass, guaranteedId, guaranteedIndex, guaranteedCount, originNuid, targetNuid);
+            envelope = new Envelope(flags, sender, recipient, msgClass, guaranteedId, guaranteedIndex, guaranteedCount, originNuid, targetNuid);
+            return true;
         }
     }
 

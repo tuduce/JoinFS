@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using JoinFS.Net;
 using JoinFS.Net.Jfp2;
 using JoinFS.Net.Jfp2.Codecs;
@@ -293,6 +294,236 @@ namespace JoinFS.Tests.Net
             mesh.Run(0.1);
             Assert.Equal("ID1", Assert.Single(hub.Messages<IdentityUpdate>()).Callsign);
             Assert.Equal(2, Assert.Single(hub.Messages<PositionUpdate>()).Latitude);
+        }
+
+        // ------------------------------------------------ datagrams from later builds (jfp2-protocol.md §4.1, §4.2)
+
+        /// <summary>A Position datagram from a to the hub in their session, with bytes 1 (ProtoMajor) and 2 (Flags) as given.</summary>
+        static void SendPositionWith(TestNode a, TestNode hub, byte protoMajor, byte flags)
+        {
+            Assert.True(Jfp2Of(a).TryGetHopIds(hub.Id, out ushort local, out ushort remote));
+            byte[] payload = new byte[PositionV1Codec.Size];
+            int length = new PositionV1Codec().Encode(new PositionUpdate { ObjectId = 4, NetTime = 1, Latitude = 51 }, payload);
+            byte[] datagram = new byte[Envelope.FixedSize + length];
+            new Envelope(EnvelopeFlags.None, local, remote, MessageClasses.Position).WriteTo(datagram);
+            payload.AsSpan(0, length).CopyTo(datagram.AsSpan(Envelope.FixedSize));
+            datagram[1] = protoMajor;
+            datagram[2] = flags;
+            a.Core.Transport.Send(hub.EndPoint, datagram);
+        }
+
+        /// <summary>
+        /// A later major version's datagram is dropped, and not through the error path: a peer running
+        /// it would otherwise put an error in the log for every datagram.
+        /// </summary>
+        [Fact]
+        public void Datagram_OfAnotherProtoMajor_IsDroppedQuietly()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+
+            SendPositionWith(a, hub, Envelope.ProtoMajor, 0);
+            mesh.Run(0.1);
+            Assert.Single(hub.Messages<PositionUpdate>()); // the same datagram in our version gets through
+
+            hub.Received.Clear();
+            SendPositionWith(a, hub, 3, 0);
+            mesh.Run(0.1);
+
+            Assert.Empty(hub.Messages<PositionUpdate>());
+            Assert.Contains(hub.Logs, l => l.Contains("ProtoMajor 3") && l.Contains("dropped"));
+            Assert.DoesNotContain(hub.Logs, l => l.Contains("ERROR"));
+            Assert.DoesNotContain(hub.EventLogs, l => l.Contains("dropped"));
+            Assert.True(Jfp2Of(hub).IsNegotiated(a.Id));
+        }
+
+        /// <summary>A flag this build cannot read may shift the payload: the datagram is dropped, not misparsed.</summary>
+        [Theory]
+        [InlineData((byte)EnvelopeFlags.Coalesced)]
+        [InlineData((byte)(1 << 4))]
+        [InlineData((byte)(1 << 7))]
+        public void Datagram_WithAFlagThisBuildCannotRead_IsDroppedQuietly(byte flag)
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+
+            SendPositionWith(a, hub, Envelope.ProtoMajor, flag);
+            mesh.Run(0.1);
+
+            Assert.Empty(hub.Messages<PositionUpdate>());
+            Assert.Contains(hub.Logs, l => l.Contains("flag bits") && l.Contains("dropped"));
+            Assert.DoesNotContain(hub.Logs, l => l.Contains("ERROR"));
+            Assert.DoesNotContain(hub.EventLogs, l => l.Contains("dropped"));
+        }
+
+        /// <summary>
+        /// The other half of the flag rule: this build never sets a bit a peer could need a capability
+        /// to read, and always sends ProtoMajor 2 - handshake, application, guaranteed and acks alike.
+        /// </summary>
+        [Fact]
+        public void EveryJfp2DatagramSent_IsOneEveryJfp2BuildCanRead()
+        {
+            // a and b reach each other only through the hub, so their traffic is relayed (Forwarded)
+            var mesh = new TestMesh();
+            TestNode hub = Jfp2Node(mesh, "203.0.113.1");
+            TestNode a = Jfp2Node(mesh, "198.51.100.2");
+            TestNode b = Jfp2Node(mesh, "192.0.2.3");
+            mesh.Partition(a, b);
+            hub.Core.Mesh.Create(false, 0, false, "");
+            a.Core.Mesh.Join(hub.EndPoint, 0);
+            b.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(25);
+            SendPosition(a, b, 3, "JF1", 1);
+            a.Core.SendTo(b.Id, Note("hi"), true);
+            SendPosition(a, hub, 4, "JF2", 2);
+            a.Core.SendTo(hub.Id, Note("hi"), true);
+            mesh.Run(12); // keepalives too
+            Assert.Single(b.Messages<NotesBundle>());
+
+            var sent = mesh.Network.Log.Where(d => d.Data[0] == Envelope.Magic).ToList();
+            Assert.Contains(sent, d => (d.Data[2] & (byte)EnvelopeFlags.Guaranteed) != 0);
+            Assert.Contains(sent, d => (d.Data[2] & (byte)EnvelopeFlags.Forwarded) != 0);
+            Assert.All(sent, d =>
+            {
+                Assert.Equal(2, d.Data[1]);
+                Assert.Equal(0, d.Data[2] & ~(byte)Envelope.SupportedFlags);
+            });
+        }
+
+        // ------------------------------------------------ the handshake as the permanent entry point (§5.2)
+
+        /// <summary>A hand-made Hello from a to the hub in their session, as a later build might send it.</summary>
+        static void SendHello(TestNode a, TestNode hub, byte protoMajorMin, byte protoMajorMax, Action<HandshakeMessage>? extend = null)
+        {
+            Assert.True(Jfp2Of(a).TryGetHopIds(hub.Id, out ushort aId, out _));
+            var hello = new HandshakeMessage
+            {
+                ProtoMajorMin = protoMajorMin, ProtoMajorMax = protoMajorMax, SelfAssignedId = aId,
+                Node = new RelayNuid(a.Id.ip, a.Id.port, a.Id.local),
+                Offers = [new SchemaOffer(false, MessageClasses.Position, 1, 1)],
+            };
+            extend?.Invoke(hello);
+            SendRaw(a, hub, EnvelopeFlags.Internal, MessageClasses.Hello, hello.Serialize());
+        }
+
+        /// <summary>The HelloAcks the hub sent to a, read back.</summary>
+        static List<HandshakeMessage> HelloAcksTo(TestMesh mesh, TestNode hub, TestNode a) =>
+            mesh.Network.Log
+                .Where(d => d.From.Equals(hub.EndPoint) && d.To.Equals(a.EndPoint) && d.Data[0] == Envelope.Magic
+                    && (d.Data[2] & (byte)EnvelopeFlags.Internal) != 0 && d.Data[7] == MessageClasses.HelloAck)
+                .Select(d =>
+                {
+                    Envelope.ReadFrom(d.Data, out int header);
+                    return HandshakeMessage.Deserialize(d.Data.AsSpan(header));
+                })
+                .ToList();
+
+        /// <summary>A later build offers ProtoMajor 2..3 and an extension this build has never heard of: it is accepted.</summary>
+        [Fact]
+        public void Hello_FromALaterBuild_IsAnsweredWithAccepted()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+
+            mesh.Network.Log.Clear();
+            SendHello(a, hub, 2, 3, hello => hello.Extensions[0x7FFF] = [1, 2, 3, 4, 5]);
+            mesh.Run(0.1);
+
+            HandshakeMessage ack = Assert.Single(HelloAcksTo(mesh, hub, a));
+            Assert.Equal(0, ack.Result);
+            Assert.Equal(2, ack.ProtoMajorMin);
+            Assert.Equal(2, ack.ProtoMajorMax);
+            Assert.Equal("JFP2", hub.Core.Route(a.Id, MessageKind.Position)!.Name);
+        }
+
+        /// <summary>A build that no longer speaks ProtoMajor 2 still says so in a ProtoMajor-2 Hello, and is told no.</summary>
+        [Fact]
+        public void Hello_WithoutProtoMajor2InItsRange_IsAnsweredWithNoCompatibleProtoMajor()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+
+            mesh.Network.Log.Clear();
+            SendHello(a, hub, 3, 3);
+            mesh.Run(0.1);
+
+            Assert.Equal(1, Assert.Single(HelloAcksTo(mesh, hub, a)).Result);
+        }
+
+        /// <summary>
+        /// What this build actually sends as a handshake is what HandshakeGoldenTests pins: ProtoMajor 2,
+        /// Internal only, Node and Build - the build cleaned before it goes out.
+        /// </summary>
+        [Fact]
+        public void Handshake_GoesOutInTheFrozenEnvelope()
+        {
+            var (mesh, hub, a) = TwoBuilds("26.6.0 JoinFS-FS2024\r\n", "26.6.0 JoinFS-CONSOLE\u200B");
+
+            var handshakes = mesh.Network.Log.Where(d => d.Data[0] == Envelope.Magic && d.Data[7] <= MessageClasses.HelloAck
+                && (d.Data[2] & (byte)EnvelopeFlags.Internal) != 0).ToList();
+            Assert.Contains(handshakes, d => d.Data[7] == MessageClasses.Hello);
+            Assert.Contains(handshakes, d => d.Data[7] == MessageClasses.HelloAck);
+            Assert.All(handshakes, d =>
+            {
+                Assert.Equal(Envelope.HandshakeProtoMajor, d.Data[1]);
+                Assert.Equal((byte)EnvelopeFlags.Internal, d.Data[2]);
+                HandshakeMessage message = HandshakeMessage.Deserialize(d.Data.AsSpan(Envelope.FixedSize));
+                bool fromHub = d.From.Equals(hub.EndPoint);
+                Assert.Equal(fromHub ? hub.Id : a.Id, new NodeId(message.Node!.Value.Ip, message.Node.Value.Port, message.Node.Value.Local));
+                string build = fromHub ? "26.6.0 JoinFS-FS2024" : "26.6.0 JoinFS-CONSOLE";
+                Assert.Equal(build, message.Build);
+                Assert.True(d.Data.AsSpan().EndsWith(Encoding.ASCII.GetBytes(build))); // the last extension, as sent
+            });
+        }
+
+        // ------------------------------------------------ the build advertisement (§5.5)
+
+        /// <summary>A hub and a node A, both JFP2 and saying which build they run, negotiated.</summary>
+        static (TestMesh Mesh, TestNode Hub, TestNode A) TwoBuilds(string hubBuild, string aBuild)
+        {
+            var mesh = new TestMesh();
+            TestNode hub = mesh.Add("203.0.113.1", 6112, new LegacyPlugin(), new Jfp2Plugin(build: hubBuild));
+            TestNode a = mesh.Add("198.51.100.2", 6112, new LegacyPlugin(), new Jfp2Plugin(build: aBuild));
+            hub.Core.Mesh.Create(false, 0, false, "");
+            a.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(3);
+            Assert.True(Jfp2Of(a).IsNegotiated(hub.Id));
+            return (mesh, hub, a);
+        }
+
+        /// <summary>
+        /// The first build learned for a session is logged at event level; what any later handshake
+        /// says (a restart with another build, or Hellos forged at any rate) only at network level.
+        /// </summary>
+        [Fact]
+        public void Build_IsLearnedFromTheHandshake_FirstAtEventLevel_ChangesAtNetworkLevel()
+        {
+            var (mesh, hub, a) = TwoBuilds("26.6.0 JoinFS-FS2024", "26.6.0 JoinFS-CONSOLE");
+            mesh.Run(20); // several keepalives each way
+
+            Assert.Equal("26.6.0 JoinFS-CONSOLE", Jfp2Of(hub).BuildOf(a.Id));
+            Assert.Equal("26.6.0 JoinFS-FS2024", Jfp2Of(a).BuildOf(hub.Id));
+            Assert.Single(hub.Logs, l => l.Contains("runs build"));
+            Assert.Single(hub.EventLogs, l => l == "JFP2: " + a.Id + " runs build 26.6.0 JoinFS-CONSOLE");
+            Assert.Single(a.EventLogs, l => l.Contains("runs build"));
+
+            // a restarted with another build
+            SendHello(a, hub, 2, 2, hello => hello.Build = "26.7.0 JoinFS-CONSOLE");
+            mesh.Run(0.1);
+            Assert.Equal("26.7.0 JoinFS-CONSOLE", Jfp2Of(hub).BuildOf(a.Id));
+            Assert.Single(hub.Logs, l => l.EndsWith("runs build 26.7.0 JoinFS-CONSOLE"));
+            Assert.Single(hub.EventLogs, l => l.Contains("runs build"));
+
+            // then with a build that does not say (the Hello carries no Build)
+            SendHello(a, hub, 2, 2);
+            mesh.Run(0.1);
+            Assert.Null(Jfp2Of(hub).BuildOf(a.Id));
+        }
+
+        [Fact]
+        public void Build_NotSaid_IsNone()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            mesh.Run(6);
+
+            Assert.Null(Jfp2Of(hub).BuildOf(a.Id));
+            Assert.DoesNotContain(hub.Logs, l => l.Contains("runs build"));
         }
 
         static bool IsGuaranteedApplication(byte[] data) =>

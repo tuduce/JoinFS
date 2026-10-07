@@ -170,6 +170,11 @@ local JFP2_CAPABILITY_BITS = {
     [3] = "SelectiveAck",
 }
 
+-- JoinFS.Jfp2.HandshakeMessage extension tags (docs/reference/jfp2-protocol.md §5.5)
+local JFP2_TLV_TAG = {
+    [1] = "Node", [2] = "Build",
+}
+
 ----------------------------------------------------------------------
 -- Legacy payload decoders (docs/network-protocol.md §8)
 ----------------------------------------------------------------------
@@ -532,7 +537,15 @@ local function decode_jfp2_handshake(tree, buffer, offset, isAck)
             local tag = buffer(offset, 2):le_uint()
             local tlvLen = buffer(offset + 2, 2):le_uint()
             if offset + 4 + tlvLen > len then break end
-            ext:add(buffer(offset, 4 + tlvLen), "Tag 0x" .. string.format("%04x", tag) .. ", " .. tlvLen .. " bytes")
+            local tagName = JFP2_TLV_TAG[tag]
+            local item = ext:add(buffer(offset, 4 + tlvLen), "Tag 0x" .. string.format("%04x", tag) ..
+                (tagName and (" (" .. tagName .. ")") or "") .. ", " .. tlvLen .. " bytes")
+            if tagName == "Node" and tlvLen == 7 then
+                add_legacy_nuid(item, buffer, offset + 4, legacy_nuid_ip_string(buffer, offset + 4) ..
+                    ":" .. buffer(offset + 8, 2):le_uint())
+            elseif tagName == "Build" and tlvLen > 0 then
+                item:add(buffer(offset + 4, tlvLen), "Build: " .. buffer(offset + 4, tlvLen):string(ENC_UTF_8))
+            end
             offset = offset + 4 + tlvLen
         end
     end
@@ -745,7 +758,7 @@ local function dissect_jfp2(buffer, pinfo, tree)
         (isInternal and " [Internal]" or " [Application]"))
     subtree:add(buffer(3, 2), "SenderPeerId: " .. buffer(3, 2):le_uint())
     subtree:add(buffer(5, 2), "RecipientPeerId: " .. buffer(5, 2):le_uint() ..
-        (buffer(5, 2):le_uint() == 0 and " (broadcast)" or ""))
+        (buffer(5, 2):le_uint() == 0 and " (not known yet: first Hello)" or ""))
 
     -- NOTE: the design doc's §4.6 "Extended" escape (RawMessageClass==255 ->
     -- 2-byte real class id follows) is not actually implemented by
