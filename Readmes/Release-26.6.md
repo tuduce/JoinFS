@@ -16,6 +16,7 @@
 - Fixed request-ID collision, callsigns with suffixed flight numbers, Settings checkbox overlap. (Thanks @joeherwig for the contribution)
 - Reconnects after losing every peer; refused injections retried; unregistered peers rejected. (Thanks @joeherwig for the contribution)
 - WebSocket/webhook: stable identity, bad data skipped; replays no longer freeze. (Thanks @joeherwig for the contribution)
+- WebSocket feed throttled to 20 Hz with keep-alive. Thanks @joeherwig for the contribution)
 - Fixed yaw trembling after crossing the 2*PI heading boundary in a recorded plane the user entered cockpit.
 - Fixed position messages generated with v26.5 could not be interpreted by older versions.
 - Fixed guaranteed-message delivery broken for any relayed peer.
