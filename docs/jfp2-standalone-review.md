@@ -147,6 +147,18 @@ adding the mesh.
    today. Making a mesh without it pass proves JFP2 stands alone. Add IPv6 endpoints and a
    per-destination NAT to `InMemoryNetwork` too.
 
+**Status, 2026-10-07: C1, C2 and C4 implemented and independently reviewed** (branch
+`jfp2-evolvability`).
+- C1 and C2: `ClassDescriptor` and `Jfp2Profile` replace the six places and the static
+  `CodecRegistry`; how to add a class or a version is spec §6.6. Position encode/decode got faster
+  (about 92 → 69 ns and 52 → 35 ns), still allocation-free.
+- The first version-skew test (a relay re-encoding Position v2 for a v1 peer) found a real bug: a
+  relay that forwarded Identity unchanged never learned it, so it withheld the translated Positions.
+  Fixed in `Jfp2Plugin.Relay`.
+- C4: a mesh message addressed to another node is translated once the node knows its own id.
+- Left for B3: `Jfp2Profile` looks classes up by application class number only; it must take the
+  partition when mesh classes become descriptors.
+
 ## D. Quick wins for CGNAT users
 
 Three local fixes could help CGNAT users before any wire change; the first two are hypotheses until

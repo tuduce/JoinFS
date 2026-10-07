@@ -84,11 +84,11 @@ namespace JoinFS.Tests.Jfp2
         }
 
         [Fact]
-        public void CodecRegistry_ResolvesFlightPlanCodec()
+        public void DefaultProfile_CarriesFlightPlanWithThisCodec()
         {
-            CodecRegistry.Register(new FlightPlanV1Codec());
-            ICodec<FlightPlanUpdate> codec = CodecRegistry.Resolve<FlightPlanUpdate>(MessageClasses.FlightPlan, 1);
-            Assert.Equal(MessageClasses.FlightPlan, codec.MessageClass);
+            ClassDescriptor<FlightPlanUpdate> messageClass = Jfp2Profile.Default.ForKind<FlightPlanUpdate>(MessageKind.FlightPlan);
+            Assert.Equal(MessageClasses.FlightPlan, messageClass.MessageClass);
+            Assert.IsType<FlightPlanV1Codec>(messageClass.Codec(1));
         }
     }
 }

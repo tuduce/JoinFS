@@ -165,11 +165,11 @@ namespace JoinFS.Tests.Jfp2
         }
 
         [Fact]
-        public void CodecRegistry_ResolvesVariableSyncCodec()
+        public void DefaultProfile_CarriesVariableSyncWithThisCodec()
         {
-            CodecRegistry.Register(new VariableSyncV1Codec());
-            ICodec<VariableSyncUpdate> codec = CodecRegistry.Resolve<VariableSyncUpdate>(MessageClasses.VariableSync, 1);
-            Assert.Equal(MessageClasses.VariableSync, codec.MessageClass);
+            ClassDescriptor<VariableSyncUpdate> messageClass = Jfp2Profile.Default.ForKind<VariableSyncUpdate>(MessageKind.VariableSync);
+            Assert.Equal(MessageClasses.VariableSync, messageClass.MessageClass);
+            Assert.IsType<VariableSyncV1Codec>(messageClass.Codec(1));
         }
     }
 }

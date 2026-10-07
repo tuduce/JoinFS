@@ -98,6 +98,13 @@ namespace JoinFS.Net
             MessageKind kind = T.Kind;
             if (kind >= MessageKind.Join)
             {
+                // a mesh message for another node goes on to it like any other (a node that does not
+                // know its own id yet takes everything as its own, as the legacy receiver does)
+                if (meta.Recipient.Valid() && Identity.Id.Valid() && meta.Recipient != Identity.Id)
+                {
+                    Translate(meta, message);
+                    return;
+                }
                 message.Dispatch(Mesh, meta);
                 return;
             }

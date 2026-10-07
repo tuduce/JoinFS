@@ -104,11 +104,11 @@ namespace JoinFS.Tests.Jfp2
         }
 
         [Fact]
-        public void CodecRegistry_ResolvesIdentityCodec()
+        public void DefaultProfile_CarriesIdentityWithThisCodec()
         {
-            CodecRegistry.Register(new IdentityV1Codec());
-            ICodec<IdentityUpdate> codec = CodecRegistry.Resolve<IdentityUpdate>(MessageClasses.Identity, 1);
-            Assert.Equal(MessageClasses.Identity, codec.MessageClass);
+            ClassDescriptor<IdentityUpdate> messageClass = Jfp2Profile.Default.ForKind<IdentityUpdate>(MessageKind.Identity);
+            Assert.Equal(MessageClasses.Identity, messageClass.MessageClass);
+            Assert.IsType<IdentityV1Codec>(messageClass.Codec(1));
         }
     }
 }

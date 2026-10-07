@@ -137,11 +137,11 @@ namespace JoinFS.Tests.Jfp2
         }
 
         [Fact]
-        public void CodecRegistry_ResolvesPositionCodec()
+        public void DefaultProfile_CarriesPositionWithThisCodec()
         {
-            CodecRegistry.Register(new PositionV1Codec());
-            ICodec<PositionUpdate> codec = CodecRegistry.Resolve<PositionUpdate>(MessageClasses.Position, 1);
-            Assert.Equal(MessageClasses.Position, codec.MessageClass);
+            ClassDescriptor<PositionUpdate> messageClass = Jfp2Profile.Default.ForKind<PositionUpdate>(MessageKind.Position);
+            Assert.Equal(MessageClasses.Position, messageClass.MessageClass);
+            Assert.IsType<PositionV1Codec>(messageClass.Codec(1));
         }
 
         [Fact]

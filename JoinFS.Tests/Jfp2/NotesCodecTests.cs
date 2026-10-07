@@ -70,11 +70,11 @@ namespace JoinFS.Tests.Jfp2
         }
 
         [Fact]
-        public void CodecRegistry_ResolvesNotesCodec()
+        public void DefaultProfile_CarriesNotesWithThisCodec()
         {
-            CodecRegistry.Register(new NotesV1Codec());
-            ICodec<NoteUpdate> codec = CodecRegistry.Resolve<NoteUpdate>(MessageClasses.Notes, 1);
-            Assert.Equal(MessageClasses.Notes, codec.MessageClass);
+            ClassDescriptor<NoteUpdate> messageClass = Jfp2Profile.Default.ForKind<NoteUpdate>(MessageKind.Notes);
+            Assert.Equal(MessageClasses.Notes, messageClass.MessageClass);
+            Assert.IsType<NotesV1Codec>(messageClass.Codec(1));
         }
     }
 }

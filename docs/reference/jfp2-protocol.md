@@ -81,7 +81,7 @@ Three pieces:
 - **Negotiation** (§5): a Hello/HelloAck handshake per peer, producing a flat per-message-class table
   of agreed schema versions and a set of agreed capabilities. Computed once, then only indexed.
 - **Codecs** (§6): one encoder/decoder per (message class, schema version). A new version of a class is
-  a new codec; nothing else changes.
+  a new codec in the class's descriptor; nothing else changes (§6.6).
 
 JFP2 and the legacy protocol share one UDP socket and port: every JFP2 datagram starts with the magic
 byte `0xFA`, which can never collide with the legacy protocol's first byte (`0x0B`, the low byte of
@@ -327,7 +327,9 @@ Behaviour, as implemented (`Jfp2Plugin`):
 - Receiving a peer's Hello lets us *decode* what it sends. It does not make the session usable for
   *sending*: only the ack of our own Hello proves our datagrams reach that node.
 
-Current offers: every application class 0–9 at version range [1, 1]; no internal classes.
+Current offers: every application class 0–9 at version range [1, 1]; no internal classes. They are
+derived from the plugin's profile (§6.6), in its order: Status, StatusRequest, Identity,
+VariableSync, Position, Event, FlightPlan, Notes, Weather, WeatherReply.
 
 ### 5.3 Resolution
 
@@ -341,7 +343,8 @@ agreed = hi >= lo ? hi : 0
 
 `0` means "don't send this class to this peer". The result is stored once per peer session in two
 flat 256-entry arrays, `AgreedAppVersion[]` and `AgreedInternalVersion[]`. Sending a message is then
-one array read plus a codec lookup. The application-level router caches the choice per (peer, kind)
+one array read for the version and one for its codec (the class descriptor's codecs, indexed by
+version, §6.6). The application-level router caches the choice per (peer, kind)
 too (`docs/reference/joinfs-architecture.md` §5.3), so the hot path never negotiates.
 
 Every Hello and HelloAck, keepalives included, resolves again from scratch. When the result changes
@@ -482,6 +485,37 @@ Variables are identified by the same 32-bit `vuid` the legacy protocol uses: `Va
 (`NetHash.HashString(name)`, with 0 remapped to 1 and an alias table). Every peer computes it
 independently from the name, so no negotiation is needed.
 
+### 6.6 Adding a message class or a schema version
+
+Every fact about a class lives in one `ClassDescriptor` (`Net/Protocols/Jfp2/ClassDescriptor.cs`):
+the canonical `MessageKind`, its class number (a `MessageClasses` constant), its partition
+(application for now: internal classes become descriptors with the mesh over JFP2), whether it is sent
+guaranteed, one codec per schema version, and how a decoded message reaches the core. A
+`Jfp2Profile` is the set of descriptors a `Jfp2Plugin` speaks. The Hello offers, routing
+(`CanCarry`), encoding and decoding all read the profile, and nothing else lists classes.
+
+**A new schema version of a class:** write the codec (`ICodec<T>`, `SchemaVersion` = the next
+number) and add it to the class's descriptor in `Jfp2Profile.Default`. Its offer becomes
+`[min, new]`; peers agree it only when both sides speak it (§5.3). A codec stays as long as some
+release may still agree its version.
+
+**A new plain class** (its canonical message is what goes on the wire, as Event or Weather): append
+its number to `MessageClasses` (never reuse one, §4.3), write its codec, and append
+`ClassDescriptor.Plain(MessageClasses.X, guaranteed, new XV1Codec())` to `Jfp2Profile.Default`.
+Append it last: the offer order is visible in Hello. A plain class whose delivery must add something
+(FlightPlan: the owner is the sender) passes a `Delivery<T>` to `Plain`. A class sent its own way
+(Identity ahead of Position, VariableSync in chunks, Notes one note per message) is made with
+`ClassDescriptor.SentByPlugin` and needs a sender in the plugin's `Encoder`; `Jfp2Plugin` refuses a
+profile with such a class for a kind it has no sender for, rather than advertising it and dropping
+every message.
+
+**Testing version skew.** Each `Jfp2Plugin` takes a profile, so a `TestMesh` can run an older and a
+newer build side by side: `Jfp2Profile.Default.Without(MessageClasses.X)` is a build that lacks a
+class, and `Default.With(descriptor.WithCodecs(v1, v2))` one that speaks another version range, with
+a test-only codec for a version that does not exist yet. `Jfp2VersionSkewTests` does both,
+including a relay translating between versions (§7.7), and `Jfp2WireCharacterizationTests` pins what
+the default profile sends.
+
 ## 7. Coexistence with the legacy protocol
 
 **7.1 One socket.** The magic byte (§3) routes each incoming datagram to the right plugin before
@@ -512,7 +546,9 @@ Simulator build symbols (`FS2020`, `FS2024`, `XPLANE`, `CONSOLE`, ...) never cha
 - **Two JFP2 neighbours of a relaying node that agree on a class *and its schema version*:** the
   relay forwards the datagram (§4.5) with the hop ids rewritten, like legacy `FLAG_FORWARD`.
 - **The target agreed a different version:** the relay decodes with the sender's version, and the
-  core re-sends it encoded for the target's.
+  core re-sends it encoded for the target's. A JFP2 Position goes out only after its object's
+  Identity (§6.2), so a relay that forwards an Identity byte for byte also decodes it into its
+  identity cache, and remembers that the target has it.
 - **The target doesn't speak JFP2 for that class:** the relaying node decodes the message into its
   canonical form and hands it to the application's network core. The core sends it to the target
   with whichever protocol reaches it — legacy, in practice — keeping the true sender:
@@ -544,7 +580,8 @@ recordings (explicit per-record-type versions instead of EOF-sensing) remains a 
 - dropping datagrams of another ProtoMajor or with flags this build cannot read;
 - next-hop origination of relayed traffic, and relay or translation at the hop;
 - single-datagram guaranteed delivery;
-- the v1 codecs for all ten application classes.
+- the v1 codecs for all ten application classes, each class one descriptor of a per-plugin profile
+  (§6.6).
 
 It was first field-tested against MSFS 2024 before the plugin architecture; the shared-endpoint
 topology in `JoinFS.Tests/Net/Jfp2RelayTests.cs` reproduces the failure of the next field test.

@@ -45,50 +45,6 @@ namespace JoinFS.Net.Jfp2
         const int VariableSyncMaxPayload = 1000;
         const ulong LocalCapabilities = (ulong)Capability.None;
 
-        static readonly List<SchemaOffer> LocalOffers =
-        [
-            new SchemaOffer(false, MessageClasses.Status, 1, 1),
-            new SchemaOffer(false, MessageClasses.StatusRequest, 1, 1),
-            new SchemaOffer(false, MessageClasses.Identity, 1, 1),
-            new SchemaOffer(false, MessageClasses.VariableSync, 1, 1),
-            new SchemaOffer(false, MessageClasses.Position, 1, 1),
-            new SchemaOffer(false, MessageClasses.Event, 1, 1),
-            new SchemaOffer(false, MessageClasses.FlightPlan, 1, 1),
-            new SchemaOffer(false, MessageClasses.Notes, 1, 1),
-            new SchemaOffer(false, MessageClasses.Weather, 1, 1),
-            new SchemaOffer(false, MessageClasses.WeatherReply, 1, 1),
-        ];
-
-        static Jfp2Plugin()
-        {
-            CodecRegistry.Register(new StatusV1Codec());
-            CodecRegistry.Register(new StatusRequestV1Codec());
-            CodecRegistry.Register(new IdentityV1Codec());
-            CodecRegistry.Register(new VariableSyncV1Codec());
-            CodecRegistry.Register(new PositionV1Codec());
-            CodecRegistry.Register(new EventV1Codec());
-            CodecRegistry.Register(new FlightPlanV1Codec());
-            CodecRegistry.Register(new NotesV1Codec());
-            CodecRegistry.Register(new WeatherUpdateV1Codec());
-            CodecRegistry.Register(new WeatherReplyV1Codec());
-        }
-
-        /// <summary>Which JFP2 application class carries a canonical kind (-1: not carried by JFP2).</summary>
-        static int ClassFor(MessageKind kind) => kind switch
-        {
-            MessageKind.Position => MessageClasses.Position,
-            MessageKind.Identity => MessageClasses.Identity,
-            MessageKind.VariableSync => MessageClasses.VariableSync,
-            MessageKind.Event => MessageClasses.Event,
-            MessageKind.FlightPlan => MessageClasses.FlightPlan,
-            MessageKind.Notes => MessageClasses.Notes,
-            MessageKind.WeatherUpdate => MessageClasses.Weather,
-            MessageKind.WeatherReply => MessageClasses.WeatherReply,
-            MessageKind.Status => MessageClasses.Status,
-            MessageKind.StatusRequest => MessageClasses.StatusRequest,
-            _ => -1,
-        };
-
         /// <summary>A node seen answering at an endpoint, so other nodes claiming that endpoint are known to be behind it.</summary>
         readonly record struct Occupant(NodeId Node, double Expire);
 
@@ -100,6 +56,7 @@ namespace JoinFS.Net.Jfp2
 
         IProtocolHost host;
         Jfp2Reliability reliability;
+        readonly Jfp2Profile profile;
         readonly Encoder encoder;
         readonly Dictionary<NodeId, PeerSession> sessions = [];
         readonly Dictionary<ushort, PeerSession> sessionsById = [];
@@ -117,12 +74,38 @@ namespace JoinFS.Net.Jfp2
 
         /// <param name="firstGuaranteedId">Where guaranteed ids start; production seeds it from the clock (see <see cref="Jfp2Reliability"/>).</param>
         /// <param name="build">The build this node says it runs in its Hello/HelloAck (<see cref="HandshakeMessage.Build"/>, which cleans it on the way out); null says nothing.</param>
-        public Jfp2Plugin(ushort firstGuaranteedId = 1, string build = null)
+        /// <param name="profile">The message classes, versions and codecs this node speaks; null is this build's (<see cref="Jfp2Profile.Default"/>).</param>
+        public Jfp2Plugin(ushort firstGuaranteedId = 1, string build = null, Jfp2Profile profile = null)
         {
             this.firstGuaranteedId = firstGuaranteedId;
             this.build = build;
+            this.profile = profile ?? Jfp2Profile.Default;
+            foreach (ClassDescriptor c in this.profile.Classes)
+            {
+                Type sender = OwnSender(c.Kind);
+                if (!c.SentAsIs && c.GetType() != sender)
+                {
+                    // it would be advertised (CanCarry) and every message of it dropped, never sent over legacy
+                    throw new ArgumentException("JFP2 profile: class " + c.MessageClass + " (" + c.Kind + ") is to be sent by the plugin, which has no sender for it");
+                }
+                if (c.SentAsIs && sender != null)
+                {
+                    // sent as is, it would skip its sender's rules (identity before position, chunking, one note per message)
+                    throw new ArgumentException("JFP2 profile: class " + c.MessageClass + " (" + c.Kind + ") must be sent by the plugin's own sender, not as is");
+                }
+            }
             encoder = new Encoder(this);
         }
+
+        /// <summary>The descriptor type of each kind the plugin sends its own way (<see cref="Encoder"/>, <see cref="EnsureIdentity"/>); null for every other kind.</summary>
+        static Type OwnSender(MessageKind kind) => kind switch
+        {
+            MessageKind.Identity => typeof(ClassDescriptor<IdentityUpdate>),
+            MessageKind.Position => typeof(ClassDescriptor<PositionUpdate>),
+            MessageKind.VariableSync => typeof(ClassDescriptor<VariableSyncUpdate>),
+            MessageKind.Notes => typeof(ClassDescriptor<NoteUpdate>),
+            _ => null,
+        };
 
         public string Name => "JFP2";
         public int Preference => 10;
@@ -209,19 +192,19 @@ namespace JoinFS.Net.Jfp2
             return null;
         }
 
-        byte AgreedVersion(NodeId target, int messageClass, out Peer peer, out PeerSession hop)
+        byte AgreedVersion(NodeId target, ClassDescriptor messageClass, out Peer peer, out PeerSession hop)
         {
             peer = null;
             hop = null;
-            if (messageClass < 0)
+            if (messageClass == null)
             {
                 return 0;
             }
             hop = NextHop(target, out peer);
-            return hop == null ? (byte)0 : hop.AgreedAppVersion[messageClass];
+            return hop == null ? (byte)0 : hop.AgreedAppVersion[messageClass.MessageClass];
         }
 
-        public bool CanCarry(NodeId peer, MessageKind kind) => peer.Valid() && AgreedVersion(peer, ClassFor(kind), out _, out _) > 0;
+        public bool CanCarry(NodeId peer, MessageKind kind) => peer.Valid() && AgreedVersion(peer, profile.ForKind(kind), out _, out _) > 0;
 
         static IPEndPoint Copy(IPEndPoint endPoint) => new(endPoint.Address, endPoint.Port);
 
@@ -251,6 +234,9 @@ namespace JoinFS.Net.Jfp2
             local = remote = 0;
             return false;
         }
+
+        /// <summary>For tests and diagnostics: the schema version agreed for a kind with the peer's next hop (0: JFP2 does not carry it there).</summary>
+        public byte VersionFor(NodeId peer, MessageKind kind) => AgreedVersion(peer, profile.ForKind(kind), out _, out _);
 
         /// <summary>For tests and diagnostics: the build a neighbor said it runs in its last handshake message, or null.</summary>
         public string BuildOf(NodeId neighbor) => sessions.TryGetValue(neighbor, out PeerSession session) ? session.Build : null;
@@ -432,7 +418,7 @@ namespace JoinFS.Net.Jfp2
             Result = result,
             Node = ToRelay(Local),
             Build = build,
-            Offers = new List<SchemaOffer>(LocalOffers),
+            Offers = new List<SchemaOffer>(profile.Offers),
         };
 
         // Internal and nothing else: no flag a peer could need a capability to read
@@ -463,15 +449,16 @@ namespace JoinFS.Net.Jfp2
         /// unreliably, or handed to <see cref="Jfp2Reliability"/>, which makes every attempt through
         /// <see cref="TransmitGuaranteed"/>.
         /// </summary>
-        void SendApplication(Peer target, PeerSession hop, byte messageClass, ReadOnlySpan<byte> payload, bool guaranteed)
+        void SendApplication(Peer target, PeerSession hop, ClassDescriptor messageClass, ReadOnlySpan<byte> payload)
         {
-            if (guaranteed)
+            byte number = messageClass.MessageClass;
+            if (messageClass.Guaranteed)
             {
-                reliability.Send(target.Id, sendOrigin, messageClass, hop.AgreedAppVersion[messageClass], payload);
+                reliability.Send(target.Id, sendOrigin, number, hop.AgreedAppVersion[number], payload);
             }
             else
             {
-                SendVia(hop, target.Id, sendOrigin, EnvelopeFlags.None, messageClass, payload, 0, 0, 0);
+                SendVia(hop, target.Id, sendOrigin, EnvelopeFlags.None, number, payload, 0, 0, 0);
             }
         }
 
@@ -548,6 +535,11 @@ namespace JoinFS.Net.Jfp2
 
         public void Send<T>(in MessageMeta meta, in T message, ReadOnlySpan<NodeId> recipients) where T : struct, IMessage
         {
+            ClassDescriptor messageClass = profile.ForKind(T.Kind);
+            if (messageClass == null)
+            {
+                return; // a kind JFP2 does not carry (CanCarry said so)
+            }
             targets.Clear();
             sendOrigin = meta.Sender.Valid() ? meta.Sender : Local;
             if (meta.EndPoint != null)
@@ -559,7 +551,14 @@ namespace JoinFS.Net.Jfp2
             {
                 foreach (NodeId recipient in recipients) targets.Add(recipient);
             }
-            message.Dispatch(encoder, meta);
+            if (messageClass.SentAsIs && messageClass is ClassDescriptor<T> plain)
+            {
+                encoder.SendAsIs(plain, message);
+            }
+            else
+            {
+                message.Dispatch(encoder, meta);
+            }
         }
 
         /// <summary>
@@ -577,7 +576,8 @@ namespace JoinFS.Net.Jfp2
             {
                 return false;
             }
-            byte version = session.AgreedAppVersion[MessageClasses.Identity];
+            ClassDescriptor<IdentityUpdate> identityClass = profile.ForKind<IdentityUpdate>(MessageKind.Identity);
+            byte version = identityClass == null ? (byte)0 : session.AgreedAppVersion[identityClass.MessageClass];
             if (version == 0)
             {
                 return true;
@@ -588,51 +588,56 @@ namespace JoinFS.Net.Jfp2
             {
                 return true;
             }
-            int length = CodecRegistry.Resolve<IdentityUpdate>(MessageClasses.Identity, version).Encode(identity, payloadBuffer);
-            SendApplication(peer, session, MessageClasses.Identity, payloadBuffer.AsSpan(0, length), false);
+            int length = identityClass.Codec(version).Encode(identity, payloadBuffer);
+            SendApplication(peer, session, identityClass, payloadBuffer.AsSpan(0, length));
             identitySent[key] = new IdentitySent { Last = identity, Time = now };
             return true;
         }
 
-        /// <summary>Canonical to JFP2, one overload per carried type; each loops the targets because versions are per peer.</summary>
+        /// <summary>
+        /// Canonical to JFP2. A class sent as it is goes through <see cref="SendAsIs"/>; each kind the
+        /// plugin sends its own way has an overload here. Each loops the targets because versions are per peer.
+        /// </summary>
         sealed class Encoder(Jfp2Plugin p) : IMessageHandler
         {
-            void SendSimple<T>(byte messageClass, in T message, bool guaranteed)
+            public void SendAsIs<T>(ClassDescriptor<T> messageClass, in T message)
             {
                 foreach (NodeId target in p.targets)
                 {
                     byte version = p.AgreedVersion(target, messageClass, out Peer peer, out PeerSession session);
                     if (version == 0) continue;
-                    int length = CodecRegistry.Resolve<T>(messageClass, version).Encode(message, p.payloadBuffer);
-                    p.SendApplication(peer, session, messageClass, p.payloadBuffer.AsSpan(0, length), guaranteed);
+                    int length = messageClass.Codec(version).Encode(message, p.payloadBuffer);
+                    p.SendApplication(peer, session, messageClass, p.payloadBuffer.AsSpan(0, length));
                 }
             }
 
             public void Handle(in MessageMeta meta, in PositionUpdate m)
             {
+                if (p.profile.ForKind<PositionUpdate>(MessageKind.Position) is not { } messageClass) return;
                 foreach (NodeId target in p.targets)
                 {
-                    byte version = p.AgreedVersion(target, MessageClasses.Position, out Peer peer, out PeerSession session);
+                    byte version = p.AgreedVersion(target, messageClass, out Peer peer, out PeerSession session);
                     if (version == 0 || !p.EnsureIdentity(meta.Sender, m.ObjectId, peer, session)) continue;
-                    int length = CodecRegistry.Resolve<PositionUpdate>(MessageClasses.Position, version).Encode(m, p.payloadBuffer);
-                    p.SendApplication(peer, session, MessageClasses.Position, p.payloadBuffer.AsSpan(0, length), false);
+                    int length = messageClass.Codec(version).Encode(m, p.payloadBuffer);
+                    p.SendApplication(peer, session, messageClass, p.payloadBuffer.AsSpan(0, length));
                 }
             }
 
             public void Handle(in MessageMeta meta, in VariableSyncUpdate m)
             {
                 if (m.Entries == null || m.Entries.Count == 0) return;
+                if (p.profile.ForKind<VariableSyncUpdate>(MessageKind.VariableSync) is not { } messageClass) return;
                 List<VariableSyncUpdate> chunks = null;
                 foreach (NodeId target in p.targets)
                 {
-                    byte version = p.AgreedVersion(target, MessageClasses.VariableSync, out Peer peer, out PeerSession session);
+                    byte version = p.AgreedVersion(target, messageClass, out Peer peer, out PeerSession session);
                     if (version == 0) continue;
                     chunks ??= Chunk(m);
-                    ICodec<VariableSyncUpdate> codec = CodecRegistry.Resolve<VariableSyncUpdate>(MessageClasses.VariableSync, version);
+                    ICodec<VariableSyncUpdate> codec = messageClass.Codec(version);
                     foreach (VariableSyncUpdate chunk in chunks)
                     {
                         int length = codec.Encode(chunk, p.payloadBuffer);
-                        p.SendApplication(peer, session, MessageClasses.VariableSync, p.payloadBuffer.AsSpan(0, length), false);
+                        p.SendApplication(peer, session, messageClass, p.payloadBuffer.AsSpan(0, length));
                     }
                 }
             }
@@ -664,16 +669,10 @@ namespace JoinFS.Net.Jfp2
                 return chunks;
             }
 
-            public void Handle(in MessageMeta meta, in EventUpdate m) => SendSimple(MessageClasses.Event, m, true);
-            public void Handle(in MessageMeta meta, in FlightPlanUpdate m) => SendSimple(MessageClasses.FlightPlan, m, false);
-            public void Handle(in MessageMeta meta, in WeatherUpdate m) => SendSimple(MessageClasses.Weather, m, false);
-            public void Handle(in MessageMeta meta, in WeatherReply m) => SendSimple(MessageClasses.WeatherReply, m, true);
-            public void Handle(in MessageMeta meta, in StatusUpdate m) => SendSimple(MessageClasses.Status, m, false);
-            public void Handle(in MessageMeta meta, in StatusRequestUpdate m) => SendSimple(MessageClasses.StatusRequest, m, false);
-
             public void Handle(in MessageMeta meta, in NotesBundle m)
             {
                 // JFP2 carries one note per message: a bundle goes out as its notes
+                if (p.profile.ForKind<NoteUpdate>(MessageKind.Notes) is not { } messageClass) return;
                 foreach (NotesUser user in m.Users)
                 {
                     foreach (CommsNote note in user.Notes)
@@ -683,7 +682,7 @@ namespace JoinFS.Net.Jfp2
                             Guid = user.Guid, Nickname = user.Nickname, Callsign = user.Callsign,
                             NoteId = note.NoteId, Age = note.Age, Channel = note.Channel, Text = note.Text,
                         };
-                        SendSimple(MessageClasses.Notes, single, true);
+                        SendAsIs(messageClass, single);
                     }
                 }
             }
@@ -819,7 +818,7 @@ namespace JoinFS.Net.Jfp2
                 SendHelloAck(from, session, result: 1);
                 return;
             }
-            if (Negotiator.Resolve(session, LocalCapabilities, LocalOffers, hello.Capabilities, hello.Offers) && session.HandshakeComplete)
+            if (Negotiator.Resolve(session, LocalCapabilities, profile.Offers, hello.Capabilities, hello.Offers) && session.HandshakeComplete)
             {
                 host.LinkChanged(sender); // it restarted with different offers: cached routes are stale
             }
@@ -881,7 +880,7 @@ namespace JoinFS.Net.Jfp2
             }
             session.RemoteAssignedId = ack.SelfAssignedId;
             LearnBuild(session, ack.Build);
-            bool agreementChanged = Negotiator.Resolve(session, LocalCapabilities, LocalOffers, ack.Capabilities, ack.Offers);
+            bool agreementChanged = Negotiator.Resolve(session, LocalCapabilities, profile.Offers, ack.Capabilities, ack.Offers);
             bool wasVerified = session.Verified;
             session.HandshakeComplete = true;
             session.Endpoint = probe;
@@ -905,7 +904,8 @@ namespace JoinFS.Net.Jfp2
         /// that neighbor agreed the same schema as the sender's hop used (or the datagram is internal,
         /// e.g. a relayed ack), pass the datagram on with the two hop ids rewritten. Otherwise - a
         /// legacy-only target, or a different schema version - decode it and let the core re-send it in
-        /// the target's terms, the one place translation happens since every node speaks legacy.
+        /// the target's terms, the one place translation happens since every node speaks legacy. An
+        /// Identity passed on is decoded for the core too, since a translated position needs it.
         /// </summary>
         void Relay(IPEndPoint from, PeerSession hop, in Envelope envelope, ReadOnlySpan<byte> datagram, ReadOnlySpan<byte> payload)
         {
@@ -935,6 +935,16 @@ namespace JoinFS.Net.Jfp2
                 BinaryPrimitives.WriteUInt16LittleEndian(datagramBuffer.AsSpan(3, 2), targetSession.LocalAssignedId);
                 BinaryPrimitives.WriteUInt16LittleEndian(datagramBuffer.AsSpan(5, 2), targetSession.RemoteAssignedId);
                 host.Transport.Send(targetSession.Endpoint, datagramBuffer.AsSpan(0, datagram.Length));
+                if (version > 0 && !envelope.IsGuaranteed && profile.ForClass(messageClass)?.Kind == MessageKind.Identity
+                    && profile.ForKind<IdentityUpdate>(MessageKind.Identity) is { } identityClass)
+                {
+                    // the core keeps identity as state for whoever it is for: a position of this object
+                    // the target agreed another version of is translated here, and goes out only after
+                    // it (EnsureIdentity), which now knows the target has it
+                    IdentityUpdate identity = identityClass.Codec(version).Decode(payload);
+                    host.Deliver(new MessageMeta { Sender = origin, Recipient = target, Forwarded = true }, identity);
+                    identitySent[(origin, identity.ObjectId, target)] = new IdentitySent { Last = identity, Time = Now };
+                }
                 return;
             }
             if (envelope.IsInternal || version == 0)
@@ -960,59 +970,8 @@ namespace JoinFS.Net.Jfp2
             Decode(meta, messageClass, version, message);
         }
 
-        void Decode(in MessageMeta meta, byte messageClass, byte version, ReadOnlySpan<byte> payload)
-        {
-            switch (messageClass)
-            {
-                case MessageClasses.Position:
-                    host.Deliver(meta, CodecRegistry.Resolve<PositionUpdate>(messageClass, version).Decode(payload));
-                    break;
-                case MessageClasses.Identity:
-                    host.Deliver(meta, CodecRegistry.Resolve<IdentityUpdate>(messageClass, version).Decode(payload));
-                    break;
-                case MessageClasses.VariableSync:
-                    host.Deliver(meta, CodecRegistry.Resolve<VariableSyncUpdate>(messageClass, version).Decode(payload));
-                    break;
-                case MessageClasses.Event:
-                    host.Deliver(meta, CodecRegistry.Resolve<EventUpdate>(messageClass, version).Decode(payload));
-                    break;
-                case MessageClasses.FlightPlan:
-                    {
-                        FlightPlanUpdate m = CodecRegistry.Resolve<FlightPlanUpdate>(messageClass, version).Decode(payload);
-                        m.Owner = meta.Sender;
-                        host.Deliver(meta, m);
-                    }
-                    break;
-                case MessageClasses.Notes:
-                    {
-                        NoteUpdate note = CodecRegistry.Resolve<NoteUpdate>(messageClass, version).Decode(payload);
-                        host.Deliver(meta, new NotesBundle
-                        {
-                            Scope = CommsScope.Single,
-                            Users =
-                            [
-                                new NotesUser
-                                {
-                                    Guid = note.Guid, Nickname = note.Nickname, Callsign = note.Callsign,
-                                    Notes = [new CommsNote { NoteId = note.NoteId, Age = note.Age, Channel = note.Channel, Text = note.Text }],
-                                },
-                            ],
-                        });
-                    }
-                    break;
-                case MessageClasses.Weather:
-                    host.Deliver(meta, CodecRegistry.Resolve<WeatherUpdate>(messageClass, version).Decode(payload));
-                    break;
-                case MessageClasses.WeatherReply:
-                    host.Deliver(meta, CodecRegistry.Resolve<WeatherReply>(messageClass, version).Decode(payload));
-                    break;
-                case MessageClasses.Status:
-                    host.Deliver(meta, CodecRegistry.Resolve<StatusUpdate>(messageClass, version).Decode(payload));
-                    break;
-                case MessageClasses.StatusRequest:
-                    host.Deliver(meta, CodecRegistry.Resolve<StatusRequestUpdate>(messageClass, version).Decode(payload));
-                    break;
-            }
-        }
+        /// <summary>A class agreed on (a version above 0) is one of the profile's: decode it and hand it to the core.</summary>
+        void Decode(in MessageMeta meta, byte messageClass, byte version, ReadOnlySpan<byte> payload) =>
+            profile.ForClass(messageClass).Deliver(host, meta, version, payload);
     }
 }

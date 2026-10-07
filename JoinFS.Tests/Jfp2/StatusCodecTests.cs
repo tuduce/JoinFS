@@ -153,23 +153,23 @@ namespace JoinFS.Tests.Jfp2
         }
 
         [Fact]
-        public void CodecRegistry_ResolvesRegisteredStatusCodecs()
+        public void DefaultProfile_CarriesBothStatusClassesWithTheseCodecs()
         {
-            CodecRegistry.Register(new StatusRequestV1Codec());
-            CodecRegistry.Register(new StatusV1Codec());
+            ClassDescriptor<StatusRequestUpdate> request = Jfp2Profile.Default.ForKind<StatusRequestUpdate>(MessageKind.StatusRequest);
+            ClassDescriptor<StatusUpdate> status = Jfp2Profile.Default.ForKind<StatusUpdate>(MessageKind.Status);
 
-            ICodec<StatusRequestUpdate> requestCodec = CodecRegistry.Resolve<StatusRequestUpdate>(MessageClasses.StatusRequest, 1);
-            ICodec<StatusUpdate> statusCodec = CodecRegistry.Resolve<StatusUpdate>(MessageClasses.Status, 1);
-
-            Assert.Equal(MessageClasses.StatusRequest, requestCodec.MessageClass);
-            Assert.Equal(MessageClasses.Status, statusCodec.MessageClass);
+            Assert.Equal(MessageClasses.StatusRequest, request.MessageClass);
+            Assert.Equal(MessageClasses.Status, status.MessageClass);
+            Assert.IsType<StatusRequestV1Codec>(request.Codec(1));
+            Assert.IsType<StatusV1Codec>(status.Codec(1));
         }
 
         [Fact]
-        public void CodecRegistry_UnregisteredVersion_Throws()
+        public void DefaultProfile_StatusSpeaksVersion1Only()
         {
-            Assert.Throws<System.Collections.Generic.KeyNotFoundException>(() =>
-                CodecRegistry.Resolve<StatusUpdate>(MessageClasses.Status, 99));
+            ClassDescriptor status = Jfp2Profile.Default.ForKind(MessageKind.Status);
+            Assert.Equal(1, status.MinVersion);
+            Assert.Equal(1, status.MaxVersion);
         }
 
         [Fact]

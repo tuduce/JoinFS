@@ -54,17 +54,16 @@ namespace JoinFS.Tests.Jfp2
         }
 
         [Fact]
-        public void CodecRegistry_ResolvesBothWeatherClassesIndependently()
+        public void DefaultProfile_CarriesBothWeatherClassesIndependently()
         {
-            CodecRegistry.Register(new WeatherUpdateV1Codec());
-            CodecRegistry.Register(new WeatherReplyV1Codec());
+            ClassDescriptor<WeatherUpdate> update = Jfp2Profile.Default.ForKind<WeatherUpdate>(MessageKind.WeatherUpdate);
+            ClassDescriptor<WeatherReply> reply = Jfp2Profile.Default.ForKind<WeatherReply>(MessageKind.WeatherReply);
 
-            ICodec<WeatherUpdate> updateCodec = CodecRegistry.Resolve<WeatherUpdate>(MessageClasses.Weather, 1);
-            ICodec<WeatherReply> replyCodec = CodecRegistry.Resolve<WeatherReply>(MessageClasses.WeatherReply, 1);
-
-            Assert.Equal(MessageClasses.Weather, updateCodec.MessageClass);
-            Assert.Equal(MessageClasses.WeatherReply, replyCodec.MessageClass);
-            Assert.NotEqual(updateCodec.MessageClass, replyCodec.MessageClass);
+            Assert.Equal(MessageClasses.Weather, update.MessageClass);
+            Assert.Equal(MessageClasses.WeatherReply, reply.MessageClass);
+            Assert.IsType<WeatherUpdateV1Codec>(update.Codec(1));
+            Assert.IsType<WeatherReplyV1Codec>(reply.Codec(1));
+            Assert.NotEqual(update.Guaranteed, reply.Guaranteed);
         }
     }
 }
