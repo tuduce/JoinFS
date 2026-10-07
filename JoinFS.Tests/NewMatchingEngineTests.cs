@@ -395,6 +395,23 @@ namespace JoinFS.Tests
             Assert.True(MatchingData.Doc8643.IsRecognized(designator));
         }
 
+        // a family name used as type tag (not an official designator) stands for the family's most common variant
+        [Theory]
+        [InlineData("B747", "B744")]
+        [InlineData("B787", "B788")]
+        [InlineData("B777", "B77W")]
+        [InlineData("A330", "A333")]
+        [InlineData("A340", "A343")]
+        [InlineData("A350", "A359")]
+        [InlineData("B767", "B763")]
+        [InlineData("B757", "B752")]
+        [InlineData("B727", "B722")]
+        public void A_family_tag_resolves_to_the_most_common_variant_of_the_family(string familyTag, string variant)
+        {
+            Assert.False(MatchingData.Doc8643.IsRecognized(familyTag));
+            Assert.Equal(variant, MatchingData.Reference.ResolveAlias(familyTag));
+        }
+
         [Fact]
         public void Reference_keys_are_unique()
         {
