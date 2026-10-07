@@ -211,7 +211,7 @@ namespace JoinFS.Tests
         [InlineData("Pitts Special", "PTS1")]
         [InlineData("Zivko Edge 540", "EDGE")]
         [InlineData("Daher Kodiak 100", "KODI")]
-        [InlineData("Quest Kodiak 900", "KODI")]
+        [InlineData("Quest Kodiak 900", "X-K900")]
         [InlineData("Fieseler Fi 156 Storch", "F156")]
         [InlineData("Aveko VL-3", "VL3")]
         [InlineData("Comco Ikarus C42", "C42")]
@@ -303,6 +303,39 @@ namespace JoinFS.Tests
         {
             var (_, _, trace) = Match(Create(MatchingEngine.New, Model("MD Helicopters MD 500", "H500", "H1T", "L", "Rotorcraft")), "500E", title: "MD 500E", typerole: Sub.TypeRole_Rotorcraft);
             Assert.Contains(trace.steps, step => step.Contains("500E") && step.Contains("H500"));
+        }
+
+        [Fact]
+        public void Aliases_are_unique_across_the_reference_data()
+        {
+            var duplicates = MatchingData.Reference.Entries
+                .SelectMany(e => e.Aliases.Select(alias => (alias, e.Icao)))
+                .GroupBy(a => a.alias, StringComparer.OrdinalIgnoreCase).Where(g => g.Select(a => a.Icao).Distinct().Count() > 1 || g.Count() > 1)
+                .Select(g => g.Key + " (" + string.Join(", ", g.Select(a => a.Icao)) + ")").ToList();
+            Assert.True(duplicates.Count == 0, "aliases used more than once: " + string.Join("; ", duplicates));
+        }
+
+        [Fact]
+        public void No_alias_is_the_type_designator_of_a_reference_row()
+        {
+            var keys = new HashSet<string>(MatchingData.Reference.Entries.Select(e => e.Icao), StringComparer.OrdinalIgnoreCase);
+            var clashes = MatchingData.Reference.Entries
+                .SelectMany(e => e.Aliases.Select(alias => (alias, e.Icao)))
+                .Where(a => keys.Contains(a.alias)).Select(a => $"'{a.alias}' (alias of {a.Icao})").ToList();
+            Assert.True(clashes.Count == 0, "aliases that are also a row's type designator: " + string.Join(", ", clashes));
+        }
+
+        [Fact]
+        public void Kodiak_100_and_900_are_separate_rows_with_their_own_data()
+        {
+            var k100 = MatchingData.Reference.Find("KODI");
+            var k900 = MatchingData.Reference.Find("X-K900");
+            Assert.NotNull(k100);
+            Assert.NotNull(k900);
+            Assert.True(k900!.MtowKg > k100!.MtowKg);
+            Assert.Equal("KODI", MatchingData.Reference.InferIcaoFromText("Daher Kodiak 100"));
+            Assert.Equal("X-K900", MatchingData.Reference.InferIcaoFromText("Daher Kodiak 900"));
+            Assert.Equal("X-K900", MatchingData.Reference.InferIcaoFromText("Quest Kodiak K900"));
         }
 
         [Fact]
