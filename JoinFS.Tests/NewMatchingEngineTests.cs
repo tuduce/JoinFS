@@ -270,6 +270,41 @@ namespace JoinFS.Tests
             Assert.Equal(icao, MatchingData.Reference.InferIcaoFromText(title));
         }
 
+        // ---- official ICAO designators always rule ---------------------------------------------------------------------
+
+        [Fact]
+        public void No_alias_in_the_reference_data_is_an_official_Doc8643_designator()
+        {
+            var offenders = MatchingData.Reference.Entries
+                .SelectMany(e => e.Aliases.Select(alias => (alias, e.Icao)))
+                .Where(a => MatchingData.Doc8643.IsRecognized(a.alias))
+                .Select(a => $"'{a.alias}' (alias of {a.Icao})").ToList();
+            Assert.True(offenders.Count == 0, "aliases that are official designators: " + string.Join(", ", offenders));
+        }
+
+        [Fact]
+        public void An_alias_never_replaces_an_official_designator_even_when_the_data_declares_one()
+        {
+            const string json = """
+                {"aircraft": [
+                  {"icao": "A320", "name": "Airbus A320", "manufacturer": "Airbus", "aliases": ["B738"], "wing": "low", "spanM": 34.1, "lengthM": 37.6, "mtowKg": 78000, "engines": 2, "engineType": "jet", "cruiseKt": 450, "gear": "tricycle"}
+                ]}
+                """;
+            var substitution = Create(MatchingEngine.New, Airliner("Boeing 737-800", "B738", "L2J", "M"));
+            var matcher = new CombinedMatcher(new SubstitutionCatalog(substitution), ReferenceSpecs.FromJson(json));
+
+            var result = matcher.Match(new MatchRequest("Remote", "", "B738", "", "", "", false, Sub.TypeRole_Airliner, ""));
+
+            Assert.Equal("B738", result.Explanation.EffectiveRequest.IcaoType);
+        }
+
+        [Fact]
+        public void A_tag_that_is_not_a_designator_is_still_corrected_through_an_alias()
+        {
+            var (_, _, trace) = Match(Create(MatchingEngine.New, Model("MD Helicopters MD 500", "H500", "H1T", "L", "Rotorcraft")), "500E", title: "MD 500E", typerole: Sub.TypeRole_Rotorcraft);
+            Assert.Contains(trace.steps, step => step.Contains("500E") && step.Contains("H500"));
+        }
+
         [Fact]
         public void Reference_keys_are_unique()
         {

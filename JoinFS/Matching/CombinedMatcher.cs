@@ -268,13 +268,13 @@ namespace JoinFS.Matching
             string icao = request.IcaoType;
             if (icao.Length == 0) return request;
 
-            // a curated alias wins even over a real Doc8643 designator: simulators reuse codes (MSFS tags the Stemme S12 "S12", which
-            // Doc8643 knows as the Spencer Air Car)
+            // an official ICAO designator always rules: the alias table only repairs tags that are not designators
+            if (catalog.Doc8643.IsRecognized(icao)) return request;
+
             string resolved = reference.ResolveAlias(icao);
             if (resolved == icao) return request;
 
-            string reason = catalog.Doc8643.IsRecognized(icao) ? "the alias table overrides the Doc8643 designator" : "it is not a Doc8643 designator and the alias table maps it";
-            explanation.RequestNotes.Add($"ICAO type '{icao}': {reason} to '{resolved}', which is used for matching.");
+            explanation.RequestNotes.Add($"ICAO type '{icao}': it is not a Doc8643 designator and the alias table maps it to '{resolved}', which is used for matching.");
             return Copy(request, resolved, request.IcaoAirline, false);
         }
 

@@ -89,7 +89,7 @@ The corrections run in the order of the subsections below: type, then airline, t
 ### 2.1 ICAO type
 
 If the type is an **alias** in `aircraft-specs.json` (`500E` -> `H500`, `MD11F` -> `MD11`,
-`DA20` -> `DV20`), it is replaced by the aliased type. A curated alias wins even over a real Doc8643 designator, because simulators reuse codes (MSFS tags the Stemme S12 `S12`, which Doc8643 lists as the Spencer Air Car). Punctuation and spaces are ignored when looking a tag up (`JU-52` -> `JU52`,
+`DA20` -> `DV20`), it is replaced by the aliased type. An official ICAO designator always rules: an alias is never applied to a tag that is a Doc8643 designator, and a test fails if the data declares such an alias. Punctuation and spaces are ignored when looking a tag up (`JU-52` -> `JU52`,
 `B 738` -> `B738`). Unknown tags without an alias stay as they are.
 
 ### 2.2 Airline
