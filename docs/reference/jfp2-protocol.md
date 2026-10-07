@@ -13,6 +13,10 @@ Related reading:
   motivated JFP2 (cited in §1).
 - `docs/protocol-v2-implementation-plan.md` and `docs/protocol-v2-implementation-review.md` —
   historical record of how JFP2 was first built and field-tested, including Findings 1–9.
+- `docs/network-plugin-architecture.md` §2.13 — the decision that JFP2 succeeds legacy;
+  `docs/jfp2-standalone-review.md` — the goals behind it and the work items (B1–B7) cited here as
+  "review items"; `docs/jfp2-wire-design.md` — the approved design of JFP2's first released wire
+  (26.6), built in stages. This document describes each part once it is built.
 
 ## 1. Motivation
 
@@ -51,7 +55,7 @@ peer identifier (docs/network-protocol.md §9.5).
 
 ## 2. Design goals and non-goals
 
-**Goals, in priority order:**
+**Goals:**
 
 1. **Speed.** The hot path (Position) must be smaller on the wire and cheaper to encode/decode than
    legacy, with no heap allocation per message and no per-packet branching on version once a peer's
@@ -62,15 +66,24 @@ peer identifier (docs/network-protocol.md §9.5).
    codec (§6), never by a reader that consumes bytes until it runs out. Old and new builds coexist on
    the same mesh and the same UDP port.
 4. **Peer capability/version exchange**, once per connection (§5).
+5. **Replacing legacy.** JFP2 is the successor protocol (`docs/network-plugin-architecture.md`
+   §2.13): a node must become able to join, stay in and leave a session over JFP2 alone, after which
+   legacy retires. Today JFP2 still relies on the legacy mesh for membership (§3, §7.2).
+6. **Security.** Without legacy, JFP2's Join is the only access control, so authentication is a
+   goal, designed with the mesh over JFP2 (review item B7: a challenge-response Join, node names
+   bound to a key pair, per-hop protection of every datagram, `docs/jfp2-wire-design.md` §2.5).
+   *Not implemented*: today JFP2 carries
+   no encryption, signing or replay protection beyond what the legacy protocol has (effectively
+   none).
 
 **Non-goals:**
 
-- **Security/authentication.** JFP2 carries no encryption, signing or replay protection beyond what the
-  legacy protocol has (effectively none). This is deliberate and should be revisited separately.
 - **New reliability semantics.** JFP2 keeps the legacy two-tier model: unreliable, or guaranteed
   (acknowledged and retransmitted). No ordered streams or congestion control.
 - **Changing anything above the wire format** (simulator abstraction, model matching).
-- **A flag-day cutover.** JFP2 runs alongside the legacy protocol indefinitely (§7).
+- **A flag-day cutover.** JFP2 runs alongside the legacy protocol (§7) until legacy retires, which
+  happens when the builds that hubs log from the `Build` extension (§5.5, review item A4) show that
+  enough users run a build with the mesh over JFP2.
 
 ## 3. Overview
 
@@ -87,9 +100,11 @@ JFP2 and the legacy protocol share one UDP socket and port: every JFP2 datagram 
 byte `0xFA`, which can never collide with the legacy protocol's first byte (`0x0B`, the low byte of
 the little-endian `0x520B` constant). A receiver looks at byte 0 before parsing anything else.
 
-In the application, JFP2 is a *link upgrader*: every node also speaks legacy, the legacy mesh
-(Join/Pulse/Pathfinder) discovers peers, and JFP2 negotiates per directly reachable peer and carries
-the message kinds both sides agreed on (§7.2).
+In the application, JFP2 today upgrades links: every node also speaks legacy, the legacy mesh
+(Join/Pulse/Pathfinder) discovers peers and holds membership, and JFP2 negotiates per directly
+reachable peer and carries the message kinds both sides agreed on (§7.2). That is a stage, not the
+end: JFP2 is the successor protocol, it will take over the mesh (review item B3), and legacy then retires
+(`docs/network-plugin-architecture.md` §2.13).
 
 ## 4. Wire format
 
@@ -295,7 +310,7 @@ Payload (same shape for both; `Result` is meaningful only in HelloAck):
 | Extensions | rest | TLV records, §5.5. |
 
 **The permanent entry point.** Hello/HelloAck is how every build, past and future, starts talking to
-every other, so it never changes:
+every other, so from 26.6 on it never changes:
 - the envelope: ProtoMajor `2` (`Envelope.HandshakeProtoMajor`, a constant of its own that stays `2`
   even if `Envelope.ProtoMajor` moves), the `Internal` flag and no other, classes `0` and `1`;
 - the payload's fixed fields and the offer list layout above.
@@ -306,6 +321,12 @@ which this build accepts and answers in 2. The major version is agreed per sessi
 capabilities, not per class: every later datagram of that session uses it, except Hello and HelloAck
 (keepalives included), which always travel in ProtoMajor 2. `HandshakeGoldenTests`
 pins the exact bytes.
+
+**This rule binds from 26.6**, the first release that speaks JFP2. Until 26.6 ships, JFP2's wire,
+the handshake included, may still change, and 26.6 waits until it is right
+(`docs/jfp2-wire-design.md` §1): testers run the same daily build, and between two builds on either
+side of such a change the legacy fallback carries the session. `HandshakeGoldenTests`
+changes only with a deliberate change of the handshake, never to make a failing test pass.
 
 Behaviour, as implemented (`Jfp2Plugin`):
 - A Hello without a `Node`, or naming a node that isn't a known mesh peer, is ignored. The legacy
@@ -519,14 +540,17 @@ the default profile sends.
 ## 7. Coexistence with the legacy protocol
 
 **7.1 One socket.** The magic byte (§3) routes each incoming datagram to the right plugin before
-anything else is parsed. Both protocols share the socket and port indefinitely.
+anything else is parsed. Both protocols share the socket and port for as long as legacy is spoken;
+a protocol after JFP2 would take another magic byte.
 
 **7.2 Per peer and per message kind.** The choice between JFP2 and legacy is made per peer and per
 message kind, not per mesh:
 - JFP2 is used for a kind when the peer's next hop (§5.7) negotiated it (§5.3).
 - Everything else goes over legacy: kinds JFP2 doesn't carry (§6.4), `AssumedLegacy` peers, and
   sessions that are not (or no longer) verified.
-- Because every node speaks legacy, falling back is always possible.
+- Every node speaks legacy today, so falling back is always possible. That ends with the mesh over
+  JFP2 (review item B3), when a node may speak JFP2 alone; how such a node falls back is B3's
+  design (`docs/network-plugin-architecture.md` §2.13).
 - The choice is re-evaluated when a peer's route or a session's state changes.
 
 **7.3 Independent versions per class.** No class's version is coupled to another's (§5.1).
@@ -561,7 +585,7 @@ Simulator build symbols (`FS2020`, `FS2024`, `XPLANE`, `CONSOLE`, ...) never cha
     An upstream retransmission (its ack was lost) is acknowledged again but not sent downstream a
     second time: the relay remembers the (origin, id) pairs it translated, like a receiver does.
 - **The reverse direction (legacy → JFP2)** never needs translation: every JFP2 node understands
-  legacy, so the legacy relay carries it unchanged.
+  legacy today (§7.2; until B3), so the legacy relay carries it unchanged.
 
 There is no protocol-pair-specific bridge code. See `docs/reference/joinfs-architecture.md` §6.
 
@@ -596,16 +620,17 @@ topology in `JoinFS.Tests/Net/Jfp2RelayTests.cs` reproduces the failure of the n
 - JFP2 mesh messages
 
 **Open questions:**
-- **A JFP2-native mesh:** carrying Join/Pulse/Pathfinder over JFP2. It needs multi-segment
-  guaranteed delivery and a pre-Join bootstrap. It is worth doing only for authentication, IPv6, NAT
-  hole punching or retiring legacy; see `docs/network-plugin-architecture.md` §2.4.1.
+- **A JFP2-native mesh** — *decided*: JFP2 will carry Join/Pulse/Pathfinder (review item B3), since
+  IPv6, authentication and retiring legacy are now goals (`docs/network-plugin-architecture.md`
+  §2.13). It needs a pre-membership bootstrap with admission (review items B2/B3) and membership
+  lists split across messages; `docs/jfp2-wire-design.md`, appendix A, sketches both.
 - **Relay fan-out:** one datagram to a hub for "all your other neighbours" instead of one per peer,
   which would cut the uplink of a node behind a hub. It needs relay budgets and amplification limits.
 - **Limits of verification behind a shared endpoint:** a node whose replies are steered to another
   node cannot verify the path back, so that direction stays on legacy (§5.7).
 - **Selective acknowledgement** and **coalescing policy** (batch window, eligible classes).
-- **Governance for ProtoMajor 3+** — *resolved.* Hello/HelloAck is the permanent entry point: its
-  ProtoMajor-2 envelope, fixed fields and offer layout never change, anything new goes into the TLV
-  extension area, and a later major version is agreed through ProtoMajorMin/Max inside a
-  ProtoMajor-2 Hello (§5.2). Every other datagram keeps the magic/version-byte dispatch before
+- **Governance for ProtoMajor 3+** — *resolved.* Hello/HelloAck is the permanent entry point from
+  26.6 on: its ProtoMajor-2 envelope, fixed fields and offer layout never change, anything new goes
+  into the TLV extension area, and a later major version is agreed through ProtoMajorMin/Max inside
+  a ProtoMajor-2 Hello (§5.2). Every other datagram keeps the magic/version-byte dispatch before
   anything else is parsed, and a receiver drops a ProtoMajor or flag it does not know (§4.1, §4.2).

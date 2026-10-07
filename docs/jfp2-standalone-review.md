@@ -16,8 +16,9 @@ JFP2 must be able to replace legacy: legacy is retired once enough users run a J
 - **IPv6.** Some users cannot join the legacy mesh from behind CGNAT. IPv6 and better relaying are
   how they get in.
 
-The current docs still describe JFP2 as a link upgrader that runs next to legacy indefinitely.
-Section E lists those passages.
+When this review was written, the docs still described JFP2 as a link upgrader that runs next to
+legacy indefinitely; section E lists those passages. `docs/network-plugin-architecture.md` §2.13
+now records the decision that JFP2 is the successor protocol.
 
 ## Verdict
 
@@ -183,6 +184,8 @@ A new decision record, §2.13 "JFP2 as the successor protocol" in
 | `docs/reference/jfp2-protocol.md` | §3, §7 | JFP2 described as a link upgrader |
 | `docs/network-plugin-architecture.md` | §2.4.1 | JFP2 mesh: "not now" |
 | `docs/network-plugin-architecture.md` | §2.10 item 3 | "Every node speaks legacy" |
+
+**Status, 2026-10-08:** done in stage 1 of `docs/jfp2-wire-design.md`; decision record §2.13.
 
 ## Suggested order
 

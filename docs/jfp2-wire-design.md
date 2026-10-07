@@ -1,7 +1,7 @@
 # JFP2's first released wire
 
-**Design, 2026-10-07. Design approved by the owner on 2026-10-08 (§10); implementation not
-started.**
+**Design, 2026-10-07. Design approved by the owner on 2026-10-08 (§10); implemented in stages,
+status in the table at the end.**
 Scope: what JFP2's first released wire (26.6) must look
 like so that the next few years of work (review `docs/jfp2-standalone-review.md`, items B1–B7) can
 be added without a second protocol version or a compatibility layer. Status table at the end.
@@ -618,7 +618,8 @@ configurations. Tests: `dotnet test JoinFS.Tests/JoinFS.Tests.csproj -c FS2024-D
      `BehindNat_TheObservedEndPointIsTheMappedOne` (`AddBehindNat`, a port-changing
      `InMemoryNetwork.Nat`); `Session/ObservedEndPointsTests` — one test per class, and
      `LanObservation_IsIgnored`.
-   - Docs: spec §4.8 as `WireEndPoint`, §5.5; architecture §5.5, §7 (`NetBootstrap`); `joinfs.lua`.
+   - Docs: spec §4.8 as `WireEndPoint`, §5.5, §7.4, §7.6 and the mentions of `PeerKey` in §9;
+     architecture §5.5, §7 (`NetBootstrap`); `joinfs.lua`.
 8. **D2: false same-LAN detection** (review section D; no wire change). `MeshManager.RegisterNode`
    updates only a peer's port, never its address (`MeshManager.cs:319`), and `MakeEndPoint` sends to
    `<our /24>.<their octet>` for any peer behind our public IP. Keep the address a peer was actually
@@ -660,7 +661,7 @@ B3 and later follow from appendix A, each with its own design approval.
 
 | Stage | Scope | Wire change | Status |
 |---|---|---|---|
-| 1 | Decision record §2.13 and spec | — | Not started |
+| 1 | Decision record §2.13 and spec | — | Done, reviewed |
 | 2 | Partial-class split of `Jfp2Plugin` | no | Not started |
 | 3 | Node names in Hello and Forwarded | yes | Not started |
 | 4 | Handshake, envelope and TLV rules | yes | Not started |
