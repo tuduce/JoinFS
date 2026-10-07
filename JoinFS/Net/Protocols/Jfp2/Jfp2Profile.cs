@@ -6,9 +6,10 @@ namespace JoinFS.Net.Jfp2
 {
     /// <summary>
     /// The message classes a <see cref="Jfp2Plugin"/> speaks, with their schema versions and codecs:
-    /// one <see cref="ClassDescriptor"/> each, in the order they are offered in Hello. Immutable, and
-    /// per plugin instance, so a test can run a node of an older or a newer build next to this one
-    /// (<see cref="With"/>, <see cref="Without"/>); production uses <see cref="Default"/>.
+    /// one <see cref="ClassDescriptor"/> each, in the order they are offered in Hello; and the
+    /// capabilities it advertises. Immutable, and per plugin instance, so a test can run a node of an
+    /// older or a newer build next to this one (<see cref="With"/>, <see cref="Without"/>,
+    /// <see cref="WithCapabilities"/>); production uses <see cref="Default"/>.
     /// </summary>
     public sealed class Jfp2Profile
     {
@@ -18,9 +19,14 @@ namespace JoinFS.Net.Jfp2
         readonly ClassDescriptor[] byClass = new ClassDescriptor[256];
         readonly ClassDescriptor[] byKind = new ClassDescriptor[(int)MessageKind.Count];
 
-        /// <summary>The classes, each with its own class number and kind; they are offered in this order.</summary>
-        public Jfp2Profile(params ClassDescriptor[] classes)
+        /// <summary>The classes, each with its own class number and kind; they are offered in this order. No capabilities.</summary>
+        public Jfp2Profile(params ClassDescriptor[] classes) : this(0, classes)
         {
+        }
+
+        Jfp2Profile(ulong capabilities, ClassDescriptor[] classes)
+        {
+            Capabilities = capabilities;
             this.classes = (ClassDescriptor[])classes.Clone();
             var offers = new SchemaOffer[classes.Length];
             for (int i = 0; i < classes.Length; i++)
@@ -81,6 +87,13 @@ namespace JoinFS.Net.Jfp2
         /// <summary>The offers of Hello/HelloAck, derived from the classes.</summary>
         public IReadOnlyList<SchemaOffer> Offers { get; }
 
+        /// <summary>
+        /// The capability bits advertised in Hello/HelloAck (docs/reference/jfp2-protocol.md §5.4). None
+        /// is assigned yet, so this build advertises none; a capability comes with the design that
+        /// needs it, and tests set bits to run builds that differ in them.
+        /// </summary>
+        public ulong Capabilities { get; }
+
         /// <summary>The application class with this number, or null (see <see cref="byClass"/>).</summary>
         public ClassDescriptor ForClass(byte messageClass) => byClass[messageClass];
 
@@ -96,10 +109,13 @@ namespace JoinFS.Net.Jfp2
             var list = new List<ClassDescriptor>(classes);
             int index = list.FindIndex(c => c.MessageClass == replacement.MessageClass);
             if (index >= 0) list[index] = replacement; else list.Add(replacement);
-            return new Jfp2Profile(list.ToArray());
+            return new Jfp2Profile(Capabilities, list.ToArray());
         }
 
         /// <summary>This profile without a class, as a build that does not know it.</summary>
-        public Jfp2Profile Without(byte messageClass) => new(Array.FindAll(classes, c => c.MessageClass != messageClass));
+        public Jfp2Profile Without(byte messageClass) => new(Capabilities, Array.FindAll(classes, c => c.MessageClass != messageClass));
+
+        /// <summary>This profile advertising <paramref name="capabilities"/> instead, as a build that has them.</summary>
+        public Jfp2Profile WithCapabilities(ulong capabilities) => new(capabilities, classes);
     }
 }

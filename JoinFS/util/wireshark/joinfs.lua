@@ -151,11 +151,9 @@ local LEGACY_APP_MSG = {
     [39] = "String8Variables", [40] = "ShowOnRadar",
 }
 
--- JoinFS.Jfp2.MessageClasses - Internal partition
+-- JoinFS.Jfp2.MessageClasses - Internal partition (2-8 unassigned)
 local JFP2_INTERNAL_CLASS = {
-    [0] = "Hello", [1] = "HelloAck", [2] = "Join", [3] = "JoinReply",
-    [4] = "Leave", [5] = "Pulse", [6] = "PulseResponse", [7] = "Pathfinder",
-    [8] = "PathfinderResponse", [9] = "GuaranteedDone",
+    [0] = "Hello", [1] = "HelloAck", [9] = "GuaranteedDone",
 }
 
 -- JoinFS.Jfp2.MessageClasses - Application partition
@@ -165,9 +163,14 @@ local JFP2_APP_CLASS = {
     [8] = "StatusRequest", [9] = "WeatherReply",
 }
 
+-- Capability bits (docs/reference/jfp2-protocol.md §5.4): none assigned yet
 local JFP2_CAPABILITY_BITS = {
-    [0] = "Coalescing", [1] = "QuantizedPosition", [2] = "Ipv6Peers",
-    [3] = "SelectiveAck",
+}
+
+-- HelloAck Result values (docs/reference/jfp2-protocol.md §5.2); any other
+-- value is unassigned, and every value but 0 means "no session now"
+local JFP2_RESULT = {
+    [0] = "Accepted", [1] = "NoCompatibleProtoMajor", [2] = "NotAdmitted",
 }
 
 -- JoinFS.Jfp2.HandshakeMessage extension tags (docs/reference/jfp2-protocol.md §5.5)
@@ -537,7 +540,8 @@ local function decode_jfp2_handshake(tree, buffer, offset, isAck)
     tree:add(buffer(offset, 2), "SelfAssignedId: " .. buffer(offset, 2):le_uint()); offset = offset + 2
     local result = buffer(offset, 1):uint()
     if isAck then
-        tree:add(buffer(offset, 1), "Result: " .. result .. (result == 0 and " (Accepted)" or " (NoCompatibleProtoMajor)"))
+        tree:add(buffer(offset, 1), "Result: " .. result .. " (" .. (JFP2_RESULT[result] or "unassigned") ..
+            (result == 0 and ")" or ": no session now)"))
     else
         tree:add(buffer(offset, 1), "Result: " .. result .. " (ignored on Hello)")
     end
@@ -549,25 +553,41 @@ local function decode_jfp2_handshake(tree, buffer, offset, isAck)
         local class = buffer(offset + 1, 1):uint()
         local minV = buffer(offset + 2, 1):uint()
         local maxV = buffer(offset + 3, 1):uint()
-        local partName = partition ~= 0 and "Internal" or "Application"
-        local className = partition ~= 0 and (JFP2_INTERNAL_CLASS[class] or class) or (JFP2_APP_CLASS[class] or class)
-        tree:add(buffer(offset, 4), "Offer " .. i .. ": " .. partName .. "/" .. className ..
-            " v[" .. minV .. ".." .. maxV .. "]")
+        if partition == 0 or partition == 1 then
+            local partName = partition == 1 and "Internal" or "Application"
+            local className = partition == 1 and (JFP2_INTERNAL_CLASS[class] or class) or (JFP2_APP_CLASS[class] or class)
+            tree:add(buffer(offset, 4), "Offer " .. i .. ": " .. partName .. "/" .. className ..
+                " v[" .. minV .. ".." .. maxV .. "]")
+        else
+            tree:add(buffer(offset, 4), "Offer " .. i .. ": unknown partition " .. partition ..
+                ", class " .. class .. " v[" .. minV .. ".." .. maxV .. "] (skipped)")
+        end
         offset = offset + 4
     end
     local len = buffer:len()
     if offset < len then
         local ext = tree:add(buffer(offset, len - offset), "Extensions (TLV)")
+        local seen = {}
         while offset + 4 <= len do
             local tag = buffer(offset, 2):le_uint()
             local tlvLen = buffer(offset + 2, 2):le_uint()
             if offset + 4 + tlvLen > len then break end
             local tagName = JFP2_TLV_TAG[tag]
+            local repeated = seen[tag]
+            seen[tag] = true
             local item = ext:add(buffer(offset, 4 + tlvLen), "Tag 0x" .. string.format("%04x", tag) ..
-                (tagName and (" (" .. tagName .. ")") or "") .. ", " .. tlvLen .. " bytes")
-            if tagName == "Names" and tlvLen >= 8 and tlvLen % 8 == 0 then
-                for i = 0, math.floor(tlvLen / 8) - 1 do
+                (tagName and (" (" .. tagName .. ")") or "") .. ", " .. tlvLen .. " bytes" ..
+                (repeated and " (repeated: ignored, the first copy counts)" or ""))
+            if repeated then
+                -- nothing more: a receiver reads the first copy only
+            elseif tagName == "Names" then
+                -- whole names; a remainder shorter than a name is skipped
+                local count = math.floor(tlvLen / 8)
+                for i = 0, count - 1 do
                     add_jfp2_name(item, buffer, offset + 4 + i * 8, "Name " .. (i + 1))
+                end
+                if tlvLen > count * 8 then
+                    item:add(buffer(offset + 4 + count * 8, tlvLen - count * 8), "Remainder: " .. (tlvLen - count * 8) .. " bytes (skipped)")
                 end
             elseif tagName == "Build" and tlvLen > 0 then
                 item:add(buffer(offset + 4, tlvLen), "Build: " .. buffer(offset + 4, tlvLen):string(ENC_UTF_8))
@@ -712,11 +732,13 @@ local function decode_jfp2_status_v1(tree, buffer, offset)
 end
 
 local function decode_jfp2_guaranteed_done(tree, buffer, offset)
-    tree:add(buffer(offset, 2), "GuaranteedId: " .. buffer(offset, 2):le_uint())
-    -- builds before the segment-index change sent only the id
-    if buffer:len() > offset + 2 then
-        tree:add(buffer(offset + 2, 1), "GuaranteedIndex: " .. buffer(offset + 2, 1):uint())
+    -- always 3 bytes: a shorter one acknowledges nothing
+    if buffer:len() < offset + 3 then
+        tree:add(buffer(offset, buffer:len() - offset), "Short GuaranteedDone (" .. (buffer:len() - offset) .. " bytes): ignored")
+        return
     end
+    tree:add(buffer(offset, 2), "GuaranteedId: " .. buffer(offset, 2):le_uint())
+    tree:add(buffer(offset + 2, 1), "GuaranteedIndex: " .. buffer(offset + 2, 1):uint())
 end
 
 local function decode_jfp2_application(tree, buffer, offset, class)

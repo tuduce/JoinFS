@@ -52,6 +52,9 @@ namespace JoinFS.Net.Jfp2
         /// <summary>For tests and diagnostics: the build a neighbor said it runs in its last handshake message, or null.</summary>
         public string BuildOf(NodeId neighbor) => sessions.TryGetValue(neighbor, out PeerSession session) ? session.Build : null;
 
+        /// <summary>For tests and diagnostics: the capabilities agreed with a neighbor (both sides advertise them), 0 when none or no session.</summary>
+        public ulong AgreedCapabilitiesWith(NodeId neighbor) => sessions.TryGetValue(neighbor, out PeerSession session) ? session.AgreedCapabilities : 0;
+
         // ================================================================== handshake and keepalive
 
         void DoHandshake()
@@ -78,7 +81,7 @@ namespace JoinFS.Net.Jfp2
                     continue;
                 }
                 session ??= CreateSession(peer.Id);
-                if (session.AssumedLegacy && now < session.RetryAt)
+                if ((session.AssumedLegacy || session.Refused != HandshakeMessage.ResultAccepted) && now < session.RetryAt)
                 {
                     continue;
                 }
@@ -90,6 +93,7 @@ namespace JoinFS.Net.Jfp2
                 {
                     bool first = !session.AssumedLegacy;
                     session.AssumedLegacy = true;
+                    session.Refused = HandshakeMessage.ResultAccepted;
                     session.RetryAt = now + HelloCooldown;
                     session.HelloAttempts = 0;
                     host.Log(NetLogLevel.Network, "JFP2: " + peer.Id + " did not answer Hello after " + HelloMaxAttempts + " attempts - assuming legacy-only peer" + (first ? "" : " (again)"));
@@ -172,7 +176,7 @@ namespace JoinFS.Net.Jfp2
         {
             ProtoMajorMin = Envelope.ProtoMajor,
             ProtoMajorMax = Envelope.ProtoMajor,
-            Capabilities = LocalCapabilities,
+            Capabilities = profile.Capabilities,
             SelfAssignedId = session.LocalAssignedId,
             Result = result,
             Names = [NameOf(Local)],
@@ -255,10 +259,10 @@ namespace JoinFS.Net.Jfp2
             // a range that includes ours (2..3 from a later build, say) is fine: we speak the common one
             if (hello.ProtoMajorMin > Envelope.ProtoMajor || hello.ProtoMajorMax < Envelope.ProtoMajor)
             {
-                SendHelloAck(from, session, result: 1);
+                SendHelloAck(from, session, HandshakeMessage.ResultNoCompatibleProtoMajor);
                 return;
             }
-            if (Negotiator.Resolve(session, LocalCapabilities, profile.Offers, hello.Capabilities, hello.Offers) && session.HandshakeComplete)
+            if (Negotiator.Resolve(session, profile.Capabilities, profile.Offers, hello.Capabilities, hello.Offers) && session.HandshakeComplete)
             {
                 host.LinkChanged(sender); // it restarted with different offers: cached routes are stale
             }
@@ -268,11 +272,11 @@ namespace JoinFS.Net.Jfp2
             {
                 session.RetryAt = 0; // it speaks JFP2 after all: try it now
             }
-            SendHelloAck(from, session, result: 0);
+            SendHelloAck(from, session, HandshakeMessage.ResultAccepted);
             host.Log(NetLogLevel.Network, "JFP2: Hello from " + sender + " at " + from + " - answered");
         }
 
-        void HandleHelloAck(in Envelope envelope, ReadOnlySpan<byte> payload)
+        void HandleHelloAck(IPEndPoint from, in Envelope envelope, ReadOnlySpan<byte> payload)
         {
             HandshakeMessage ack = HandshakeMessage.Deserialize(payload);
             // addressed to the id we gave the peer the Hello was aimed at
@@ -281,12 +285,25 @@ namespace JoinFS.Net.Jfp2
                 return;
             }
             double now = Now;
-            if (ack.Result != 0 || !TryGetSpeaker(ack.Names, out NodeId responder))
+            if (ack.Result != HandshakeMessage.ResultAccepted)
+            {
+                // a refusal takes a working link off JFP2 for the cooldown, so it counts only from the
+                // endpoint our Hello went to and from the peer asked: the session id alone is 16 bits,
+                // and guessable off the path
+                if (!from.Equals(session.ProbeEndPoint) || !TryGetSpeaker(ack.Names, out NodeId refuser) || refuser != session.Peer)
+                {
+                    host.Log(NetLogLevel.Network, "JFP2: HelloAck with Result " + ack.Result + " from " + from + " is not the answer of " + session.Peer + " at " + session.ProbeEndPoint + " - ignored");
+                    return;
+                }
+                Refused(session, ack, now);
+                return;
+            }
+            if (!TryGetSpeaker(ack.Names, out NodeId responder))
             {
                 session.AssumedLegacy = true;
                 session.RetryAt = now + HelloCooldown;
                 session.HelloAttempts = 0;
-                host.Log(NetLogLevel.Network, "JFP2: " + session.Peer + " refused or cannot identify itself - assuming legacy-only peer");
+                host.Log(NetLogLevel.Network, "JFP2: " + session.Peer + " cannot identify itself - assuming legacy-only peer");
                 return;
             }
             if (!host.Peers.Contains(responder))
@@ -319,7 +336,7 @@ namespace JoinFS.Net.Jfp2
             }
             session.RemoteAssignedId = ack.SelfAssignedId;
             LearnBuild(session, ack.Build);
-            bool agreementChanged = Negotiator.Resolve(session, LocalCapabilities, profile.Offers, ack.Capabilities, ack.Offers);
+            bool agreementChanged = Negotiator.Resolve(session, profile.Capabilities, profile.Offers, ack.Capabilities, ack.Offers);
             bool wasVerified = session.Verified;
             session.HandshakeComplete = true;
             session.Endpoint = probe;
@@ -327,6 +344,7 @@ namespace JoinFS.Net.Jfp2
             session.NextKeepAlive = now + KeepAliveInterval;
             session.HelloAttempts = 0;
             session.AssumedLegacy = false;
+            session.Refused = HandshakeMessage.ResultAccepted;
             if (!wasVerified)
             {
                 host.LinkChanged(session.Peer);
@@ -336,6 +354,28 @@ namespace JoinFS.Net.Jfp2
             {
                 host.LinkChanged(session.Peer);
             }
+        }
+
+        /// <summary>
+        /// A HelloAck with a non-zero Result: no session now, whatever the value (§5.2). A later build
+        /// may refuse for a reason this one does not know (not admitted, too many sessions), which says
+        /// nothing about whether it speaks JFP2, so the peer is not taken for legacy-only: its traffic
+        /// goes through legacy meanwhile, as for any peer without a session, and it is asked again
+        /// after the cooldown. The answer's extensions are still read (the build). Only a refusal from
+        /// the endpoint our Hello went to, naming the peer asked, gets here (<see cref="HandleHelloAck"/>).
+        /// </summary>
+        void Refused(PeerSession session, HandshakeMessage ack, double now)
+        {
+            if (session.Verified)
+            {
+                Demote(session, "it refused a session (Result " + ack.Result + ")");
+            }
+            session.AssumedLegacy = false;
+            session.Refused = ack.Result;
+            session.RetryAt = now + HelloCooldown;
+            session.HelloAttempts = 0;
+            LearnBuild(session, ack.Build);
+            host.Log(NetLogLevel.Network, "JFP2: " + session.Peer + " answered Result " + ack.Result + " (no session now) - asking again in " + HelloCooldown + " s");
         }
     }
 }

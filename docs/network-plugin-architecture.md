@@ -172,7 +172,7 @@ With §2.4 in place, "JFP2 has its own mesh" no longer means a second mesh. It m
 
 **Is it worth it?**
 - **Not now.** While any legacy peer might be in the session (released v26.5 builds don't update themselves), the legacy mesh codecs must stay anyway.
-  - **Superseded by §2.13:** IPv6 for CGNAT users and retiring legacy are now requirements, and security is a goal, so the mesh moves to JFP2 (B3). The legacy mesh codecs stay until legacy retires. The "what it would take" list above (items 2 and 4) is superseded too, by the appendix of `docs/jfp2-wire-design.md`: a pre-membership bootstrap with admission (B2/B3) and membership lists split across messages.
+  - **Superseded by §2.13:** IPv6 for CGNAT users and retiring legacy are now requirements, and security is a goal, so the mesh moves to JFP2 (B3). The legacy mesh codecs stay until legacy retires. The "what it would take" list above (items 1, 2 and 4) is superseded too, by the appendix of `docs/jfp2-wire-design.md`: the internal classes 2–8 once reserved for the mesh are released, and the mesh over JFP2 designs and assigns its own set; a pre-membership bootstrap with admission (B2/B3); and membership lists split across messages.
 - **The gain is small:**
   - smaller headers: 8 bytes instead of 21, on 1 Hz pulses;
   - Findings 8/9 no longer apply. They are fixed on our side in the rewrite anyway.

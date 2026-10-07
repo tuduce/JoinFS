@@ -133,7 +133,7 @@ payload.
 | 1 | Forwarded | Addressed by origin/target node names instead of PeerIds; the 16-byte relay extension follows (§4.5). |
 | 2 | Coalesced | Payload is a sequence of sub-messages (§4.7). *Specified, not implemented*: no build sends it, and this one drops it (below). |
 | 3 | Internal | `RawMessageClass` indexes the internal partition (§4.3). |
-| 4–7 | Reserved | Zero on send. |
+| 4–7 | — | Unassigned; zero on send, and a datagram with one is dropped (below). |
 
 **Rule for flags.** A new flag may add a header extension or change the payload's framing, so a
 receiver that ignored it would misparse everything after it. Therefore:
@@ -145,6 +145,11 @@ receiver that ignored it would misparse everything after it. Therefore:
   therefore always defined together with a capability. A relay that passes a datagram on byte for
   byte (§4.5) is a sender too: it forwards such a datagram only to a target that agreed the same
   capability.
+
+Each flag stands for one header extension, at a fixed place in the order of §4.1, so the common ones
+are read without parsing a chain. Bits 4–7 are free for the foreseen additions (per-hop
+authentication is the candidate for bit 4); if they run out, one of them becomes "an extension chain
+follows", defined with a capability like any other flag.
 
 ### 4.3 Message classes
 
@@ -159,14 +164,11 @@ renumber or reuse a shipped value.**
 |---|---|---|
 | 0 | Hello | Implemented (§5.2) |
 | 1 | HelloAck | Implemented (§5.2) |
-| 2 | Join | Reserved (mesh messages go over legacy today) |
-| 3 | JoinReply | Reserved |
-| 4 | Leave | Reserved |
-| 5 | Pulse | Reserved |
-| 6 | PulseResponse | Reserved |
-| 7 | Pathfinder | Reserved |
-| 8 | PathfinderResponse | Reserved |
+| 2–8 | — | Unassigned. They were reserved for mesh messages; the mesh over JFP2 designs its own set (review item B3) and assigns them. |
 | 9 | GuaranteedDone | Implemented (§4.4) |
+
+Hello, HelloAck and GuaranteedDone are never offered (§5.2): every build speaks them, always at
+version 1.
 
 **Application partition:**
 
@@ -182,7 +184,7 @@ renumber or reuse a shipped value.**
 | 7 | Status | `StatusV1Codec` | no |
 | 8 | StatusRequest | `StatusRequestV1Codec` | no |
 | 9 | WeatherReply | `WeatherReplyV1Codec` | yes |
-| 255 | Extended | §4.6 — *specified, not implemented* | — |
+| 255 | Extended | Reserved, never assigned (§4.6) — *specified, not implemented* | — |
 
 ### 4.4 Guaranteed delivery
 
@@ -209,8 +211,8 @@ Behaviour, as implemented:
   its peers still remember from before.
 - The receiver answers every guaranteed datagram, including duplicates, with an internal
   `GuaranteedDone` whose payload is the u16 `GuaranteedId` and the u8 `GuaranteedIndex` of the
-  segment it acknowledges (3 bytes, like legacy's; a 2-byte ack from an earlier build acknowledges
-  segment 0). It delivers the message only the first
+  segment it acknowledges: always 3 bytes, like legacy's. A shorter `GuaranteedDone` acknowledges
+  nothing. It delivers the message only the first
   time; ids are remembered for **30 s** for duplicate suppression, keyed by the true origin.
   A message of a class that was never agreed with the neighbor is neither acknowledged nor
   delivered, so the sender does not take it as delivered.
@@ -338,10 +340,29 @@ Payload (same shape for both; `Result` is meaningful only in HelloAck):
 | ProtoMajorMax | 1 | Highest (2). |
 | Capabilities | 8 | u64 bitset, §5.4. |
 | SelfAssignedId | 2 | The PeerId this node wants to be addressed by. |
-| Result | 1 | HelloAck: `0` accepted, `1` no compatible ProtoMajor. |
+| Result | 1 | HelloAck: `0` accepted; any other value, no session now (below). |
 | OfferCount | 2 | Number of offers. |
-| Offers | 4 × OfferCount | `Internal(1) MessageClass(1) MinVersion(1) MaxVersion(1)` |
+| Offers | 4 × OfferCount | `Partition(1) MessageClass(1) MinVersion(1) MaxVersion(1)`; partition `0` application, `1` internal. |
 | Extensions | rest | TLV records, §5.5. |
+
+**`Result`:**
+
+| Value | Meaning |
+|---|---|
+| 0 | Accepted |
+| 1 | No compatible ProtoMajor |
+| 2 | Not admitted: no session was created (reserved for the mesh over JFP2; this build never sends it) |
+| 3–255 | Unassigned |
+
+A receiver reads any value other than `0` as **"no session now"**, whatever the reason: a later
+build may refuse for one this build does not know (too many sessions, not admitted), and that says
+nothing about whether it speaks JFP2. So it does not take the peer for legacy-only: it asks again
+after the 30 s cooldown, routes the peer through legacy meanwhile, as it does for any peer without
+a session, logs the value, and still reads the HelloAck's extensions.
+
+**Offers.** An offer whose partition byte is neither `0` nor `1` belongs to a class space this build
+does not know, and is skipped; the offers after it are read as usual. Hello, HelloAck and
+`GuaranteedDone` are never offered.
 
 **The permanent entry point.** Hello/HelloAck is how every build, past and future, starts talking to
 every other, so from 26.6 on it never changes:
@@ -380,7 +401,17 @@ Behaviour, as implemented (`Jfp2Plugin`):
 - A HelloAck is matched to the session by the id it is addressed to, and must name the node the Hello
   was for. If another node answers, that node owns the endpoint (see §5.7) and the peer we asked for
   is not there.
-- A HelloAck with `Result != 0`, or without a valid kind-0 name (ip not 0), marks the peer `AssumedLegacy`.
+- A HelloAck with `Result != 0` means no session now (above): a verified session with the peer stops
+  being verified, and the peer is asked again after **30 s**, not sooner, even if it sends a Hello
+  itself. The answer's `Build` is remembered. The log line gives the value:
+  `JFP2: <node> answered Result <n> (no session now)`.
+- A refusal counts only when it answers our Hello: it comes from the endpoint the Hello went to and
+  its `Names` resolve to the peer asked. The session id it is addressed to is 16 bits and could be
+  guessed off the path, so any other refusal (from another source, naming another node or none) is
+  logged at network level and otherwise ignored. A node sharing the endpoint that refuses is
+  therefore not taken for the peer asked.
+- A HelloAck with `Result` `0` but without a valid kind-0 name (ip not 0) marks the peer
+  `AssumedLegacy`.
 - Receiving a peer's Hello lets us *decode* what it sends. It does not make the session usable for
   *sending*: only the ack of our own Hello proves our datagrams reach that node.
 
@@ -408,33 +439,44 @@ Every Hello and HelloAck, keepalives included, resolves again from scratch. When
 (the peer restarted with a build that offers other classes) the router's cached choices are dropped,
 so a class the peer no longer takes goes back to legacy instead of to a JFP2 hop that would drop it.
 
-### 5.4 Capabilities — *specified, none in use*
+### 5.4 Capabilities — *none assigned*
 
 A u64 bitset for behaviours not tied to one class's schema. Agreed capabilities are the bitwise AND
-of both sides'. Current builds advertise none.
+of both sides'. A plugin advertises its profile's (`Jfp2Profile.Capabilities`): this build's profile
+advertises none, and no build has ever advertised one.
 
-| Bit | Capability |
-|---|---|
-| 0 | Coalescing (§4.7) |
-| 1 | QuantizedPosition (informational; Position v2 selection itself is by schema version) |
-| 2 | Ipv6Peers (§4.8) |
-| 3 | SelectiveAck (reserved) |
+No bit is assigned. Each is assigned by the design that needs it, together with any flag it defines
+(§4.2). The four meanings once reserved here (Coalescing, QuantizedPosition, Ipv6Peers,
+SelectiveAck) are released: Position v2 is chosen by schema version alone, names (§4.9) make an
+IPv6 capability unnecessary, and coalescing and selective acknowledgement get theirs with their
+designs.
 
 ### 5.5 Extension area (TLV)
 
-`(Tag: u16, Length: u16, Value)` records after the offer list. Unknown tags are skipped by length,
-so the handshake can grow without a new envelope version.
+`(Tag: u16, Length: u16, Value)` records after the offer list, so the handshake can grow without a
+new envelope version. Reading rules:
+- **Unknown tags** are skipped by their length. A record whose length runs past the end of the
+  datagram ends the area.
+- **A short value**, shorter than its tag needs (`Names` under 8 bytes, an empty `Build`), is
+  ignored.
+- **A long value** is read up to the prefix this build knows, and the rest is skipped: that is how a
+  later build extends a value. `Names` is read in whole names (a remainder under 8 bytes is
+  skipped), `Build` up to 64 bytes.
+- **A repeated tag:** the first copy counts. A list goes inside one value.
+- Tags are appended and never reused, like classes.
 
 | Tag | Name | Value |
 |---|---|---|
-| 1 | Names | The speaking node's own names (§4.9), 8 bytes each, preferred first; in a HelloAck, the names of the node that answered. This build sends one, its kind-0 name, and reads a value that is a whole number of names (a value of any other length is ignored). Required: a handshake message without a kind-0 name is treated as coming from a legacy-only peer. |
+| 1 | Names | The speaking node's own names (§4.9), 8 bytes each, preferred first; in a HelloAck, the names of the node that answered. This build sends one, its kind-0 name, and reads the whole names of a value (a shorter remainder is skipped). Required: a handshake message without a kind-0 name is treated as coming from a legacy-only peer. |
 | 2 | Build | UTF-8 text naming the speaking node's build, for diagnostics and for counting which builds speak JFP2; JoinFS sends `<version> <assembly name>`, e.g. `26.6.0 JoinFS-FS2024`. JoinFS sends and keeps only printable ASCII (`0x20`–`0x7E`), at most 64 bytes: a sender cleans it to that, and a receiver cuts the value to 64 bytes and drops every other character before using it, since it ends up in the log. Optional; nothing in the protocol depends on it. |
 
 ### 5.6 Peers that don't speak JFP2
 
-A peer that never answers Hello, or rejects it, is `AssumedLegacy`. Everything to it goes through
-the legacy plugin, unless a neighbour that does speak JFP2 carries its traffic (§5.7), in which case
-that neighbour translates. No JFP2 capability is ever assumed beyond what negotiation established.
+A peer that never answers Hello, or answers without a name this build resolves, is `AssumedLegacy`;
+one that refuses a session (`Result` not `0`) has no session for now (§5.2). Everything to either
+goes through the legacy plugin, unless a neighbour that does speak JFP2 carries its traffic (§5.7),
+in which case that neighbour translates. No JFP2 capability is ever assumed beyond what negotiation
+established.
 
 ### 5.7 Sessions, next hop and health
 
@@ -568,8 +610,9 @@ every message.
 
 **Testing version skew.** Each `Jfp2Plugin` takes a profile, so a `TestMesh` can run an older and a
 newer build side by side: `Jfp2Profile.Default.Without(MessageClasses.X)` is a build that lacks a
-class, and `Default.With(descriptor.WithCodecs(v1, v2))` one that speaks another version range, with
-a test-only codec for a version that does not exist yet. `Jfp2VersionSkewTests` does both,
+class, `Default.With(descriptor.WithCodecs(v1, v2))` one that speaks another version range, with
+a test-only codec for a version that does not exist yet, and `Default.WithCapabilities(bits)` one
+that advertises other capabilities. `Jfp2VersionSkewTests` does all three,
 including a relay translating between versions (§7.7), and `Jfp2WireCharacterizationTests` pins what
 the default profile sends.
 
@@ -652,7 +695,7 @@ topology in `JoinFS.Tests/Net/Jfp2RelayTests.cs` reproduces the failure of the n
 - Coalescing
 - the `Extended` escape hatch
 - `PeerKey`
-- capability bits
+- capability bits: they are exchanged and agreed, but none is assigned (§5.4)
 - multi-segment guaranteed delivery
 - JFP2 mesh messages
 

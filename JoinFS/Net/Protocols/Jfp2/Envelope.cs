@@ -9,8 +9,8 @@ using System.Buffers.Binary;
 namespace JoinFS.Net.Jfp2
 {
     /// <summary>
-    /// Bit flags carried in every JFP2 envelope. Four bits reserved for future use, matching the
-    /// legacy transport header's own "plenty of spare bits" headroom. A receiver drops a datagram
+    /// Bit flags carried in every JFP2 envelope. Bits 4-7 are unassigned, each to be assigned with
+    /// the capability that defines it, one bit per header extension. A receiver drops a datagram
     /// with any bit outside <see cref="Envelope.SupportedFlags"/>, so a sender sets another bit only
     /// toward a neighbor that agreed the capability defining it, and never on Hello/HelloAck
     /// (docs/reference/jfp2-protocol.md §4.2).
@@ -73,15 +73,10 @@ namespace JoinFS.Net.Jfp2
     public static class MessageClasses
     {
         // -- Internal / session-management partition (EnvelopeFlags.Internal set) --
+        // 2-8 are free: they were reserved for a mesh whose message set the mesh over JFP2 will design
+        // afresh, and are assigned by that design (docs/reference/jfp2-protocol.md §4.3).
         public const byte Hello = 0;
         public const byte HelloAck = 1;
-        public const byte Join = 2;
-        public const byte JoinReply = 3;
-        public const byte Leave = 4;
-        public const byte Pulse = 5;
-        public const byte PulseResponse = 6;
-        public const byte Pathfinder = 7;
-        public const byte PathfinderResponse = 8;
         public const byte GuaranteedDone = 9;
 
         // -- Application partition (EnvelopeFlags.Internal clear) --
@@ -118,6 +113,9 @@ namespace JoinFS.Net.Jfp2
         /// A class byte of 255 in either partition means "the real class id is a two-byte little-
         /// endian value immediately following this byte" - headroom past 255 classes per partition
         /// without ever widening the fixed 8-byte header for the other 255 already in daily use.
+        /// Reserved, never assigned, and not implemented: a class beyond 255 would also need an offer
+        /// form other than the u8 of an offer entry, and a sender sends only classes the receiver
+        /// offered, so this build never receives one.
         /// </summary>
         public const byte Extended = 255;
     }

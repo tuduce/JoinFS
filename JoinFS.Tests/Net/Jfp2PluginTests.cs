@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Net;
 using System.Text;
 using JoinFS.Net;
@@ -166,30 +167,6 @@ namespace JoinFS.Tests.Net
             Assert.Equal(0, envelope.GuaranteedIndex);
             Assert.Equal(1, envelope.GuaranteedCount);
             Assert.True(datagram.Length - header > Jfp2Reliability.GuaranteedSegmentSize);
-        }
-
-        /// <summary>Earlier JFP2 builds ack with the id alone (2 bytes); that still acknowledges segment 0.</summary>
-        [Fact]
-        public void Jfp2Guaranteed_AckWithoutSegmentIndex_StopsRetransmission()
-        {
-            var (mesh, hub, a) = TwoNegotiated();
-
-            // drop the hub's own (3-byte) acks
-            mesh.Network.Filter = (from, to, data) => !(from.Equals(hub.EndPoint) && IsGuaranteedDone(data));
-            mesh.Network.Log.Clear();
-            a.Core.SendTo(hub.Id, Note("hi"), true);
-            mesh.Run(0.1);
-            byte[] sent = Assert.Single(mesh.Network.Log, d => d.From.Equals(a.EndPoint) && IsGuaranteedApplication(d.Data)).Data;
-            ushort id = Envelope.ReadFrom(sent, out _).GuaranteedId;
-            // from here a retry would be acked normally, so any retransmission shows the short ack was ignored
-            mesh.Network.Filter = null;
-
-            byte[] shortAck = new byte[2];
-            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(shortAck, id);
-            SendRaw(hub, a, EnvelopeFlags.Internal, MessageClasses.GuaranteedDone, shortAck);
-            mesh.Run(8);
-
-            Assert.Equal(1, mesh.Network.Log.Count(d => d.From.Equals(a.EndPoint) && IsGuaranteedApplication(d.Data)));
         }
 
         /// <summary>
@@ -614,6 +591,148 @@ namespace JoinFS.Tests.Net
 
             Assert.Empty(HelloAcksTo(mesh, hub, a));
             Assert.Contains(hub.Logs, l => l.Contains("does not say who it is"));
+        }
+
+        // ------------------------------------------------ handshake and envelope rules (jfp2-protocol.md §4.4, §5.2)
+
+        /// <summary>
+        /// A hand-made HelloAck in the hub's session with a, as a later build might send it: from the hub
+        /// naming itself, unless another sender (a spoofer, with the ids guessed) or other names are given.
+        /// </summary>
+        static void SendHelloAck(TestNode hub, TestNode a, byte result, string build, TestNode? from = null, List<NodeName>? names = null)
+        {
+            Assert.True(Jfp2Of(hub).TryGetHopIds(a.Id, out ushort hubId, out ushort aId));
+            var ack = new HandshakeMessage
+            {
+                ProtoMajorMin = Envelope.ProtoMajor, ProtoMajorMax = Envelope.ProtoMajor, SelfAssignedId = hubId, Result = result,
+                Names = names ?? [NodeName.FromLegacy(hub.Id)], Build = build,
+            };
+            byte[] payload = ack.Serialize();
+            var envelope = new Envelope(EnvelopeFlags.Internal, hubId, aId, MessageClasses.HelloAck);
+            byte[] datagram = new byte[envelope.WireSize + payload.Length];
+            payload.CopyTo(datagram, envelope.WriteTo(datagram));
+            (from ?? hub).Core.Transport.Send(a.EndPoint, datagram);
+        }
+
+        /// <summary>
+        /// A refusal takes a working link off JFP2 for 30 s, so it counts only when it answers our Hello:
+        /// from the endpoint the Hello went to, naming the peer asked. A spoofed one from elsewhere (the
+        /// session ids guessed), one naming another node, and one naming none are logged and ignored.
+        /// </summary>
+        [Fact]
+        public void Refusal_NotFromThePeerAskedAtItsEndPoint_IsIgnored()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            TestNode spoofer = mesh.Add("192.0.2.66", 6112, new LegacyPlugin(), new Jfp2Plugin());
+            TestNode other = mesh.Add("192.0.2.77", 6112, new LegacyPlugin(), new Jfp2Plugin());
+
+            a.Logs.Clear();
+            SendHelloAck(hub, a, HandshakeMessage.ResultNotAdmitted, "spoof", from: spoofer);
+            SendHelloAck(hub, a, HandshakeMessage.ResultNotAdmitted, "other", names: [NodeName.FromLegacy(other.Id)]);
+            SendHelloAck(hub, a, HandshakeMessage.ResultNotAdmitted, "none", names: []);
+            mesh.Run(0.1);
+
+            Assert.True(Jfp2Of(a).IsNegotiated(hub.Id));
+            Assert.Equal("JFP2", a.Core.Route(hub.Id, MessageKind.Position)!.Name);
+            Assert.Equal(3, a.Logs.Count(l => l.Contains("Result 2") && l.Contains("ignored")));
+            Assert.DoesNotContain(a.Logs, l => l.Contains("no session now") || l.Contains("no longer verified"));
+            Assert.NotEqual("spoof", Jfp2Of(a).BuildOf(hub.Id));
+            Assert.NotEqual("other", Jfp2Of(a).BuildOf(hub.Id));
+
+            // and it stays up: the next keepalives go through, with no cooldown
+            mesh.Run(12);
+            Assert.True(Jfp2Of(a).IsNegotiated(hub.Id));
+        }
+
+        /// <summary>
+        /// Any Result but 0 means "no session now" (§5.2): a later build may refuse for a reason this
+        /// one does not know, which does not make it legacy-only. Legacy carries the peer meanwhile, the
+        /// value is what is logged, the answer's extensions are still read, and the peer is asked
+        /// again after the 30 s cooldown, not before.
+        /// </summary>
+        [Theory]
+        [InlineData(1)]
+        [InlineData(2)]
+        [InlineData(7)]
+        [InlineData(255)]
+        public void HelloAckWithAnUnknownResult_MeansNoSessionNow_NotLegacyOnly(byte result)
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            Assert.Equal("JFP2", a.Core.Route(hub.Id, MessageKind.Position)!.Name);
+
+            a.Logs.Clear();
+            SendHelloAck(hub, a, result, "26.7.0 JoinFS-Later");
+            mesh.Run(0.1);
+
+            Assert.False(Jfp2Of(a).IsNegotiated(hub.Id));
+            Assert.Equal("Legacy", a.Core.Route(hub.Id, MessageKind.Position)!.Name);
+            Assert.Equal(PeerLinkState.Negotiating, Jfp2Of(a).DescribeLink(a.Core.Peers.All.Single()));
+            Assert.Contains(a.Logs, l => l.Contains("Result " + result) && l.Contains("no session now"));
+            Assert.DoesNotContain(a.Logs, l => l.Contains("legacy-only"));
+            Assert.Equal("26.7.0 JoinFS-Later", Jfp2Of(a).BuildOf(hub.Id));
+
+            mesh.Run(25);
+            Assert.False(Jfp2Of(a).IsNegotiated(hub.Id));
+            mesh.Run(10);
+            Assert.True(Jfp2Of(a).IsNegotiated(hub.Id));
+            Assert.Equal("JFP2", a.Core.Route(hub.Id, MessageKind.Position)!.Name);
+        }
+
+        /// <summary>
+        /// An offer whose partition byte is neither 0 (application) nor 1 (internal) belongs to a class
+        /// space this build does not know: it is skipped, and the offers around it still count (§5.2).
+        /// Read as an application offer, it would have agreed Notes.
+        /// </summary>
+        [Fact]
+        public void OfferOfAnUnknownPartition_IsSkipped()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            Assert.Equal("JFP2", hub.Core.Route(a.Id, MessageKind.Notes)!.Name);
+
+            Assert.True(Jfp2Of(a).TryGetHopIds(hub.Id, out ushort aId, out _));
+            byte[] hello = new HandshakeMessage
+            {
+                ProtoMajorMin = Envelope.ProtoMajor, ProtoMajorMax = Envelope.ProtoMajor, SelfAssignedId = aId,
+                Names = [NodeName.FromLegacy(a.Id)],
+                Offers = [new SchemaOffer(false, MessageClasses.Notes, 1, 1), new SchemaOffer(false, MessageClasses.Position, 1, 1)],
+            }.Serialize();
+            hello[15] = 2; // the first offer's partition byte, after the 15 bytes of fixed fields
+            mesh.Network.Log.Clear();
+            SendRaw(a, hub, EnvelopeFlags.Internal, MessageClasses.Hello, hello);
+            mesh.Run(0.1);
+
+            Assert.Equal(0, Assert.Single(HelloAcksTo(mesh, hub, a)).Result);
+            Assert.Equal("Legacy", hub.Core.Route(a.Id, MessageKind.Notes)!.Name);
+            Assert.Equal("JFP2", hub.Core.Route(a.Id, MessageKind.Position)!.Name);
+        }
+
+        /// <summary>
+        /// GuaranteedDone is always 3 bytes, id and segment index (§4.4); the 2-byte form only dev
+        /// builds sent acknowledges nothing, so the message stays pending until a full ack arrives.
+        /// </summary>
+        [Fact]
+        public void TwoByteGuaranteedDone_IsIgnored()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            // the hub never gets the message, so only our hand-made acks answer it
+            mesh.Network.Filter = (from, to, data) => !(from.Equals(a.EndPoint) && IsGuaranteedApplication(data));
+            mesh.Network.Log.Clear();
+            a.Core.SendTo(hub.Id, Note("hi"), true);
+            mesh.Run(0.1);
+            Assert.Equal(1, Jfp2Of(a).GuaranteedPendingCount);
+            byte[] sent = Assert.Single(mesh.Network.Log, d => d.From.Equals(a.EndPoint) && IsGuaranteedApplication(d.Data)).Data;
+            ushort id = Envelope.ReadFrom(sent, out _).GuaranteedId;
+
+            byte[] ack = new byte[3];
+            BinaryPrimitives.WriteUInt16LittleEndian(ack, id);
+            SendRaw(hub, a, EnvelopeFlags.Internal, MessageClasses.GuaranteedDone, ack.AsSpan(0, 2));
+            mesh.Run(0.1);
+            Assert.Equal(1, Jfp2Of(a).GuaranteedPendingCount);
+            Assert.DoesNotContain(a.Logs, l => l.Contains("ERROR"));
+
+            SendRaw(hub, a, EnvelopeFlags.Internal, MessageClasses.GuaranteedDone, ack);
+            mesh.Run(0.1);
+            Assert.Equal(0, Jfp2Of(a).GuaranteedPendingCount);
         }
 
         // ------------------------------------------------ the build advertisement (§5.5)

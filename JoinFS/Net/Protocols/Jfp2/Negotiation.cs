@@ -36,16 +36,15 @@ namespace JoinFS.Net.Jfp2
     /// <summary>
     /// Optional boolean capabilities, independent of any one message class's schema version. A
     /// capability is only usable with a given peer once BOTH sides have set the bit - see
-    /// Negotiator.Resolve, which ANDs the two capability masks together.
+    /// Negotiator.Resolve, which ANDs the two capability masks together. None is assigned: each bit is
+    /// assigned by the design that needs it, together with any flag it defines
+    /// (docs/reference/jfp2-protocol.md §5.4), and this build advertises none
+    /// (<see cref="Jfp2Profile.Capabilities"/>).
     /// </summary>
     [Flags]
     public enum Capability : ulong
     {
         None = 0,
-        Coalescing = 1UL << 0,
-        QuantizedPosition = 1UL << 1,
-        Ipv6Peers = 1UL << 2,
-        SelectiveAck = 1UL << 3,
     }
 
     /// <summary>
@@ -79,7 +78,8 @@ namespace JoinFS.Net.Jfp2
                 ushort len = BinaryPrimitives.ReadUInt16LittleEndian(src.Slice(i + 2, 2));
                 i += 4;
                 if (i + len > src.Length) break; // malformed/truncated - stop rather than throw; the handshake extension area is best-effort
-                result[tag] = src.Slice(i, len).ToArray();
+                // a repeated tag: the first copy counts (a list goes inside one value)
+                result.TryAdd(tag, src.Slice(i, len).ToArray());
                 i += len;
             }
             return result;
@@ -97,9 +97,28 @@ namespace JoinFS.Net.Jfp2
     /// fixed fields and its offer list layout never change. Anything new goes into the extension
     /// area, and a later major version is agreed through ProtoMajorMin/Max inside it
     /// (docs/reference/jfp2-protocol.md §5.2; pinned by HandshakeGoldenTests).
+    ///
+    /// Reading the extension area (§5.5): unknown tags are skipped, the first copy of a repeated tag
+    /// counts, a value shorter than its tag needs is ignored, and a longer one is read up to the
+    /// prefix this build knows (whole names, the first <see cref="BuildMaxBytes"/> of a build).
     /// </summary>
     public sealed class HandshakeMessage
     {
+        /// <summary><see cref="Result"/>: the session is accepted.</summary>
+        public const byte ResultAccepted = 0;
+
+        /// <summary><see cref="Result"/>: no ProtoMajor in common.</summary>
+        public const byte ResultNoCompatibleProtoMajor = 1;
+
+        /// <summary><see cref="Result"/>: not admitted, no session was created (reserved for the mesh over JFP2; this build never sends it).</summary>
+        public const byte ResultNotAdmitted = 2;
+
+        /// <summary>An offer's partition byte: an application class.</summary>
+        public const byte PartitionApplication = 0;
+
+        /// <summary>An offer's partition byte: an internal class. An offer with any other value is skipped.</summary>
+        public const byte PartitionInternal = 1;
+
         /// <summary>Extension tag carrying the sender's own names (<see cref="Names"/>).</summary>
         public const ushort NamesTag = 1;
 
@@ -114,7 +133,7 @@ namespace JoinFS.Net.Jfp2
         public ulong Capabilities;
         public ushort SelfAssignedId; // the PeerId the sender wants to be addressed by from now on
         public List<SchemaOffer> Offers = new();
-        public byte Result; // HelloAck only: 0 = Accepted, 1 = NoCompatibleProtoMajor. Ignored on Hello.
+        public byte Result; // HelloAck only (ignored on Hello): ResultAccepted, or any other value: no session now (§5.2)
         public Dictionary<ushort, byte[]> Extensions = new();
 
         /// <summary>
@@ -123,8 +142,8 @@ namespace JoinFS.Net.Jfp2
         /// (two nodes behind one NAT port forward, a hub and a client), so a receiver binds a session
         /// to a name and never to the datagram's source. This build sends one, kind 0 (its legacy id),
         /// and binds by the kind-0 names it reads, skipping the others. Travels as an extension of
-        /// 8 bytes per name; a value that is not a whole number of names is ignored. Empty when the
-        /// sender named none (a peer that names none it can resolve is treated as legacy-only).
+        /// 8 bytes per name; a reader takes the whole names and skips a shorter remainder. Empty when
+        /// the sender named none (a peer that names none it can resolve is treated as legacy-only).
         /// </summary>
         public List<NodeName> Names = new();
 
@@ -172,7 +191,7 @@ namespace JoinFS.Net.Jfp2
             bytes.AddRange(count.ToArray());
             foreach (var offer in Offers)
             {
-                bytes.Add((byte)(offer.Internal ? 1 : 0));
+                bytes.Add(offer.Internal ? PartitionInternal : PartitionApplication);
                 bytes.Add(offer.MessageClass);
                 bytes.Add(offer.MinVersion);
                 bytes.Add(offer.MaxVersion);
@@ -210,16 +229,21 @@ namespace JoinFS.Net.Jfp2
             ushort count = BinaryPrimitives.ReadUInt16LittleEndian(src.Slice(i, 2)); i += 2;
             for (int n = 0; n < count; n++)
             {
-                bool isInternal = src[i++] != 0;
+                byte partition = src[i++];
                 byte messageClass = src[i++];
                 byte min = src[i++];
                 byte max = src[i++];
-                msg.Offers.Add(new SchemaOffer(isInternal, messageClass, min, max));
+                // another partition is another class space this build does not know: skipped
+                if (partition == PartitionApplication || partition == PartitionInternal)
+                {
+                    msg.Offers.Add(new SchemaOffer(partition == PartitionInternal, messageClass, min, max));
+                }
             }
             msg.Extensions = Tlv.ReadAll(src.Slice(i));
-            if (msg.Extensions.Remove(NamesTag, out byte[] names) && names.Length > 0 && names.Length % NodeName.WireSize == 0)
+            if (msg.Extensions.Remove(NamesTag, out byte[] names))
             {
-                for (int n = 0; n < names.Length; n += NodeName.WireSize)
+                // whole names only: a remainder shorter than a name is skipped, so a value under 8 bytes gives none
+                for (int n = 0; n + NodeName.WireSize <= names.Length; n += NodeName.WireSize)
                 {
                     msg.Names.Add(NodeName.ReadFrom(names.AsSpan(n, NodeName.WireSize)));
                 }
@@ -291,7 +315,15 @@ namespace JoinFS.Net.Jfp2
         /// </summary>
         public bool AssumedLegacy;
 
-        /// <summary>When an <see cref="AssumedLegacy"/> peer is tried again (a peer may upgrade, or the route may change).</summary>
+        /// <summary>
+        /// The <see cref="HandshakeMessage.Result"/> with which the peer last refused a session, or
+        /// <see cref="HandshakeMessage.ResultAccepted"/>. A refusal means "no session now", not
+        /// "legacy-only": the peer is asked again at <see cref="RetryAt"/>, and legacy carries its
+        /// traffic meanwhile.
+        /// </summary>
+        public byte Refused;
+
+        /// <summary>When an <see cref="AssumedLegacy"/> or <see cref="Refused"/> peer is asked again (a peer may upgrade, or the route may change).</summary>
         public double RetryAt;
 
         /// <summary>

@@ -198,7 +198,7 @@ namespace JoinFS.Net.Jfp2
             }
             if (envelope.IsInternal && envelope.RawMessageClass == MessageClasses.HelloAck)
             {
-                HandleHelloAck(envelope, payload);
+                HandleHelloAck(from, envelope, payload);
                 return;
             }
 

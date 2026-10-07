@@ -121,7 +121,10 @@ u16 each, random per node, `0` = none (a first Hello; a HelloAck that creates no
 A.2). A node can hold 65,535 sessions; the largest foreseen hub has a few hundred. To inject into a
 session, an off-path attacker must guess the pair (sender id, recipient id), 32 bits; a HelloAck is
 matched on the recipient id alone, 16 bits, which is why an observation also requires the expected
-source endpoint (§7.3). This is not authentication and does not need to be (§2.5). **Keep.**
+source endpoint (§7.3). The same rule already guards refusals (stage 4): a HelloAck with a non-zero
+`Result` counts only when `from == ProbeEndPoint` and its `Names` resolve to the peer asked, since it
+takes a working link off JFP2 for 30 s. This is not authentication and does not need to be (§2.5).
+**Keep.**
 
 ### 2.3 Classes
 
@@ -666,7 +669,7 @@ B3 and later follow from appendix A, each with its own design approval.
 | 1 | Decision record §2.13 and spec | — | Done, reviewed |
 | 2 | Partial-class split of `Jfp2Plugin` | no | Done, reviewed |
 | 3 | Node names in Hello and Forwarded | yes | Done, reviewed |
-| 4 | Handshake, envelope and TLV rules | yes | Not started |
+| 4 | Handshake, envelope and TLV rules | yes | Done, reviewed |
 | 5 | Guaranteed-id rule | yes | Not started |
 | 6 | Field limits and the 1,200-byte ceiling | yes | Not started |
 | 7 | Observed endpoint | yes | Not started |

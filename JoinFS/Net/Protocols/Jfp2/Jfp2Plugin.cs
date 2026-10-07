@@ -49,7 +49,6 @@ namespace JoinFS.Net.Jfp2
         const int GuaranteedDoneSize = 3;
         /// <summary>VariableSync payload budget per datagram, to stay under a safe UDP MTU like legacy's variable messages (about 850 bytes).</summary>
         const int VariableSyncMaxPayload = 1000;
-        const ulong LocalCapabilities = (ulong)Capability.None;
 
         /// <summary>A node seen answering at an endpoint, so other nodes claiming that endpoint are known to be behind it.</summary>
         readonly record struct Occupant(NodeId Node, double Expire);
@@ -270,20 +269,17 @@ namespace JoinFS.Net.Jfp2
             }
         }
 
-        /// <summary>Read a GuaranteedDone payload. Builds before the segment index sent only the id, which acks segment 0.</summary>
+        /// <summary>Read a GuaranteedDone payload: always the id and the segment index, 3 bytes. A shorter one acknowledges nothing.</summary>
         static bool TryReadGuaranteedDone(ReadOnlySpan<byte> payload, out ushort id, out byte index)
         {
             id = 0;
             index = 0;
-            if (payload.Length < 2)
+            if (payload.Length < GuaranteedDoneSize)
             {
                 return false;
             }
             id = BinaryPrimitives.ReadUInt16LittleEndian(payload);
-            if (payload.Length >= GuaranteedDoneSize)
-            {
-                index = payload[2];
-            }
+            index = payload[2];
             return true;
         }
     }

@@ -128,6 +128,33 @@ namespace JoinFS.Tests.Net
         }
 
         /// <summary>
+        /// The capabilities a build advertises are its profile's (§5.4): none in this build, but builds
+        /// that differ in them agree, per pair, the bits both advertise, and keep every class agreement.
+        /// </summary>
+        [Fact]
+        public void BuildsWithOtherCapabilities_AgreeTheBitsBothAdvertise()
+        {
+            const ulong x = 1UL << 0, y = 1UL << 1;
+            Assert.Equal(0UL, Jfp2Profile.Default.Capabilities);
+            Assert.Equal(x | y, NoNotes.WithCapabilities(x | y).Without(MessageClasses.Event).Capabilities); // kept by With/Without
+            var mesh = new TestMesh();
+            TestNode hub = Node(mesh, "203.0.113.1", Jfp2Profile.Default.WithCapabilities(x | y));
+            TestNode a = Node(mesh, "198.51.100.2", Jfp2Profile.Default.WithCapabilities(x));
+            TestNode b = Node(mesh, "192.0.2.3", Jfp2Profile.Default);
+            hub.Core.Mesh.Create(false, 0, false, "");
+            a.Core.Mesh.Join(hub.EndPoint, 0);
+            b.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(25);
+
+            Assert.Equal(x, Jfp2Of(hub).AgreedCapabilitiesWith(a.Id));
+            Assert.Equal(x, Jfp2Of(a).AgreedCapabilitiesWith(hub.Id));
+            Assert.Equal(0UL, Jfp2Of(hub).AgreedCapabilitiesWith(b.Id));
+            Assert.Equal(0UL, Jfp2Of(a).AgreedCapabilitiesWith(b.Id));
+            Assert.Equal(1, Jfp2Of(a).VersionFor(hub.Id, MessageKind.Position));
+            Assert.Equal(1, Jfp2Of(b).VersionFor(hub.Id, MessageKind.Notes));
+        }
+
+        /// <summary>
         /// Spec §4.5 and §7.7: the relay decodes with the version the sender's hop agreed, and the core
         /// re-sends it encoded in the version the target agreed.
         /// </summary>
