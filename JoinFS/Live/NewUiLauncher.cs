@@ -39,6 +39,7 @@ namespace JoinFS.Live
                 Recorder = new LiveRecorderSource(main),
                 ModelScan = new LiveModelScanSource(main),
                 XPlaneScan = new LiveXPlaneScanSource(main),
+                Messages = new LiveMessageSource(main),
                 MapTiles = new OsmTileSource("JoinFS/" + Main.Version + " (+https://github.com/tuduce/JoinFS)", System.IO.Path.Combine(main.storagePath, "map-tiles")),
             }, main.settingsLanguage.Length > 0 ? ["--lang", main.settingsLanguage] : [], main.MonitorEvent);
         }

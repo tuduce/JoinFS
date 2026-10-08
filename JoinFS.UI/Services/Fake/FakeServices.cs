@@ -35,7 +35,8 @@ public static class FakeServices
         Platform: platform ?? new NullPlatform(),
         Preferences: new InMemoryPreferencesStore(),
         ModelScan: new FakeModelScanSource(),
-        MapTiles: new NoMapTiles());
+        MapTiles: new NoMapTiles(),
+        Messages: new NoMessages());
 }
 
 public sealed class FakeSimulatorLink(TimeSpan latency) : ISimulatorLink
@@ -376,6 +377,12 @@ public sealed class NoMapTiles : IMapTileSource
     public string AttributionUrl => "";
     public int MaxZoom => 19;
     public Task<byte[]?> GetTileAsync(int zoom, int x, int y, CancellationToken cancellationToken) => Task.FromResult<byte[]?>(null);
+}
+
+/// <summary>An app with nothing to say.</summary>
+public sealed class NoMessages : IMessageSource
+{
+    public string? TakeMessage() => null;
 }
 
 public sealed class FakeSimBriefClient(TimeSpan latency) : ISimBriefClient

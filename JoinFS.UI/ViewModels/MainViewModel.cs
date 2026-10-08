@@ -208,6 +208,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Network.Sync(_services.Network.State);
         FlightPlanLoad.Sync(_services.SimBrief.State);
         ShowPasswordRequest();
+        ShowAppMessage();
         FollowJoinedHubLabel();
         Hubs.SyncJoined();
         FollowChat();
@@ -302,6 +303,19 @@ public sealed partial class MainViewModel : ObservableObject, IShell
             },
             onCancel: _services.Network.CancelPasswordRequest);
         ShowOverlay(_passwordPrompt);
+    }
+
+    /// <summary>
+    /// What the old forms showed in a message box. It waits while another card is open, so as not to cover what the user is doing, and
+    /// stays in the app until then.
+    /// </summary>
+    private void ShowAppMessage()
+    {
+        if (Overlay is not null)
+            return;
+
+        if (_services.Messages.TakeMessage() is { Length: > 0 } message)
+            ShowOverlay(new MessageViewModel(_services.App.SessionLabel, message));
     }
 
     partial void OnIsExpandedChanged(bool value) => RefreshVisibleTab();
