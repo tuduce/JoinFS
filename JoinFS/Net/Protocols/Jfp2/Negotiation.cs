@@ -100,7 +100,8 @@ namespace JoinFS.Net.Jfp2
     ///
     /// Reading the extension area (§5.5): unknown tags are skipped, the first copy of a repeated tag
     /// counts, a value shorter than its tag needs is ignored, and a longer one is read up to the
-    /// prefix this build knows (whole names, the first <see cref="BuildMaxBytes"/> of a build).
+    /// prefix this build knows (whole names, the first <see cref="BuildMaxBytes"/> of a build, an
+    /// endpoint up to its family's size).
     /// </summary>
     public sealed class HandshakeMessage
     {
@@ -124,6 +125,9 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>Extension tag carrying the sender's build (<see cref="Build"/>).</summary>
         public const ushort BuildTag = 2;
+
+        /// <summary>Extension tag carrying, in a HelloAck, where the Hello it answers came from (<see cref="ObservedEndPoint"/>).</summary>
+        public const ushort ObservedEndPointTag = 3;
 
         /// <summary>The longest <see cref="Build"/> sent or kept, in UTF-8 bytes.</summary>
         public const int BuildMaxBytes = 64;
@@ -155,6 +159,14 @@ namespace JoinFS.Net.Jfp2
         /// sender did not say.
         /// </summary>
         public string Build;
+
+        /// <summary>
+        /// HelloAck: the UDP source of the Hello it answers, as the responder received it - so the asker
+        /// learns the public endpoint a NAT gave it (docs/reference/jfp2-protocol.md §5.5). Travels as a
+        /// <see cref="WireEndPoint"/>; read up to its family's size, and ignored when its family is
+        /// unassigned or the value is too short. Null when not sent (a Hello, an older build).
+        /// </summary>
+        public IPEndPoint ObservedEndPoint;
 
         /// <summary>
         /// The build text as it may travel: printable ASCII only (0x20-0x7E; it comes from
@@ -210,9 +222,13 @@ namespace JoinFS.Net.Jfp2
             {
                 Tlv.Write(bytes, BuildTag, Encoding.UTF8.GetBytes(build));
             }
+            if (ObservedEndPoint != null)
+            {
+                Tlv.Write(bytes, ObservedEndPointTag, WireEndPoint.ToBytes(ObservedEndPoint));
+            }
             foreach (var kv in Extensions)
             {
-                if (kv.Key != NamesTag && kv.Key != BuildTag) Tlv.Write(bytes, kv.Key, kv.Value);
+                if (kv.Key != NamesTag && kv.Key != BuildTag && kv.Key != ObservedEndPointTag) Tlv.Write(bytes, kv.Key, kv.Value);
             }
             return bytes.ToArray();
         }
@@ -251,6 +267,10 @@ namespace JoinFS.Net.Jfp2
             if (msg.Extensions.Remove(BuildTag, out byte[] build))
             {
                 msg.Build = CleanBuild(Encoding.UTF8.GetString(build, 0, Math.Min(build.Length, BuildMaxBytes)));
+            }
+            if (msg.Extensions.Remove(ObservedEndPointTag, out byte[] observed))
+            {
+                WireEndPoint.TryReadFrom(observed, out msg.ObservedEndPoint);
             }
             return msg;
         }

@@ -66,6 +66,8 @@ namespace JoinFS.Net.Jfp2
         readonly Dictionary<NodeId, PeerSession> sessions = [];
         readonly Dictionary<ushort, PeerSession> sessionsById = [];
         readonly Dictionary<IPEndPoint, Occupant> occupants = [];
+        /// <summary>Where each neighbor last said our datagrams come from (its HelloAck's ObservedEndPoint), so only changes are reported.</summary>
+        readonly Dictionary<NodeId, IPEndPoint> observedBy = [];
         readonly Random random = new();
         readonly Dictionary<(NodeId Owner, uint ObjectId, NodeId Peer), IdentitySent> identitySent = [];
         readonly List<NodeId> targets = [];
@@ -178,6 +180,7 @@ namespace JoinFS.Net.Jfp2
             reliability.RemovePeer(peer.Id);
             identitySent.RemoveWhere((k, _) => k.Peer == peer.Id || k.Owner == peer.Id);
             occupants.RemoveWhere((_, o) => o.Node == peer.Id);
+            observedBy.Remove(peer.Id);
         }
 
         public void OnSessionReset()
@@ -185,6 +188,7 @@ namespace JoinFS.Net.Jfp2
             sessions.Clear();
             sessionsById.Clear();
             occupants.Clear();
+            observedBy.Clear();
             reliability.Clear();
             identitySent.Clear();
         }

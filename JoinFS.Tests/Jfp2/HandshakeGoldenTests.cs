@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using JoinFS.Net;
 using JoinFS.Net.Jfp2;
 using Xunit;
@@ -42,6 +43,11 @@ namespace JoinFS.Tests.Jfp2
             "01 00 08 00 00 02 64 33 C6 E0 17 02" +  // TLV Names: one name, kind 0, legacy id 198.51.100.2, port 6112, local 2
             "02 00 15 00 32 36 2E 36 2E 30 20 4A 6F 69 6E 46 53 2D 43 4F 4E 53 4F 4C 45"; // TLV Build: "26.6.0 JoinFS-CONSOLE"
 
+        // the same answer with the ObservedEndPoint extension (docs/jfp2-wire-design.md §7): the Hello came
+        // from 203.0.113.1:6112, and every HelloAck of this build says so, after Names and Build
+        const string HelloAckWithObservedEndPointHex = HelloAckHex +
+            "03 00 07 00 04 CB 00 71 01 E0 17";      // TLV ObservedEndPoint: family 4, address 203.0.113.1 (network order), port 6112 (LE)
+
         static byte[] Bytes(string hex) => Convert.FromHexString(hex.Replace(" ", ""));
 
         static byte[] Datagram(byte messageClass, ushort sender, ushort recipient, HandshakeMessage message)
@@ -69,6 +75,13 @@ namespace JoinFS.Tests.Jfp2
             Names = [NodeName.FromLegacy(new NodeId(0xC6336402, 6112, 2))],
             Build = "26.6.0 JoinFS-CONSOLE",
         };
+
+        static HandshakeMessage HelloAckWithObservedEndPoint()
+        {
+            HandshakeMessage ack = HelloAck();
+            ack.ObservedEndPoint = new IPEndPoint(IPAddress.Parse("203.0.113.1"), 6112);
+            return ack;
+        }
 
         [Fact]
         public void Hello_IsWrittenExactly() =>
@@ -116,5 +129,29 @@ namespace JoinFS.Tests.Jfp2
             Assert.Equal(NodeName.FromLegacy(new NodeId(0xC6336402, 6112, 2)), Assert.Single(ack.Names));
             Assert.Equal("26.6.0 JoinFS-CONSOLE", ack.Build);
         }
+
+        [Fact]
+        public void HelloAckWithObservedEndPoint_IsWrittenExactly() =>
+            Assert.Equal(Convert.ToHexString(Bytes(HelloAckWithObservedEndPointHex)),
+                Convert.ToHexString(Datagram(MessageClasses.HelloAck, 0x5678, 0x1234, HelloAckWithObservedEndPoint())));
+
+        [Fact]
+        public void HelloAckWithObservedEndPoint_IsReadExactly()
+        {
+            byte[] datagram = Bytes(HelloAckWithObservedEndPointHex);
+            Assert.True(Envelope.TryReadFrom(datagram, out Envelope envelope, out int header, out _));
+            Assert.Equal(MessageClasses.HelloAck, envelope.RawMessageClass);
+
+            HandshakeMessage ack = HandshakeMessage.Deserialize(datagram.AsSpan(header));
+            Assert.Equal(new IPEndPoint(IPAddress.Parse("203.0.113.1"), 6112), ack.ObservedEndPoint);
+            Assert.Equal(NodeName.FromLegacy(new NodeId(0xC6336402, 6112, 2)), Assert.Single(ack.Names));
+            Assert.Equal("26.6.0 JoinFS-CONSOLE", ack.Build);
+            Assert.Empty(ack.Extensions);
+        }
+
+        /// <summary>The HelloAck without the extension (an older answer) still reads, and observes nothing.</summary>
+        [Fact]
+        public void HelloAckWithoutObservedEndPoint_ObservesNothing() =>
+            Assert.Null(HandshakeMessage.Deserialize(Bytes(HelloAckHex).AsSpan(Envelope.FixedSize)).ObservedEndPoint);
     }
 }

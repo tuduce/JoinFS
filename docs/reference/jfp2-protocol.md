@@ -297,13 +297,24 @@ giving headroom past 255 classes per partition without widening the envelope.
 A sequence of `(MessageClass: u8, Length: u16, Body)` triples, letting small updates that become ready
 in the same tick share one datagram. The wire shape is reserved; no build sends it.
 
-### 4.8 `PeerKey` — *specified, not implemented*
+### 4.8 `WireEndPoint`
 
-A self-describing peer address for payloads that must name other peers (membership lists,
-pathfinder targets) once the mesh itself runs over JFP2: `Family` (4 or 6), `Address` (4 or 16
-bytes), `Port` (u16), `Local` (u8). Because each entry declares its own size, readers that only
-understand IPv4 can skip IPv6 entries. Defined in `Envelope.cs`; unused until JFP2 carries mesh
-messages.
+How the wire writes an address and port (`WireEndPoint.cs`; in memory an `IPEndPoint`):
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 1 | Family: `4` IPv4, `6` IPv6; others unassigned |
+| 1 | 4 or 16 | Address, network byte order |
+| 5 or 17 | 2 | Port, u16 little-endian |
+
+7 or 19 bytes. The size follows from the family, so the container bounds it: a TLV's length today,
+a u8 length before each entry in a list (membership lists, pathfinder targets, once the mesh itself
+runs over JFP2). A reader ignores a value with an unassigned family or shorter than its family
+needs, and reads a longer one up to the family's size, so a later build can extend it. An
+IPv4-mapped IPv6 address (what a dual-mode socket reports for an IPv4 peer) is written as family 4
+and read as the plain IPv4 address, so one peer never has two forms. It replaces the earlier
+`PeerKey`, which was never used and mixed identity (`Local`) with address: an address is only an
+address, a node's identity is its name (§4.9).
 
 ### 4.9 Names
 
@@ -429,7 +440,10 @@ Behaviour, as implemented (`Jfp2Plugin`):
   its `Names` resolve to the peer asked. The session id it is addressed to is 16 bits and could be
   guessed off the path, so any other refusal (from another source, naming another node or none) is
   logged at network level and otherwise ignored. A node sharing the endpoint that refuses is
-  therefore not taken for the peer asked.
+  therefore not taken for the peer asked. The same holds for the answer's `ObservedEndPoint`
+  (§5.5): it is counted only from a HelloAck that answers our Hello, from the endpoint the Hello
+  went to, so an answer from elsewhere cannot plant an address; the occupant found answering at
+  that endpoint may report it.
 - A HelloAck with `Result` `0` but without a valid kind-0 name (ip not 0) marks the peer
   `AssumedLegacy`.
 - Receiving a peer's Hello lets us *decode* what it sends. It does not make the session usable for
@@ -481,7 +495,7 @@ new envelope version. Reading rules:
   ignored.
 - **A long value** is read up to the prefix this build knows, and the rest is skipped: that is how a
   later build extends a value. `Names` is read in whole names (a remainder under 8 bytes is
-  skipped), `Build` up to 64 bytes.
+  skipped), `Build` up to 64 bytes, `ObservedEndPoint` up to its family's size.
 - **A repeated tag:** the first copy counts. A list goes inside one value.
 - Tags are appended and never reused, like classes.
 
@@ -489,6 +503,7 @@ new envelope version. Reading rules:
 |---|---|---|
 | 1 | Names | The speaking node's own names (§4.9), 8 bytes each, preferred first; in a HelloAck, the names of the node that answered. This build sends one, its kind-0 name, and reads the whole names of a value (a shorter remainder is skipped). Required: a handshake message without a kind-0 name is treated as coming from a legacy-only peer. |
 | 2 | Build | UTF-8 text naming the speaking node's build, for diagnostics and for counting which builds speak JFP2; JoinFS sends `<version> <assembly name>`, e.g. `26.6.0 JoinFS-FS2024`. JoinFS sends and keeps only printable ASCII (`0x20`–`0x7E`), at most 64 bytes: a sender cleans it to that, and a receiver cuts the value to 64 bytes and drops every other character before using it, since it ends up in the log. Optional; nothing in the protocol depends on it. |
+| 3 | ObservedEndPoint | HelloAck only: a `WireEndPoint` (§4.8), the UDP source of the Hello this answers, as the responder received it (after an IPv4-mapped address is normalized). Every HelloAck of this build carries it, refusals too: 11 bytes (IPv4) on a datagram that goes every 5 s per neighbour. The asker learns the address and port a NAT gave it; JoinFS counts it only when the HelloAck answers its own Hello (§5.2), classifies the NAT from the observations of several neighbours (LAN addresses ignored) and logs the result. Nothing else uses it in release 1: the public address stays the one the HTTP lookup gives. Optional. |
 
 ### 5.6 Peers that don't speak JFP2
 
@@ -691,15 +706,16 @@ message kind, not per mesh:
 **7.3 Independent versions per class.** No class's version is coupled to another's (§5.1).
 
 **7.4 Reserved values are skipped, not rejected — except in the envelope.** TLV tags and (once
-implemented) coalesced sub-messages, extended classes and `PeerKey` families all declare their own
-size, so a reader can skip what it doesn't understand. This is the structural alternative to
+implemented) coalesced sub-messages and extended classes all declare their own size (as does a
+`WireEndPoint`, whose family fixes it, §4.8), so a reader can skip what it doesn't understand. This is the structural alternative to
 EOF-sensing (§1.3). The envelope is the exception: an unknown ProtoMajor or flag bit can change where
 everything after it lies, so such a datagram is dropped (§4.1, §4.2).
 
 **7.5 No compile-time wire gating.** Codecs are selected only by the negotiated schema version.
 Simulator build symbols (`FS2020`, `FS2024`, `XPLANE`, `CONSOLE`, ...) never change a wire shape.
 
-**7.6 IPv6 is additive**, through `PeerKey` (§4.8), once the mesh runs over JFP2.
+**7.6 IPv6 is additive**, through `WireEndPoint` (§4.8): family 6 is already defined, and a reader
+that only understands IPv4 ignores it.
 
 **7.7 Relaying and translation.**
 - **Two JFP2 neighbours of a relaying node that agree on a class *and its schema version*:** the
@@ -739,7 +755,8 @@ recordings (explicit per-record-type versions instead of EOF-sensing) remains a 
 **Implemented:**
 - the envelope with its guaranteed and relay extensions, hop-scoped ids on relayed datagrams;
 - Hello/HelloAck with per-class negotiation, node names (kind 0, §4.9), the build advertisement,
-  and verified sessions with a keepalive;
+  the observed endpoint (§4.8, §5.5; logged with a NAT class, otherwise unused), and verified
+  sessions with a keepalive;
 - dropping datagrams of another ProtoMajor or with flags this build cannot read;
 - next-hop origination of relayed traffic, and relay or translation at the hop;
 - single-datagram guaranteed delivery;
@@ -756,7 +773,7 @@ topology in `JoinFS.Tests/Net/Jfp2RelayTests.cs` reproduces the failure of the n
 - PositionV2
 - Coalescing
 - the `Extended` escape hatch
-- `PeerKey`
+- `WireEndPoint` lists (membership lists, pathfinder targets)
 - capability bits: they are exchanged and agreed, but none is assigned (§5.4)
 - multi-segment guaranteed delivery
 - JFP2 mesh messages

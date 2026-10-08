@@ -179,7 +179,7 @@ With §2.4 in place, "JFP2 has its own mesh" no longer means a second mesh. It m
 - **The cost is large:** the whole Join/Login/Pathfinder matrix has to be tested twice.
 - **Worth doing when one of these becomes a real requirement**, because none can be added to a frozen legacy wire:
   - authenticated or encrypted sessions (legacy sends a password hash);
-  - IPv6 (`Nuid` is IPv4; `Envelope.PeerKey` already exists for this);
+  - IPv6 (`Nuid` is IPv4; `WireEndPoint` carries it, wire design §7.1);
   - NAT hole punching;
   - retiring legacy once its population is negligible.
 - **Once §2.4 is in place, that later work is medium effort and touches no app or core code:** items 1 to 3 above, all inside the JFP2 plugin, plus a small bootstrap hook in `MeshManager`.

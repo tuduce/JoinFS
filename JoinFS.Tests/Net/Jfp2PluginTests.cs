@@ -529,6 +529,8 @@ namespace JoinFS.Tests.Net
 
             var sent = mesh.Network.Log.Where(d => d.Data[0] == Envelope.Magic).ToList();
             Assert.All(sent, d => Assert.True(d.Data.Length <= Envelope.MaxDatagramSize, d.Data.Length + " bytes, class " + d.Data[7]));
+            Assert.Contains(sent, d => (d.Data[2] & (byte)EnvelopeFlags.Internal) != 0 && d.Data[7] == MessageClasses.HelloAck
+                && HandshakeMessage.Deserialize(d.Data.AsSpan(Envelope.FixedSize)).ObservedEndPoint != null);
 
             // every class went through the relay to b, guaranteed where the class is, at its largest
             var relayed = sent.Where(d => d.From.Equals(hub.EndPoint) && d.To.Equals(b.EndPoint)
@@ -624,7 +626,8 @@ namespace JoinFS.Tests.Net
 
         /// <summary>
         /// What this build actually sends as a handshake is what HandshakeGoldenTests pins: ProtoMajor 2,
-        /// Internal only, Names and Build - the build cleaned before it goes out.
+        /// Internal only, Names and Build - the build cleaned before it goes out - and, in a HelloAck
+        /// only, the ObservedEndPoint last: the Hello's source.
         /// </summary>
         [Fact]
         public void Handshake_GoesOutInTheFrozenEnvelope()
@@ -645,8 +648,107 @@ namespace JoinFS.Tests.Net
                 Assert.Equal(fromHub ? hub.Id : a.Id, named);
                 string build = fromHub ? "26.6.0 JoinFS-FS2024" : "26.6.0 JoinFS-CONSOLE";
                 Assert.Equal(build, message.Build);
-                Assert.True(d.Data.AsSpan().EndsWith(Encoding.ASCII.GetBytes(build))); // the last extension, as sent
+                bool ack = d.Data[7] == MessageClasses.HelloAck;
+                Assert.Equal(ack ? d.To : null, message.ObservedEndPoint); // where the Hello came from
+                byte[] observed = ack ? [3, 0, 7, 0, .. WireEndPoint.ToBytes(d.To)] : [];
+                Assert.True(d.Data.AsSpan().EndsWith([.. Encoding.ASCII.GetBytes(build), .. observed])); // the last extensions, as sent
             });
+        }
+
+        // ------------------------------------------------ observed endpoint (docs/jfp2-wire-design.md §7)
+
+        static List<(NodeId Reporter, IPEndPoint EndPoint)> Observations(TestNode node) =>
+            node.Events.Where(e => e.Kind == NetworkEventKind.EndPointObserved).Select(e => (e.Node, e.EndPoint)).ToList();
+
+        static readonly IPEndPoint Planted = new(IPAddress.Parse("192.0.2.200"), 4444);
+
+        /// <summary>
+        /// Every HelloAck says where the Hello it answers came from, and the asker reports it to the app:
+        /// once, and again only when it changes, not with every keepalive.
+        /// </summary>
+        [Fact]
+        public void HelloAck_TellsTheAskerItsSourceEndPoint()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            mesh.Run(12); // keepalives
+
+            Assert.Equal([(hub.Id, a.EndPoint)], Observations(a));
+            Assert.Equal([(a.Id, hub.EndPoint)], Observations(hub));
+        }
+
+        /// <summary>
+        /// An observation counts only from the endpoint our Hello went to: the session id it is addressed
+        /// to is 16 bits and guessable off the path, so a HelloAck from elsewhere could otherwise plant
+        /// any address. Nor from a node that is not in the mesh, or from a refusal that does not answer us.
+        /// </summary>
+        [Fact]
+        public void ObservationFromAnotherEndPoint_IsIgnored()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            TestNode spoofer = mesh.Add("192.0.2.66", 6112, new LegacyPlugin(), new Jfp2Plugin());
+            TestNode stranger = mesh.Add("192.0.2.77", 6112, new LegacyPlugin(), new Jfp2Plugin());
+            a.Events.Clear();
+            a.Logs.Clear();
+
+            SendHelloAck(hub, a, HandshakeMessage.ResultAccepted, "spoof", from: spoofer, observed: Planted);
+            SendHelloAck(hub, a, HandshakeMessage.ResultNotAdmitted, "spoof", from: spoofer, observed: Planted);
+            SendHelloAck(hub, a, HandshakeMessage.ResultAccepted, "stranger", names: [NodeName.FromLegacy(stranger.Id)], observed: Planted);
+            mesh.Run(0.1);
+
+            Assert.Empty(Observations(a));
+            Assert.Contains(a.Logs, l => l.Contains("its observed endpoint is ignored"));
+            Assert.True(Jfp2Of(a).IsNegotiated(hub.Id));
+        }
+
+        /// <summary>
+        /// A neighbor that leaves and comes back is reported again even at the same endpoint: the app
+        /// forgot it when it left, and the plugin reports only changes.
+        /// </summary>
+        [Fact]
+        public void NeighborThatLeavesAndReturns_IsReportedAgain()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            Assert.Equal([(hub.Id, a.EndPoint)], Observations(a));
+
+            a.Core.Mesh.Leave();
+            mesh.Run(1);
+            a.Events.Clear();
+            a.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(12);
+
+            Assert.Equal([(hub.Id, a.EndPoint)], Observations(a));
+        }
+
+        /// <summary>A refusal from the peer asked, at the endpoint asked, still carries its observation (§4.2: its extensions are read).</summary>
+        [Fact]
+        public void Refusal_StillTellsTheObservedEndPoint()
+        {
+            var (mesh, hub, a) = TwoNegotiated();
+            a.Events.Clear();
+
+            SendHelloAck(hub, a, HandshakeMessage.ResultNotAdmitted, "refusing", observed: Planted);
+            mesh.Run(0.1);
+
+            Assert.Equal([(hub.Id, Planted)], Observations(a));
+        }
+
+        /// <summary>The largest HelloAck - every offer, the longest Build, an IPv6 observed endpoint - fits the 1,200-byte ceiling.</summary>
+        [Fact]
+        public void LargestHelloAck_FitsTheCeiling()
+        {
+            var ack = new HandshakeMessage
+            {
+                ProtoMajorMin = 2, ProtoMajorMax = 2, Result = HandshakeMessage.ResultAccepted,
+                Offers = [.. Jfp2Profile.Default.Offers],
+                Names = [NodeName.FromLegacy(new NodeId(0xCB007101, 6112, 1))],
+                Build = new string('x', HandshakeMessage.BuildMaxBytes),
+                ObservedEndPoint = new IPEndPoint(IPAddress.Parse("2001:db8::1"), 65535),
+            };
+
+            int size = Envelope.FixedSize + ack.Serialize().Length;
+
+            Assert.Equal(Envelope.FixedSize + 15 + 4 * Jfp2Profile.Default.Offers.Count + (4 + 8) + (4 + 64) + (4 + WireEndPoint.IPv6Size), size);
+            Assert.True(size <= Envelope.MaxDatagramSize);
         }
 
         // ------------------------------------------------ node names (jfp2-protocol.md §4.9)
@@ -798,13 +900,14 @@ namespace JoinFS.Tests.Net
         /// A hand-made HelloAck in the hub's session with a, as a later build might send it: from the hub
         /// naming itself, unless another sender (a spoofer, with the ids guessed) or other names are given.
         /// </summary>
-        static void SendHelloAck(TestNode hub, TestNode a, byte result, string build, TestNode? from = null, List<NodeName>? names = null)
+        static void SendHelloAck(TestNode hub, TestNode a, byte result, string build, TestNode? from = null, List<NodeName>? names = null,
+            IPEndPoint? observed = null)
         {
             Assert.True(Jfp2Of(hub).TryGetHopIds(a.Id, out ushort hubId, out ushort aId));
             var ack = new HandshakeMessage
             {
                 ProtoMajorMin = Envelope.ProtoMajor, ProtoMajorMax = Envelope.ProtoMajor, SelfAssignedId = hubId, Result = result,
-                Names = names ?? [NodeName.FromLegacy(hub.Id)], Build = build,
+                Names = names ?? [NodeName.FromLegacy(hub.Id)], Build = build, ObservedEndPoint = observed,
             };
             byte[] payload = ack.Serialize();
             var envelope = new Envelope(EnvelopeFlags.Internal, hubId, aId, MessageClasses.HelloAck);

@@ -3,8 +3,8 @@ using System.Buffers.Binary;
 
 // Ported from ProtocolV2Reference/Wire.cs (docs/reference/jfp2-protocol.md §4) as part of
 // docs/protocol-v2-implementation-plan.md Phase 1. This is the fixed 8-byte JFP2 envelope that
-// starts every JFP2 datagram, plus the message-class constants and the IPv4/IPv6 PeerKey payload
-// type. Used by Jfp2Plugin (docs/network-plugin-architecture.md).
+// starts every JFP2 datagram, plus the message-class constants. Used by Jfp2Plugin
+// (docs/network-plugin-architecture.md).
 
 namespace JoinFS.Net.Jfp2
 {
@@ -363,59 +363,6 @@ namespace JoinFS.Net.Jfp2
             bytesConsumed = offset;
             envelope = new Envelope(flags, sender, recipient, msgClass, guaranteedId, guaranteedIndex, guaranteedCount, origin, target);
             return true;
-        }
-    }
-
-    /// <summary>
-    /// A self-describing peer address, used inside PAYLOADS that need to describe a peer other than
-    /// the immediate sender - membership lists (the JoinReply equivalent), Pathfinder targets, hub
-    /// lists. It is deliberately never part of the hot envelope itself, which only ever carries small
-    /// negotiated PeerIds (see PeerSession). Supporting IPv6 here is purely additive: an existing
-    /// reader that only knows Family==4 entries can still correctly skip over a Family==6 entry it
-    /// doesn't care about, because the entry declares its own size - this directly fixes the legacy
-    /// protocol's IPv4-only Nuid limitation (docs/network-protocol.md §9.5) without requiring a
-    /// mesh-wide flag day, since it's an additive payload concern, not a framing concern.
-    /// Not yet used anywhere in Phase 1 - reserved for the membership/Pathfinder-equivalent messages
-    /// added in a later phase.
-    /// </summary>
-    public readonly struct PeerKey
-    {
-        public readonly byte Family; // 4 = IPv4, 6 = IPv6
-        public readonly byte[] Address; // 4 or 16 bytes, network byte order
-        public readonly ushort Port;
-        public readonly byte Local; // last octet of the LAN address - disambiguates instances behind one NAT, same role as the legacy Nuid.local field
-
-        public PeerKey(byte family, byte[] address, ushort port, byte local)
-        {
-            Family = family;
-            Address = address;
-            Port = port;
-            Local = local;
-        }
-
-        public int WireSize => 1 + Address.Length + 2 + 1;
-
-        public int WriteTo(Span<byte> dest)
-        {
-            int i = 0;
-            dest[i++] = Family;
-            Address.AsSpan().CopyTo(dest.Slice(i));
-            i += Address.Length;
-            BinaryPrimitives.WriteUInt16LittleEndian(dest.Slice(i, 2), Port);
-            i += 2;
-            dest[i++] = Local;
-            return i;
-        }
-
-        public static PeerKey ReadFrom(ReadOnlySpan<byte> src, out int bytesConsumed)
-        {
-            byte family = src[0];
-            int addrLen = family == 6 ? 16 : 4;
-            byte[] address = src.Slice(1, addrLen).ToArray();
-            ushort port = BinaryPrimitives.ReadUInt16LittleEndian(src.Slice(1 + addrLen, 2));
-            byte local = src[1 + addrLen + 2];
-            bytesConsumed = 1 + addrLen + 2 + 1;
-            return new PeerKey(family, address, port, local);
         }
     }
 }

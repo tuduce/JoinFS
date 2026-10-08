@@ -34,7 +34,7 @@ namespace JoinFS.Net.Jfp2
             }
         }
 
-        static IPEndPoint Copy(IPEndPoint endPoint) => new(endPoint.Address, endPoint.Port);
+        static IPEndPoint Copy(IPEndPoint endPoint) => WireEndPoint.Normalize(new IPEndPoint(endPoint.Address, endPoint.Port));
 
         /// <summary>For tests and diagnostics: the ids of the session with a neighbor.</summary>
         public bool TryGetHopIds(NodeId neighbor, out ushort local, out ushort remote)
@@ -189,8 +189,32 @@ namespace JoinFS.Net.Jfp2
         void SendHello(IPEndPoint endPoint, PeerSession session) =>
             SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.Hello, session.LocalAssignedId, session.RemoteAssignedId, MakeHandshake(session, 0).Serialize());
 
-        void SendHelloAck(IPEndPoint endPoint, PeerSession session, byte result) =>
-            SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.HelloAck, session.LocalAssignedId, session.RemoteAssignedId, MakeHandshake(session, result).Serialize());
+        /// <summary>The answer to a Hello from <paramref name="endPoint"/>, its source as we received it, which every HelloAck tells the asker (§5.5).</summary>
+        void SendHelloAck(IPEndPoint endPoint, PeerSession session, byte result)
+        {
+            HandshakeMessage ack = MakeHandshake(session, result);
+            ack.ObservedEndPoint = endPoint;
+            SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.HelloAck, session.LocalAssignedId, session.RemoteAssignedId, ack.Serialize());
+        }
+
+        /// <summary>
+        /// A neighbor that answered our Hello says where it saw it come from. Counted only from a
+        /// HelloAck that answers our own Hello: addressed to the session's id, from the endpoint the
+        /// Hello went to, naming the node asked for or the one found answering at its endpoint (the
+        /// callers check). The session id alone is 16 bits, constant for the session and guessable
+        /// off the path, so an answer from elsewhere could plant any address. Only a change is
+        /// reported, to the core and on to the app, which classifies and logs it and nothing else.
+        /// </summary>
+        void Observe(NodeId reporter, IPEndPoint observed)
+        {
+            if (observed == null || (observedBy.TryGetValue(reporter, out IPEndPoint last) && last.Equals(observed)))
+            {
+                return;
+            }
+            observedBy[reporter] = observed;
+            host.Log(NetLogLevel.Network, "JFP2: " + reporter + " sees this node at " + observed);
+            host.EndPointObserved(reporter, observed);
+        }
 
         /// <summary>
         /// Remember the build a neighbor says it runs (none: it restarted with a build that does not
@@ -313,6 +337,14 @@ namespace JoinFS.Net.Jfp2
             }
             IPEndPoint probe = session.ProbeEndPoint;
             occupants[probe] = new Occupant(responder, now + OccupantTtl);
+            if (from.Equals(probe))
+            {
+                Observe(responder, ack.ObservedEndPoint);
+            }
+            else if (ack.ObservedEndPoint != null)
+            {
+                host.Log(NetLogLevel.Network, "JFP2: HelloAck from " + from + " is not from " + probe + ", where the Hello went - its observed endpoint is ignored");
+            }
             if (responder != session.Peer)
             {
                 // the node at that endpoint is not the one we asked for: two nodes share the endpoint
@@ -361,7 +393,7 @@ namespace JoinFS.Net.Jfp2
         /// may refuse for a reason this one does not know (not admitted, too many sessions), which says
         /// nothing about whether it speaks JFP2, so the peer is not taken for legacy-only: its traffic
         /// goes through legacy meanwhile, as for any peer without a session, and it is asked again
-        /// after the cooldown. The answer's extensions are still read (the build). Only a refusal from
+        /// after the cooldown. The answer's extensions are still read (the build, the observed endpoint). Only a refusal from
         /// the endpoint our Hello went to, naming the peer asked, gets here (<see cref="HandleHelloAck"/>).
         /// </summary>
         void Refused(PeerSession session, HandshakeMessage ack, double now)
@@ -375,6 +407,7 @@ namespace JoinFS.Net.Jfp2
             session.RetryAt = now + HelloCooldown;
             session.HelloAttempts = 0;
             LearnBuild(session, ack.Build);
+            Observe(session.Peer, ack.ObservedEndPoint);
             host.Log(NetLogLevel.Network, "JFP2: " + session.Peer + " answered Result " + ack.Result + " (no session now) - asking again in " + HelloCooldown + " s");
         }
     }

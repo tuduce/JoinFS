@@ -412,5 +412,35 @@ namespace JoinFS.Tests.Net
             mesh.Run(45);
             Assert.Equal("JFP2", a.Core.Route(hub.Id, MessageKind.Position)!.Name);
         }
+
+        /// <summary>
+        /// A node behind a NAT that maps its port 6112 to public port 40001: the hub answers its Hello
+        /// with the endpoint the Hello arrived from, the mapped one, and the node's app classifies that as
+        /// a translated port (docs/jfp2-wire-design.md §7.3). The public address the node uses is still
+        /// the one its HTTP lookup gave.
+        /// </summary>
+        [Fact]
+        public void BehindNat_TheObservedEndPointIsTheMappedOne()
+        {
+            var mesh = new TestMesh();
+            TestNode hub = mesh.Add("203.0.113.1", 6112, new LegacyPlugin(), new Jfp2Plugin());
+            TestNode c = mesh.AddBehindNat("10.0.0.5", "198.51.100.9", 6112, new LegacyPlugin(), new Jfp2Plugin());
+            var lan = new IPEndPoint(IPAddress.Parse("10.0.0.5"), 6112);
+            var mapped = new IPEndPoint(IPAddress.Parse("198.51.100.9"), 40001);
+            mesh.Network.Nat = (from, to) => (from.Equals(lan) ? mapped : from, to.Equals(mapped) ? lan : to);
+            hub.Core.Mesh.Create(false, 0, false, "");
+            c.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(12);
+            Assert.Equal("JFP2", c.Core.Route(hub.Id, MessageKind.Position)!.Name);
+
+            NetworkEvent observation = Assert.Single(c.Events, e => e.Kind == NetworkEventKind.EndPointObserved);
+            Assert.Equal(hub.Id, observation.Node);
+            Assert.Equal(mapped, observation.EndPoint);
+
+            var observed = new ObservedEndPoints();
+            Assert.True(observed.Observe(observation.Node, observation.EndPoint, c.Core.Identity.LocalAddress, c.Core.Identity.Port));
+            Assert.Equal(NatClass.Translated, observed.Class);
+            Assert.Equal(IPAddress.Parse("198.51.100.9"), c.Core.Identity.InternetAddress); // unchanged: log only
+        }
     }
 }

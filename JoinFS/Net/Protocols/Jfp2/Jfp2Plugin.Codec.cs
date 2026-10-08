@@ -177,7 +177,11 @@ namespace JoinFS.Net.Jfp2
         {
             try
             {
-                Receive(from, datagram);
+                // an IPv4 peer as a dual-mode socket reports it is still that IPv4 endpoint: the source
+                // compared with ProbeEndPoint and the occupants, and the observation sent back, use one
+                // form (WireEndPoint.Normalize; no allocation unless mapped). Routes come from the legacy
+                // side and are not normalized: with a dual-mode socket they would need it too
+                Receive(WireEndPoint.Normalize(from), datagram);
             }
             catch (Exception ex)
             {

@@ -228,8 +228,8 @@ graph TB
   - `Open(port)`, which runs on the network thread, leaves any current session first when the port
     changes, and returns once the socket is open.
 - **Network → app:** `Drain(IMessageHandler, INetworkEventHandler)` hands queued items to the app's
-  handlers in order. The events are `SessionJoined`, `PeerJoined`, `PeerEstablished`, `PeerLeft` and
-  `Log`.
+  handlers in order. The events are `SessionJoined`, `PeerJoined`, `PeerEstablished`, `PeerLeft`,
+  `EndPointObserved` (a JFP2 neighbor says where it sees this node's datagrams come from) and `Log`.
 - **`Snapshot`** (`NetworkSnapshot`):
   - session state, session id, global/creator/login flags, and the last join and login results;
   - local id, addresses and port;
@@ -444,7 +444,7 @@ and knows nothing about wire formats. It is a small facade, `Network`, and eight
 | Part | Owns | Handles |
 |---|---|---|
 | `Network` (facade) | the `NetworkService`; the session commands (join, login, create, leave, join a user); which plugins this build speaks | the network events; forwards every message to its part |
-| `NetBootstrap` | this node's addresses and `NodeId`; the my-IP, seed-hub and ban-list downloads; the DNS cache | — |
+| `NetBootstrap` | this node's addresses and `NodeId`; the my-IP, seed-hub and ban-list downloads; the DNS cache; the observed endpoints (`ObservedEndPoints`) and the NAT class, logged | — |
 | `PeerTable` | what each node in the session said about itself (`Nodes`: nickname, ATC, version, simulator); who has which of our controls (`share*Controls`) | `PeerInfo`; peer joined, established, left |
 | `SimSender` | nothing (it maps and sends) | — (called by `Sim`) |
 | `SimIngest` | the identity cache | identity, positions, variables, events, removals, flight plans, weather |
@@ -503,7 +503,10 @@ functions in `SimMessageMapper`.
   location of a user.
 - **Events:** `PeerJoined` adds a `PeerTable` entry. `PeerEstablished` sends our `PeerInfo` and, if
   the comms window is open, a comms request. `PeerLeft` removes the node, its cached identities and
-  its objects.
+  its objects, and tells `NetBootstrap` the node left. `EndPointObserved` goes to
+  `NetBootstrap.OnEndPointObserved`: `ObservedEndPoints` (plain C#) classifies the NAT from what
+  neighbors see (LAN addresses ignored, the 8 most recent reporters) and the class is logged when it
+  changes; nothing else uses it, and the public address stays the HTTP lookup's.
 
 **Periodic work** (`Network.DoWork`, in this order):
 1. Drain the service.

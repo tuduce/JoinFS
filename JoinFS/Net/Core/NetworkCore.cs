@@ -359,6 +359,9 @@ namespace JoinFS.Net
         internal void RaisePeerEstablished(NodeId id) => sink.OnEvent(new NetworkEvent { Kind = NetworkEventKind.PeerEstablished, Node = id });
         internal void RaisePeerLeft(NodeId id) => sink.OnEvent(new NetworkEvent { Kind = NetworkEventKind.PeerLeft, Node = id });
 
+        public void EndPointObserved(NodeId reporter, IPEndPoint endPoint) =>
+            sink.OnEvent(new NetworkEvent { Kind = NetworkEventKind.EndPointObserved, Node = reporter, EndPoint = endPoint });
+
         public void Log(NetLogLevel level, string text) => sink.OnEvent(new NetworkEvent { Kind = NetworkEventKind.Log, Level = level, Text = text });
     }
 }

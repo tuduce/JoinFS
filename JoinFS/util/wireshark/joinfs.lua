@@ -175,8 +175,27 @@ local JFP2_RESULT = {
 
 -- JoinFS.Jfp2.HandshakeMessage extension tags (docs/reference/jfp2-protocol.md §5.5)
 local JFP2_TLV_TAG = {
-    [1] = "Names", [2] = "Build",
+    [1] = "Names", [2] = "Build", [3] = "ObservedEndPoint",
 }
+
+-- JoinFS.Net.Jfp2.WireEndPoint (docs/reference/jfp2-protocol.md §4.8): family u8 (4 IPv4, 6 IPv6),
+-- the address in network byte order, the port u16 little-endian; 7 or 19 bytes. Returns the text,
+-- or nil for an unassigned family or a value shorter than its family needs (a receiver ignores
+-- both). Bytes after the endpoint are not read (a later build may extend the value).
+local function jfp2_wire_endpoint_string(buffer, offset, len)
+    if len < 1 then return nil end
+    local family = buffer(offset, 1):uint()
+    if family == 4 and len >= 7 then
+        local octets = {}
+        for i = 0, 3 do octets[#octets + 1] = tostring(buffer(offset + 1 + i, 1):uint()) end
+        return table.concat(octets, ".") .. ":" .. buffer(offset + 5, 2):le_uint()
+    elseif family == 6 and len >= 19 then
+        local groups = {}
+        for i = 0, 7 do groups[#groups + 1] = string.format("%x", buffer(offset + 1 + i * 2, 2):uint()) end
+        return "[" .. table.concat(groups, ":") .. "]:" .. buffer(offset + 17, 2):le_uint()
+    end
+    return nil
+end
 
 -- JoinFS.Net.Jfp2.NodeName kinds (docs/reference/jfp2-protocol.md §4.9)
 local JFP2_NAME_KIND = {
@@ -591,6 +610,16 @@ local function decode_jfp2_handshake(tree, buffer, offset, isAck)
                 end
             elseif tagName == "Build" and tlvLen > 0 then
                 item:add(buffer(offset + 4, tlvLen), "Build: " .. buffer(offset + 4, tlvLen):string(ENC_UTF_8))
+            elseif tagName == "ObservedEndPoint" and tlvLen > 0 then
+                -- the UDP source of the Hello this HelloAck answers, as the responder received it
+                local text = jfp2_wire_endpoint_string(buffer, offset + 4, tlvLen)
+                if text then
+                    item:add(buffer(offset + 4, tlvLen), "ObservedEndPoint: " .. text ..
+                        (isAck and "" or " (only a HelloAck carries it)"))
+                else
+                    item:add(buffer(offset + 4, tlvLen), "ObservedEndPoint: family " .. buffer(offset + 4, 1):uint() ..
+                        ", unassigned or too short (ignored)")
+                end
             end
             offset = offset + 4 + tlvLen
         end

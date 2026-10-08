@@ -507,6 +507,10 @@ namespace JoinFS
                 case NetworkEventKind.PeerLeft:
                     Peers.OnPeerLeft(e.Node);
                     simIngest.OnPeerLeft(e.Node);
+                    Bootstrap.OnPeerLeft(e.Node);
+                    break;
+                case NetworkEventKind.EndPointObserved:
+                    Bootstrap.OnEndPointObserved(e.Node, e.EndPoint);
                     break;
                 case NetworkEventKind.Log:
                     if (e.Level == NetLogLevel.Event) host.Event(e.Text);
