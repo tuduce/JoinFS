@@ -322,7 +322,9 @@ receives canonical mesh messages through the router; today only the legacy plugi
   - receive/send established, low-bandwidth, RTT, expiry time, and the route cache.
 - **`LocalIdentity`** holds our LAN address, public address (from a my-IP lookup) and port, which
   make up our `NodeId`. `MakeEndPoint` reaches a peer that shares our public IP (same NAT) on its
-  LAN address instead.
+  LAN address instead. That is only a guess (strangers behind one CGNAT address share the public
+  IP too), so `MeshManager.RegisterNode` replaces the address with the one a datagram from the peer
+  actually came from, as soon as one arrives directly.
 
 ### 5.6 `ObjectStateCache` — identity for translation
 

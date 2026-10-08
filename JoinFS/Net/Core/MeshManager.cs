@@ -299,7 +299,7 @@ namespace JoinFS.Net
         /// just sent us something on <paramref name="port"/>). On first contact, tell the app and
         /// introduce the node to everyone else.
         /// </summary>
-        void RegisterNode(NodeId id, ushort port, bool receive, bool direct)
+        void RegisterNode(NodeId id, ushort port, bool receive, bool direct, IPAddress heardFrom = null)
         {
             if (!id.Valid() || id == LocalId || NodeCountDevice(id) >= MaxNodesPerDevice)
             {
@@ -317,6 +317,7 @@ namespace JoinFS.Net
                         // mutates the shared IPEndPoint instance, exactly like LocalNode (the route
                         // endpoint is the same object until a relay is chosen)
                         peer.EndPoint.Port = port;
+                        if (heardFrom != null) peer.EndPoint.Address = heardFrom;
                     }
                 }
                 core.Log(NetLogLevel.Network, "NETWORK: RegisterNode update " + id + " " + port + " " + receive + " " + direct + " " + firstContact);
@@ -324,7 +325,15 @@ namespace JoinFS.Net
             else
             {
                 if (receive) firstContact = true;
-                peer = core.Peers.Add(id, core.Identity.MakeEndPoint(id, port), receive);
+                IPEndPoint endPoint = core.Identity.MakeEndPoint(id, port);
+                // MakeEndPoint guesses a LAN address for any peer behind our public IP; a datagram that
+                // reached us directly tells the real one (strangers behind one CGNAT address)
+                if (receive && direct && heardFrom != null)
+                {
+                    endPoint.Address = heardFrom;
+                    endPoint.Port = port;
+                }
+                peer = core.Peers.Add(id, endPoint, receive);
                 peer.ExpireTime = Now + ExpireTime;
                 core.Log(NetLogLevel.Network, "NETWORK: RegisterNode new " + id + " " + port + " " + receive + " " + direct);
             }
@@ -334,6 +343,10 @@ namespace JoinFS.Net
                 core.Broadcast(new AddNode { Suid = suid, Node = new KnownNode { Node = id, Port = (ushort)peer.EndPoint.Port } }, guaranteed: true);
             }
         }
+
+        /// <summary>The sender of <paramref name="meta"/> just sent us something: record it, and where it came from if directly.</summary>
+        void RegisterSender(in MessageMeta meta) =>
+            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded, meta.EndPoint.Address);
 
         static void Responded(Peer peer, double now)
         {
@@ -379,7 +392,7 @@ namespace JoinFS.Net
             else
             {
                 core.SendToEndPoint(meta.EndPoint, new JoinReply { Suid = suid, Nodes = KnownNodes() }, guaranteed: true);
-                RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded);
+                RegisterSender(meta);
             }
         }
 
@@ -403,7 +416,7 @@ namespace JoinFS.Net
                         RegisterNode(node.Node, node.Port, false, false);
                     }
                 }
-                RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded);
+                RegisterSender(meta);
             }
             core.Log(NetLogLevel.Network, "NETWORK: JoinReply " + meta.Sender + " " + message.Suid);
         }
@@ -442,7 +455,7 @@ namespace JoinFS.Net
                 return;
             }
             core.SendToEndPoint(meta.EndPoint, new JoinReply { Suid = suid, Nodes = KnownNodes() }, guaranteed: true);
-            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded);
+            RegisterSender(meta);
         }
 
         public void Handle(in MessageMeta meta, in Leave message)
@@ -474,7 +487,7 @@ namespace JoinFS.Net
             {
                 sender.LowBandwidth = message.LowBandwidth;
             }
-            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded);
+            RegisterSender(meta);
             core.SendToEndPoint(meta.EndPoint, new PulseResponse { Time = message.Time }, guaranteed: false, recipient: meta.Sender);
             core.Log(NetLogLevel.Network, "NETWORK: Pulse " + meta.Sender + " " + meta.EndPoint);
         }
@@ -486,7 +499,7 @@ namespace JoinFS.Net
                 return;
             }
             peer.Rtt = (core.Clock.Timestamp - message.Time) / (float)core.Clock.Frequency;
-            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded);
+            RegisterSender(meta);
             if (!peer.SendEstablished)
             {
                 core.RaisePeerEstablished(meta.Sender);
@@ -501,7 +514,7 @@ namespace JoinFS.Net
             {
                 return;
             }
-            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, true);
+            RegisterSender(meta);
             List<NodeId> reachable = [];
             foreach (NodeId id in message.Nodes)
             {
@@ -528,7 +541,7 @@ namespace JoinFS.Net
             {
                 return;
             }
-            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, true);
+            RegisterSender(meta);
             double now = Now;
             foreach (NodeId id in message.Nodes)
             {

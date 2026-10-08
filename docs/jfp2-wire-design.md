@@ -673,7 +673,7 @@ B3 and later follow from appendix A, each with its own design approval.
 | 5 | Guaranteed-id rule | yes | Done, reviewed |
 | 6 | Field limits and the 1,200-byte ceiling | yes | Done, reviewed |
 | 7 | Observed endpoint | yes | Done, reviewed |
-| 8 | D2: false same-LAN detection | no | Not started |
+| 8 | D2: false same-LAN detection | no | Done |
 | 9 | D1: hub relay budget (minion journal first) | no | Not started |
 | — | **Wire frozen: 26.6 may ship** | | |
 | 10 | Core identity migration (pure refactor) | no | Not started |

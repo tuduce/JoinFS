@@ -1,3 +1,4 @@
+using System.Net;
 using JoinFS.Net;
 
 namespace JoinFS.Tests.Net
@@ -170,6 +171,36 @@ namespace JoinFS.Tests.Net
 
             Assert.Empty(b.Messages<WeatherUpdate>());
             Assert.Single(b.Messages<StatusUpdate>());
+        }
+
+        /// <summary>
+        /// Two strangers behind one public address (CGNAT) but on different LANs: each one's id says
+        /// "behind my public IP", so the guess is its own /24 and the other's octet, which is wrong. They
+        /// are reached at the endpoint their datagrams came from.
+        /// </summary>
+        [Fact]
+        public void StrangersBehindOnePublicIp_AreReachedAtTheirSource()
+        {
+            var mesh = new TestMesh();
+            TestNode a = mesh.AddBehindNat("10.0.0.5", "198.51.100.9");
+            TestNode b = mesh.AddBehindNat("10.0.1.6", "198.51.100.9");
+            var lanA = new IPEndPoint(IPAddress.Parse("10.0.0.5"), 6112);
+            var lanB = new IPEndPoint(IPAddress.Parse("10.0.1.6"), 6112);
+            var mappedA = new IPEndPoint(IPAddress.Parse("198.51.100.9"), 40001);
+            var mappedB = new IPEndPoint(IPAddress.Parse("198.51.100.9"), 40002);
+            mesh.Network.Nat = (from, to) => (
+                from.Equals(lanA) ? mappedA : from.Equals(lanB) ? mappedB : from,
+                to.Equals(mappedA) ? lanA : to.Equals(mappedB) ? lanB : to);
+            a.Core.Mesh.Create(false, 0, false, "");
+            b.Core.Mesh.Join(mappedA, 0);
+            mesh.Run(8);
+
+            Assert.True(a.Knows(b));
+            Assert.True(b.Knows(a));
+            Assert.True(a.Core.Peers.TryGet(b.Id, out Peer atA));
+            Assert.Equal(mappedB, atA.EndPoint);
+            Assert.True(b.Core.Peers.TryGet(a.Id, out Peer atB));
+            Assert.Equal(mappedA, atB.EndPoint);
         }
     }
 }
