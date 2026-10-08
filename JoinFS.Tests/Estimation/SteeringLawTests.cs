@@ -30,11 +30,12 @@ namespace JoinFS.Tests.Estimation
         }
 
         [Fact]
-        public void TheDefault_IsTheClassicRate()
+        public void TheDefault_IsGain4_AndClassicKeepsTheOriginalRate()
         {
             var law = new ClassicSteering(true, 0.2);
             Assert.Equal(ClassicSteering.CatchUpRate * 2.0, VelocityFor(law, 2.0).velocityY, 1e-4);
-            Assert.Equal(EstimationRegistry.DefaultSteering, "Classic");
+            Assert.Equal("Gain4", EstimationRegistry.DefaultSteering);
+            Assert.Equal("Gain4", EstimationRegistry.SelectedSteering);
         }
 
         [Fact]
@@ -57,8 +58,8 @@ namespace JoinFS.Tests.Estimation
             {
                 EstimationRegistry.SelectSteering(selected);
             }
-            // an unknown name falls back to the classic one
-            Assert.Equal(1.5 * 2.0, VelocityFor(EstimationRegistry.CreateSteering("NoSuchLaw", true, 0.2), 2.0).velocityY, 1e-4);
+            // an unknown name falls back to the default one
+            Assert.Equal(4.0 * 2.0, VelocityFor(EstimationRegistry.CreateSteering("NoSuchLaw", true, 0.2), 2.0).velocityY, 1e-4);
         }
 
         [Fact]

@@ -1024,7 +1024,7 @@ default since 2026-10-05, after the field session in §6.6; `-clock RttHalf` sel
 
 ### 7.4 Phase 6, the steering gain experiment, as built (2026-10-05)
 
-Nothing changes by default (`Classic`, 1.5 s⁻¹). Three additions make the experiment possible:
+The experiment started with `Classic` (1.5 s⁻¹) as the default; since 2026-10-08 the default is `Gain4`, the smoothest in close formation (`Classic` stays selectable with `-steering Classic`). Three additions make the experiment possible:
 
 - **Laws.** `ClassicSteering` takes the catch-up rate as a parameter. The registry has `Classic`
   (1.5), `Gain4` (4), `Gain8` (8) and `Gain16` (16); `-steering <name>` selects one.

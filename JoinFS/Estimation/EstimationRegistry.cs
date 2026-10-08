@@ -15,7 +15,10 @@ namespace JoinFS.Estimation
         /// <summary>The original estimator, kept as the frozen reference (-estimator Classic)</summary>
         public const string ClassicName = "Classic";
         public const string DefaultEstimator = ClassicFixedEstimator.Name;
-        public const string DefaultSteering = "Classic";
+        /// <summary>The original steering (rate 1.5), kept as the frozen reference (-steering Classic)</summary>
+        public const string ClassicSteeringName = "Classic";
+        /// <summary>Gain4 was the smoothest in close formation (2026-10-06 and later flights)</summary>
+        public const string DefaultSteering = "Gain4";
 
         static readonly Dictionary<string, Func<IClockModel>> clocks = new()
         {
@@ -26,8 +29,8 @@ namespace JoinFS.Estimation
         /// <summary>The catch-up rate of each steering law, per second of error</summary>
         static readonly Dictionary<string, double> steeringGains = new()
         {
-            [DefaultSteering] = ClassicSteering.CatchUpRate,
-            ["Gain4"] = 4.0,
+            [ClassicSteeringName] = ClassicSteering.CatchUpRate,
+            [DefaultSteering] = 4.0,
             ["Gain8"] = 8.0,
             ["Gain16"] = 16.0,
         };
@@ -42,8 +45,8 @@ namespace JoinFS.Estimation
         public static IEnumerable<string> EstimatorNames => estimators.Keys;
         public static IEnumerable<string> SteeringNames => steeringGains.Keys;
 
-        /// <summary>The laws <see cref="SteeringSchedule.Alternate"/> cycles through: the original and the stiff candidates (Gain4 was in the 2026-10-06 flight and sits between)</summary>
-        public static readonly string[] AlternatedSteering = [DefaultSteering, "Gain8", "Gain16"];
+        /// <summary>The laws <see cref="SteeringSchedule.Alternate"/> cycles through: the original and the stiff candidates (the default, Gain4, sits between)</summary>
+        public static readonly string[] AlternatedSteering = [ClassicSteeringName, "Gain8", "Gain16"];
 
         /// <summary>
         /// The steering law new objects get (the -steering command-line option): a name, or
