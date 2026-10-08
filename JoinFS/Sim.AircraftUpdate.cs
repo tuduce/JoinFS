@@ -510,9 +510,17 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Process an aircraft whose simulator has no clock of its own to time it by
+        /// </summary>
+        void ProcessAircraftPosition(uint simId, double simTime, ref AircraftPosition aircraftPosition) =>
+            ProcessAircraftPosition(simId, simTime, ref aircraftPosition, double.NaN);
+
+        /// <summary>
         /// Process an aircraft
         /// </summary>
-        void ProcessAircraftPosition(uint simId, double simTime, ref AircraftPosition aircraftPosition)
+        /// <param name="simTime">Local time the position was handled (X-Plane: the plugin's time of the sample)</param>
+        /// <param name="simulationTime">The simulator's own clock at the sample (MSFS), NaN when there is none</param>
+        void ProcessAircraftPosition(uint simId, double simTime, ref AircraftPosition aircraftPosition, double simulationTime)
         {
             // get aircraft
             if (objectList.Find(o => o.simId == simId && o is Aircraft) is Aircraft aircraft)
@@ -521,6 +529,7 @@ namespace JoinFS
                 aircraft.simPosition = new Pos(ref aircraftPosition);
                 // store current time
                 aircraft.simTime = simTime;
+                aircraft.simulationTime = simulationTime;
                 // positions may arrive every frame; the network and the recorder get them at the usual
                 // rate. Gated on the current time, not simTime: the X-Plane link re-sends an old sample
                 // (with its old time) to keep peers alive when the plugin goes quiet
@@ -547,13 +556,15 @@ namespace JoinFS
                 // check if user or broadcasting this aircraft
                 if (aircraft.owner == Obj.Owner.Me || main.network.Connected && IsBroadcast(aircraft))
                 {
+                    // when the sample was taken, for the receivers' extrapolation - every frame, so the
+                    // stamper sees the least-delayed ones
+                    double sampleTime = aircraft.Stamper.Stamp(main.settingsDispatchTime ? double.NaN : simulationTime, simTime);
+
                     // check if not under remote control
                     if (aircraft.remoteFlightControl == false)
                     {
                         // update velocity
                         aircraft.netVelocity = new Vel(ref aircraftPosition);
-                        // store current time
-                        aircraft.netSimTime = simTime;
                     }
 
                     // check if broadcasting
@@ -568,7 +579,8 @@ namespace JoinFS
                                 if (aircraft.remoteFlightControl == false)
                                 {
                                     // send to the owner of the entered aircraft, as the shared-cockpit object
-                                    main.network.SimSender.SendAircraftPosition(aircraft, ref aircraftPosition, aircraft.simTime, [enteredAircraft.ownerNuid], sharedCockpit: true);
+                                    main.network.SimSender.SendAircraftPosition(aircraft, ref aircraftPosition, sampleTime, [enteredAircraft.ownerNuid], sharedCockpit: true);
+                                    estimationLog?.OnSend(aircraft, simTime, simulationTime, sampleTime);
                                 }
                             }
                             else if (IsBroadcast(aircraft) && aircraft.Injected == false)
@@ -599,7 +611,11 @@ namespace JoinFS
                                     }
                                 }
                                 // one message; each node gets it in the protocol it negotiated
-                                main.network.SimSender.SendAircraftPosition(aircraft, ref aircraftPosition, aircraft.simTime, due[..dueCount]);
+                                main.network.SimSender.SendAircraftPosition(aircraft, ref aircraftPosition, sampleTime, due[..dueCount]);
+                                if (dueCount > 0)
+                                {
+                                    estimationLog?.OnSend(aircraft, simTime, simulationTime, sampleTime);
+                                }
                             }
                             // increment count
                             aircraft.positionCount++;

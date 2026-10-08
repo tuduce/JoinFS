@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using JoinFS.Properties;
 using JoinFS.Net;
+using JoinFS.Estimation;
 
 
 
@@ -32,7 +33,6 @@ namespace JoinFS
 #endif
         const float NEW_OBJECT_EXPIRE_TIME = 60.0f;
 
-        public const double TIME_ERROR_RATE = 0.02;
         public const double FEET_PER_METRE = 3.28084;
         public const double METRES_PER_FOOT = 0.3048;
         /// <summary>How long the sender's raw "SIM ON GROUND" bit must hold its current value before trustingPlatformGround follows it - see Aircraft.pendingGroundFlag.</summary>
@@ -387,6 +387,62 @@ namespace JoinFS
 
             // set connection
             checkConnectionCount = main.settingsConnectOnLaunch ? 0 : CHECK_CONNECTION_ATTEMPTS;
+
+            // position estimation log
+            if (main.settingsEstimationLog)
+            {
+                try
+                {
+                    estimationLog = EstimationLog.Create(main.storagePath, main.ActivePort, out string path);
+                    main.MonitorEvent("Estimation log - " + path);
+                }
+                catch (Exception ex)
+                {
+                    main.MonitorEvent("Estimation log not started - " + ex.Message);
+                }
+            }
+
+            // position estimation options (-estimator, -clock, -steering, -dispatchtime)
+            if (main.settingsUnknownEstimator != null)
+            {
+                main.MonitorEvent("ERROR - Unknown estimator '" + main.settingsUnknownEstimator + "', known: " + string.Join(", ", EstimationRegistry.EstimatorNames));
+            }
+            if (main.settingsUnknownClock != null)
+            {
+                main.MonitorEvent("ERROR - Unknown clock model '" + main.settingsUnknownClock + "', known: " + string.Join(", ", EstimationRegistry.ClockNames));
+            }
+            if (main.settingsUnknownSteering != null)
+            {
+                main.MonitorEvent("ERROR - Unknown steering law '" + main.settingsUnknownSteering + "', known: " + SteeringSchedule.Alternate + ", " + string.Join(", ", EstimationRegistry.SteeringNames));
+            }
+            if (main.settingsEstimationLog || EstimationRegistry.SelectedSteering != EstimationRegistry.DefaultSteering || EstimationRegistry.SelectedEstimator != EstimationRegistry.DefaultEstimator || EstimationRegistry.SelectedClock != EstimationRegistry.DefaultClock || main.settingsDispatchTime)
+            {
+                main.MonitorEvent("Position estimator - " + EstimationRegistry.SelectedEstimator + ", clock " + EstimationRegistry.SelectedClock + ", steering " + EstimationRegistry.SelectedSteering + ", own samples stamped by " +
+                    (main.settingsDispatchTime ? "dispatch time" : "the simulator's clock where it has one"));
+            }
+        }
+
+        /// <summary>
+        /// Position estimation log (-estimationlog), null when off. Sim thread only.
+        /// </summary>
+        EstimationLog estimationLog;
+
+        /// <summary>
+        /// Once per tick: let the estimation log write its clock row and flush, and drop it if
+        /// writing failed
+        /// </summary>
+        void TickEstimationLog(double time)
+        {
+            if (estimationLog == null)
+            {
+                return;
+            }
+            estimationLog.Tick(time);
+            if (estimationLog.Error != null)
+            {
+                main.MonitorEvent("Estimation log stopped - " + estimationLog.Error);
+                estimationLog = null;
+            }
         }
 
         /// <summary>
@@ -422,6 +478,7 @@ namespace JoinFS
             ProcessTracking(time);
             BroadcastObjectVariables(time);
             BroadcastFlightPlans(time);
+            TickEstimationLog(time);
 
 #if XPLANE || CONSOLE
             // process xplane

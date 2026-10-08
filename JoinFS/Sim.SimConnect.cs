@@ -386,6 +386,11 @@ namespace JoinFS
                             // type says which definition it was requested with
                             switch (data)
                             {
+#if FS2020 || FS2024
+                                case AircraftPositionTimed timed:
+                                    ProcessAircraftPosition(objectId, main.ElapsedTime, ref timed.position, timed.simulationTime);
+                                    break;
+#endif
                                 case AircraftPosition aircraftPosition:
                                     ProcessAircraftPosition(objectId, main.ElapsedTime, ref aircraftPosition);
                                     break;
@@ -444,8 +449,6 @@ namespace JoinFS
                 {
                     // update velocity
                     obj.netVelocity = new Vel(ref positionVelocity);
-                    // store current time
-                    obj.netSimTime = main.ElapsedTime;
                 }
 
                 // check if broadcasting

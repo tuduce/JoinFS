@@ -54,6 +54,8 @@ namespace JoinFS
         /// </summary>
         public void Close()
         {
+            // keep what has been logged (also the last call at shutdown)
+            estimationLog?.Flush();
             // disable weather aircraft
             SetWeatherAircraft(null);
             // leave cockpit of other aircraft

@@ -19,3 +19,7 @@ docs/captures/*.pcap
 # BenchmarkDotNet run output (JoinFS.Benchmarks): lands wherever `dotnet run` was invoked from.
 BenchmarkDotNet.Artifacts/
 /artifacts/
+
+# Python bytecode
+__pycache__/
+*.pyc

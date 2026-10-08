@@ -125,6 +125,19 @@ namespace JoinFS
         public bool settingsXplane = false;
         public bool settingsTcas = false;
         public bool settingsScan = false;
+        /// <summary>Write the position estimation log (Estimation/EstimationLog) - command-line only, not persisted</summary>
+        public bool settingsEstimationLog = false;
+        /// <summary>-estimator named an estimator this build does not have (reported once the monitor is up), or null</summary>
+        public string settingsUnknownEstimator = null;
+        /// <summary>-clock named a clock model this build does not have (reported once the monitor is up), or null</summary>
+        public string settingsUnknownClock = null;
+        /// <summary>-steering named a steering law this build does not have (reported once the monitor is up), or null</summary>
+        public string settingsUnknownSteering = null;
+        /// <summary>Stamp own-aircraft samples with the time their message was handled, not the simulator's clock (Estimation/SimClockStamper)</summary>
+        public bool settingsDispatchTime = false;
+
+        /// <summary>The UDP port this instance uses - it also tells the per-instance log files apart</summary>
+        public ushort ActivePort => settingsPortEnabled ? settingsPort : Network.DEFAULT_PORT;
 
         // elevated platform (helipad/ship deck/rooftop) ground-trust feature - command-line only, not persisted
         public bool settingsElevatedPlatformRecognition = true;
@@ -537,6 +550,41 @@ namespace JoinFS
                                 settingsTcas = true;
                                 break;
 
+                            case "-estimationlog":
+                                settingsEstimationLog = true;
+                                break;
+
+                            case "-estimator":
+                                // next parameter: the position estimator for remote objects (Estimation/EstimationRegistry)
+                                index++;
+                                if (index < args.Length && Estimation.EstimationRegistry.SelectEstimator(args[index]) == false)
+                                {
+                                    settingsUnknownEstimator = args[index];
+                                }
+                                break;
+
+                            case "-clock":
+                                // next parameter: the clock model for remote objects (Estimation/EstimationRegistry)
+                                index++;
+                                if (index < args.Length && Estimation.EstimationRegistry.SelectClock(args[index]) == false)
+                                {
+                                    settingsUnknownClock = args[index];
+                                }
+                                break;
+
+                            case "-steering":
+                                // next parameter: the steering law for remote objects, or "alternate" (Estimation/EstimationRegistry)
+                                index++;
+                                if (index < args.Length && Estimation.EstimationRegistry.SelectSteering(args[index]) == false)
+                                {
+                                    settingsUnknownSteering = args[index];
+                                }
+                                break;
+
+                            case "-dispatchtime":
+                                settingsDispatchTime = true;
+                                break;
+
                             case "-simfolder":
                                 // next parameter
                                 index++;
@@ -939,7 +987,7 @@ namespace JoinFS
 #endif
 
                 // port
-                ushort port = settingsPortEnabled ? settingsPort : Network.DEFAULT_PORT;
+                ushort port = ActivePort;
                 // open port
                 if (network.Open(port))
                 {

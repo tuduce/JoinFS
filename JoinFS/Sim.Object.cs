@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using JoinFS.Properties;
 using JoinFS.Net;
+using JoinFS.Estimation;
 
 
 
@@ -40,10 +41,6 @@ namespace JoinFS
                 Sim,
                 Recorder,
             }
-
-            // Although rather the property of a node, than of an object,
-            // the value of the previous delay is stored here for access speed.
-            public float prevDelay = 0.0f;
 
             public Owner owner = Owner.Me;
             public NodeId ownerNuid;
@@ -109,9 +106,22 @@ namespace JoinFS
             public double expireTime = 0.0;
             public bool broadcast = false;
             public double netStateTime = 0.0;
-            public double netRealTime = 0.0;
-            public double netSimTime = 0.0;
             public double simTime = 0.0;
+            /// <summary>The simulator's own clock at the last position report (MSFS), NaN when there is none - times the drawn object without the handling jitter</summary>
+            public double simulationTime = double.NaN;
+
+            /// <summary>
+            /// Following the sender's clock and predicting this object's state from network samples
+            /// (docs/position-estimation-plan.md §4). Sim thread only, so snapshot copies get their own.
+            /// </summary>
+            IClockModel clock;
+            IStateEstimator estimator;
+            SimClockStamper stamper;
+            public IClockModel Clock => clock ??= EstimationRegistry.CreateClock(EstimationRegistry.SelectedClock);
+            /// <summary>Times this object's own samples for sending (sim thread only)</summary>
+            public SimClockStamper Stamper => stamper ??= new SimClockStamper();
+            public IStateEstimator Estimator => estimator ??= EstimationRegistry.CreateEstimator(EstimationRegistry.SelectedEstimator);
+
             public bool NetValid { get { return netStateTime > 0.0; } }
             public bool SimValid { get { return simTime > 0.0; } }
             public Pos simPosition = new();
@@ -168,6 +178,9 @@ namespace JoinFS
             {
                 Obj view = (Obj)MemberwiseClone();
                 view.Source = this;
+                view.clock = null;
+                view.estimator = null;
+                view.stamper = null;
                 view.simPosition = simPosition?.CloneAll();
                 view.netPosition = netPosition?.CloneAll();
                 view.netVelocity = netVelocity?.Clone();
