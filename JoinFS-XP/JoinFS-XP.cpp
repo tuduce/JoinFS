@@ -469,7 +469,7 @@ struct InjectedAircraft : public Aircraft
 		// Plane configuration info
 		// This fills a large array of float values:
 		const double r = 0;        // a value between 0 and 1
-		SetNoseWheelAngle(r * 90.0f - 45.0f);  // turn nose wheel -45°..+45°
+		SetNoseWheelAngle(r * 90.0f - 45.0f);  // turn nose wheel -45ï¿½..+45ï¿½
 		SetSpoilerRatio(r);
 		SetSpeedbrakeRatio(r);
 		SetSlatRatio(r);
@@ -569,6 +569,16 @@ static double now = 0.0;
 
 // user aircraft
 static UserAircraft userAircraft;
+
+// far placement of the user aircraft by X-Plane (see PlaceUserIfFar)
+static bool placingUser = false;
+static double placeLatitude = 0.0;
+static double placeLongitude = 0.0;
+static double placeStartTime = 0.0;
+// velocity received while the placement is in progress, applied once it is done
+static bool pendingVelocityValid = false;
+static Link::ObjectVelocityMsg pendingVelocity;
+
 // injected aircraft
 static InjectedAircraft* injectedAircraft[MAX_AIRCRAFT];
 
@@ -874,6 +884,8 @@ void OnDisconnect()
 {
     // reset user aircraft
     userAircraft.Close();
+    placingUser = false;
+    pendingVelocityValid = false;
     // for each network aircraft
     for (int i = 0; i < MAX_AIRCRAFT; i++)
     {
@@ -1006,8 +1018,85 @@ void OnModel(Link::ModelMsg& msg)
 }
 
 
+// Local coordinates are relative to the scenery X-Plane has loaded, so writing them for a point
+// far away leaves the aircraft floating in empty space. A far position has to be placed by X-Plane,
+// which loads the scenery first.
+static const double FAR_PLACE_DISTANCE = 20000.0;
+// longest wait for the scenery to load after a far placement [seconds]
+static const double FAR_PLACE_TIMEOUT = 60.0;
+// distance from the placement at which it counts as done
+static const double FAR_PLACE_DONE_DISTANCE = 1000.0;
+
+void OnObjectVelocity(Link::ObjectVelocityMsg& msg);
+
+// distance over the surface in metres, accurate enough to tell near from far
+static double SurfaceDistance(double lat1, double lon1, double lat2, double lon2)
+{
+	const double METRES_PER_DEGREE = 111320.0;
+	double dlat = lat2 - lat1;
+	double dlon = lon2 - lon1;
+	if (dlon > 180.0) dlon -= 360.0;
+	else if (dlon < -180.0) dlon += 360.0;
+	double dx = dlon * cos((lat1 + lat2) * 0.5 * PI / 180.0) * METRES_PER_DEGREE;
+	double dy = dlat * METRES_PER_DEGREE;
+	return sqrt(dx * dx + dy * dy);
+}
+
+// place the user aircraft with X-Plane if the position is far from where it is now
+// returns true if the position was handled here
+static bool PlaceUserIfFar(double latitude, double longitude, double altitude, float heading)
+{
+	double distance = SurfaceDistance(XPLMGetDatad(userAircraft.dr_latitude), XPLMGetDatad(userAircraft.dr_longitude), latitude, longitude);
+	if (distance < FAR_PLACE_DISTANCE) return false;
+
+	// stop overriding so that X-Plane can place the aircraft
+	userAircraft.overrideFlightControl = false;
+	userAircraft.endOverrideTime = 0.0;
+	int enable = 0;
+	XPLMSetDatavi(userAircraft.dr_override_position, &enable, 0, 1);
+	userAircraft.pos.Reset();
+
+	placingUser = true;
+	placeLatitude = latitude;
+	placeLongitude = longitude;
+	placeStartTime = now;
+	pendingVelocityValid = false;
+	XPLMPlaceUserAtLocation(latitude, longitude, (float)altitude, heading, 0.0f);
+	return true;
+}
+
+// finish a far placement once the aircraft is there, or give up waiting
+static void CheckUserPlaced()
+{
+	if (!placingUser) return;
+
+	double distance = SurfaceDistance(XPLMGetDatad(userAircraft.dr_latitude), XPLMGetDatad(userAircraft.dr_longitude), placeLatitude, placeLongitude);
+	if (distance > FAR_PLACE_DONE_DISTANCE && now - placeStartTime < FAR_PLACE_TIMEOUT) return;
+
+	placingUser = false;
+	if (pendingVelocityValid)
+	{
+		pendingVelocityValid = false;
+		// start from where X-Plane put the aircraft, then apply the velocity
+		Position& pos = userAircraft.pos;
+		pos.x = pos.nx = XPLMGetDatad(userAircraft.dr_x);
+		pos.y = pos.ny = XPLMGetDatad(userAircraft.dr_y);
+		pos.z = pos.nz = XPLMGetDatad(userAircraft.dr_z);
+		pos.p = pos.np = XPLMGetDataf(userAircraft.dr_p);
+		pos.b = pos.nb = XPLMGetDataf(userAircraft.dr_b);
+		pos.h = pos.nh = XPLMGetDataf(userAircraft.dr_h);
+		OnObjectVelocity(pendingVelocity);
+	}
+}
+
+
 void OnAircraftPosition(Link::AircraftPositionMsg& msg)
 {
+	// the user aircraft is being placed by X-Plane
+	if (msg.index == 0 && placingUser) return;
+	// far from the user aircraft
+	if (msg.index == 0 && PlaceUserIfFar(msg.latitude, msg.longitude, msg.altitude, msg.heading)) return;
+
 	// check for valid index (including user aircraft)
 	if (msg.index == 0 || msg.index >= 1 && msg.index <= MAX_AIRCRAFT && injectedAircraft[msg.index - 1] != NULL)
 	{
@@ -1103,6 +1192,11 @@ void OnAircraftPosition(Link::AircraftPositionMsg& msg)
 
 void OnObjectPosition(Link::ObjectPositionMsg& msg)
 {
+	// the user aircraft is being placed by X-Plane
+	if (msg.index == 0 && placingUser) return;
+	// far from the user aircraft
+	if (msg.index == 0 && PlaceUserIfFar(msg.latitude, msg.longitude, msg.altitude, msg.heading)) return;
+
 	// check for valid index (including user aircraft)
 	if (msg.index == 0 || msg.index >= 1 && msg.index <= MAX_AIRCRAFT && injectedAircraft[msg.index - 1] != NULL)
 	{
@@ -1155,6 +1249,14 @@ void OnObjectPosition(Link::ObjectPositionMsg& msg)
 
 void OnObjectVelocity(Link::ObjectVelocityMsg& msg)
 {
+	// the user aircraft is being placed by X-Plane, keep the velocity for when it is done
+	if (msg.index == 0 && placingUser)
+	{
+		pendingVelocity = msg;
+		pendingVelocityValid = true;
+		return;
+	}
+
 	// check for valid index (including user aircraft)
 	if (msg.index == 0 || msg.index >= 1 && msg.index <= MAX_AIRCRAFT && injectedAircraft[msg.index - 1] != NULL)
 	{
@@ -1814,6 +1916,9 @@ static float DoAircraftPosition(float elapsed, float elapsedLoop, int counter, v
 {
 	// process link
 	Link::DoWork();
+
+	// finish a far placement
+	CheckUserPlaced();
 
 	// check if client is connected
     if (Link::IsConnected() && userAircraft.overrideFlightControl == false)
