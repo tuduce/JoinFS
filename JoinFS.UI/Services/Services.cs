@@ -554,6 +554,13 @@ public interface IMapTileSource
     Task<byte[]?> GetTileAsync(int zoom, int x, int y, CancellationToken cancellationToken);
 }
 
+/// <summary>Messages the app wants the user to read: the ones the old forms showed in a message box.</summary>
+public interface IMessageSource
+{
+    /// <summary>The message waiting to be shown, or null. Asking takes it: it is returned once.</summary>
+    string? TakeMessage();
+}
+
 /// <summary>Everything the view models need from the outside. Built once at startup.</summary>
 public sealed record AppServices(
     ISimulatorLink Simulator,
@@ -577,4 +584,5 @@ public sealed record AppServices(
     IPlatform Platform,
     IPreferencesStore Preferences,
     IModelScanSource ModelScan,
-    IMapTileSource MapTiles);
+    IMapTileSource MapTiles,
+    IMessageSource Messages);

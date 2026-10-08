@@ -183,6 +183,7 @@ public class RenderTests
             ("explain", new ExplainMatchViewModel(new JoinFS.UI.Models.MatchExplanation("A320", "Result: Default - matched 'GC1a Swift'", "The ICAO type was guessed from the title.", [new JoinFS.UI.Models.ExplainRow("Category", "SingleProp", "SingleProp (+60)", true), new JoinFS.UI.Models.ExplainRow("Livery", "Default", "Closest available")], ["1. Exact title match - not found.", "2. Category fallback - matched."], "Models come from the simulator.", "# Match Report - A320"), rig.Services.Models, rig.Platform)),
             ("variables", new VariablesOverlayViewModel("PMDG 777-200ER GE PMDG House", rig.Services.Variables, rig.Services.Models, rig.Platform)),
             ("scan", new ScanModelsViewModel(rig.Services.ModelScan, false, rig.Platform)),
+            ("message", new MessageViewModel("JoinFS-FS2024", "Invalid address. Use a name or an IP address with an optional port.")),
             ("about", new AboutViewModel(rig.Services.App, rig.Services.Updates.CheckForUpdate(), rig.Platform)),
             ("xplane-plugin", new InstallXPlanePluginViewModel(rig.Services.XPlanePlugin, rig.Platform)),
         ];

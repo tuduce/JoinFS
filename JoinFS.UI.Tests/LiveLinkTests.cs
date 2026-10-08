@@ -214,6 +214,65 @@ public class LiveLinkTests
         Assert.IsType<PasswordPromptViewModel>(main.Overlay);
     }
 
+    // --- messages of the app ---
+
+    private sealed class ScriptedMessages : IMessageSource
+    {
+        public string? Pending;
+
+        public string? TakeMessage()
+        {
+            string? message = Pending;
+            Pending = null;
+            return message;
+        }
+    }
+
+    private static (MainViewModel Main, ScriptedMessages Messages) ShellWithMessages()
+    {
+        ScriptedMessages messages = new();
+        AppServices fakes = FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true, Nickname = "HB-TDX" });
+        return (new MainViewModel(fakes with { Messages = messages }), messages);
+    }
+
+    [Fact]
+    public void A_message_of_the_app_is_shown_over_the_window_until_it_is_read()
+    {
+        var (main, messages) = ShellWithMessages();
+        main.Poll();
+        Assert.Null(main.Overlay);
+
+        messages.Pending = "Invalid address";
+        main.Poll();
+        MessageViewModel message = Assert.IsType<MessageViewModel>(main.Overlay);
+        Assert.Equal("Invalid address", message.Message);
+
+        main.Poll();
+        Assert.Same(message, main.Overlay);
+
+        message.CloseCommand.Execute(null);
+        Assert.Null(main.Overlay);
+        main.Poll();
+        Assert.Null(main.Overlay); // read once
+    }
+
+    [Fact]
+    public void A_message_waits_while_another_overlay_is_open()
+    {
+        var (main, messages) = ShellWithMessages();
+        main.OpenAboutCommand.Execute(null);
+        OverlayViewModel about = main.Overlay!;
+        messages.Pending = "Invalid address";
+
+        main.Poll();
+        Assert.Same(about, main.Overlay);
+        Assert.Equal("Invalid address", messages.Pending); // not taken yet
+
+        about.Close();
+        main.Poll();
+        Assert.IsType<MessageViewModel>(main.Overlay);
+    }
+
     [Fact]
     public async Task Confirming_the_prompt_is_not_giving_up()
     {
