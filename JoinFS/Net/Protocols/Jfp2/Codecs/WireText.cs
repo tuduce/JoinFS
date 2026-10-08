@@ -10,11 +10,11 @@ namespace JoinFS.Net.Jfp2.Codecs
     /// <summary>
     /// Shared length-prefixed UTF8 string helper for codecs whose fields are sent rarely enough
     /// (join/change/low-frequency messages, not the per-tick Position hot path) that the extra 1-2
-    /// bytes per string is irrelevant - same rationale docs/reference/jfp2-protocol.md §6.2 gives for
+    /// bytes per string is irrelevant - same rationale docs/jfp2/protocol.md §9.2 gives for
     /// `IdentityV1Codec`'s string encoding, factored out here so every codec that needs it shares one
     /// implementation instead of duplicating it per codec.
     ///
-    /// Every write takes the field's byte limit (docs/jfp2-wire-design.md §4.6): a constant of the
+    /// Every write takes the field's byte limit (docs/jfp2/protocol.md §9.7): a constant of the
     /// codec, next to the field it bounds. A longer text is cut at a UTF-8 character boundary, never
     /// inside a character, so what goes out is still valid UTF-8. The limits keep every message within
     /// the 1,200-byte datagram ceiling (§4.5), and since a limit can be no more than <see cref="MaxLimit"/>

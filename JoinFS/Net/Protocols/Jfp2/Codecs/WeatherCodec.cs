@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-// docs/protocol-v2-implementation-plan.md Phase 5: WeatherReply and WeatherUpdate (docs/network-
+// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 5: WeatherReply and WeatherUpdate (docs/network-
 // protocol.md §8.4) share the identical wire shape ({ Metar: string }) but need independent schema
 // versions/negotiation (different reliability semantics, different receive-side handling - a Reply
 // only ever updates this node's own weather, an Update applies to a specific peer's aircraft) so they
@@ -23,7 +23,7 @@ namespace JoinFS.Net.Jfp2.Codecs
         public byte MessageClass => MessageClasses.WeatherReply;
         public byte SchemaVersion => 1;
 
-        /// <summary>Byte limit of Metar (UTF-8, without the length prefix; docs/jfp2-wire-design.md §4.6).</summary>
+        /// <summary>Byte limit of Metar (UTF-8, without the length prefix; docs/jfp2/protocol.md §9.7).</summary>
         public const int MetarLimit = 1024;
 
         /// <summary>The largest payload: Metar at its limit with its prefix.</summary>
@@ -49,7 +49,7 @@ namespace JoinFS.Net.Jfp2.Codecs
         public byte MessageClass => MessageClasses.Weather;
         public byte SchemaVersion => 1;
 
-        /// <summary>Byte limit of Metar (UTF-8, without the length prefix; docs/jfp2-wire-design.md §4.6).</summary>
+        /// <summary>Byte limit of Metar (UTF-8, without the length prefix; docs/jfp2/protocol.md §9.7).</summary>
         public const int MetarLimit = 1024;
 
         /// <summary>The largest payload: Metar at its limit with its prefix.</summary>

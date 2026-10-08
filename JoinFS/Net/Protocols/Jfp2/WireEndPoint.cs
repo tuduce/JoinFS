@@ -6,7 +6,7 @@ using System.Net.Sockets;
 namespace JoinFS.Net.Jfp2
 {
     /// <summary>
-    /// How the JFP2 wire writes an address and port (docs/reference/jfp2-protocol.md §4.8): a family
+    /// How the JFP2 wire writes an address and port (docs/jfp2/protocol.md §4.4): a family
     /// byte, the address in network byte order, the port as u16 little-endian.
     ///
     /// | Family | Address | Size |

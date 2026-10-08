@@ -5,7 +5,7 @@ namespace JoinFS.Tests.Session
 {
     /// <summary>
     /// ObservedEndPoints: what neighbors' observations of this node's endpoint say about its NAT
-    /// (docs/jfp2-wire-design.md §7.3). This node: interface 192.168.1.20, bound to port 6112.
+    /// (docs/jfp2/implementation.md §3.2). This node: interface 192.168.1.20, bound to port 6112.
     /// </summary>
     public class ObservedEndPointsTests
     {

@@ -6,7 +6,7 @@ using Xunit;
 
 namespace JoinFS.Tests.Jfp2
 {
-    // Round-trip coverage for the Identity codec (docs/protocol-v2-implementation-plan.md Phase 3).
+    // Round-trip coverage for the Identity codec (docs/jfp2/history/protocol-v2-implementation-plan.md Phase 3).
     public class IdentityCodecTests
     {
         static IdentityUpdate SampleAircraft() => new()
@@ -92,7 +92,7 @@ namespace JoinFS.Tests.Jfp2
         {
             // Obj.netId (JoinFS/Sim.cs) is a real uint (a raw SimConnect object id), so a value above
             // ushort.MaxValue must survive intact - see the widening deviation note in
-            // docs/protocol-v2-implementation-plan.md's Phase 3 writeup.
+            // docs/jfp2/history/protocol-v2-implementation-plan.md's Phase 3 writeup.
             var codec = new IdentityV1Codec();
             var identity = new IdentityUpdate { ObjectId = 0xFFFFFFF0u, Callsign = "", Model = "", Livery = "", IcaoType = "", IcaoAirline = "", Registration = "", ClassCode = "", Wtc = "" };
 
@@ -112,7 +112,7 @@ namespace JoinFS.Tests.Jfp2
         }
 
         /// <summary>
-        /// Every string is cut to its limit at a character boundary (docs/jfp2-wire-design.md §4.6), so
+        /// Every string is cut to its limit at a character boundary (docs/jfp2/protocol.md §9.7), so
         /// with every field at its limit the message is the largest IdentityUpdate payload, 656 bytes.
         /// </summary>
         [Fact]

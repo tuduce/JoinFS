@@ -8,7 +8,7 @@ using JoinFS.Net.Jfp2.Codecs;
 namespace JoinFS.Net.Jfp2
 {
     /// <summary>
-    /// The JFP2 protocol as a plugin (docs/reference/jfp2-protocol.md): an 8-byte envelope starting with
+    /// The JFP2 protocol as a plugin (docs/jfp2/protocol.md): an 8-byte envelope starting with
     /// magic 0xFA, a Hello/HelloAck handshake that agrees a schema version per message class with
     /// each neighbor, versioned codecs, guaranteed delivery (<see cref="Jfp2Reliability"/>), and relay
     /// of Forwarded envelopes.
@@ -138,7 +138,7 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>
         /// The name this node writes for a node: its kind-0 name, since every node has a legacy id
-        /// until the mesh runs over JFP2 (docs/reference/jfp2-protocol.md §4.9).
+        /// until the mesh runs over JFP2 (docs/jfp2/protocol.md §4.3).
         /// </summary>
         static NodeName NameOf(NodeId node) => NodeName.FromLegacy(node);
 

@@ -5,7 +5,7 @@ using JoinFS.Net.Jfp2.Codecs;
 
 namespace JoinFS.Net.Jfp2
 {
-    // Encode and decode: canonical messages to JFP2 datagrams and back (docs/reference/jfp2-protocol.md §6).
+    // Encode and decode: canonical messages to JFP2 datagrams and back (docs/jfp2/protocol.md §9).
     public sealed partial class Jfp2Plugin
     {
         // ================================================================== canonical → wire

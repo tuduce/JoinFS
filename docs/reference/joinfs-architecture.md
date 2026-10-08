@@ -4,7 +4,7 @@
 network stack in which wire protocols are plugins. It describes the code as it is
 (`JoinFS/`, 2026-09). For the reasoning behind the network design and how it evolved, see
 `docs/network-plugin-architecture.md`. For the wire protocols themselves, see
-`docs/reference/jfp2-protocol.md` (JFP2) and `docs/network-protocol.md` (legacy).
+`docs/jfp2/protocol.md` (JFP2) and `docs/network-protocol.md` (legacy).
 
 Contents:
 1. [What JoinFS is, and the vocabulary](#1-what-joinfs-is-and-the-vocabulary)
@@ -379,7 +379,7 @@ public interface IProtocolPlugin
   the Forward flag, which is exactly what a legacy relay emits.
 - **Pinned** byte-for-byte by the golden fixtures in `JoinFS.Tests/Legacy`.
 
-**`Jfp2Plugin`** (`Net/Protocols/Jfp2/`) — the newer protocol (`docs/reference/jfp2-protocol.md`):
+**`Jfp2Plugin`** (`Net/Protocols/Jfp2/`) — the newer protocol (`docs/jfp2/protocol.md`):
 - **Envelope:** an 8-byte header (magic `0xFA`), optional guaranteed and relay extensions.
 - **Sessions:** with a *neighbour*, bound to the node id it states in Hello/HelloAck, never to the
   endpoint it answers from; datagrams find their session by the ids in the envelope. Hello/HelloAck
@@ -575,7 +575,7 @@ plugin.
 **A new field on an existing message** (for example on `PositionUpdate`):
 1. Add it to the canonical struct as optional, with a presence bit or a sentinel.
 2. Carry it in a new JFP2 schema version: write a `PositionV2Codec` and add it to Position's
-   descriptor in `Jfp2Profile.Default`; the offer follows (`docs/reference/jfp2-protocol.md` §6.6).
+   descriptor in `Jfp2Profile.Default`; the offer follows (`docs/jfp2/implementation.md` §5).
 3. Leave the legacy codec alone; it ignores the field.
 4. Give it a default in the session part's handler for peers that don't send it.
 
@@ -584,7 +584,7 @@ plugin.
    overload. Handle it in the session part that owns that data, and forward it there from
    `Network`.
 2. Carry it in JFP2 with a new application class number, appended and never reused, and a
-   descriptor for it in `Jfp2Profile.Default` (`docs/reference/jfp2-protocol.md` §6.6).
+   descriptor for it in `Jfp2Profile.Default` (`docs/jfp2/implementation.md` §5).
 3. Legacy doesn't get new messages. Either the feature doesn't reach legacy peers, or it is expressed
    through an existing kind (for example, a sim value as a `VariableSync` vuid).
 

@@ -4,14 +4,14 @@ using System.Collections.Generic;
 namespace JoinFS.Net.Jfp2
 {
     /// <summary>
-    /// JFP2 guaranteed delivery (docs/reference/jfp2-protocol.md §4.4): a guaranteed message is resent
+    /// JFP2 guaranteed delivery (docs/jfp2/protocol.md §7): a guaranteed message is resent
     /// every 2 s until acknowledged or 180 s pass. Each attempt goes through the target's current next
     /// hop, so a route change or a session that drops and is verified again does not strand it; while
     /// JFP2 has no route to the target the message waits. Receivers ack every copy and deliver once,
     /// remembering ids for 30 s.
     ///
     /// A guaranteed id is unique per (origin, final target) within those 30 s; one message to several
-    /// targets may share one (docs/reference/jfp2-protocol.md §4.4). So everything here is keyed by
+    /// targets may share one (docs/jfp2/protocol.md §7.2). So everything here is keyed by
     /// both: pending segments by (origin, target, id, index), since a relay re-sending on an origin's
     /// behalf keeps the origin's id; received ids by (origin, target, id), since a relay that
     /// translates sees one origin's id for several targets. A node that is the final target is the
@@ -25,8 +25,8 @@ namespace JoinFS.Net.Jfp2
     {
         /// <summary>
         /// Payload bytes per guaranteed segment once segmentation exists: the payload ceiling that
-        /// keeps a datagram within 1,200 bytes with every header (docs/reference/jfp2-protocol.md
-        /// §6.7). The field limits keep every v1 payload within it, so today a larger one is a codec bug.
+        /// keeps a datagram within 1,200 bytes with every header (docs/jfp2/protocol.md
+        /// §3.6). The field limits keep every v1 payload within it, so today a larger one is a codec bug.
         /// </summary>
         public const int GuaranteedSegmentSize = Envelope.MaxPayloadSize;
 

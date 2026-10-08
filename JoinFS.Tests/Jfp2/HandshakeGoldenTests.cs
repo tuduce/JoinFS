@@ -9,10 +9,10 @@ namespace JoinFS.Tests.Jfp2
 {
     /// <summary>
     /// The exact bytes of a Hello and a HelloAck: envelope, fixed fields, offer list, Names and Build
-    /// extensions. The handshake is JFP2's permanent entry point (docs/reference/jfp2-protocol.md §5.2):
+    /// extensions. The handshake is JFP2's permanent entry point (docs/jfp2/protocol.md §5.8):
     /// every build ever released must be able to start a handshake with every later one, so these
     /// bytes are a frozen spec, like JoinFS.Tests/Legacy/Fixtures. NEVER change them to make a test
-    /// pass. If one fails, the code broke the wire; new things go into new extension tags (§5.5),
+    /// pass. If one fails, the code broke the wire; new things go into new extension tags (§5.4),
     /// and a test for them goes next to these, not into them.
     /// </summary>
     public class HandshakeGoldenTests
@@ -43,7 +43,7 @@ namespace JoinFS.Tests.Jfp2
             "01 00 08 00 00 02 64 33 C6 E0 17 02" +  // TLV Names: one name, kind 0, legacy id 198.51.100.2, port 6112, local 2
             "02 00 15 00 32 36 2E 36 2E 30 20 4A 6F 69 6E 46 53 2D 43 4F 4E 53 4F 4C 45"; // TLV Build: "26.6.0 JoinFS-CONSOLE"
 
-        // the same answer with the ObservedEndPoint extension (docs/jfp2-wire-design.md §7): the Hello came
+        // the same answer with the ObservedEndPoint extension (docs/jfp2/protocol.md §5.4): the Hello came
         // from 203.0.113.1:6112, and every HelloAck of this build says so, after Names and Build
         const string HelloAckWithObservedEndPointHex = HelloAckHex +
             "03 00 07 00 04 CB 00 71 01 E0 17";      // TLV ObservedEndPoint: family 4, address 203.0.113.1 (network order), port 6112 (LE)

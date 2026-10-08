@@ -167,7 +167,7 @@ namespace JoinFS.Tests.Net
         }
 
         /// <summary>
-        /// Pins a known limit (docs/reference/jfp2-protocol.md §4.4): a guaranteed payload over the
+        /// Pins a known limit (docs/jfp2/protocol.md §7.5): a guaranteed payload over the
         /// 1,100-byte ceiling, which the field limits (§6.7) leave only to a codec bug, still goes out
         /// as a single datagram, and is logged. When segmentation is implemented this should expect
         /// ceil(size / GuaranteedSegmentSize) segments instead, as
@@ -218,7 +218,7 @@ namespace JoinFS.Tests.Net
         }
 
         /// <summary>
-        /// The field limits are JFP2's (docs/jfp2-wire-design.md §4.6): a note longer than the JFP2
+        /// The field limits are JFP2's (docs/jfp2/protocol.md §9.7): a note longer than the JFP2
         /// limit is cut over JFP2 and arrives whole over legacy, which has no such limit.
         /// </summary>
         [Fact]
@@ -346,7 +346,7 @@ namespace JoinFS.Tests.Net
             Assert.Equal(2, Assert.Single(hub.Messages<PositionUpdate>()).Latitude);
         }
 
-        // ------------------------------------------------ datagrams from later builds (jfp2-protocol.md §4.1, §4.2)
+        // ------------------------------------------------ datagrams from later builds (docs/jfp2/protocol.md §3.1, §3.2)
 
         /// <summary>A Position datagram from a to the hub in their session, with bytes 1 (ProtoMajor) and 2 (Flags) as given.</summary>
         static void SendPositionWith(TestNode a, TestNode hub, byte protoMajor, byte flags)
@@ -439,7 +439,7 @@ namespace JoinFS.Tests.Net
         }
 
         /// <summary>
-        /// Every class, every string longer than its field's limit (docs/jfp2-wire-design.md §4.6), so
+        /// Every class, every string longer than its field's limit (docs/jfp2/protocol.md §9.7), so
         /// that each message is the largest of its class.
         /// </summary>
         static void SendEveryClassAtItsLimits(TestNode from, TestNode to)
@@ -502,7 +502,7 @@ namespace JoinFS.Tests.Net
         }
 
         /// <summary>
-        /// No JFP2 datagram is larger than 1,200 bytes (docs/jfp2-wire-design.md §4.5): every class with
+        /// No JFP2 datagram is larger than 1,200 bytes (docs/jfp2/protocol.md §3.6): every class with
         /// maximum-length strings in every field, guaranteed where the class is, relayed so that the
         /// Forwarded extension is included, and sent directly; with the handshakes, keepalives and acks
         /// that go with them.
@@ -655,7 +655,7 @@ namespace JoinFS.Tests.Net
             });
         }
 
-        // ------------------------------------------------ observed endpoint (docs/jfp2-wire-design.md §7)
+        // ------------------------------------------------ observed endpoint (docs/jfp2/protocol.md §5.4)
 
         static List<(NodeId Reporter, IPEndPoint EndPoint)> Observations(TestNode node) =>
             node.Events.Where(e => e.Kind == NetworkEventKind.EndPointObserved).Select(e => (e.Node, e.EndPoint)).ToList();
@@ -751,7 +751,7 @@ namespace JoinFS.Tests.Net
             Assert.True(size <= Envelope.MaxDatagramSize);
         }
 
-        // ------------------------------------------------ node names (jfp2-protocol.md §4.9)
+        // ------------------------------------------------ node names (docs/jfp2/protocol.md §4.3)
 
         /// <summary>A name of kind 1 (a random key): a later build's, which this build cannot resolve.</summary>
         static readonly NodeName KeyName = NodeName.ReadFrom(new byte[] { 1, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11 });
@@ -864,7 +864,7 @@ namespace JoinFS.Tests.Net
         }
 
         /// <summary>
-        /// A later build lists a key beside its legacy id (stage 11 of docs/jfp2-wire-design.md): this
+        /// A later build lists a key beside its legacy id (stage 11 of docs/jfp2/roadmap.md): this
         /// build skips the name it cannot resolve and binds the session by the legacy one. A Hello that
         /// names only a key is from no node this build can place, and is ignored.
         /// </summary>
@@ -894,7 +894,7 @@ namespace JoinFS.Tests.Net
             Assert.Contains(hub.Logs, l => l.Contains("does not say who it is"));
         }
 
-        // ------------------------------------------------ handshake and envelope rules (jfp2-protocol.md §4.4, §5.2)
+        // ------------------------------------------------ handshake and envelope rules (docs/jfp2/protocol.md §7, §5.1)
 
         /// <summary>
         /// A hand-made HelloAck in the hub's session with a, as a later build might send it: from the hub

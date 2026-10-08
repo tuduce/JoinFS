@@ -11,7 +11,7 @@ namespace JoinFS.Net.Jfp2
     /// permanent number (<see cref="MessageClasses"/>), its partition, whether it is sent guaranteed,
     /// a codec per schema version it speaks, and how a decoded message reaches the core. A
     /// <see cref="Jfp2Profile"/> is a set of these, and the offers in Hello, routing, encoding and
-    /// decoding all read them (docs/reference/jfp2-protocol.md §6.6).
+    /// decoding all read them (docs/jfp2/implementation.md §5).
     /// </summary>
     public abstract class ClassDescriptor
     {

@@ -7,7 +7,7 @@ namespace JoinFS.Tests.Jfp2
 {
     /// <summary>
     /// WireText, the u16-prefixed UTF-8 strings of the JFP2 codecs: a text longer than its field's
-    /// limit is cut at a character boundary (docs/jfp2-wire-design.md §4.6).
+    /// limit is cut at a character boundary (docs/jfp2/protocol.md §9.7).
     /// </summary>
     public class WireTextTests
     {

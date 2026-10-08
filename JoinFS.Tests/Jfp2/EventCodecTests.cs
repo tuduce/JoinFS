@@ -6,7 +6,7 @@ using Xunit;
 
 namespace JoinFS.Tests.Jfp2
 {
-    // Round-trip coverage for the Event codec (docs/protocol-v2-implementation-plan.md Phase 5).
+    // Round-trip coverage for the Event codec (docs/jfp2/history/protocol-v2-implementation-plan.md Phase 5).
     public class EventCodecTests
     {
         static EventUpdate Sample() => new()

@@ -67,7 +67,7 @@ namespace JoinFS.Tests.Jfp2
         }
 
         /// <summary>
-        /// Metar is cut to its limit at a character boundary (docs/jfp2-wire-design.md §4.6), in both
+        /// Metar is cut to its limit at a character boundary (docs/jfp2/protocol.md §9.7), in both
         /// classes; at its limit the message is the largest weather payload, 1,026 bytes.
         /// </summary>
         [Fact]

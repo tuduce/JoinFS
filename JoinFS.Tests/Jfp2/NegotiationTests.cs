@@ -5,9 +5,9 @@ using Xunit;
 
 namespace JoinFS.Tests.Jfp2
 {
-    // Formalizes the negotiation/handshake behavior specified in docs/reference/jfp2-protocol.md §5 (the
+    // Formalizes the negotiation/handshake behavior specified in docs/jfp2/protocol.md §5 (the
     // Hello/HelloAck handshake, §5.3's per-class resolution algorithm, §5.5's extension TLV), now run
-    // against the code ported into JoinFS/Jfp2/Negotiation.cs (docs/protocol-v2-implementation-plan.md
+    // against the code ported into JoinFS/Jfp2/Negotiation.cs (docs/jfp2/history/protocol-v2-implementation-plan.md
     // Phase 0/1). Scenario: peer A is a fresh build offering Position v1-2/Identity v1/VariableSync
     // v1, peer B is one release behind (Position v1 only, Identity v1, never heard of VariableSync).
     public class NegotiationTests
@@ -50,7 +50,7 @@ namespace JoinFS.Tests.Jfp2
             Negotiator.Resolve(peerA, CapabilityX, OffersA(), CapabilityX, OffersB());
 
             // B never declared VariableSync as its own message class - version 0 is the documented
-            // "don't send this to this peer" baseline (docs/reference/jfp2-protocol.md §5.3).
+            // "don't send this to this peer" baseline (docs/jfp2/protocol.md §5.5).
             Assert.Equal(0, peerA.AgreedAppVersion[MessageClasses.VariableSync]);
         }
 
@@ -215,7 +215,7 @@ namespace JoinFS.Tests.Jfp2
             Assert.Equal("xy" + new string('z', HandshakeMessage.BuildMaxBytes - 6), back.Build);
         }
 
-        // ------------------------------------------------ extension rules (docs/reference/jfp2-protocol.md §5.5)
+        // ------------------------------------------------ extension rules (docs/jfp2/protocol.md §5.4)
 
         /// <summary>A handshake payload with no offers and no extensions, then these TLVs exactly as given.</summary>
         static byte[] WithTlvs(params (ushort Tag, byte[] Value)[] tlvs)
@@ -322,7 +322,7 @@ namespace JoinFS.Tests.Jfp2
             HandshakeMessage back = HandshakeMessage.Deserialize(wire);
 
             // A reader that doesn't recognize tag 0x00FF still parses the rest of the message
-            // correctly - it just never looks the tag up (docs/reference/jfp2-protocol.md §5.5).
+            // correctly - it just never looks the tag up (docs/jfp2/protocol.md §5.4).
             Assert.Equal(2, back.Extensions.Count);
             Assert.Equal("known", Encoding.UTF8.GetString(back.Extensions[0x0100]));
         }

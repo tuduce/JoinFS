@@ -1,11 +1,14 @@
 # JFP2 Implementation Review: Field Audit and Rollout Readiness
 
+> **History (moved 2026-10-08).** This is a record of how JFP2 was first built, kept as it was written. The current specification is `docs/jfp2/protocol.md`; the section numbers cited below (`§4.4` and so on) are those of the specification before it was restructured (`git show 1b6e629:docs/reference/jfp2-protocol.md`). Open work is tracked only in `docs/jfp2/roadmap.md`, whatever a task list below still says.
+
+
 ## Status
 
 Independent review of the **actual code** under `JoinFS/Jfp2/` and the JFP2 call sites in
 `JoinFS/Node.cs`/`JoinFS/Network.cs`, as they stand after
-`docs/protocol-v2-implementation-plan.md` Phases 0–5 (commit `83ae480`, 2026-09-14). This is not a
-review of the design (`docs/reference/jfp2-protocol.md`) or of `ProtocolV2Reference/` in isolation — it
+`docs/jfp2/history/protocol-v2-implementation-plan.md` Phases 0–5 (commit `83ae480`, 2026-09-14). This is not a
+review of the design (`docs/jfp2/protocol.md`) or of `ProtocolV2Reference/` in isolation — it
 is a field-by-field audit of what was actually built, followed by a rollout-readiness verdict.
 
 Verified before writing this: `cd JoinFS.Tests && dotnet test --filter "FullyQualifiedName~Jfp2" -c
@@ -80,7 +83,7 @@ design that is otherwise sound and consistently applied. See §4 for the fully i
 and §5 for what "ready" would concretely look like.
 
 **Update, 2026-09-15 — Finding 6 added.** Field testing (two real-simulator sessions, logged in
-`docs/protocol-v2-implementation-plan.md`) surfaced a pre-existing, non-JFP2-specific latency source in
+`docs/jfp2/history/protocol-v2-implementation-plan.md`) surfaced a pre-existing, non-JFP2-specific latency source in
 `VariableMgr.Set`'s receive-side hold-off logic that explains a reported 1-2 second lag in light-state
 (landing/taxi light) propagation, observed identically over both JFP2 and legacy transport. It does not
 block the JFP2 rollout (it isn't a JFP2 regression), but it's worth fixing independently — see Finding
@@ -247,7 +250,7 @@ paths they describe and found consistent):
 **Update, 2026-09-14 — Position and Identity now confirmed live against a real simulator, closing
 what was this review's single largest gap.** Outside this sandbox, the user built a `CONSOLE` v26.6
 client and upgraded a hub to v26.6, and ran two scenarios (recorded in full in
-`docs/protocol-v2-implementation-plan.md` Phase 4):
+`docs/jfp2/history/protocol-v2-implementation-plan.md` Phase 4):
 
 - **Two v26.6 CONSOLE instances (ports 6112/6113), both connected to the v26.6 hub, with a simulator
   attached.** All 3 aircraft appeared (local user aircraft + one injected object per peer), and
@@ -443,7 +446,7 @@ light changing blocks all the others sharing it.**
   netId, Dictionary<uint,int>)` (`Sim.AircraftUpdate.cs`), which calls
   `controlledAircraft.variableSet.UpdateIntegers(variables)` unconditionally — this is not a
   JFP2-specific code path.
-- **Observed effect, field-tested 2026-09-15** (see `docs/protocol-v2-implementation-plan.md`'s
+- **Observed effect, field-tested 2026-09-15** (see `docs/jfp2/history/protocol-v2-implementation-plan.md`'s
   field-test log): toggling landing and taxi lights together — a natural real-world action —
   reproduced a 0-3 second lag on a remote peer in both a JFP2-negotiated direct-mesh pair and a mixed
   JFP2/legacy pair, matching this mechanism's predicted worst case. Strobe is the one exception in
@@ -557,7 +560,7 @@ indirect (hub-relayed) peer at all, on any protocol version, before or after JFP
   has presumably existed since the guaranteed-delivery mechanism itself was written, affecting the
   **legacy** protocol equally before JFP2 existed — `SimEvent`, `Notes` (live chat push), and
   `WeatherReply` are the three legacy message types sent guaranteed
-  (`docs/protocol-v2-implementation-review.md`'s own Finding 1 lists the same three for JFP2's separate,
+  (`docs/jfp2/history/protocol-v2-implementation-review.md`'s own Finding 1 lists the same three for JFP2's separate,
   since-fixed guaranteed-delivery gap). A relay-only peer pair talking over legacy could apparently never
   have exchanged any of these three correctly, on any past version — a real, if narrow (relay-only
   topologies are less common than direct mesh), regression against "same functionality as always."

@@ -2,7 +2,7 @@
 
 > **What this document is:** the design and decision record of the 2026-09 networking rewrite — the problem, the options considered, the chosen design, how it evolved during implementation (§2.10), and the build log (§4).
 > - **For how the system works today, read `docs/reference/joinfs-architecture.md`.** Where this record and the code disagree, the code (and that reference) wins.
-> - The JFP2 wire protocol is specified in `docs/reference/jfp2-protocol.md`.
+> - The JFP2 wire protocol is specified in `docs/jfp2/protocol.md`.
 
 ## Context
 
@@ -172,7 +172,7 @@ With §2.4 in place, "JFP2 has its own mesh" no longer means a second mesh. It m
 
 **Is it worth it?**
 - **Not now.** While any legacy peer might be in the session (released v26.5 builds don't update themselves), the legacy mesh codecs must stay anyway.
-  - **Superseded by §2.13:** IPv6 for CGNAT users and retiring legacy are now requirements, and security is a goal, so the mesh moves to JFP2 (B3). The legacy mesh codecs stay until legacy retires. The "what it would take" list above (items 1, 2 and 4) is superseded too, by the appendix of `docs/jfp2-wire-design.md`: the internal classes 2–8 once reserved for the mesh are released, and the mesh over JFP2 designs and assigns its own set; a pre-membership bootstrap with admission (B2/B3); and membership lists split across messages.
+  - **Superseded by §2.13:** IPv6 for CGNAT users and retiring legacy are now requirements, and security is a goal, so the mesh moves to JFP2 (B3). The legacy mesh codecs stay until legacy retires. The "what it would take" list above (items 1, 2 and 4) is superseded too, by `docs/jfp2/design-future.md` §2: the internal classes 2–8 once reserved for the mesh are released, and the mesh over JFP2 designs and assigns its own set; a pre-membership bootstrap with admission (B2/B3); and membership lists split across messages.
 - **The gain is small:**
   - smaller headers: 8 bytes instead of 21, on 1 Hz pulses;
   - Findings 8/9 no longer apply. They are fixed on our side in the rewrite anyway.
@@ -346,15 +346,11 @@ This reverses three earlier decisions: §2.10 item 12 (no relayed JFP2 originati
 
 ### 2.13 JFP2 as the successor protocol (2026-10-08, with the first-release wire design)
 
-This supersedes three earlier positions, each of which now points here: §2.4's "JFP2 stays a link upgrader", §2.4.1's "Not now", and §2.10 item 3's premise that every node speaks legacy. The goals come from `docs/jfp2-standalone-review.md`, whose item names (A4, B2, B3, B7) are used here; the wire from `docs/jfp2-wire-design.md`, approved by the project owner on 2026-10-08.
+This supersedes three earlier positions, each of which now points here: §2.4's "JFP2 stays a link upgrader", §2.4.1's "Not now", and §2.10 item 3's premise that every node speaks legacy.
 
-**Why.** Some users cannot join the legacy mesh from behind CGNAT, and the frozen legacy wire cannot gain IPv6, NAT traversal or authentication. §2.4.1 named exactly these, and retiring legacy, as the requirements that would make a JFP2 mesh worth its cost. IPv6 for CGNAT users and retiring legacy are requirements now; authentication is a goal (decision 4); NAT traversal starts with the observed endpoint (wire design §7). Extensibility is a first-class goal too: legacy grew by appending fields, and JFP2 exists to stop that.
+**Decision.** JFP2 replaces legacy. Some users cannot join the legacy mesh from behind CGNAT, and the frozen legacy wire cannot gain IPv6, NAT traversal or authentication; §2.4.1 named exactly these, and retiring legacy, as the requirements that would make a JFP2 mesh worth its cost. A node must become able to join, stay in and leave a session over JFP2 alone, after which legacy retires. Until then both plugins stay, and retiring legacy is deleting its plugin (§2.8, last row). Until the mesh runs over JFP2, legacy is the membership layer (Join, Pulse and Pathfinder go through `MeshManager` and only legacy carries them). Security is a goal. 26.6 waits until JFP2's first wire is right.
 
-**Decisions.**
-1. **JFP2 replaces legacy.** A node must be able to join, stay in and leave a session over JFP2 alone. Legacy then retires, when the builds that hubs log from the `Build` extension (A4, spec §5.5) show that enough users run a build with the mesh over JFP2. 26.6 is not that build: it still joins over legacy. Until legacy retires, both plugins stay, and retiring it is deleting its plugin (§2.8, last row); the X-Plane link keeps the legacy framing constants it shares (`XPlaneLink` uses `LegacyWire`).
-2. **Until B3, legacy is the membership layer.** Join, Pulse and Pathfinder go through `MeshManager` and only legacy carries them; JFP2 negotiates only with nodes the legacy mesh registered; every node speaks legacy, so falling back to it is always possible. B3, the mesh over JFP2 (membership, admission, endpoint lists), ends this, with its own design.
-3. **The first released wire is the one of `docs/jfp2-wire-design.md`.** JFP2's wire is not frozen until its first release, 26.6, and 26.6 waits until the wire is right. That design keeps the envelope, the per-class offers, the TLV area and the capability bits, and changes five things: every node reference becomes an 8-byte tagged name; guaranteed ids are unique per (origin, final target) and kept by a relay that re-sends; every string field of a v1 codec has a byte limit, so every datagram fits 1,200 bytes; every HelloAck reports the endpoint the Hello came from, in a `WireEndPoint` that replaces `PeerKey`; unknown `Result` values, name kinds, offer partitions, TLVs and flags have defined handling. With them, the four reserved capability meanings and the reserved internal class numbers 2–8 are released, to be assigned by the designs that need them. Release 1 sends only kind-0 names (a legacy id in the name's layout), so no node changes identity in 26.6. It is built in that document's stages, whose status it tracks; the spec describes each part as it is built. From 26.6 on, the spec's evolution rules bind: Hello and HelloAck keep their envelope, fixed fields and offer layout (spec §5.2), and anything new goes into TLVs, new classes, new schema versions or capability-gated flags.
-4. **Security is a goal (B7).** Without legacy, JFP2's Join is the only access control. B7 designs a challenge-response Join, node names bound to a key pair, and protection of every datagram per hop (a relay decodes to translate, so protection cannot be end to end). The first released wire leaves room for all three (wire design §2.5, appendix A.5). None of it is built: JFP2 has no authentication yet, like legacy (§2.12, Known limits).
+The goals, the release plan, the retirement criterion and every decision are in `docs/jfp2/goals.md`; the wire is `docs/jfp2/protocol.md`; the work still to do is `docs/jfp2/roadmap.md`. They are not repeated here.
 
 
 ---
@@ -448,7 +444,7 @@ Pre-existing bugs fixed along the way (most have a regression test in `JoinFS.Te
    - **Status: done.**
      - `Node.cs` and `Jfp2Bridge.cs` are deleted, and `Jfp2/` was moved under `Net/Protocols/Jfp2/`.
      - `Network.cs` remains as the protocol-free session layer rather than being deleted (§2.10 item 1).
-9. Update `docs/protocol-v2-architecture.md`, `.claude/CLAUDE.md` (the architecture section, the threading model, the "legacy files untouched" rule) and the implementation plan.
+9. Update `docs/jfp2/history/protocol-v2-architecture.md`, `.claude/CLAUDE.md` (the architecture section, the threading model, the "legacy files untouched" rule) and the implementation plan.
    - **Status: done** for this document and `CLAUDE.md`. `protocol-v2-architecture.md` has a banner pointing here.
 
 **Still open after the rewrite:**

@@ -1,7 +1,10 @@
 # JFP2 Implementation Plan
 
+> **History (moved 2026-10-08).** This is a record of how JFP2 was first built, kept as it was written. The current specification is `docs/jfp2/protocol.md`; the section numbers cited below (`§4.4` and so on) are those of the specification before it was restructured (`git show 1b6e629:docs/reference/jfp2-protocol.md`). Open work is tracked only in `docs/jfp2/roadmap.md`, whatever a task list below still says.
+
+
 Ordered, checkable task list for implementing the JFP2 protocol designed in
-`docs/reference/jfp2-protocol.md` and `docs/protocol-v2-architecture.md`. **Keep this file updated** —
+`docs/jfp2/protocol.md` and `docs/jfp2/history/protocol-v2-architecture.md`. **Keep this file updated** —
 check items off as they're done, add sub-tasks as needed, and note any deviation from the design
 docs (with the reason) inline so the next session doesn't redo the same analysis.
 
@@ -11,7 +14,7 @@ point for `grep`/search, not as guaranteed-current.
 
 Status legend: `[ ]` not started, `[~]` in progress, `[x]` done.
 
-**2026-09-14: see `docs/protocol-v2-implementation-review.md`** for an independent field-by-field
+**2026-09-14: see `docs/jfp2/history/protocol-v2-implementation-review.md`** for an independent field-by-field
 audit of everything Phases 0-5 actually built, plus a rollout-readiness verdict. Short version: the
 field-level design holds up. Three of the review's findings were fixed the same day:
 
@@ -60,7 +63,7 @@ has never been compiled. Do this first; everything else builds on it.
       `Negotiation.cs` per this plan's own scope — no codec exists yet under `JoinFS/Jfp2/Codecs/` to
       test against. Add that file when Phase 2 lands the first real codec.
 - [x] No discrepancy found between the Python-verified numbers and the compiled C# output — every
-      number in `docs/reference/jfp2-protocol.md` §6.1 reproduced exactly (see `dotnet run` output above).
+      number in `docs/jfp2/protocol.md` §6.1 reproduced exactly (see `dotnet run` output above).
 
 ## Phase 1 — Land JFP2 as dead code (design doc §9 step 1) — DONE 2026-09-13
 
@@ -89,14 +92,14 @@ Legacy behavior must be provably unchanged throughout this phase.
       `HandleJfp2Hello`, `HandleJfp2HelloAck`, `Jfp2ReceiveMsg` — all in `JoinFS/Node.cs`'s new
       `#region JFP2`). Only offered to peers already present in the legacy `nodes` dictionary (i.e.
       after legacy Join/JoinReply/AddNode has already registered them), matching the sequence diagram
-      in `docs/protocol-v2-architecture.md` §3. The very first Hello to/from a peer has no established
+      in `docs/jfp2/history/protocol-v2-architecture.md` §3. The very first Hello to/from a peer has no established
       PeerId yet, so both send and reply address the raw `IPEndPoint`/`node.routeEndPoint` — matching
       to a known `Nuid` on receive is done by a linear scan over `nodes` matching `endPoint`
       (`FindNuidByEndPoint`), the same style of match the legacy guaranteed-delivery reassembly already
       uses. **Deviation:** `LocalJfp2Offers` is an empty list and `LocalJfp2Capabilities` is `0` for
       now — no application codec exists yet (Phase 2+), so there is nothing truthful to offer; the
       negotiation algorithm already handles an empty offer list gracefully (every class simply
-      resolves to version 0, per `docs/reference/jfp2-protocol.md` §5.3), confirmed by
+      resolves to version 0, per `docs/jfp2/protocol.md` §5.3), confirmed by
       `NegotiationTests.Resolve_ClassOnlyOneSideKnows_FallsBackToVersionZero`.
 - [x] Added the Hello-retry loop as `DoJfp2Handshake()`, called from `DoWork()` immediately after
       `DoPulse()`. **Deviation from the plan's literal wording:** rather than one shared
@@ -161,7 +164,7 @@ Legacy behavior must be provably unchanged throughout this phase.
       round-trip, empty-string edge case, registry resolution, unregistered-version throwing, and a
       guard asserting `Status`/`StatusRequest` never collide.
 - [x] Split the send call sites. **Deviation from the literal "group neighbors, parallel loop" pattern**
-      (docs/protocol-v2-architecture.md §8.2's table, written with `Broadcast()`-style hot-path
+      (docs/jfp2/history/protocol-v2-architecture.md §8.2's table, written with `Broadcast()`-style hot-path
       messages like Position in mind): `Status`/`StatusRequest` are unicast point-to-point sends to a
       single `IPEndPoint` (a hub, an address-book entry, a StatusRequest's direct replier), never
       broadcast to `nodes`, so the natural adaptation is a per-call-site `if
@@ -239,7 +242,7 @@ and what that does and doesn't limit.
       string8s`, whose keys are already the real `VariableMgr.CreateVuid`-derived vuid (the same
       dictionaries the legacy `SendIntegerVariablesMessage`/etc. already send from) — there was no
       placeholder to replace, since Phase 3 never introduces a second source of vuids; see design doc
-      §6.5 (already-settled) and `docs/protocol-v2-implementation-plan.md`'s own note not to re-derive
+      §6.5 (already-settled) and `docs/jfp2/history/protocol-v2-implementation-plan.md`'s own note not to re-derive
       it. **Deviation:** both codecs' `ObjectId` is `uint`, not the reference's `ushort` — `Obj.netId`
       (`JoinFS/Sim.cs`) is a real `uint` (a raw SimConnect object id / the sender's own assigned id),
       and narrowing it would have silently corrupted any id above 65535. Verified with 13 xUnit tests
@@ -297,7 +300,7 @@ and what that does and doesn't limit.
          is one of the conditions that stores a value directly instead of pushing it through
          SimConnect) — but the actual call path that reaches those methods on a sim-less hub was not
          located. `Jfp2Bridge`'s whole design depends on mirroring that cache shape correctly
-         (`docs/reference/jfp2-protocol.md` §7.7); building it against an unconfirmed assumption risked a
+         (`docs/jfp2/protocol.md` §7.7); building it against an unconfirmed assumption risked a
          hub that silently drops or corrupts relayed data for real multiplayer sessions — too high a
          blast radius to guess at.
       2. It's also the single highest-complexity, highest-risk piece of the whole JFP2 rollout (a
@@ -433,7 +436,7 @@ and what that does and doesn't limit.
       **Still not exercised live:** VariableSync/Event/Notes/Weather/FlightPlan with real triggering
       data (animation-state variables, a gear-toggle event, a chat message, a METAR reply) - this run
       only put Position and Identity through their paces. See
-      `docs/protocol-v2-implementation-review.md` §3 for the updated verification-status summary.
+      `docs/jfp2/history/protocol-v2-implementation-review.md` §3 for the updated verification-status summary.
 - [ ] `PositionV2Codec` (quantized) — **not implemented.** Per the plan's own instruction ("roll out
       PositionV1 alone first; confirm stability across a real mesh before touching V2") — PositionV1
       has now been confirmed against a real simulator (see the update above), so this is no longer
@@ -543,8 +546,8 @@ Two field tests run by the maintainer against real MSFS clients and a real hub, 
 were complete. Both used a real simulator (unlike every `--nosim` verification logged in the phases
 above), so these are the first tests to exercise VariableSync (light-state sync) end-to-end. Logged here
 per this file's own "keep this updated" convention; the root-cause analysis is cross-referenced into
-`docs/protocol-v2-implementation-review.md` (Finding 6) since it's a code-audit finding, not a design
-question — nothing here changes `docs/reference/jfp2-protocol.md`.
+`docs/jfp2/history/protocol-v2-implementation-review.md` (Finding 6) since it's a code-audit finding, not a design
+question — nothing here changes `docs/jfp2/protocol.md`.
 
 **Test 1 — mixed versions, direct mesh.** One v26.5 (legacy-only) and one v26.6 (this tree) instance,
 both connected to a v26.6 hub. The v26.6 side correctly detected the hub as JFP2-capable and the v26.5
@@ -562,7 +565,7 @@ aircraft list stayed empty (correctly, in the maintainer's assessment, but slowe
 **Analysis:**
 
 - **The ~1-2s light-toggle delay has a precise, code-confirmed root cause, logged as Finding 6 in
-  `docs/protocol-v2-implementation-review.md`.** Landing/taxi/nav/beacon lights share one underlying
+  `docs/jfp2/history/protocol-v2-implementation-review.md`.** Landing/taxi/nav/beacon lights share one underlying
   SimConnect variable (`LIGHT STATES`); `VariableMgr.Set`'s receive-side apply logic enforces a 3-second
   (`SLAVE_DELAY`) hold-off per vuid before a new value may overwrite the cached one, and updates landing
   inside that window are dropped rather than queued. Toggling landing and taxi lights together — what
@@ -626,7 +629,7 @@ log lines on the hub at ordinary Pulse cadence. This is the intended "same funct
 outcome for a relay-only pair.
 
 **Result — bug found and fixed:** the test also surfaced a real, if narrow, bug — see
-`docs/protocol-v2-implementation-review.md` Finding 7 for the full writeup. Short version:
+`docs/jfp2/history/protocol-v2-implementation-review.md` Finding 7 for the full writeup. Short version:
 `DoJfp2Handshake`'s guard against attempting Hello with an indirect peer used `Node.Direct`, which
 compares only IP *addresses* — reliable when hub and peer are different hosts (the overwhelming
 common case), but not when they share an IP (necessarily true on one machine, since hub and both
@@ -673,7 +676,7 @@ simulator.
   trigger (a one-shot CLI-env-gated call straight into `Sim.ProcessEvent(10, 424242)` once connected) —
   a legitimate way to exercise the real send→relay→receive→apply pipeline without depending on an
   elusive real-world control mapping. This surfaced Finding 8
-  (`docs/protocol-v2-implementation-review.md`) — a real, pre-existing bug in the **legacy** guaranteed-
+  (`docs/jfp2/history/protocol-v2-implementation-review.md`) — a real, pre-existing bug in the **legacy** guaranteed-
   delivery send path (not JFP2's) that made `SimEvent`/`Notes`/`WeatherReply` unreachable for any
   genuinely indirect peer, on any past version. Fixed (`LocalNode.DoGuaranteedMessages()`, `Node.cs`);
   re-ran the same synthetic-event test after the fix and confirmed full send → hub-forward → receive →
@@ -701,7 +704,7 @@ indirect too, with zero awareness of the block).
 AI aircraft injected either way), despite Position/VariableSync-style traffic between each client and
 the hub looking completely normal. Traced to a second real, pre-existing (non-JFP2) bug in the
 guaranteed-broadcast ack-matching logic — full writeup in
-`docs/protocol-v2-implementation-review.md` Finding 9. Confirmed present byte-for-byte in the unmodified
+`docs/jfp2/history/protocol-v2-implementation-review.md` Finding 9. Confirmed present byte-for-byte in the unmodified
 `v26.5` tag, so this has silently affected peer discovery in relay-only sessions for as long as
 guaranteed broadcasts have existed. Fixed in `LocalNode.cs`'s `GuaranteedDone` handler.
 
@@ -727,7 +730,7 @@ pre-JFP2 tree.
 
 `Jfp2Bridge` — deferred at Phase 3 (see that phase's note above) and still zero-implementation as of
 the mixed-version verification above — designed and landed in three increments. Full design writeup:
-`docs/reference/jfp2-protocol.md` §7.7 (updated to match what actually shipped, not just the original
+`docs/jfp2/protocol.md` §7.7 (updated to match what actually shipped, not just the original
 sketch).
 
 **Reframing that shaped the whole design:** indirect delivery already worked correctly for every
@@ -752,7 +755,7 @@ the design goal was to do the least possible work per relayed message, ideally z
       already agree on the same schema version) a true byte-for-byte blit — `LocalNode.
       RelayForwardedJfp2Datagram` never touches the payload or even the envelope, mirroring the
       legacy `FLAG_FORWARD` relay exactly, just redirecting the UDP destination. `Jfp2Bridge.cs`
-      (the file `docs/protocol-v2-architecture.md` reserved for this) ended up not needed for that
+      (the file `docs/jfp2/history/protocol-v2-architecture.md` reserved for this) ended up not needed for that
       path at all — it stays an empty, documented placeholder for the genuinely-need-to-decode cases
       (Tier 2/3, not yet implemented — see below). New: `LocalNode.TryGetJfp2RelayPeer`,
       `FindDirectNuidByEndPoint`, `SendJfp2RelayApplication`, `RelayForwardedJfp2Datagram`, plus a
@@ -954,11 +957,11 @@ AssumedLegacy) to the final recipient of a relayed message.
       causes the bug documented in `docs/recording-protocol.md` §7.1. Separate piece of work; do not
       block JFP2 network rollout on it.
 - [ ] Variable-name/vuid table sync at scale, selective acknowledgement, coalescing policy tuning —
-      see `docs/reference/jfp2-protocol.md` §10 for what's still genuinely open.
+      see `docs/jfp2/protocol.md` §10 for what's still genuinely open.
 
 ## Notes for whoever picks this up next
 
-- If you deviate from anything in `docs/reference/jfp2-protocol.md` or `docs/protocol-v2-architecture.md`
+- If you deviate from anything in `docs/jfp2/protocol.md` or `docs/jfp2/history/protocol-v2-architecture.md`
   during implementation (a field doesn't fit, a message needs different framing, the threading
   assumption breaks somewhere), **update those docs**, don't just diverge silently — they're the
   source of truth other sessions (and the human maintainer) will read first.

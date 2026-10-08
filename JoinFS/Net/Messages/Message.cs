@@ -116,7 +116,7 @@ namespace JoinFS.Net
         /// Inbound, on a guaranteed message a JFP2 plugin decoded for another node (translation): the
         /// guaranteed id its origin gave it. A JFP2 plugin that re-sends it on the origin's behalf keeps
         /// that id, since the final target deduplicates by the origin's ids
-        /// (docs/reference/jfp2-protocol.md §4.4); the core passes it through with the rest of the meta.
+        /// (docs/jfp2/protocol.md §3.4); the core passes it through with the rest of the meta.
         /// 0 when none. Legacy ignores it: its delivery past a translation is hop by hop, with its own
         /// ids. In-process only - never on the wire as such.
         /// </summary>

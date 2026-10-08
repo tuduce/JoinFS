@@ -3,7 +3,7 @@ using System.Text;
 namespace JoinFS.Tests.Jfp2
 {
     /// <summary>
-    /// Texts longer than a JFP2 field's limit (docs/jfp2-wire-design.md §4.6), and what the sender
+    /// Texts longer than a JFP2 field's limit (docs/jfp2/protocol.md §9.7), and what the sender
     /// must make of them, worked out here independently of WireText.
     /// </summary>
     static class LongText

@@ -6,7 +6,7 @@ using Xunit;
 
 namespace JoinFS.Tests.Jfp2
 {
-    // Round-trip coverage for the FlightPlan codec (docs/protocol-v2-implementation-plan.md Phase 5).
+    // Round-trip coverage for the FlightPlan codec (docs/jfp2/history/protocol-v2-implementation-plan.md Phase 5).
     public class FlightPlanCodecTests
     {
         static FlightPlanUpdate Sample() => new()
@@ -92,7 +92,7 @@ namespace JoinFS.Tests.Jfp2
         }
 
         /// <summary>
-        /// Every string is cut to its limit at a character boundary (docs/jfp2-wire-design.md §4.6), so
+        /// Every string is cut to its limit at a character boundary (docs/jfp2/protocol.md §9.7), so
         /// with every field at its limit the message is the largest FlightPlanUpdate payload, 958 bytes.
         /// </summary>
         [Fact]

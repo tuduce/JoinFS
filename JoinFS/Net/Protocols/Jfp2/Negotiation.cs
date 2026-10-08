@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.Net;
 using System.Text;
 
-// Ported from ProtocolV2Reference/Negotiation.cs (docs/reference/jfp2-protocol.md §5) as part of
-// docs/protocol-v2-implementation-plan.md Phase 1. PeerSession gained two fields
+// Ported from ProtocolV2Reference/Negotiation.cs (docs/jfp2/protocol.md §5) as part of
+// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 1. PeerSession gained two fields
 // (HelloAttempts/NextHelloAttempt) beyond the reference implementation, needed to drive the actual
 // Hello-retry timer in Jfp2Plugin.DoHandshake.
 
@@ -38,7 +38,7 @@ namespace JoinFS.Net.Jfp2
     /// capability is only usable with a given peer once BOTH sides have set the bit - see
     /// Negotiator.Resolve, which ANDs the two capability masks together. None is assigned: each bit is
     /// assigned by the design that needs it, together with any flag it defines
-    /// (docs/reference/jfp2-protocol.md §5.4), and this build advertises none
+    /// (docs/jfp2/protocol.md §5.6), and this build advertises none
     /// (<see cref="Jfp2Profile.Capabilities"/>).
     /// </summary>
     [Flags]
@@ -96,7 +96,7 @@ namespace JoinFS.Net.Jfp2
     /// This is the permanent entry point of JFP2: its envelope (Envelope.HandshakeProtoMajor), its
     /// fixed fields and its offer list layout never change. Anything new goes into the extension
     /// area, and a later major version is agreed through ProtoMajorMin/Max inside it
-    /// (docs/reference/jfp2-protocol.md §5.2; pinned by HandshakeGoldenTests).
+    /// (docs/jfp2/protocol.md §5.1; pinned by HandshakeGoldenTests).
     ///
     /// Reading the extension area (§5.5): unknown tags are skipped, the first copy of a repeated tag
     /// counts, a value shorter than its tag needs is ignored, and a longer one is read up to the
@@ -162,7 +162,7 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>
         /// HelloAck: the UDP source of the Hello it answers, as the responder received it - so the asker
-        /// learns the public endpoint a NAT gave it (docs/reference/jfp2-protocol.md §5.5). Travels as a
+        /// learns the public endpoint a NAT gave it (docs/jfp2/protocol.md §5.4). Travels as a
         /// <see cref="WireEndPoint"/>; read up to its family's size, and ignored when its family is
         /// unassigned or the value is too short. Null when not sent (a Hello, an older build).
         /// </summary>
@@ -366,7 +366,7 @@ namespace JoinFS.Net.Jfp2
         /// <summary>
         /// Combine a local and a remote offer set into a per-class agreed version table. A class
         /// either side never declared, or whose ranges do not overlap, gets version 0, which means
-        /// "don't send this class to this peer" (docs/reference/jfp2-protocol.md §5.3): no codec has
+        /// "don't send this class to this peer" (docs/jfp2/protocol.md §5.5): no codec has
         /// version 0, and the message goes through the legacy plugin instead - so an
         /// unrecognized/newer class on either side degrades gracefully instead of failing the whole
         /// handshake.

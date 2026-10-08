@@ -7,7 +7,7 @@ using Xunit;
 namespace JoinFS.Tests.Jfp2
 {
     // Round-trip coverage for the first real application-partition codecs
-    // (docs/protocol-v2-implementation-plan.md Phase 2, docs/reference/jfp2-protocol.md §6.4's "remaining
+    // (docs/jfp2/history/protocol-v2-implementation-plan.md Phase 2, docs/jfp2/protocol.md §9.4's "remaining
     // message classes" - Status is a mechanical one-to-one port with no new wire shape).
     public class StatusCodecTests
     {
@@ -175,14 +175,14 @@ namespace JoinFS.Tests.Jfp2
         [Fact]
         public void StatusAndStatusRequest_UseDistinctMessageClasses()
         {
-            // docs/reference/jfp2-protocol.md's catalog only reserved one slot ("Status") for this
+            // docs/jfp2/protocol.md's catalog only reserved one slot ("Status") for this
             // exchange; Phase 2 appended StatusRequest at the next free slot rather than overloading
             // one class - assert the two never collide.
             Assert.NotEqual(MessageClasses.Status, MessageClasses.StatusRequest);
         }
 
         /// <summary>
-        /// Every string is cut to its limit at a character boundary (docs/jfp2-wire-design.md §4.6), so
+        /// Every string is cut to its limit at a character boundary (docs/jfp2/protocol.md §9.7), so
         /// with every field at its limit the message is the largest StatusUpdate payload, 1058 bytes.
         /// </summary>
         [Fact]

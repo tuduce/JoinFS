@@ -7,7 +7,7 @@ using Xunit;
 
 namespace JoinFS.Tests.Jfp2
 {
-    // Round-trip coverage for the VariableSync codec (docs/protocol-v2-implementation-plan.md Phase 3).
+    // Round-trip coverage for the VariableSync codec (docs/jfp2/history/protocol-v2-implementation-plan.md Phase 3).
     public class VariableSyncCodecTests
     {
         [Fact]
@@ -36,7 +36,7 @@ namespace JoinFS.Tests.Jfp2
             Assert.Equal("N12345", back.Entries[2].StringValue);
         }
 
-        // docs/protocol-v2-implementation-review.md Finding 5 (fixed 2026-09-14): String8 used to be a
+        // docs/jfp2/history/protocol-v2-implementation-review.md Finding 5 (fixed 2026-09-14): String8 used to be a
         // fixed 8-byte ASCII field that silently truncated/mangled anything longer or non-ASCII. It's
         // now length-prefixed UTF8 like every other string field, matching the legacy String8Variables
         // message's own wire encoding (a plain BinaryWriter.Write(string), never capped at 8 bytes).
@@ -112,7 +112,7 @@ namespace JoinFS.Tests.Jfp2
 
             Assert.Equal(bufferSize, written);
             VariableSyncUpdate back = codec.Decode(buffer.AsSpan(0, written));
-            // longer than its limit (docs/jfp2-wire-design.md §4.6): EntrySize measures it as it is sent, cut
+            // longer than its limit (docs/jfp2/protocol.md §9.7): EntrySize measures it as it is sent, cut
             Assert.Equal(entry.StringValue[..VariableSyncV1Codec.StringValueLimit], back.Entries[0].StringValue);
         }
 
@@ -174,7 +174,7 @@ namespace JoinFS.Tests.Jfp2
         }
 
         /// <summary>
-        /// A String8 value is cut to its limit at a character boundary (docs/jfp2-wire-design.md §4.6),
+        /// A String8 value is cut to its limit at a character boundary (docs/jfp2/protocol.md §9.7),
         /// so one entry is at most 263 bytes and always fits a message; EntrySize, which the sender
         /// chunks by, measures the entry as it is sent.
         /// </summary>

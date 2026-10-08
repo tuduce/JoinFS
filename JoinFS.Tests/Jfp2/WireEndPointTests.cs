@@ -5,7 +5,7 @@ using Xunit;
 namespace JoinFS.Tests.Jfp2
 {
     /// <summary>
-    /// WireEndPoint (docs/jfp2-wire-design.md §7.1): family u8 (4 or 6), the address in network byte
+    /// WireEndPoint (docs/jfp2/protocol.md §4.4): family u8 (4 or 6), the address in network byte
     /// order, the port u16 little-endian; 7 or 19 bytes. The bytes here come from that table.
     /// </summary>
     public class WireEndPointTests

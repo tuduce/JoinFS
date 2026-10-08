@@ -46,7 +46,7 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>
         /// What this build speaks, in the order of its offers in Hello. Adding a class or a schema
-        /// version is a change here alone, plus the codec (docs/reference/jfp2-protocol.md §6.6).
+        /// version is a change here alone, plus the codec (docs/jfp2/implementation.md §5).
         /// </summary>
         public static Jfp2Profile Default { get; } = new(
             ClassDescriptor.Plain(MessageClasses.Status, guaranteed: false, new StatusV1Codec()),
@@ -88,7 +88,7 @@ namespace JoinFS.Net.Jfp2
         public IReadOnlyList<SchemaOffer> Offers { get; }
 
         /// <summary>
-        /// The capability bits advertised in Hello/HelloAck (docs/reference/jfp2-protocol.md §5.4). None
+        /// The capability bits advertised in Hello/HelloAck (docs/jfp2/protocol.md §5.6). None
         /// is assigned yet, so this build advertises none; a capability comes with the design that
         /// needs it, and tests set bits to run builds that differ in them.
         /// </summary>

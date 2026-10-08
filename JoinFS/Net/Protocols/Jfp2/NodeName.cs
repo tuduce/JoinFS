@@ -4,7 +4,7 @@ using System.Buffers.Binary;
 namespace JoinFS.Net.Jfp2
 {
     /// <summary>
-    /// How the JFP2 wire refers to a node (docs/reference/jfp2-protocol.md §4.9): 8 bytes, a kind byte
+    /// How the JFP2 wire refers to a node (docs/jfp2/protocol.md §4.3): 8 bytes, a kind byte
     /// then 7 bytes whose meaning the kind gives. It appears in the handshake's Names extension and,
     /// twice, in the Forwarded extension.
     /// - Kind 0: a legacy node id, in the legacy header's layout (ip u32 LE, port u16 LE, local u8).

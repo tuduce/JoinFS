@@ -2,12 +2,12 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 
-// docs/protocol-v2-implementation-plan.md Phase 3: a mechanical port of
+// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 3: a mechanical port of
 // ProtocolV2Reference/Codecs.cs's IdentityV1Codec, with the identity fields sourced for real from
 // JoinFS/Sim.cs's Obj/Aircraft (see Network.BuildIdentity) instead of the reference
 // demo's hand-written sample values. Splitting these fields out of the hot Position message is the
 // fix for the v26.4/v26.5 livery bug (73b203d^:docs/protocol-changes-v26.4-v26.5.md §1.2) and its recording-
-// format mirror (docs/recording-protocol.md §7.1) - see docs/reference/jfp2-protocol.md §6.2.
+// format mirror (docs/recording-protocol.md §7.1) - see docs/jfp2/protocol.md §9.2.
 
 using JoinFS.Net;
 
@@ -23,7 +23,7 @@ namespace JoinFS.Net.Jfp2.Codecs
         public byte MessageClass => MessageClasses.Identity;
         public byte SchemaVersion => 1;
 
-        // Byte limits of the string fields (UTF-8, without the length prefix; docs/jfp2-wire-design.md §4.6)
+        // Byte limits of the string fields (UTF-8, without the length prefix; docs/jfp2/protocol.md §9.7)
         public const int CallsignLimit = 32;
         public const int ModelLimit = 256;
         public const int LiveryLimit = 256;

@@ -1,8 +1,8 @@
 using System;
 using System.Buffers.Binary;
 
-// Ported from ProtocolV2Reference/Wire.cs (docs/reference/jfp2-protocol.md §4) as part of
-// docs/protocol-v2-implementation-plan.md Phase 1. This is the fixed 8-byte JFP2 envelope that
+// Ported from ProtocolV2Reference/Wire.cs (docs/jfp2/protocol.md §3) as part of
+// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 1. This is the fixed 8-byte JFP2 envelope that
 // starts every JFP2 datagram, plus the message-class constants. Used by Jfp2Plugin
 // (docs/network-plugin-architecture.md).
 
@@ -13,7 +13,7 @@ namespace JoinFS.Net.Jfp2
     /// the capability that defines it, one bit per header extension. A receiver drops a datagram
     /// with any bit outside <see cref="Envelope.SupportedFlags"/>, so a sender sets another bit only
     /// toward a neighbor that agreed the capability defining it, and never on Hello/HelloAck
-    /// (docs/reference/jfp2-protocol.md §4.2).
+    /// (docs/jfp2/protocol.md §3.2).
     /// </summary>
     [Flags]
     public enum EnvelopeFlags : byte
@@ -43,7 +43,7 @@ namespace JoinFS.Net.Jfp2
         /// route to Target, which by construction it doesn't have if the original sender needed
         /// this hub's relay in the first place. The payload is forwarded byte for byte only when the
         /// target agreed the same schema version as the origin's hop used; otherwise the relay
-        /// decodes it and the core re-sends it in the target's own terms. See docs/reference/jfp2-protocol.md §7.7.
+        /// decodes it and the core re-sends it in the target's own terms. See docs/jfp2/protocol.md §8.4.
         /// A name this build cannot resolve (any kind but 0) is dropped, and never acknowledged.
         ///
         /// A single name field whose meaning flips by direction was considered and rejected: it
@@ -74,7 +74,7 @@ namespace JoinFS.Net.Jfp2
     {
         // -- Internal / session-management partition (EnvelopeFlags.Internal set) --
         // 2-8 are free: they were reserved for a mesh whose message set the mesh over JFP2 will design
-        // afresh, and are assigned by that design (docs/reference/jfp2-protocol.md §4.3).
+        // afresh, and are assigned by that design (docs/jfp2/protocol.md §3.3).
         public const byte Hello = 0;
         public const byte HelloAck = 1;
         public const byte GuaranteedDone = 9;
@@ -89,7 +89,7 @@ namespace JoinFS.Net.Jfp2
         public const byte Weather = 6;
         public const byte Status = 7;
         /// <summary>
-        /// docs/protocol-v2-implementation-plan.md Phase 2's addition: the design doc's message
+        /// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 2's addition: the design doc's message
         /// catalog (§4.3) only reserved one slot ("Status") for this whole exchange, but the legacy
         /// protocol has two distinct messages here (StatusRequest and Status - network-protocol.md
         /// §8.6) with different shapes. Rather than overload one class with a discriminator field,
@@ -99,7 +99,7 @@ namespace JoinFS.Net.Jfp2
         /// </summary>
         public const byte StatusRequest = 8;
         /// <summary>
-        /// docs/protocol-v2-implementation-plan.md Phase 5's addition, same reasoning as
+        /// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 5's addition, same reasoning as
         /// StatusRequest above: the design catalog reserved one slot ("Weather") for the legacy
         /// WeatherReply/WeatherUpdate pair, which share a wire shape ({ Metar: string }) but need
         /// independent negotiation (different reliability/receive semantics - see
@@ -141,14 +141,14 @@ namespace JoinFS.Net.Jfp2
         /// becomes. The handshake is the permanent entry point: its envelope and fixed fields never
         /// change, so every build ever released can start one with every later build, and a later
         /// major version is agreed inside it (HandshakeMessage.ProtoMajorMin/Max) rather than by
-        /// changing it (docs/reference/jfp2-protocol.md §5.2).
+        /// changing it (docs/jfp2/protocol.md §5.8).
         /// </summary>
         public const byte HandshakeProtoMajor = 2;
 
         /// <summary>
         /// The flags this build can read. Any other bit may announce a header extension or a payload
         /// framing this build does not know, which would shift what follows, so a datagram carrying one
-        /// is dropped rather than misparsed (docs/reference/jfp2-protocol.md §4.2). Coalesced is
+        /// is dropped rather than misparsed (docs/jfp2/protocol.md §3.2). Coalesced is
         /// specified but not implemented, so it is not here.
         /// </summary>
         public const EnvelopeFlags SupportedFlags = EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded | EnvelopeFlags.Internal;
@@ -160,7 +160,7 @@ namespace JoinFS.Net.Jfp2
         public const int ForwardedExtraSize = NodeName.WireSize * 2;
 
         /// <summary>
-        /// No JFP2 datagram is larger (docs/reference/jfp2-protocol.md §6.7): IPv6's minimum MTU of
+        /// No JFP2 datagram is larger (docs/jfp2/protocol.md §3.6): IPv6's minimum MTU of
         /// 1,280 less its headers, with room for a tunnel. The codecs' field limits guarantee it by
         /// construction: with every header, every v1 message fits.
         /// </summary>
@@ -172,7 +172,7 @@ namespace JoinFS.Net.Jfp2
         /// <summary>
         /// The legacy header's version constant (LegacyWire.Version, 0x520B written little-endian,
         /// so byte 0 on the wire is 0x0B) - duplicated here so the two plugins stay independent
-        /// (docs/reference/jfp2-protocol.md §3).
+        /// (docs/jfp2/protocol.md §2.2).
         /// </summary>
         public const ushort LegacyVersionConstant = 0x520B;
 

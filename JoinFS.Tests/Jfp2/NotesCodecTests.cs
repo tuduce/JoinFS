@@ -6,7 +6,7 @@ using Xunit;
 
 namespace JoinFS.Tests.Jfp2
 {
-    // Round-trip coverage for the Notes codec (docs/protocol-v2-implementation-plan.md Phase 5).
+    // Round-trip coverage for the Notes codec (docs/jfp2/history/protocol-v2-implementation-plan.md Phase 5).
     // Scoped to the single live-note-push shape only - see NotesCodec.cs's header comment for why
     // the bulk catch-up dump exchange isn't ported.
     public class NotesCodecTests
@@ -78,7 +78,7 @@ namespace JoinFS.Tests.Jfp2
         }
 
         /// <summary>
-        /// Every string is cut to its limit at a character boundary (docs/jfp2-wire-design.md §4.6), so
+        /// Every string is cut to its limit at a character boundary (docs/jfp2/protocol.md §9.7), so
         /// with every field at its limit the message is the largest NoteUpdate payload, 864 bytes.
         /// </summary>
         [Fact]

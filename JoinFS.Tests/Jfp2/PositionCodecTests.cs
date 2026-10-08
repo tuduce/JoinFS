@@ -6,7 +6,7 @@ using Xunit;
 
 namespace JoinFS.Tests.Jfp2
 {
-    // Round-trip coverage for the Position codec (docs/protocol-v2-implementation-plan.md Phase 4).
+    // Round-trip coverage for the Position codec (docs/jfp2/history/protocol-v2-implementation-plan.md Phase 4).
     public class PositionCodecTests
     {
         static PositionUpdate Sample() => new()

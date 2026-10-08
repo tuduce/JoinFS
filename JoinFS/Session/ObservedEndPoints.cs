@@ -24,7 +24,7 @@ namespace JoinFS
 
     /// <summary>
     /// Where neighbors say this node's datagrams come from (the JFP2 HelloAck's ObservedEndPoint,
-    /// docs/jfp2-wire-design.md §7.3), and what that says about the NAT in front of it. Plain C# on
+    /// docs/jfp2/implementation.md §3.2), and what that says about the NAT in front of it. Plain C# on
     /// the app thread, fed by <see cref="NetBootstrap"/> from <see cref="NetworkEventKind.EndPointObserved"/>.
     ///
     /// Keeps the latest observation of every neighbor (bounded by the peer count: the plugin reports an

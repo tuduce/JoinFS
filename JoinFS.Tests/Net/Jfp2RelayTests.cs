@@ -416,7 +416,7 @@ namespace JoinFS.Tests.Net
         /// <summary>
         /// A node behind a NAT that maps its port 6112 to public port 40001: the hub answers its Hello
         /// with the endpoint the Hello arrived from, the mapped one, and the node's app classifies that as
-        /// a translated port (docs/jfp2-wire-design.md §7.3). The public address the node uses is still
+        /// a translated port (docs/jfp2/implementation.md §3.2). The public address the node uses is still
         /// the one its HTTP lookup gave.
         /// </summary>
         [Fact]
