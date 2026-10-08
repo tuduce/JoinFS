@@ -536,8 +536,8 @@ Pre-existing bugs fixed along the way (most have a regression test in `JoinFS.Te
   (now literally true, not just intended); legacy was never going to be zero-allocation given its
   inlined-identity wire shape, and that's fine - it's the protocol JFP2 exists to improve on.
 
-  The 50-simulated-peer system tests (§5's other half: CPU and wake latency under load) are not yet
-  built.
+  The 50-simulated-peer system tests (§5's other half: CPU and wake latency under load) are dropped:
+  no real hub comes near that size.
 
 ---
 
@@ -545,7 +545,7 @@ Pre-existing bugs fixed along the way (most have a regression test in `JoinFS.Te
 
 - **Send path:** Sim publish → fan-out → router lookup (array read) → struct codec into pooled buffer → `SendTo`. Zero allocations per datagram in steady state.
 - **Receive path:** pooled receive → plugin decode to struct → queue → ingest. Zero allocations per position datagram.
-- **How to check:** a BenchmarkDotNet micro-benchmark (or an allocation-counting test using `GC.GetAllocatedBytesForCurrentThread`) for encode, route and decode of Position. Compare CPU and wake latency under the CONSOLE hub with about 50 simulated peers on the in-memory transport, against the current build.
+- **How to check:** a BenchmarkDotNet micro-benchmark (or an allocation-counting test using `GC.GetAllocatedBytesForCurrentThread`) for encode, route and decode of Position. 
 
 ---
 

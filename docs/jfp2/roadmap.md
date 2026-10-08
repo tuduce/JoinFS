@@ -9,8 +9,8 @@ are kept so older commits and notes still make sense.
 
 ## 1. Where we are
 
-- **The first-release wire is complete.** Stages 1 to 9 are done, reviewed and committed on branch
-  `jfp2-node-identity`. 26.6 may ship: nothing in JFP2 blocks it. From that tag the evolution rules
+- **The first-release wire is complete.** Stages 1 to 9 are done, reviewed and merged to `main`
+  (#200). 26.6 may ship: nothing in JFP2 blocks it. From that tag the evolution rules
   of `protocol.md` §5.8 and §10 bind.
 - **Nothing in release 1 lets a node join over JFP2 alone.** Legacy is still the membership layer.
   Everything below is about getting past that.
@@ -63,10 +63,9 @@ attempted. Field testing since may have covered some; check the logs before call
   is gone.
 - VariableSync traffic live with a simulator attached, with a value longer than 8 characters or
   non-ASCII, and a long value landing on a receiving SimConnect build's 8-byte local variable.
-- A v26.5 client coexisting with a JFP2 pair; a mixed hub; the X-Plane plugin link
-  (`../network-plugin-architecture.md` §4, "Still open after the rewrite").
-- The 50-simulated-peer system tests: CPU and wake latency under load
-  (`../network-plugin-architecture.md` §5).
+- The X-Plane plugin link (`../network-plugin-architecture.md` §4, "Still open after the rewrite").
+- Done in the field, no longer owed: a v26.5 client coexisting with a JFP2 pair and a latest-build
+  hub. The 50-simulated-peer load test is dropped: no real hub comes near that size.
 
 ## 3. Suggested order
 
