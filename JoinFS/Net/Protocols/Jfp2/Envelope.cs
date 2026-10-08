@@ -1,16 +1,19 @@
 using System;
 using System.Buffers.Binary;
 
-// Ported from ProtocolV2Reference/Wire.cs (docs/reference/jfp2-protocol.md §4) as part of
-// docs/protocol-v2-implementation-plan.md Phase 1. This is the fixed 8-byte JFP2 envelope that
-// starts every JFP2 datagram, plus the message-class constants and the IPv4/IPv6 PeerKey payload
-// type. Used by Jfp2Plugin (docs/network-plugin-architecture.md).
+// Ported from ProtocolV2Reference/Wire.cs (docs/jfp2/protocol.md §3) as part of
+// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 1. This is the fixed 8-byte JFP2 envelope that
+// starts every JFP2 datagram, plus the message-class constants. Used by Jfp2Plugin
+// (docs/network-plugin-architecture.md).
 
 namespace JoinFS.Net.Jfp2
 {
     /// <summary>
-    /// Bit flags carried in every JFP2 envelope. Four bits reserved for future use, matching the
-    /// legacy transport header's own "plenty of spare bits" headroom.
+    /// Bit flags carried in every JFP2 envelope. Bits 4-7 are unassigned, each to be assigned with
+    /// the capability that defines it, one bit per header extension. A receiver drops a datagram
+    /// with any bit outside <see cref="Envelope.SupportedFlags"/>, so a sender sets another bit only
+    /// toward a neighbor that agreed the capability defining it, and never on Hello/HelloAck
+    /// (docs/jfp2/protocol.md §3.2).
     /// </summary>
     [Flags]
     public enum EnvelopeFlags : byte
@@ -19,36 +22,39 @@ namespace JoinFS.Net.Jfp2
         /// <summary>This datagram wants acknowledgement/retransmission - see the 4-byte extended
         /// header appended right after the fixed 8 bytes whenever this bit is set.</summary>
         Guaranteed = 1 << 0,
-        /// <summary>A 14-byte extension follows immediately after the (optional) Guaranteed
-        /// extension: OriginNuid (7 bytes, who this really came from) then TargetNuid (7 bytes, who
-        /// it's ultimately meant for) - always both, regardless of which leg of a relay hop this
-        /// datagram is on. SenderPeerId/RecipientPeerId are HOP-scoped: they name the session
-        /// between the two nodes that exchange THIS datagram (sender to relay, then relay to
-        /// target), exactly as on a direct datagram, so the receiver finds the neighbor session by id
-        /// and never by source endpoint. A relay rewrites the two ids (they sit at fixed offsets) when
-        /// it passes the datagram on; OriginNuid/TargetNuid are the end-to-end addressing.
+        /// <summary>A 16-byte extension follows immediately after the (optional) Guaranteed
+        /// extension: Origin (an 8-byte <see cref="NodeName"/>, who this really came from) then Target
+        /// (an 8-byte NodeName, who it's ultimately meant for) - always both, regardless of which leg
+        /// of a relay hop this datagram is on. SenderPeerId/RecipientPeerId are HOP-scoped: they name
+        /// the session between the two nodes that exchange THIS datagram (sender to relay, then relay
+        /// to target), exactly as on a direct datagram, so the receiver finds the neighbor session by
+        /// id and never by source endpoint. A relay rewrites the two ids (they sit at fixed offsets)
+        /// when it passes the datagram on; Origin/Target are the end-to-end addressing, and a relay
+        /// never rewrites them.
         ///
         /// Any node receiving a Forwarded datagram applies one uniform rule regardless of whether
         /// it's acting as the hub or the final recipient for this particular message (there is no
-        /// separate "hub mode" - every node runs identical logic): if TargetNuid is this node's own
-        /// Nuid, consume it, attributing the payload to OriginNuid instead of the physical sender's
-        /// endpoint; otherwise, forward the datagram to TargetNuid, but only if
-        /// TargetNuid is itself a direct neighbor of this node (RouteIsOwnEndPoint) - refuse (drop)
+        /// separate "hub mode" - every node runs identical logic): if Target is one of this node's own
+        /// names, consume it, attributing the payload to Origin instead of the physical sender's
+        /// endpoint; otherwise, forward the datagram to Target, but only if
+        /// Target is itself a direct neighbor of this node (RouteIsOwnEndPoint) - refuse (drop)
         /// otherwise. That direct-neighbor check is what caps relay at exactly one hop, matching the
         /// legacy mesh's own FLAG_FORWARD policy: a second hub would have to find its own direct
-        /// route to TargetNuid, which by construction it doesn't have if the original sender needed
+        /// route to Target, which by construction it doesn't have if the original sender needed
         /// this hub's relay in the first place. The payload is forwarded byte for byte only when the
         /// target agreed the same schema version as the origin's hop used; otherwise the relay
-        /// decodes it and the core re-sends it in the target's own terms. See docs/reference/jfp2-protocol.md §7.7.
+        /// decodes it and the core re-sends it in the target's own terms. See docs/jfp2/protocol.md §8.4.
+        /// A name this build cannot resolve (any kind but 0) is dropped, and never acknowledged.
         ///
-        /// A single Nuid field whose meaning flips by direction was considered and rejected: it
+        /// A single name field whose meaning flips by direction was considered and rejected: it
         /// leaves the receiving node unable to tell, from the datagram alone, whether it should relay
         /// further or consume the message, since in neither role does that lone field ever equal the
-        /// receiver's own Nuid. Carrying both fields always removes the ambiguity at a modest fixed
-        /// cost (14 bytes instead of 7, only ever paid when relay is actually happening).</summary>
+        /// receiver's own name. Carrying both fields always removes the ambiguity at a modest fixed
+        /// cost (16 bytes instead of 8, only ever paid when relay is actually happening).</summary>
         Forwarded = 1 << 1,
         /// <summary>Payload is a sequence of coalesced sub-messages (each prefixed with its own
-        /// MessageClass byte and a u16 length) rather than a single message body.</summary>
+        /// MessageClass byte and a u16 length) rather than a single message body. Specified, not
+        /// implemented: no build sends it, and this one drops a datagram that carries it.</summary>
         Coalesced = 1 << 2,
         /// <summary>RawMessageClass indexes the internal/session-management partition rather than
         /// the application partition - see MessageClasses.</summary>
@@ -67,15 +73,10 @@ namespace JoinFS.Net.Jfp2
     public static class MessageClasses
     {
         // -- Internal / session-management partition (EnvelopeFlags.Internal set) --
+        // 2-8 are free: they were reserved for a mesh whose message set the mesh over JFP2 will design
+        // afresh, and are assigned by that design (docs/jfp2/protocol.md §3.3).
         public const byte Hello = 0;
         public const byte HelloAck = 1;
-        public const byte Join = 2;
-        public const byte JoinReply = 3;
-        public const byte Leave = 4;
-        public const byte Pulse = 5;
-        public const byte PulseResponse = 6;
-        public const byte Pathfinder = 7;
-        public const byte PathfinderResponse = 8;
         public const byte GuaranteedDone = 9;
 
         // -- Application partition (EnvelopeFlags.Internal clear) --
@@ -88,7 +89,7 @@ namespace JoinFS.Net.Jfp2
         public const byte Weather = 6;
         public const byte Status = 7;
         /// <summary>
-        /// docs/protocol-v2-implementation-plan.md Phase 2's addition: the design doc's message
+        /// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 2's addition: the design doc's message
         /// catalog (§4.3) only reserved one slot ("Status") for this whole exchange, but the legacy
         /// protocol has two distinct messages here (StatusRequest and Status - network-protocol.md
         /// §8.6) with different shapes. Rather than overload one class with a discriminator field,
@@ -98,7 +99,7 @@ namespace JoinFS.Net.Jfp2
         /// </summary>
         public const byte StatusRequest = 8;
         /// <summary>
-        /// docs/protocol-v2-implementation-plan.md Phase 5's addition, same reasoning as
+        /// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 5's addition, same reasoning as
         /// StatusRequest above: the design catalog reserved one slot ("Weather") for the legacy
         /// WeatherReply/WeatherUpdate pair, which share a wire shape ({ Metar: string }) but need
         /// independent negotiation (different reliability/receive semantics - see
@@ -112,6 +113,9 @@ namespace JoinFS.Net.Jfp2
         /// A class byte of 255 in either partition means "the real class id is a two-byte little-
         /// endian value immediately following this byte" - headroom past 255 classes per partition
         /// without ever widening the fixed 8-byte header for the other 255 already in daily use.
+        /// Reserved, never assigned, and not implemented: a class beyond 255 would also need an offer
+        /// form other than the u8 of an offer entry, and a sender sends only classes the receiver
+        /// offered, so this build never receives one.
         /// </summary>
         public const byte Extended = 255;
     }
@@ -131,19 +135,50 @@ namespace JoinFS.Net.Jfp2
     {
         public const byte Magic = 0xFA;
         public const byte ProtoMajor = 2;
+
+        /// <summary>
+        /// The ProtoMajor Hello and HelloAck always travel with, whatever <see cref="ProtoMajor"/>
+        /// becomes. The handshake is the permanent entry point: its envelope and fixed fields never
+        /// change, so every build ever released can start one with every later build, and a later
+        /// major version is agreed inside it (HandshakeMessage.ProtoMajorMin/Max) rather than by
+        /// changing it (docs/jfp2/protocol.md §5.8).
+        /// </summary>
+        public const byte HandshakeProtoMajor = 2;
+
+        /// <summary>
+        /// The flags this build can read. Any other bit may announce a header extension or a payload
+        /// framing this build does not know, which would shift what follows, so a datagram carrying one
+        /// is dropped rather than misparsed (docs/jfp2/protocol.md §3.2). Coalesced is
+        /// specified but not implemented, so it is not here.
+        /// </summary>
+        public const EnvelopeFlags SupportedFlags = EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded | EnvelopeFlags.Internal;
+
         public const int FixedSize = 8;
         public const int GuaranteedExtraSize = 4;
+
+        /// <summary>The Forwarded extension: the origin's and the target's <see cref="NodeName"/>.</summary>
+        public const int ForwardedExtraSize = NodeName.WireSize * 2;
+
+        /// <summary>
+        /// No JFP2 datagram is larger (docs/jfp2/protocol.md §3.6): IPv6's minimum MTU of
+        /// 1,280 less its headers, with room for a tunnel. The codecs' field limits guarantee it by
+        /// construction: with every header, every v1 message fits.
+        /// </summary>
+        public const int MaxDatagramSize = 1200;
+
+        /// <summary>The largest payload of any v1 message, so that it fits <see cref="MaxDatagramSize"/> with every header (28 bytes) and room for 24 bytes of later per-hop security.</summary>
+        public const int MaxPayloadSize = 1100;
 
         /// <summary>
         /// The legacy header's version constant (LegacyWire.Version, 0x520B written little-endian,
         /// so byte 0 on the wire is 0x0B) - duplicated here so the two plugins stay independent
-        /// (docs/reference/jfp2-protocol.md §3).
+        /// (docs/jfp2/protocol.md §2.2).
         /// </summary>
         public const ushort LegacyVersionConstant = 0x520B;
 
         public readonly EnvelopeFlags Flags;
         public readonly ushort SenderPeerId;
-        public readonly ushort RecipientPeerId; // 0 = broadcast to the whole mesh, matching the legacy null-Nuid convention
+        public readonly ushort RecipientPeerId; // 0 = not known yet: the first Hello to a peer, before its id is learned. No session has id 0, so nothing else is addressed by it
         public readonly byte RawMessageClass;
 
         /// <summary>
@@ -159,11 +194,11 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>Meaningful only when Flags.Forwarded is set - see EnvelopeFlags.Forwarded's doc
         /// comment. Default/unset otherwise.</summary>
-        public readonly RelayNuid OriginNuid;
+        public readonly NodeName Origin;
 
         /// <summary>Meaningful only when Flags.Forwarded is set - see EnvelopeFlags.Forwarded's doc
         /// comment. Default/unset otherwise.</summary>
-        public readonly RelayNuid TargetNuid;
+        public readonly NodeName Target;
 
         public Envelope(EnvelopeFlags flags, ushort senderPeerId, ushort recipientPeerId, byte rawMessageClass)
             : this(flags, senderPeerId, recipientPeerId, rawMessageClass, 0, 0, 0, default, default)
@@ -176,8 +211,9 @@ namespace JoinFS.Net.Jfp2
         }
 
         /// <summary>Constructs a relayed envelope (Flags must include Forwarded). SenderPeerId/
-        /// RecipientPeerId should be 0 - see EnvelopeFlags.Forwarded's doc comment.</summary>
-        public Envelope(EnvelopeFlags flags, ushort senderPeerId, ushort recipientPeerId, byte rawMessageClass, ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount, RelayNuid originNuid, RelayNuid targetNuid)
+        /// RecipientPeerId stay hop-scoped, as on any datagram (the session with the neighbor it goes
+        /// to); Origin/Target are end to end - see EnvelopeFlags.Forwarded's doc comment.</summary>
+        public Envelope(EnvelopeFlags flags, ushort senderPeerId, ushort recipientPeerId, byte rawMessageClass, ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount, NodeName origin, NodeName target)
         {
             Flags = flags;
             SenderPeerId = senderPeerId;
@@ -186,8 +222,8 @@ namespace JoinFS.Net.Jfp2
             GuaranteedId = guaranteedId;
             GuaranteedIndex = guaranteedIndex;
             GuaranteedCount = guaranteedCount;
-            OriginNuid = originNuid;
-            TargetNuid = targetNuid;
+            Origin = origin;
+            Target = target;
         }
 
         public bool IsInternal => (Flags & EnvelopeFlags.Internal) != 0;
@@ -195,11 +231,11 @@ namespace JoinFS.Net.Jfp2
         public bool IsForwarded => (Flags & EnvelopeFlags.Forwarded) != 0;
 
         /// <summary>Total header size on the wire for this envelope: the fixed 8 bytes, plus the 4-byte
-        /// guaranteed-delivery extension when IsGuaranteed, plus the 14-byte Origin+TargetNuid
+        /// guaranteed-delivery extension when IsGuaranteed, plus the 16-byte Origin+Target
         /// extension when IsForwarded - the two extensions are independent and, when both present,
-        /// appear in that order (Guaranteed's 4 bytes, then Origin+TargetNuid's 14), immediately
+        /// appear in that order (Guaranteed's 4 bytes, then Origin+Target's 16), immediately
         /// before the payload.</summary>
-        public int WireSize => FixedSize + (IsGuaranteed ? GuaranteedExtraSize : 0) + (IsForwarded ? RelayNuid.WireSize * 2 : 0);
+        public int WireSize => FixedSize + (IsGuaranteed ? GuaranteedExtraSize : 0) + (IsForwarded ? ForwardedExtraSize : 0);
 
         /// <summary>
         /// True if the first two bytes of a received datagram are the legacy magic (0x520B, written
@@ -221,7 +257,7 @@ namespace JoinFS.Net.Jfp2
             if (dest.Length < WireSize)
                 throw new ArgumentException("destination buffer smaller than the JFP2 header (fixed + guaranteed/relay extensions, if any)");
             dest[0] = Magic;
-            dest[1] = ProtoMajor;
+            dest[1] = ProtoMajorFor(Flags, RawMessageClass);
             dest[2] = (byte)Flags;
             BinaryPrimitives.WriteUInt16LittleEndian(dest.Slice(3, 2), SenderPeerId);
             BinaryPrimitives.WriteUInt16LittleEndian(dest.Slice(5, 2), RecipientPeerId);
@@ -236,26 +272,67 @@ namespace JoinFS.Net.Jfp2
             }
             if (IsForwarded)
             {
-                OriginNuid.WriteTo(dest.Slice(offset, RelayNuid.WireSize));
-                offset += RelayNuid.WireSize;
-                TargetNuid.WriteTo(dest.Slice(offset, RelayNuid.WireSize));
-                offset += RelayNuid.WireSize;
+                Origin.WriteTo(dest.Slice(offset, NodeName.WireSize));
+                offset += NodeName.WireSize;
+                Target.WriteTo(dest.Slice(offset, NodeName.WireSize));
+                offset += NodeName.WireSize;
             }
             return offset;
         }
 
-        public static Envelope ReadFrom(ReadOnlySpan<byte> src, out int bytesConsumed)
+        /// <summary>
+        /// The ProtoMajor a datagram is written with: <see cref="HandshakeProtoMajor"/> for Hello/HelloAck,
+        /// <see cref="ProtoMajor"/> for everything else (the same value today). Once a second major
+        /// version exists, a non-handshake datagram's major comes from the version agreed with that
+        /// neighbor in the handshake (per session, not per class), not from a constant.
+        /// </summary>
+        static byte ProtoMajorFor(EnvelopeFlags flags, byte rawMessageClass) =>
+            (flags & EnvelopeFlags.Internal) != 0 && (rawMessageClass == MessageClasses.Hello || rawMessageClass == MessageClasses.HelloAck)
+                ? HandshakeProtoMajor
+                : ProtoMajor;
+
+        /// <summary>Read the envelope of a datagram this build can read; throws on any other (see <see cref="TryReadFrom"/>).</summary>
+        public static Envelope ReadFrom(ReadOnlySpan<byte> src, out int bytesConsumed) =>
+            TryReadFrom(src, out Envelope envelope, out bytesConsumed, out string unsupported)
+                ? envelope
+                : throw new InvalidOperationException("JFP2 datagram this build cannot read: " + unsupported);
+
+        /// <summary>
+        /// Read the envelope of a received JFP2 datagram, or return false, saying why in
+        /// <paramref name="unsupported"/> (for the log), when this build must not read it: another
+        /// ProtoMajor (a later major version, whose header need not look like this one), or a flag
+        /// outside <see cref="SupportedFlags"/> (it may shift the payload). Such a datagram is well
+        /// formed for the build that sent it, so it is not an error; it is simply dropped. A datagram
+        /// too short for what it claims to carry still throws.
+        /// </summary>
+        public static bool TryReadFrom(ReadOnlySpan<byte> src, out Envelope envelope, out int bytesConsumed, out string unsupported)
         {
-            if (src.Length < FixedSize)
+            envelope = default;
+            bytesConsumed = 0;
+            unsupported = null;
+            if (src.Length < 2)
                 throw new ArgumentException("datagram shorter than the JFP2 fixed header");
             if (src[0] != Magic)
                 throw new InvalidOperationException("not a JFP2 datagram (bad magic byte)");
-            // src[1] (ProtoMajor) is where a future breaking redesign (JFP3) would branch to a
-            // completely different header layout; this only implements ProtoMajor 2.
+            // src[1] (ProtoMajor) is where a later breaking version branches to its own header layout,
+            // so nothing past it is read unless it is one this build knows
+            byte major = src[1];
+            if (major != ProtoMajor && major != HandshakeProtoMajor)
+            {
+                unsupported = "ProtoMajor " + major;
+                return false;
+            }
+            if (src.Length < FixedSize)
+                throw new ArgumentException("datagram shorter than the JFP2 fixed header");
             var flags = (EnvelopeFlags)src[2];
             ushort sender = BinaryPrimitives.ReadUInt16LittleEndian(src.Slice(3, 2));
             ushort recipient = BinaryPrimitives.ReadUInt16LittleEndian(src.Slice(5, 2));
             byte msgClass = src[7];
+            if ((flags & ~SupportedFlags) != 0)
+            {
+                unsupported = "flag bits 0x" + ((byte)(flags & ~SupportedFlags)).ToString("X2");
+                return false;
+            }
 
             int offset = FixedSize;
             ushort guaranteedId = 0;
@@ -271,122 +348,21 @@ namespace JoinFS.Net.Jfp2
                 offset += GuaranteedExtraSize;
             }
 
-            RelayNuid originNuid = default;
-            RelayNuid targetNuid = default;
+            NodeName origin = default;
+            NodeName target = default;
             if ((flags & EnvelopeFlags.Forwarded) != 0)
             {
-                if (src.Length < offset + RelayNuid.WireSize * 2)
+                if (src.Length < offset + ForwardedExtraSize)
                     throw new ArgumentException("datagram shorter than the JFP2 relay-addressing extension it claims to carry");
-                originNuid = RelayNuid.ReadFrom(src.Slice(offset, RelayNuid.WireSize));
-                offset += RelayNuid.WireSize;
-                targetNuid = RelayNuid.ReadFrom(src.Slice(offset, RelayNuid.WireSize));
-                offset += RelayNuid.WireSize;
+                origin = NodeName.ReadFrom(src.Slice(offset, NodeName.WireSize));
+                offset += NodeName.WireSize;
+                target = NodeName.ReadFrom(src.Slice(offset, NodeName.WireSize));
+                offset += NodeName.WireSize;
             }
 
             bytesConsumed = offset;
-            return new Envelope(flags, sender, recipient, msgClass, guaranteedId, guaranteedIndex, guaranteedCount, originNuid, targetNuid);
-        }
-    }
-
-    /// <summary>
-    /// One half (Origin or Target) of a relayed JFP2 datagram's addressing extension
-    /// (EnvelopeFlags.Forwarded) - see that flag's doc comment for the full addressing scheme. Same
-    /// 7-byte wire shape as the legacy transport's LocalNode.Nuid (ip: uint, port: ushort, local:
-    /// byte, each little-endian - matching BinaryWriter's default, which is what LocalNode.Nuid.Write
-    /// uses) so the two types are trivially interconvertible, but defined independently here rather
-    /// than referencing LocalNode.Nuid directly, to avoid a reverse dependency from JoinFS.Jfp2 back
-    /// into the top-level LocalNode type. Reusing the legacy Nuid's identity (rather than PeerKey, or
-    /// a new hub-assigned id) needs no new synchronization: every mesh member already learns every
-    /// other member's Nuid via the existing legacy Join/AddNode propagation, regardless of direct
-    /// reachability, and JFP2 sessions are always layered on top of an already-established legacy
-    /// Node entry - see docs/reference/jfp2-protocol.md §7.7.
-    /// </summary>
-    public readonly struct RelayNuid
-    {
-        public const int WireSize = 7;
-
-        public readonly uint Ip;
-        public readonly ushort Port;
-        public readonly byte Local;
-
-        public RelayNuid(uint ip, ushort port, byte local)
-        {
-            Ip = ip;
-            Port = port;
-            Local = local;
-        }
-
-        public void WriteTo(Span<byte> dest)
-        {
-            BinaryPrimitives.WriteUInt32LittleEndian(dest.Slice(0, 4), Ip);
-            BinaryPrimitives.WriteUInt16LittleEndian(dest.Slice(4, 2), Port);
-            dest[6] = Local;
-        }
-
-        public static RelayNuid ReadFrom(ReadOnlySpan<byte> src)
-        {
-            uint ip = BinaryPrimitives.ReadUInt32LittleEndian(src.Slice(0, 4));
-            ushort port = BinaryPrimitives.ReadUInt16LittleEndian(src.Slice(4, 2));
-            byte local = src[6];
-            return new RelayNuid(ip, port, local);
-        }
-
-        public override bool Equals(object obj) => obj is RelayNuid other && Ip == other.Ip && Port == other.Port && Local == other.Local;
-        public override int GetHashCode() => System.HashCode.Combine(Ip, Port, Local);
-        public static bool operator ==(RelayNuid left, RelayNuid right) => left.Equals(right);
-        public static bool operator !=(RelayNuid left, RelayNuid right) => !left.Equals(right);
-    }
-
-    /// <summary>
-    /// A self-describing peer address, used inside PAYLOADS that need to describe a peer other than
-    /// the immediate sender - membership lists (the JoinReply equivalent), Pathfinder targets, hub
-    /// lists. It is deliberately never part of the hot envelope itself, which only ever carries small
-    /// negotiated PeerIds (see PeerSession). Supporting IPv6 here is purely additive: an existing
-    /// reader that only knows Family==4 entries can still correctly skip over a Family==6 entry it
-    /// doesn't care about, because the entry declares its own size - this directly fixes the legacy
-    /// protocol's IPv4-only Nuid limitation (docs/network-protocol.md §9.5) without requiring a
-    /// mesh-wide flag day, since it's an additive payload concern, not a framing concern.
-    /// Not yet used anywhere in Phase 1 - reserved for the membership/Pathfinder-equivalent messages
-    /// added in a later phase.
-    /// </summary>
-    public readonly struct PeerKey
-    {
-        public readonly byte Family; // 4 = IPv4, 6 = IPv6
-        public readonly byte[] Address; // 4 or 16 bytes, network byte order
-        public readonly ushort Port;
-        public readonly byte Local; // last octet of the LAN address - disambiguates instances behind one NAT, same role as the legacy Nuid.local field
-
-        public PeerKey(byte family, byte[] address, ushort port, byte local)
-        {
-            Family = family;
-            Address = address;
-            Port = port;
-            Local = local;
-        }
-
-        public int WireSize => 1 + Address.Length + 2 + 1;
-
-        public int WriteTo(Span<byte> dest)
-        {
-            int i = 0;
-            dest[i++] = Family;
-            Address.AsSpan().CopyTo(dest.Slice(i));
-            i += Address.Length;
-            BinaryPrimitives.WriteUInt16LittleEndian(dest.Slice(i, 2), Port);
-            i += 2;
-            dest[i++] = Local;
-            return i;
-        }
-
-        public static PeerKey ReadFrom(ReadOnlySpan<byte> src, out int bytesConsumed)
-        {
-            byte family = src[0];
-            int addrLen = family == 6 ? 16 : 4;
-            byte[] address = src.Slice(1, addrLen).ToArray();
-            ushort port = BinaryPrimitives.ReadUInt16LittleEndian(src.Slice(1 + addrLen, 2));
-            byte local = src[1 + addrLen + 2];
-            bytesConsumed = 1 + addrLen + 2 + 1;
-            return new PeerKey(family, address, port, local);
+            envelope = new Envelope(flags, sender, recipient, msgClass, guaranteedId, guaranteedIndex, guaranteedCount, origin, target);
+            return true;
         }
     }
 }

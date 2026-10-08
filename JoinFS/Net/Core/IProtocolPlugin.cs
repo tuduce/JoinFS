@@ -129,6 +129,14 @@ namespace JoinFS.Net
         /// <summary>What this plugin can carry to <paramref name="peer"/> changed (invalidates routing).</summary>
         void LinkChanged(NodeId peer);
 
+        /// <summary>
+        /// <paramref name="reporter"/>, a neighbor, saw our datagrams arrive from
+        /// <paramref name="endPoint"/>: our address and port as the network between us translated them.
+        /// Called when a neighbor's observation changes, not for every answer. Raised to the app as
+        /// <see cref="NetworkEventKind.EndPointObserved"/>; nothing in the network stack acts on it.
+        /// </summary>
+        void EndPointObserved(NodeId reporter, IPEndPoint endPoint);
+
         void Log(NetLogLevel level, string text);
     }
 }

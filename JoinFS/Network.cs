@@ -56,8 +56,9 @@ namespace JoinFS
 
             service = new NetworkService(credentialStoreFactory: folder => new CredentialStore(main.documentsPath, main.MonitorEvent));
             // the protocols this build speaks (legacy is built in; newer ones win per peer and
-            // message kind where both sides negotiated them)
-            service.AddPlugin(new Jfp2Plugin((ushort)System.Diagnostics.Stopwatch.GetTimestamp()));
+            // message kind where both sides negotiated them). JFP2 tells each neighbor which build
+            // this is, e.g. "26.6.0 JoinFS-FS2024".
+            service.AddPlugin(new Jfp2Plugin((ushort)System.Diagnostics.Stopwatch.GetTimestamp(), Main.Version + " " + Main.Name));
 
             Bootstrap = new NetBootstrap(service, host, main.settingsLocalAddress, Settings.Default.MyIp, host.Now);
             Peers = new PeerTable(service, this, host, host, host, main.log, host, host, host);
@@ -129,6 +130,12 @@ namespace JoinFS
         {
             get => Snapshot.LowBandwidth;
             set => service.Post(core => core.LowBandwidth = value);
+        }
+
+        /// <summary>How many senders this node relays for at once (see <see cref="MeshManager.RelayBudget"/>).</summary>
+        int RelayBudget
+        {
+            set => service.Post(core => core.Mesh.RelayBudget = value);
         }
 
         /// <summary>Ids of the nodes currently in the session, in session order.</summary>
@@ -408,6 +415,7 @@ namespace JoinFS
         {
             joinEndPoint = endPoint;
             LowBandwidth = host.LowBandwidth;
+            RelayBudget = host.HubRelays;
             Comms.OnJoining();
             try
             {
@@ -475,6 +483,7 @@ namespace JoinFS
             try
             {
                 LowBandwidth = host.LowBandwidth;
+                RelayBudget = host.HubRelays;
                 uint passwordHash = NetHash.HashPassword(host.Password.TrimStart(' ').TrimEnd(' '));
                 string folder = host.DocumentsPath;
                 service.Post(core => core.Mesh.Create(globalSession, passwordHash, loginRequired: false, folder));
@@ -506,6 +515,10 @@ namespace JoinFS
                 case NetworkEventKind.PeerLeft:
                     Peers.OnPeerLeft(e.Node);
                     simIngest.OnPeerLeft(e.Node);
+                    Bootstrap.OnPeerLeft(e.Node);
+                    break;
+                case NetworkEventKind.EndPointObserved:
+                    Bootstrap.OnEndPointObserved(e.Node, e.EndPoint);
                     break;
                 case NetworkEventKind.Log:
                     if (e.Level == NetLogLevel.Event) host.Event(e.Text);

@@ -8,7 +8,7 @@ This README is the only tracked thing here.
 
 Open with Wireshark using the dissector at `JoinFS/util/wireshark/joinfs.lua` (copy into Wireshark's
 Personal Lua Plugins folder, or `-X lua_script:joinfs.lua`); it decodes both the legacy wire
-(`docs/network-protocol.md`) and JFP2 (`docs/reference/jfp2-protocol.md`) on the same capture.
+(`docs/network-protocol.md`) and JFP2 (`docs/jfp2/protocol.md`) on the same capture.
 Captured 2026-09-23. Machine's LAN addresses across all three: `192.168.1.115` (the test client) and
 `192.168.1.121` (the new hub, this branch, at `joinfs.famtuduce.com:6112`).
 

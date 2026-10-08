@@ -4,11 +4,18 @@ using System.Collections.Generic;
 namespace JoinFS.Net.Jfp2
 {
     /// <summary>
-    /// JFP2 guaranteed delivery (docs/reference/jfp2-protocol.md §4.4): a guaranteed message is resent
+    /// JFP2 guaranteed delivery (docs/jfp2/protocol.md §7): a guaranteed message is resent
     /// every 2 s until acknowledged or 180 s pass. Each attempt goes through the target's current next
     /// hop, so a route change or a session that drops and is verified again does not strand it; while
     /// JFP2 has no route to the target the message waits. Receivers ack every copy and deliver once,
     /// remembering ids for 30 s.
+    ///
+    /// A guaranteed id is unique per (origin, final target) within those 30 s; one message to several
+    /// targets may share one (docs/jfp2/protocol.md §7.2). So everything here is keyed by
+    /// both: pending segments by (origin, target, id, index), since a relay re-sending on an origin's
+    /// behalf keeps the origin's id; received ids by (origin, target, id), since a relay that
+    /// translates sees one origin's id for several targets. A node that is the final target is the
+    /// target of its own keys.
     ///
     /// Messages are single-segment: multi-segment delivery is specified but not implemented. Pending
     /// entries and acks already carry the segment index, and <see cref="Send"/> and
@@ -17,10 +24,11 @@ namespace JoinFS.Net.Jfp2
     sealed class Jfp2Reliability
     {
         /// <summary>
-        /// Payload bytes per guaranteed segment once segmentation exists. Legacy uses 1000
-        /// (LegacyWire.MaxGuaranteedData) to stay under a safe UDP MTU.
+        /// Payload bytes per guaranteed segment once segmentation exists: the payload ceiling that
+        /// keeps a datagram within 1,200 bytes with every header (docs/jfp2/protocol.md
+        /// §3.6). The field limits keep every v1 payload within it, so today a larger one is a codec bug.
         /// </summary>
-        public const int GuaranteedSegmentSize = 1000;
+        public const int GuaranteedSegmentSize = Envelope.MaxPayloadSize;
 
         const double RetryInterval = 2.0;
         const double ExpireTime = 180.0;
@@ -28,15 +36,11 @@ namespace JoinFS.Net.Jfp2
 
         sealed class Pending
         {
-            /// <summary>Who the message is from: this node, or the author a relay re-sends it for.</summary>
-            public NodeId Origin;
             public byte MessageClass;
             /// <summary>The schema version the payload is encoded in; only a hop that agreed it can carry it.</summary>
             public byte Version;
             public byte[] Payload;
             public byte Count;
-            /// <summary>The neighbor of the latest transmission (default until one went out).</summary>
-            public NodeId Hop;
             public double NextRetry;
             public double Expire;
         }
@@ -46,14 +50,15 @@ namespace JoinFS.Net.Jfp2
         /// False when JFP2 has no hop to it right now that agreed <paramref name="version"/>.
         /// </summary>
         public delegate bool Transmit(NodeId target, NodeId origin, byte messageClass, byte version, ReadOnlySpan<byte> payload,
-            ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount, out NodeId hop);
+            ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount);
 
         readonly IProtocolHost host;
         readonly Transmit transmit;
-        readonly Dictionary<(NodeId Target, ushort Id, byte Index), Pending> pending = [];
-        readonly Dictionary<(NodeId Sender, ushort Id), double> recentlySeen = [];
-        readonly List<(NodeId, ushort, byte)> scratchPendingKeys = [];
-        readonly List<(NodeId, ushort)> scratchSeenKeys = [];
+        /// <summary>Keyed by who the message is from (this node, or the origin a relay re-sends it for), its final target, its id and the segment.</summary>
+        readonly Dictionary<(NodeId Origin, NodeId Target, ushort Id, byte Index), Pending> pending = [];
+        readonly Dictionary<(NodeId Origin, NodeId Target, ushort Id), double> recentlySeen = [];
+        readonly List<(NodeId, NodeId, ushort, byte)> scratchPendingKeys = [];
+        readonly List<(NodeId, NodeId, ushort)> scratchSeenKeys = [];
         ushort nextGuaranteedId;
         double nextDedupSweep;
 
@@ -80,18 +85,24 @@ namespace JoinFS.Net.Jfp2
             return id;
         }
 
-        /// <summary>Send <paramref name="payload"/> (encoded in <paramref name="version"/>) guaranteed to <paramref name="target"/>, and keep it until acknowledged.</summary>
-        public void Send(NodeId target, NodeId origin, byte messageClass, byte version, ReadOnlySpan<byte> payload)
+        /// <summary>
+        /// Send <paramref name="payload"/> (encoded in <paramref name="version"/>) guaranteed to
+        /// <paramref name="target"/>, and keep it until acknowledged. A relay re-sending on
+        /// <paramref name="origin"/>'s behalf passes the id the origin gave it, <paramref name="originId"/>:
+        /// the target deduplicates by the origin's ids, so one from this node's counter could collide
+        /// with one of the origin's own. 0: this node's next id.
+        /// </summary>
+        public void Send(NodeId target, NodeId origin, byte messageClass, byte version, ReadOnlySpan<byte> payload, ushort originId = 0)
         {
             if (payload.Length > GuaranteedSegmentSize)
             {
-                host.Log(NetLogLevel.Network, "JFP2: guaranteed class " + messageClass + " payload of " + payload.Length + " bytes sent as one datagram (segmentation not implemented)");
+                host.Log(NetLogLevel.Network, "JFP2: guaranteed class " + messageClass + " payload of " + payload.Length + " bytes is over the "
+                    + GuaranteedSegmentSize + "-byte ceiling (a codec exceeds its field limits) - sent as one datagram");
             }
             double now = Now;
-            var key = (target, NextId(), (byte)0);
+            var key = (origin, target, originId != 0 ? originId : NextId(), (byte)0);
             var message = new Pending
             {
-                Origin = origin,
                 MessageClass = messageClass,
                 Version = version,
                 Payload = payload.ToArray(),
@@ -103,13 +114,8 @@ namespace JoinFS.Net.Jfp2
             TransmitNow(key, message);
         }
 
-        void TransmitNow((NodeId Target, ushort Id, byte Index) key, Pending p)
-        {
-            if (transmit(key.Target, p.Origin, p.MessageClass, p.Version, p.Payload, key.Id, key.Index, p.Count, out NodeId hop))
-            {
-                p.Hop = hop;
-            }
-        }
+        void TransmitNow((NodeId Origin, NodeId Target, ushort Id, byte Index) key, Pending p) =>
+            transmit(key.Target, key.Origin, p.MessageClass, p.Version, p.Payload, key.Id, key.Index, p.Count);
 
         public void Tick()
         {
@@ -145,41 +151,20 @@ namespace JoinFS.Net.Jfp2
         }
 
         /// <summary>
-        /// Clear the pending segment a GuaranteedDone confirms; true if one matched.
-        /// <list type="bullet">
-        /// <item>A Forwarded ack is addressed end to end, to <paramref name="ackFor"/>: it confirms only a
-        /// segment sent for that origin. At a relay this keeps an ack of someone else's message, whose id
-        /// that origin assigned, from clearing the relay's own message with the same id.</item>
-        /// <item>A plain ack (<paramref name="ackFor"/> null) comes from the neighbor we handed the segment
-        /// to. When we sent through it toward another target the ack names the neighbor, not the target,
-        /// so it falls back to (id, index, hop).</item>
-        /// </list>
+        /// Clear the pending segment a GuaranteedDone confirms; true if one matched. The ack names both
+        /// ends exactly: <paramref name="acker"/> is the final target that acknowledges, and
+        /// <paramref name="ackedOrigin"/> the origin of the message (this node, or at a relay the
+        /// origin it re-sent for). A plain ack comes from a neighbor that was the final target of our
+        /// own message; a Forwarded one carries both in its Origin and Target. So an ack never clears
+        /// another origin's message, or another target's copy that has the same id.
         /// </summary>
-        public bool Acknowledge(NodeId acker, NodeId hop, NodeId? ackFor, ushort guaranteedId, byte index)
-        {
-            var key = (acker, guaranteedId, index);
-            if (pending.TryGetValue(key, out Pending p) && (ackFor == null || p.Origin == ackFor.Value))
-            {
-                pending.Remove(key);
-                return true;
-            }
-            if (ackFor != null)
-            {
-                return false;
-            }
-            scratchPendingKeys.Clear();
-            foreach (var kv in pending)
-            {
-                if (kv.Key.Id == guaranteedId && kv.Key.Index == index && kv.Value.Hop == hop) scratchPendingKeys.Add(kv.Key);
-            }
-            foreach (var k in scratchPendingKeys) pending.Remove(k);
-            return scratchPendingKeys.Count > 0;
-        }
+        public bool Acknowledge(NodeId acker, NodeId ackedOrigin, ushort guaranteedId, byte index) =>
+            pending.Remove((ackedOrigin, acker, guaranteedId, index));
 
-        /// <summary>Record a received guaranteed id; true if it was already delivered.</summary>
-        public bool IsDuplicate(NodeId sender, ushort guaranteedId)
+        /// <summary>Record a received guaranteed id from <paramref name="origin"/> for <paramref name="target"/> (this node, or the one a relay translates for); true if it was already delivered.</summary>
+        public bool IsDuplicate(NodeId origin, NodeId target, ushort guaranteedId)
         {
-            var key = (sender, guaranteedId);
+            var key = (origin, target, guaranteedId);
             bool duplicate = recentlySeen.ContainsKey(key);
             recentlySeen[key] = Now;
             return duplicate;
@@ -189,16 +174,18 @@ namespace JoinFS.Net.Jfp2
         /// Turn a received guaranteed segment into its complete message; false while (or because) it
         /// is not complete. Single-segment messages pass straight through.
         /// </summary>
-        public bool Reassemble(NodeId sender, ushort guaranteedId, byte index, byte count, ReadOnlySpan<byte> segment, out ReadOnlySpan<byte> message)
+        public bool Reassemble(NodeId origin, NodeId target, ushort guaranteedId, byte index, byte count, ReadOnlySpan<byte> segment, out ReadOnlySpan<byte> message)
         {
             if (count <= 1)
             {
                 message = segment;
                 return true;
             }
-            // Implementing this needs a per-(sender, id) segment buffer here, and IsDuplicate must then
-            // run on completion instead of per datagram: keyed by id alone, it drops segments 2..N.
-            host.Log(NetLogLevel.Network, "JFP2: dropped segment " + index + "/" + count + " of guaranteed id " + guaranteedId + " from " + sender + " (segmentation not implemented)");
+            // Implementing this needs a per-(origin, target, id) segment buffer here, and IsDuplicate must
+            // then run on completion instead of per datagram: keyed by id alone, it drops segments 2..N.
+            // Until then the caller drops the segment before acknowledging it, so its sender does not
+            // take a message that was never delivered as delivered.
+            host.Log(NetLogLevel.Network, "JFP2: dropped segment " + index + "/" + count + " of guaranteed id " + guaranteedId + " from " + origin + " for " + target + " (segmentation not implemented)");
             message = default;
             return false;
         }
@@ -207,7 +194,7 @@ namespace JoinFS.Net.Jfp2
         public void RemovePeer(NodeId peer)
         {
             pending.RemoveWhere((k, _) => k.Target == peer);
-            recentlySeen.RemoveWhere((k, _) => k.Sender == peer);
+            recentlySeen.RemoveWhere((k, _) => k.Origin == peer);
         }
 
         public void Clear()

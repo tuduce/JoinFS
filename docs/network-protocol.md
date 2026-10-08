@@ -1,6 +1,6 @@
 # JoinFS Network Protocol
 
-This document describes the **legacy** wire protocol JoinFS instances (simulator-connected clients and hub-only console instances) use to talk to each other: the protocol every released version up to v26.5 speaks, and that every current build still speaks next to JFP2 (`docs/reference/jfp2-protocol.md`).
+This document describes the **legacy** wire protocol JoinFS instances (simulator-connected clients and hub-only console instances) use to talk to each other: the protocol every released version up to v26.5 speaks, and that every current build still speaks next to JFP2 (`docs/jfp2/protocol.md`).
 
 **The legacy wire is frozen.** Current builds implement it in `JoinFS/Net/Protocols/Legacy/`:
 - `LegacyWire` holds the constants and message ids.
@@ -70,7 +70,7 @@ Most traffic (position updates, variable syncs, pulses) is sent once and never r
 - Every received segment — even a duplicate of one already marked done — triggers an immediate, unreliable `GuaranteedDone` reply (`{ GuaranteedId: ushort, GuaranteedIndex: byte }`) sent back to the segment's sender, acknowledging that specific segment. There is no cumulative/selective-repeat ACK; each segment is acknowledged individually.
 - **Sender-side differences between released builds and current builds** (the bytes are identical; only *when* and *where* they are sent differs):
   - *Released builds (≤ v26.5)* queue a guaranteed message and first send it on the next work-loop tick.
-  - *Released builds* resend to the endpoint recorded at queue time, so a peer that is only reachable through a relay never receives guaranteed messages — Finding 8 in `docs/protocol-v2-implementation-review.md`.
+  - *Released builds* resend to the endpoint recorded at queue time, so a peer that is only reachable through a relay never receives guaranteed messages — Finding 8 in `docs/jfp2/history/protocol-v2-implementation-review.md`.
   - *Released builds* match an incoming `GuaranteedDone` by id alone. Because a broadcast shares one id, one recipient's ack can cancel another recipient's still-pending copy — Finding 9.
   - *Current builds* send immediately, resend to the peer's current route, match acks by (id, acknowledging peer), and drop a departed peer's pending messages.
   - Receivers of both kinds behave the same, so a released peer's own guaranteed sends through a relay still suffer from Findings 8 and 9.
@@ -275,7 +275,7 @@ The following `MESSAGE_ID` values exist in the enum with **no** producer and **n
 
 ## 9. Extending the protocol without breaking older clients
 
-> **Current policy: the legacy protocol is frozen.** New fields, messages and capabilities go into JFP2 (`docs/reference/jfp2-protocol.md`), which addresses the problems below by design. A peer that only speaks legacy keeps working through translation (`docs/reference/joinfs-architecture.md` §6). This section is kept as the analysis that motivated JFP2 and as guidance if the legacy wire ever *must* change.
+> **Current policy: the legacy protocol is frozen.** New fields, messages and capabilities go into JFP2 (`docs/jfp2/protocol.md`), which addresses the problems below by design. A peer that only speaks legacy keeps working through translation (`docs/reference/joinfs-architecture.md` §6). This section is kept as the analysis that motivated JFP2 and as guidance if the legacy wire ever *must* change.
 
 The codebase already demonstrates several backward-compatible extension idioms (documented inline in §5); the recommendations below generalize those patterns and flag the places where the current design would make an easy mistake hard to avoid.
 

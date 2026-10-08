@@ -2,7 +2,7 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 
-// docs/protocol-v2-implementation-plan.md Phase 5. The legacy Notes message (docs/network-
+// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 5. The legacy Notes message (docs/network-
 // protocol.md §8.9) is a nested, length-prefixed, multi-type container - in the current codebase it
 // has 5 different producer methods with 2 different (and neither correct) Length-field formulas, and
 // 3 of those 5 have zero call sites anywhere in the repo, alongside two Notes-family request messages
@@ -40,18 +40,26 @@ namespace JoinFS.Net.Jfp2.Codecs
         public byte MessageClass => MessageClasses.Notes;
         public byte SchemaVersion => 1;
 
+        // Byte limits of the string fields (UTF-8, without the length prefix; docs/jfp2/protocol.md §9.7)
+        public const int NicknameLimit = 32;
+        public const int CallsignLimit = 32;
+        public const int TextLimit = 768;
+
+        /// <summary>The largest payload: 26 fixed bytes (Guid, NoteId, Age, Channel), then each string at its limit with its prefix.</summary>
+        public const int MaxSize = 26 + 3 * WireText.PrefixSize + NicknameLimit + CallsignLimit + TextLimit;
+
         public int Encode(in NoteUpdate v, Span<byte> dest)
         {
             var bytes = new List<byte>(96);
             bytes.AddRange(v.Guid.ToByteArray()); // 16 bytes
-            WireText.WriteString(bytes, v.Nickname);
-            WireText.WriteString(bytes, v.Callsign);
+            WireText.WriteString(bytes, v.Nickname, NicknameLimit);
+            WireText.WriteString(bytes, v.Callsign, CallsignLimit);
             Span<byte> fixedFields = stackalloc byte[4 + 4 + 2];
             BinaryPrimitives.WriteUInt32LittleEndian(fixedFields.Slice(0, 4), v.NoteId);
             BinaryPrimitives.WriteSingleLittleEndian(fixedFields.Slice(4, 4), v.Age);
             BinaryPrimitives.WriteUInt16LittleEndian(fixedFields.Slice(8, 2), v.Channel);
             bytes.AddRange(fixedFields.ToArray());
-            WireText.WriteString(bytes, v.Text);
+            WireText.WriteString(bytes, v.Text, TextLimit);
             bytes.CopyTo(dest);
             return bytes.Count;
         }

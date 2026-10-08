@@ -5,7 +5,7 @@
 --     (LocalNode.VERSION), written little-endian, so byte 0 on the wire is
 --     0x0B. See docs/network-protocol.md.
 --   * JFP2: every datagram starts with the magic byte 0xFA
---     (JoinFS.Jfp2.Envelope.Magic). See docs/reference/jfp2-protocol.md.
+--     (JoinFS.Jfp2.Envelope.Magic). See docs/jfp2/protocol.md.
 --
 -- Install: copy this file into your Wireshark "Personal Lua Plugins" folder
 -- (Help > About Wireshark > Folders > Personal Lua Plugins), or run Wireshark/
@@ -17,7 +17,7 @@
 -- (P2P peers, or a hub configured on a different port).
 --
 -- CAVEAT: JFP2's per-(peer, message class) schema version is negotiated at
--- Hello/HelloAck time (docs/reference/jfp2-protocol.md §5) and is NOT carried on
+-- Hello/HelloAck time (docs/jfp2/protocol.md §5) and is NOT carried on
 -- every application datagram - a dissector reading packets in isolation has
 -- no reliable way to know which schema version a given peer pair agreed on.
 -- As of this writing every JFP2 message class in the codebase
@@ -151,11 +151,9 @@ local LEGACY_APP_MSG = {
     [39] = "String8Variables", [40] = "ShowOnRadar",
 }
 
--- JoinFS.Jfp2.MessageClasses - Internal partition
+-- JoinFS.Jfp2.MessageClasses - Internal partition (2-8 unassigned)
 local JFP2_INTERNAL_CLASS = {
-    [0] = "Hello", [1] = "HelloAck", [2] = "Join", [3] = "JoinReply",
-    [4] = "Leave", [5] = "Pulse", [6] = "PulseResponse", [7] = "Pathfinder",
-    [8] = "PathfinderResponse", [9] = "GuaranteedDone",
+    [0] = "Hello", [1] = "HelloAck", [9] = "GuaranteedDone",
 }
 
 -- JoinFS.Jfp2.MessageClasses - Application partition
@@ -165,10 +163,64 @@ local JFP2_APP_CLASS = {
     [8] = "StatusRequest", [9] = "WeatherReply",
 }
 
+-- Capability bits (docs/jfp2/protocol.md §5.6): none assigned yet
 local JFP2_CAPABILITY_BITS = {
-    [0] = "Coalescing", [1] = "QuantizedPosition", [2] = "Ipv6Peers",
-    [3] = "SelectiveAck",
 }
+
+-- HelloAck Result values (docs/jfp2/protocol.md §5.2); any other
+-- value is unassigned, and every value but 0 means "no session now"
+local JFP2_RESULT = {
+    [0] = "Accepted", [1] = "NoCompatibleProtoMajor", [2] = "NotAdmitted",
+}
+
+-- JoinFS.Jfp2.HandshakeMessage extension tags (docs/jfp2/protocol.md §5.4)
+local JFP2_TLV_TAG = {
+    [1] = "Names", [2] = "Build", [3] = "ObservedEndPoint",
+}
+
+-- JoinFS.Net.Jfp2.WireEndPoint (docs/jfp2/protocol.md §4.4): family u8 (4 IPv4, 6 IPv6),
+-- the address in network byte order, the port u16 little-endian; 7 or 19 bytes. Returns the text,
+-- or nil for an unassigned family or a value shorter than its family needs (a receiver ignores
+-- both). Bytes after the endpoint are not read (a later build may extend the value).
+local function jfp2_wire_endpoint_string(buffer, offset, len)
+    if len < 1 then return nil end
+    local family = buffer(offset, 1):uint()
+    if family == 4 and len >= 7 then
+        local octets = {}
+        for i = 0, 3 do octets[#octets + 1] = tostring(buffer(offset + 1 + i, 1):uint()) end
+        return table.concat(octets, ".") .. ":" .. buffer(offset + 5, 2):le_uint()
+    elseif family == 6 and len >= 19 then
+        local groups = {}
+        for i = 0, 7 do groups[#groups + 1] = string.format("%x", buffer(offset + 1 + i * 2, 2):uint()) end
+        return "[" .. table.concat(groups, ":") .. "]:" .. buffer(offset + 17, 2):le_uint()
+    end
+    return nil
+end
+
+-- JoinFS.Net.Jfp2.NodeName kinds (docs/jfp2/protocol.md §4.3)
+local JFP2_NAME_KIND = {
+    [0] = "legacy id", [1] = "random key", [2] = "key-pair id", [255] = "group name",
+}
+
+-- A JFP2 node name: 8 bytes, a kind byte then 7 bytes by kind. Kind 0 holds a
+-- legacy Nuid in the legacy header's layout; other kinds are shown as hex.
+local function add_jfp2_name(tree, buffer, offset, label)
+    local kind = buffer(offset, 1):uint()
+    local kindName = JFP2_NAME_KIND[kind] or "unassigned"
+    local sub
+    if kind == 0 then
+        sub = tree:add(buffer(offset, 8), label .. ": " .. legacy_nuid_ip_string(buffer, offset + 1) ..
+            ":" .. buffer(offset + 5, 2):le_uint() .. "/" .. buffer(offset + 7, 1):uint() .. " (kind 0, " .. kindName .. ")")
+        sub:add(buffer(offset, 1), "Kind: 0 (" .. kindName .. ")")
+        add_legacy_nuid(sub, buffer, offset + 1, "Legacy id")
+    else
+        sub = tree:add(buffer(offset, 8), label .. ": kind " .. kind .. " (" .. kindName .. ") " ..
+            buffer(offset + 1, 7):bytes():tohex())
+        sub:add(buffer(offset, 1), "Kind: " .. kind .. " (" .. kindName .. ")")
+        sub:add(buffer(offset + 1, 7), "Value: " .. buffer(offset + 1, 7):bytes():tohex())
+    end
+    return offset + 8
+end
 
 ----------------------------------------------------------------------
 -- Legacy payload decoders (docs/network-protocol.md §8)
@@ -489,7 +541,7 @@ local function dissect_legacy(buffer, pinfo, tree)
 end
 
 ----------------------------------------------------------------------
--- JFP2 payload decoders (docs/reference/jfp2-protocol.md §5-6, JoinFS/Jfp2/*)
+-- JFP2 payload decoders (docs/jfp2/protocol.md §9, JoinFS/Jfp2/*)
 ----------------------------------------------------------------------
 
 local function decode_jfp2_handshake(tree, buffer, offset, isAck)
@@ -507,7 +559,8 @@ local function decode_jfp2_handshake(tree, buffer, offset, isAck)
     tree:add(buffer(offset, 2), "SelfAssignedId: " .. buffer(offset, 2):le_uint()); offset = offset + 2
     local result = buffer(offset, 1):uint()
     if isAck then
-        tree:add(buffer(offset, 1), "Result: " .. result .. (result == 0 and " (Accepted)" or " (NoCompatibleProtoMajor)"))
+        tree:add(buffer(offset, 1), "Result: " .. result .. " (" .. (JFP2_RESULT[result] or "unassigned") ..
+            (result == 0 and ")" or ": no session now)"))
     else
         tree:add(buffer(offset, 1), "Result: " .. result .. " (ignored on Hello)")
     end
@@ -519,20 +572,55 @@ local function decode_jfp2_handshake(tree, buffer, offset, isAck)
         local class = buffer(offset + 1, 1):uint()
         local minV = buffer(offset + 2, 1):uint()
         local maxV = buffer(offset + 3, 1):uint()
-        local partName = partition ~= 0 and "Internal" or "Application"
-        local className = partition ~= 0 and (JFP2_INTERNAL_CLASS[class] or class) or (JFP2_APP_CLASS[class] or class)
-        tree:add(buffer(offset, 4), "Offer " .. i .. ": " .. partName .. "/" .. className ..
-            " v[" .. minV .. ".." .. maxV .. "]")
+        if partition == 0 or partition == 1 then
+            local partName = partition == 1 and "Internal" or "Application"
+            local className = partition == 1 and (JFP2_INTERNAL_CLASS[class] or class) or (JFP2_APP_CLASS[class] or class)
+            tree:add(buffer(offset, 4), "Offer " .. i .. ": " .. partName .. "/" .. className ..
+                " v[" .. minV .. ".." .. maxV .. "]")
+        else
+            tree:add(buffer(offset, 4), "Offer " .. i .. ": unknown partition " .. partition ..
+                ", class " .. class .. " v[" .. minV .. ".." .. maxV .. "] (skipped)")
+        end
         offset = offset + 4
     end
     local len = buffer:len()
     if offset < len then
         local ext = tree:add(buffer(offset, len - offset), "Extensions (TLV)")
+        local seen = {}
         while offset + 4 <= len do
             local tag = buffer(offset, 2):le_uint()
             local tlvLen = buffer(offset + 2, 2):le_uint()
             if offset + 4 + tlvLen > len then break end
-            ext:add(buffer(offset, 4 + tlvLen), "Tag 0x" .. string.format("%04x", tag) .. ", " .. tlvLen .. " bytes")
+            local tagName = JFP2_TLV_TAG[tag]
+            local repeated = seen[tag]
+            seen[tag] = true
+            local item = ext:add(buffer(offset, 4 + tlvLen), "Tag 0x" .. string.format("%04x", tag) ..
+                (tagName and (" (" .. tagName .. ")") or "") .. ", " .. tlvLen .. " bytes" ..
+                (repeated and " (repeated: ignored, the first copy counts)" or ""))
+            if repeated then
+                -- nothing more: a receiver reads the first copy only
+            elseif tagName == "Names" then
+                -- whole names; a remainder shorter than a name is skipped
+                local count = math.floor(tlvLen / 8)
+                for i = 0, count - 1 do
+                    add_jfp2_name(item, buffer, offset + 4 + i * 8, "Name " .. (i + 1))
+                end
+                if tlvLen > count * 8 then
+                    item:add(buffer(offset + 4 + count * 8, tlvLen - count * 8), "Remainder: " .. (tlvLen - count * 8) .. " bytes (skipped)")
+                end
+            elseif tagName == "Build" and tlvLen > 0 then
+                item:add(buffer(offset + 4, tlvLen), "Build: " .. buffer(offset + 4, tlvLen):string(ENC_UTF_8))
+            elseif tagName == "ObservedEndPoint" and tlvLen > 0 then
+                -- the UDP source of the Hello this HelloAck answers, as the responder received it
+                local text = jfp2_wire_endpoint_string(buffer, offset + 4, tlvLen)
+                if text then
+                    item:add(buffer(offset + 4, tlvLen), "ObservedEndPoint: " .. text ..
+                        (isAck and "" or " (only a HelloAck carries it)"))
+                else
+                    item:add(buffer(offset + 4, tlvLen), "ObservedEndPoint: family " .. buffer(offset + 4, 1):uint() ..
+                        ", unassigned or too short (ignored)")
+                end
+            end
             offset = offset + 4 + tlvLen
         end
     end
@@ -673,11 +761,13 @@ local function decode_jfp2_status_v1(tree, buffer, offset)
 end
 
 local function decode_jfp2_guaranteed_done(tree, buffer, offset)
-    tree:add(buffer(offset, 2), "GuaranteedId: " .. buffer(offset, 2):le_uint())
-    -- builds before the segment-index change sent only the id
-    if buffer:len() > offset + 2 then
-        tree:add(buffer(offset + 2, 1), "GuaranteedIndex: " .. buffer(offset + 2, 1):uint())
+    -- always 3 bytes: a shorter one acknowledges nothing
+    if buffer:len() < offset + 3 then
+        tree:add(buffer(offset, buffer:len() - offset), "Short GuaranteedDone (" .. (buffer:len() - offset) .. " bytes): ignored")
+        return
     end
+    tree:add(buffer(offset, 2), "GuaranteedId: " .. buffer(offset, 2):le_uint())
+    tree:add(buffer(offset + 2, 1), "GuaranteedIndex: " .. buffer(offset + 2, 1):uint())
 end
 
 local function decode_jfp2_application(tree, buffer, offset, class)
@@ -723,8 +813,8 @@ local function decode_jfp2_internal(tree, buffer, offset, class)
 end
 
 ----------------------------------------------------------------------
--- JFP2 dissector: 8-byte fixed envelope (+4-byte guaranteed extension),
--- docs/reference/jfp2-protocol.md §4.
+-- JFP2 dissector: 8-byte fixed envelope (+4-byte guaranteed extension,
+-- +16-byte Forwarded extension), docs/jfp2/protocol.md §3.
 ----------------------------------------------------------------------
 
 local function dissect_jfp2(buffer, pinfo, tree)
@@ -745,7 +835,7 @@ local function dissect_jfp2(buffer, pinfo, tree)
         (isInternal and " [Internal]" or " [Application]"))
     subtree:add(buffer(3, 2), "SenderPeerId: " .. buffer(3, 2):le_uint())
     subtree:add(buffer(5, 2), "RecipientPeerId: " .. buffer(5, 2):le_uint() ..
-        (buffer(5, 2):le_uint() == 0 and " (broadcast)" or ""))
+        (buffer(5, 2):le_uint() == 0 and " (not known yet: first Hello)" or ""))
 
     -- NOTE: the design doc's §4.6 "Extended" escape (RawMessageClass==255 ->
     -- 2-byte real class id follows) is not actually implemented by
@@ -769,6 +859,11 @@ local function dissect_jfp2(buffer, pinfo, tree)
         subtree:add(buffer(offset + 2, 1), "GuaranteedIndex: " .. buffer(offset + 2, 1):uint())
         subtree:add(buffer(offset + 3, 1), "GuaranteedCount: " .. buffer(offset + 3, 1):uint())
         offset = offset + 4
+    end
+
+    if isForwarded then
+        offset = add_jfp2_name(subtree, buffer, offset, "Origin")
+        offset = add_jfp2_name(subtree, buffer, offset, "Target")
     end
 
     local partitionNames = isInternal and JFP2_INTERNAL_CLASS or JFP2_APP_CLASS
@@ -813,7 +908,7 @@ end
 ----------------------------------------------------------------------
 -- Top-level dissect: one magic-byte compare routes to the right decoder,
 -- exactly like LocalNode.ReceiveMessages does on the real socket
--- (docs/reference/jfp2-protocol.md §3/§7.1).
+-- (docs/jfp2/protocol.md §2.2).
 ----------------------------------------------------------------------
 
 function joinfs_proto.dissector(buffer, pinfo, tree)

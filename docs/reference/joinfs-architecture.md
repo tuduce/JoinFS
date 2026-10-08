@@ -4,7 +4,7 @@
 network stack in which wire protocols are plugins. It describes the code as it is
 (`JoinFS/`, 2026-09). For the reasoning behind the network design and how it evolved, see
 `docs/network-plugin-architecture.md`. For the wire protocols themselves, see
-`docs/reference/jfp2-protocol.md` (JFP2) and `docs/network-protocol.md` (legacy).
+`docs/jfp2/protocol.md` (JFP2) and `docs/network-protocol.md` (legacy).
 
 Contents:
 1. [What JoinFS is, and the vocabulary](#1-what-joinfs-is-and-the-vocabulary)
@@ -228,8 +228,8 @@ graph TB
   - `Open(port)`, which runs on the network thread, leaves any current session first when the port
     changes, and returns once the socket is open.
 - **Network → app:** `Drain(IMessageHandler, INetworkEventHandler)` hands queued items to the app's
-  handlers in order. The events are `SessionJoined`, `PeerJoined`, `PeerEstablished`, `PeerLeft` and
-  `Log`.
+  handlers in order. The events are `SessionJoined`, `PeerJoined`, `PeerEstablished`, `PeerLeft`,
+  `EndPointObserved` (a JFP2 neighbor says where it sees this node's datagrams come from) and `Log`.
 - **`Snapshot`** (`NetworkSnapshot`):
   - session state, session id, global/creator/login flags, and the last join and login results;
   - local id, addresses and port;
@@ -247,7 +247,10 @@ graph TB
 2. Hand it to the first plugin whose `Accepts(datagram)` matches its magic byte.
 
 **Decoded messages** (`Deliver<T>`, called by plugins):
-1. **Mesh kinds** go to `MeshManager` and stop there.
+1. **Mesh kinds** go to `MeshManager` and stop there, unless addressed to another node, which takes
+   them to step 3. (Legacy relays mesh datagrams for others itself and JFP2 carries none, so only a
+   future JFP2 mesh hands the core such a message. A node that does not know its own id yet takes
+   every mesh message as its own.)
 2. **Identity** updates the identity cache; **RemoveObject** evicts from it.
 3. A message addressed to *another* node is **translated**: re-sent through whichever plugin reaches
    that node (§6).
@@ -304,8 +307,9 @@ receives canonical mesh messages through the router; today only the legacy plugi
 **Relaying:**
 - **Pathfinder** (every 5 s): ask directly established peers which of our not-yet-established peers
   they can reach directly. A positive answer sets that peer's route to go via the responder.
-- **Relay budget:** a relaying node relays for at most 10 distinct senders at a time, shared by all
-  plugins (`TryAcquireRelay`).
+- **Relay budget:** a relaying node relays for at most `RelayBudget` distinct senders at a time
+  (default 10; a hub raises it with `--hubrelays <n>`), shared by all plugins (`TryAcquireRelay`).
+  A refusal is logged ("relay capacity reached"), at most once per 5 s.
 
 ### 5.5 Peers and local identity
 
@@ -319,7 +323,9 @@ receives canonical mesh messages through the router; today only the legacy plugi
   - receive/send established, low-bandwidth, RTT, expiry time, and the route cache.
 - **`LocalIdentity`** holds our LAN address, public address (from a my-IP lookup) and port, which
   make up our `NodeId`. `MakeEndPoint` reaches a peer that shares our public IP (same NAT) on its
-  LAN address instead.
+  LAN address instead. That is only a guess (strangers behind one CGNAT address share the public
+  IP too), so `MeshManager.RegisterNode` replaces the address with the one a datagram from the peer
+  actually came from, as soon as one arrives directly.
 
 ### 5.6 `ObjectStateCache` — identity for translation
 
@@ -373,7 +379,7 @@ public interface IProtocolPlugin
   the Forward flag, which is exactly what a legacy relay emits.
 - **Pinned** byte-for-byte by the golden fixtures in `JoinFS.Tests/Legacy`.
 
-**`Jfp2Plugin`** (`Net/Protocols/Jfp2/`) — the newer protocol (`docs/reference/jfp2-protocol.md`):
+**`Jfp2Plugin`** (`Net/Protocols/Jfp2/`) — the newer protocol (`docs/jfp2/protocol.md`):
 - **Envelope:** an 8-byte header (magic `0xFA`), optional guaranteed and relay extensions.
 - **Sessions:** with a *neighbour*, bound to the node id it states in Hello/HelloAck, never to the
   endpoint it answers from; datagrams find their session by the ids in the envelope. Hello/HelloAck
@@ -383,7 +389,10 @@ public interface IProtocolPlugin
 - **Next hop:** JFP2 datagrams for a peer go to the neighbour that carries its traffic - the peer
   itself, the relay in `Peer.RouteVia`, or the node that answered at the peer's shared endpoint -
   as unaddressed datagrams to a neighbour, or Forwarded ones for anyone behind it.
-- **Codecs:** versioned per class (`Codecs/`), resolved through `CodecRegistry`.
+- **Profile:** the classes a plugin speaks, one `ClassDescriptor` each (kind, class number,
+  guaranteed or not, a codec per schema version in `Codecs/`, delivery), make up its `Jfp2Profile`.
+  The offers in Hello, routing, encoding and decoding all read it. Production uses
+  `Jfp2Profile.Default`; tests give nodes older or newer profiles (spec §6.6).
 - **Identity before position:** before a peer's first position of an object, and whenever its
   identity changes or 4 s have passed, it sends Identity first.
 - **Guaranteed delivery** (`Jfp2Reliability`): single datagram, retried every 2 s through the
@@ -406,12 +415,15 @@ Relaying and translation are generic: there is no code specific to a pair of pro
    a different version. The plugin decodes the message with the sender's version and calls `Deliver`
    with `Recipient` = the target and `Sender` = the original author. The core then:
    - updates the identity cache (Identity itself is not forwarded; it goes out inline with the next
-     position);
+     legacy position, or ahead of the next JFP2 one). A JFP2 relay that forwards an Identity byte for
+     byte also decodes it into the cache, since a position it translates needs it;
    - routes everything else to the target's plugin, keeping `Sender`, so it is credited to the true
      author;
-   - handles guaranteed messages hop by hop: the relaying node acknowledges upstream, sends a new
-     guaranteed message downstream, and consumes the downstream acknowledgement addressed to the
-     original author.
+   - handles guaranteed messages hop by hop: the relaying node acknowledges upstream (in JFP2, a
+     Forwarded ack in the target's name), sends a guaranteed message downstream, and consumes the
+     downstream acknowledgement addressed to the original author. A JFP2 re-send keeps the id the
+     origin gave the message, which the decoding plugin passes in `MessageMeta.OriginGuaranteedId`;
+     legacy uses its own ids.
 
 ```mermaid
 sequenceDiagram
@@ -419,7 +431,7 @@ sequenceDiagram
     participant H as Hub (JFP2 + legacy)
     participant B as B (legacy only)
     A->>H: JFP2 Forwarded Event (origin A, target B, guaranteed)
-    H-->>A: JFP2 GuaranteedDone
+    H-->>A: JFP2 Forwarded GuaranteedDone (origin B, target A)
     Note over H: Jfp2Plugin decodes → Deliver(Sender=A, Recipient=B)<br/>NetworkCore routes to LegacyPlugin
     H->>B: legacy SimEvent (header sender = A, Forward flag, guaranteed)
     B-->>H: legacy GuaranteedDone (addressed to A)
@@ -435,7 +447,7 @@ and knows nothing about wire formats. It is a small facade, `Network`, and eight
 | Part | Owns | Handles |
 |---|---|---|
 | `Network` (facade) | the `NetworkService`; the session commands (join, login, create, leave, join a user); which plugins this build speaks | the network events; forwards every message to its part |
-| `NetBootstrap` | this node's addresses and `NodeId`; the my-IP, seed-hub and ban-list downloads; the DNS cache | — |
+| `NetBootstrap` | this node's addresses and `NodeId`; the my-IP, seed-hub and ban-list downloads; the DNS cache; the observed endpoints (`ObservedEndPoints`) and the NAT class, logged | — |
 | `PeerTable` | what each node in the session said about itself (`Nodes`: nickname, ATC, version, simulator); who has which of our controls (`share*Controls`) | `PeerInfo`; peer joined, established, left |
 | `SimSender` | nothing (it maps and sends) | — (called by `Sim`) |
 | `SimIngest` | the identity cache | identity, positions, variables, events, removals, flight plans, weather |
@@ -494,7 +506,10 @@ functions in `SimMessageMapper`.
   location of a user.
 - **Events:** `PeerJoined` adds a `PeerTable` entry. `PeerEstablished` sends our `PeerInfo` and, if
   the comms window is open, a comms request. `PeerLeft` removes the node, its cached identities and
-  its objects.
+  its objects, and tells `NetBootstrap` the node left. `EndPointObserved` goes to
+  `NetBootstrap.OnEndPointObserved`: `ObservedEndPoints` (plain C#) classifies the NAT from what
+  neighbors see (LAN addresses ignored, the 8 most recent reporters) and the class is logged when it
+  changes; nothing else uses it, and the public address stays the HTTP lookup's.
 
 **Periodic work** (`Network.DoWork`, in this order):
 1. Drain the service.
@@ -575,8 +590,8 @@ plugin.
 
 **A new field on an existing message** (for example on `PositionUpdate`):
 1. Add it to the canonical struct as optional, with a presence bit or a sentinel.
-2. Carry it in a new JFP2 schema version: add a `PositionV2Codec`, register it, and raise the
-   offer's max version.
+2. Carry it in a new JFP2 schema version: write a `PositionV2Codec` and add it to Position's
+   descriptor in `Jfp2Profile.Default`; the offer follows (`docs/jfp2/implementation.md` §5).
 3. Leave the legacy codec alone; it ignores the field.
 4. Give it a default in the session part's handler for peers that don't send it.
 
@@ -584,7 +599,8 @@ plugin.
 1. Add a `MessageKind` value, a canonical struct implementing `IMessage`, and an `IMessageHandler`
    overload. Handle it in the session part that owns that data, and forward it there from
    `Network`.
-2. Carry it in JFP2 with a new application class number, appended and never reused.
+2. Carry it in JFP2 with a new application class number, appended and never reused, and a
+   descriptor for it in `Jfp2Profile.Default` (`docs/jfp2/implementation.md` §5).
 3. Legacy doesn't get new messages. Either the feature doesn't reach legacy peers, or it is expressed
    through an existing kind (for example, a sim value as a `VariableSync` vuid).
 
@@ -601,8 +617,11 @@ builds depend on them.
 | `Net/LegacyMeshTests` | Mesh behaviour over the in-memory network: join, introductions, wrong password, relay between unreachable nodes, guaranteed delivery under loss, segmentation, leave, expiry, session gating. |
 | `Net/LegacyRoundTripTests` | Every kind survives legacy encode/decode. |
 | `Net/Jfp2PluginTests` | Negotiation, identity-then-position, fallback to legacy, mixed broadcast, JFP2 guaranteed delivery under loss, translation of relayed JFP2 for a legacy-only node. |
+| `Net/Jfp2WireCharacterizationTests` | The default JFP2 profile sends the same Hello (offers in order) and the same bytes for each of the ten application classes as the hand-kept tables did. |
+| `Net/Jfp2VersionSkewTests` | Nodes with older and newer profiles side by side: per-pair versions, a class one side lacks falls back to legacy for that pair only, and a relay translates between Position versions. |
+| `Net/NetworkCoreDeliverTests` | A mesh message addressed to another node is re-sent toward it (shaped as a legacy relay); one for this node, or unaddressed, is the local mesh's. |
 | `Net/NetworkServiceTests` | The threaded service over real loopback UDP. |
-| `Jfp2/*` | Envelope, negotiation and each codec. |
+| `Jfp2/*` | Envelope, negotiation, each codec, and the class descriptors and profile. |
 | `Legacy/XPlaneLinkTests` | The X-Plane link framing matches what the native plugin expects. |
 | `Session/SimIngestTests` | The identity cache, filtering, shared cockpit, variables, events, flight plans and weather; and end to end, a position crossing the in-memory mesh over legacy or JFP2 reaches the simulator with the same identity. |
 | `Session/PeerTableTests` | What `PeerInfo` changes and reports (ATC, nickname, becoming a hub), what we share with whom, periodic and scheduled `PeerInfo`, name fallbacks. |
@@ -629,6 +648,6 @@ received into a session part through `IMessage.Dispatch`.
 | `JoinFS/Net/Service/` | `NetworkService`, `INetworkOutbox`, `NetworkSnapshot`, pooled queue items |
 | `JoinFS/Net/Transport/` | `IDatagramTransport`, `UdpTransport`, `InMemoryNetwork` |
 | `JoinFS/Net/Protocols/Legacy/` | `LegacyWire`, `LegacyPlugin`, `LegacyReliability` |
-| `JoinFS/Net/Protocols/Jfp2/` | `Jfp2Plugin`, `Envelope`, `Negotiation`, `Codecs/` |
+| `JoinFS/Net/Protocols/Jfp2/` | `Jfp2Plugin` (state, periodic work, datagrams out; `.Handshake.cs`: sessions, handshake, keepalive, occupants; `.Relay.cs`: next hop, relay; `.Codec.cs`: encoder, decode), `ClassDescriptor`, `Jfp2Profile`, `Envelope`, `Negotiation`, `Codecs/` |
 | `JoinFS/XPlaneLink.cs`, `JoinFS/XPlane.cs` | X-Plane plugin bridge |
 | `JoinFS.Tests/Legacy`, `JoinFS.Tests/Net`, `JoinFS.Tests/Jfp2`, `JoinFS.Tests/Session` | Network and session tests (§10) |

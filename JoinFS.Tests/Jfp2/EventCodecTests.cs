@@ -6,7 +6,7 @@ using Xunit;
 
 namespace JoinFS.Tests.Jfp2
 {
-    // Round-trip coverage for the Event codec (docs/protocol-v2-implementation-plan.md Phase 5).
+    // Round-trip coverage for the Event codec (docs/jfp2/history/protocol-v2-implementation-plan.md Phase 5).
     public class EventCodecTests
     {
         static EventUpdate Sample() => new()
@@ -47,11 +47,11 @@ namespace JoinFS.Tests.Jfp2
         }
 
         [Fact]
-        public void CodecRegistry_ResolvesEventCodec()
+        public void DefaultProfile_CarriesEventWithThisCodec()
         {
-            CodecRegistry.Register(new EventV1Codec());
-            ICodec<EventUpdate> codec = CodecRegistry.Resolve<EventUpdate>(MessageClasses.Event, 1);
-            Assert.Equal(MessageClasses.Event, codec.MessageClass);
+            ClassDescriptor<EventUpdate> messageClass = Jfp2Profile.Default.ForKind<EventUpdate>(MessageKind.Event);
+            Assert.Equal(MessageClasses.Event, messageClass.MessageClass);
+            Assert.IsType<EventV1Codec>(messageClass.Codec(1));
         }
 
         [Fact]

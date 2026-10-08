@@ -2,9 +2,10 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Net;
+using System.Text;
 
-// Ported from ProtocolV2Reference/Negotiation.cs (docs/reference/jfp2-protocol.md §5) as part of
-// docs/protocol-v2-implementation-plan.md Phase 1. PeerSession gained two fields
+// Ported from ProtocolV2Reference/Negotiation.cs (docs/jfp2/protocol.md §5) as part of
+// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 1. PeerSession gained two fields
 // (HelloAttempts/NextHelloAttempt) beyond the reference implementation, needed to drive the actual
 // Hello-retry timer in Jfp2Plugin.DoHandshake.
 
@@ -35,22 +36,21 @@ namespace JoinFS.Net.Jfp2
     /// <summary>
     /// Optional boolean capabilities, independent of any one message class's schema version. A
     /// capability is only usable with a given peer once BOTH sides have set the bit - see
-    /// Negotiator.Resolve, which ANDs the two capability masks together.
+    /// Negotiator.Resolve, which ANDs the two capability masks together. None is assigned: each bit is
+    /// assigned by the design that needs it, together with any flag it defines
+    /// (docs/jfp2/protocol.md §5.6), and this build advertises none
+    /// (<see cref="Jfp2Profile.Capabilities"/>).
     /// </summary>
     [Flags]
     public enum Capability : ulong
     {
         None = 0,
-        Coalescing = 1UL << 0,
-        QuantizedPosition = 1UL << 1,
-        Ipv6Peers = 1UL << 2,
-        SelectiveAck = 1UL << 3,
     }
 
     /// <summary>
     /// A minimal length-prefixed, tag-value extension area appended to Hello/HelloAck. Anything not
-    /// anticipated by the fixed Hello layout (a future auth token, a build string for diagnostics, a
-    /// vendor-specific extension, ...) can be added here later without changing how any existing field
+    /// anticipated by the fixed Hello layout (the node names and build that came first, a future auth
+    /// token, a vendor-specific extension, ...) can be added here without changing how any existing field
     /// is parsed - an unrecognized tag is simply skipped by its declared length instead of desyncing
     /// the rest of the message. This generalizes the one place the legacy protocol already does this
     /// (the Notes message's length-prefixed inner records, docs/network-protocol.md §8.9/§9.2) to the
@@ -78,7 +78,8 @@ namespace JoinFS.Net.Jfp2
                 ushort len = BinaryPrimitives.ReadUInt16LittleEndian(src.Slice(i + 2, 2));
                 i += 4;
                 if (i + len > src.Length) break; // malformed/truncated - stop rather than throw; the handshake extension area is best-effort
-                result[tag] = src.Slice(i, len).ToArray();
+                // a repeated tag: the first copy counts (a list goes inside one value)
+                result.TryAdd(tag, src.Slice(i, len).ToArray());
                 i += len;
             }
             return result;
@@ -91,28 +92,99 @@ namespace JoinFS.Net.Jfp2
     /// PeerId assignment IS the subject of this exchange, the very first Hello a node sends a new
     /// peer has no meaningful RecipientPeerId yet - the reply is simply addressed back to the UDP
     /// source IPEndPoint, exactly like the legacy Join/JoinReply exchange already does today.
+    ///
+    /// This is the permanent entry point of JFP2: its envelope (Envelope.HandshakeProtoMajor), its
+    /// fixed fields and its offer list layout never change. Anything new goes into the extension
+    /// area, and a later major version is agreed through ProtoMajorMin/Max inside it
+    /// (docs/jfp2/protocol.md §5.1; pinned by HandshakeGoldenTests).
+    ///
+    /// Reading the extension area (§5.5): unknown tags are skipped, the first copy of a repeated tag
+    /// counts, a value shorter than its tag needs is ignored, and a longer one is read up to the
+    /// prefix this build knows (whole names, the first <see cref="BuildMaxBytes"/> of a build, an
+    /// endpoint up to its family's size).
     /// </summary>
     public sealed class HandshakeMessage
     {
-        /// <summary>Extension tag carrying the sender's own node id (<see cref="Node"/>).</summary>
-        public const ushort NodeTag = 1;
+        /// <summary><see cref="Result"/>: the session is accepted.</summary>
+        public const byte ResultAccepted = 0;
+
+        /// <summary><see cref="Result"/>: no ProtoMajor in common.</summary>
+        public const byte ResultNoCompatibleProtoMajor = 1;
+
+        /// <summary><see cref="Result"/>: not admitted, no session was created (reserved for the mesh over JFP2; this build never sends it).</summary>
+        public const byte ResultNotAdmitted = 2;
+
+        /// <summary>An offer's partition byte: an application class.</summary>
+        public const byte PartitionApplication = 0;
+
+        /// <summary>An offer's partition byte: an internal class. An offer with any other value is skipped.</summary>
+        public const byte PartitionInternal = 1;
+
+        /// <summary>Extension tag carrying the sender's own names (<see cref="Names"/>).</summary>
+        public const ushort NamesTag = 1;
+
+        /// <summary>Extension tag carrying the sender's build (<see cref="Build"/>).</summary>
+        public const ushort BuildTag = 2;
+
+        /// <summary>Extension tag carrying, in a HelloAck, where the Hello it answers came from (<see cref="ObservedEndPoint"/>).</summary>
+        public const ushort ObservedEndPointTag = 3;
+
+        /// <summary>The longest <see cref="Build"/> sent or kept, in UTF-8 bytes.</summary>
+        public const int BuildMaxBytes = 64;
 
         public byte ProtoMajorMin;
         public byte ProtoMajorMax;
         public ulong Capabilities;
         public ushort SelfAssignedId; // the PeerId the sender wants to be addressed by from now on
         public List<SchemaOffer> Offers = new();
-        public byte Result; // HelloAck only: 0 = Accepted, 1 = NoCompatibleProtoMajor. Ignored on Hello.
+        public byte Result; // HelloAck only (ignored on Hello): ResultAccepted, or any other value: no session now (§5.2)
         public Dictionary<ushort, byte[]> Extensions = new();
 
         /// <summary>
-        /// Who is speaking: the sending node's own id (in a HelloAck, the node that actually answered).
-        /// The one thing an endpoint cannot tell you when several nodes share it (two nodes behind one
-        /// NAT port forward, a hub and a client), so a receiver binds a session to this and never to
-        /// the datagram's source. Travels as an extension so a build that does not know it still parses
-        /// the message; a peer that omits it is treated as legacy-only.
+        /// Who is speaking: the sending node's own names, preferred first (in a HelloAck, the node that
+        /// actually answered). The one thing an endpoint cannot tell you when several nodes share it
+        /// (two nodes behind one NAT port forward, a hub and a client), so a receiver binds a session
+        /// to a name and never to the datagram's source. This build sends one, kind 0 (its legacy id),
+        /// and binds by the kind-0 names it reads, skipping the others. Travels as an extension of
+        /// 8 bytes per name; a reader takes the whole names and skips a shorter remainder. Empty when
+        /// the sender named none (a peer that names none it can resolve is treated as legacy-only).
         /// </summary>
-        public RelayNuid? Node;
+        public List<NodeName> Names = new();
+
+        /// <summary>
+        /// Which build is speaking, as text (JoinFS sends its version and variant), so a hub can count
+        /// which builds speak JFP2. Diagnostic only: nothing about the protocol depends on it,
+        /// negotiation alone does. Written and read through <see cref="CleanBuild"/>, so what goes on the
+        /// wire is always within its limits and what a peer sent is always safe to log. Null when the
+        /// sender did not say.
+        /// </summary>
+        public string Build;
+
+        /// <summary>
+        /// HelloAck: the UDP source of the Hello it answers, as the responder received it - so the asker
+        /// learns the public endpoint a NAT gave it (docs/jfp2/protocol.md §5.4). Travels as a
+        /// <see cref="WireEndPoint"/>; read up to its family's size, and ignored when its family is
+        /// unassigned or the value is too short. Null when not sent (a Hello, an older build).
+        /// </summary>
+        public IPEndPoint ObservedEndPoint;
+
+        /// <summary>
+        /// The build text as it may travel: printable ASCII only (0x20-0x7E; it comes from
+        /// unauthenticated Hellos and ends up in the log, so no control, bidi or zero-width
+        /// characters), at most <see cref="BuildMaxBytes"/> long. Null when nothing is left.
+        /// </summary>
+        public static string CleanBuild(ReadOnlySpan<char> text)
+        {
+            Span<char> clean = stackalloc char[BuildMaxBytes];
+            int length = 0;
+            foreach (char c in text)
+            {
+                if (c < 0x20 || c > 0x7E) continue;
+                clean[length++] = c;
+                if (length == BuildMaxBytes) break;
+            }
+            return length > 0 ? new string(clean[..length]) : null;
+        }
 
         public byte[] Serialize()
         {
@@ -131,20 +203,32 @@ namespace JoinFS.Net.Jfp2
             bytes.AddRange(count.ToArray());
             foreach (var offer in Offers)
             {
-                bytes.Add((byte)(offer.Internal ? 1 : 0));
+                bytes.Add(offer.Internal ? PartitionInternal : PartitionApplication);
                 bytes.Add(offer.MessageClass);
                 bytes.Add(offer.MinVersion);
                 bytes.Add(offer.MaxVersion);
             }
-            if (Node.HasValue)
+            if (Names.Count > 0)
             {
-                Span<byte> node = stackalloc byte[RelayNuid.WireSize];
-                Node.Value.WriteTo(node);
-                Tlv.Write(bytes, NodeTag, node);
+                var names = new byte[Names.Count * NodeName.WireSize];
+                for (int n = 0; n < Names.Count; n++)
+                {
+                    Names[n].WriteTo(names.AsSpan(n * NodeName.WireSize, NodeName.WireSize));
+                }
+                Tlv.Write(bytes, NamesTag, names);
+            }
+            string build = CleanBuild(Build);
+            if (build != null)
+            {
+                Tlv.Write(bytes, BuildTag, Encoding.UTF8.GetBytes(build));
+            }
+            if (ObservedEndPoint != null)
+            {
+                Tlv.Write(bytes, ObservedEndPointTag, WireEndPoint.ToBytes(ObservedEndPoint));
             }
             foreach (var kv in Extensions)
             {
-                if (kv.Key != NodeTag) Tlv.Write(bytes, kv.Key, kv.Value);
+                if (kv.Key != NamesTag && kv.Key != BuildTag && kv.Key != ObservedEndPointTag) Tlv.Write(bytes, kv.Key, kv.Value);
             }
             return bytes.ToArray();
         }
@@ -161,16 +245,32 @@ namespace JoinFS.Net.Jfp2
             ushort count = BinaryPrimitives.ReadUInt16LittleEndian(src.Slice(i, 2)); i += 2;
             for (int n = 0; n < count; n++)
             {
-                bool isInternal = src[i++] != 0;
+                byte partition = src[i++];
                 byte messageClass = src[i++];
                 byte min = src[i++];
                 byte max = src[i++];
-                msg.Offers.Add(new SchemaOffer(isInternal, messageClass, min, max));
+                // another partition is another class space this build does not know: skipped
+                if (partition == PartitionApplication || partition == PartitionInternal)
+                {
+                    msg.Offers.Add(new SchemaOffer(partition == PartitionInternal, messageClass, min, max));
+                }
             }
             msg.Extensions = Tlv.ReadAll(src.Slice(i));
-            if (msg.Extensions.Remove(NodeTag, out byte[] node) && node.Length == RelayNuid.WireSize)
+            if (msg.Extensions.Remove(NamesTag, out byte[] names))
             {
-                msg.Node = RelayNuid.ReadFrom(node);
+                // whole names only: a remainder shorter than a name is skipped, so a value under 8 bytes gives none
+                for (int n = 0; n + NodeName.WireSize <= names.Length; n += NodeName.WireSize)
+                {
+                    msg.Names.Add(NodeName.ReadFrom(names.AsSpan(n, NodeName.WireSize)));
+                }
+            }
+            if (msg.Extensions.Remove(BuildTag, out byte[] build))
+            {
+                msg.Build = CleanBuild(Encoding.UTF8.GetString(build, 0, Math.Min(build.Length, BuildMaxBytes)));
+            }
+            if (msg.Extensions.Remove(ObservedEndPointTag, out byte[] observed))
+            {
+                WireEndPoint.TryReadFrom(observed, out msg.ObservedEndPoint);
             }
             return msg;
         }
@@ -192,6 +292,13 @@ namespace JoinFS.Net.Jfp2
         public ushort LocalAssignedId; // what WE call ourselves to this peer (goes in SenderPeerId when we send to them)
         public ushort RemoteAssignedId; // what THEY call themselves (goes in RecipientPeerId when we send to them)
         public ulong AgreedCapabilities;
+
+        /// <summary>The build the peer said it runs in its last handshake message (<see cref="HandshakeMessage.Build"/>), or null.</summary>
+        public string Build;
+
+        /// <summary>A build was learned for this session (and logged at event level) at least once; later changes are logged at network level only.</summary>
+        public bool BuildLearned;
+
         public readonly byte[] AgreedAppVersion = new byte[256];
         public readonly byte[] AgreedInternalVersion = new byte[256];
 
@@ -228,7 +335,15 @@ namespace JoinFS.Net.Jfp2
         /// </summary>
         public bool AssumedLegacy;
 
-        /// <summary>When an <see cref="AssumedLegacy"/> peer is tried again (a peer may upgrade, or the route may change).</summary>
+        /// <summary>
+        /// The <see cref="HandshakeMessage.Result"/> with which the peer last refused a session, or
+        /// <see cref="HandshakeMessage.ResultAccepted"/>. A refusal means "no session now", not
+        /// "legacy-only": the peer is asked again at <see cref="RetryAt"/>, and legacy carries its
+        /// traffic meanwhile.
+        /// </summary>
+        public byte Refused;
+
+        /// <summary>When an <see cref="AssumedLegacy"/> or <see cref="Refused"/> peer is asked again (a peer may upgrade, or the route may change).</summary>
         public double RetryAt;
 
         /// <summary>
@@ -250,10 +365,11 @@ namespace JoinFS.Net.Jfp2
     {
         /// <summary>
         /// Combine a local and a remote offer set into a per-class agreed version table. A class
-        /// either side never declared falls back to version 0, which by convention is always a
-        /// baseline schema every build understands (roughly the wire-compatible equivalent of what
-        /// the legacy protocol already carried for that concept) - so an unrecognized/newer class on
-        /// either side degrades gracefully instead of failing the whole handshake.
+        /// either side never declared, or whose ranges do not overlap, gets version 0, which means
+        /// "don't send this class to this peer" (docs/jfp2/protocol.md §5.5): no codec has
+        /// version 0, and the message goes through the legacy plugin instead - so an
+        /// unrecognized/newer class on either side degrades gracefully instead of failing the whole
+        /// handshake.
         ///
         /// Every handshake (keepalives included) resolves from scratch, so a class the peer stopped
         /// offering (it restarted with another build) is no longer agreed. Returns true when the result

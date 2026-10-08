@@ -98,6 +98,13 @@ namespace JoinFS.Net
             MessageKind kind = T.Kind;
             if (kind >= MessageKind.Join)
             {
+                // a mesh message for another node goes on to it like any other (a node that does not
+                // know its own id yet takes everything as its own, as the legacy receiver does)
+                if (meta.Recipient.Valid() && Identity.Id.Valid() && meta.Recipient != Identity.Id)
+                {
+                    Translate(meta, message);
+                    return;
+                }
                 message.Dispatch(Mesh, meta);
                 return;
             }
@@ -351,6 +358,9 @@ namespace JoinFS.Net
         internal void RaisePeerJoined(NodeId id, IPEndPoint endPoint) => sink.OnEvent(new NetworkEvent { Kind = NetworkEventKind.PeerJoined, Node = id, EndPoint = endPoint });
         internal void RaisePeerEstablished(NodeId id) => sink.OnEvent(new NetworkEvent { Kind = NetworkEventKind.PeerEstablished, Node = id });
         internal void RaisePeerLeft(NodeId id) => sink.OnEvent(new NetworkEvent { Kind = NetworkEventKind.PeerLeft, Node = id });
+
+        public void EndPointObserved(NodeId reporter, IPEndPoint endPoint) =>
+            sink.OnEvent(new NetworkEvent { Kind = NetworkEventKind.EndPointObserved, Node = reporter, EndPoint = endPoint });
 
         public void Log(NetLogLevel level, string text) => sink.OnEvent(new NetworkEvent { Kind = NetworkEventKind.Log, Level = level, Text = text });
     }

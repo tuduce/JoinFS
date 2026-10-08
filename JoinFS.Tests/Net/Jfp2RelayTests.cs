@@ -1,6 +1,7 @@
 using System.Net;
 using JoinFS.Net;
 using JoinFS.Net.Jfp2;
+using JoinFS.Net.Jfp2.Codecs;
 using JoinFS.Net.Legacy;
 
 namespace JoinFS.Tests.Net
@@ -45,10 +46,10 @@ namespace JoinFS.Tests.Net
             public readonly TestNode Hub, A, B;
             public IPEndPoint Steer;
 
-            public SharedEndpoint()
+            public SharedEndpoint(string hubBuild = null, string bBuild = null)
             {
-                Hub = Mesh.AddBehindNat("192.168.1.10", "203.0.113.1", 6112, new LegacyPlugin(), new Jfp2Plugin());
-                B = Mesh.AddBehindNat("192.168.1.20", "203.0.113.1", 6112, new LegacyPlugin(), new Jfp2Plugin());
+                Hub = Mesh.AddBehindNat("192.168.1.10", "203.0.113.1", 6112, new LegacyPlugin(), new Jfp2Plugin(build: hubBuild));
+                B = Mesh.AddBehindNat("192.168.1.20", "203.0.113.1", 6112, new LegacyPlugin(), new Jfp2Plugin(build: bBuild));
                 A = Mesh.Add("198.51.100.2", 6112, new LegacyPlugin(), new Jfp2Plugin());
                 Steer = Hub.EndPoint;
                 Mesh.Network.Nat = (from, to) =>
@@ -101,6 +102,29 @@ namespace JoinFS.Tests.Net
             Assert.Equal(-12.25, positionA.Latitude);
             Assert.Equal("Legacy", t.B.Core.Route(t.A.Id, MessageKind.Position)!.Name);
         }
+
+        /// <summary>
+        /// The router starts steering the shared endpoint to B, so A's keepalive Hello to the hub is
+        /// answered by B: the build in that HelloAck is B's, and must not be taken for the hub's.
+        /// </summary>
+        [Fact]
+        public void SharedEndpoint_HelloAckFromAnotherNode_DoesNotGiveItsBuildToThePeerAskedFor()
+        {
+            var t = new SharedEndpoint(hubBuild: "26.6.0 JoinFS-CONSOLE", bBuild: "26.6.0 JoinFS-FS2024");
+            // Hellos to A would tell A the builds themselves: keep them away, so only HelloAcks speak
+            t.Mesh.Network.Filter = (from, to, data) => !(to.Equals(t.A.EndPoint) && IsHello(data));
+            t.Mesh.Run(20);
+            Assert.Equal("26.6.0 JoinFS-CONSOLE", Jfp2Of(t.A).BuildOf(t.Hub.Id));
+
+            t.Steer = t.B.EndPoint;
+            t.Mesh.Run(10);
+
+            Assert.Contains(t.A.Logs, l => l.Contains(t.Hub.Id + " is not the node answering"));
+            Assert.Equal("26.6.0 JoinFS-CONSOLE", Jfp2Of(t.A).BuildOf(t.Hub.Id));
+        }
+
+        static bool IsHello(byte[] data) =>
+            data[0] == Envelope.Magic && (data[2] & (byte)EnvelopeFlags.Internal) != 0 && data[7] == MessageClasses.Hello;
 
         [Fact]
         public void SharedEndpoint_GuaranteedMessageThroughTheHub_IsAcknowledgedEndToEnd()
@@ -254,6 +278,64 @@ namespace JoinFS.Tests.Net
         static bool IsGuaranteedApplication(byte[] data) =>
             data[0] == Envelope.Magic && (data[2] & (byte)EnvelopeFlags.Guaranteed) != 0 && (data[2] & (byte)EnvelopeFlags.Internal) == 0;
 
+        /// <summary>
+        /// A JFP2 node A and two legacy-only targets that it reaches only through a JFP2 hub: one message
+        /// of A to both may share an id (spec §4.4). The hub translates each for its own target,
+        /// deduplicating per (origin, target, id), so both arrive (keyed by (origin, id), the second was
+        /// taken for a duplicate); downstream, legacy delivers each with its own ids. Upstream, the hub
+        /// acknowledges each in its target's name, and A's own messages are cleared by those acks.
+        /// </summary>
+        [Fact]
+        public void TranslatingRelay_SameIdToTwoTargets_DeliversBoth()
+        {
+            var mesh = new TestMesh();
+            TestNode hub = mesh.Add("203.0.113.1", 6112, new LegacyPlugin(), new Jfp2Plugin());
+            TestNode a = mesh.Add("198.51.100.2", 6112, new LegacyPlugin(), new Jfp2Plugin());
+            TestNode b1 = mesh.Add("192.0.2.3", 6112, new LegacyPlugin());
+            TestNode b2 = mesh.Add("192.0.2.4", 6112, new LegacyPlugin());
+            mesh.Partition(a, b1);
+            mesh.Partition(a, b2);
+            hub.Core.Mesh.Create(false, 0, false, "");
+            foreach (TestNode node in new[] { a, b1, b2 }) node.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(25);
+            Assert.Equal(hub.Id, Jfp2Of(a).NextHopNode(b1.Id));
+            Assert.Equal(hub.Id, Jfp2Of(a).NextHopNode(b2.Id));
+
+            Assert.True(Jfp2Of(a).TryGetHopIds(hub.Id, out ushort local, out ushort remote));
+            byte[] payload = new byte[EventV1Codec.Size];
+            new EventV1Codec().Encode(new EventUpdate { ObjectId = 1, EventId = 4321 }, payload);
+            mesh.Network.Log.Clear();
+            foreach (TestNode target in new[] { b1, b2 })
+            {
+                var envelope = new Envelope(EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded, local, remote, MessageClasses.Event, 50, 0, 1,
+                    NodeName.FromLegacy(a.Id), NodeName.FromLegacy(target.Id));
+                byte[] datagram = new byte[envelope.WireSize + payload.Length];
+                payload.CopyTo(datagram, envelope.WriteTo(datagram));
+                a.Core.Transport.Send(hub.EndPoint, datagram);
+            }
+            mesh.Run(3);
+
+            foreach (TestNode target in new[] { b1, b2 })
+            {
+                var (meta, evt) = Assert.Single(target.MessagesWithMeta<EventUpdate>());
+                Assert.Equal(a.Id, meta.Sender);
+                Assert.Equal(4321u, evt.EventId);
+            }
+            List<Envelope> acks = mesh.Network.Log.Where(d => d.From.Equals(hub.EndPoint) && d.To.Equals(a.EndPoint) && d.Data[0] == Envelope.Magic)
+                .Select(d => Envelope.ReadFrom(d.Data, out _)).Where(e => e.IsInternal && e.RawMessageClass == MessageClasses.GuaranteedDone).ToList();
+            Assert.Equal([NodeName.FromLegacy(b1.Id), NodeName.FromLegacy(b2.Id)], acks.Select(e => e.Origin).ToList());
+            Assert.All(acks, e => Assert.True(e.IsForwarded && e.Target == NodeName.FromLegacy(a.Id)));
+            Assert.Equal(0, hub.Core.Plugins.OfType<LegacyPlugin>().Single().GuaranteedOutCount); // legacy's own acks consumed
+
+            // A's own messages to both: each cleared by the hub's ack in its target's name
+            a.Core.SendTo(b1.Id, new EventUpdate { ObjectId = 2, EventId = 1 }, true);
+            a.Core.SendTo(b2.Id, new EventUpdate { ObjectId = 2, EventId = 2 }, true);
+            mesh.Run(3);
+            Assert.Equal(0, Jfp2Of(a).GuaranteedPendingCount);
+            Assert.Contains(b1.Messages<EventUpdate>(), e => e.EventId == 1);
+            Assert.Contains(b2.Messages<EventUpdate>(), e => e.EventId == 2);
+        }
+
         [Fact]
         public void HelloWithoutNodeIdentity_IsIgnored()
         {
@@ -329,6 +411,36 @@ namespace JoinFS.Tests.Net
             mesh.Network.Filter = null;
             mesh.Run(45);
             Assert.Equal("JFP2", a.Core.Route(hub.Id, MessageKind.Position)!.Name);
+        }
+
+        /// <summary>
+        /// A node behind a NAT that maps its port 6112 to public port 40001: the hub answers its Hello
+        /// with the endpoint the Hello arrived from, the mapped one, and the node's app classifies that as
+        /// a translated port (docs/jfp2/implementation.md §3.2). The public address the node uses is still
+        /// the one its HTTP lookup gave.
+        /// </summary>
+        [Fact]
+        public void BehindNat_TheObservedEndPointIsTheMappedOne()
+        {
+            var mesh = new TestMesh();
+            TestNode hub = mesh.Add("203.0.113.1", 6112, new LegacyPlugin(), new Jfp2Plugin());
+            TestNode c = mesh.AddBehindNat("10.0.0.5", "198.51.100.9", 6112, new LegacyPlugin(), new Jfp2Plugin());
+            var lan = new IPEndPoint(IPAddress.Parse("10.0.0.5"), 6112);
+            var mapped = new IPEndPoint(IPAddress.Parse("198.51.100.9"), 40001);
+            mesh.Network.Nat = (from, to) => (from.Equals(lan) ? mapped : from, to.Equals(mapped) ? lan : to);
+            hub.Core.Mesh.Create(false, 0, false, "");
+            c.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(12);
+            Assert.Equal("JFP2", c.Core.Route(hub.Id, MessageKind.Position)!.Name);
+
+            NetworkEvent observation = Assert.Single(c.Events, e => e.Kind == NetworkEventKind.EndPointObserved);
+            Assert.Equal(hub.Id, observation.Node);
+            Assert.Equal(mapped, observation.EndPoint);
+
+            var observed = new ObservedEndPoints();
+            Assert.True(observed.Observe(observation.Node, observation.EndPoint, c.Core.Identity.LocalAddress, c.Core.Identity.Port));
+            Assert.Equal(NatClass.Translated, observed.Class);
+            Assert.Equal(IPAddress.Parse("198.51.100.9"), c.Core.Identity.InternetAddress); // unchanged: log only
         }
     }
 }

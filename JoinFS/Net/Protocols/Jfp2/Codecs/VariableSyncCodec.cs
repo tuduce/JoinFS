@@ -2,17 +2,17 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 
-// docs/protocol-v2-implementation-plan.md Phase 3: a mechanical port of
+// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 3: a mechanical port of
 // ProtocolV2Reference/Codecs.cs's VariableSyncV1Codec. Replaces the legacy protocol's three separate
 // Integer/Float/String8 "variables" messages (docs/network-protocol.md §8.6-8.8) with one self-
 // describing message - each entry carries its own VariableKind tag instead of the frame/message type
-// implying the value type. See docs/reference/jfp2-protocol.md §6.3/§6.5.
+// implying the value type. See docs/jfp2/protocol.md §9.3/§9.5.
 //
 // Entry count is capped at one byte (255) per message, same as the reference. Jfp2Plugin's encoder
 // splits an object's combined integer+float+string8 set into messages that fit its payload budget
 // (VariableSyncMaxPayload, measured with EntrySize) and that count cap.
 //
-// String8 wire encoding (docs/protocol-v2-implementation-review.md Finding 5, fixed 2026-09-14):
+// String8 wire encoding (docs/jfp2/history/protocol-v2-implementation-review.md Finding 5, fixed 2026-09-14):
 // originally encoded as a fixed 8-byte ASCII field, on the assumption that "String8" meant the value
 // itself is capped at 8 characters. It doesn't: "String8" names the category of SimConnect variable
 // this carries (one declared with SIMCONNECT_DATATYPE.STRING8 - see JoinFS/SimConnectInterface.cs's
@@ -41,15 +41,21 @@ namespace JoinFS.Net.Jfp2.Codecs
         /// <summary>Fixed header size: ObjectId (4) + entry count (1).</summary>
         public const int HeaderSize = 5;
 
+        /// <summary>Byte limit of a String8 value (UTF-8, without the length prefix; docs/jfp2/protocol.md §9.7).</summary>
+        public const int StringValueLimit = 256;
+
+        /// <summary>The largest entry, a String8 at its limit: 263 bytes, so one entry always fits a message.</summary>
+        public const int MaxEntrySize = 4 + 1 + WireText.PrefixSize + StringValueLimit;
+
         /// <summary>Exact wire size of one entry: Vuid (4) + Kind (1) + the value, whose size depends
         /// on Kind (4 for Int32/Float32, 2 + UTF8 byte count for String8). Lets a caller size a send
         /// buffer precisely instead of assuming every entry is as large as the old fixed-width String8
-        /// encoding used to guarantee (docs/protocol-v2-implementation-review.md Finding 5).</summary>
+        /// encoding used to guarantee (docs/jfp2/history/protocol-v2-implementation-review.md Finding 5).</summary>
         public static int EntrySize(in VariableEntry e) => 4 + 1 + e.Kind switch
         {
             VariableKind.Int32 => 4,
             VariableKind.Float32 => 4,
-            VariableKind.String8 => WireText.MeasureString(e.StringValue),
+            VariableKind.String8 => WireText.MeasureString(e.StringValue, StringValueLimit),
             _ => throw new ArgumentOutOfRangeException(nameof(e), e.Kind, "unknown VariableKind"),
         };
 
@@ -71,7 +77,7 @@ namespace JoinFS.Net.Jfp2.Codecs
                         BinaryPrimitives.WriteSingleLittleEndian(dest.Slice(i, 4), e.FloatValue); i += 4;
                         break;
                     case VariableKind.String8:
-                        i += WireText.WriteString(dest.Slice(i), e.StringValue);
+                        i += WireText.WriteString(dest.Slice(i), e.StringValue, StringValueLimit);
                         break;
                 }
             }

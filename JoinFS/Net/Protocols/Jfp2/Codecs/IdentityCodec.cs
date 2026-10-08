@@ -2,12 +2,12 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 
-// docs/protocol-v2-implementation-plan.md Phase 3: a mechanical port of
+// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 3: a mechanical port of
 // ProtocolV2Reference/Codecs.cs's IdentityV1Codec, with the identity fields sourced for real from
 // JoinFS/Sim.cs's Obj/Aircraft (see Network.BuildIdentity) instead of the reference
 // demo's hand-written sample values. Splitting these fields out of the hot Position message is the
 // fix for the v26.4/v26.5 livery bug (73b203d^:docs/protocol-changes-v26.4-v26.5.md §1.2) and its recording-
-// format mirror (docs/recording-protocol.md §7.1) - see docs/reference/jfp2-protocol.md §6.2.
+// format mirror (docs/recording-protocol.md §7.1) - see docs/jfp2/protocol.md §9.2.
 
 using JoinFS.Net;
 
@@ -23,6 +23,21 @@ namespace JoinFS.Net.Jfp2.Codecs
         public byte MessageClass => MessageClasses.Identity;
         public byte SchemaVersion => 1;
 
+        // Byte limits of the string fields (UTF-8, without the length prefix; docs/jfp2/protocol.md §9.7)
+        public const int CallsignLimit = 32;
+        public const int ModelLimit = 256;
+        public const int LiveryLimit = 256;
+        public const int IcaoTypeLimit = 8;
+        public const int IcaoAirlineLimit = 8;
+        public const int RegistrationLimit = 32;
+        public const int FlightNumberLimit = 16;
+        public const int ClassCodeLimit = 16;
+        public const int WtcLimit = 8;
+
+        /// <summary>The largest payload: 6 fixed bytes, then each string at its limit with its prefix.</summary>
+        public const int MaxSize = 6 + 9 * WireText.PrefixSize
+            + CallsignLimit + ModelLimit + LiveryLimit + IcaoTypeLimit + IcaoAirlineLimit + RegistrationLimit + FlightNumberLimit + ClassCodeLimit + WtcLimit;
+
         public int Encode(in IdentityUpdate v, Span<byte> dest)
         {
             var bytes = new List<byte>(160);
@@ -32,15 +47,15 @@ namespace JoinFS.Net.Jfp2.Codecs
             byte flags = (byte)((v.IsAircraft ? 1 : 0) | (v.IsPlane ? 2 : 0) | (v.ClassCodeConfirmed ? 4 : 0));
             bytes.Add(flags);
             bytes.Add(v.TypeRole);
-            WireText.WriteString(bytes, v.Callsign);
-            WireText.WriteString(bytes, v.Model);
-            WireText.WriteString(bytes, v.Livery);
-            WireText.WriteString(bytes, v.IcaoType);
-            WireText.WriteString(bytes, v.IcaoAirline);
-            WireText.WriteString(bytes, v.Registration);
-            WireText.WriteString(bytes, v.FlightNumber);
-            WireText.WriteString(bytes, v.ClassCode);
-            WireText.WriteString(bytes, v.Wtc);
+            WireText.WriteString(bytes, v.Callsign, CallsignLimit);
+            WireText.WriteString(bytes, v.Model, ModelLimit);
+            WireText.WriteString(bytes, v.Livery, LiveryLimit);
+            WireText.WriteString(bytes, v.IcaoType, IcaoTypeLimit);
+            WireText.WriteString(bytes, v.IcaoAirline, IcaoAirlineLimit);
+            WireText.WriteString(bytes, v.Registration, RegistrationLimit);
+            WireText.WriteString(bytes, v.FlightNumber, FlightNumberLimit);
+            WireText.WriteString(bytes, v.ClassCode, ClassCodeLimit);
+            WireText.WriteString(bytes, v.Wtc, WtcLimit);
             bytes.CopyTo(dest);
             return bytes.Count;
         }

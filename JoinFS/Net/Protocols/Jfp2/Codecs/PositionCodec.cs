@@ -1,8 +1,8 @@
 using System;
 using System.Buffers.Binary;
 
-// docs/protocol-v2-implementation-plan.md Phase 4: PositionV1Codec, a real (not reference-demo)
-// implementation of the highest-frequency JFP2 message class - see docs/reference/jfp2-protocol.md §6.1
+// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 4: PositionV1Codec, a real (not reference-demo)
+// implementation of the highest-frequency JFP2 message class - see docs/jfp2/protocol.md §9.1
 // for the size-reduction rationale. Scoped to AIRCRAFT position only (mirroring the legacy
 // AircraftPosition message, network-protocol.md §8.2) - generic (non-Aircraft) Obj position stays on
 // the legacy ObjectPosition path for this phase; see the implementation plan for why.
@@ -10,7 +10,7 @@ using System.Buffers.Binary;
 // Every identity-ish field the legacy AircraftPosition message carries on every tick (livery, ICAO
 // type/airline, registration, class code/WTC, callsign, model, typerole) has already moved to the
 // Identity message class (Phase 3) and is deliberately NOT repeated here - that split is the entire
-// point of docs/reference/jfp2-protocol.md §6.2. PositionUpdate carries only what changes every frame:
+// point of docs/jfp2/protocol.md §9.2. PositionUpdate carries only what changes every frame:
 // motion state plus the small set of per-tick flags (on ground, paused, ...) legacy also resends
 // every tick rather than treating as identity.
 

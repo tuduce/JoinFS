@@ -6,7 +6,7 @@ using Xunit;
 
 namespace JoinFS.Tests.Jfp2
 {
-    // Round-trip coverage for the Position codec (docs/protocol-v2-implementation-plan.md Phase 4).
+    // Round-trip coverage for the Position codec (docs/jfp2/history/protocol-v2-implementation-plan.md Phase 4).
     public class PositionCodecTests
     {
         static PositionUpdate Sample() => new()
@@ -137,11 +137,11 @@ namespace JoinFS.Tests.Jfp2
         }
 
         [Fact]
-        public void CodecRegistry_ResolvesPositionCodec()
+        public void DefaultProfile_CarriesPositionWithThisCodec()
         {
-            CodecRegistry.Register(new PositionV1Codec());
-            ICodec<PositionUpdate> codec = CodecRegistry.Resolve<PositionUpdate>(MessageClasses.Position, 1);
-            Assert.Equal(MessageClasses.Position, codec.MessageClass);
+            ClassDescriptor<PositionUpdate> messageClass = Jfp2Profile.Default.ForKind<PositionUpdate>(MessageKind.Position);
+            Assert.Equal(MessageClasses.Position, messageClass.MessageClass);
+            Assert.IsType<PositionV1Codec>(messageClass.Codec(1));
         }
 
         [Fact]

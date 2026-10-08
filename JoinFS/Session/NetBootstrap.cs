@@ -14,7 +14,9 @@ namespace JoinFS
     /// <summary>
     /// Getting this node onto the network: its addresses (the app side decides them and hands
     /// them to the network thread), the seed hubs, the ban list and the public IP downloaded from
-    /// the web, and a DNS cache for hub addresses.
+    /// the web, and a DNS cache for hub addresses. Also where neighbors say they see this node
+    /// (<see cref="ObservedEndPoints"/>), which is logged and nothing else: the public address stays
+    /// the one the HTTP lookup gives.
     /// </summary>
     public sealed class NetBootstrap : IEndPointResolver
     {
@@ -44,6 +46,9 @@ namespace JoinFS
         volatile string[] banList = null;
         bool myipFallback = false;
         bool banListFallback = false;
+
+        /// <summary>Where neighbors see this node (JFP2's observed endpoint), and the NAT class that follows.</summary>
+        readonly ObservedEndPoints observed = new();
 
         readonly Dictionary<string, IPAddress> dnsLookups = [];
         DateTime dnsResetTime = DateTime.Now.AddDays(1);
@@ -95,6 +100,30 @@ namespace JoinFS
 
         static bool IsIPv4(string text, out IPAddress address) =>
             IPAddress.TryParse(text, out address) && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork;
+
+        // ------------------------------------------------------------------ observed endpoint
+
+        /// <summary>
+        /// A neighbor says where this node's datagrams come from (<see cref="NetworkEventKind.EndPointObserved"/>).
+        /// The class and the endpoints seen are logged when they change, next to the HTTP address;
+        /// nothing else uses them, and the public address is not changed.
+        /// </summary>
+        public void OnEndPointObserved(NodeId reporter, IPEndPoint endPoint)
+        {
+            if (observed.Observe(reporter, endPoint, identity.LocalAddress, identity.Port))
+            {
+                log.Event(observed.Describe(identity.InternetAddress, identity.Port));
+            }
+        }
+
+        /// <summary>A node left: what it saw no longer counts.</summary>
+        public void OnPeerLeft(NodeId node)
+        {
+            if (observed.Forget(node, identity.LocalAddress, identity.Port))
+            {
+                log.Event(observed.Describe(identity.InternetAddress, identity.Port));
+            }
+        }
 
         // ------------------------------------------------------------------ downloads
 

@@ -28,7 +28,8 @@ namespace JoinFS.Net
     {
         public const int ExpireTime = 30;
         public const int MaxNodesPerDevice = 32;
-        public const int MaxRoutingNodes = 10;
+        /// <summary>How many distinct senders this node relays for at once, unless a hub sets more (released builds: 10).</summary>
+        public const int DefaultRelayBudget = 10;
         const int MaxPathfinderNodes = 100;
         const double PulseInterval = 1;
         const double PathfinderInterval = 5;
@@ -50,6 +51,8 @@ namespace JoinFS.Net
         readonly Dictionary<NodeId, double> relayNodes = [];
         readonly List<NodeId> removeList = [];
         readonly List<NodeId> removeRelayList = [];
+        int refusedRelays;
+        double nextRefusalLog;
 
         public MeshManager(NetworkCore core, Func<string, CredentialStore> credentialStoreFactory)
         {
@@ -67,6 +70,9 @@ namespace JoinFS.Net
         public JoinResult ActiveJoinResult { get; private set; } = JoinResult.Accepted;
         public LoginResult ActiveLoginResult { get; private set; } = LoginResult.Accepted;
         public int RelayCount => relayNodes.Count;
+
+        /// <summary>Distinct senders this node relays for at once (a hub setting).</summary>
+        public int RelayBudget { get; set; } = DefaultRelayBudget;
 
         /// <summary>For tests: credential store in use (null unless a login-required session was created).</summary>
         public CredentialStore Credentials => credentials;
@@ -154,6 +160,8 @@ namespace JoinFS.Net
             core.Peers.Clear();
             core.Objects.Clear();
             relayNodes.Clear();
+            refusedRelays = 0;
+            nextRefusalLog = 0;
             removeList.Clear();
             removeRelayList.Clear();
             suid = 0;
@@ -282,10 +290,18 @@ namespace JoinFS.Net
 
         public bool TryAcquireRelay(NodeId sender)
         {
-            if (relayNodes.Count < MaxRoutingNodes || relayNodes.ContainsKey(sender))
+            if (relayNodes.Count < RelayBudget || relayNodes.ContainsKey(sender))
             {
                 relayNodes[sender] = Now + RelayHoldTime;
                 return true;
+            }
+            // one line per hold time, not per datagram: a hub that is out of budget is refusing at 20 Hz
+            refusedRelays++;
+            if (Now >= nextRefusalLog)
+            {
+                nextRefusalLog = Now + RelayHoldTime;
+                core.Log(NetLogLevel.Network, "NETWORK: relay capacity reached (" + RelayBudget + ") - refused " + refusedRelays + " datagram(s), last from " + sender);
+                refusedRelays = 0;
             }
             return false;
         }
@@ -299,7 +315,7 @@ namespace JoinFS.Net
         /// just sent us something on <paramref name="port"/>). On first contact, tell the app and
         /// introduce the node to everyone else.
         /// </summary>
-        void RegisterNode(NodeId id, ushort port, bool receive, bool direct)
+        void RegisterNode(NodeId id, ushort port, bool receive, bool direct, IPAddress heardFrom = null)
         {
             if (!id.Valid() || id == LocalId || NodeCountDevice(id) >= MaxNodesPerDevice)
             {
@@ -317,6 +333,7 @@ namespace JoinFS.Net
                         // mutates the shared IPEndPoint instance, exactly like LocalNode (the route
                         // endpoint is the same object until a relay is chosen)
                         peer.EndPoint.Port = port;
+                        if (heardFrom != null) peer.EndPoint.Address = heardFrom;
                     }
                 }
                 core.Log(NetLogLevel.Network, "NETWORK: RegisterNode update " + id + " " + port + " " + receive + " " + direct + " " + firstContact);
@@ -324,7 +341,15 @@ namespace JoinFS.Net
             else
             {
                 if (receive) firstContact = true;
-                peer = core.Peers.Add(id, core.Identity.MakeEndPoint(id, port), receive);
+                IPEndPoint endPoint = core.Identity.MakeEndPoint(id, port);
+                // MakeEndPoint guesses a LAN address for any peer behind our public IP; a datagram that
+                // reached us directly tells the real one (strangers behind one CGNAT address)
+                if (receive && direct && heardFrom != null)
+                {
+                    endPoint.Address = heardFrom;
+                    endPoint.Port = port;
+                }
+                peer = core.Peers.Add(id, endPoint, receive);
                 peer.ExpireTime = Now + ExpireTime;
                 core.Log(NetLogLevel.Network, "NETWORK: RegisterNode new " + id + " " + port + " " + receive + " " + direct);
             }
@@ -334,6 +359,10 @@ namespace JoinFS.Net
                 core.Broadcast(new AddNode { Suid = suid, Node = new KnownNode { Node = id, Port = (ushort)peer.EndPoint.Port } }, guaranteed: true);
             }
         }
+
+        /// <summary>The sender of <paramref name="meta"/> just sent us something: record it, and where it came from if directly.</summary>
+        void RegisterSender(in MessageMeta meta) =>
+            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded, meta.EndPoint.Address);
 
         static void Responded(Peer peer, double now)
         {
@@ -379,7 +408,7 @@ namespace JoinFS.Net
             else
             {
                 core.SendToEndPoint(meta.EndPoint, new JoinReply { Suid = suid, Nodes = KnownNodes() }, guaranteed: true);
-                RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded);
+                RegisterSender(meta);
             }
         }
 
@@ -403,7 +432,7 @@ namespace JoinFS.Net
                         RegisterNode(node.Node, node.Port, false, false);
                     }
                 }
-                RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded);
+                RegisterSender(meta);
             }
             core.Log(NetLogLevel.Network, "NETWORK: JoinReply " + meta.Sender + " " + message.Suid);
         }
@@ -442,7 +471,7 @@ namespace JoinFS.Net
                 return;
             }
             core.SendToEndPoint(meta.EndPoint, new JoinReply { Suid = suid, Nodes = KnownNodes() }, guaranteed: true);
-            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded);
+            RegisterSender(meta);
         }
 
         public void Handle(in MessageMeta meta, in Leave message)
@@ -474,7 +503,7 @@ namespace JoinFS.Net
             {
                 sender.LowBandwidth = message.LowBandwidth;
             }
-            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded);
+            RegisterSender(meta);
             core.SendToEndPoint(meta.EndPoint, new PulseResponse { Time = message.Time }, guaranteed: false, recipient: meta.Sender);
             core.Log(NetLogLevel.Network, "NETWORK: Pulse " + meta.Sender + " " + meta.EndPoint);
         }
@@ -486,7 +515,7 @@ namespace JoinFS.Net
                 return;
             }
             peer.Rtt = (core.Clock.Timestamp - message.Time) / (float)core.Clock.Frequency;
-            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded);
+            RegisterSender(meta);
             if (!peer.SendEstablished)
             {
                 core.RaisePeerEstablished(meta.Sender);
@@ -501,7 +530,7 @@ namespace JoinFS.Net
             {
                 return;
             }
-            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, true);
+            RegisterSender(meta);
             List<NodeId> reachable = [];
             foreach (NodeId id in message.Nodes)
             {
@@ -510,7 +539,7 @@ namespace JoinFS.Net
                     reachable.Add(id);
                 }
                 else if (core.Peers.TryGet(id, out Peer peer) && peer.SendEstablished && peer.Direct
-                    && relayNodes.Count + reachable.Count < MaxRoutingNodes)
+                    && relayNodes.Count + reachable.Count < RelayBudget)
                 {
                     reachable.Add(id);
                 }
@@ -528,7 +557,7 @@ namespace JoinFS.Net
             {
                 return;
             }
-            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, true);
+            RegisterSender(meta);
             double now = Now;
             foreach (NodeId id in message.Nodes)
             {

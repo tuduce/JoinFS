@@ -6,7 +6,7 @@ using Xunit;
 
 namespace JoinFS.Tests.Jfp2
 {
-    // Round-trip coverage for the Identity codec (docs/protocol-v2-implementation-plan.md Phase 3).
+    // Round-trip coverage for the Identity codec (docs/jfp2/history/protocol-v2-implementation-plan.md Phase 3).
     public class IdentityCodecTests
     {
         static IdentityUpdate SampleAircraft() => new()
@@ -92,7 +92,7 @@ namespace JoinFS.Tests.Jfp2
         {
             // Obj.netId (JoinFS/Sim.cs) is a real uint (a raw SimConnect object id), so a value above
             // ushort.MaxValue must survive intact - see the widening deviation note in
-            // docs/protocol-v2-implementation-plan.md's Phase 3 writeup.
+            // docs/jfp2/history/protocol-v2-implementation-plan.md's Phase 3 writeup.
             var codec = new IdentityV1Codec();
             var identity = new IdentityUpdate { ObjectId = 0xFFFFFFF0u, Callsign = "", Model = "", Livery = "", IcaoType = "", IcaoAirline = "", Registration = "", ClassCode = "", Wtc = "" };
 
@@ -104,11 +104,52 @@ namespace JoinFS.Tests.Jfp2
         }
 
         [Fact]
-        public void CodecRegistry_ResolvesIdentityCodec()
+        public void DefaultProfile_CarriesIdentityWithThisCodec()
         {
-            CodecRegistry.Register(new IdentityV1Codec());
-            ICodec<IdentityUpdate> codec = CodecRegistry.Resolve<IdentityUpdate>(MessageClasses.Identity, 1);
-            Assert.Equal(MessageClasses.Identity, codec.MessageClass);
+            ClassDescriptor<IdentityUpdate> messageClass = Jfp2Profile.Default.ForKind<IdentityUpdate>(MessageKind.Identity);
+            Assert.Equal(MessageClasses.Identity, messageClass.MessageClass);
+            Assert.IsType<IdentityV1Codec>(messageClass.Codec(1));
+        }
+
+        /// <summary>
+        /// Every string is cut to its limit at a character boundary (docs/jfp2/protocol.md §9.7), so
+        /// with every field at its limit the message is the largest IdentityUpdate payload, 656 bytes.
+        /// </summary>
+        [Fact]
+        public void LongStrings_AreCutToTheirLimits()
+        {
+            var codec = new IdentityV1Codec();
+            static IdentityUpdate With(Func<int, string> text) => new()
+            {
+                ObjectId = 42,
+                Callsign = text(IdentityV1Codec.CallsignLimit),
+                Model = text(IdentityV1Codec.ModelLimit),
+                Livery = text(IdentityV1Codec.LiveryLimit),
+                IcaoType = text(IdentityV1Codec.IcaoTypeLimit),
+                IcaoAirline = text(IdentityV1Codec.IcaoAirlineLimit),
+                Registration = text(IdentityV1Codec.RegistrationLimit),
+                FlightNumber = text(IdentityV1Codec.FlightNumberLimit),
+                ClassCode = text(IdentityV1Codec.ClassCodeLimit),
+                Wtc = text(IdentityV1Codec.WtcLimit),
+            };
+            byte[] buffer = new byte[4096];
+
+            Assert.Equal(656, IdentityV1Codec.MaxSize);
+            Assert.Equal(IdentityV1Codec.MaxSize, codec.Encode(With(LongText.Ascii), buffer));
+
+            IdentityUpdate sent = With(LongText.Over);
+            int written = codec.Encode(sent, buffer);
+            IdentityUpdate back = codec.Decode(buffer.AsSpan(0, written));
+
+            LongText.AssertCut(sent.Callsign, IdentityV1Codec.CallsignLimit, back.Callsign);
+            LongText.AssertCut(sent.Model, IdentityV1Codec.ModelLimit, back.Model);
+            LongText.AssertCut(sent.Livery, IdentityV1Codec.LiveryLimit, back.Livery);
+            LongText.AssertCut(sent.IcaoType, IdentityV1Codec.IcaoTypeLimit, back.IcaoType);
+            LongText.AssertCut(sent.IcaoAirline, IdentityV1Codec.IcaoAirlineLimit, back.IcaoAirline);
+            LongText.AssertCut(sent.Registration, IdentityV1Codec.RegistrationLimit, back.Registration);
+            LongText.AssertCut(sent.FlightNumber, IdentityV1Codec.FlightNumberLimit, back.FlightNumber);
+            LongText.AssertCut(sent.ClassCode, IdentityV1Codec.ClassCodeLimit, back.ClassCode);
+            LongText.AssertCut(sent.Wtc, IdentityV1Codec.WtcLimit, back.Wtc);
         }
     }
 }

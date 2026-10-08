@@ -7,7 +7,7 @@ using Xunit;
 
 namespace JoinFS.Tests.Jfp2
 {
-    // Round-trip coverage for the VariableSync codec (docs/protocol-v2-implementation-plan.md Phase 3).
+    // Round-trip coverage for the VariableSync codec (docs/jfp2/history/protocol-v2-implementation-plan.md Phase 3).
     public class VariableSyncCodecTests
     {
         [Fact]
@@ -36,7 +36,7 @@ namespace JoinFS.Tests.Jfp2
             Assert.Equal("N12345", back.Entries[2].StringValue);
         }
 
-        // docs/protocol-v2-implementation-review.md Finding 5 (fixed 2026-09-14): String8 used to be a
+        // docs/jfp2/history/protocol-v2-implementation-review.md Finding 5 (fixed 2026-09-14): String8 used to be a
         // fixed 8-byte ASCII field that silently truncated/mangled anything longer or non-ASCII. It's
         // now length-prefixed UTF8 like every other string field, matching the legacy String8Variables
         // message's own wire encoding (a plain BinaryWriter.Write(string), never capped at 8 bytes).
@@ -112,7 +112,8 @@ namespace JoinFS.Tests.Jfp2
 
             Assert.Equal(bufferSize, written);
             VariableSyncUpdate back = codec.Decode(buffer.AsSpan(0, written));
-            Assert.Equal(entry.StringValue, back.Entries[0].StringValue);
+            // longer than its limit (docs/jfp2/protocol.md §9.7): EntrySize measures it as it is sent, cut
+            Assert.Equal(entry.StringValue[..VariableSyncV1Codec.StringValueLimit], back.Entries[0].StringValue);
         }
 
         [Fact]
@@ -165,11 +166,39 @@ namespace JoinFS.Tests.Jfp2
         }
 
         [Fact]
-        public void CodecRegistry_ResolvesVariableSyncCodec()
+        public void DefaultProfile_CarriesVariableSyncWithThisCodec()
         {
-            CodecRegistry.Register(new VariableSyncV1Codec());
-            ICodec<VariableSyncUpdate> codec = CodecRegistry.Resolve<VariableSyncUpdate>(MessageClasses.VariableSync, 1);
-            Assert.Equal(MessageClasses.VariableSync, codec.MessageClass);
+            ClassDescriptor<VariableSyncUpdate> messageClass = Jfp2Profile.Default.ForKind<VariableSyncUpdate>(MessageKind.VariableSync);
+            Assert.Equal(MessageClasses.VariableSync, messageClass.MessageClass);
+            Assert.IsType<VariableSyncV1Codec>(messageClass.Codec(1));
+        }
+
+        /// <summary>
+        /// A String8 value is cut to its limit at a character boundary (docs/jfp2/protocol.md §9.7),
+        /// so one entry is at most 263 bytes and always fits a message; EntrySize, which the sender
+        /// chunks by, measures the entry as it is sent.
+        /// </summary>
+        [Fact]
+        public void LongStrings_AreCutToTheirLimits()
+        {
+            var codec = new VariableSyncV1Codec();
+            byte[] buffer = new byte[4096];
+            Assert.Equal(263, VariableSyncV1Codec.MaxEntrySize);
+
+            var ascii = new VariableEntry { Vuid = 1, Kind = VariableKind.String8, StringValue = LongText.Ascii(VariableSyncV1Codec.StringValueLimit) };
+            Assert.Equal(VariableSyncV1Codec.MaxEntrySize, VariableSyncV1Codec.EntrySize(ascii));
+            Assert.Equal(VariableSyncV1Codec.HeaderSize + VariableSyncV1Codec.MaxEntrySize,
+                codec.Encode(new VariableSyncUpdate { ObjectId = 1, Entries = [ascii] }, buffer));
+
+            string value = LongText.Over(VariableSyncV1Codec.StringValueLimit);
+            var entry = new VariableEntry { Vuid = 2, Kind = VariableKind.String8, StringValue = value };
+            var sync = new VariableSyncUpdate { ObjectId = 1, Entries = [entry, new VariableEntry { Vuid = 3, Kind = VariableKind.Int32, IntValue = 7 }] };
+            int written = codec.Encode(sync, buffer);
+            VariableSyncUpdate back = codec.Decode(buffer.AsSpan(0, written));
+
+            LongText.AssertCut(value, VariableSyncV1Codec.StringValueLimit, back.Entries[0].StringValue);
+            Assert.Equal(7, back.Entries[1].IntValue); // the entry after a cut one is read where it was written
+            Assert.Equal(VariableSyncV1Codec.HeaderSize + VariableSyncV1Codec.EntrySize(entry) + VariableSyncV1Codec.MaxBytesPerEntry, written);
         }
     }
 }

@@ -6,7 +6,7 @@ using Xunit;
 
 namespace JoinFS.Tests.Jfp2
 {
-    // Round-trip coverage for the FlightPlan codec (docs/protocol-v2-implementation-plan.md Phase 5).
+    // Round-trip coverage for the FlightPlan codec (docs/jfp2/history/protocol-v2-implementation-plan.md Phase 5).
     public class FlightPlanCodecTests
     {
         static FlightPlanUpdate Sample() => new()
@@ -84,11 +84,60 @@ namespace JoinFS.Tests.Jfp2
         }
 
         [Fact]
-        public void CodecRegistry_ResolvesFlightPlanCodec()
+        public void DefaultProfile_CarriesFlightPlanWithThisCodec()
         {
-            CodecRegistry.Register(new FlightPlanV1Codec());
-            ICodec<FlightPlanUpdate> codec = CodecRegistry.Resolve<FlightPlanUpdate>(MessageClasses.FlightPlan, 1);
-            Assert.Equal(MessageClasses.FlightPlan, codec.MessageClass);
+            ClassDescriptor<FlightPlanUpdate> messageClass = Jfp2Profile.Default.ForKind<FlightPlanUpdate>(MessageKind.FlightPlan);
+            Assert.Equal(MessageClasses.FlightPlan, messageClass.MessageClass);
+            Assert.IsType<FlightPlanV1Codec>(messageClass.Codec(1));
+        }
+
+        /// <summary>
+        /// Every string is cut to its limit at a character boundary (docs/jfp2/protocol.md §9.7), so
+        /// with every field at its limit the message is the largest FlightPlanUpdate payload, 958 bytes.
+        /// </summary>
+        [Fact]
+        public void LongStrings_AreCutToTheirLimits()
+        {
+            var codec = new FlightPlanV1Codec();
+            static FlightPlanUpdate With(Func<int, string> text) => new()
+            {
+                ObjectId = 7,
+                IcaoType = text(FlightPlanV1Codec.IcaoTypeLimit),
+                Departure = text(FlightPlanV1Codec.DepartureLimit),
+                Destination = text(FlightPlanV1Codec.DestinationLimit),
+                Rules = text(FlightPlanV1Codec.RulesLimit),
+                Route = text(FlightPlanV1Codec.RouteLimit),
+                Remarks = text(FlightPlanV1Codec.RemarksLimit),
+                Alternate = text(FlightPlanV1Codec.AlternateLimit),
+                Speed = text(FlightPlanV1Codec.SpeedLimit),
+                Altitude = text(FlightPlanV1Codec.AltitudeLimit),
+                Callsign = text(FlightPlanV1Codec.CallsignLimit),
+                Registration = text(FlightPlanV1Codec.RegistrationLimit),
+                IcaoAirline = text(FlightPlanV1Codec.IcaoAirlineLimit),
+                FlightNumber = text(FlightPlanV1Codec.FlightNumberLimit),
+            };
+            byte[] buffer = new byte[4096];
+
+            Assert.Equal(958, FlightPlanV1Codec.MaxSize);
+            Assert.Equal(FlightPlanV1Codec.MaxSize, codec.Encode(With(LongText.Ascii), buffer));
+
+            FlightPlanUpdate sent = With(LongText.Over);
+            int written = codec.Encode(sent, buffer);
+            FlightPlanUpdate back = codec.Decode(buffer.AsSpan(0, written));
+
+            LongText.AssertCut(sent.IcaoType, FlightPlanV1Codec.IcaoTypeLimit, back.IcaoType);
+            LongText.AssertCut(sent.Departure, FlightPlanV1Codec.DepartureLimit, back.Departure);
+            LongText.AssertCut(sent.Destination, FlightPlanV1Codec.DestinationLimit, back.Destination);
+            LongText.AssertCut(sent.Rules, FlightPlanV1Codec.RulesLimit, back.Rules);
+            LongText.AssertCut(sent.Route, FlightPlanV1Codec.RouteLimit, back.Route);
+            LongText.AssertCut(sent.Remarks, FlightPlanV1Codec.RemarksLimit, back.Remarks);
+            LongText.AssertCut(sent.Alternate, FlightPlanV1Codec.AlternateLimit, back.Alternate);
+            LongText.AssertCut(sent.Speed, FlightPlanV1Codec.SpeedLimit, back.Speed);
+            LongText.AssertCut(sent.Altitude, FlightPlanV1Codec.AltitudeLimit, back.Altitude);
+            LongText.AssertCut(sent.Callsign, FlightPlanV1Codec.CallsignLimit, back.Callsign);
+            LongText.AssertCut(sent.Registration, FlightPlanV1Codec.RegistrationLimit, back.Registration);
+            LongText.AssertCut(sent.IcaoAirline, FlightPlanV1Codec.IcaoAirlineLimit, back.IcaoAirline);
+            LongText.AssertCut(sent.FlightNumber, FlightPlanV1Codec.FlightNumberLimit, back.FlightNumber);
         }
     }
 }

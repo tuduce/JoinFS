@@ -12,6 +12,11 @@ namespace JoinFS.Net
         PeerEstablished,
         /// <summary>A node left or timed out; everything it owned is gone.</summary>
         PeerLeft,
+        /// <summary>
+        /// <see cref="NetworkEvent.Node"/> saw our datagrams come from <see cref="NetworkEvent.EndPoint"/>
+        /// (raised when its observation changes); the app classifies our NAT from these and logs it.
+        /// </summary>
+        EndPointObserved,
         Log,
     }
 

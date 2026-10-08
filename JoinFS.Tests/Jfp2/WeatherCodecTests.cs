@@ -54,17 +54,39 @@ namespace JoinFS.Tests.Jfp2
         }
 
         [Fact]
-        public void CodecRegistry_ResolvesBothWeatherClassesIndependently()
+        public void DefaultProfile_CarriesBothWeatherClassesIndependently()
         {
-            CodecRegistry.Register(new WeatherUpdateV1Codec());
-            CodecRegistry.Register(new WeatherReplyV1Codec());
+            ClassDescriptor<WeatherUpdate> update = Jfp2Profile.Default.ForKind<WeatherUpdate>(MessageKind.WeatherUpdate);
+            ClassDescriptor<WeatherReply> reply = Jfp2Profile.Default.ForKind<WeatherReply>(MessageKind.WeatherReply);
 
-            ICodec<WeatherUpdate> updateCodec = CodecRegistry.Resolve<WeatherUpdate>(MessageClasses.Weather, 1);
-            ICodec<WeatherReply> replyCodec = CodecRegistry.Resolve<WeatherReply>(MessageClasses.WeatherReply, 1);
+            Assert.Equal(MessageClasses.Weather, update.MessageClass);
+            Assert.Equal(MessageClasses.WeatherReply, reply.MessageClass);
+            Assert.IsType<WeatherUpdateV1Codec>(update.Codec(1));
+            Assert.IsType<WeatherReplyV1Codec>(reply.Codec(1));
+            Assert.NotEqual(update.Guaranteed, reply.Guaranteed);
+        }
 
-            Assert.Equal(MessageClasses.Weather, updateCodec.MessageClass);
-            Assert.Equal(MessageClasses.WeatherReply, replyCodec.MessageClass);
-            Assert.NotEqual(updateCodec.MessageClass, replyCodec.MessageClass);
+        /// <summary>
+        /// Metar is cut to its limit at a character boundary (docs/jfp2/protocol.md §9.7), in both
+        /// classes; at its limit the message is the largest weather payload, 1,026 bytes.
+        /// </summary>
+        [Fact]
+        public void LongStrings_AreCutToTheirLimits()
+        {
+            var update = new WeatherUpdateV1Codec();
+            var reply = new WeatherReplyV1Codec();
+            byte[] buffer = new byte[4096];
+
+            Assert.Equal(1026, WeatherUpdateV1Codec.MaxSize);
+            Assert.Equal(1026, WeatherReplyV1Codec.MaxSize);
+            Assert.Equal(WeatherUpdateV1Codec.MaxSize, update.Encode(new WeatherUpdate { Metar = LongText.Ascii(WeatherUpdateV1Codec.MetarLimit) }, buffer));
+            Assert.Equal(WeatherReplyV1Codec.MaxSize, reply.Encode(new WeatherReply { Metar = LongText.Ascii(WeatherReplyV1Codec.MetarLimit) }, buffer));
+
+            string metar = LongText.Over(WeatherUpdateV1Codec.MetarLimit);
+            int written = update.Encode(new WeatherUpdate { Metar = metar }, buffer);
+            LongText.AssertCut(metar, WeatherUpdateV1Codec.MetarLimit, update.Decode(buffer.AsSpan(0, written)).Metar);
+            written = reply.Encode(new WeatherReply { Metar = metar }, buffer);
+            LongText.AssertCut(metar, WeatherReplyV1Codec.MetarLimit, reply.Decode(buffer.AsSpan(0, written)).Metar);
         }
     }
 }

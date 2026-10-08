@@ -1,7 +1,7 @@
 using System;
 using System.Buffers.Binary;
 
-// docs/protocol-v2-implementation-plan.md Phase 5: a mechanical port of the legacy SimEvent message
+// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 5: a mechanical port of the legacy SimEvent message
 // (docs/network-protocol.md §8.2: "a discrete SimConnect/X-Plane event forwarded to a specific
 // object, e.g. gear up/down, lights toggle"). Fixed 3-field shape, no version gating in the legacy
 // message either, so nothing to widen or simplify here beyond ObjectId's uint (matching every other
