@@ -55,6 +55,8 @@ namespace JoinFS
         string HubAbout { get; }
         string HubVoip { get; }
         string HubEvent { get; }
+        /// <summary>How many senders this node relays for at once (10 unless a hub raises it).</summary>
+        int HubRelays { get; }
         string HubDomain { get; }
         bool Atc { get; }
         string AtcAirport { get; }

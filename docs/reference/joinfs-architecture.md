@@ -307,8 +307,9 @@ receives canonical mesh messages through the router; today only the legacy plugi
 **Relaying:**
 - **Pathfinder** (every 5 s): ask directly established peers which of our not-yet-established peers
   they can reach directly. A positive answer sets that peer's route to go via the responder.
-- **Relay budget:** a relaying node relays for at most 10 distinct senders at a time, shared by all
-  plugins (`TryAcquireRelay`).
+- **Relay budget:** a relaying node relays for at most `RelayBudget` distinct senders at a time
+  (default 10; a hub raises it with `--hubrelays <n>`), shared by all plugins (`TryAcquireRelay`).
+  A refusal is logged ("relay capacity reached"), at most once per 5 s.
 
 ### 5.5 Peers and local identity
 

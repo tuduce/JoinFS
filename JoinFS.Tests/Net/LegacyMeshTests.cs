@@ -202,5 +202,24 @@ namespace JoinFS.Tests.Net
             Assert.True(b.Core.Peers.TryGet(a.Id, out Peer atB));
             Assert.Equal(mappedA, atB.EndPoint);
         }
+
+        /// <summary>A hub raises (or lowers) how many distinct senders it relays for at once.</summary>
+        [Fact]
+        public void RelayBudget_IsTheConfiguredOne()
+        {
+            var (_, hub, _, _) = Session();
+            NodeId[] strangers = [.. Enumerable.Range(1, 4).Select(i => new NodeId(0x0A000000u + (uint)i, 6112, 1))];
+            Assert.Equal(MeshManager.DefaultRelayBudget, hub.Core.Mesh.RelayBudget);
+
+            hub.Core.Mesh.RelayBudget = 2;
+            Assert.True(hub.Core.Mesh.TryAcquireRelay(strangers[0]));
+            Assert.True(hub.Core.Mesh.TryAcquireRelay(strangers[1]));
+            Assert.True(hub.Core.Mesh.TryAcquireRelay(strangers[0]), "a sender already relayed for keeps its slot");
+            Assert.False(hub.Core.Mesh.TryAcquireRelay(strangers[2]));
+
+            hub.Core.Mesh.RelayBudget = 3;
+            Assert.True(hub.Core.Mesh.TryAcquireRelay(strangers[2]));
+            Assert.False(hub.Core.Mesh.TryAcquireRelay(strangers[3]));
+        }
     }
 }

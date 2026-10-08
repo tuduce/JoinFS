@@ -108,8 +108,7 @@ namespace JoinFS.Net.Jfp2
             }
             if (!host.TryAcquireRelay(origin))
             {
-                host.Log(NetLogLevel.Network, "JFP2: relay capacity reached - dropped datagram from " + origin);
-                return;
+                return; // TryAcquireRelay logs the refusal
             }
             byte messageClass = envelope.RawMessageClass;
             byte version = envelope.IsInternal ? (byte)0 : hop.AgreedAppVersion[messageClass];

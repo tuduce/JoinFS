@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 using JoinFS.Properties;
@@ -96,6 +96,7 @@ namespace JoinFS
             DataGrid_Options.Rows.Add(@"--hubabout ""<text>"" ", Resources.Strings.Tip_HubAbout);
             DataGrid_Options.Rows.Add(@"--hubvoip ""<text>"" ", Resources.Strings.Tip_HubVoice);
             DataGrid_Options.Rows.Add(@"--hubevent ""<text>"" ", Resources.Strings.Tip_HubEvent);
+            DataGrid_Options.Rows.Add(@"--hubrelays <number>", Resources.Strings.Tip_HubRelays);
 #endif
             DataGrid_Options.Rows.Add(@"--password", Resources.Strings.Tip_Password);
             DataGrid_Options.Rows.Add(@"--play ""<file.jfs>"" ", Resources.Strings.Options_Play);

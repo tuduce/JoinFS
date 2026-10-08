@@ -634,6 +634,13 @@ configurations. Tests: `dotnet test JoinFS.Tests/JoinFS.Tests.csproj -c FS2024-D
 9. **D1: hub relay budget** (no wire change). It starts by reading the minion hub's journal for
    "relay capacity reached" (the `check-logs` skill) and recording what it shows. Then
    `MeshManager.MaxRoutingNodes` (10) becomes a hub setting.
+   - Journal finding (2026-10-08, `joinfs-8` on minion, 16,976 lines since 2026-07-19): no "relay"
+     line at all. That proves nothing: the legacy path never logged a refusal (only JFP2 did), and
+     the hub is mostly joined directly. `TryAcquireRelay` now logs it, at most once per 5 s, so the
+     next journals can say.
+   - Setting: `MeshManager.RelayBudget` (default `DefaultRelayBudget` = 10), set from the hub
+     command line `--hubrelays <n>` (`Main.settingsHubRelays`, `ILocalProfile.HubRelays`) when a
+     session is created or joined. No UI: it is for the headless hub.
    - Test: `LegacyMeshTests` — `RelayBudget_IsTheConfiguredOne`.
 
 **The wire is then complete for release 1, and 26.6 can ship.**
@@ -674,7 +681,7 @@ B3 and later follow from appendix A, each with its own design approval.
 | 6 | Field limits and the 1,200-byte ceiling | yes | Done, reviewed |
 | 7 | Observed endpoint | yes | Done, reviewed |
 | 8 | D2: false same-LAN detection | no | Done |
-| 9 | D1: hub relay budget (minion journal first) | no | Not started |
+| 9 | D1: hub relay budget (minion journal first) | no | Done, reviewed |
 | — | **Wire frozen: 26.6 may ship** | | |
 | 10 | Core identity migration (pure refactor) | no | Not started |
 | 11 | Node key and its store, `Dockerfile` volume | no (TLV content) | Not started |

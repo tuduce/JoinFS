@@ -60,6 +60,7 @@ namespace JoinFS.Tests.Session
         public string HubAbout { get; set; } = "";
         public string HubVoip { get; set; } = "";
         public string HubEvent { get; set; } = "";
+        public int HubRelays { get; set; } = MeshManager.DefaultRelayBudget;
         public string HubDomain { get; set; } = "";
         public bool Atc { get; set; }
         public string AtcAirport { get; set; } = "";

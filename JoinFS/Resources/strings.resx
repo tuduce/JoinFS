@@ -357,6 +357,9 @@
   <data name="Tip_HubEvent" xml:space="preserve">
     <value>Optional information about upcoming events or meeting dates and times</value>
   </data>
+  <data name="Tip_HubRelays" xml:space="preserve">
+    <value>How many players this hub relays traffic for at once (default 10)</value>
+  </data>
   <data name="Tip_HubMode" xml:space="preserve">
     <value>Create a public session that will appear in everyone's hub list. Port Forwarding required. See manual.</value>
   </data>

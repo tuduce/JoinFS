@@ -23,6 +23,7 @@ Usage: dotnet JoinFS-CONSOLE.dll [options]
   --hubabout <details>   A short description for this hub that will appear in everyone's hub list
   --hubvoip <details>    Details of a voice server associated with this hub. For example, "ts3.myserver.com"
   --hubevent <details>   Optional information about upcoming events or meeting dates and times
+  --hubrelays <number>   How many players this node relays traffic for at once (default 10)
   --password <password>  Protect your session with a password
   --play <.jfs file>     Open a JoinFS recorder file and play back the recording in the current session. Other users will need to enable 'Allow Multiple Objects'. See Manual.
   --record               Immediately start recording.

@@ -132,6 +132,12 @@ namespace JoinFS
             set => service.Post(core => core.LowBandwidth = value);
         }
 
+        /// <summary>How many senders this node relays for at once (see <see cref="MeshManager.RelayBudget"/>).</summary>
+        int RelayBudget
+        {
+            set => service.Post(core => core.Mesh.RelayBudget = value);
+        }
+
         /// <summary>Ids of the nodes currently in the session, in session order.</summary>
         public NodeId[] PeerIds()
         {
@@ -409,6 +415,7 @@ namespace JoinFS
         {
             joinEndPoint = endPoint;
             LowBandwidth = host.LowBandwidth;
+            RelayBudget = host.HubRelays;
             Comms.OnJoining();
             try
             {
@@ -476,6 +483,7 @@ namespace JoinFS
             try
             {
                 LowBandwidth = host.LowBandwidth;
+                RelayBudget = host.HubRelays;
                 uint passwordHash = NetHash.HashPassword(host.Password.TrimStart(' ').TrimEnd(' '));
                 string folder = host.DocumentsPath;
                 service.Post(core => core.Mesh.Create(globalSession, passwordHash, loginRequired: false, folder));

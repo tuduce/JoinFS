@@ -39,6 +39,7 @@ namespace JoinFS
         public string HubAbout => main.settingsHubAbout;
         public string HubVoip => main.settingsHubVoip;
         public string HubEvent => main.settingsHubEvent;
+        public int HubRelays => main.settingsHubRelays;
         public string HubDomain => main.settingsHubDomain;
         public bool Atc => main.settingsAtc;
         public string AtcAirport => main.settingsAtcAirport;

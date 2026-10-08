@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Generic;
 #if !CONSOLE
 using System.Windows.Forms;
@@ -114,6 +114,7 @@ namespace JoinFS
         public string settingsHubAbout = "";
         public string settingsHubVoip = "";
         public string settingsHubEvent = "";
+        public int settingsHubRelays = MeshManager.DefaultRelayBudget;
         public string settingsPassword = "";
         public bool settingsWhazzup = false;
         public bool settingsWhazzupPublic = false;
@@ -428,6 +429,17 @@ namespace JoinFS
                                 }
                                 break;
 
+                            case "-hubrelays":
+                                // next parameter
+                                index++;
+                                // check for parameter
+                                if (index < args.Length && int.TryParse(args[index], out int relays) && relays >= 0)
+                                {
+                                    // update how many senders this node relays for at once
+                                    settingsHubRelays = relays;
+                                }
+                                break;
+
                             case "-nickname":
                                 // next parameter
                                 index++;
@@ -667,6 +679,7 @@ namespace JoinFS
                                 Console.WriteLine("  --hubabout <details>   " + Resources.Strings.Tip_HubAbout);
                                 Console.WriteLine("  --hubvoip <details>    " + Resources.Strings.Tip_HubVoice);
                                 Console.WriteLine("  --hubevent <details>   " + Resources.Strings.Tip_HubEvent);
+                                Console.WriteLine("  --hubrelays <number>   " + Resources.Strings.Tip_HubRelays);
                                 Console.WriteLine("  --password <password>  " + Resources.Strings.Tip_Password);
                                 Console.WriteLine("  --play <.jfs file>     " + Resources.Strings.Options_Play);
                                 Console.WriteLine("  --record               " + Resources.Strings.Options_Record);

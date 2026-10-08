@@ -28,7 +28,8 @@ namespace JoinFS.Net
     {
         public const int ExpireTime = 30;
         public const int MaxNodesPerDevice = 32;
-        public const int MaxRoutingNodes = 10;
+        /// <summary>How many distinct senders this node relays for at once, unless a hub sets more (released builds: 10).</summary>
+        public const int DefaultRelayBudget = 10;
         const int MaxPathfinderNodes = 100;
         const double PulseInterval = 1;
         const double PathfinderInterval = 5;
@@ -50,6 +51,8 @@ namespace JoinFS.Net
         readonly Dictionary<NodeId, double> relayNodes = [];
         readonly List<NodeId> removeList = [];
         readonly List<NodeId> removeRelayList = [];
+        int refusedRelays;
+        double nextRefusalLog;
 
         public MeshManager(NetworkCore core, Func<string, CredentialStore> credentialStoreFactory)
         {
@@ -67,6 +70,9 @@ namespace JoinFS.Net
         public JoinResult ActiveJoinResult { get; private set; } = JoinResult.Accepted;
         public LoginResult ActiveLoginResult { get; private set; } = LoginResult.Accepted;
         public int RelayCount => relayNodes.Count;
+
+        /// <summary>Distinct senders this node relays for at once (a hub setting).</summary>
+        public int RelayBudget { get; set; } = DefaultRelayBudget;
 
         /// <summary>For tests: credential store in use (null unless a login-required session was created).</summary>
         public CredentialStore Credentials => credentials;
@@ -154,6 +160,8 @@ namespace JoinFS.Net
             core.Peers.Clear();
             core.Objects.Clear();
             relayNodes.Clear();
+            refusedRelays = 0;
+            nextRefusalLog = 0;
             removeList.Clear();
             removeRelayList.Clear();
             suid = 0;
@@ -282,10 +290,18 @@ namespace JoinFS.Net
 
         public bool TryAcquireRelay(NodeId sender)
         {
-            if (relayNodes.Count < MaxRoutingNodes || relayNodes.ContainsKey(sender))
+            if (relayNodes.Count < RelayBudget || relayNodes.ContainsKey(sender))
             {
                 relayNodes[sender] = Now + RelayHoldTime;
                 return true;
+            }
+            // one line per hold time, not per datagram: a hub that is out of budget is refusing at 20 Hz
+            refusedRelays++;
+            if (Now >= nextRefusalLog)
+            {
+                nextRefusalLog = Now + RelayHoldTime;
+                core.Log(NetLogLevel.Network, "NETWORK: relay capacity reached (" + RelayBudget + ") - refused " + refusedRelays + " datagram(s), last from " + sender);
+                refusedRelays = 0;
             }
             return false;
         }
@@ -523,7 +539,7 @@ namespace JoinFS.Net
                     reachable.Add(id);
                 }
                 else if (core.Peers.TryGet(id, out Peer peer) && peer.SendEstablished && peer.Direct
-                    && relayNodes.Count + reachable.Count < MaxRoutingNodes)
+                    && relayNodes.Count + reachable.Count < RelayBudget)
                 {
                     reachable.Add(id);
                 }
