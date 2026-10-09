@@ -28,7 +28,7 @@ jobs:
           - configuration: CONSOLE
             arch: x64
           - configuration: CONSOLE
-            arch: AMD64
+            arch: ARM64
 
     runs-on: self-hosted
 
