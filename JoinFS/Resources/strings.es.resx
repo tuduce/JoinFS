@@ -786,4 +786,13 @@
   <data name="ReconnectGaveUp" xml:space="preserve">
     <value>Conexión perdida. La reconexión automática no pudo restablecerla en los últimos {0} minutos. Intenta reconectar manualmente cuando estés listo.</value>
   </data>
+  <data name="Tip_ClassicMatching" xml:space="preserve">
+    <value>Usar la coincidencia de modelos clásica (solo tipo, aerolínea y clase) en lugar de la inteligente</value>
+  </data>
+  <data name="MatchExplain_EngineNew" xml:space="preserve">
+    <value>Motor de coincidencia: inteligente (compara tamaño, peso, velocidad, motores y fabricante además de tipo, aerolínea y clase). Inicia JoinFS con --classicmatching para usar el motor clásico.</value>
+  </data>
+  <data name="MatchExplain_EngineClassic" xml:space="preserve">
+    <value>Motor de coincidencia: clásico (solo compara tipo, aerolínea, código de clase y categoría de estela), seleccionado con --classicmatching.</value>
+  </data>
 </root>

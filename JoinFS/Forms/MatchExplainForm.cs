@@ -70,6 +70,17 @@ namespace JoinFS
             };
         }
 
+        /// <summary>Which matching engine produced the trace, in the user's language; empty when none was involved.</summary>
+        static string EngineDescription(Substitution.MatchTrace trace)
+        {
+            return trace?.engine switch
+            {
+                MatchingEngine.New => Resources.Strings.MatchExplain_EngineNew,
+                MatchingEngine.Classic => Resources.Strings.MatchExplain_EngineClassic,
+                _ => ""
+            };
+        }
+
         string ModelSourceDescription()
         {
             string description;
@@ -186,6 +197,12 @@ namespace JoinFS
 
             // tier-by-tier trace
             List<string> steps = new(trace.steps);
+            string engineText = EngineDescription(trace);
+            if (engineText.Length > 0)
+            {
+                steps.Insert(0, "");
+                steps.Insert(0, engineText);
+            }
             if (matchedModel != null && matchedModel.classCodeConfirmed)
             {
                 steps.Add(Resources.Strings.MatchExplain_ClassCodeConfirmedNote);
@@ -245,6 +262,12 @@ namespace JoinFS
 
             sb.AppendLine("## " + Resources.Strings.MatchExplain_ReportStepsHeader);
             sb.AppendLine();
+            string engineSentence = EngineDescription(trace);
+            if (engineSentence.Length > 0)
+            {
+                sb.AppendLine(engineSentence);
+                sb.AppendLine();
+            }
             if (trace != null)
             {
                 int step = 1;

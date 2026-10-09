@@ -786,4 +786,13 @@
   <data name="ReconnectGaveUp" xml:space="preserve">
     <value>연결이 끊어졌습니다. 지난 {0}분 동안 자동 재연결로 연결을 복구하지 못했습니다. 준비되면 수동으로 다시 연결하세요.</value>
   </data>
+  <data name="Tip_ClassicMatching" xml:space="preserve">
+    <value>스마트 모델 일치 대신 클래식 모델 일치(유형, 항공사, 클래스만 비교)를 사용합니다</value>
+  </data>
+  <data name="MatchExplain_EngineNew" xml:space="preserve">
+    <value>매칭 방식: 스마트 (유형, 항공사, 클래스뿐 아니라 크기, 무게, 속도, 엔진, 제조사도 비교합니다). 클래식 방식을 사용하려면 --classicmatching 옵션으로 JoinFS를 시작하세요.</value>
+  </data>
+  <data name="MatchExplain_EngineClassic" xml:space="preserve">
+    <value>매칭 방식: 클래식 (유형, 항공사, 클래스 코드, 후류 난기류 범주만 비교합니다). --classicmatching 옵션으로 선택됨.</value>
+  </data>
 </root>

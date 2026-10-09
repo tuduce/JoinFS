@@ -786,4 +786,13 @@
   <data name="ReconnectGaveUp" xml:space="preserve">
     <value>Соединение потеряно. Автоматическое переподключение не удалось восстановить за последние {0} мин. Подключитесь вручную, когда будете готовы.</value>
   </data>
+  <data name="Tip_ClassicMatching" xml:space="preserve">
+    <value>Использовать классическое соответствие моделей (только тип, авиакомпания и класс) вместо умного</value>
+  </data>
+  <data name="MatchExplain_EngineNew" xml:space="preserve">
+    <value>Способ подбора: умный (помимо типа, авиакомпании и класса сравнивает размер, массу, скорость, двигатели и производителя). Запустите JoinFS с параметром --classicmatching для классического способа.</value>
+  </data>
+  <data name="MatchExplain_EngineClassic" xml:space="preserve">
+    <value>Способ подбора: классический (сравнивает только тип, авиакомпанию, код класса и категорию турбулентности следа), выбран параметром --classicmatching.</value>
+  </data>
 </root>

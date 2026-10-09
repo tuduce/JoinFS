@@ -5,6 +5,7 @@ using System.Windows.Forms;
 #endif
 using System.IO;
 using System.Globalization;
+using System.Linq;
 using JoinFS.Properties;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -34,8 +35,18 @@ namespace JoinFS
         /// <summary>
         /// Constructor
         /// </summary>
+        /// <summary>Reads wing span, weight, speeds, engines and gear from a model's own cfg files (cached per folder)</summary>
+        readonly Matching.MeasuredSpecsReader measuredSpecsReader;
+
         public Substitution(Main main)
         {
+#if FS2024
+            // a livery package whose base container sits in another package is found through the sim's package index
+            measuredSpecsReader = new Matching.MeasuredSpecsReader(FindInstalledAircraftFolder);
+#else
+            measuredSpecsReader = new Matching.MeasuredSpecsReader();
+#endif
+
             // set main form
             this.main = main;
 
@@ -317,6 +328,13 @@ namespace JoinFS
             public float[] embedding = null;
 
             /// <summary>
+            /// Physical aircraft data (size, weight, speeds, engines, gear) for the model-matching engine: measured from the model's own
+            /// configuration, or filled from the public reference for its ICAO type. Null until the matcher resolves it; never persisted
+            /// in models -             public float[] embedding = null;lt;sim            public float[] embedding = null;gt;.txt and never sent to other clients.
+            /// </summary>
+            public Matching.AircraftSpecs specs = null;
+
+            /// <summary>
             /// ICAO Doc8643 type designator, e.g. "EC45"/"A20N"
             /// </summary>
             public string icaoType = "";
@@ -451,7 +469,7 @@ namespace JoinFS
         /// <see cref="models"/> - call after every reassignment of that field. The first model per
         /// key wins (TryAdd, not an indexer set), matching List&lt;T&gt;.Find's first-match semantics.
         /// </summary>
-        void RebuildTitleIndex()
+        internal void RebuildTitleIndex()
         {
             Dictionary<string, Model> byTitle = new(StringComparer.Ordinal);
 #if FS2024
@@ -591,7 +609,14 @@ namespace JoinFS
         /// <summary>
         /// Load the bundled ICAO Doc8643 reference dataset (process-lifetime, loaded once)
         /// </summary>
-        void LoadDoc8643Index()
+        static readonly object doc8643Lock = new();
+
+        internal void LoadDoc8643Index()
+        {
+            lock (doc8643Lock) LoadDoc8643IndexLocked();
+        }
+
+        void LoadDoc8643IndexLocked()
         {
             // already loaded
             if (doc8643Lookup.Count > 0) return;
@@ -636,51 +661,10 @@ namespace JoinFS
         static bool IsRecognizedIcaoType(string icaoType) => icaoType.Length > 0 && doc8643Lookup.ContainsKey(icaoType);
 
         /// <summary>
-        /// ICAO airline operator code -> airline name, e.g. "CFG" -> "condor" (bundled from opennav.com)
-        /// </summary>
-        static readonly Dictionary<string, string> icaoAirlineNames = new(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>
-        /// Load the bundled ICAO airline code reference dataset (process-lifetime, loaded once)
-        /// </summary>
-        void LoadIcaoAirlineIndex()
-        {
-            // already loaded
-            if (icaoAirlineNames.Count > 0) return;
-
-            try
-            {
-                using var stream = new MemoryStream(Properties.Resources_XPLANE.ICAO_Airlines);
-                using var reader = new StreamReader(stream);
-                string line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    string[] parts = line.Split('\t');
-                    if (parts.Length != 3) continue;
-
-                    string code = parts[0];
-                    string name = parts[2];
-
-                    if (code.Length != 3 || name.Length == 0) continue;
-
-                    if (icaoAirlineNames.ContainsKey(code) == false)
-                    {
-                        // first-wins (alphabetically-first code for a shared name is usually the primary operator)
-                        icaoAirlineNames.Add(code, name);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                main.MonitorEvent("Error parsing ICAO airline dataset: " + ex.Message);
-            }
-        }
-
-        /// <summary>
         /// True when code is a real, recognized ICAO airline operator code - used to reject bogus/non-standard
         /// values some add-ons report via SimConnect's ATC AIRLINE (e.g. a flight-number-style string).
         /// </summary>
-        static bool IsKnownIcaoAirline(string code) => code.Length == 3 && icaoAirlineNames.ContainsKey(code);
+        internal static bool IsKnownIcaoAirline(string code) => code.Length == 3 && AirlineDirectory.Bundled.IsIcao(code.ToUpperInvariant());
 
         /// <summary>
         /// True when needle appears in haystack as a standalone token - not immediately adjacent to another
@@ -688,7 +672,7 @@ namespace JoinFS
         /// at a boundary (e.g. stripping the space out of "...bus A32NX..." creates the substring "sA3", a
         /// real but completely unrelated ICAO designator that just happens to span that seam).
         /// </summary>
-        static bool ContainsToken(string haystack, string needle)
+        internal static bool ContainsToken(string haystack, string needle)
         {
             int searchFrom = 0;
             while (true)
@@ -710,11 +694,11 @@ namespace JoinFS
         /// airline name that appears in the text. Used only when a live ATC AIRLINE value doesn't look like
         /// a real ICAO code, e.g. "FSC739" reported for a Condor-liveried aircraft instead of "CFG".
         /// </summary>
-        static string GuessIcaoAirlineFromText(string text)
+        internal static string GuessIcaoAirlineFromText(string text)
         {
             (string code, int matchLength) best = ("", 0);
 
-            foreach (var pair in icaoAirlineNames)
+            foreach (var pair in AirlineDirectory.Bundled.Names)
             {
                 string needle = pair.Value;
                 if (needle.Length >= 4 && needle.Length > best.matchLength && ContainsToken(text, needle))
@@ -1142,6 +1126,13 @@ namespace JoinFS
         /// falling back to the package-name index (covers cross-package references, e.g. a standalone
         /// livery package's "../Helicopter_500E" pointing at an entirely separate installed package).
         /// </summary>
+        /// <summary>The installed aircraft folder with this leaf name (the package index), or null - used for a base container in another package.</summary>
+        string FindInstalledAircraftFolder(string leafName)
+        {
+            BuildPackageFolderIndexIfNeeded();
+            return packageFolderIndex.TryGetValue(leafName, out var folder) ? folder : null;
+        }
+
         string ResolveBaseContainer(string liveryFolder, string baseContainer)
         {
             try
@@ -1682,6 +1673,8 @@ namespace JoinFS
         string scanTexture = "";
         string scanIcaoAirline = "";
         string scanAtcId = "";
+        /// <summary>ICAO type designator of the scanned entry, when the source states one (X-Plane CSL ICAO/AIRLINE/LIVERY lines)</summary>
+        string scanIcaoType = "";
 
         /// <summary>
         /// Submit the current scanned names
@@ -1876,6 +1869,11 @@ namespace JoinFS
                         model.icaoAirlineGuessed = false;
                     }
                     model.atcId = scanAtcId;
+                    if (scanIcaoType.Length > 0 && model.icaoType.Length == 0)
+                    {
+                        model.icaoType = scanIcaoType;
+                        model.RefreshIcaoDerived(doc8643Lookup);
+                    }
 #if FS2024
                     if (model.icaoType.Length == 0)
                     {
@@ -1886,7 +1884,12 @@ namespace JoinFS
                 else
                 {
                     // add the model
-                    Model newModel = new(scanTitle, scanManufacturer, scanType, scanVariation, scanIndex, scanTyperole, "0", scanFolder, "", "", scanIcaoAirline, atcId: scanAtcId);
+                    Model newModel = new(scanTitle, scanManufacturer, scanType, scanVariation, scanIndex, scanTyperole, "0", scanFolder, scanIcaoType, "", scanIcaoAirline, atcId: scanAtcId);
+                    if (scanIcaoType.Length > 0)
+                    {
+                        // class code, wake category and a reliable typerole follow from the ICAO type
+                        newModel.RefreshIcaoDerived(doc8643Lookup);
+                    }
 #if FS2024
                     ApplyIcaoResult(newModel);
 #endif
@@ -1914,6 +1917,7 @@ namespace JoinFS
             scanTexture = "";
             scanFolder = "";
             scanIcaoAirline = "";
+            scanIcaoType = "";
             scanAtcId = "";
         }
 
@@ -2349,6 +2353,8 @@ namespace JoinFS
                                         scanManufacturer = manufacturer;
                                         // get type
                                         scanType = words[1];
+                                        // the CSL entry states the aircraft type and airline: keep them on the model (they used to be dropped)
+                                        (scanIcaoType, scanIcaoAirline) = Matching.XsbEntry.Identity(command, words);
                                         // get variation
                                         if (words.Length > 3) scanVariation = words[2] + " " + words[3];
                                         else if (words.Length == 3) scanVariation = words[2];
@@ -2570,11 +2576,14 @@ namespace JoinFS
                             }
                             bool fileConfirmed = fileIcaoType.Length > 0;
 #endif
+                            // measured physical data of the aircraft folder (same for every livery/entry in the file)
+                            Matching.AircraftSpecs fileSpecs = measuredSpecsReader.ReadFolder(Path.GetDirectoryName(path));
                             // for each new model
                             for (int index = startIndex; index < scanWork.Count; index++)
                             {
                                 // set smoke count
                                 scanWork[index].smokeCount = smokeCount;
+                                scanWork[index].specs = fileSpecs;
 #if FS2024
                                 if (scanWork[index].icaoType.Length == 0 && fileConfirmed)
                                 {
@@ -2985,6 +2994,45 @@ namespace JoinFS
             return main.storagePath + Path.DirectorySeparatorChar + "models - " + (main.sim != null ? main.sim.GetSimulatorName() : "null") + ".txt";
         }
 
+        /// <summary>The cache of measured model data that sits next to the models file (the models file format itself is unchanged).</summary>
+        public string MakeSpecsFilename()
+        {
+            return main.storagePath + Path.DirectorySeparatorChar + "specs - " + (main.sim != null ? main.sim.GetSimulatorName() : "null") + ".txt";
+        }
+
+        /// <summary>Give the loaded models the measured data stored by the last save; a missing or damaged file just means nothing is attached.</summary>
+        void AttachCachedSpecs(List<Model> loaded)
+        {
+            try
+            {
+                string filename = MakeSpecsFilename();
+                if (!File.Exists(filename)) return;
+
+                var cached = Matching.SpecCacheFile.Read(File.ReadLines(filename));
+                foreach (var model in loaded)
+                {
+                    if (model.specs == null && cached.TryGetValue((model.title, model.variation), out var specs)) model.specs = specs;
+                }
+            }
+            catch (Exception ex)
+            {
+                // the cache is only an optimisation - never let it stop the models from loading
+                main.MonitorEvent("Could not read the measured model data: " + ex.Message);
+            }
+        }
+
+        void SaveCachedSpecs(List<Model> toSave)
+        {
+            try
+            {
+                File.WriteAllLines(MakeSpecsFilename(), Matching.SpecCacheFile.Write(toSave));
+            }
+            catch (Exception ex)
+            {
+                main.MonitorEvent("Could not save the measured model data: " + ex.Message);
+            }
+        }
+
         /// <summary>
         /// Make the filename from the simulator name and version
         /// </summary>
@@ -3094,6 +3142,10 @@ namespace JoinFS
                                     int.TryParse(parts[4], NumberStyles.Number, CultureInfo.InvariantCulture, out int index);
                                     // read new ICAO fields when present, tolerating files saved by an older build
                                     string icaoType = parts.Length > 8 ? parts[8] : "";
+#if XPLANE
+                                    // models files written before X-Plane CSL entries kept their ICAO type: the "type" column is that designator
+                                    if (icaoType.Length == 0 && IsRecognizedIcaoType(parts[2])) icaoType = parts[2];
+#endif
                                     string wtc = parts.Length > 9 ? parts[9] : "";
                                     string icaoAirline = parts.Length > 10 ? parts[10] : "";
                                     string classCode = parts.Length > 11 ? parts[11] : "";
@@ -3106,6 +3158,8 @@ namespace JoinFS
                             }
                         }
                         }
+
+                        AttachCachedSpecs(loaded);
 
                         lock (writeLock)
                         {
@@ -3164,6 +3218,7 @@ namespace JoinFS
                         writer.WriteLine(model.title + "[+]" + model.manufacturer + "[+]" + model.type + "[+]" + model.variation + "[+]" + model.index + "[+]" + typeroleName + "[+]" + model.smokeCount + "[+]" + model.folder + "[+]" + model.icaoType + "[+]" + model.wtc + "[+]" + model.icaoAirline + "[+]" + (model.classCodeConfirmed ? model.classCode : "") + "[+]" + model.classCodeConfirmed);
                     }
                     writer.Close();
+                    SaveCachedSpecs(models);
 
                     // message
                     main.MonitorEvent("Saved " + models.Count + ((models.Count == 1) ? " model" : " models"));
@@ -3854,7 +3909,6 @@ namespace JoinFS
                 // load ICAO Doc8643 reference data (needed by LoadModels() to derive classCode/typerole)
                 LoadDoc8643Index();
                 // load ICAO airline code reference data (used to validate/correct live ATC AIRLINE values)
-                LoadIcaoAirlineIndex();
                 // load models from file
                 LoadModels();
 
@@ -4283,6 +4337,8 @@ namespace JoinFS
             public List<string> steps = [];
             /// <summary>Top scored candidates from the unified scorer, winner first - empty for fast-path/Default results</summary>
             public List<Candidate> topCandidates = [];
+            /// <summary>The matching engine that produced this trace; null when no engine was involved (a masquerade)</summary>
+            public MatchingEngine? engine = null;
         }
 
         /// <summary>
@@ -4290,7 +4346,7 @@ namespace JoinFS
         /// titles/variations regardless of how dashes/underscores/spaces are used in either one
         /// (e.g. "D-AJOE" vs. a livery folder named "DAJOE_Eurowings_Europapark").
         /// </summary>
-        static string AlnumOnly(string s)
+        internal static string AlnumOnly(string s)
         {
             if (string.IsNullOrEmpty(s)) return "";
             Span<char> buf = stackalloc char[s.Length];
@@ -4307,7 +4363,7 @@ namespace JoinFS
         /// Match() falls through to the configured typerole Default instead of trusting a weak/coincidental
         /// signal (e.g. typerole-only or a short title-prefix match alone).
         /// </summary>
-        const int MinMatchScore = 20;
+        internal const int MinMatchScore = 20;
 
         /// <summary>
         /// Multiplier applied to a guessed (not confirmed) candidate's ICAO-type/class-code/WTC score
@@ -4316,7 +4372,7 @@ namespace JoinFS
         /// match (verified against a real mistagged-model case during design: 0.4 was not aggressive
         /// enough, 0.2 gives a clear margin).
         /// </summary>
-        const double GuessedSignalMultiplier = 0.2;
+        internal const double GuessedSignalMultiplier = 0.2;
 
         /// <summary>
         /// Score one candidate against the remote aircraft's reported/derived attributes. Every signal
@@ -4329,10 +4385,11 @@ namespace JoinFS
         /// Returns the total score, a per-MatchAttribute breakdown (for Explain Match's attribute grid),
         /// and a human-readable contribution list (for the trace/"other candidates considered" panel).
         /// </summary>
-        static void ScoreCandidate(Model candidate, string remoteIcaoType, string remoteClassCode, string remoteWtc,
+        internal static void ScoreCandidate(Model candidate, string remoteIcaoType, string remoteClassCode, string remoteWtc,
             string remoteIcaoAirline, string remoteRegistration, string remoteRegistrationAlnum, string remoteLivery,
             int remoteTyperole, string remoteTitle,
-            out int score, out Dictionary<MatchAttribute, int> attributeScores, out List<string> contributions)
+            out int score, out Dictionary<MatchAttribute, int> attributeScores, out List<string> contributions,
+            bool remoteAirlineGuessed = false, bool typeroleIsWeakHint = false)
         {
             int total = 0;
             Dictionary<MatchAttribute, int> attrScores = [];
@@ -4340,7 +4397,7 @@ namespace JoinFS
             double guessFactor = candidate.icaoGuessed ? GuessedSignalMultiplier : 1.0;
             // independent of guessFactor - icaoType and icaoAirline provenance are unrelated, a candidate
             // can have a confirmed icaoType but a text-guessed icaoAirline or vice versa
-            double airlineGuessFactor = candidate.icaoAirlineGuessed ? GuessedSignalMultiplier : 1.0;
+            double airlineGuessFactor = candidate.icaoAirlineGuessed || remoteAirlineGuessed ? GuessedSignalMultiplier : 1.0;
 
             void Add(MatchAttribute attr, double points, string detail)
             {
@@ -4413,7 +4470,7 @@ namespace JoinFS
                 {
                     Add(MatchAttribute.Typerole, 15, "same typerole");
                 }
-                else if (exactIcaoTypeMatch == false)
+                else if (exactIcaoTypeMatch == false && !typeroleIsWeakHint)
                 {
                     // a disagreeing typerole (e.g. a light business jet tagged Fighter/GA-bucket vs. an
                     // installed Airliner) is real evidence these are different-size aircraft, even when
@@ -4471,10 +4528,79 @@ namespace JoinFS
 #if FS2024
         public async Task<(Model model, Type type, MatchTrace trace)> Match(string title, string livery, string icaoType, string icaoAirline, string classCode, string wtc, bool classCodeConfirmed, int typerole, string registration = "")
         // in MSFS2024 aircraft livery is the model variation
+        {
+            return Resolve(new MatchRequest(title, livery, icaoType, icaoAirline, classCode, wtc, classCodeConfirmed, typerole, registration) { LiveryAware = true });
+        }
 #else
         public async Task<(Model model, Type type, MatchTrace trace)> Match(string title, string icaoType, string icaoAirline, string classCode, string wtc, bool classCodeConfirmed, int typerole, string registration = "")
-#endif
         {
+            return Resolve(new MatchRequest(title, "", icaoType, icaoAirline, classCode, wtc, classCodeConfirmed, typerole, registration));
+        }
+#endif
+
+        /// <summary>
+        /// Resolve a request to an installed model. The one place that decides which matching engine runs; build-neutral, so every
+        /// simulator build (and the tests) share it. Synchronous: <see cref="Match"/> has never awaited anything.
+        /// </summary>
+        public (Model model, Type type, MatchTrace trace) Resolve(MatchRequest request)
+        {
+            var result = engine == MatchingEngine.New ? MatchWithNewEngine(request) : MatchClassic(request);
+            result.trace.engine = engine;
+            return result;
+        }
+
+        /// <summary>Which matching engine <see cref="Resolve"/> uses. The new engine is the default; Classic stays selectable (Settings).</summary>
+        public volatile MatchingEngine engine = MatchingEngine.New;
+
+        /// <summary>The new engine; it reads the live model list, so one instance serves the whole session.</summary>
+        Matching.CombinedMatcher newMatcher;
+
+        /// <summary>The optional user file with own aircraft rows, same format as the built-in aircraft-specs.json (read when the matcher is built)</summary>
+        public const string UserReferenceFile = "aircraft-specs.user.json";
+
+        /// <summary>Where the user file is looked for; null = the storage folder (tests point it elsewhere)</summary>
+        public string userReferencePath;
+
+        /// <summary>The built-in reference data with the user file merged over it; problems in the file are reported once and never stop matching.</summary>
+        Matching.ReferenceSpecs LoadReferenceSpecs()
+        {
+            string path = userReferencePath ?? (main != null ? Path.Combine(main.storagePath, UserReferenceFile) : null);
+            List<string> problems = [];
+            Matching.ReferenceSpecs reference = Matching.ReferenceSpecs.WithUserOverridesFromFile(Matching.MatchingData.Reference, path, Matching.MatchingData.Doc8643.IsRecognized, problems);
+            if (problems.Count > 0 && main != null)
+            {
+                main.ShowMessage(UserReferenceFile + ": " + string.Join("; ", problems.Take(3)) + (problems.Count > 3 ? "; ..." : ""));
+            }
+            return reference;
+        }
+
+        /// <summary>
+        /// The new matcher: explicit tiers as before, then identity signals + related types + physical similarity + plausibility gate,
+        /// deterministic order, and a refusal instead of a nonsense model.
+        /// </summary>
+        (Model model, Type type, MatchTrace trace) MatchWithNewEngine(MatchRequest request)
+        {
+            Matching.CombinedMatcher matcher = newMatcher ??= new Matching.CombinedMatcher(new Matching.SubstitutionCatalog(this), LoadReferenceSpecs(),
+                airlines: Matching.MatchingData.Airlines, related: Matching.MatchingData.Related);
+            Matching.CombinedResult result = matcher.Match(request);
+            return (result.Model, result.Type, result.Trace);
+        }
+
+        /// <summary>
+        /// The classic matcher: user substitution, exact title, one additive identity score, defaults, last resort.
+        /// Unchanged behaviour (pinned by SubstitutionMatchCharacterizationTests).
+        /// </summary>
+        (Model model, Type type, MatchTrace trace) MatchClassic(MatchRequest request)
+        {
+            string title = request.Title;
+            string livery = request.Livery;
+            string icaoType = request.IcaoType;
+            string icaoAirline = request.IcaoAirline;
+            string classCode = request.ClassCode;
+            string wtc = request.Wtc;
+            int typerole = request.Typerole;
+            string registration = request.Registration;
+
             Model model;
             Type type;
             MatchTrace trace = new();

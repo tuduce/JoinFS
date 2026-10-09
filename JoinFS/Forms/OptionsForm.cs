@@ -114,6 +114,7 @@ namespace JoinFS
             DataGrid_Options.Rows.Add(@"--nogui", Resources.Strings.Options_NoGui);
             DataGrid_Options.Rows.Add(@"--multiobjects", Resources.Strings.Tip_MultiObjects);
             DataGrid_Options.Rows.Add(@"--simfolder", Resources.Strings.Options_SimFolder);
+            DataGrid_Options.Rows.Add(@"--classicmatching", Resources.Strings.Tip_ClassicMatching);
             DataGrid_Options.Rows.Add(@"--xplane", Resources.Strings.Tip_Xplane);
             DataGrid_Options.Rows.Add(@"--installplugin", Resources.Strings.Options_InstallPlugin);
             DataGrid_Options.Rows.Add(@"--tcas", Resources.Strings.Tip_TCAS);

@@ -259,6 +259,33 @@ namespace JoinFS.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Use the classic model matching (type, airline and class only) instead of the smart matching.
+        /// </summary>
+        internal static string Tip_ClassicMatching {
+            get {
+                return ResourceManager.GetString("Tip_ClassicMatching", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Matching engine: smart (compares size, weight, speed, engines and manufacturer as well as type, airline and class). Start JoinFS with --classicmatching for the classic engine..
+        /// </summary>
+        internal static string MatchExplain_EngineNew {
+            get {
+                return ResourceManager.GetString("MatchExplain_EngineNew", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Matching engine: classic (compares type, airline, class code and wake category only), selected with --classicmatching..
+        /// </summary>
+        internal static string MatchExplain_EngineClassic {
+            get {
+                return ResourceManager.GetString("MatchExplain_EngineClassic", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Edit Model Matching.
         /// </summary>
         internal static string EditModelMatching {

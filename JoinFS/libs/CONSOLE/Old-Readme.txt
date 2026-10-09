@@ -43,6 +43,7 @@ Usage: dotnet JoinFS-CONSOLE.dll [options]
   --multiobjects         Allow this client to receive more than one aircraft from any other client in a session.
   --simfolder "<folder>" Sets the simulator root folder.
   --scan                 Scan For Models
+  --classicmatching      Use the classic model matching (type, airline and class only) instead of the smart matching
   --generatecsl          Generate CSL objects for installed X-Plane aircraft during a scan.
   --skipcsldone          Skip CSL objects already done during a scan.
   --xplane               Enable connection to the X-Plane flight simulator

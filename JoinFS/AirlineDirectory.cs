@@ -10,6 +10,10 @@ namespace JoinFS
     /// </summary>
     public sealed class AirlineDirectory
     {
+        /// <summary>One valid row of the list.</summary>
+        public sealed record Entry(string Icao, string Iata, string Name);
+
+        readonly List<Entry> entries = [];
         readonly Dictionary<string, string> namesByIcao = new(StringComparer.Ordinal);
         readonly Dictionary<string, List<string>> icaoByIata = new(StringComparer.Ordinal);
 
@@ -28,6 +32,7 @@ namespace JoinFS
                 string name = parts[2].Trim();
                 if (icao.Length != 3 || name.Length == 0) continue;
 
+                directory.entries.Add(new Entry(icao, iata, name));
                 directory.namesByIcao.TryAdd(icao, name);
                 if (iata.Length > 0)
                 {
@@ -41,6 +46,12 @@ namespace JoinFS
             }
             return directory;
         }
+
+        /// <summary>Every valid row, in file order (an airline can have several rows).</summary>
+        public IReadOnlyList<Entry> Entries => entries;
+
+        /// <summary>ICAO designator -> name, the first row of a designator wins; in file order.</summary>
+        public IReadOnlyDictionary<string, string> Names => namesByIcao;
 
         public bool IsIcao(string designator) => namesByIcao.ContainsKey(designator);
 

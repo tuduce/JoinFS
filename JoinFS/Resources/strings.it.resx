@@ -786,4 +786,13 @@
   <data name="ReconnectGaveUp" xml:space="preserve">
     <value>Connessione persa. La riconnessione automatica non è riuscita a ripristinarla negli ultimi {0} minuti. Riprova a connetterti manualmente quando sei pronto.</value>
   </data>
+  <data name="Tip_ClassicMatching" xml:space="preserve">
+    <value>Usa la corrispondenza modelli classica (solo tipo, compagnia e classe) invece di quella intelligente</value>
+  </data>
+  <data name="MatchExplain_EngineNew" xml:space="preserve">
+    <value>Metodo di corrispondenza: intelligente (confronta anche dimensioni, peso, velocità, motori e costruttore, oltre a tipo, compagnia e classe). Avvia JoinFS con --classicmatching per il metodo classico.</value>
+  </data>
+  <data name="MatchExplain_EngineClassic" xml:space="preserve">
+    <value>Metodo di corrispondenza: classico (confronta solo tipo, compagnia, codice di classe e categoria di turbolenza), scelto con --classicmatching.</value>
+  </data>
 </root>
