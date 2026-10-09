@@ -10,6 +10,7 @@
 - Reduced the number of SimConnect requests used to read aircraft variables on MSFS2020/2024, FSX and P3D. Variables that were previously requested individually are now bundled into a single combined request per aircraft, lowering SimConnect overhead - most noticeable with many aircraft nearby. X-Plane and network compatibility are unaffected.
 - If the download of the seedhubs.txt fails over HTTP, the list is fetched from a TXT DNS-record.
 - Added a protocol dissector for Wireshark, allowing users to inspect JoinFS network traffic in detail.
+- Smart model matching, on by default: besides type, airline and class it also compares size, weight, speed, engines and manufacturer, repairs wrong but common type tags (for example B747, A380 or 500E), never shows a helicopter for an aeroplane or an airliner for a light aircraft, and Explain Match says which matcher decided. You can add or correct aircraft yourself in an optional `aircraft-specs.user.json` in the JoinFS data folder (same format as the bundled `aircraft-specs.json`, no rebuild needed). Start JoinFS with `--classicmatching` to use the previous matching. (Thanks @joeherwig for the contribution)
 
 ## Bug Fixes
 
@@ -23,6 +24,8 @@
 - Fixed guaranteed-message delivery broken for any relayed peer.
 
 ## Limitations
+
+Smart model matching has been tested live on MSFS 2024 only. MSFS 2020, FSX, P3D and X-Plane use the same rules with less measured aircraft data (on X-Plane the plugin still makes the final choice of the CSL model). About 75 of the 399 bundled reference aircraft are verified against manufacturer data; the others are compiled values and still to be checked.
 
 The `FSX` and `P3D` variants are built for the x86 (32bit) architecture. Since the Microsoft.ML package does not currently offer a x86 variant, the AI-enchanced model matching is not included for `FSX` or `P3D`.
 
