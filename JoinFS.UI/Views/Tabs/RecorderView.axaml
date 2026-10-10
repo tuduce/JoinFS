@@ -105,8 +105,9 @@
                 <DataTemplate x:DataType="tvm:LoadedAircraftViewModel">
                   <Border Padding="14,9" BorderBrush="{DynamicResource SurfaceHeaderBrush}" BorderThickness="0,0,0,1">
                     <Grid ColumnDefinitions="*,Auto">
-                      <!-- Unticked, an aircraft is out of playback, and its tick is grey until the recording is loaded again. -->
-                      <CheckBox IsChecked="{Binding IsChecked}" IsEnabled="{Binding CanTick}" Content="{Binding Callsign}" />
+                      <!-- Unticking asks first. Unticked, an aircraft is out of playback, and its tick is grey (the tip says why) until the recording is loaded again. -->
+                      <CheckBox IsChecked="{Binding IsChecked}" IsEnabled="{Binding CanTick}" Content="{Binding Callsign}"
+                                ToolTip.Tip="{Binding Tip}" ToolTip.ShowOnDisabled="True" />
                       <TextBlock Grid.Column="1" Text="{Binding Model}" Foreground="{DynamicResource Muted2Brush}" VerticalAlignment="Center" />
                     </Grid>
                   </Border>

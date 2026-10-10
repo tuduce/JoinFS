@@ -547,32 +547,88 @@ public class RecorderTests
     // ---- the loaded recording's aircraft
 
     [Fact]
-    public void Unticking_an_aircraft_leaves_it_out_of_playback_and_the_tick_goes_grey()
+    public async Task Unticking_an_aircraft_asks_first_and_on_yes_leaves_it_out_and_the_tick_goes_grey()
     {
         Rig rig = new();
         RecorderViewModel recorder = Open(rig);
         LoadedAircraftViewModel aircraft = recorder.LoadedAircraft[2];
         Assert.True(aircraft.CanTick);
+        Assert.Null(aircraft.Tip);
 
         aircraft.IsChecked = false;
+
+        // nothing happens until the user has answered
+        ConfirmViewModel ask = Assert.IsType<ConfirmViewModel>(rig.Main.Overlay);
+        Assert.Contains(aircraft.Callsign, ask.Message);
+        Assert.Equal("", ask.NoText); // a question with two answers, yes and cancel
+        Assert.DoesNotContain("skip r2", Source(rig).Calls);
+        Assert.False(aircraft.IsChecked); // the box shows what the user did
+        Assert.True(aircraft.CanTick);
+
+        ask.YesCommand.Execute(null);
+        await aircraft.Answered;
 
         Assert.Contains("skip r2", Source(rig).Calls);
         Assert.False(aircraft.IsChecked);
         Assert.False(aircraft.CanTick);
+        Assert.Contains("Load the recording again", aircraft.Tip);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Cancelling_the_question_leaves_the_aircraft_in_playback(bool byTheCross)
+    {
+        Rig rig = new();
+        RecorderViewModel recorder = Open(rig);
+        LoadedAircraftViewModel aircraft = recorder.LoadedAircraft[2];
+
+        aircraft.IsChecked = false;
+        ConfirmViewModel ask = Assert.IsType<ConfirmViewModel>(rig.Main.Overlay);
+        if (byTheCross)
+            ask.Close();
+        else
+            ask.CloseCommand.Execute(null);
+        await aircraft.Answered;
+
+        Assert.True(aircraft.IsChecked);
+        Assert.True(aircraft.CanTick);
+        Assert.Null(aircraft.Tip);
+        Assert.DoesNotContain("skip r2", Source(rig).Calls);
     }
 
     [Fact]
-    public void A_skipped_aircraft_cannot_be_ticked_again_until_the_recording_is_loaded_again()
+    public async Task A_second_untick_while_the_question_is_open_does_not_ask_again()
+    {
+        Rig rig = new();
+        RecorderViewModel recorder = Open(rig);
+        LoadedAircraftViewModel aircraft = recorder.LoadedAircraft[2];
+
+        aircraft.IsChecked = false;
+        ConfirmViewModel ask = Assert.IsType<ConfirmViewModel>(rig.Main.Overlay);
+        aircraft.IsChecked = false;
+
+        Assert.Same(ask, rig.Main.Overlay);
+        ask.YesCommand.Execute(null);
+        await aircraft.Answered;
+        Assert.Equal(1, Source(rig).Calls.Count(c => c == "skip r2"));
+    }
+
+    [Fact]
+    public async Task A_skipped_aircraft_cannot_be_ticked_again_until_the_recording_is_loaded_again()
     {
         Rig rig = new();
         RecorderViewModel recorder = Open(rig);
         LoadedAircraftViewModel aircraft = recorder.LoadedAircraft[2];
         aircraft.IsChecked = false;
+        ((ConfirmViewModel)rig.Main.Overlay!).YesCommand.Execute(null);
+        await aircraft.Answered;
 
         aircraft.IsChecked = true;
         recorder.Refresh();
 
         Assert.False(aircraft.IsChecked);
+        Assert.Null(rig.Main.Overlay);
         Assert.Equal(1, Source(rig).Calls.Count(c => c == "skip r2"));
     }
 
@@ -582,8 +638,10 @@ public class RecorderTests
         Rig rig = new();
         RecorderViewModel recorder = Open(rig);
         recorder.LoadedAircraft[2].IsChecked = false;
+        ((ConfirmViewModel)rig.Main.Overlay!).YesCommand.Execute(null);
+        await recorder.LoadedAircraft[2].Answered;
         recorder.StopCommand.Execute(null);
-        rig.Platform.PickedFile = @"C:\Recordings\again.jfs";
+        rig.Platform.PickedFile = @"C:\Recordingsgain.jfs";
 
         await recorder.OpenCommand.ExecuteAsync(null);
 
@@ -601,6 +659,7 @@ public class RecorderTests
 
         Assert.False(recorder.LoadedAircraft[1].IsChecked);
         Assert.False(recorder.LoadedAircraft[1].CanTick);
+        Assert.NotNull(recorder.LoadedAircraft[1].Tip);
     }
 
     // ---- the tab follows the recorder

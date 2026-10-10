@@ -1083,4 +1083,16 @@
   <data name="Dismiss" xml:space="preserve">
     <value>Negeren</value>
   </data>
+  <data name="Leave out of playback?" xml:space="preserve">
+    <value>Weglaten uit het afspelen?</value>
+  </data>
+  <data name="{0} will not play until the recording is loaded again. It stays in the file." xml:space="preserve">
+    <value>{0} wordt niet afgespeeld totdat de opname opnieuw is geladen. Het blijft in het bestand.</value>
+  </data>
+  <data name="Leave Out" xml:space="preserve">
+    <value>Weglaten</value>
+  </data>
+  <data name="Left out of playback. Load the recording again to bring it back." xml:space="preserve">
+    <value>Weggelaten uit het afspelen. Laad de opname opnieuw om het terug te krijgen.</value>
+  </data>
 </root>
