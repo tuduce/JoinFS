@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using JoinFS.UI.ViewModels;
 
 namespace JoinFS.UI.Views.Controls;
 
@@ -13,6 +14,8 @@ public partial class ConnectorNode : UserControl
 
     public static readonly StyledProperty<string?> ButtonTipProperty =
         AvaloniaProperty.Register<ConnectorNode, string?>(nameof(ButtonTip));
+
+    private ConnectionViewModel? _connection;
 
     public ConnectorNode() => InitializeComponent();
 
@@ -45,8 +48,33 @@ public partial class ConnectorNode : UserControl
             TitleText.Text = Title;
         else if (change.Property == ButtonTipProperty)
         {
-            ToolTip.SetTip(NodeButton, ButtonTip);
+            UpdateTip();
             Avalonia.Automation.AutomationProperties.SetName(NodeButton, ButtonTip);
         }
+    }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+
+        if (_connection is not null)
+            _connection.PropertyChanged -= OnConnectionChanged;
+        _connection = DataContext as ConnectionViewModel;
+        if (_connection is not null)
+            _connection.PropertyChanged += OnConnectionChanged;
+        UpdateTip();
+    }
+
+    private void OnConnectionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ConnectionViewModel.ShortcutHint))
+            UpdateTip();
+    }
+
+    /// <summary>The button's own tip, and under it the keys of its shortcut when that is on.</summary>
+    private void UpdateTip()
+    {
+        string? hint = _connection?.ShortcutHint;
+        ToolTip.SetTip(NodeButton, hint is null ? ButtonTip : string.IsNullOrEmpty(ButtonTip) ? hint : ButtonTip + Environment.NewLine + hint);
     }
 }
