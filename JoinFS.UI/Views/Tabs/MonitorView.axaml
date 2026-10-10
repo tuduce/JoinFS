@@ -12,35 +12,29 @@
       </StackPanel>
     </Grid>
 
-    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="10">
-      <TextBlock Classes="caps" Text="{l:T 'SHOW (THIS SESSION)'}" VerticalAlignment="Center" />
-      <ItemsControl ItemsSource="{Binding Filters}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <StackPanel Orientation="Horizontal" Spacing="10" />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="tvm:MonitorFilterViewModel">
-            <Panel>
-              <!-- A switch stays on while it shows something; a one-shot chip is a button that has no state. -->
-              <ToggleButton Classes="chip" IsChecked="{Binding IsOn}" IsVisible="{Binding !IsOneShot}">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                  <Ellipse Classes="dot" VerticalAlignment="Center" />
-                  <TextBlock Text="{Binding Label}" />
-                </StackPanel>
-              </ToggleButton>
-              <Button Classes="chip" Command="{Binding ToggleCommand}" IsVisible="{Binding IsOneShot}">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                  <Ellipse Classes="dot" VerticalAlignment="Center" />
-                  <TextBlock Text="{Binding Label}" />
-                </StackPanel>
-              </Button>
-            </Panel>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-    </StackPanel>
+    <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto">
+      <!-- Switches: they stay on until they are turned off. -->
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <ToggleButton Classes="chip" IsChecked="{Binding LogNetwork}">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Ellipse Classes="dot" VerticalAlignment="Center" />
+            <TextBlock Text="{l:T 'Log network traffic'}" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton Classes="chip" IsChecked="{Binding LogVariables}">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Ellipse Classes="dot" VerticalAlignment="Center" />
+            <TextBlock Text="{l:T 'Log variables'}" />
+          </StackPanel>
+        </ToggleButton>
+      </StackPanel>
+      <!-- Actions: each writes a dump into the log once. -->
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
+        <TextBlock Classes="caps" Text="{l:T 'WRITE TO THE LOG'}" VerticalAlignment="Center" />
+        <Button Command="{Binding WriteNodeStatisticsCommand}" Content="{l:T 'Node Statistics'}" />
+        <Button Command="{Binding WritePacketStatisticsCommand}" Content="{l:T 'Received Packets'}" />
+      </StackPanel>
+    </Grid>
 
     <Border Grid.Row="2" Background="{DynamicResource ConsoleBackgroundBrush}" CornerRadius="10" Padding="14">
       <ScrollViewer x:Name="LogScroll">

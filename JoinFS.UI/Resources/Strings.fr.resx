@@ -468,6 +468,12 @@
   <data name="Loaded recording — {0}" xml:space="preserve">
     <value>Enregistrement chargé : {0}</value>
   </data>
+  <data name="Log network traffic" xml:space="preserve">
+    <value>Journaliser le trafic réseau</value>
+  </data>
+  <data name="Log variables" xml:space="preserve">
+    <value>Journaliser les variables</value>
+  </data>
   <data name="Loop" xml:space="preserve">
     <value>Boucle</value>
   </data>
@@ -753,9 +759,6 @@
   <data name="Short description" xml:space="preserve">
     <value>Brève description</value>
   </data>
-  <data name="SHOW (THIS SESSION)" xml:space="preserve">
-    <value>AFFICHER (CETTE SESSION)</value>
-  </data>
   <data name="Show all aircraft" xml:space="preserve">
     <value>Afficher tous les appareils</value>
   </data>
@@ -956,6 +959,9 @@
   </data>
   <data name="Would you like to save your current recording?" xml:space="preserve">
     <value>Voulez-vous sauvegarder votre enregistrement actuel?</value>
+  </data>
+  <data name="WRITE TO THE LOG" xml:space="preserve">
+    <value>ÉCRIRE DANS LE JOURNAL</value>
   </data>
   <data name="X-Plane" xml:space="preserve">
     <value>X-Plane</value>

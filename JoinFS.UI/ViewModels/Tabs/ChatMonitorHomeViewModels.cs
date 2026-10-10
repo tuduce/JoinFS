@@ -80,39 +80,7 @@ public sealed partial class ChatViewModel : ObservableObject
     }
 }
 
-/// <summary>
-/// One of the Monitor's "Show (this session)" chips. A chip that shows something is a switch: it stays on while it does. A one-shot chip
-/// (a dump of statistics into the log) is a button: it does its work when it is pressed and has no state.
-/// </summary>
-public sealed partial class MonitorFilterViewModel(string key, string label, bool isOn, Action<bool>? changed = null, bool oneShot = false) : ObservableObject
-{
-    public string Key { get; } = key;
-    public string Label { get; } = label;
-
-    /// <summary>A button that does something once, not a switch.</summary>
-    public bool IsOneShot { get; } = oneShot;
-
-    [ObservableProperty]
-    private bool _isOn = isOn;
-
-    partial void OnIsOnChanged(bool value)
-    {
-        if (!IsOneShot)
-            changed?.Invoke(value);
-    }
-
-    /// <summary>Flips a switch; does a one-shot chip's work.</summary>
-    [RelayCommand]
-    private void Toggle()
-    {
-        if (IsOneShot)
-            changed?.Invoke(true);
-        else
-            IsOn = !IsOn;
-    }
-}
-
-/// <summary>Monitor tab: the log, and which kinds of traffic to show this session.</summary>
+/// <summary>Monitor tab: the log, what to log this session, and two buttons that write a dump of statistics into it.</summary>
 public sealed partial class MonitorViewModel : ObservableObject
 {
     private readonly IMonitorSource _source;
@@ -122,17 +90,38 @@ public sealed partial class MonitorViewModel : ObservableObject
     {
         _source = source;
         _platform = platform;
-        Filters =
-        [
-            new("nodeStats", Loc.T("Node Statistics"), false, _ => { source.WriteNodeStatistics(); Refresh(); }, oneShot: true),
-            new("packets", Loc.T("Received Packets"), false, _ => { source.WritePacketStatistics(); Refresh(); }, oneShot: true),
-            new("network", Loc.T("Network"), source.ShowNetwork, on => source.ShowNetwork = on),
-            new("variables", Loc.T("Variables"), source.ShowVariables, on => source.ShowVariables = on),
-        ];
+        _logNetwork = source.ShowNetwork;
+        _logVariables = source.ShowVariables;
         Refresh();
     }
 
-    public IReadOnlyList<MonitorFilterViewModel> Filters { get; }
+    /// <summary>Whether network traffic goes into the log. A switch: it stays on until it is turned off.</summary>
+    [ObservableProperty]
+    private bool _logNetwork;
+
+    /// <summary>Whether the variables go into the log. A switch.</summary>
+    [ObservableProperty]
+    private bool _logVariables;
+
+    partial void OnLogNetworkChanged(bool value) => _source.ShowNetwork = value;
+
+    partial void OnLogVariablesChanged(bool value) => _source.ShowVariables = value;
+
+    /// <summary>Writes the statistics of the nodes into the log, once.</summary>
+    [RelayCommand]
+    private void WriteNodeStatistics()
+    {
+        _source.WriteNodeStatistics();
+        Refresh();
+    }
+
+    /// <summary>Writes the statistics of the received packets into the log, once.</summary>
+    [RelayCommand]
+    private void WritePacketStatistics()
+    {
+        _source.WritePacketStatistics();
+        Refresh();
+    }
 
     public ObservableCollection<string> LogLines { get; } = [];
 

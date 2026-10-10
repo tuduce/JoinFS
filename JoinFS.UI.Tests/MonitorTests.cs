@@ -45,54 +45,52 @@ public class MonitorTests
     private static MonitorViewModel Open(ScriptedMonitor monitor, IPlatform? platform = null) => new(monitor, platform ?? new NullPlatform());
 
     [Fact]
-    public void The_chips_start_on_what_the_log_is_set_to()
+    public void The_switches_start_on_what_the_log_is_set_to()
     {
         ScriptedMonitor monitor = new() { ShowNetwork = true, ShowVariables = false };
 
         MonitorViewModel tab = Open(monitor);
 
-        Assert.Equal([false, false, true, false], tab.Filters.Select(f => f.IsOn));
+        Assert.True(tab.LogNetwork);
+        Assert.False(tab.LogVariables);
     }
 
     [Fact]
-    public void The_network_and_variables_chips_switch_what_the_log_says()
+    public void The_network_and_variables_switches_change_what_the_log_says()
     {
         ScriptedMonitor monitor = new();
         MonitorViewModel tab = Open(monitor);
 
-        tab.Filters.Single(f => f.Key == "network").ToggleCommand.Execute(null);
-        tab.Filters.Single(f => f.Key == "variables").ToggleCommand.Execute(null);
+        tab.LogNetwork = true;
+        tab.LogVariables = true;
         Assert.True(monitor.ShowNetwork);
         Assert.True(monitor.ShowVariables);
 
-        tab.Filters.Single(f => f.Key == "network").ToggleCommand.Execute(null);
+        tab.LogNetwork = false;
         Assert.False(monitor.ShowNetwork);
         Assert.True(monitor.ShowVariables);
     }
 
     [Fact]
-    public void A_statistics_chip_writes_its_dump_into_the_log_and_springs_back()
+    public void A_statistics_button_writes_its_dump_into_the_log()
     {
         ScriptedMonitor monitor = new();
         MonitorViewModel tab = Open(monitor);
-        MonitorFilterViewModel nodes = tab.Filters.Single(f => f.Key == "nodeStats");
 
-        nodes.ToggleCommand.Execute(null);
+        tab.WriteNodeStatisticsCommand.Execute(null);
 
         Assert.Equal(["nodes"], monitor.Dumps);
-        Assert.False(nodes.IsOn);
         Assert.Equal("== NODE STATS ==", tab.LogLines[^1]); // shown at once, not at the next poll
     }
 
     [Fact]
-    public void A_statistics_chip_can_be_used_again()
+    public void A_statistics_button_can_be_used_again()
     {
         ScriptedMonitor monitor = new();
         MonitorViewModel tab = Open(monitor);
-        MonitorFilterViewModel packets = tab.Filters.Single(f => f.Key == "packets");
 
-        packets.ToggleCommand.Execute(null);
-        packets.ToggleCommand.Execute(null);
+        tab.WritePacketStatisticsCommand.Execute(null);
+        tab.WritePacketStatisticsCommand.Execute(null);
 
         Assert.Equal(["packets", "packets"], monitor.Dumps);
     }
