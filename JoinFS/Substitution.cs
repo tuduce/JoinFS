@@ -2133,6 +2133,21 @@ namespace JoinFS
             }
         }
 
+        /// <summary>
+        /// Publish the list a scan has built (it works on a private list so readers keep the current
+        /// one until the scan is complete), then rebuild the ICAO and title indexes from it
+        /// </summary>
+        void PublishScanWork()
+        {
+            lock (writeLock)
+            {
+                models = scanWork;
+            }
+            scanWork = null;
+            MakeIcaoIndex();
+            RebuildTitleIndex();
+        }
+
         bool ScanLocked(bool interactive, string simulatorNameOverride)
         {
             // name to branch on below - the real connected name, unless overridden by a caller
@@ -2407,6 +2422,10 @@ namespace JoinFS
                     // say what the scan saw, so an empty result can be explained
                     lastXPlaneScanReport = new XPlaneScanReport(cslFolderExists, aircraftFiles, xsbFiles, entriesRead, lastBanExclusionCount, readErrors, scanWork.Count);
                     main.MonitorEvent(lastXPlaneScanReport.Summary());
+
+                    // the scanned list only exists in scanWork until it is published; the shared publish
+                    // step further down belongs to the SimConnect branch, so X-Plane must do it here
+                    PublishScanWork();
 #else
                     // create path list
                     List<string> pathList = [];
@@ -2666,14 +2685,7 @@ namespace JoinFS
                         }
                     }
 
-                    // publish the scanned list, then rebuild the ICAO indexes from it
-                    lock (writeLock)
-                    {
-                        models = scanWork;
-                    }
-                    scanWork = null;
-                    MakeIcaoIndex();
-                    RebuildTitleIndex();
+                    PublishScanWork();
 
                     if (simulatorName == "Microsoft Flight Simulator 2020")
                     {
