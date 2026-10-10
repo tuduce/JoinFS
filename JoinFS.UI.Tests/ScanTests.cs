@@ -139,7 +139,7 @@ public class ScanTests
     public void The_x_plane_scan_hands_over_the_ticked_aircraft_folders()
     {
         Rig rig = new(xplaneBuild: true);
-        rig.Main.Settings.Simulator.OpenModelScanningCommand.Execute(null);
+        rig.Main.Settings.Models.OpenModelScanningCommand.Execute(null);
         ScanXPlaneModelsViewModel scan = (ScanXPlaneModelsViewModel)rig.Main.Overlay!;
         scan.AircraftFolders.Single(f => f.Name == "FlyJSim").IsChecked = true;
 
@@ -157,7 +157,7 @@ public class ScanTests
     {
         Rig rig = new(xplaneBuild: true);
         ((FakeXPlaneScanSource)rig.Services.XPlaneScan).Busy = true;
-        rig.Main.Settings.Simulator.OpenModelScanningCommand.Execute(null);
+        rig.Main.Settings.Models.OpenModelScanningCommand.Execute(null);
         ScanXPlaneModelsViewModel scan = (ScanXPlaneModelsViewModel)rig.Main.Overlay!;
 
         scan.ScanCommand.Execute(null);

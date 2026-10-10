@@ -312,7 +312,7 @@ public class RenderTests
         main.Settings.Simulator.ToggleCommand.Execute(null);
         Snapshot(window, "settings-xplane-build-simulator");
 
-        main.Settings.Simulator.OpenModelScanningCommand.Execute(null);
+        main.Settings.Models.OpenModelScanningCommand.Execute(null);
         ((ScanXPlaneModelsViewModel)main.Overlay!).GenerateCsl = true;
         Snapshot(window, "overlay-scan-xplane");
 

@@ -1098,4 +1098,16 @@
   <data name="Shows or hides the actions of this row" xml:space="preserve">
     <value>Muestra u oculta las acciones de esta fila</value>
   </data>
+  <data name="Profile" xml:space="preserve">
+    <value>Perfil</value>
+  </data>
+  <data name="Models" xml:space="preserve">
+    <value>Modelos</value>
+  </data>
+  <data name="ADVANCED" xml:space="preserve">
+    <value>AVANZADO</value>
+  </data>
+  <data name="Run your own hub for others to join." xml:space="preserve">
+    <value>Ejecute su propio hub al que otros puedan unirse.</value>
+  </data>
 </root>

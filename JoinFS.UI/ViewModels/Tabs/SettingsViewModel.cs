@@ -64,28 +64,40 @@ public abstract class PersistedSettingsSectionViewModel : SettingsSectionViewMod
     }
 }
 
+/// <summary>The settings about the pilot, not the simulator: the nickname and the SimBrief account.</summary>
+public sealed partial class ProfileSettingsViewModel : PersistedSettingsSectionViewModel
+{
+    internal ProfileSettingsViewModel(Action<SettingsSectionViewModel> toggle, PreferencesSession preferences, ProfileViewModel profile)
+        : base(Loc.T("Profile"), toggle, preferences)
+    {
+        Profile = profile;
+        _autoImportSimbrief = Prefs.AutoImportSimbrief;
+    }
+
+    /// <summary>Nickname and SimBrief username live in the profile, so Onboarding, Flight Plan and this card share them.</summary>
+    public ProfileViewModel Profile { get; }
+
+    [ObservableProperty] private bool _autoImportSimbrief;
+
+    private protected override bool Persists(string? property) => property is nameof(AutoImportSimbrief);
+
+    private protected override bool Write(Preferences p)
+    {
+        p.AutoImportSimbrief = AutoImportSimbrief;
+        return true;
+    }
+}
+
 public sealed partial class SimulatorSettingsViewModel : PersistedSettingsSectionViewModel
 {
-    private readonly IShell _shell;
-    private readonly Func<bool> _isSimulatorConnected;
-    private readonly IPlatform _platform;
-    private readonly IXPlaneScanSource _xplaneScan;
-    private readonly IModelScanSource _modelScan;
-
     // Same bounds as the WinForms track bars.
     public const int CircleMinNm = 2, CircleMaxNm = 600;
     public const int FollowMinM = 20, FollowMaxM = 1000;
 
-    internal SimulatorSettingsViewModel(Action<SettingsSectionViewModel> toggle, PreferencesSession preferences, ProfileViewModel profile, IShell shell, Func<bool> isSimulatorConnected, IPlatform platform, IXPlaneScanSource xplaneScan, IModelScanSource modelScan, bool isXPlaneBuild)
+    internal SimulatorSettingsViewModel(Action<SettingsSectionViewModel> toggle, PreferencesSession preferences, bool isXPlaneBuild)
         : base(Loc.T("Simulator"), toggle, preferences)
     {
-        _xplaneScan = xplaneScan;
-        _modelScan = modelScan;
         IsXPlaneBuild = isXPlaneBuild;
-        Profile = profile;
-        _shell = shell;
-        _isSimulatorConnected = isSimulatorConnected;
-        _platform = platform;
 
         Preferences p = Prefs;
         _connectOnLaunch = p.ConnectOnLaunch;
@@ -98,13 +110,12 @@ public sealed partial class SimulatorSettingsViewModel : PersistedSettingsSectio
         _showAltitude = p.ShowAltitude;
         _showSpeed = p.ShowSpeed;
         _labelColor = p.LabelColor;
-        _autoImportSimbrief = p.AutoImportSimbrief;
     }
 
     private protected override bool Persists(string? property) =>
         property is nameof(ConnectOnLaunch) or nameof(ElevationCorrection) or nameof(CircleOfActivityNm) or nameof(FollowDistanceM)
             or nameof(ShowNickname) or nameof(ShowCallsign) or nameof(ShowDistance) or nameof(ShowAltitude) or nameof(ShowSpeed)
-            or nameof(LabelColor) or nameof(AutoImportSimbrief);
+            or nameof(LabelColor);
 
     private protected override bool Write(Preferences p)
     {
@@ -117,7 +128,6 @@ public sealed partial class SimulatorSettingsViewModel : PersistedSettingsSectio
         p.ShowDistance = ShowDistance;
         p.ShowAltitude = ShowAltitude;
         p.ShowSpeed = ShowSpeed;
-        p.AutoImportSimbrief = AutoImportSimbrief;
 
         // A colour typed by hand is saved once it is a whole #RRGGBB.
         if (IsColor(LabelColor))
@@ -130,9 +140,6 @@ public sealed partial class SimulatorSettingsViewModel : PersistedSettingsSectio
 
     /// <summary>The floating-label options are for X-Plane only, so only the XPLANE build shows them.</summary>
     public bool IsXPlaneBuild { get; }
-
-    /// <summary>Nickname and SimBrief username live in the profile, so Onboarding, Flight Plan and this card share them.</summary>
-    public ProfileViewModel Profile { get; }
 
     [ObservableProperty] private bool _connectOnLaunch;
     [ObservableProperty] private bool _elevationCorrection;
@@ -171,7 +178,32 @@ public sealed partial class SimulatorSettingsViewModel : PersistedSettingsSectio
     [RelayCommand]
     private void ChooseLabelColor(string color) => LabelColor = color;
 
-    [ObservableProperty] private bool _autoImportSimbrief;
+}
+
+/// <summary>The aircraft models: scanning for them and matching them. Its two ticks are the profile's, saved by it, so the card persists nothing itself.</summary>
+public sealed partial class ModelsSettingsViewModel : SettingsSectionViewModel
+{
+    private readonly IShell _shell;
+    private readonly Func<bool> _isSimulatorConnected;
+    private readonly IPlatform _platform;
+    private readonly IXPlaneScanSource _xplaneScan;
+    private readonly IModelScanSource _modelScan;
+
+    internal ModelsSettingsViewModel(Action<SettingsSectionViewModel> toggle, ProfileViewModel profile, IShell shell, Func<bool> isSimulatorConnected, IPlatform platform, IXPlaneScanSource xplaneScan, IModelScanSource modelScan, bool isXPlaneBuild)
+        : base(Loc.T("Models"), toggle)
+    {
+        Profile = profile;
+        _shell = shell;
+        _isSimulatorConnected = isSimulatorConnected;
+        _platform = platform;
+        _xplaneScan = xplaneScan;
+        _modelScan = modelScan;
+        IsXPlaneBuild = isXPlaneBuild;
+    }
+
+    public ProfileViewModel Profile { get; }
+
+    public bool IsXPlaneBuild { get; }
 
     [RelayCommand]
     private void OpenModelScanning() =>
@@ -502,7 +534,7 @@ public sealed partial class VariableAssignmentViewModel : ObservableObject
     private void Edit() => _edit(this);
 }
 
-/// <summary>Settings tab: an accordion of eight cards, all collapsed at first, at most one open.</summary>
+/// <summary>Settings tab: an accordion of nine cards (ten in the XPLANE build), all collapsed at first, at most one open.</summary>
 public sealed class SettingsViewModel : ObservableObject
 {
     /// <param name="isXPlaneBuild">Only the XPLANE build has the X-Plane card.</param>
@@ -510,7 +542,9 @@ public sealed class SettingsViewModel : ObservableObject
         IShell shell, IPlatform platform, Func<bool> isSimulatorConnected, bool isXPlaneBuild, IShortcutSource shortcuts, Action<IEnumerable<ShortcutBinding>> shortcutsChanged)
     {
         PreferencesSession session = new(preferences);
-        Simulator = new SimulatorSettingsViewModel(Toggle, session, profile, shell, isSimulatorConnected, platform, xplaneScan, modelScan, isXPlaneBuild);
+        Profile = new ProfileSettingsViewModel(Toggle, session, profile);
+        Simulator = new SimulatorSettingsViewModel(Toggle, session, isXPlaneBuild);
+        Models = new ModelsSettingsViewModel(Toggle, profile, shell, isSimulatorConnected, platform, xplaneScan, modelScan, isXPlaneBuild);
         UserInterface = new UserInterfaceSettingsViewModel(Toggle, session);
         Network = new NetworkSettingsViewModel(Toggle, session);
         HubMode = new HubModeSettingsViewModel(Toggle, session);
@@ -520,12 +554,15 @@ public sealed class SettingsViewModel : ObservableObject
         Variables = new VariablesSettingsViewModel(Toggle, variables, models, shell, platform);
         Shortcuts = new ShortcutsSettingsViewModel(Toggle, shortcuts, shell, shortcutsChanged);
 
+        // Everyday settings first, then the lists, then what few pilots need (the view puts the "Advanced" caption above the last ones).
         Sections = isXPlaneBuild
-            ? [Simulator, UserInterface, Network, HubMode, AddressBook, XPlane, Shortcuts, Variables]
-            : [Simulator, UserInterface, Network, HubMode, AddressBook, Shortcuts, Variables];
+            ? [Profile, Simulator, Network, UserInterface, Models, Shortcuts, Variables, AddressBook, HubMode, XPlane]
+            : [Profile, Simulator, Network, UserInterface, Models, Shortcuts, Variables, AddressBook, HubMode];
     }
 
+    public ProfileSettingsViewModel Profile { get; }
     public SimulatorSettingsViewModel Simulator { get; }
+    public ModelsSettingsViewModel Models { get; }
     public UserInterfaceSettingsViewModel UserInterface { get; }
     public NetworkSettingsViewModel Network { get; }
     public HubModeSettingsViewModel HubMode { get; }

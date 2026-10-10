@@ -1098,4 +1098,16 @@
   <data name="Shows or hides the actions of this row" xml:space="preserve">
     <value>이 행의 동작을 표시하거나 숨깁니다</value>
   </data>
+  <data name="Profile" xml:space="preserve">
+    <value>프로필</value>
+  </data>
+  <data name="Models" xml:space="preserve">
+    <value>모델</value>
+  </data>
+  <data name="ADVANCED" xml:space="preserve">
+    <value>고급</value>
+  </data>
+  <data name="Run your own hub for others to join." xml:space="preserve">
+    <value>다른 사람이 참여할 수 있는 나만의 허브를 운영합니다.</value>
+  </data>
 </root>
