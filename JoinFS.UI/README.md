@@ -37,6 +37,14 @@ Where the live app keeps what the wired screens change, under `%LOCALAPPDATA%\Jo
 
 The two connection buttons follow the real state. `MainViewModel.Poll()` (a UI timer calls it four times a second) reads each link's
 `State`; a click only asks for a change, and the button changes when the app does. A click while "connecting" gives up the attempt.
+
+**What the strip tells the user** (`ConnectionViewModel.Detail`, shown as a notice bar under the strip, or in place of the version in the
+small view; amber while an attempt is only slow, red when something went wrong; a × dismisses it). The app has no "join failed" signal, so
+the UI works it out from the state it polls: an attempt that ends without a click ("Simulator not found…", "Could not join the hub…"), a
+connection that drops ("… connection lost"), and a join with no answer after 15 s ("No answer from the hub yet. Click Network to cancel").
+An end counts only once it has lasted a second (a retry passes through "disconnected"), and not while the session is asking for a
+password (it is left and joined again). While connecting, the button's tooltip says "Cancel". The Flight Plan button says nothing: its
+attempts end by themselves in normal ways (no username yet, no plan found).
 The flight-plan button is not live: it is local to the UI.
 
 `JoinFS.UI` is a library; `UiHost.Run(services, args)` starts it on the calling thread. `JoinFS/Live/` (in the JoinFS project, so it can
@@ -139,6 +147,8 @@ contents (the dialogs only pick a name); Objects "Group by model".
 - **Import** in the SimBrief prompt is disabled while the username is blank.
 - **Home** words its subtitle by what is connected; the prototype has one sentence.
 - Protocol shows `JFP2` where the prototype leaves it blank.
+- A disconnected (or "Not loaded") connector is neutral grey, not the prototype's red: disconnected is a normal state, and red is kept
+  for failures (`UX-REVIEW.md`, finding 3).
 - The strip's Flight Plan button shows "Loaded" after any successful SimBrief import, including one started from the Flight Plan tab.
 - The window is a real frameless window (custom title bar, square corners), not a floating rounded panel on a fake desktop.
 - "Label text colour → Choose…" is a swatch row plus a hex box (no colour-picker package is available offline).

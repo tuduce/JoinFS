@@ -32,7 +32,12 @@
       </StackPanel>
     </Button>
 
+    <!-- The notice takes the version's line while there is one (one line; the tooltip has all of it). -->
+    <Border Classes="notice" Classes.problem="{Binding NoticeIsProblem}" IsVisible="{Binding HasNotice}" CornerRadius="6" Padding="8,3" Margin="0,-6,0,0"
+            ToolTip.Tip="{Binding Notice}">
+      <TextBlock Text="{Binding Notice}" FontSize="11.5" MaxLines="1" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
+    </Border>
     <TextBlock Text="{Binding Version, StringFormat='v{0}'}" FontSize="11" Foreground="{DynamicResource Muted2Brush}"
-               HorizontalAlignment="Center" Margin="0,-6,0,0" />
+               IsVisible="{Binding !HasNotice}" HorizontalAlignment="Center" Margin="0,-6,0,0" />
   </StackPanel>
 </UserControl>

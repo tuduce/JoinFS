@@ -1065,4 +1065,22 @@
   <data name="A newer version of JoinFS is available." xml:space="preserve">
     <value>A newer version of JoinFS is available.</value>
   </data>
+  <data name="Simulator not found. Start it, then click Simulator." xml:space="preserve">
+    <value>Simulator not found. Start it, then click Simulator.</value>
+  </data>
+  <data name="Simulator connection lost." xml:space="preserve">
+    <value>Simulator connection lost.</value>
+  </data>
+  <data name="Could not join the hub. Check its address and your connection." xml:space="preserve">
+    <value>Could not join the hub. Check its address and your connection.</value>
+  </data>
+  <data name="Network connection lost." xml:space="preserve">
+    <value>Network connection lost.</value>
+  </data>
+  <data name="No answer from the hub yet. Click Network to cancel." xml:space="preserve">
+    <value>No answer from the hub yet. Click Network to cancel.</value>
+  </data>
+  <data name="Dismiss" xml:space="preserve">
+    <value>Dismiss</value>
+  </data>
 </root>

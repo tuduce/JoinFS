@@ -394,6 +394,16 @@
     <Setter Property="Foreground" Value="{DynamicResource ConnectedTextBrush}" />
   </Style>
 
+  <!-- A line under the strip about the buttons: amber while an attempt is only slow, red when something went wrong. -->
+  <Style Selector="Border.notice">
+    <Setter Property="Background" Value="{DynamicResource ConnectingBgBrush}" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource ConnectingTextBrush}" />
+  </Style>
+  <Style Selector="Border.notice.problem">
+    <Setter Property="Background" Value="{DynamicResource DangerTintBrush}" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource DangerTextBrush}" />
+  </Style>
+
   <!-- Recorder transport: small round buttons, lit when their mode is active. -->
   <Style Selector="Button.transport">
     <Setter Property="Width" Value="26" />

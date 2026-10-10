@@ -47,10 +47,7 @@ public partial class ConnectorNode : UserControl
         else if (change.Property == TitleProperty)
             TitleText.Text = Title;
         else if (change.Property == ButtonTipProperty)
-        {
             UpdateTip();
-            Avalonia.Automation.AutomationProperties.SetName(NodeButton, ButtonTip);
-        }
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -67,14 +64,19 @@ public partial class ConnectorNode : UserControl
 
     private void OnConnectionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(ConnectionViewModel.ShortcutHint))
+        if (e.PropertyName is nameof(ConnectionViewModel.ShortcutHint) or nameof(ConnectionViewModel.CanCancel))
             UpdateTip();
     }
 
-    /// <summary>The button's own tip, and under it the keys of its shortcut when that is on.</summary>
+    /// <summary>
+    /// The button's own tip (while an attempt can be given up, what a click does: "Cancel"), and under it the keys of its shortcut
+    /// when that is on.
+    /// </summary>
     private void UpdateTip()
     {
         string? hint = _connection?.ShortcutHint;
-        ToolTip.SetTip(NodeButton, hint is null ? ButtonTip : string.IsNullOrEmpty(ButtonTip) ? hint : ButtonTip + Environment.NewLine + hint);
+        string? tip = _connection is { CanCancel: true } ? _connection.ActionLabel : ButtonTip;
+        ToolTip.SetTip(NodeButton, hint is null ? tip : string.IsNullOrEmpty(tip) ? hint : tip + Environment.NewLine + hint);
+        Avalonia.Automation.AutomationProperties.SetName(NodeButton, tip);
     }
 }
