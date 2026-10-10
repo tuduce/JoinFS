@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              xmlns:vm="using:JoinFS.UI.ViewModels"
              x:Class="JoinFS.UI.Views.Tabs.ObjectsView"
@@ -9,7 +10,7 @@
 
     <Border Grid.Row="1" Classes="card">
       <Grid RowDefinitions="Auto,*">
-        <Border Background="{DynamicResource SurfaceHeaderBrush}" Padding="6,8">
+        <Border Background="{DynamicResource SurfaceHeaderBrush}" Padding="27,8,6,8">
           <Grid ColumnDefinitions="80,*,44,50,74,60,62,62" ColumnSpacing="5" TextElement.FontSize="11">
             <Button Grid.Column="0" Classes="th" FontSize="11" Command="{Binding OwnerColumn.SortCommand}" Content="{Binding OwnerColumn.Header}" />
             <Button Grid.Column="1" Classes="th" FontSize="11" Command="{Binding ModelColumn.SortCommand}" Content="{Binding ModelColumn.Header}" />
@@ -28,19 +29,27 @@
               <DataTemplate x:DataType="tvm:ObjectRowViewModel">
                 <Border Classes="row">
                   <StackPanel>
-                  <Button Classes="rowButton" Classes.selected="{Binding IsSelected}" Classes.ignoredMuted="{Binding IsIgnored}"
-                          Command="{Binding SelectCommand}">
-                    <Grid ColumnDefinitions="80,*,44,50,74,60,62,62" ColumnSpacing="5" Margin="6,8" TextElement.FontSize="12.5">
-                      <TextBlock Grid.Column="0" Text="{Binding Owner}" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="1" Text="{Binding Model}" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="2" Text="{Binding Count}" />
-                      <TextBlock Grid.Column="3" Text="{Binding Bearing}" />
-                      <TextBlock Grid.Column="4" Text="{Binding Distance}" />
-                      <CheckBox Grid.Column="5" IsChecked="{Binding Broadcast}" IsEnabled="{Binding CanBroadcast}" MinHeight="0" Padding="0" AutomationProperties.Name="{l:T 'Broadcast'}" />
-                      <CheckBox Grid.Column="6" IsChecked="{Binding IgnoreOwner}" IsEnabled="{Binding CanIgnore}" MinHeight="0" Padding="0" AutomationProperties.Name="{l:T 'Ignore Owner'}" />
-                      <CheckBox Grid.Column="7" IsChecked="{Binding IgnoreModel}" IsEnabled="{Binding CanIgnore}" MinHeight="0" Padding="0" AutomationProperties.Name="{l:T 'Ignore Model'}" />
+                  <!-- The boxes are not inside the button (nested controls confuse the tab order and screen readers): they sit
+                       on top of it, in the same columns. Left-aligned, so the rest of their cells still reaches the button. -->
+                  <Grid>
+                    <Button Classes="rowButton" Classes.selected="{Binding IsSelected}" Classes.ignoredMuted="{Binding IsIgnored}"
+                            Command="{Binding SelectCommand}" AutomationProperties.Name="{Binding AutomationName}"
+                            AutomationProperties.HelpText="{l:T 'Shows or hides the actions of this row'}">
+                      <Grid ColumnDefinitions="16,80,*,44,50,74,60,62,62" ColumnSpacing="5" Margin="6,8" TextElement.FontSize="12.5">
+                        <c:Icon Classes="chevron" Classes.open="{Binding IsSelected}" Source="{DynamicResource IconChevron}" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding Owner}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="2" Text="{Binding Model}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="3" Text="{Binding Count}" />
+                        <TextBlock Grid.Column="4" Text="{Binding Bearing}" />
+                        <TextBlock Grid.Column="5" Text="{Binding Distance}" />
+                      </Grid>
+                    </Button>
+                    <Grid ColumnDefinitions="16,80,*,44,50,74,60,62,62" ColumnSpacing="5" Margin="6,0" VerticalAlignment="Center">
+                      <CheckBox Grid.Column="6" HorizontalAlignment="Left" IsChecked="{Binding Broadcast}" IsEnabled="{Binding CanBroadcast}" MinHeight="0" Padding="0" AutomationProperties.Name="{Binding BroadcastAutomationName}" />
+                      <CheckBox Grid.Column="7" HorizontalAlignment="Left" IsChecked="{Binding IgnoreOwner}" IsEnabled="{Binding CanIgnore}" MinHeight="0" Padding="0" AutomationProperties.Name="{Binding IgnoreOwnerAutomationName}" />
+                      <CheckBox Grid.Column="8" HorizontalAlignment="Left" IsChecked="{Binding IgnoreModel}" IsEnabled="{Binding CanIgnore}" MinHeight="0" Padding="0" AutomationProperties.Name="{Binding IgnoreModelAutomationName}" />
                     </Grid>
-                  </Button>
+                  </Grid>
 
                   <Border Classes="expanded" IsVisible="{Binding IsSelected}">
                     <StackPanel Spacing="10">

@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              x:Class="JoinFS.UI.Views.Tabs.SessionView"
              x:DataType="tvm:SessionViewModel">
@@ -13,7 +14,7 @@
 
     <Border Grid.Row="1" Classes="card">
       <Grid RowDefinitions="Auto,*">
-        <Border Classes="tableHeader">
+        <Border Classes="tableHeader" Padding="36,8,10,8">
           <Grid ColumnDefinitions="*,110,90,70,220,80,80" ColumnSpacing="10" TextElement.FontSize="12" TextElement.Foreground="{DynamicResource MutedBrush}">
             <TextBlock Grid.Column="0" Text="{l:T 'Nickname'}" />
             <TextBlock Grid.Column="1" Text="{l:T 'Callsign'}" />
@@ -31,15 +32,18 @@
               <DataTemplate x:DataType="tvm:PeerRowViewModel">
                 <Border Classes="row">
                   <StackPanel>
-                    <Button Classes="rowButton" Classes.ignored="{Binding IsIgnored}" Command="{Binding ToggleExpandedCommand}">
-                      <Grid ColumnDefinitions="*,110,90,70,220,80,80" ColumnSpacing="10" Margin="10,7">
-                        <TextBlock Grid.Column="0" Text="{Binding Nick}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="1" Text="{Binding Callsign}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="2" Classes="status online" Text="{Binding Connected}" />
-                        <TextBlock Grid.Column="3" Text="{Binding Latency}" />
-                        <TextBlock Grid.Column="4" Text="{Binding Simulator}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="5" Text="{Binding Version}" Foreground="{DynamicResource Muted2Brush}" />
-                        <TextBlock Grid.Column="6" Classes="status" Classes.legacy="{Binding IsLegacy}" Text="{Binding Protocol}" />
+                    <Button Classes="rowButton" Classes.ignored="{Binding IsIgnored}" Command="{Binding ToggleExpandedCommand}"
+                            AutomationProperties.Name="{Binding AutomationName}"
+                            AutomationProperties.HelpText="{l:T 'Shows or hides the actions of this row'}">
+                      <Grid ColumnDefinitions="16,*,110,90,70,220,80,80" ColumnSpacing="10" Margin="10,7">
+                        <c:Icon Classes="chevron" Classes.open="{Binding IsExpanded}" Source="{DynamicResource IconChevron}" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding Nick}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="2" Text="{Binding Callsign}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="3" Classes="status online" Text="{Binding Connected}" />
+                        <TextBlock Grid.Column="4" Text="{Binding Latency}" />
+                        <TextBlock Grid.Column="5" Text="{Binding Simulator}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="6" Text="{Binding Version}" Foreground="{DynamicResource Muted2Brush}" />
+                        <TextBlock Grid.Column="7" Classes="status" Classes.legacy="{Binding IsLegacy}" Text="{Binding Protocol}" />
                       </Grid>
                     </Button>
 

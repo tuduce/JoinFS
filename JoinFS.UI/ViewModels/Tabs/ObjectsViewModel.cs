@@ -56,6 +56,12 @@ public sealed partial class ObjectRowViewModel : ObservableObject
     public bool CanBroadcast => Info.CanBroadcast;
     public bool CanIgnore => Info.CanIgnore;
 
+    /// <summary>What a screen reader says for the row, and for each box in it: the box's name alone would not say which object it is for.</summary>
+    public string AutomationName => $"{Owner}, {Model}, {Loc.T("Count")} {Count}, {Loc.T("Bearing")} {Bearing}, {Loc.T("Distance")} {Distance}";
+    public string BroadcastAutomationName => $"{Loc.T("Broadcast")}: {Owner}, {Model}";
+    public string IgnoreOwnerAutomationName => $"{Loc.T("Ignore Owner")}: {Owner}, {Model}";
+    public string IgnoreModelAutomationName => $"{Loc.T("Ignore Model")}: {Owner}, {Model}";
+
     [ObservableProperty]
     private bool _broadcast;
 

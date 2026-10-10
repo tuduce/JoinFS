@@ -1095,4 +1095,7 @@
   <data name="Watercolor" xml:space="preserve">
     <value>Aquarel</value>
   </data>
+  <data name="Shows or hides the actions of this row" xml:space="preserve">
+    <value>Toont of verbergt de acties van deze rij</value>
+  </data>
 </root>

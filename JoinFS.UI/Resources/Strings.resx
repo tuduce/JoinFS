@@ -1095,4 +1095,7 @@
   <data name="Watercolor" xml:space="preserve">
     <value>Watercolor</value>
   </data>
+  <data name="Shows or hides the actions of this row" xml:space="preserve">
+    <value>Shows or hides the actions of this row</value>
+  </data>
 </root>
