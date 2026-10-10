@@ -123,9 +123,9 @@ namespace JoinFS
         public bool settingsNoGui = false;
 
         /// <summary>
-        /// Start the Avalonia UI instead of the WinForms forms (builds with NEWUI only)
+        /// Start the Avalonia UI, the default, and not the WinForms forms (-oldui). Builds with NEWUI only; the others always open the forms.
         /// </summary>
-        public bool settingsNewUi = false;
+        public bool settingsNewUi = true;
         /// <summary>
         /// Language of the Avalonia UI (-lang de), instead of the system's
         /// </summary>
@@ -557,7 +557,12 @@ namespace JoinFS
                                 break;
 
                             case "-newui":
+                                // the default; accepted so that scripts written when it had to be asked for keep working
                                 settingsNewUi = true;
+                                break;
+
+                            case "-oldui":
+                                settingsNewUi = false;
                                 break;
 
                             case "-lang":
@@ -771,6 +776,7 @@ namespace JoinFS
                                 Console.WriteLine("  --backgrounddelay <ms> Idle delay of the --background shutdown poll (default 100, 0 to spin)");
                                 Console.WriteLine("  --nosim                " + Resources.Strings.Options_NoSim);
                                 Console.WriteLine("  --nogui                " + Resources.Strings.Options_NoGui);
+                                Console.WriteLine("  --oldui                Open the old forms instead of the new user interface");
                                 Console.WriteLine("  --multiobjects         " + Resources.Strings.Tip_MultiObjects);
                                 Console.WriteLine("  --simfolder \"<folder>\" " + Resources.Strings.Options_SimFolder);
                                 Console.WriteLine("  --scan                 " + Resources.Strings.ScanForModels);

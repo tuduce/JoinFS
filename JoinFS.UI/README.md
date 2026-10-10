@@ -7,7 +7,7 @@ behavioural reference.
 ## Status
 
 Every screen of the handoff is built (the collapsed and expanded shell, 11 tabs, the overlays). It is being wired to the live app one
-service at a time. Two ways to run it:
+service at a time. It is the default user interface of JoinFS. Two ways to run it:
 
 ```
 # on its fake services only, to work on the screens
@@ -15,10 +15,11 @@ dotnet run --project JoinFS.UI.Dev                       # first run shows the o
 dotnet run --project JoinFS.UI.Dev -- --skip-onboarding  # start as a returning user
 dotnet run --project JoinFS.UI.Dev -- --xplane           # what the XPLANE build shows
 
-# inside the real app (a -Debug build; see "Live wiring"), the wired services real and the rest still fake
+# inside the real app (see "Live wiring"), the wired services real and the rest still fake
 dotnet build JoinFS\JoinFS.csproj -c FS2024-Debug -p:Platform=x64
-JoinFS\bin\FS2024-Debug\net8.0-windows\JoinFS-FS2024-Debug.exe -newui
-# or: dotnet run --project JoinFS\JoinFS.csproj -c FS2024-Debug -p:Platform=x64 --launch-profile "New UI"
+JoinFS\bin\FS2024-Debug\net8.0-windows\JoinFS-FS2024-Debug.exe
+# or: dotnet run --project JoinFS\JoinFS.csproj -c FS2024-Debug -p:Platform=x64 --launch-profile "JoinFS"
+# the old WinForms forms: add -oldui (profile "Old UI")
 
 dotnet test JoinFS.UI.Tests/JoinFS.UI.Tests.csproj
 JOINFS_UI_SCREENSHOTS=<folder> dotnet test ...           # also keeps a PNG of every screen
@@ -27,7 +28,7 @@ JOINFS_UI_SCREENSHOTS=<folder> dotnet test ...           # also keeps a PNG of e
 ## How to tell which one you are running
 
 The title bar of the fake launcher reads "JoinFS-FS2024 (fake data)". Anything you change there lives in memory and is gone when the window
-closes: nothing is saved. The live app's title bar is the build name (for example "JoinFS-FS2024-Debug"). A build started without `-newui`
+closes: nothing is saved. The live app's title bar is the build name (for example "JoinFS-FS2024-Debug"). A build started with `-oldui`
 opens the old forms.
 
 Where the live app keeps what the wired screens change, under `%LOCALAPPDATA%\JoinFS-<build>\`: the address book is `bookmarks2.txt`
@@ -49,7 +50,7 @@ The flight-plan button is not live: it is local to the UI.
 
 `JoinFS.UI` is a library; `UiHost.Run(services, args)` starts it on the calling thread. `JoinFS/Live/` (in the JoinFS project, so it can
 see `Main`) holds the adapters and `NewUiLauncher`, which builds `AppServices` from the fakes and swaps in the real ones. `Main()` calls
-the launcher instead of opening the WinForms forms when started with `-newui`.
+the launcher instead of opening the WinForms forms, unless it is started with `-oldui`.
 
 | Service | State |
 |---|---|
@@ -79,9 +80,10 @@ the launcher instead of opening the WinForms forms when started with `-newui`.
 Not handled yet: the old login dialog (email and password, `JoinResult.LoginRequired`), and the message that a remembered password
 was rejected.
 
-`-newui` exists only in builds with `NEWUI` defined. That is every `-Debug` configuration except CONSOLE; pass `-p:NewUi=true` to turn it on for
-a release build. It is off by default there because the reference adds the Avalonia libraries to what the installers ship. The forms are
-not opened with `-newui`, so anything that only a form handled (the scheduled plugin install, login and nickname prompts) does not happen.
+The new UI is the default in every configuration except CONSOLE (which has no UI), and its libraries are part of what the installers
+ship. `-oldui` opens the old forms; `-newui` is still accepted and does nothing. `-p:NewUi=false` builds without the new UI and without
+the Avalonia libraries, and that build always opens the forms. The forms are not opened by the new UI, so anything that only a form
+handled (the scheduled plugin install, login and nickname prompts) does not happen.
 
 The onboarding card has no simulator-folder section yet. The old `InitialSetupForm` asked for it when auto-detection failed.
 

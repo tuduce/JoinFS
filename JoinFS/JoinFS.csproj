@@ -307,10 +307,10 @@
     <None Include="Installer\ShortcutsDlg.wxs" />
   </ItemGroup>
 
-  <!-- The Avalonia UI (JoinFS.UI), started with -newui. On for the -Debug configurations, opt in elsewhere with -p:NewUi=true.
-       Off by default for release builds, because it adds the Avalonia libraries to what the installers ship. Never in CONSOLE. -->
+  <!-- The Avalonia UI (JoinFS.UI), the default user interface; -oldui starts the WinForms forms instead. In every configuration but
+       CONSOLE, which has no UI. Build without it (and without the Avalonia libraries) with -p:NewUi=false. -->
   <PropertyGroup>
-    <NewUi Condition=" '$(NewUi)' == '' AND $(Configuration.EndsWith('-Debug')) ">true</NewUi>
+    <NewUi Condition=" '$(NewUi)' == '' ">true</NewUi>
     <NewUi Condition=" '$(NewUi)' != 'true' OR '$(Configuration)' == 'CONSOLE' OR '$(Configuration)' == 'CONSOLE-Debug' ">false</NewUi>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(NewUi)' == 'true' ">
