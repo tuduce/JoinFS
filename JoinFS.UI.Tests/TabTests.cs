@@ -1714,13 +1714,14 @@ public class ChatMonitorHomeTests
     }
 
     [Fact]
-    public void The_monitor_filters_start_as_the_design_has_them_and_toggle()
+    public void The_monitor_switches_start_as_the_design_has_them_and_toggle()
     {
         MonitorViewModel monitor = new Rig().Main.Monitor;
 
-        Assert.Equal([false, false, true, false], monitor.Filters.Select(f => f.IsOn));
-        monitor.Filters[3].ToggleCommand.Execute(null);
-        Assert.True(monitor.Filters[3].IsOn);
+        Assert.True(monitor.LogNetwork);
+        Assert.False(monitor.LogVariables);
+        monitor.LogVariables = true;
+        Assert.True(monitor.LogVariables);
         Assert.Equal("FPS: 48", monitor.FpsText);
     }
 

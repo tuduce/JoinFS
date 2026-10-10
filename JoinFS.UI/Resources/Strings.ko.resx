@@ -468,6 +468,12 @@
   <data name="Loaded recording — {0}" xml:space="preserve">
     <value>불러온 녹음 — {0}</value>
   </data>
+  <data name="Log network traffic" xml:space="preserve">
+    <value>네트워크 트래픽 기록</value>
+  </data>
+  <data name="Log variables" xml:space="preserve">
+    <value>변수 기록</value>
+  </data>
   <data name="Loop" xml:space="preserve">
     <value>반복</value>
   </data>
@@ -753,9 +759,6 @@
   <data name="Short description" xml:space="preserve">
     <value>간단한 설명</value>
   </data>
-  <data name="SHOW (THIS SESSION)" xml:space="preserve">
-    <value>표시(이번 세션)</value>
-  </data>
   <data name="Show all aircraft" xml:space="preserve">
     <value>모든 항공기 표시</value>
   </data>
@@ -956,6 +959,9 @@
   </data>
   <data name="Would you like to save your current recording?" xml:space="preserve">
     <value>현재 녹음을 저장하시겠습니까?</value>
+  </data>
+  <data name="WRITE TO THE LOG" xml:space="preserve">
+    <value>로그에 쓰기</value>
   </data>
   <data name="X-Plane" xml:space="preserve">
     <value>X-Plane</value>
