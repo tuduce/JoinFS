@@ -522,6 +522,9 @@
   <data name="New chat message" xml:space="preserve">
     <value>Новое сообщение в чате</value>
   </data>
+  <data name="New messages" xml:space="preserve">
+    <value>Новые сообщения</value>
+  </data>
   <data name="Next event" xml:space="preserve">
     <value>Следующее мероприятие</value>
   </data>
@@ -897,8 +900,8 @@
   <data name="Type" xml:space="preserve">
     <value>Тип</value>
   </data>
-  <data name="Type a message" xml:space="preserve">
-    <value>Введите сообщение</value>
+  <data name="Type a message, or .help for the commands" xml:space="preserve">
+    <value>Введите сообщение или .help — список команд</value>
   </data>
   <data name="Unignore" xml:space="preserve">
     <value>Не игнорировать</value>

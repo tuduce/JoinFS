@@ -10,6 +10,14 @@
       <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
       <Setter Property="FontStyle" Value="Italic" />
     </Style>
+    <!-- What you said yourself: a tinted bubble on the right, without your name. -->
+    <Style Selector="Border.own">
+      <Setter Property="HorizontalAlignment" Value="Right" />
+      <Setter Property="Background" Value="{DynamicResource AccentTintBrush}" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="MaxWidth" Value="520" />
+    </Style>
   </UserControl.Styles>
   <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
     <TextBlock Text="{l:T 'Chat'}" Classes="h2" />
@@ -24,7 +32,17 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="m:ChatMessage">
-              <TextBlock FontSize="13.5" TextWrapping="Wrap" Classes.local="{Binding IsLocal}"><Run Text="{Binding Label, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="{Binding Text, Mode=OneWay}" /></TextBlock>
+              <StackPanel Spacing="10">
+                <!-- Where the lines you had not seen start. -->
+                <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="10" IsVisible="{Binding IsFirstUnread}">
+                  <Border Classes="hrule" Background="{DynamicResource AccentLinkBrush}" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{l:T 'New messages'}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentLinkBrush}" />
+                  <Border Grid.Column="2" Classes="hrule" Background="{DynamicResource AccentLinkBrush}" VerticalAlignment="Center" />
+                </Grid>
+                <Border Classes.own="{Binding IsOwn}">
+                  <TextBlock FontSize="13.5" TextWrapping="Wrap" Classes.local="{Binding IsLocal}"><Run Text="{Binding Stamp, Mode=OneWay}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding Label, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="{Binding Text, Mode=OneWay}" /></TextBlock>
+                </Border>
+              </StackPanel>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>

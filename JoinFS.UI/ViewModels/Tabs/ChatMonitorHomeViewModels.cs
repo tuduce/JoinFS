@@ -12,6 +12,9 @@ public sealed partial class ChatViewModel : ObservableObject
 {
     private readonly IChatSource _source;
 
+    // The first line that was unseen when the chat was opened, as the source gave it. Null when there is none or the chat is not open.
+    private ChatMessage? _firstUnread;
+
     public ChatViewModel(IChatSource source)
     {
         _source = source;
@@ -24,8 +27,8 @@ public sealed partial class ChatViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ComposerHint))]
     private bool _isConnected;
 
-    /// <summary>What the empty line says: how to chat, or that there is nobody to chat with yet.</summary>
-    public string ComposerHint => IsConnected ? Loc.T("Type a message") : Loc.T("Join a hub to chat");
+    /// <summary>What the empty line says: how to chat and where to find the commands, or that there is nobody to chat with yet.</summary>
+    public string ComposerHint => IsConnected ? Loc.T("Type a message, or .help for the commands") : Loc.T("Join a hub to chat");
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
@@ -50,11 +53,45 @@ public sealed partial class ChatViewModel : ObservableObject
             Messages.RemoveAt(0);
         for (int i = Messages.Count; i < lines.Count; i++)
             Messages.Add(lines[i]);
+        ShowSeparator();
 
         IsConnected = _source.IsConnected;
         // Whether a message can be sent now changes with the time, not only with what is typed.
         SendCommand.NotifyCanExecuteChanged();
     }
+
+    /// <summary>
+    /// The chat is opened: the lines said after <paramref name="readUpTo"/> are the ones not seen yet, and a separator marks the first
+    /// of them for as long as the chat stays open. Lines that come while it is open are seen as they come, so they do not move it.
+    /// Nothing is marked when everything is unseen: the separator would only sit above the first line.
+    /// </summary>
+    public void Open(double readUpTo)
+    {
+        Refresh();
+        int first = Messages.ToList().FindIndex(m => !m.IsOwn && !m.IsLocal && m.Time > readUpTo);
+        _firstUnread = first > 0 ? Messages[first] : null;
+        ShowSeparator();
+    }
+
+    /// <summary>The chat is not on screen any more: the next time it opens, what was seen by then is not marked.</summary>
+    public void Close()
+    {
+        _firstUnread = null;
+        ShowSeparator();
+    }
+
+    // Puts the separator on the line that was the first unseen, and takes it off any other.
+    private void ShowSeparator()
+    {
+        for (int i = 0; i < Messages.Count; i++)
+        {
+            bool marked = _firstUnread is not null && Same(Messages[i], _firstUnread);
+            if (Messages[i].IsFirstUnread != marked)
+                Messages[i] = Messages[i] with { IsFirstUnread = marked };
+        }
+    }
+
+    private static bool Same(ChatMessage a, ChatMessage b) => a with { IsFirstUnread = false } == b with { IsFirstUnread = false };
 
     // Do the lines shown, from the one at <skip>, start the new lines?
     private static bool StartsWith(IReadOnlyList<ChatMessage> lines, IList<ChatMessage> shown, int skip)
@@ -64,7 +101,7 @@ public sealed partial class ChatViewModel : ObservableObject
             return false;
         for (int i = 0; i < count; i++)
         {
-            if (lines[i] != shown[skip + i])
+            if (!Same(lines[i], shown[skip + i]))
                 return false;
         }
         return true;

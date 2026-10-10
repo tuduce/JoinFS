@@ -98,6 +98,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         ];
 
         _hasNewChat = services.Chat.HasUnread;
+        _chatArrivals = services.Chat.Arrivals;
         RefreshNav();
 
         if (!Profile.Onboarded)
@@ -295,16 +296,43 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     /// </summary>
     private void FollowChat()
     {
+        // Whatever the window shows, a message that comes in live is announced by a chime.
+        int arrivals = _services.Chat.Arrivals;
+        if (arrivals != _chatArrivals)
+        {
+            _chatArrivals = arrivals;
+            _services.Platform.PlayChime();
+        }
+
         if (IsExpanded && SelectedTab == TabId.Chat)
         {
+            ChatSeen();
             Chat.Refresh();
-            _services.Chat.MarkRead();
-            HasNewChat = false;
         }
         else
         {
+            if (_chatOpen)
+            {
+                _chatOpen = false;
+                Chat.Close();
+            }
             HasNewChat = _services.Chat.HasUnread;
         }
+    }
+
+    // The chat is on screen: what is in it counts as read. When it was just opened, the chat first marks where the unseen lines start.
+    private bool _chatOpen;
+    private int _chatArrivals;
+
+    private void ChatSeen()
+    {
+        if (!_chatOpen)
+        {
+            _chatOpen = true;
+            Chat.Open(_services.Chat.ReadUpTo);
+        }
+        _services.Chat.MarkRead();
+        HasNewChat = false;
     }
 
     /// <summary>Reads the live data of the tab that is on screen. Nothing is read for a tab nobody is looking at.</summary>
@@ -496,10 +524,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         IsExpanded = true; // first, so the tab that opens sees a window that is showing it
         SelectedTab = tab;
         if (tab == TabId.Chat)
-        {
-            _services.Chat.MarkRead();
-            HasNewChat = false;
-        }
+            ChatSeen();
     }
 
     public void ShowOverlay(OverlayViewModel overlay)

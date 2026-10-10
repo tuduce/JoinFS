@@ -25,10 +25,18 @@ namespace JoinFS
         uint nextNoteId;
 
         /// <summary>
-        /// Expire times
+        /// Expire times, in minutes. A comms note is kept for three hours here. The legacy wire still says 10
+        /// (<see cref="Net.Legacy.LegacyWire.CommsExpire"/>): it is frozen, and readers ignore it.
         /// </summary>
-        public const ushort COMMS_EXPIRE = 10;
+        public const ushort COMMS_EXPIRE = 180;
         public const ushort COMMS_EMPTY_EXPIRE = 2;
+
+        /// <summary>
+        /// How many messages from other, not ignored, pilots came in live on the session channel: a note older than <see cref="LIVE_AGE"/>
+        /// is history sent to a new node, not news. It only counts up. The chat chimes when it changes.
+        /// </summary>
+        public int liveSessionArrivals;
+        const float LIVE_AGE = 10.0f;
 
         /// <summary>
         /// Main channels
@@ -321,6 +329,11 @@ namespace JoinFS
                 double expireTime = main.ElapsedTime + 60.0 * (text.Length == 0 ? COMMS_EMPTY_EXPIRE : COMMS_EXPIRE);
                 // add the new note to the list
                 userNotesList[guid].commsList.Add(noteId, new CommsNote(main.ElapsedTime - age, channel, text, expireTime));
+                // news for the chat
+                if (channel == SESSION_CHANNEL && text.Length > 0 && age < LIVE_AGE && guid != main.guid && !main.log.IgnoreNode(ref guid))
+                {
+                    liveSessionArrivals++;
+                }
                 // check if global channel and this is a hub
                 if (channel == GLOBAL_CHANNEL && main.settingsHub)
                 {

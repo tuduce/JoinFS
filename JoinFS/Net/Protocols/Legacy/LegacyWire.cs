@@ -63,7 +63,7 @@ namespace JoinFS.Net.Legacy
         public const int MaxHubListEntries = 25;
         public const int MaxUserPositions = 20;
 
-        /// <summary>Notes type and expiry written into comms notes (Notes.Type.Comms, Notes.COMMS_EXPIRE).</summary>
+        /// <summary>Notes type and expiry written into comms notes (Notes.Type.Comms). The expiry is frozen at 10 minutes, the old Notes.COMMS_EXPIRE; readers ignore it and keep notes as long as they like.</summary>
         public const ushort NoteTypeComms = 0;
         public const ushort CommsExpire = 10;
 

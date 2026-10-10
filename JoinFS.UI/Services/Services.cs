@@ -277,6 +277,13 @@ public interface IChatSource
 
     /// <summary>True while messages arrived that the user has not seen. Drives the unread dot.</summary>
     bool HasUnread { get; }
+
+    /// <summary>Lines with a <see cref="ChatMessage.Time"/> after this were not seen yet. Moves up to now at <see cref="MarkRead"/>.</summary>
+    double ReadUpTo { get; }
+
+    /// <summary>How many messages from others came in live since the app started. It only counts up; a change means something new arrived, for the chime.</summary>
+    int Arrivals { get; }
+
     void MarkRead();
 }
 
@@ -539,6 +546,9 @@ public interface IPlatform
 
     Task<string?> PickSaveFileAsync(string title, string suggestedName, string? startFolder = null, string? extension = null);
     Task<string?> PickFolderAsync(string title);
+
+    /// <summary>Plays a short chime on the default sound device, for a new chat message. Does nothing where there is no sound to play.</summary>
+    void PlayChime();
 }
 
 /// <summary>

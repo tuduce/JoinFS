@@ -103,9 +103,10 @@ public static class SampleData
 
     public static IReadOnlyList<ChatMessage> Chat { get; } =
     [
-        new("6Knotts", "anyone else at KJFK right now?"),
-        new("ADF320", "just departed, heading your way"),
-        new("Breizh Punisher", "weather looks rough over the Atlantic tonight"),
+        new("6Knotts", "anyone else at KJFK right now?", Time: 1, At: new DateTime(2026, 10, 10, 19, 41, 0)),
+        new("ADF320", "just departed, heading your way", Time: 2, At: new DateTime(2026, 10, 10, 19, 43, 0)),
+        new("You", "see you over the bridge", Time: 3, IsOwn: true, At: new DateTime(2026, 10, 10, 19, 44, 0)),
+        new("Breizh Punisher", "weather looks rough over the Atlantic tonight", Time: 4, At: new DateTime(2026, 10, 10, 19, 47, 0)),
     ];
 
     public static IReadOnlyList<RecordedAircraft> LoadedRecordList { get; } =
