@@ -1463,15 +1463,17 @@ public class SettingsTests
     public void The_sections_start_closed_and_the_x_plane_card_is_only_in_the_xplane_build()
     {
         SettingsViewModel normal = new Rig().Main.Settings;
-        Assert.Equal(["Simulator", "User Interface", "Network", "Hub Mode (Public)", "Address Book", "Keyboard Shortcuts", "Variables"], normal.Sections.Select(s => s.Title));
+        // Everyday settings first; what few pilots need (Hub Mode, X-Plane) last, under the "Advanced" caption.
+        Assert.Equal(["Profile", "Simulator", "Network", "User Interface", "Models", "Keyboard Shortcuts", "Variables", "Address Book", "Hub Mode (Public)"], normal.Sections.Select(s => s.Title));
         Assert.All(normal.Sections, s => Assert.False(s.IsOpen));
         Assert.Null(normal.OpenSection);
         Assert.False(normal.IsXPlaneBuild);
         Assert.False(normal.Simulator.IsXPlaneBuild);
 
         SettingsViewModel xplane = new Rig(xplaneBuild: true).Main.Settings;
-        Assert.Equal(8, xplane.Sections.Count);
-        Assert.Contains(xplane.XPlane, xplane.Sections);
+        Assert.Equal(10, xplane.Sections.Count);
+        Assert.Same(xplane.XPlane, xplane.Sections[^1]);
+        Assert.Same(xplane.HubMode, xplane.Sections[^2]);
         Assert.True(xplane.Simulator.IsXPlaneBuild);
     }
 
@@ -1568,8 +1570,8 @@ public class SettingsTests
     {
         Rig rig = new();
 
-        rig.Main.Settings.Simulator.Profile.SimbriefUsername = "abc";
-        rig.Main.Settings.Simulator.Profile.Nickname = "Goose";
+        rig.Main.Settings.Profile.Profile.SimbriefUsername = "abc";
+        rig.Main.Settings.Profile.Profile.Nickname = "Goose";
 
         Assert.Equal("abc", rig.Settings.SimbriefUsername);
         Assert.Equal("Goose", rig.Settings.Nickname);
@@ -1580,10 +1582,10 @@ public class SettingsTests
     {
         Rig rig = new();
 
-        rig.Main.Settings.Simulator.OpenModelMatchingCommand.Execute(null);
+        rig.Main.Settings.Models.OpenModelMatchingCommand.Execute(null);
         Assert.Equal(TabId.Models, rig.Main.SelectedTab);
 
-        rig.Main.Settings.Simulator.OpenModelScanningCommand.Execute(null);
+        rig.Main.Settings.Models.OpenModelScanningCommand.Execute(null);
         ScanModelsViewModel scan = Assert.IsType<ScanModelsViewModel>(rig.Main.Overlay);
         Assert.Equal("Not connected", scan.SimulatorLabel);
     }
@@ -1594,7 +1596,7 @@ public class SettingsTests
         Rig rig = new();
         await rig.Main.Simulator.ToggleAsync();
 
-        rig.Main.Settings.Simulator.OpenModelScanningCommand.Execute(null);
+        rig.Main.Settings.Models.OpenModelScanningCommand.Execute(null);
 
         Assert.Equal("Connected", ((ScanModelsViewModel)rig.Main.Overlay!).SimulatorLabel);
     }
@@ -1848,11 +1850,11 @@ public class ScanModelsTests
     public void Scan_for_models_is_the_x_plane_dialog_in_the_xplane_build_and_the_other_dialog_elsewhere()
     {
         Rig normal = new();
-        normal.Main.Settings.Simulator.OpenModelScanningCommand.Execute(null);
+        normal.Main.Settings.Models.OpenModelScanningCommand.Execute(null);
         Assert.IsType<ScanModelsViewModel>(normal.Main.Overlay);
 
         Rig xplane = new(xplaneBuild: true);
-        xplane.Main.Settings.Simulator.OpenModelScanningCommand.Execute(null);
+        xplane.Main.Settings.Models.OpenModelScanningCommand.Execute(null);
         Assert.IsType<ScanXPlaneModelsViewModel>(xplane.Main.Overlay);
     }
 
@@ -1911,7 +1913,7 @@ public class ScanModelsTests
     {
         Rig rig = new(xplaneBuild: true);
 
-        rig.Main.Settings.Simulator.Profile.ModelScanOnConnect = true;
+        rig.Main.Settings.Models.Profile.ModelScanOnConnect = true;
 
         Assert.True(rig.Settings.ModelScanOnConnect);
         ScanXPlaneModelsViewModel scan = new(rig.Main.Profile, rig.Services.XPlaneScan, rig.Platform);
@@ -1922,7 +1924,7 @@ public class ScanModelsTests
     public void Scan_closes_the_overlay()
     {
         Rig rig = new(xplaneBuild: true);
-        rig.Main.Settings.Simulator.OpenModelScanningCommand.Execute(null);
+        rig.Main.Settings.Models.OpenModelScanningCommand.Execute(null);
 
         ((ScanXPlaneModelsViewModel)rig.Main.Overlay!).ScanCommand.Execute(null);
 
