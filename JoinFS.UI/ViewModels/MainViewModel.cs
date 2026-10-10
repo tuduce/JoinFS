@@ -40,12 +40,11 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Home = new HomeViewModel(this, services.Session, services.Traffic, services.Platform, services.MapTiles);
         Hubs = new HubsViewModel(services.Hubs, services.Network, this);
         Session = new SessionViewModel(services.Session, Hints);
-        RecordSelection = new RecordSelection();
-        Aircraft = new AircraftViewModel(services.Traffic, services.Models, services.Variables, services.Platform, Profile, RecordSelection, this, Hints);
+        Aircraft = new AircraftViewModel(services.Traffic, services.Models, services.Variables, services.Platform, Profile, this, Hints);
         Objects = new ObjectsViewModel(services.Traffic, services.Models, Profile, this);
         ModelMatching = new ModelMatchingViewModel(services.Models, this);
         FlightPlan = new FlightPlanViewModel(services.FlightPlan, services.SimBrief, Profile, this);
-        Recorder = new RecorderViewModel(services.Recorder, services.Traffic, RecordSelection, services.Platform, this, Hints);
+        Recorder = new RecorderViewModel(services.Recorder, services.Traffic, services.Platform, this, Hints);
         Chat = new ChatViewModel(services.Chat);
         Monitor = new MonitorViewModel(services.Monitor, services.Platform);
         Settings = new SettingsViewModel(Profile, AddressBook, services.Preferences, services.Variables, services.Models, services.XPlanePlugin, services.XPlaneScan, services.ModelScan, this, services.Platform, () => Simulator.IsConnected, services.App.IsXPlaneBuild,
@@ -111,8 +110,6 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     /// <summary>The keys of the shortcuts, which the buttons name in their tooltips.</summary>
     public ShortcutHints Hints { get; }
 
-    /// <summary>Which aircraft are recorded. Shown by the Aircraft tab and the Recorder tab.</summary>
-    public RecordSelection RecordSelection { get; }
 
     public ConnectionViewModel Simulator { get; }
     public ConnectionViewModel Network { get; }

@@ -11,18 +11,24 @@ namespace JoinFS.UI.ViewModels.Tabs;
 
 public enum RecorderMode { Idle, Recording, Playing, Overdubbing }
 
-/// <summary>An aircraft of the Aircraft tab, in the Recorder's "Aircraft to record" list, with the tick that includes it.</summary>
+/// <summary>An aircraft that can be recorded, in the Recorder's "Aircraft to record" list, with the tick that includes it. The tick goes straight to the service.</summary>
 public sealed partial class RecordItemViewModel : ObservableObject
 {
-    private readonly RecordFlag _flag;
+    private readonly Action<string, bool> _write;
 
-    public RecordItemViewModel(RecordedAircraft aircraft, RecordFlag flag)
+    // True while the item is being filled from the service, so what it reads is not written back as if the user had ticked it.
+    private bool _syncing;
+
+    public RecordItemViewModel(AircraftInfo aircraft, Action<string, bool> write)
     {
+        Id = aircraft.Id;
         _callsign = aircraft.Callsign;
         _model = aircraft.Model;
-        _flag = flag;
-        _flag.PropertyChanged += (_, _) => OnPropertyChanged(nameof(IsChecked));
+        _isChecked = aircraft.Recording;
+        _write = write;
     }
+
+    public string Id { get; }
 
     [ObservableProperty]
     private string _callsign;
@@ -30,10 +36,29 @@ public sealed partial class RecordItemViewModel : ObservableObject
     [ObservableProperty]
     private string _model;
 
-    public bool IsChecked
+    [ObservableProperty]
+    private bool _isChecked;
+
+    partial void OnIsCheckedChanged(bool value)
     {
-        get => _flag.IsOn;
-        set => _flag.IsOn = value;
+        if (!_syncing)
+            _write(Id, value);
+    }
+
+    /// <summary>Takes a newer reading of the same aircraft. The service's word on the tick is taken, and not written back.</summary>
+    internal void Update(AircraftInfo aircraft)
+    {
+        Callsign = aircraft.Callsign;
+        Model = aircraft.Model;
+        _syncing = true;
+        try
+        {
+            IsChecked = aircraft.Recording;
+        }
+        finally
+        {
+            _syncing = false;
+        }
     }
 }
 
@@ -135,7 +160,6 @@ public sealed partial class RecorderViewModel : ObservableObject
 
     private readonly IRecorderSource _source;
     private readonly ITrafficSource _traffic;
-    private readonly RecordSelection _selection;
     private readonly IPlatform _platform;
     private readonly IShell _shell;
     private readonly Dictionary<string, RecordItemViewModel> _liveById = [];
@@ -146,12 +170,11 @@ public sealed partial class RecorderViewModel : ObservableObject
     private bool _unsaved;
     private RecorderStatus _state = new(false, false, false, true, 0, 0);
 
-    public RecorderViewModel(IRecorderSource source, ITrafficSource traffic, RecordSelection recordSelection, IPlatform platform, IShell shell, ShortcutHints hints)
+    public RecorderViewModel(IRecorderSource source, ITrafficSource traffic, IPlatform platform, IShell shell, ShortcutHints hints)
     {
         Hints = hints;
         _source = source;
         _traffic = traffic;
-        _selection = recordSelection;
         _platform = platform;
         _shell = shell;
         Refresh();
@@ -160,7 +183,7 @@ public sealed partial class RecorderViewModel : ObservableObject
     /// <summary>The keys of the shortcuts, for the buttons' tooltips.</summary>
     public ShortcutHints Hints { get; }
 
-    /// <summary>The "Aircraft to record" list: the aircraft of the Aircraft tab, with the same ticks.</summary>
+    /// <summary>The "Aircraft to record" list: the aircraft that can be recorded, each with a tick.</summary>
     public ObservableCollection<RecordItemViewModel> LiveAircraft { get; } = [];
 
     /// <summary>The aircraft of the recording that is loaded.</summary>
@@ -276,14 +299,9 @@ public sealed partial class RecorderViewModel : ObservableObject
             if (!aircraft.Can.HasFlag(AircraftActions.Record) || !seen.Add(aircraft.Id))
                 continue;
             if (_liveById.TryGetValue(aircraft.Id, out RecordItemViewModel? item))
-            {
-                item.Callsign = aircraft.Callsign;
-                item.Model = aircraft.Model;
-            }
+                item.Update(aircraft);
             else
-            {
-                _liveById[aircraft.Id] = item = new RecordItemViewModel(new RecordedAircraft(aircraft.Callsign, aircraft.Model), _selection.For(aircraft.Id));
-            }
+                _liveById[aircraft.Id] = item = new RecordItemViewModel(aircraft, _traffic.SetRecording);
             wanted.Add(item);
         }
 
