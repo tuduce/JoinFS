@@ -248,12 +248,67 @@ public class HomeMapMarkerTests
         Assert.Empty(rig.Platform.OpenedUrls); // the fake map has nothing to credit
 
         NullPlatform platform = new();
-        AppServices services = FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true }, platform) with { MapTiles = new CreditedTiles() };
+        AppServices services = FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true }, platform) with { MapTiles = new MapTileProvider(_ => new CreditedTiles()) };
         HomeViewModel home = new ViewModels.MainViewModel(services).Home;
 
         Assert.True(home.HasMapAttribution);
         home.OpenMapAttributionCommand.Execute(null);
         Assert.Equal(["https://example.org/credit"], platform.OpenedUrls);
+    }
+
+    [Fact]
+    public void The_map_style_chosen_in_settings_changes_the_map_at_once()
+    {
+        AppServices services = FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true }) with
+        {
+            MapTiles = new MapTileProvider(style => style == MapStyle.Watercolor ? new WatercolorLike() : new CreditedTiles()),
+        };
+        ViewModels.MainViewModel main = new(services);
+        HomeViewModel home = main.Home;
+        List<string?> changed = [];
+        home.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        Assert.Equal("© Somebody", home.MapAttribution);
+
+        main.Settings.UserInterface.MapStyle = MapStyle.Watercolor;
+
+        Assert.Equal("Painted", home.MapAttribution);
+        Assert.IsType<WatercolorLike>(home.MapTiles);
+        Assert.Contains(nameof(HomeViewModel.MapTiles), changed);
+    }
+
+    [Fact]
+    public void The_map_style_is_saved_with_the_preferences_and_starts_the_map()
+    {
+        FakePreferences store = new(new Preferences { MapStyle = MapStyle.Watercolor });
+        AppServices services = FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true }) with
+        {
+            Preferences = store,
+            MapTiles = new MapTileProvider(style => style == MapStyle.Watercolor ? new WatercolorLike() : new CreditedTiles()),
+        };
+        ViewModels.MainViewModel main = new(services);
+
+        Assert.Equal(MapStyle.Watercolor, main.Home.MapStyle);
+
+        main.Settings.UserInterface.SelectedMapStyleOption = main.Settings.UserInterface.MapStyleOptions.First(o => o.Style == MapStyle.Standard);
+
+        Assert.Equal(MapStyle.Standard, store.Saved.Last().MapStyle);
+        Assert.Equal("© Somebody", main.Home.MapAttribution);
+    }
+
+    private sealed class FakePreferences(Preferences start) : IPreferencesStore
+    {
+        public List<Preferences> Saved { get; } = [];
+        public Preferences Load() => start.Clone();
+        public void Save(Preferences preferences) => Saved.Add(preferences);
+    }
+
+    private sealed class WatercolorLike : IMapTileSource
+    {
+        public string Attribution => "Painted";
+        public string AttributionUrl => "";
+        public int MaxZoom => 16;
+        public Task<byte[]?> GetTileAsync(int zoom, int x, int y, CancellationToken cancellationToken) => Task.FromResult<byte[]?>(null);
     }
 
     private sealed class CreditedTiles : IMapTileSource
@@ -363,6 +418,94 @@ public sealed class OsmTileSourceTests : IDisposable
 
         Assert.Contains("OpenStreetMap", source.Attribution);
         Assert.Equal("https://www.openstreetmap.org/copyright", source.AttributionUrl);
+    }
+}
+
+public sealed class WatercolorTileSourceTests : IDisposable
+{
+    private readonly string _folder = Path.Combine(Path.GetTempPath(), "joinfs-watercolor-" + Guid.NewGuid().ToString("N"));
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_folder))
+            Directory.Delete(_folder, true);
+    }
+
+    private sealed class Handler : HttpMessageHandler
+    {
+        public List<HttpRequestMessage> Requests { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([7, 7]) });
+        }
+    }
+
+    [Fact]
+    public async Task A_tile_comes_from_the_smithsonian_copy_as_a_jpeg_and_is_kept_as_one()
+    {
+        Handler handler = new();
+        using WatercolorTileSource source = new("JoinFS/test", _folder, handler);
+
+        Assert.Equal([7, 7], await source.GetTileAsync(5, 17, 11, CancellationToken.None));
+
+        HttpRequestMessage request = Assert.Single(handler.Requests);
+        Assert.Equal("https://watercolormaps.collection.cooperhewitt.org/tile/watercolor/5/17/11.jpg", request.RequestUri!.ToString());
+        Assert.Contains("image/jpeg", request.Headers.Accept.ToString());
+        Assert.True(File.Exists(Path.Combine(_folder, "5", "17", "11.jpg")));
+    }
+
+    [Fact]
+    public void The_map_is_credited_to_stamen_and_openstreetmap_and_stops_at_zoom_16()
+    {
+        using WatercolorTileSource source = new("JoinFS/test", null);
+
+        Assert.Contains("Stamen Design", source.Attribution);
+        Assert.Contains("CC BY 3.0", source.Attribution);
+        Assert.Contains("OpenStreetMap", source.Attribution);
+        Assert.Equal("https://watercolormaps.collection.cooperhewitt.org", source.AttributionUrl);
+        Assert.Equal(16, source.MaxZoom);
+    }
+}
+
+public class MapTileProviderTests
+{
+    private sealed class Source : IMapTileSource, IDisposable
+    {
+        public bool Disposed { get; private set; }
+        public string Attribution => "";
+        public string AttributionUrl => "";
+        public int MaxZoom => 19;
+        public Task<byte[]?> GetTileAsync(int zoom, int x, int y, CancellationToken cancellationToken) => Task.FromResult<byte[]?>(null);
+        public void Dispose() => Disposed = true;
+    }
+
+    [Fact]
+    public void A_source_is_made_when_its_style_is_first_asked_for_and_kept()
+    {
+        List<MapStyle> made = [];
+        MapTileProvider provider = new(style =>
+        {
+            made.Add(style);
+            return new Source();
+        });
+
+        Assert.Empty(made);
+        Assert.Same(provider.Get(MapStyle.Watercolor), provider.Get(MapStyle.Watercolor));
+        Assert.NotSame(provider.Get(MapStyle.Standard), provider.Get(MapStyle.Watercolor));
+        Assert.Equal([MapStyle.Watercolor, MapStyle.Standard], made);
+    }
+
+    [Fact]
+    public void Disposing_the_provider_disposes_its_sources()
+    {
+        MapTileProvider provider = new(_ => new Source());
+        Source source = (Source)provider.Get(MapStyle.Standard);
+
+        provider.Dispose();
+
+        Assert.True(source.Disposed);
     }
 }
 

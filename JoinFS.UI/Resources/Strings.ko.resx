@@ -1095,4 +1095,13 @@
   <data name="Left out of playback. Load the recording again to bring it back." xml:space="preserve">
     <value>재생에서 제외되었습니다. 되돌리려면 녹화를 다시 불러오세요.</value>
   </data>
+  <data name="Home map" xml:space="preserve">
+    <value>홈 지도</value>
+  </data>
+  <data name="OpenStreetMap" xml:space="preserve">
+    <value>OpenStreetMap</value>
+  </data>
+  <data name="Watercolor" xml:space="preserve">
+    <value>수채화</value>
+  </data>
 </root>

@@ -83,6 +83,8 @@ public sealed class MapView : Control
             if (change.NewValue is IMapTileSource source)
             {
                 _viewport.MaxZoom = source.MaxZoom + 1;
+                // a map with fewer levels than the last one must not stay zoomed in past its own
+                _viewport.SetView(_viewport.CenterLatitude, _viewport.CenterLongitude, _viewport.Zoom);
                 _tiles = new MapTileCache(source, InvalidateVisual);
             }
             InvalidateVisual();

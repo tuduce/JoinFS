@@ -18,6 +18,7 @@ namespace JoinFS.Live
         {
             // the plan and SimBrief share what an import brings that the tab has no field for
             LiveFlightPlanSource flightPlan = new(main);
+            string userAgent = "JoinFS/" + Main.Version + " (+https://github.com/tuduce/JoinFS)";
             UiHost.Run(platform => FakeServices.Create(TimeSpan.FromMilliseconds(900), platform: platform) with
             {
                 FlightPlan = flightPlan,
@@ -41,7 +42,9 @@ namespace JoinFS.Live
                 XPlaneScan = new LiveXPlaneScanSource(main),
                 Messages = new LiveMessageSource(main),
                 Shortcuts = new LiveShortcutSource(),
-                MapTiles = new OsmTileSource("JoinFS/" + Main.Version + " (+https://github.com/tuduce/JoinFS)", System.IO.Path.Combine(main.storagePath, "map-tiles")),
+                MapTiles = new MapTileProvider(style => style == MapStyle.Watercolor
+                    ? new WatercolorTileSource(userAgent, System.IO.Path.Combine(main.storagePath, "map-tiles-watercolor"))
+                    : new OsmTileSource(userAgent, System.IO.Path.Combine(main.storagePath, "map-tiles"))),
             }, main.settingsLanguage.Length > 0 ? ["--lang", main.settingsLanguage] : [], main.MonitorEvent);
         }
     }

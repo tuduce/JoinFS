@@ -233,6 +233,9 @@
     <Setting Name="ToolTips" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
+    <Setting Name="MapStyle" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Standard</Value>
+    </Setting>
     <Setting Name="LowBandwidth" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>

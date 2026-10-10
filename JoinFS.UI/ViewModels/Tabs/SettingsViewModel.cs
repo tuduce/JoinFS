@@ -191,23 +191,51 @@ public sealed partial class UserInterfaceSettingsViewModel : PersistedSettingsSe
         _alwaysOnTop = Prefs.AlwaysOnTop;
         _autoRefresh = Prefs.AutoRefresh;
         _toolTips = Prefs.ToolTips;
+        _mapStyle = Prefs.MapStyle;
+        MapStyleOptions =
+        [
+            new(MapStyle.Standard, Loc.T("OpenStreetMap")),
+            new(MapStyle.Watercolor, Loc.T("Watercolor")),
+        ];
     }
 
     [ObservableProperty] private bool _alwaysOnTop;
     [ObservableProperty] private bool _autoRefresh;
     [ObservableProperty] private bool _toolTips;
 
+    /// <summary>The pictures of the map on the Home tab.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedMapStyleOption))]
+    private MapStyle _mapStyle;
+
+    public IReadOnlyList<MapStyleOption> MapStyleOptions { get; }
+
+    /// <summary>What the map style drop-down shows; choosing one sets <see cref="MapStyle"/>.</summary>
+    public MapStyleOption SelectedMapStyleOption
+    {
+        get => MapStyleOptions.First(o => o.Style == MapStyle);
+        set
+        {
+            if (value is not null)
+                MapStyle = value.Style;
+        }
+    }
+
     private protected override bool Persists(string? property) =>
-        property is nameof(AlwaysOnTop) or nameof(AutoRefresh) or nameof(ToolTips);
+        property is nameof(AlwaysOnTop) or nameof(AutoRefresh) or nameof(ToolTips) or nameof(MapStyle);
 
     private protected override bool Write(Preferences p)
     {
         p.AlwaysOnTop = AlwaysOnTop;
         p.AutoRefresh = AutoRefresh;
         p.ToolTips = ToolTips;
+        p.MapStyle = MapStyle;
         return true;
     }
 }
+
+/// <summary>One map the user can choose, with the name it goes by in the drop-down.</summary>
+public sealed record MapStyleOption(MapStyle Style, string Name);
 
 public sealed partial class NetworkSettingsViewModel : PersistedSettingsSectionViewModel
 {

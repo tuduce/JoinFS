@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Threading;
 using JoinFS.Properties;
 using JoinFS.UI.Services;
+using MapStyle = JoinFS.UI.Services.MapStyle;
 
 namespace JoinFS.Live
 {
@@ -37,6 +38,7 @@ namespace JoinFS.Live
                 AlwaysOnTop = s.AlwaysOnTop,
                 AutoRefresh = s.AutoRefresh,
                 ToolTips = s.ToolTips,
+                MapStyle = Enum.TryParse(s.MapStyle, out MapStyle style) ? style : MapStyle.Standard,
                 ConnectOnLaunch = s.ConnectOnLaunch,
                 ElevationCorrection = s.ElevationCorrection,
                 CircleOfActivityNm = s.ActivityCircle,
@@ -77,6 +79,7 @@ namespace JoinFS.Live
             s.AlwaysOnTop = next.AlwaysOnTop;
             s.AutoRefresh = next.AutoRefresh;
             s.ToolTips = next.ToolTips;
+            s.MapStyle = next.MapStyle.ToString();
             s.ConnectOnLaunch = next.ConnectOnLaunch;
             s.ElevationCorrection = next.ElevationCorrection;
             s.ActivityCircle = next.CircleOfActivityNm;

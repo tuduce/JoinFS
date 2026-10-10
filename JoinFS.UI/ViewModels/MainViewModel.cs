@@ -52,6 +52,14 @@ public sealed partial class MainViewModel : ObservableObject, IShell
             services.Shortcuts, ApplyShortcuts);
         ApplyShortcuts(services.Shortcuts.Load());
 
+        // the map follows the choice in Settings → User Interface
+        Home.MapStyle = Settings.UserInterface.MapStyle;
+        Settings.UserInterface.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(UserInterfaceSettingsViewModel.MapStyle))
+                Home.MapStyle = Settings.UserInterface.MapStyle;
+        };
+
         // The strip's flight-plan button fetches from SimBrief. If a username is still needed the prompt comes first and
         // the import finishes after it, so this attempt ends "not loaded" and the import itself reports back through Imported.
         // That also covers an import started from the Flight Plan tab. The button makes what it fetches the user's plan at once, as the
