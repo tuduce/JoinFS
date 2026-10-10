@@ -11,12 +11,11 @@
             Classes.connecting="{Binding IsConnecting}"
             Classes.connected="{Binding IsConnected}"
             Command="{Binding ToggleCommand}"
-            ToolTip.Tip="{Binding ShortcutHint}"
             HorizontalAlignment="Center">
       <c:Icon x:Name="NodeIcon" Width="18" Height="18" />
     </Button>
     <!-- Negative side margins give the labels room to run past the 56px column, centred, like the design. -->
-    <StackPanel Margin="-30,6,-30,0" HorizontalAlignment="Center">
+    <StackPanel Width="140" Margin="-42,6,-42,0" HorizontalAlignment="Center">
       <TextBlock x:Name="TitleText" FontSize="12.5" Foreground="{DynamicResource Text2Brush}" TextAlignment="Center" HorizontalAlignment="Center" />
       <TextBlock Text="{Binding StateLabel}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextAlignment="Center" HorizontalAlignment="Center" />
     </StackPanel>

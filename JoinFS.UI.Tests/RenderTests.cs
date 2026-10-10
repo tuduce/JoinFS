@@ -9,6 +9,7 @@ using JoinFS.UI.Models;
 using JoinFS.UI.ViewModels;
 using JoinFS.UI.ViewModels.Overlays;
 using JoinFS.UI.Views;
+using JoinFS.UI.Views.Controls;
 
 namespace JoinFS.UI.Tests;
 
@@ -94,6 +95,47 @@ public class RenderTests
         Snapshot(window, "collapsed");
 
         Assert.Empty(problems.Messages);
+        window.Close();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void The_labels_under_a_connector_are_centred_on_its_button_and_not_cut_short(bool expanded)
+    {
+        var (window, _, _) = Open(expanded);
+        List<ConnectorNode> nodes = [.. window.GetVisualDescendants().OfType<ConnectorNode>().Where(n => n.IsEffectivelyVisible)];
+        Assert.NotEmpty(nodes);
+
+        foreach (ConnectorNode node in nodes)
+        {
+            Button button = node.GetVisualDescendants().OfType<Button>().First();
+            double centre = button.TranslatePoint(new Point(button.Bounds.Width / 2, 0), window)!.Value.X;
+
+            foreach (TextBlock label in node.GetVisualDescendants().OfType<TextBlock>().Where(t => !string.IsNullOrEmpty(t.Text)))
+            {
+                // a label that is given less room than its text overflows to one side, which is what looked off-centre
+                Assert.True(label.Bounds.Width >= label.DesiredSize.Width - 0.5, $"'{label.Text}' is cut short ({label.Bounds.Width} < {label.DesiredSize.Width})");
+                double labelCentre = label.TranslatePoint(new Point(label.Bounds.Width / 2, 0), window)!.Value.X;
+                Assert.True(Math.Abs(labelCentre - centre) < 1.0, $"'{label.Text}' is centred at {labelCentre}, its button at {centre}");
+            }
+        }
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void The_connector_buttons_keep_their_own_tooltip_and_add_the_shortcut_keys_when_it_is_on()
+    {
+        var (window, main, _) = Open(expanded: false);
+        Button Network() => window.GetVisualDescendants().OfType<ConnectorNode>().Single(n => ReferenceEquals(n.DataContext, main.Network))
+            .GetVisualDescendants().OfType<Button>().First();
+
+        Assert.Equal("Connect to hub", ToolTip.GetTip(Network()));
+
+        main.Settings.Shortcuts.Rows[(int)ShortcutAction.Network].Enabled = true;
+        Settle();
+
+        Assert.Equal("Connect to hub" + Environment.NewLine + "Shortcut: Ctrl+N", ToolTip.GetTip(Network()));
         window.Close();
     }
 
