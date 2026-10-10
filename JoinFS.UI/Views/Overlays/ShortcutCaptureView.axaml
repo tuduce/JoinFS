@@ -1,0 +1,21 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
+             xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
+             x:Class="JoinFS.UI.Views.Overlays.ShortcutCaptureView"
+             x:DataType="ovm:ShortcutCaptureViewModel"
+             Focusable="True">
+  <Border Classes="dialog">
+    <StackPanel Spacing="12">
+      <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding Action}" FontSize="12.5" Foreground="{DynamicResource Muted2Brush}" TextWrapping="Wrap" />
+      <TextBlock Text="{l:T 'Hold Ctrl, Shift or Alt and press a letter.'}" FontSize="12.5" Foreground="{DynamicResource Muted2Brush}" TextWrapping="Wrap" />
+      <Border Classes="card" CornerRadius="8" Padding="14,12">
+        <TextBlock Text="{Binding Keys}" Classes="mono" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+      </Border>
+      <StackPanel Classes="footer" Margin="0,4,0,0" Spacing="10">
+        <Button Command="{Binding CloseCommand}" Content="{l:T 'Cancel'}" Padding="16,8" />
+        <Button Classes="primary" Command="{Binding SaveCommand}" Content="{l:T 'Save'}" Padding="18,8" />
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</UserControl>

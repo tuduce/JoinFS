@@ -36,7 +36,8 @@ public static class FakeServices
         Preferences: new InMemoryPreferencesStore(),
         ModelScan: new FakeModelScanSource(),
         MapTiles: new NoMapTiles(),
-        Messages: new NoMessages());
+        Messages: new NoMessages(),
+        Shortcuts: new FakeShortcutSource());
 }
 
 public sealed class FakeSimulatorLink(TimeSpan latency) : ISimulatorLink
@@ -510,6 +511,17 @@ public sealed class FakeRecorderSource : IRecorderSource
         _recording = true;
     }
 
+    public string AutoSave()
+    {
+        Calls.Add("autosave");
+        if (AutoSaveFails)
+            throw new InvalidOperationException("disk full");
+        return "2026-10-10_120000_Me.jfs";
+    }
+
+    /// <summary>Makes <see cref="AutoSave"/> fail, to test what is done then.</summary>
+    public bool AutoSaveFails { get; set; }
+
     public void Stop()
     {
         Calls.Add("stop");
@@ -709,4 +721,40 @@ public sealed class NullPlatform : IPlatform
     public string? SavePath { get; set; }
     public Task<string?> PickSaveFileAsync(string title, string suggestedName, string? startFolder = null, string? extension = null) => Task.FromResult(SavePath);
     public Task<string?> PickFolderAsync(string title) => Task.FromResult<string?>(null);
+}
+
+/// <summary>
+/// Shortcuts kept in memory, with the keys of the old Shortcuts window. A test or the previewer "presses" one with <see cref="Press"/>.
+/// </summary>
+public sealed class FakeShortcutSource : IShortcutSource
+{
+    private readonly List<ShortcutBinding> _bindings =
+    [
+        new(ShortcutAction.Network, false, "CTRL+N"),
+        new(ShortcutAction.Simulator, false, "CTRL+S"),
+        new(ShortcutAction.AllowShared, false, "CTRL+A"),
+        new(ShortcutAction.HandOver, false, "CTRL+H"),
+        new(ShortcutAction.EnterCockpit, false, "CTRL+E"),
+        new(ShortcutAction.Follow, false, "CTRL+F"),
+        new(ShortcutAction.Record, false, "CTRL+SHIFT+R"),
+        new(ShortcutAction.Overdub, false, "CTRL+SHIFT+O"),
+        new(ShortcutAction.Stop, false, "CTRL+SHIFT+X"),
+        new(ShortcutAction.Replay, false, "CTRL+SHIFT+P"),
+    ];
+
+    private readonly List<ShortcutAction> _pressed = [];
+
+    public IReadOnlyList<ShortcutBinding> Load() => [.. _bindings];
+
+    public void Save(ShortcutBinding binding) => _bindings[(int)binding.Action] = binding;
+
+    public IReadOnlyList<ShortcutAction> TakePressed()
+    {
+        ShortcutAction[] pressed = [.. _pressed.Where(a => _bindings[(int)a].Enabled)];
+        _pressed.Clear();
+        return pressed;
+    }
+
+    /// <summary>The user presses the shortcut's keys. It counts only if the shortcut is enabled when the keys are looked for.</summary>
+    public void Press(ShortcutAction action) => _pressed.Add(action);
 }

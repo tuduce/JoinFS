@@ -11,6 +11,7 @@
             Classes.connecting="{Binding IsConnecting}"
             Classes.connected="{Binding IsConnected}"
             Command="{Binding ToggleCommand}"
+            ToolTip.Tip="{Binding ShortcutHint}"
             HorizontalAlignment="Center">
       <c:Icon x:Name="NodeIcon" Width="18" Height="18" />
     </Button>

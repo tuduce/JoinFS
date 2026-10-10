@@ -92,4 +92,8 @@ public sealed partial class ActionLink(string label, IRelayCommand command) : Ob
     private string _label = label;
 
     public IRelayCommand Command { get; } = command;
+
+    /// <summary>The tooltip of the link: the keys of the shortcut that does the same. Null when there is none.</summary>
+    [ObservableProperty]
+    private string? _hint;
 }

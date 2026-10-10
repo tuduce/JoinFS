@@ -23,6 +23,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     {
         _services = services;
 
+        Hints = new ShortcutHints();
         Profile = new ProfileViewModel(services.Settings);
         AddressBook = new AddressBookViewModel(services.AddressBook);
 
@@ -33,16 +34,18 @@ public sealed partial class MainViewModel : ObservableObject, IShell
 
         Home = new HomeViewModel(this, services.Session, services.Traffic, services.App, services.Platform, services.MapTiles);
         Hubs = new HubsViewModel(services.Hubs, services.Network, this);
-        Session = new SessionViewModel(services.Session);
+        Session = new SessionViewModel(services.Session, Hints);
         RecordSelection = new RecordSelection();
-        Aircraft = new AircraftViewModel(services.Traffic, services.Models, services.Variables, services.Platform, Profile, RecordSelection, this);
+        Aircraft = new AircraftViewModel(services.Traffic, services.Models, services.Variables, services.Platform, Profile, RecordSelection, this, Hints);
         Objects = new ObjectsViewModel(services.Traffic, services.Models, Profile, this);
         ModelMatching = new ModelMatchingViewModel(services.Models, this);
         FlightPlan = new FlightPlanViewModel(services.FlightPlan, services.SimBrief, Profile, this);
-        Recorder = new RecorderViewModel(services.Recorder, services.Traffic, RecordSelection, services.Platform, this);
+        Recorder = new RecorderViewModel(services.Recorder, services.Traffic, RecordSelection, services.Platform, this, Hints);
         Chat = new ChatViewModel(services.Chat);
         Monitor = new MonitorViewModel(services.Monitor, services.Platform);
-        Settings = new SettingsViewModel(Profile, AddressBook, services.Preferences, services.Variables, services.Models, services.XPlanePlugin, services.XPlaneScan, services.ModelScan, this, services.Platform, () => Simulator.IsConnected, services.App.IsXPlaneBuild);
+        Settings = new SettingsViewModel(Profile, AddressBook, services.Preferences, services.Variables, services.Models, services.XPlanePlugin, services.XPlaneScan, services.ModelScan, this, services.Platform, () => Simulator.IsConnected, services.App.IsXPlaneBuild,
+            services.Shortcuts, ApplyShortcuts);
+        ApplyShortcuts(services.Shortcuts.Load());
 
         // The strip's flight-plan button fetches from SimBrief. If a username is still needed the prompt comes first and
         // the import finishes after it, so this attempt ends "not loaded" and the import itself reports back through Imported.
@@ -91,6 +94,9 @@ public sealed partial class MainViewModel : ObservableObject, IShell
 
     public ProfileViewModel Profile { get; }
     public AddressBookViewModel AddressBook { get; }
+
+    /// <summary>The keys of the shortcuts, which the buttons name in their tooltips.</summary>
+    public ShortcutHints Hints { get; }
 
     /// <summary>Which aircraft are recorded. Shown by the Aircraft tab and the Recorder tab.</summary>
     public RecordSelection RecordSelection { get; }
@@ -278,6 +284,70 @@ public sealed partial class MainViewModel : ObservableObject, IShell
                 break;
             case TabId.Objects:
                 Objects.Refresh();
+                break;
+        }
+    }
+
+    // ---- the keyboard shortcuts
+
+    private void ApplyShortcuts(IEnumerable<ShortcutBinding> bindings)
+    {
+        Hints.Update(bindings);
+        Simulator.ShortcutHint = Hints.Simulator;
+        Network.ShortcutHint = Hints.Network;
+    }
+
+    /// <summary>
+    /// Does what the shortcuts that were pressed since the last call ask for. Call it about ten times a second from the UI thread: the
+    /// keys are asked of the system, so a key tapped between two calls would be missed (the poll above is too slow for that).
+    /// </summary>
+    /// <returns>Done when what the shortcuts started is done. The caller need not wait: a connect can take a while.</returns>
+    public Task PollShortcuts()
+    {
+        List<Task> started = [];
+        foreach (ShortcutAction action in _services.Shortcuts.TakePressed())
+        {
+            // while the keys of a shortcut are being chosen, pressing them must not run it
+            if (Overlay is ShortcutCaptureViewModel)
+                continue;
+            started.Add(RunShortcutAsync(action));
+        }
+        return Task.WhenAll(started);
+    }
+
+    private async Task RunShortcutAsync(ShortcutAction action)
+    {
+        switch (action)
+        {
+            case ShortcutAction.Network:
+                await Network.ToggleAsync();
+                break;
+            case ShortcutAction.Simulator:
+                await Simulator.ToggleAsync();
+                break;
+            case ShortcutAction.AllowShared:
+                Session.ToggleCockpitEntryOfOpenRow();
+                break;
+            case ShortcutAction.HandOver:
+                Session.ToggleHandOverOfOpenRow();
+                break;
+            case ShortcutAction.EnterCockpit:
+                Aircraft.EnterCockpitOfOpenRow();
+                break;
+            case ShortcutAction.Follow:
+                Aircraft.FollowOpenRow();
+                break;
+            case ShortcutAction.Record:
+                Recorder.HotkeyRecord();
+                break;
+            case ShortcutAction.Overdub:
+                Recorder.HotkeyOverdub();
+                break;
+            case ShortcutAction.Stop:
+                Recorder.HotkeyStop();
+                break;
+            case ShortcutAction.Replay:
+                Recorder.HotkeyReplay();
                 break;
         }
     }

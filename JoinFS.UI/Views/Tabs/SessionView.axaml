@@ -65,8 +65,8 @@
 
                         <StackPanel Grid.Column="2" Spacing="10" MinWidth="220" IsVisible="{Binding IsOther}">
                           <TextBlock Classes="caps" Text="{l:T 'Settings', Upper=True}" />
-                          <CheckBox IsChecked="{Binding CockpitEntry}" Content="{l:T 'Allow Cockpit Entry'}" />
-                          <CheckBox Margin="22,0,0,0" IsChecked="{Binding HandOverControls}" IsEnabled="{Binding CanHandOverControls}" Content="{l:T 'Hand Over Controls'}" />
+                          <CheckBox IsChecked="{Binding CockpitEntry}" Content="{l:T 'Allow Cockpit Entry'}" ToolTip.Tip="{Binding Hints.AllowShared}" />
+                          <CheckBox Margin="22,0,0,0" IsChecked="{Binding HandOverControls}" IsEnabled="{Binding CanHandOverControls}" Content="{l:T 'Hand Over Controls'}" ToolTip.Tip="{Binding Hints.HandOver}" />
                           <CheckBox IsChecked="{Binding MultipleObjects}" Content="{l:T 'Allow Multiple Objects'}" />
                         </StackPanel>
 

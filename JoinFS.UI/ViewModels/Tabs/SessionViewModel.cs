@@ -25,6 +25,9 @@ public sealed partial class PeerRowViewModel : ObservableObject
         Apply(settings);
     }
 
+    /// <summary>The keys of the shortcuts, for the tooltips of the permissions.</summary>
+    public ShortcutHints Hints => _owner.Hints;
+
     public PeerInfo Peer { get; private set; }
     public string Id => Peer.Id;
     public string Nick => Peer.Nick;
@@ -149,13 +152,17 @@ public sealed partial class SessionViewModel : ObservableObject
 {
     private readonly Dictionary<string, PeerRowViewModel> _rowsById = [];
 
-    public SessionViewModel(ISessionSource source)
+    public SessionViewModel(ISessionSource source, ShortcutHints hints)
     {
         Source = source;
+        Hints = hints;
         Refresh();
     }
 
     internal ISessionSource Source { get; }
+
+    /// <summary>The keys of the shortcuts, for the rows' tooltips.</summary>
+    public ShortcutHints Hints { get; }
 
     /// <summary>Raised after Save added or removed an address book entry, so whoever shows the address book can read it again.</summary>
     public event EventHandler? AddressBookChanged;
@@ -190,6 +197,27 @@ public sealed partial class SessionViewModel : ObservableObject
         CollectionSync.Reconcile(Rows, wanted);
 
         OnPropertyChanged(nameof(PeerCount));
+    }
+
+    /// <summary>The user whose row is open, who is not you. Null when no row is open: the shortcuts have no one to act on.</summary>
+    private PeerRowViewModel? OpenOtherRow()
+    {
+        Refresh(); // the tab is not refreshed while it is hidden, and a shortcut toggles what is true now
+        return Rows.FirstOrDefault(r => r.IsExpanded && r.IsOther);
+    }
+
+    /// <summary>The shortcut that allows or stops cockpit entry for the user whose row is open.</summary>
+    public void ToggleCockpitEntryOfOpenRow()
+    {
+        if (OpenOtherRow() is { } row)
+            row.CockpitEntry = !row.CockpitEntry;
+    }
+
+    /// <summary>The shortcut that hands the flight controls to the user whose row is open, or takes them back.</summary>
+    public void ToggleHandOverOfOpenRow()
+    {
+        if (OpenOtherRow() is { } row)
+            row.HandOverControls = !row.HandOverControls;
     }
 
     internal void Expand(PeerRowViewModel row)

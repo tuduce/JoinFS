@@ -1002,4 +1002,61 @@
   <data name="{0} requires a password to join." xml:space="preserve">
     <value>{0} requiere una contraseña para unirse.</value>
   </data>
+  <data name="Keyboard Shortcuts" xml:space="preserve">
+    <value>Atajos de teclado</value>
+  </data>
+  <data name="Change Shortcut" xml:space="preserve">
+    <value>Cambiar atajo</value>
+  </data>
+  <data name="Change…" xml:space="preserve">
+    <value>Cambiar…</value>
+  </data>
+  <data name="Hold Ctrl, Shift or Alt and press a letter." xml:space="preserve">
+    <value>Mantén pulsada Ctrl, Mayús o Alt y pulsa una letra.</value>
+  </data>
+  <data name="Work while the simulator has the keys. The shortcuts for a user or an aircraft act on the row that is open in the Session or Aircraft tab." xml:space="preserve">
+    <value>Funcionan mientras el simulador tiene el teclado. Los atajos para un usuario o una aeronave actúan sobre la fila abierta en la pestaña «Sesión» o «Aeronave».</value>
+  </data>
+  <data name="Shortcut: {0}" xml:space="preserve">
+    <value>Atajo: {0}</value>
+  </data>
+  <data name="The previous recording was not saved: {0}. No new recording was started." xml:space="preserve">
+    <value>La grabación anterior no se guardó: {0}. No se inició ninguna grabación nueva.</value>
+  </data>
+  <data name="the simulator thread did not respond" xml:space="preserve">
+    <value>el hilo del simulador no respondió</value>
+  </data>
+  <data name="Toggle the network state on/off" xml:space="preserve">
+    <value>Activar / desactivar el estado de la red</value>
+  </data>
+  <data name="Toggle the simulator state on/off" xml:space="preserve">
+    <value>Activar / desactivar el estado del simulador</value>
+  </data>
+  <data name="Allow shared cockpit with selected user" xml:space="preserve">
+    <value>Permitir cabina compartida con el usuario seleccionado</value>
+  </data>
+  <data name="Hand over controls to selected user" xml:space="preserve">
+    <value>Entregar los controles al usuario seleccionado</value>
+  </data>
+  <data name="Enter/leave cockpit of selected aircraft" xml:space="preserve">
+    <value>Entrar / salir de la cabina del avión seleccionado</value>
+  </data>
+  <data name="Follow selected aircraft" xml:space="preserve">
+    <value>Seguir aviones seleccionados</value>
+  </data>
+  <data name="Start recording the selected aircraft" xml:space="preserve">
+    <value>Iniciar la grabación de la aeronave seleccionada</value>
+  </data>
+  <data name="Start overdub recording" xml:space="preserve">
+    <value>Iniciar la sobregrabación</value>
+  </data>
+  <data name="Stop recording/playing" xml:space="preserve">
+    <value>Deje de grabar / reproducir</value>
+  </data>
+  <data name="Play/pause replay of the recorded aircraft" xml:space="preserve">
+    <value>Reproducir / pausar la aeronave almacenada en la grabadora</value>
+  </data>
+  <data name="Recording saved: {0}" xml:space="preserve">
+    <value>Grabación guardada: {0}</value>
+  </data>
 </root>
