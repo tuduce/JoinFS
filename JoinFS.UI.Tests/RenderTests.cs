@@ -236,9 +236,9 @@ public class RenderTests
         foreach (CheckBox box in boxes)
         {
             var row = (JoinFS.UI.ViewModels.Tabs.ObjectRowViewModel)box.DataContext!;
-            string name = AutomationProperties.GetName(box);
-            Assert.Contains(row.Model, name);
-            Assert.Contains(row.Owner, name);
+            string? name = AutomationProperties.GetName(box);
+            Assert.Contains(row.Model, name!);
+            Assert.Contains(row.Owner, name!);
         }
         window.Close();
     }
