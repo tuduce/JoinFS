@@ -7,6 +7,26 @@ using JoinFS.UI.Services;
 
 namespace JoinFS.UI.ViewModels.Overlays;
 
+/// <summary>
+/// Shown once at startup when a newer release exists. However it is closed, <paramref name="onClosed"/> is called so the shell can keep
+/// a reminder on screen.
+/// </summary>
+public sealed partial class UpdateAvailableViewModel(UpdateInfo update, IPlatform platform, Action onClosed) : OverlayViewModel
+{
+    public override string Title => Loc.T("New version available");
+    public string Message => Loc.T("A newer version of JoinFS is available.");
+    public string DownloadText => Loc.F("Download v{0} →", update.Version);
+
+    protected override void OnClosing() => onClosed();
+
+    [RelayCommand]
+    private void Download()
+    {
+        platform.OpenUrl(update.Url);
+        Close();
+    }
+}
+
 /// <summary>"About JoinFS": opened from the version in the sidebar. The download link only appears when an update exists.</summary>
 public sealed partial class AboutViewModel : OverlayViewModel
 {

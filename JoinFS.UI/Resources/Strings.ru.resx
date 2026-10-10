@@ -1059,4 +1059,10 @@
   <data name="Recording saved: {0}" xml:space="preserve">
     <value>Запись сохранена: {0}</value>
   </data>
+  <data name="New version available" xml:space="preserve">
+    <value>Доступна новая версия</value>
+  </data>
+  <data name="A newer version of JoinFS is available." xml:space="preserve">
+    <value>Доступна более новая версия JoinFS.</value>
+  </data>
 </root>

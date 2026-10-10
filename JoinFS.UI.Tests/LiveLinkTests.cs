@@ -51,13 +51,19 @@ public sealed class ScriptedLink : ISimulatorLink, INetworkLink
     }
 }
 
+/// <summary>This build is the newest, so no card about an update gets between a test and the card it looks for.</summary>
+internal sealed class CurrentBuild : IUpdateChecker
+{
+    public UpdateInfo? CheckForUpdate() => null;
+}
+
 public class LiveLinkTests
 {
     private static (MainViewModel Main, ScriptedLink Sim, ScriptedLink Net) Shell()
     {
         ScriptedLink sim = new(), net = new();
         AppServices fakes = FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true, Nickname = "HB-TDX" });
-        return (new MainViewModel(fakes with { Simulator = sim, Network = net }), sim, net);
+        return (new MainViewModel(fakes with { Simulator = sim, Network = net, Updates = new CurrentBuild() }), sim, net);
     }
 
     [Fact]
@@ -232,7 +238,7 @@ public class LiveLinkTests
     {
         ScriptedMessages messages = new();
         AppServices fakes = FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true, Nickname = "HB-TDX" });
-        return (new MainViewModel(fakes with { Messages = messages }), messages);
+        return (new MainViewModel(fakes with { Messages = messages, Updates = new CurrentBuild() }), messages);
     }
 
     [Fact]

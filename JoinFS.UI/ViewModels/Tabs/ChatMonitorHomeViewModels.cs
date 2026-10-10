@@ -199,15 +199,13 @@ public sealed partial class HomeViewModel : ObservableObject
     private readonly MainViewModel _main;
     private readonly ISessionSource _session;
     private readonly ITrafficSource _traffic;
-    private readonly IAppInfo _app;
     private readonly IPlatform _platform;
 
-    public HomeViewModel(MainViewModel main, ISessionSource session, ITrafficSource traffic, IAppInfo app, IPlatform platform, IMapTileSource mapTiles)
+    public HomeViewModel(MainViewModel main, ISessionSource session, ITrafficSource traffic, IPlatform platform, IMapTileSource mapTiles)
     {
         _main = main;
         _session = session;
         _traffic = traffic;
-        _app = app;
         _platform = platform;
         MapTiles = mapTiles;
 
@@ -276,7 +274,4 @@ public sealed partial class HomeViewModel : ObservableObject
         (true, false) => Loc.T("The simulator is connected. Join a hub to see other pilots.") + " " + Loc.T("Pick a panel from the sidebar to manage hubs, session traffic, aircraft, or model matching."),
         (false, true) => Loc.T("The network is connected. Connect the simulator to fly with them.") + " " + Loc.T("Pick a panel from the sidebar to manage hubs, session traffic, aircraft, or model matching."),
     };
-
-    [RelayCommand]
-    private void OpenDownload() => _platform.OpenUrl(_app.DownloadUrl);
 }

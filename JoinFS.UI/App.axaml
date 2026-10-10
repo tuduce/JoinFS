@@ -68,6 +68,7 @@
     <DataTemplate DataType="ovm:ScanModelsViewModel"><ov:ScanModelsView /></DataTemplate>
     <DataTemplate DataType="ovm:ScanXPlaneModelsViewModel"><ov:ScanXPlaneModelsView /></DataTemplate>
     <DataTemplate DataType="ovm:AboutViewModel"><ov:AboutView /></DataTemplate>
+    <DataTemplate DataType="ovm:UpdateAvailableViewModel"><ov:UpdateAvailableView /></DataTemplate>
     <DataTemplate DataType="ovm:InstallXPlanePluginViewModel"><ov:InstallXPlanePluginView /></DataTemplate>
     <DataTemplate DataType="ovm:ShortcutCaptureViewModel"><ov:ShortcutCaptureView /></DataTemplate>
   </Application.DataTemplates>

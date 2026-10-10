@@ -32,7 +32,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Network = new ConnectionViewModel(ConnectionLabels.Network, ct => _networkAction(ct), services.Network.DisconnectAsync,
             requestConnect: JoinSelectedAsync, observed: services.Network.ReportsState);
 
-        Home = new HomeViewModel(this, services.Session, services.Traffic, services.App, services.Platform, services.MapTiles);
+        Home = new HomeViewModel(this, services.Session, services.Traffic, services.Platform, services.MapTiles);
         Hubs = new HubsViewModel(services.Hubs, services.Network, this);
         Session = new SessionViewModel(services.Session, Hints);
         RecordSelection = new RecordSelection();
@@ -123,7 +123,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     public string Version => _services.App.Version;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsCollapsed), nameof(ShowChatBadge))]
+    [NotifyPropertyChangedFor(nameof(IsCollapsed), nameof(ShowChatBadge), nameof(ShowUpdateBadge))]
     private bool _isExpanded;
 
     public bool IsCollapsed => !IsExpanded;
@@ -154,6 +154,19 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     private bool _hasNewChat;
 
     public bool ShowChatBadge => IsCollapsed && HasNewChat;
+
+    /// <summary>
+    /// A newer release exists and the startup card about it was closed. Shows the reminder in the title bar while the window is
+    /// collapsed, and by the version in the sidebar while it is expanded. It stays until the app is restarted on the new version.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowUpdateBadge))]
+    private bool _hasUpdateReminder;
+
+    public bool ShowUpdateBadge => IsCollapsed && HasUpdateReminder;
+
+    // The release check runs in the background, so it is asked at each poll until it has an answer. The card is shown once per run.
+    private bool _updateAnnounced;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
@@ -215,6 +228,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         FlightPlanLoad.Sync(_services.SimBrief.State);
         ShowPasswordRequest();
         ShowAppMessage();
+        AnnounceUpdate();
         FollowJoinedHubLabel();
         Hubs.SyncJoined();
         FollowChat();
@@ -386,6 +400,22 @@ public sealed partial class MainViewModel : ObservableObject, IShell
 
         if (_services.Messages.TakeMessage() is { Length: > 0 } message)
             ShowOverlay(new MessageViewModel(_services.App.SessionLabel, message));
+    }
+
+    /// <summary>
+    /// Tells the user once that a newer release exists. Like a message, it waits while another card is open (the first-run card
+    /// included), so as not to cover what the user is doing.
+    /// </summary>
+    private void AnnounceUpdate()
+    {
+        if (_updateAnnounced || Overlay is not null)
+            return;
+
+        if (_services.Updates.CheckForUpdate() is not { } update)
+            return;
+
+        _updateAnnounced = true;
+        ShowOverlay(new UpdateAvailableViewModel(update, _services.Platform, () => HasUpdateReminder = true));
     }
 
     partial void OnIsExpandedChanged(bool value) => RefreshVisibleTab();

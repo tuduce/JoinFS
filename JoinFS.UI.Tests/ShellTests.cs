@@ -181,12 +181,64 @@ public class ShellTests
         Assert.True(withUpdate.NewVersionAvailable);
         Assert.Equal("Download v26.7.0 →", withUpdate.DownloadText);
         withUpdate.OpenDownloadCommand.Execute(null);
-        Assert.Equal(["https://joinfs.net/download"], rig.Platform.OpenedUrls);
+        Assert.Equal(["https://github.com/tuduce/JoinFS/releases"], rig.Platform.OpenedUrls);
 
         AboutViewModel current = new(rig.Services.App, update: null, rig.Platform);
         Assert.False(current.NewVersionAvailable);
         current.OpenDownloadCommand.Execute(null);
         Assert.Single(rig.Platform.OpenedUrls);
+    }
+
+    [Fact]
+    public void A_newer_version_is_announced_once_and_closing_the_card_leaves_a_reminder()
+    {
+        Rig rig = new();
+        Assert.False(rig.Main.HasUpdateReminder);
+
+        rig.Main.Poll();
+
+        UpdateAvailableViewModel card = Assert.IsType<UpdateAvailableViewModel>(rig.Main.Overlay);
+        Assert.Equal("Download v26.7.0 →", card.DownloadText);
+        Assert.False(rig.Main.HasUpdateReminder); // while the card is up, it is the announcement
+        card.CloseCommand.Execute(null);
+        Assert.Null(rig.Main.Overlay);
+        Assert.True(rig.Main.HasUpdateReminder);
+
+        rig.Main.Poll();
+        Assert.Null(rig.Main.Overlay); // once per run
+        Assert.Empty(rig.Platform.OpenedUrls);
+    }
+
+    [Fact]
+    public void The_update_reminder_shows_in_the_title_bar_only_while_collapsed()
+    {
+        Rig rig = new();
+        rig.Main.Poll();
+        rig.Main.Overlay!.CloseCommand.Execute(null);
+
+        Assert.True(rig.Main.ShowUpdateBadge);
+        rig.Main.IsExpanded = true;
+        Assert.False(rig.Main.ShowUpdateBadge);
+        Assert.True(rig.Main.HasUpdateReminder); // the sidebar's one stays
+    }
+
+    [Fact]
+    public void The_update_card_waits_for_the_card_that_is_open_and_its_download_opens_the_release_page()
+    {
+        Rig rig = new(onboarded: false);
+
+        rig.Main.Poll();
+        Assert.IsType<OnboardingViewModel>(rig.Main.Overlay);
+
+        rig.Main.Overlay!.CloseCommand.Execute(null);
+        rig.Main.Poll();
+        UpdateAvailableViewModel card = Assert.IsType<UpdateAvailableViewModel>(rig.Main.Overlay);
+
+        card.DownloadCommand.Execute(null);
+
+        Assert.Equal(["https://github.com/tuduce/JoinFS/releases"], rig.Platform.OpenedUrls);
+        Assert.Null(rig.Main.Overlay);
+        Assert.True(rig.Main.HasUpdateReminder);
     }
 
     [Fact]

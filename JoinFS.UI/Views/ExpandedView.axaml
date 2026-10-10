@@ -49,7 +49,14 @@
 
         <!-- The version opens About. -->
         <Border Grid.Row="2" BorderBrush="{DynamicResource SidebarBorderBrush}" BorderThickness="0,1,0,0">
-          <Button Classes="versionLink" Command="{Binding OpenAboutCommand}" Content="{Binding Version, StringFormat='v{0}'}" />
+          <Button Classes="versionLink" Command="{Binding OpenAboutCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="{Binding Version, StringFormat='v{0}'}" VerticalAlignment="Center" />
+              <!-- A newer version exists and its startup card was closed. -->
+              <Ellipse IsVisible="{Binding HasUpdateReminder}" Width="7" Height="7" VerticalAlignment="Center"
+                       Fill="{DynamicResource AccentDotBrush}" ToolTip.Tip="{l:T 'New version available'}" />
+            </StackPanel>
+          </Button>
         </Border>
       </Grid>
     </Border>
