@@ -798,4 +798,28 @@
   <data name="MatchExplain_EngineClassic" xml:space="preserve">
     <value>Matching engine: classic (compares type, airline, class code and wake category only), selected with --classicmatching.</value>
   </data>
+  <data name="InvalidXPlaneFolder" xml:space="preserve">
+    <value>This is not an X-Plane folder. Select the folder that contains &quot;Aircraft&quot; and &quot;Resources&quot;.</value>
+  </data>
+  <data name="PluginFilesMissing" xml:space="preserve">
+    <value>The plugin files (win.xpl, lin.xpl) were not found next to JoinFS. Please reinstall JoinFS.</value>
+  </data>
+  <data name="NoModelsFound" xml:space="preserve">
+    <value>No models found</value>
+  </data>
+  <data name="RestartXPlaneHint" xml:space="preserve">
+    <value>Restart X-Plane so it loads the plugin and the new models.</value>
+  </data>
+  <data name="GenerateLiveries" xml:space="preserve">
+    <value>Generate liveries (one model per livery)</value>
+  </data>
+  <data name="ScanNoCslHint" xml:space="preserve">
+    <value>No CSL models exist yet. Tick &quot;Generate CSL objects for installed aircraft&quot; and scan again.</value>
+  </data>
+  <data name="ScanRejectedHint" xml:space="preserve">
+    <value>CSL models were found, but none was accepted. Details are in the monitor log.</value>
+  </data>
+  <data name="UseInstalledCsl" xml:space="preserve">
+    <value>Use installed CSL packages (linked, not copied):</value>
+  </data>
 </root>

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 #if FSX || P3D
 using Microsoft.Win32;
 #endif
@@ -215,55 +216,7 @@ namespace JoinFS
         /// </summary>
         public static string TryDetect()
         {
-            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-
-            foreach (string fileName in new[] { "x-plane_install_12.txt", "x-plane_install_11.txt" })
-            {
-                string candidate = TryDetectFromInstallFile(Path.Combine(localAppData, fileName));
-                if (candidate != null)
-                {
-                    return candidate;
-                }
-            }
-
-            return null;
-        }
-
-        static string TryDetectFromInstallFile(string installFile)
-        {
-            if (!File.Exists(installFile))
-            {
-                return null;
-            }
-
-            try
-            {
-                foreach (string line in File.ReadLines(installFile))
-                {
-                    string candidate = line.Trim();
-                    if (candidate.Length > 0 && IsValidXPlaneFolder(candidate))
-                    {
-                        return candidate;
-                    }
-                }
-            }
-            catch
-            {
-            }
-
-            return null;
-        }
-
-        static bool IsValidXPlaneFolder(string path)
-        {
-            try
-            {
-                return Directory.Exists(Path.Combine(path, "Aircraft"));
-            }
-            catch
-            {
-                return false;
-            }
+            return XPlaneInstallLocator.FindInstalls().FirstOrDefault()?.Path;
         }
 #endif
     }

@@ -795,4 +795,28 @@
   <data name="MatchExplain_EngineClassic" xml:space="preserve">
     <value>Méthode de correspondance : classique (compare uniquement le type, la compagnie, le code de classe et la catégorie de turbulence), choisie avec --classicmatching.</value>
   </data>
+  <data name="InvalidXPlaneFolder" xml:space="preserve">
+    <value>Ce n&apos;est pas un dossier X-Plane. Sélectionnez le dossier contenant « Aircraft » et « Resources ».</value>
+  </data>
+  <data name="PluginFilesMissing" xml:space="preserve">
+    <value>Les fichiers du plugin (win.xpl, lin.xpl) sont introuvables à côté de JoinFS. Veuillez réinstaller JoinFS.</value>
+  </data>
+  <data name="NoModelsFound" xml:space="preserve">
+    <value>Aucun modèle trouvé</value>
+  </data>
+  <data name="RestartXPlaneHint" xml:space="preserve">
+    <value>Redémarrez X-Plane pour qu&apos;il charge le plugin et les nouveaux modèles.</value>
+  </data>
+  <data name="GenerateLiveries" xml:space="preserve">
+    <value>Générer les livrées (un modèle par livrée)</value>
+  </data>
+  <data name="ScanNoCslHint" xml:space="preserve">
+    <value>Aucun modèle CSL n&apos;existe encore. Cochez « Générer des objets CSL pour les avions installés » et relancez l&apos;analyse.</value>
+  </data>
+  <data name="ScanRejectedHint" xml:space="preserve">
+    <value>Des modèles CSL ont été trouvés, mais aucun n&apos;a été accepté. Les détails figurent dans le journal du moniteur.</value>
+  </data>
+  <data name="UseInstalledCsl" xml:space="preserve">
+    <value>Utiliser les paquets CSL installés (liés, non copiés) :</value>
+  </data>
 </root>
