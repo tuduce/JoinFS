@@ -9,7 +9,8 @@
       <TextBlock Text="{Binding Message}" FontSize="12.5" Foreground="{DynamicResource Muted2Brush}" TextWrapping="Wrap" />
       <StackPanel Classes="footer" Margin="0,4,0,0" Spacing="10">
         <Button Command="{Binding CloseCommand}" Content="{l:T 'Cancel'}" Padding="16,8" />
-        <Button Command="{Binding NoCommand}" Content="{Binding NoText}" Padding="16,8" />
+        <Button Command="{Binding NoCommand}" Content="{Binding NoText}" Padding="16,8"
+                IsVisible="{Binding NoText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         <Button Classes="primary" Command="{Binding YesCommand}" Content="{Binding YesText}" Padding="18,8" />
       </StackPanel>
     </StackPanel>

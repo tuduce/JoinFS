@@ -70,6 +70,18 @@ public class RenderTests
         Dispatcher.UIThread.RunJobs();
     }
 
+    /// <summary>Lets the UI thread run until the task is done. A test that awaits would run on xunit's context, not the UI's.</summary>
+    private static void WaitFor(Task task)
+    {
+        for (int tries = 0; !task.IsCompleted && tries < 200; tries++)
+        {
+            Settle();
+            Thread.Sleep(5);
+        }
+        Assert.True(task.IsCompleted);
+        Settle();
+    }
+
     private static void Snapshot(MainWindow window, string name)
     {
         Settle();
@@ -340,6 +352,49 @@ public class RenderTests
         main.Poll();
         Settle();
         Snapshot(window, expanded ? "notice-slow-expanded" : "notice-slow-collapsed");
+
+        Assert.Empty(problems.Messages);
+        window.Close();
+    }
+    [AvaloniaFact]
+    public void Unticking_a_loaded_aircraft_shows_the_question_and_the_box_goes_back_if_it_is_cancelled()
+    {
+        UntickingAskedFirst();
+    }
+
+    private static void UntickingAskedFirst()
+    {
+        Problems problems = new();
+        Logger.Sink = problems;
+        var (window, main, _) = Open(expanded: true);
+        main.SelectedTab = TabId.Recorder;
+        Settle();
+
+        CheckBox box = window.GetVisualDescendants().OfType<CheckBox>()
+            .First(b => b.IsEffectivelyVisible && b.DataContext is JoinFS.UI.ViewModels.Tabs.LoadedAircraftViewModel && b.IsChecked == true);
+        JoinFS.UI.ViewModels.Tabs.LoadedAircraftViewModel aircraft = (JoinFS.UI.ViewModels.Tabs.LoadedAircraftViewModel)box.DataContext!;
+
+        box.IsChecked = false; // the user's click
+        Settle();
+
+        ConfirmViewModel ask = Assert.IsType<ConfirmViewModel>(main.Overlay);
+        Assert.False(box.IsChecked, "the box shows what the user did while the question is open");
+        Snapshot(window, "overlay-leave-out");
+
+        ask.CloseCommand.Execute(null);
+        WaitFor(aircraft.Answered);
+
+        Assert.True(box.IsChecked);
+        Assert.True(box.IsEnabled);
+
+        box.IsChecked = false;
+        Settle();
+        ((ConfirmViewModel)main.Overlay!).YesCommand.Execute(null);
+        WaitFor(aircraft.Answered);
+
+        Assert.False(box.IsChecked);
+        Assert.False(box.IsEnabled);
+        Snapshot(window, "recorder-left-out");
 
         Assert.Empty(problems.Messages);
         window.Close();

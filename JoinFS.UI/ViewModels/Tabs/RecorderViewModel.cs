@@ -39,48 +39,76 @@ public sealed partial class RecordItemViewModel : ObservableObject
 
 /// <summary>
 /// An aircraft of the loaded recording, with the tick that says it plays. Unticking leaves it out of playback, and for now that is final:
-/// the tick goes grey and cannot be set again until the recording is loaded again.
+/// the tick goes grey and cannot be set again until the recording is loaded again. Because of that, unticking asks first.
 /// </summary>
 public sealed partial class LoadedAircraftViewModel : ObservableObject
 {
     private readonly Action<string> _skip;
+    private readonly Func<LoadedAircraftViewModel, Task<bool>> _confirm;
     private bool _skipped;
+    private bool _asking;
 
-    public LoadedAircraftViewModel(RecordedAircraft aircraft, Action<string> skip)
+    public LoadedAircraftViewModel(RecordedAircraft aircraft, Action<string> skip, Func<LoadedAircraftViewModel, Task<bool>> confirm)
     {
         Id = aircraft.Id;
         Callsign = aircraft.Callsign;
         Model = aircraft.Model;
         _skipped = aircraft.Skipped;
         _skip = skip;
+        _confirm = confirm;
     }
 
     public string Id { get; }
     public string Callsign { get; }
     public string Model { get; }
 
+    /// <summary>Done when the question asked by the last unticking has been answered (for tests; nobody else waits for it).</summary>
+    internal Task Answered { get; private set; } = Task.CompletedTask;
+
     /// <summary>
-    /// Ticked while the aircraft plays. Unticking skips it; ticking it again does nothing.
+    /// Ticked while the aircraft plays. Unticking asks whether to leave it out; on yes it is skipped, and ticking it again does nothing.
     /// TODO(newui-review): let an aircraft that was skipped be ticked again, so it joins in playback once more. Postponed: it has to start
     /// again at the right point of the take, which the recorder cannot do yet.
     /// </summary>
     public bool IsChecked
     {
-        get => !_skipped;
+        // while the question is open the box shows what the user did (unticked), so that going back to ticked is a change it takes
+        get => !_skipped && !_asking;
         set
         {
-            if (value || _skipped)
+            if (value || _skipped || _asking)
                 return;
 
-            _skipped = true;
-            _skip(Id);
-            OnPropertyChanged();
+            Answered = LeaveOutAsync();
+        }
+    }
+
+    private async Task LeaveOutAsync()
+    {
+        _asking = true;
+        OnPropertyChanged(nameof(IsChecked));
+        try
+        {
+            if (await _confirm(this))
+            {
+                _skipped = true;
+                _skip(Id);
+            }
+        }
+        finally
+        {
+            _asking = false;
+            OnPropertyChanged(nameof(IsChecked));
             OnPropertyChanged(nameof(CanTick));
+            OnPropertyChanged(nameof(Tip));
         }
     }
 
     /// <summary>False once the aircraft is skipped: the tick is grey.</summary>
     public bool CanTick => !_skipped;
+
+    /// <summary>Says why the tick is grey; null while it can be used.</summary>
+    public string? Tip => _skipped ? Loc.T("Left out of playback. Load the recording again to bring it back.") : null;
 
     /// <summary>Takes the skipped state the recorder reports, which can be so after a refresh, not only after a click.</summary>
     internal void Update(RecordedAircraft aircraft)
@@ -91,6 +119,7 @@ public sealed partial class LoadedAircraftViewModel : ObservableObject
         _skipped = aircraft.Skipped;
         OnPropertyChanged(nameof(IsChecked));
         OnPropertyChanged(nameof(CanTick));
+        OnPropertyChanged(nameof(Tip));
     }
 }
 
@@ -274,7 +303,7 @@ public sealed partial class RecorderViewModel : ObservableObject
             if (_loadedById.TryGetValue(aircraft.Id, out LoadedAircraftViewModel? item))
                 item.Update(aircraft);
             else
-                _loadedById[aircraft.Id] = item = new LoadedAircraftViewModel(aircraft, _source.SkipAircraft);
+                _loadedById[aircraft.Id] = item = new LoadedAircraftViewModel(aircraft, _source.SkipAircraft, ConfirmLeaveOutAsync);
             wanted.Add(item);
         }
 
@@ -548,6 +577,15 @@ public sealed partial class RecorderViewModel : ObservableObject
         Status = "";
         Refresh();
         return true;
+    }
+
+    /// <summary>Unticking an aircraft of the loaded recording cannot be undone until the recording is loaded again, so the user is asked.</summary>
+    private async Task<bool> ConfirmLeaveOutAsync(LoadedAircraftViewModel aircraft)
+    {
+        ConfirmViewModel ask = new(Loc.T("Leave out of playback?"),
+            Loc.F("{0} will not play until the recording is loaded again. It stays in the file.", aircraft.Callsign), Loc.T("Leave Out"), "");
+        _shell.ShowOverlay(ask);
+        return await ask.Result == ConfirmChoice.Yes;
     }
 
     /// <summary>
