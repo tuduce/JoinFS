@@ -85,6 +85,17 @@
         </Grid>
       </Border>
 
+      <!-- What the Simulator and Network buttons have to say besides their state: why an attempt failed, a lost connection, a slow join. -->
+      <Border DockPanel.Dock="Top" Classes="notice" Classes.problem="{Binding NoticeIsProblem}" IsVisible="{Binding HasNotice}" Padding="24,8">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding Notice}" FontSize="12.5" TextWrapping="Wrap" VerticalAlignment="Center" />
+          <Button Grid.Column="1" Classes="ghost" Margin="12,0,0,0" Command="{Binding DismissNoticeCommand}"
+                  ToolTip.Tip="{l:T 'Dismiss'}" AutomationProperties.Name="{l:T 'Dismiss'}">
+            <c:Icon Source="{DynamicResource IconClose}" Width="12" Height="12" />
+          </Button>
+        </Grid>
+      </Border>
+
       <Border Padding="24">
         <ContentControl Content="{Binding CurrentTab}" />
       </Border>

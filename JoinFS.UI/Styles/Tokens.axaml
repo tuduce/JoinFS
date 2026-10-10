@@ -75,9 +75,9 @@
   <SolidColorBrush x:Key="LabelYellowBrush" Color="#F9C718" /> <!-- oklch(0.85 0.17 90) -->
 
   <!-- Connection states -->
-  <SolidColorBrush x:Key="DisconnectedDotBrush" Color="#DE3B3D" /> <!-- oklch(0.6 0.2 25) -->
-  <SolidColorBrush x:Key="DisconnectedBgBrush" Color="#FFE7E4" /> <!-- oklch(0.95 0.03 25) -->
-  <SolidColorBrush x:Key="DisconnectedTextBrush" Color="#831A1D" /> <!-- oklch(0.4 0.14 25) -->
+  <SolidColorBrush x:Key="DisconnectedDotBrush" Color="#8B9095" /> <!-- oklch(0.65 0.01 250) -->
+  <SolidColorBrush x:Key="DisconnectedBgBrush" Color="#E5E8EB" /> <!-- oklch(0.93 0.005 250) -->
+  <SolidColorBrush x:Key="DisconnectedTextBrush" Color="#494E52" /> <!-- oklch(0.42 0.01 250) -->
   <SolidColorBrush x:Key="ConnectingDotBrush" Color="#E99B2A" /> <!-- oklch(0.75 0.15 70) -->
   <SolidColorBrush x:Key="ConnectingBgBrush" Color="#FFE9CB" /> <!-- oklch(0.95 0.05 70) -->
   <SolidColorBrush x:Key="ConnectingTextBrush" Color="#753D00" /> <!-- oklch(0.42 0.12 70) -->

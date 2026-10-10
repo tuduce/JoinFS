@@ -19,7 +19,8 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     // The next Network connect, set by whoever asks for it (Join, hub row, Create mesh).
     private Func<CancellationToken, Task> _networkAction = _ => Task.CompletedTask;
 
-    public MainViewModel(AppServices services)
+    /// <param name="time">The clock for how long an attempt may be slow before the strip says so; the system's unless a test gives its own.</param>
+    public MainViewModel(AppServices services, TimeProvider? time = null)
     {
         _services = services;
 
@@ -28,9 +29,13 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         AddressBook = new AddressBookViewModel(services.AddressBook);
 
         Simulator = new ConnectionViewModel(ConnectionLabels.Simulator, services.Simulator.ConnectAsync, services.Simulator.DisconnectAsync,
-            observed: services.Simulator.ReportsState);
+            observed: services.Simulator.ReportsState, time: time);
         Network = new ConnectionViewModel(ConnectionLabels.Network, ct => _networkAction(ct), services.Network.DisconnectAsync,
-            requestConnect: JoinSelectedAsync, observed: services.Network.ReportsState);
+            requestConnect: JoinSelectedAsync, observed: services.Network.ReportsState,
+            // a session that asks for a password is left and joined again: that end is part of the conversation
+            failureIsExpected: () => services.Network.PasswordRequestedBy is not null || Overlay is PasswordPromptViewModel, time: time);
+        Simulator.PropertyChanged += OnConnectionChanged;
+        Network.PropertyChanged += OnConnectionChanged;
 
         Home = new HomeViewModel(this, services.Session, services.Traffic, services.Platform, services.MapTiles);
         Hubs = new HubsViewModel(services.Hubs, services.Network, this);
@@ -104,6 +109,42 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     public ConnectionViewModel Simulator { get; }
     public ConnectionViewModel Network { get; }
     public ConnectionViewModel FlightPlanLoad { get; }
+
+    /// <summary>
+    /// What the Simulator and Network buttons have to say besides their state (why an attempt failed, that a connection was lost, that a
+    /// join gets no answer), one line each, or null. Shown under the strip, so it is seen whatever tab is open.
+    /// </summary>
+    public string? Notice
+    {
+        get
+        {
+            string?[] lines = [Simulator.Detail, Network.Detail];
+            string text = string.Join(Environment.NewLine, lines.Where(l => l is not null));
+            return text.Length == 0 ? null : text;
+        }
+    }
+
+    public bool HasNotice => Notice is not null;
+
+    /// <summary>True when the notice is about something that went wrong, false when it only says an attempt is slow.</summary>
+    public bool NoticeIsProblem => Simulator.DetailIsProblem || Network.DetailIsProblem;
+
+    private void OnConnectionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ConnectionViewModel.Detail))
+        {
+            OnPropertyChanged(nameof(Notice));
+            OnPropertyChanged(nameof(HasNotice));
+            OnPropertyChanged(nameof(NoticeIsProblem));
+        }
+    }
+
+    [RelayCommand]
+    private void DismissNotice()
+    {
+        Simulator.DismissDetail();
+        Network.DismissDetail();
+    }
 
     public HomeViewModel Home { get; }
     public HubsViewModel Hubs { get; }

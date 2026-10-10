@@ -300,4 +300,48 @@ public class RenderTests
         Assert.Empty(problems.Messages);
         window.Close();
     }
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_failed_connection_shows_its_notice_under_the_strip(bool expanded)
+    {
+        Problems problems = new();
+        Logger.Sink = problems;
+        ScriptedLink sim = new(), net = new();
+        ManualTime time = new();
+        JoinFS.UI.Services.AppServices fakes = JoinFS.UI.Services.Fake.FakeServices.Create(TimeSpan.Zero, new JoinFS.UI.Services.UserSettings { Onboarded = true, Nickname = "HB-TDX" });
+        MainViewModel main = new(fakes with { Simulator = sim, Network = net, Updates = new CurrentBuild() }, time);
+        MainWindow window = new() { DataContext = main };
+        if (expanded)
+        {
+            main.IsExpanded = true;
+            window.Width = 1200;
+            window.Height = 760;
+        }
+        window.Show();
+
+        sim.State = ConnectionState.Connecting;
+        main.Poll();
+        sim.State = ConnectionState.Disconnected;
+        main.Poll();
+        time.Advance(TimeSpan.FromSeconds(2));
+        main.Poll();
+        Settle();
+
+        Border notice = window.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("notice") && b.IsEffectivelyVisible);
+        Assert.Contains("problem", notice.Classes);
+        Snapshot(window, expanded ? "notice-expanded" : "notice-collapsed");
+
+        // a slow join is amber, and its button says what a click does
+        main.DismissNoticeCommand.Execute(null);
+        net.State = ConnectionState.Connecting;
+        main.Poll();
+        time.Advance(TimeSpan.FromSeconds(16));
+        main.Poll();
+        Settle();
+        Snapshot(window, expanded ? "notice-slow-expanded" : "notice-slow-collapsed");
+
+        Assert.Empty(problems.Messages);
+        window.Close();
+    }
 }
