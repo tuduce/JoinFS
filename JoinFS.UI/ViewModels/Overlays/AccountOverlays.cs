@@ -14,6 +14,9 @@ public sealed partial class OnboardingViewModel : OverlayViewModel
     public override string Title => Loc.T("Welcome to JoinFS");
     public override bool IsDismissable => false;
 
+    // It shows over the collapsed window, which is too small for a card with the view peeking out round it.
+    public override bool FillsWindow => true;
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
     private string _nickname = "";

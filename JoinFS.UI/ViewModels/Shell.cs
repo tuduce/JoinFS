@@ -40,6 +40,9 @@ public abstract partial class OverlayViewModel : ObservableObject
     /// <summary>False for the first-run card, which has no ✕ and must be completed.</summary>
     public virtual bool IsDismissable => true;
 
+    /// <summary>True for a card that fills the whole window, with no scrim around it, instead of floating over the view.</summary>
+    public virtual bool FillsWindow => false;
+
     public event EventHandler? CloseRequested;
 
     /// <summary>Called as the overlay closes, whichever way it was closed (✕, Cancel, Escape or its own OK).</summary>

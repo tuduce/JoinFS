@@ -12,10 +12,11 @@ namespace JoinFS.UI.Views;
 
 public partial class MainWindow : Window
 {
-    // Collapsed is the design's 376 wide panel, 14 taller than its 190 for the version line; expanded is min(1200, screen - 48) x min(760, screen - 48).
-    private const double CollapsedWidth = 376, CollapsedHeight = 204;
+    // Collapsed is the design's 376 wide panel, 10 shorter than its 190 (the version shares the row of the link, and the bottom margin is the 16 of the sides); expanded is min(1200, screen - 48) x min(760, screen - 48).
+    private const double CollapsedWidth = 376, CollapsedHeight = 180;
     private const double ExpandedMaxWidth = 1200, ExpandedMaxHeight = 760;
     private const double ScreenMargin = 24;
+    private const double StartMargin = 12; // the gap to the left and bottom edges of the work area at start
     private static readonly TimeSpan ResizeDuration = TimeSpan.FromMilliseconds(380);
 
     private readonly DispatcherTimer _resizeTimer = new() { Interval = TimeSpan.FromMilliseconds(8) };
@@ -66,12 +67,12 @@ public partial class MainWindow : Window
 
     private void OnOpened(object? sender, EventArgs e)
     {
-        // Like the design, start in the bottom-left of the screen.
+        // Start in the bottom-left of the screen, like the design.
         PixelRect area = (Screens.ScreenFromWindow(this) ?? Screens.Primary)?.WorkingArea ?? new PixelRect(0, 0, 1920, 1080);
         double scale = RenderScaling;
         Position = new PixelPoint(
-            area.X + (int)(ScreenMargin * scale),
-            area.Bottom - (int)((Height + ScreenMargin) * scale));
+            area.X + (int)(StartMargin * scale),
+            area.Bottom - (int)((Height + StartMargin) * scale));
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
