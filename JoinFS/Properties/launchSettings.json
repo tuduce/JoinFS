@@ -1,12 +1,15 @@
 {
   "profiles": {
-    "New UI": {
-      "commandName": "Project",
-      "commandLineArgs": "-newui"
+    "JoinFS": {
+      "commandName": "Project"
     },
-    "New UI, no simulator": {
+    "JoinFS, no simulator": {
       "commandName": "Project",
-      "commandLineArgs": "-newui -nosim"
+      "commandLineArgs": "-nosim"
+    },
+    "Old UI": {
+      "commandName": "Project",
+      "commandLineArgs": "-oldui"
     }
   }
 }
