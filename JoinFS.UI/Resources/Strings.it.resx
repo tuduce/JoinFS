@@ -270,10 +270,10 @@
   <data name="Edit…" xml:space="preserve">
     <value>Modifica…</value>
   </data>
-  <data name="Elevation Correction" xml:space="preserve">
+  <data name="Elevation correction" xml:space="preserve">
     <value>Correzione Altezza</value>
   </data>
-  <data name="Enable Hub Mode" xml:space="preserve">
+  <data name="Enable hub mode" xml:space="preserve">
     <value>Attiva modalità hub</value>
   </data>
   <data name="Enter a port from 1 to 65535." xml:space="preserve">
@@ -393,7 +393,7 @@
   <data name="Imported {0} → {1}" xml:space="preserve">
     <value>Importato {0} → {1}</value>
   </data>
-  <data name="include AI" xml:space="preserve">
+  <data name="Include AI" xml:space="preserve">
     <value>includi IA</value>
   </data>
   <data name="Include All Hub Aircraft" xml:space="preserve">
@@ -402,7 +402,7 @@
   <data name="Include All Simulator Aircraft" xml:space="preserve">
     <value>Includi Tutti gli Aerei del Simulatore</value>
   </data>
-  <data name="include global users" xml:space="preserve">
+  <data name="Include global users" xml:space="preserve">
     <value>includi utenti globali</value>
   </data>
   <data name="INFO" xml:space="preserve">
@@ -423,7 +423,7 @@
   <data name="Install X-Plane Plugin" xml:space="preserve">
     <value>Installa il plugin di X-Plane</value>
   </data>
-  <data name="IP Address" xml:space="preserve">
+  <data name="IP address" xml:space="preserve">
     <value>Indirizzo IP</value>
   </data>
   <data name="Join" xml:space="preserve">
@@ -522,7 +522,7 @@
   <data name="New chat message" xml:space="preserve">
     <value>Nuovo messaggio in chat</value>
   </data>
-  <data name="Next Event" xml:space="preserve">
+  <data name="Next event" xml:space="preserve">
     <value>Prossimo evento</value>
   </data>
   <data name="Next Event: " xml:space="preserve">
@@ -714,7 +714,7 @@
   <data name="Scan at launch" xml:space="preserve">
     <value>Scansiona all'avvio</value>
   </data>
-  <data name="Scan For Models" xml:space="preserve">
+  <data name="Scan for models" xml:space="preserve">
     <value>Scansiona modelli</value>
   </data>
   <data name="Scanning for models..." xml:space="preserve">
@@ -756,22 +756,22 @@
   <data name="Show all aircraft" xml:space="preserve">
     <value>Mostra tutti gli aerei</value>
   </data>
-  <data name="Show Altitude" xml:space="preserve">
+  <data name="Show altitude" xml:space="preserve">
     <value>Mostra altitudine</value>
   </data>
-  <data name="Show Callsign" xml:space="preserve">
+  <data name="Show callsign" xml:space="preserve">
     <value>Mostra identificativo</value>
   </data>
-  <data name="Show Distance" xml:space="preserve">
+  <data name="Show distance" xml:space="preserve">
     <value>Mostra distanza</value>
   </data>
-  <data name="Show Nickname" xml:space="preserve">
+  <data name="Show nickname" xml:space="preserve">
     <value>Mostra soprannome</value>
   </data>
   <data name="Show Offline Hubs" xml:space="preserve">
     <value>Mostra hub offline</value>
   </data>
-  <data name="Show Speed" xml:space="preserve">
+  <data name="Show speed" xml:space="preserve">
     <value>Mostra velocità</value>
   </data>
   <data name="SimBrief has no flight plan for this user." xml:space="preserve">
@@ -936,7 +936,7 @@
   <data name="View Logs..." xml:space="preserve">
     <value>Vedi i log...</value>
   </data>
-  <data name="Voice Server" xml:space="preserve">
+  <data name="Voice server" xml:space="preserve">
     <value>Server vocale</value>
   </data>
   <data name="Voice server address" xml:space="preserve">

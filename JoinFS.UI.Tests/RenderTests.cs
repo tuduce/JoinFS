@@ -207,6 +207,23 @@ public class RenderTests
     }
 
     [AvaloniaFact]
+    public void A_settings_card_that_opens_below_the_fold_is_scrolled_into_view()
+    {
+        var (window, main, _) = Open(expanded: true);
+        main.GoTo(TabId.Settings);
+        Settle();
+        ScrollViewer page = window.GetVisualDescendants().OfType<ScrollViewer>().First(s => s.Name == "Page");
+        Assert.True(page.Extent.Height > page.Viewport.Height, "the test needs a page that scrolls");
+        Assert.Equal(0, page.Offset.Y);
+
+        main.Settings.HubMode.ToggleCommand.Execute(null); // the last of the everyday cards' successors: below the first screen
+        Settle();
+
+        Assert.True(page.Offset.Y > 0, "the opened card is out of sight");
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void The_boxes_of_an_object_row_say_which_object_they_are_for()
     {
         var (window, main, _) = Open(expanded: true);

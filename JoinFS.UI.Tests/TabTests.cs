@@ -1562,7 +1562,7 @@ public class SettingsTests
     [Fact]
     public void Hub_mode_offers_the_five_fields()
     {
-        Assert.Equal(["Domain", "Name", "About", "Voice Server", "Next Event"], new Rig().Main.Settings.HubMode.Fields.Select(f => f.Label));
+        Assert.Equal(["Domain", "Name", "About", "Voice server", "Next event"], new Rig().Main.Settings.HubMode.Fields.Select(f => f.Label));
     }
 
     [Fact]

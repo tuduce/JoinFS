@@ -270,11 +270,11 @@
   <data name="Edit…" xml:space="preserve">
     <value>Edit…</value>
   </data>
-  <data name="Elevation Correction" xml:space="preserve">
-    <value>Elevation Correction</value>
+  <data name="Elevation correction" xml:space="preserve">
+    <value>Elevation correction</value>
   </data>
-  <data name="Enable Hub Mode" xml:space="preserve">
-    <value>Enable Hub Mode</value>
+  <data name="Enable hub mode" xml:space="preserve">
+    <value>Enable hub mode</value>
   </data>
   <data name="Enter a port from 1 to 65535." xml:space="preserve">
     <value>Enter a port from 1 to 65535.</value>
@@ -393,8 +393,8 @@
   <data name="Imported {0} → {1}" xml:space="preserve">
     <value>Imported {0} → {1}</value>
   </data>
-  <data name="include AI" xml:space="preserve">
-    <value>include AI</value>
+  <data name="Include AI" xml:space="preserve">
+    <value>Include AI</value>
   </data>
   <data name="Include All Hub Aircraft" xml:space="preserve">
     <value>Include All Hub Aircraft</value>
@@ -402,8 +402,8 @@
   <data name="Include All Simulator Aircraft" xml:space="preserve">
     <value>Include All Simulator Aircraft</value>
   </data>
-  <data name="include global users" xml:space="preserve">
-    <value>include global users</value>
+  <data name="Include global users" xml:space="preserve">
+    <value>Include global users</value>
   </data>
   <data name="INFO" xml:space="preserve">
     <value>INFO</value>
@@ -423,8 +423,8 @@
   <data name="Install X-Plane Plugin" xml:space="preserve">
     <value>Install X-Plane Plugin</value>
   </data>
-  <data name="IP Address" xml:space="preserve">
-    <value>IP Address</value>
+  <data name="IP address" xml:space="preserve">
+    <value>IP address</value>
   </data>
   <data name="Join" xml:space="preserve">
     <value>Join</value>
@@ -522,8 +522,8 @@
   <data name="New chat message" xml:space="preserve">
     <value>New chat message</value>
   </data>
-  <data name="Next Event" xml:space="preserve">
-    <value>Next Event</value>
+  <data name="Next event" xml:space="preserve">
+    <value>Next event</value>
   </data>
   <data name="Next Event: " xml:space="preserve">
     <value>Next Event: </value>
@@ -714,8 +714,8 @@
   <data name="Scan at launch" xml:space="preserve">
     <value>Scan at launch</value>
   </data>
-  <data name="Scan For Models" xml:space="preserve">
-    <value>Scan For Models</value>
+  <data name="Scan for models" xml:space="preserve">
+    <value>Scan for models</value>
   </data>
   <data name="Scanning for models..." xml:space="preserve">
     <value>Scanning for models...</value>
@@ -756,23 +756,23 @@
   <data name="Show all aircraft" xml:space="preserve">
     <value>Show all aircraft</value>
   </data>
-  <data name="Show Altitude" xml:space="preserve">
-    <value>Show Altitude</value>
+  <data name="Show altitude" xml:space="preserve">
+    <value>Show altitude</value>
   </data>
-  <data name="Show Callsign" xml:space="preserve">
-    <value>Show Callsign</value>
+  <data name="Show callsign" xml:space="preserve">
+    <value>Show callsign</value>
   </data>
-  <data name="Show Distance" xml:space="preserve">
-    <value>Show Distance</value>
+  <data name="Show distance" xml:space="preserve">
+    <value>Show distance</value>
   </data>
-  <data name="Show Nickname" xml:space="preserve">
-    <value>Show Nickname</value>
+  <data name="Show nickname" xml:space="preserve">
+    <value>Show nickname</value>
   </data>
   <data name="Show Offline Hubs" xml:space="preserve">
     <value>Show Offline Hubs</value>
   </data>
-  <data name="Show Speed" xml:space="preserve">
-    <value>Show Speed</value>
+  <data name="Show speed" xml:space="preserve">
+    <value>Show speed</value>
   </data>
   <data name="SimBrief has no flight plan for this user." xml:space="preserve">
     <value>SimBrief has no flight plan for this user.</value>
@@ -936,8 +936,8 @@
   <data name="View Logs..." xml:space="preserve">
     <value>View Logs...</value>
   </data>
-  <data name="Voice Server" xml:space="preserve">
-    <value>Voice Server</value>
+  <data name="Voice server" xml:space="preserve">
+    <value>Voice server</value>
   </data>
   <data name="Voice server address" xml:space="preserve">
     <value>Voice server address</value>

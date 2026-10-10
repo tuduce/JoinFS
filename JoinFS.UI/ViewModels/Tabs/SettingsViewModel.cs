@@ -359,8 +359,8 @@ public sealed partial class HubModeSettingsViewModel : PersistedSettingsSectionV
         _domain = new(Loc.T("Domain"), Loc.T("e.g. joinfs.example.com"), FieldChanged);
         _name = new(Loc.T("Name"), Loc.T("Public hub name"), FieldChanged);
         _about = new(Loc.T("About"), Loc.T("Short description"), FieldChanged);
-        _voice = new(Loc.T("Voice Server"), Loc.T("Voice server address"), FieldChanged);
-        _nextEvent = new(Loc.T("Next Event"), Loc.T("Next scheduled event"), FieldChanged);
+        _voice = new(Loc.T("Voice server"), Loc.T("Voice server address"), FieldChanged);
+        _nextEvent = new(Loc.T("Next event"), Loc.T("Next scheduled event"), FieldChanged);
         Fields = [_domain, _name, _about, _voice, _nextEvent];
 
         Preferences p = Prefs;
