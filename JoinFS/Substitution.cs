@@ -2808,7 +2808,7 @@ namespace JoinFS
                     case System.Windows.Forms.DialogResult.OK:
                         {
                             // get simfolder
-                            simFolder = scanForm.GetFolder();
+                            simFolder = CleanSimFolder(scanForm.GetFolder());
 
                             // saved scan folders
                             initialScanFolders = "";
@@ -3695,13 +3695,27 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// X-Plane's own install registry writes folders like "c:\X-Plane 12/". Scan() slices
+        /// scanned paths by the length of simFolder, so a trailing separator would shift every
+        /// sub-folder by one character; keep the folder in its canonical form.
+        /// </summary>
+        static string CleanSimFolder(string folder)
+        {
+#if XPLANE
+            return XPlaneInstallLocator.NormalizeFolder(folder);
+#else
+            return folder;
+#endif
+        }
+
+        /// <summary>
         /// Save a folder the user picked manually in the first-run setup dialog. Unlike
         /// <see cref="EnsureFoldersConfigured"/>, this always overwrites, and does not
         /// require the simulator to be connected.
         /// </summary>
         public void SaveManualFolder(string simulatorName, string folder)
         {
-            simFolder = folder;
+            simFolder = CleanSimFolder(folder);
             initialScanFolders = "";
             initialAddOns = DefaultAddOns();
             initialAdditionals = "";
@@ -3746,7 +3760,7 @@ namespace JoinFS
                     // open file
                     StreamReader reader = new(foldersFile);
                     // read folders
-                    simFolder = reader.ReadLine();
+                    simFolder = CleanSimFolder(reader.ReadLine());
                     initialScanFolders = reader.ReadLine();
                     initialAddOns = reader.ReadLine();
                     initialAdditionals = reader.ReadLine();
@@ -3757,7 +3771,7 @@ namespace JoinFS
                 {
 #if !CONSOLE
                     // read old settings
-                    simFolder = OldSettings.ReadString("SimFolder - " + main.sim.GetSimulatorName(), OldSettings.ReadString("SimFolder"));
+                    simFolder = CleanSimFolder(OldSettings.ReadString("SimFolder - " + main.sim.GetSimulatorName(), OldSettings.ReadString("SimFolder")));
                     initialScanFolders = OldSettings.ReadString("ScanFolders - " + main.sim.GetSimulatorName(), OldSettings.ReadString("ScanFolders"));
                     initialAddOns = OldSettings.ReadString("AddOns - " + main.sim.GetSimulatorName(), "Asobo Standard");
                     initialAdditionals = OldSettings.ReadString("ScanAdditionals - " + main.sim.GetSimulatorName(), OldSettings.ReadString("ScanAdditionals"));

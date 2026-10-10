@@ -202,4 +202,47 @@ public class XPlaneInstallLocatorTests : IDisposable
 
         Assert.Empty(result);
     }
+
+    [Fact]
+    public void FindInstalls_LineWithTrailingForwardSlash_ReturnsCleanPath()
+    {
+        // Laminar's installer writes e.g. "c:\X-Plane 12/" - mixed separators, trailing slash
+        string xp12 = CreateInstall("X-Plane 12");
+        string registryDir = WriteRegistry("x-plane_install_12.txt", xp12 + "/");
+
+        var result = XPlaneInstallLocator.FindInstalls(registryDir, null);
+
+        Assert.Single(result);
+        Assert.Equal(xp12, result[0].Path);
+    }
+
+    [Fact]
+    public void FindInstalls_LineWithForwardSlashesThroughout_UsesBackslashes()
+    {
+        string xp12 = CreateInstall("X-Plane 12");
+        string registryDir = WriteRegistry("x-plane_install_12.txt", xp12.Replace('\\', '/') + "/");
+
+        var result = XPlaneInstallLocator.FindInstalls(registryDir, null);
+
+        Assert.Equal(xp12, result.Single().Path);
+    }
+
+    [Theory]
+    [InlineData(@"C:\X-Plane 12\", @"C:\X-Plane 12")]
+    [InlineData("C:\\X-Plane 12/", @"C:\X-Plane 12")]
+    [InlineData(@"C:\X-Plane 12", @"C:\X-Plane 12")]
+    [InlineData(@"C:\", @"C:\")]
+    public void NormalizeFolder_RemovesTrailingSeparatorButKeepsRoot(string folder, string expected)
+    {
+        Assert.Equal(expected, XPlaneInstallLocator.NormalizeFolder(folder));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void NormalizeFolder_Blank_ReturnsInputUnchanged(string? folder)
+    {
+        Assert.Equal(folder, XPlaneInstallLocator.NormalizeFolder(folder));
+    }
 }

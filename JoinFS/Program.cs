@@ -971,6 +971,9 @@ namespace JoinFS
                 {
                     // initialize sim folder
                     substitution.LoadFolders();
+#if XPLANE
+                    simFolder = XPlaneInstallLocator.NormalizeFolder(simFolder);
+#endif
                     substitution.simFolder = simFolder;
                     substitution.SaveFolders();
                     Settings.Default.XPlaneFolder = simFolder;

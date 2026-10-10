@@ -135,30 +135,44 @@ namespace JoinFS
         {
             foreach (string candidate in candidates)
             {
-                if (IsValidInstall(candidate) && IsNew(installs, candidate))
+                // the registry holds e.g. "c:\X-Plane 12/"; callers slice paths by the folder's
+                // length, so only ever hand out the clean form
+                string folder = NormalizeFolder(candidate);
+                if (IsValidInstall(folder) && IsNew(installs, folder))
                 {
-                    installs.Add(new XPlaneInstall(candidate, version));
+                    installs.Add(new XPlaneInstall(folder, version));
                 }
             }
         }
 
         static bool IsNew(List<XPlaneInstall> installs, string candidate)
         {
-            string normalized = Normalize(candidate);
-            return installs.All(known => Normalize(known.Path) != normalized);
+            string key = candidate.ToUpperInvariant();
+            return installs.All(known => known.Path.ToUpperInvariant() != key);
         }
 
-        static string Normalize(string path)
+        /// <summary>
+        /// Canonical form of a folder: one kind of separator, no trailing separator (a drive
+        /// root keeps its backslash). Blank input is returned unchanged.
+        /// </summary>
+        public static string NormalizeFolder(string folder)
         {
+            if (string.IsNullOrWhiteSpace(folder))
+            {
+                return folder;
+            }
+
             try
             {
-                return Path.GetFullPath(path)
-                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                    .ToUpperInvariant();
+                string full = Path.GetFullPath(folder.Trim());
+                string root = Path.GetPathRoot(full) ?? "";
+                return full.Length > root.Length
+                    ? full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    : full;
             }
             catch
             {
-                return path.ToUpperInvariant();
+                return folder;
             }
         }
 
