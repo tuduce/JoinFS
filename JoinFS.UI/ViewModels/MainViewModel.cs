@@ -215,10 +215,12 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     private bool _updateAnnounced;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
+    [NotifyPropertyChangedFor(nameof(IsOverlayOpen), nameof(OverlayFillsWindow))]
     private OverlayViewModel? _overlay;
 
     public bool IsOverlayOpen => Overlay is not null;
+
+    public bool OverlayFillsWindow => Overlay?.FillsWindow == true;
 
     private PasswordPromptViewModel? _passwordPrompt;
 

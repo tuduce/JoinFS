@@ -7,7 +7,7 @@
         x:DataType="vm:MainViewModel"
         Title="{Binding SessionLabel}"
         Topmost="{Binding Settings.UserInterface.AlwaysOnTop}"
-        Width="376" Height="204"
+        Width="376" Height="180"
         CanResize="False"
         WindowStartupLocation="Manual"
         Background="{DynamicResource SurfaceBrush}"
@@ -17,6 +17,19 @@
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1">
+
+  <Window.Styles>
+    <Style Selector="ContentControl.card">
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="16" />
+    </Style>
+    <Style Selector="ContentControl.card.fill">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="VerticalAlignment" Value="Stretch" />
+      <Setter Property="Margin" Value="0" />
+    </Style>
+  </Window.Styles>
 
   <!-- The window draws its own title bar, so it is the design's panel rather than OS chrome. -->
   <Panel>
@@ -79,7 +92,7 @@
 
     <!-- Overlay: a scrim over the whole window and the card on it. One at a time, chosen by the data templates in App.axaml. -->
     <Border IsVisible="{Binding IsOverlayOpen}" Background="{DynamicResource ScrimBrush}">
-      <ContentControl Content="{Binding Overlay}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16" />
+      <ContentControl Classes="card" Classes.fill="{Binding OverlayFillsWindow}" Content="{Binding Overlay}" />
     </Border>
   </Panel>
 </Window>

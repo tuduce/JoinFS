@@ -3,10 +3,9 @@
              xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
              x:Class="JoinFS.UI.Views.Overlays.OnboardingView"
              x:DataType="ovm:OnboardingViewModel">
-  <!-- First run. Smaller than the other cards on purpose: it shows over the collapsed 376 x 190 window. -->
-  <Border Width="280" Background="{DynamicResource SurfaceBrush}" CornerRadius="10" Padding="12,10"
-          BoxShadow="{DynamicResource ModalShadow}">
-    <StackPanel Spacing="6">
+  <!-- First run. It fills the window (see FillsWindow), the collapsed 376 x 180 one, with the 16px margin of the collapsed view. -->
+  <Border Background="{DynamicResource SurfaceBrush}" Padding="16">
+    <StackPanel Spacing="6" MaxWidth="344" VerticalAlignment="Center">
       <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" />
       <TextBox Classes="compact" Text="{Binding Nickname}" Watermark="{l:T 'Your nickname'}">
         <TextBox.KeyBindings>

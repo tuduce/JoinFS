@@ -111,6 +111,40 @@ public class RenderTests
         window.Close();
     }
 
+    [AvaloniaFact]
+    public void The_collapsed_window_has_the_same_margin_below_its_last_row_as_at_its_sides()
+    {
+        var (window, _, _) = Open(expanded: false);
+
+        CollapsedView view = Find<CollapsedView>(window);
+        Button link = view.GetVisualDescendants().OfType<Button>().Last(b => b.Classes.Contains("link"));
+        Rect bounds = new Rect(link.Bounds.Size).TransformToAABB(link.TransformToVisual(window)!.Value);
+        ConnectorNode node = view.GetVisualDescendants().OfType<ConnectorNode>().First();
+        double left = new Rect(node.Bounds.Size).TransformToAABB(node.TransformToVisual(window)!.Value).Left;
+
+        Assert.Equal(16, window.Bounds.Height - bounds.Bottom, 0.5);
+        Assert.True(left >= 16, $"the Simulator node starts at {left}");
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void The_onboarding_card_covers_the_whole_collapsed_window_and_fits_in_it()
+    {
+        var (window, _, _) = Open(expanded: false, onboarded: false);
+
+        Border card = Find<JoinFS.UI.Views.Overlays.OnboardingView>(window).GetVisualDescendants().OfType<Border>().First();
+        Rect bounds = new Rect(card.Bounds.Size).TransformToAABB(card.TransformToVisual(window)!.Value);
+        Assert.Equal(new Rect(window.Bounds.Size), bounds);
+
+        // with the SimBrief box open too, nothing runs out of the window
+        window.GetVisualDescendants().OfType<Button>().First(b => b.Classes.Contains("link") && b.IsEffectivelyVisible).Command!.Execute(null);
+        Settle();
+        Button last = window.GetVisualDescendants().OfType<Button>().Last(b => b.Classes.Contains("primary") && b.IsEffectivelyVisible);
+        Rect button = new Rect(last.Bounds.Size).TransformToAABB(last.TransformToVisual(window)!.Value);
+        Assert.True(button.Bottom <= window.Bounds.Height - 8, $"the Continue button ends at {button.Bottom} in a window {window.Bounds.Height} high");
+        window.Close();
+    }
+
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]

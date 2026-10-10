@@ -25,19 +25,24 @@
                        Icon="{DynamicResource IconNetworkNode}" Title="{l:T 'Network'}" ButtonTip="{l:T 'Connect to hub'}" />
     </Grid>
 
-    <Button Classes="link" Command="{Binding ToggleExpandCommand}" HorizontalAlignment="Center" FontSize="11.5" AutomationProperties.Name="{l:T 'Open full view'}">
-      <StackPanel Orientation="Horizontal" Spacing="4">
-        <TextBlock Text="{l:T 'Open full view'}" VerticalAlignment="Center" />
-        <c:Icon Source="{DynamicResource IconExpand}" Width="11" Height="11" VerticalAlignment="Center" />
-      </StackPanel>
-    </Button>
+    <!-- The version on the left, the link to the full view in the middle. A notice takes the whole row while there is one
+         (one line; the tooltip has all of it). -->
+    <Grid ColumnDefinitions="*,Auto,*">
+      <TextBlock Text="{Binding Version, StringFormat='v{0}'}" FontSize="11" Foreground="{DynamicResource Muted2Brush}"
+                 IsVisible="{Binding !HasNotice}" HorizontalAlignment="Left" VerticalAlignment="Center" />
 
-    <!-- The notice takes the version's line while there is one (one line; the tooltip has all of it). -->
-    <Border Classes="notice" Classes.problem="{Binding NoticeIsProblem}" IsVisible="{Binding HasNotice}" CornerRadius="6" Padding="8,3" Margin="0,-6,0,0"
-            ToolTip.Tip="{Binding Notice}">
-      <TextBlock Text="{Binding Notice}" FontSize="11.5" MaxLines="1" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
-    </Border>
-    <TextBlock Text="{Binding Version, StringFormat='v{0}'}" FontSize="11" Foreground="{DynamicResource Muted2Brush}"
-               IsVisible="{Binding !HasNotice}" HorizontalAlignment="Center" Margin="0,-6,0,0" />
+      <Button Grid.Column="1" Classes="link" Command="{Binding ToggleExpandCommand}" IsVisible="{Binding !HasNotice}"
+              HorizontalAlignment="Center" FontSize="11.5" AutomationProperties.Name="{l:T 'Open full view'}">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <TextBlock Text="{l:T 'Open full view'}" VerticalAlignment="Center" />
+          <c:Icon Source="{DynamicResource IconExpand}" Width="11" Height="11" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+
+      <Border Grid.ColumnSpan="3" Classes="notice" Classes.problem="{Binding NoticeIsProblem}" IsVisible="{Binding HasNotice}"
+              CornerRadius="6" Padding="8,3" ToolTip.Tip="{Binding Notice}">
+        <TextBlock Text="{Binding Notice}" FontSize="11.5" MaxLines="1" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
+      </Border>
+    </Grid>
   </StackPanel>
 </UserControl>
