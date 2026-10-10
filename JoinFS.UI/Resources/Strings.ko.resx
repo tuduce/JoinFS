@@ -1095,4 +1095,7 @@
   <data name="Watercolor" xml:space="preserve">
     <value>수채화</value>
   </data>
+  <data name="Shows or hides the actions of this row" xml:space="preserve">
+    <value>이 행의 동작을 표시하거나 숨깁니다</value>
+  </data>
 </root>

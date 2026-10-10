@@ -42,6 +42,10 @@ public sealed partial class PeerRowViewModel : ObservableObject
     /// <summary>Released builds only speak the legacy wire, so the badge calls it out.</summary>
     public bool IsLegacy => Peer.IsLegacy;
 
+    /// <summary>What a screen reader says for the row: the cells with their column names, which only the header shows on screen.</summary>
+    public string AutomationName =>
+        $"{Nick}, {Callsign}, {Loc.T("Connected")} {Connected}, {Loc.T("Latency")} {Latency} ms, {Simulator}, {Loc.T("Version")} {Version}, {Loc.T("Protocol")} {Protocol}";
+
     public int Aircraft => Peer.Aircraft;
     public int ObjectsExported => Peer.Objects;
     public int Port => Peer.Port;

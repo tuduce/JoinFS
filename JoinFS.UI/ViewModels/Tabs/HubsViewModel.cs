@@ -34,6 +34,9 @@ public sealed partial class HubRowViewModel : ObservableObject
     public string Voice => Hub.Voice;
     public string NextEvent => Hub.NextEvent;
 
+    /// <summary>What a screen reader says for the row: the cells with their column names, which only the header shows on screen.</summary>
+    public string AutomationName => $"{Name}, {Status}, {Loc.T("Users")} {Users}, {Loc.T("Aircraft")} {Aircraft}, {Loc.T("Version")} {Version}";
+
     // One flag per status, so the view can pick the badge colour with a style class.
     public bool IsOnline => Hub.Status == HubStatus.Online;
     public bool IsGlobal => Hub.Status == HubStatus.Global;

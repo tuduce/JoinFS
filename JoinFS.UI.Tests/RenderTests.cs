@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -178,6 +179,50 @@ public class RenderTests
         Snapshot(window, $"tab-{tab}");
 
         Assert.Empty(problems.Messages);
+        window.Close();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(TabId.Network)]
+    [InlineData(TabId.Session)]
+    [InlineData(TabId.Aircraft)]
+    [InlineData(TabId.Objects)]
+    public void A_row_is_one_button_with_a_name_and_holds_no_other_control(TabId tab)
+    {
+        var (window, main, _) = Open(expanded: true);
+        main.Hubs.Refresh();
+        main.GoTo(tab);
+        Settle();
+
+        List<Button> rows = [.. window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("rowButton") && b.IsEffectivelyVisible)];
+        Assert.NotEmpty(rows);
+        foreach (Button row in rows)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetName(row)), "a row without a name is read as one blob");
+            Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetHelpText(row)));
+            Assert.Empty(row.GetVisualDescendants().OfType<Button>());
+            Assert.Empty(row.GetVisualDescendants().OfType<CheckBox>());
+        }
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void The_boxes_of_an_object_row_say_which_object_they_are_for()
+    {
+        var (window, main, _) = Open(expanded: true);
+        main.GoTo(TabId.Objects);
+        Settle();
+
+        List<CheckBox> boxes = [.. window.GetVisualDescendants().OfType<CheckBox>()
+            .Where(b => b.IsEffectivelyVisible && b.DataContext is JoinFS.UI.ViewModels.Tabs.ObjectRowViewModel)];
+        Assert.Equal(main.Objects.Rows.Count * 3, boxes.Count);
+        foreach (CheckBox box in boxes)
+        {
+            var row = (JoinFS.UI.ViewModels.Tabs.ObjectRowViewModel)box.DataContext!;
+            string name = AutomationProperties.GetName(box);
+            Assert.Contains(row.Model, name);
+            Assert.Contains(row.Owner, name);
+        }
         window.Close();
     }
 

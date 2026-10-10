@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              xmlns:vm="using:JoinFS.UI.ViewModels"
              x:Class="JoinFS.UI.Views.Tabs.AircraftView"
@@ -14,7 +15,7 @@
 
     <Border Grid.Row="1" Classes="card">
       <Grid RowDefinitions="Auto,*">
-        <Border Classes="tableHeader">
+        <Border Classes="tableHeader" Padding="26,8,10,8">
           <Grid ColumnDefinitions="110,110,90,80,80,60,*">
             <Button Grid.Column="0" Classes="th" Command="{Binding CallsignColumn.SortCommand}" Content="{Binding CallsignColumn.Header}" />
             <Button Grid.Column="1" Classes="th" Command="{Binding OwnerColumn.SortCommand}" Content="{Binding OwnerColumn.Header}" />
@@ -33,15 +34,17 @@
                 <Border Classes="row">
                   <StackPanel>
                     <Button Classes="rowButton" Classes.selected="{Binding IsExpanded}" Classes.tracked="{Binding IsTracked}" Classes.ignored="{Binding IsIgnored}"
-                            Command="{Binding ToggleExpandedCommand}">
-                      <Grid ColumnDefinitions="110,110,90,80,80,60,*" Margin="10,8">
-                        <TextBlock Grid.Column="0" Text="{Binding Callsign}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="1" Text="{Binding Owner}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="2" Text="{Binding Distance}" Classes.far="{Binding IsFar}" Classes.failed="{Binding IsFailed}" />
-                        <TextBlock Grid.Column="3" Text="{Binding Heading}" />
-                        <TextBlock Grid.Column="4" Text="{Binding Altitude}" />
-                        <TextBlock Grid.Column="5" Text="{Binding GroundSpeed}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="6" Text="{Binding Model}" TextTrimming="CharacterEllipsis" />
+                            Command="{Binding ToggleExpandedCommand}" AutomationProperties.Name="{Binding AutomationName}"
+                            AutomationProperties.HelpText="{l:T 'Shows or hides the actions of this row'}">
+                      <Grid ColumnDefinitions="16,110,110,90,80,80,60,*" Margin="10,8">
+                        <c:Icon Classes="chevron" Classes.open="{Binding IsExpanded}" Source="{DynamicResource IconChevron}" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding Callsign}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="2" Text="{Binding Owner}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="3" Text="{Binding Distance}" Classes.far="{Binding IsFar}" Classes.failed="{Binding IsFailed}" />
+                        <TextBlock Grid.Column="4" Text="{Binding Heading}" />
+                        <TextBlock Grid.Column="5" Text="{Binding Altitude}" />
+                        <TextBlock Grid.Column="6" Text="{Binding GroundSpeed}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="7" Text="{Binding Model}" TextTrimming="CharacterEllipsis" />
                       </Grid>
                     </Button>
 

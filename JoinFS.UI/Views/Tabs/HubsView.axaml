@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              x:Class="JoinFS.UI.Views.Tabs.HubsView"
              x:DataType="tvm:HubsViewModel">
@@ -15,7 +16,7 @@
 
       <Border Classes="card">
         <StackPanel>
-          <Border Classes="tableHeader">
+          <Border Classes="tableHeader" Padding="36,8,10,8">
             <Grid ColumnDefinitions="*,90,60,70,90" ColumnSpacing="10">
               <Button Grid.Column="0" Classes="th" Command="{Binding NameColumn.SortCommand}" Content="{Binding NameColumn.Header}" />
               <Button Grid.Column="1" Classes="th" Command="{Binding StatusColumn.SortCommand}" Content="{Binding StatusColumn.Header}" />
@@ -30,15 +31,18 @@
               <DataTemplate x:DataType="tvm:HubRowViewModel">
                 <Border Classes="row">
                   <StackPanel>
-                    <Button Classes="rowButton" Classes.ignored="{Binding IsIgnored}" Command="{Binding ToggleExpandedCommand}">
-                      <Grid ColumnDefinitions="*,90,60,70,90" ColumnSpacing="10" Margin="10,7">
-                        <TextBlock Grid.Column="0" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="1" Classes="status" Text="{Binding Status}"
+                    <Button Classes="rowButton" Classes.ignored="{Binding IsIgnored}" Command="{Binding ToggleExpandedCommand}"
+                            AutomationProperties.Name="{Binding AutomationName}"
+                            AutomationProperties.HelpText="{l:T 'Shows or hides the actions of this row'}">
+                      <Grid ColumnDefinitions="16,*,90,60,70,90" ColumnSpacing="10" Margin="10,7">
+                        <c:Icon Classes="chevron" Classes.open="{Binding IsExpanded}" Source="{DynamicResource IconChevron}" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="2" Classes="status" Text="{Binding Status}"
                                    Classes.online="{Binding IsOnline}" Classes.global="{Binding IsGlobal}"
                                    Classes.password="{Binding IsPassword}" Classes.offline="{Binding IsOffline}" />
-                        <TextBlock Grid.Column="2" Text="{Binding Users}" />
-                        <TextBlock Grid.Column="3" Text="{Binding Aircraft}" />
-                        <TextBlock Grid.Column="4" Text="{Binding Version}" Foreground="{DynamicResource Muted2Brush}" />
+                        <TextBlock Grid.Column="3" Text="{Binding Users}" />
+                        <TextBlock Grid.Column="4" Text="{Binding Aircraft}" />
+                        <TextBlock Grid.Column="5" Text="{Binding Version}" Foreground="{DynamicResource Muted2Brush}" />
                       </Grid>
                     </Button>
 

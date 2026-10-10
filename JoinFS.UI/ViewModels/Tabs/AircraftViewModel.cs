@@ -90,6 +90,10 @@ public sealed partial class AircraftRowViewModel : ObservableObject
     /// <summary>The aircraft the view follows by heading or bearing: highlighted.</summary>
     public bool IsTracked => Info.Tracked;
 
+    /// <summary>What a screen reader says for the row: the cells with their column names, which only the header shows on screen.</summary>
+    public string AutomationName =>
+        $"{Callsign}, {Loc.T("Owner")} {Owner}, {Loc.T("Distance")} {Distance}, {Loc.T("Heading")} {Heading}, {Loc.T("Altitude")} {Altitude}, {GroundSpeed}, {Model}";
+
     [ObservableProperty]
     private bool _isExpanded;
 
