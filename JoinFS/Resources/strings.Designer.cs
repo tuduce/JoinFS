@@ -493,6 +493,15 @@ namespace JoinFS.Resources {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Generate liveries (one model per livery).
+        /// </summary>
+        internal static string GenerateLiveries {
+            get {
+                return ResourceManager.GetString("GenerateLiveries", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to This is not an X-Plane folder. Select the folder that contains "Aircraft" and "Resources"..
         /// </summary>
         internal static string InvalidXPlaneFolder {

@@ -1426,28 +1426,75 @@ namespace JoinFS
         /// <returns></returns>
         string ValidateCslName(string name)
         {
-            // initialize result
-            string result = "";
+            return XPlaneLiveryPlanner.SanitizeName(name);
+        }
 
-            // for each character
-            foreach (var c in name)
+        /// <summary>
+        /// Add one livery of an aircraft to the CSL package its default model already created.
+        /// Reads the aircraft folder only; the livery's textures are copied next to the shared base
+        /// objects inside JoinFS's own CSL package and referenced with OBJ8 texture parameters.
+        /// </summary>
+        /// <param name="usedIds">Ids already taken in this package, so equal-looking livery names stay unique</param>
+        public void GenerateLiveryCsl(string simFolder, string subFolder, string acfFile, string type, string liveryName, string airline, ISet<string> usedIds)
+        {
+            string validType = ValidateCslName(type);
+            string packageFolder = Path.Combine(simFolder, "Resources", "plugins", "JoinFS", "Resources", "CSL", validType);
+            string xsbFile = Path.Combine(packageFolder, "xsb_aircraft.txt");
+
+            // the default model writes the package, and deletes it when the aircraft has no usable objects
+            if (File.Exists(xsbFile) == false)
             {
-                // check for space
-                if (c == ' ')
-                {
-                    // replace with underscore
-                    result += '_';
-                }
-                // check for valid character
-                else if (c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_')
-                {
-                    // add valid character
-                    result += c;
-                }
+                return;
             }
 
-            // return valid name
-            return result;
+            try
+            {
+                const string baseFolder = "default";
+                string baseRoot = Path.Combine(packageFolder, baseFolder);
+                string id = XPlaneLiveryPlanner.UniqueId(liveryName, usedIds);
+                LiveryPlan plan = XPlaneLiveryPlanner.Plan(Path.Combine(simFolder, subFolder), liveryName, id);
+
+                // only objects the default model copied can be referenced
+                List<LiveryObject> available = plan.Objects
+                    .Where(obj => File.Exists(Path.Combine(baseRoot, obj.RelativePath.Replace('/', Path.DirectorySeparatorChar))))
+                    .ToList();
+                if (available.Count == 0)
+                {
+                    return;
+                }
+
+                foreach (LiveryObject obj in available)
+                {
+                    string objectFolder = Path.GetDirectoryName(obj.RelativePath.Replace('/', Path.DirectorySeparatorChar)) ?? "";
+                    CopyLiveryTexture(obj.TextureSource, Path.Combine(baseRoot, objectFolder, obj.Texture ?? ""));
+                    CopyLiveryTexture(obj.LitSource, Path.Combine(baseRoot, objectFolder, obj.Lit ?? ""));
+                }
+
+                LiveryPlan written = new(plan.FolderName, plan.Id, available);
+                File.AppendAllLines(xsbFile, XPlaneLiveryPlanner.BuildBlock(validType, baseFolder, XPlaneLiveryPlanner.ReadIcaoType(acfFile), airline, written));
+            }
+            catch (Exception ex)
+            {
+                main.MonitorEvent("ERROR: Failed to add livery '" + liveryName + "' of '" + type + "'. " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Copy a livery texture into the package unless the user asked to skip what exists
+        /// </summary>
+        void CopyLiveryTexture(string source, string destination)
+        {
+            if (source == null)
+            {
+                return;
+            }
+            if (main.settingsSkipCsl && File.Exists(destination))
+            {
+                return;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(destination));
+            File.Copy(source, destination, true);
         }
 
         // This record is used to store object data from the ACF file

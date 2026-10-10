@@ -96,6 +96,10 @@ namespace JoinFS
             // validate generate
             DataGrid_Folders.Visible = Check_Generate.CheckState == CheckState.Checked;
             Check_Skip.Enabled = Check_Generate.CheckState == CheckState.Checked;
+            if (Check_Liveries != null)
+            {
+                Check_Liveries.Enabled = Check_Generate.CheckState == CheckState.Checked;
+            }
         }
 
         public ScanForm_XPLANE(Main main, string simFolder, string initialScanFolders)
@@ -135,7 +139,8 @@ namespace JoinFS
                 }
             }
 
-            // offer the other detected installations (XP11/XP12/Steam), if there are any
+            // the liveries option, then the other detected installations (XP11/XP12/Steam), if any
+            AddLiveriesCheckbox();
             AddInstallPicker(XPlaneInstallLocator.FindInstalls());
 
             // set initial folder
@@ -182,25 +187,8 @@ namespace JoinFS
                 Top = Text_Folder.Bottom + gap,
                 Anchor = Text_Folder.Anchor,
             };
-            int shift = picker.Height + gap;
-
-            // make room: push down everything below the folder box
             SuspendLayout();
-            foreach (Control control in Controls)
-            {
-                bool anchoredTop = (control.Anchor & AnchorStyles.Top) != 0;
-                bool anchoredBottom = (control.Anchor & AnchorStyles.Bottom) != 0;
-                if (control.Top >= picker.Top && anchoredTop)
-                {
-                    control.Top += shift;
-                    if (anchoredBottom)
-                    {
-                        // stretches with the form, so the resize below gives the height back
-                        control.Height -= shift;
-                    }
-                }
-            }
-            ClientSize = new Size(ClientSize.Width, ClientSize.Height + shift);
+            MakeRoom(picker.Top, picker.Height + gap);
 
             foreach (XPlaneInstall install in installs)
             {
@@ -224,6 +212,55 @@ namespace JoinFS
                     picker.SelectedIndex = index;
                 }
             }
+        }
+
+        /// <summary>
+        /// Push every control at or below <paramref name="top"/> down by <paramref name="shift"/> and
+        /// grow the form by the same amount, to fit a control added in code
+        /// </summary>
+        void MakeRoom(int top, int shift)
+        {
+            foreach (Control control in Controls)
+            {
+                bool anchoredTop = (control.Anchor & AnchorStyles.Top) != 0;
+                bool anchoredBottom = (control.Anchor & AnchorStyles.Bottom) != 0;
+                if (control.Top >= top && anchoredTop)
+                {
+                    control.Top += shift;
+                    if (anchoredBottom)
+                    {
+                        // stretches with the form, so the resize below gives the height back
+                        control.Height -= shift;
+                    }
+                }
+            }
+            ClientSize = new Size(ClientSize.Width, ClientSize.Height + shift);
+        }
+
+        /// <summary>
+        /// The "generate liveries" option, below "skip CSL objects already done". Built in code
+        /// so the localized designer layouts need no change.
+        /// </summary>
+        CheckBox Check_Liveries;
+
+        void AddLiveriesCheckbox()
+        {
+            const int gap = 6;
+            Check_Liveries = new CheckBox
+            {
+                AutoSize = true,
+                Text = Resources.Strings.GenerateLiveries,
+                Checked = Settings.Default.GenerateLiveries,
+                Left = Check_Skip.Left,
+                Top = Check_Skip.Bottom + gap,
+                Anchor = Check_Skip.Anchor,
+                Enabled = Check_Generate.CheckState == CheckState.Checked,
+            };
+
+            SuspendLayout();
+            MakeRoom(Check_Liveries.Top, Check_Liveries.Height + gap);
+            Controls.Add(Check_Liveries);
+            ResumeLayout();
         }
 
         private void Button_Browse_Click(object sender, EventArgs e)
@@ -301,6 +338,8 @@ namespace JoinFS
             Settings.Default.GenerateCsl = main.settingsGenerateCsl;
             main.settingsSkipCsl = Check_Skip.CheckState == CheckState.Checked;
             Settings.Default.SkipCsl = main.settingsSkipCsl;
+            main.settingsGenerateLiveries = Check_Liveries.Checked;
+            Settings.Default.GenerateLiveries = main.settingsGenerateLiveries;
             Settings.Default.Save();
         }
 

@@ -150,6 +150,8 @@ namespace JoinFS
 #if XPLANE || CONSOLE
         public bool settingsGenerateCsl = false;
         public bool settingsSkipCsl = false;
+        /// <summary>Also generate one CSL model per livery of each aircraft (X-Plane)</summary>
+        public bool settingsGenerateLiveries = false;
 #endif
 
         public string settingsLocalAddress = "";
@@ -282,6 +284,7 @@ namespace JoinFS
 #if XPLANE || CONSOLE
                 settingsGenerateCsl = Settings.Default.GenerateCsl;
                 settingsSkipCsl = Settings.Default.SkipCsl;
+                settingsGenerateLiveries = Settings.Default.GenerateLiveries;
 #endif
 
 #if SERVER
@@ -670,6 +673,10 @@ namespace JoinFS
 
                             case "-skipcsldone":
                                 settingsSkipCsl = true;
+                                break;
+
+                            case "-generateliveries":
+                                settingsGenerateLiveries = true;
                                 break;
 #endif
 

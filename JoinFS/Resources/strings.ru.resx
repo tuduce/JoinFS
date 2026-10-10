@@ -807,4 +807,7 @@
   <data name="RestartXPlaneHint" xml:space="preserve">
     <value>Перезапустите X-Plane, чтобы он загрузил плагин и новые модели.</value>
   </data>
+  <data name="GenerateLiveries" xml:space="preserve">
+    <value>Создавать ливреи (одна модель на ливрею)</value>
+  </data>
 </root>

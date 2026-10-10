@@ -2281,22 +2281,16 @@ namespace JoinFS
                                 // generate CSL for default
                                 main.sim ?. xplane.GenerateCsl(simFolder, subFolder, path, names[names.Length - 2], "default", true);
 
-                                //// create livery list
-                                //List<string> liveryList = new List<string>();
-                                //// get livery folder
-                                //string liveryFolder = Path.Combine(Path.GetDirectoryName(path), "liveries");
-                                //// check for folder
-                                //if (Directory.Exists(liveryFolder))
-                                //{
-                                //    // search for all liveries in SimObjects
-                                //    liveryList.AddRange(Directory.GetDirectories(liveryFolder));
-                                //    // for each livery
-                                //    foreach (var liveryPath in liveryList)
-                                //    {
-                                //        // generate CSL for livery
-                                //        main.sim ?. xplane.GenerateCsl(simFolder, subFolder, path, names[names.Length - 2], Path.GetFileNameWithoutExtension(liveryPath), false);
-                                //    }
-                                //}
+                                // one model per livery, with the airline when the folder name tells it
+                                if (main.settingsGenerateLiveries)
+                                {
+                                    HashSet<string> usedIds = new(StringComparer.OrdinalIgnoreCase) { "default" };
+                                    foreach (string livery in XPlaneLiveryPlanner.EnumerateLiveries(Path.Combine(simFolder, subFolder)))
+                                    {
+                                        string airline = XPlaneLiveryPlanner.ResolveAirline(livery, Matching.MatchingData.Airlines);
+                                        main.sim ?. xplane.GenerateLiveryCsl(simFolder, subFolder, path, names[names.Length - 2], livery, airline, usedIds);
+                                    }
+                                }
                             }
                         }
                     }

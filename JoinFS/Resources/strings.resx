@@ -810,4 +810,7 @@
   <data name="RestartXPlaneHint" xml:space="preserve">
     <value>Restart X-Plane so it loads the plugin and the new models.</value>
   </data>
+  <data name="GenerateLiveries" xml:space="preserve">
+    <value>Generate liveries (one model per livery)</value>
+  </data>
 </root>

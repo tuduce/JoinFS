@@ -807,4 +807,7 @@
   <data name="RestartXPlaneHint" xml:space="preserve">
     <value>Riavvia X-Plane per caricare il plugin e i nuovi modelli.</value>
   </data>
+  <data name="GenerateLiveries" xml:space="preserve">
+    <value>Genera le livree (un modello per livrea)</value>
+  </data>
 </root>

@@ -807,4 +807,7 @@
   <data name="RestartXPlaneHint" xml:space="preserve">
     <value>Reinicie o X-Plane para que ele carregue o plugin e os novos modelos.</value>
   </data>
+  <data name="GenerateLiveries" xml:space="preserve">
+    <value>Gerar pinturas (um modelo por pintura)</value>
+  </data>
 </root>
