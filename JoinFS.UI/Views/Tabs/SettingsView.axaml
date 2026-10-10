@@ -5,14 +5,14 @@
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              x:Class="JoinFS.UI.Views.Tabs.SettingsView"
              x:DataType="tvm:SettingsViewModel">
-  <ScrollViewer>
+  <ScrollViewer x:Name="Page">
     <StackPanel Spacing="20">
       <TextBlock Text="{l:T 'Settings'}" Classes="h2" />
 
       <StackPanel Spacing="10">
 
         <!-- Profile -->
-        <Border Classes="card">
+        <Border Classes="card" Tag="{Binding Profile}">
           <StackPanel>
             <Button Classes="accordion" Command="{Binding Profile.ToggleCommand}">
               <Grid ColumnDefinitions="*,Auto">
@@ -40,7 +40,7 @@
         </Border>
 
         <!-- Simulator -->
-        <Border Classes="card">
+        <Border Classes="card" Tag="{Binding Simulator}">
           <StackPanel>
             <Button Classes="accordion" Command="{Binding Simulator.ToggleCommand}">
               <Grid ColumnDefinitions="*,Auto">
@@ -54,7 +54,7 @@
                 <StackPanel x:DataType="tvm:SimulatorSettingsViewModel" Spacing="14">
                   <StackPanel Orientation="Horizontal" Spacing="14">
                     <CheckBox IsChecked="{Binding ConnectOnLaunch}" Content="{l:T 'Connect simulator on launch'}" />
-                    <CheckBox IsChecked="{Binding ElevationCorrection}" Content="{l:T 'Elevation Correction'}" />
+                    <CheckBox IsChecked="{Binding ElevationCorrection}" Content="{l:T 'Elevation correction'}" />
                   </StackPanel>
 
                   <StackPanel Spacing="6">
@@ -76,11 +76,11 @@
                       <TextBlock Text="{l:T 'Controls the floating label JoinFS draws above other aircraft in X-Plane.'}" FontSize="12"
                                  Foreground="{DynamicResource Muted2Brush}" TextWrapping="Wrap" />
                       <UniformGrid Columns="2">
-                        <CheckBox IsChecked="{Binding ShowNickname}" Content="{l:T 'Show Nickname'}" Margin="0,0,0,10" />
-                        <CheckBox IsChecked="{Binding ShowCallsign}" Content="{l:T 'Show Callsign'}" Margin="0,0,0,10" />
-                        <CheckBox IsChecked="{Binding ShowDistance}" Content="{l:T 'Show Distance'}" Margin="0,0,0,10" />
-                        <CheckBox IsChecked="{Binding ShowAltitude}" Content="{l:T 'Show Altitude'}" Margin="0,0,0,10" />
-                        <CheckBox IsChecked="{Binding ShowSpeed}" Content="{l:T 'Show Speed'}" />
+                        <CheckBox IsChecked="{Binding ShowNickname}" Content="{l:T 'Show nickname'}" Margin="0,0,0,10" />
+                        <CheckBox IsChecked="{Binding ShowCallsign}" Content="{l:T 'Show callsign'}" Margin="0,0,0,10" />
+                        <CheckBox IsChecked="{Binding ShowDistance}" Content="{l:T 'Show distance'}" Margin="0,0,0,10" />
+                        <CheckBox IsChecked="{Binding ShowAltitude}" Content="{l:T 'Show altitude'}" Margin="0,0,0,10" />
+                        <CheckBox IsChecked="{Binding ShowSpeed}" Content="{l:T 'Show speed'}" />
                       </UniformGrid>
                       <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
                         <TextBlock Text="{l:T 'Label text colour'}" Classes="label" VerticalAlignment="Center" />
@@ -115,7 +115,7 @@
         </Border>
 
         <!-- Network -->
-        <Border Classes="card">
+        <Border Classes="card" Tag="{Binding Network}">
           <StackPanel>
             <Button Classes="accordion" Command="{Binding Network.ToggleCommand}">
               <Grid ColumnDefinitions="*,Auto">
@@ -139,8 +139,8 @@
                   <CheckBox IsChecked="{Binding LowBandwidth}" Content="{l:T 'Low bandwidth'}" />
                   <StackPanel Orientation="Horizontal" Spacing="16">
                     <CheckBox IsChecked="{Binding GenerateWhazzup}" Content="{l:T 'Generate WhazzUp'}" />
-                    <CheckBox Classes="small" IsChecked="{Binding WhazzupIncludeGlobalUsers}" IsEnabled="{Binding WhazzupOptionsEnabled}" Content="{l:T 'include global users'}" />
-                    <CheckBox Classes="small" IsChecked="{Binding WhazzupIncludeAi}" IsEnabled="{Binding WhazzupOptionsEnabled}" Content="{l:T 'include AI'}" />
+                    <CheckBox Classes="small" IsChecked="{Binding WhazzupIncludeGlobalUsers}" IsEnabled="{Binding WhazzupOptionsEnabled}" Content="{l:T 'Include global users'}" />
+                    <CheckBox Classes="small" IsChecked="{Binding WhazzupIncludeAi}" IsEnabled="{Binding WhazzupOptionsEnabled}" Content="{l:T 'Include AI'}" />
                   </StackPanel>
                   <StackPanel Spacing="6">
                     <TextBlock Text="{l:T 'Password'}" Classes="label" />
@@ -153,7 +153,7 @@
         </Border>
 
         <!-- User Interface -->
-        <Border Classes="card">
+        <Border Classes="card" Tag="{Binding UserInterface}">
           <StackPanel>
             <Button Classes="accordion" Command="{Binding UserInterface.ToggleCommand}">
               <Grid ColumnDefinitions="*,Auto">
@@ -185,7 +185,7 @@
         </Border>
 
         <!-- Models -->
-        <Border Classes="card">
+        <Border Classes="card" Tag="{Binding Models}">
           <StackPanel>
             <Button Classes="accordion" Command="{Binding Models.ToggleCommand}">
               <Grid ColumnDefinitions="*,Auto">
@@ -198,7 +198,7 @@
               <Panel DataContext="{Binding Models}">
                 <StackPanel x:DataType="tvm:ModelsSettingsViewModel" Spacing="14">
                   <StackPanel Spacing="6">
-                    <TextBlock Text="{l:T 'Scan For Models'}" FontSize="13.5" FontWeight="SemiBold" />
+                    <TextBlock Text="{l:T 'Scan for models'}" FontSize="13.5" FontWeight="SemiBold" />
                     <TextBlock Text="{l:T 'Builds the list of aircraft models JoinFS can substitute during a flight.'}" Classes="label" TextWrapping="Wrap" Margin="0,0,0,6" />
                     <CheckBox IsChecked="{Binding Profile.ModelScanOnConnect}" Content="{l:T 'Model scan on connect'}" Margin="0,0,0,6" />
                     <CheckBox IsChecked="{Binding Profile.BroadcastTacpack}" Content="{l:T 'Auto broadcast VRS TacPack'}" Margin="0,0,0,6" />
@@ -219,7 +219,7 @@
         </Border>
 
         <!-- Keyboard Shortcuts -->
-        <Border Classes="card">
+        <Border Classes="card" Tag="{Binding Shortcuts}">
           <StackPanel>
             <Button Classes="accordion" Command="{Binding Shortcuts.ToggleCommand}">
               <Grid ColumnDefinitions="*,Auto">
@@ -253,7 +253,7 @@
         </Border>
 
         <!-- Variables -->
-        <Border Classes="card">
+        <Border Classes="card" Tag="{Binding Variables}">
           <StackPanel>
             <Button Classes="accordion" Command="{Binding Variables.ToggleCommand}">
               <Grid ColumnDefinitions="*,Auto">
@@ -288,7 +288,7 @@
         </Border>
 
         <!-- Address Book -->
-        <Border Classes="card">
+        <Border Classes="card" Tag="{Binding AddressBook}">
           <StackPanel>
             <Button Classes="accordion" Command="{Binding AddressBook.ToggleCommand}">
               <Grid ColumnDefinitions="*,Auto">
@@ -341,7 +341,7 @@
         <TextBlock Classes="caps" Text="{l:T 'ADVANCED'}" Margin="2,10,0,0" />
 
         <!-- Hub Mode -->
-        <Border Classes="card">
+        <Border Classes="card" Tag="{Binding HubMode}">
           <StackPanel>
             <Button Classes="accordion" Command="{Binding HubMode.ToggleCommand}">
               <Grid ColumnDefinitions="*,Auto">
@@ -354,7 +354,7 @@
               <Panel DataContext="{Binding HubMode}">
                 <StackPanel x:DataType="tvm:HubModeSettingsViewModel" Spacing="12">
                   <TextBlock Text="{l:T 'Run your own hub for others to join.'}" Classes="label" TextWrapping="Wrap" />
-                  <CheckBox IsChecked="{Binding Enabled}" Content="{l:T 'Enable Hub Mode'}" />
+                  <CheckBox IsChecked="{Binding Enabled}" Content="{l:T 'Enable hub mode'}" />
                   <TextBlock Text="{Binding NameError}" IsVisible="{Binding NameError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                              Classes="label" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
                   <ItemsControl ItemsSource="{Binding Fields}">
@@ -379,7 +379,7 @@
         </Border>
 
         <!-- X-Plane: only in the XPLANE build -->
-        <Border Classes="card" IsVisible="{Binding IsXPlaneBuild}">
+        <Border Classes="card" Tag="{Binding XPlane}" IsVisible="{Binding IsXPlaneBuild}">
           <StackPanel>
             <Button Classes="accordion" Command="{Binding XPlane.ToggleCommand}">
               <Grid ColumnDefinitions="*,Auto">
@@ -397,7 +397,7 @@
                   </Grid>
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                     <StackPanel Grid.Column="0" Spacing="6">
-                      <TextBlock Text="{l:T 'IP Address'}" Classes="label" />
+                      <TextBlock Text="{l:T 'IP address'}" Classes="label" />
                       <TextBox Classes="mono" Text="{Binding IpAddress}" />
                     </StackPanel>
                     <CheckBox Grid.Column="1" IsChecked="{Binding Tcas}" Content="{l:T 'TCAS'}" VerticalAlignment="Bottom" Margin="0,0,0,4" />

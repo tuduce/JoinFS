@@ -36,7 +36,7 @@ public sealed partial class ScanXPlaneModelsViewModel : OverlayViewModel
         RefreshFolders();
     }
 
-    public override string Title => Loc.T("Scan For Models");
+    public override string Title => Loc.T("Scan for models");
 
     [ObservableProperty]
     private string _xplaneFolder;

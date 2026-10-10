@@ -46,7 +46,7 @@ public sealed partial class ScanModelsViewModel : OverlayViewModel
         RefreshSubfolders();
     }
 
-    public override string Title => Loc.T("Scan For Models");
+    public override string Title => Loc.T("Scan for models");
 
     public string SimulatorName => _source.SimulatorName;
     public bool SimulatorConnected { get; }
