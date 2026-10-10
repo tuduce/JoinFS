@@ -292,6 +292,40 @@
           </StackPanel>
         </Border>
 
+        <!-- Keyboard Shortcuts -->
+        <Border Classes="card">
+          <StackPanel>
+            <Button Classes="accordion" Command="{Binding Shortcuts.ToggleCommand}">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Shortcuts.Title}" FontSize="14" FontWeight="SemiBold" />
+                <c:Icon Grid.Column="1" Classes="chevron" Classes.open="{Binding Shortcuts.IsOpen}" Source="{DynamicResource IconChevron}" />
+              </Grid>
+            </Button>
+            <Border IsVisible="{Binding Shortcuts.IsOpen}"
+                    BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="18,0,18,18">
+              <Panel DataContext="{Binding Shortcuts}">
+                <StackPanel x:DataType="vm:ShortcutsSettingsViewModel">
+                  <TextBlock Text="{l:T 'Work while the simulator has the keys. The shortcuts for a user or an aircraft act on the row that is open in the Session or Aircraft tab.'}"
+                             Classes="label" TextWrapping="Wrap" Margin="0,14,0,10" />
+                  <ItemsControl ItemsSource="{Binding Rows}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:ShortcutRowViewModel">
+                        <Border BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="0,7">
+                          <Grid ColumnDefinitions="*,140,Auto">
+                            <CheckBox Grid.Column="0" IsChecked="{Binding Enabled}" Content="{Binding Label}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Keys}" Classes="mono" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                            <Button Grid.Column="2" Classes="link strong" Margin="14,0,0,0" VerticalAlignment="Center" Command="{Binding ChangeCommand}" Content="{l:T 'Change…'}" />
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Panel>
+            </Border>
+          </StackPanel>
+        </Border>
+
         <!-- Variables -->
         <Border Classes="card">
           <StackPanel>

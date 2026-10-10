@@ -265,30 +265,6 @@ namespace JoinFS
 
 #region Shortcuts
 
-        // Get Key state
-        [DllImport("User32.dll")]
-        private static extern short GetAsyncKeyState(int vKey);
-
-        // key codes
-        static readonly int VK_CONTROL = 0x11;
-        static readonly int VK_SHIFT = 0x10;
-        static readonly int VK_ALT = 0x12;
-        static readonly int VK_A = 0x41;
-        static readonly int VK_Z = 0x5A;
-
-        /// <summary>
-        /// Shortcut
-        /// </summary>
-        public class Shortcut
-        {
-            public string combination;
-            public bool control;
-            public bool shift;
-            public bool alt;
-            public int letter;
-            public bool state;
-        }
-
         /// <summary>
         /// Shortcuts
         /// </summary>
@@ -304,97 +280,20 @@ namespace JoinFS
         public Shortcut replayShortcut = new();
 
         /// <summary>
-        /// Check if a particular key is pressed
-        /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
-        static bool KeyPressed(int key)
-        {
-            return ((GetAsyncKeyState(key) >> 15) & 0x0001) == 0x0001;
-        }
-
-        /// <summary>
-        /// Check if a key combination is pressed
-        /// </summary>
-        /// <param name="control"></param>
-        /// <param name="shift"></param>
-        /// <param name="alt"></param>
-        /// <param name="shortcut"></param>
-        /// <returns></returns>
-        static bool CombinationPressed(bool control, bool shift, bool alt, Shortcut shortcut)
-        {
-            // update key state
-            bool before = shortcut.state;
-            shortcut.state = KeyPressed(shortcut.letter);
-            // check if combination pressed
-            return shortcut.control == control && shortcut.shift == shift && shortcut.alt == alt && before == false && shortcut.state;
-        }
-
-        /// <summary>
-        /// Load a shortcut
-        /// </summary>
-        /// <param name="name"></param>
-        /// <param name="defaultKey"></param>
-        /// <param name="shortcut"></param>
-        static void LoadShortcut(string combination, Shortcut shortcut)
-        {
-            // initialize shortcut
-            shortcut.control = false;
-            shortcut.shift = false;
-            shortcut.alt = false;
-            shortcut.letter = VK_A;
-            shortcut.state = false;
-            // get combination setting
-            shortcut.combination = combination;
-            // parse keys
-            string[] keys = shortcut.combination.Split('+');
-
-            // for each combination key
-            for (int index = 0; index < keys.Length - 1; index++)
-            {
-                // set combination key
-                if (keys[index].Equals("CTRL"))
-                {
-                    shortcut.control = true;
-                }
-                else if (keys[index].Equals("SHIFT"))
-                {
-                    shortcut.shift = true;
-                }
-                else if (keys[index].Equals("ALT"))
-                {
-                    shortcut.alt = true;
-                }
-            }
-
-            // check for valid key
-            if (keys.Length > 0)
-            {
-                // convert to char array
-                char[] chars = keys[keys.Length - 1].ToCharArray();
-                // check for valid letter
-                if (chars.Length > 0 && chars[0] >= VK_A && chars[0] <= VK_Z)
-                {
-                    shortcut.letter = chars[0];
-                }
-            }
-        }
-
-        /// <summary>
         /// Load all shortcuts
         /// </summary>
         public void LoadShortcuts()
         {
-            LoadShortcut(Settings.Default.ShortcutNetworkKey, networkShortcut);
-            LoadShortcut(Settings.Default.ShortcutSimulatorKey, simulatorShortcut);
-            LoadShortcut(Settings.Default.ShortcutAllowSharedKey, allowSharedShortcut);
-            LoadShortcut(Settings.Default.ShortcutHandOverKey, handOverShortcut);
-            LoadShortcut(Settings.Default.ShortcutEnterKey, enterShortcut);
-            LoadShortcut(Settings.Default.ShortcutFollowKey, followShortcut);
-            LoadShortcut(Settings.Default.ShortcutRecordKey, recordShortcut);
-            LoadShortcut(Settings.Default.ShortcutOverdubKey, overdubShortcut);
-            LoadShortcut(Settings.Default.ShortcutStopKey, stopShortcut);
-            LoadShortcut(Settings.Default.ShortcutReplayKey, replayShortcut);
+            networkShortcut.Load(Settings.Default.ShortcutNetworkKey);
+            simulatorShortcut.Load(Settings.Default.ShortcutSimulatorKey);
+            allowSharedShortcut.Load(Settings.Default.ShortcutAllowSharedKey);
+            handOverShortcut.Load(Settings.Default.ShortcutHandOverKey);
+            enterShortcut.Load(Settings.Default.ShortcutEnterKey);
+            followShortcut.Load(Settings.Default.ShortcutFollowKey);
+            recordShortcut.Load(Settings.Default.ShortcutRecordKey);
+            overdubShortcut.Load(Settings.Default.ShortcutOverdubKey);
+            stopShortcut.Load(Settings.Default.ShortcutStopKey);
+            replayShortcut.Load(Settings.Default.ShortcutReplayKey);
         }
 
         /// <summary>
@@ -410,22 +309,22 @@ namespace JoinFS
         void DoShortcuts(object sender, System.EventArgs e)
         {
             // get combination state
-            bool control = KeyPressed(VK_CONTROL);
-            bool shift = KeyPressed(VK_SHIFT);
-            bool alt = KeyPressed(VK_ALT);
+            bool control = Shortcut.KeyPressed(Shortcut.VK_CONTROL);
+            bool shift = Shortcut.KeyPressed(Shortcut.VK_SHIFT);
+            bool alt = Shortcut.KeyPressed(Shortcut.VK_ALT);
 
             // check if scanning for new shortcuts
             if (shortcutScanning == false)
             {
                 // check if network key pressed
-                if (Settings.Default.ShortcutNetwork && CombinationPressed(control, shift, alt, networkShortcut))
+                if (Settings.Default.ShortcutNetwork && networkShortcut.Pressed(control, shift, alt))
                 {
                     // toggle network state
                     ToggleNetwork();
                 }
 
                 // check if simulator key pressed
-                if (Settings.Default.ShortcutSimulator && CombinationPressed(control, shift, alt, simulatorShortcut))
+                if (Settings.Default.ShortcutSimulator && simulatorShortcut.Pressed(control, shift, alt))
                 {
                     // toggle simulator state
                     main.ToggleSimulator();
@@ -433,7 +332,7 @@ namespace JoinFS
                 }
 
                 // check if allow shared key pressed
-                if (Settings.Default.ShortcutAllowShared && CombinationPressed(control, shift, alt, allowSharedShortcut))
+                if (Settings.Default.ShortcutAllowShared && allowSharedShortcut.Pressed(control, shift, alt))
                 {
                     // check for session form
                     if (main.sessionForm != null)
@@ -463,7 +362,7 @@ namespace JoinFS
                 }
 
                 // check if hand over key pressed
-                if (Settings.Default.ShortcutHandOver && CombinationPressed(control, shift, alt, handOverShortcut))
+                if (Settings.Default.ShortcutHandOver && handOverShortcut.Pressed(control, shift, alt))
                 {
                     // check for session form
                     if (main.sessionForm != null)
@@ -494,7 +393,7 @@ namespace JoinFS
 
 #if !SERVER
                 // check if enter key pressed
-                if (Settings.Default.ShortcutEnter && CombinationPressed(control, shift, alt, enterShortcut))
+                if (Settings.Default.ShortcutEnter && enterShortcut.Pressed(control, shift, alt))
                 {
                     // check for aircraft form
                     // enter/leave cockpit
@@ -502,7 +401,7 @@ namespace JoinFS
                 }
 
                 // check if follow key pressed
-                if (Settings.Default.ShortcutFollow && CombinationPressed(control, shift, alt, followShortcut))
+                if (Settings.Default.ShortcutFollow && followShortcut.Pressed(control, shift, alt))
                 {
                     // check for aircraft form
                     // follow aircraft
@@ -511,28 +410,28 @@ namespace JoinFS
 #endif
 
                 // check if record key pressed
-                if (Settings.Default.ShortcutRecord && CombinationPressed(control, shift, alt, recordShortcut))
+                if (Settings.Default.ShortcutRecord && recordShortcut.Pressed(control, shift, alt))
                 {
                     // start recording
                     main.recorderForm?.Hotkey_Record();
                 }
 
                 // check if overdub key pressed
-                if (Settings.Default.ShortcutOverdub && CombinationPressed(control, shift, alt, overdubShortcut))
+                if (Settings.Default.ShortcutOverdub && overdubShortcut.Pressed(control, shift, alt))
                 {
                     // start overdub
                     main.recorderForm?.Hotkey_Overdub();
                 }
 
                 // check if stop key pressed
-                if (Settings.Default.ShortcutStop && CombinationPressed(control, shift, alt, stopShortcut))
+                if (Settings.Default.ShortcutStop && stopShortcut.Pressed(control, shift, alt))
                 {
                     // stop recording/playing
                     main.recorderForm?.Button_Stop_Click(null, EventArgs.Empty);
                 }
 
                 // check if replay key pressed
-                if (Settings.Default.ShortcutReplay && CombinationPressed(control, shift, alt, replayShortcut))
+                if (Settings.Default.ShortcutReplay && replayShortcut.Pressed(control, shift, alt))
                 {
                     // toggle replay/pause
                     main.recorderForm?.Button_Play_Click(null, EventArgs.Empty);

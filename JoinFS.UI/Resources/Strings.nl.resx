@@ -1002,4 +1002,61 @@
   <data name="{0} requires a password to join." xml:space="preserve">
     <value>{0} vereist een wachtwoord om deel te nemen.</value>
   </data>
+  <data name="Keyboard Shortcuts" xml:space="preserve">
+    <value>Sneltoetsen</value>
+  </data>
+  <data name="Change Shortcut" xml:space="preserve">
+    <value>Sneltoets wijzigen</value>
+  </data>
+  <data name="Change…" xml:space="preserve">
+    <value>Wijzigen…</value>
+  </data>
+  <data name="Hold Ctrl, Shift or Alt and press a letter." xml:space="preserve">
+    <value>Houd Ctrl, Shift of Alt ingedrukt en druk op een letter.</value>
+  </data>
+  <data name="Work while the simulator has the keys. The shortcuts for a user or an aircraft act on the row that is open in the Session or Aircraft tab." xml:space="preserve">
+    <value>Werken ook als de simulator het toetsenbord heeft. De sneltoetsen voor een gebruiker of vliegtuig werken op de rij die open staat in het tabblad "Sessie" of "Vliegtuigen".</value>
+  </data>
+  <data name="Shortcut: {0}" xml:space="preserve">
+    <value>Sneltoets: {0}</value>
+  </data>
+  <data name="The previous recording was not saved: {0}. No new recording was started." xml:space="preserve">
+    <value>De vorige opname is niet opgeslagen: {0}. Er is geen nieuwe opname gestart.</value>
+  </data>
+  <data name="the simulator thread did not respond" xml:space="preserve">
+    <value>de simulatorthread reageerde niet</value>
+  </data>
+  <data name="Toggle the network state on/off" xml:space="preserve">
+    <value>Schakel de netwerkstatus in / uit</value>
+  </data>
+  <data name="Toggle the simulator state on/off" xml:space="preserve">
+    <value>Schakel de simulatorstatus in / uit</value>
+  </data>
+  <data name="Allow shared cockpit with selected user" xml:space="preserve">
+    <value>Sta gedeelde cockpit toe met geselecteerde gebruiker</value>
+  </data>
+  <data name="Hand over controls to selected user" xml:space="preserve">
+    <value>Overhandig de bedieningselementen aan de geselecteerde gebruiker</value>
+  </data>
+  <data name="Enter/leave cockpit of selected aircraft" xml:space="preserve">
+    <value>Betreed / verlaat de cockpit van het geselecteerde vliegtuig</value>
+  </data>
+  <data name="Follow selected aircraft" xml:space="preserve">
+    <value>Volg geselecteerde vliegtuigen</value>
+  </data>
+  <data name="Start recording the selected aircraft" xml:space="preserve">
+    <value>Begin met het opnemen van het geselecteerde vliegtuig</value>
+  </data>
+  <data name="Start overdub recording" xml:space="preserve">
+    <value>Start de overdub-opname</value>
+  </data>
+  <data name="Stop recording/playing" xml:space="preserve">
+    <value>Stop met opnemen / afspelen</value>
+  </data>
+  <data name="Play/pause replay of the recorded aircraft" xml:space="preserve">
+    <value>Speel / pauzeer het vliegtuig dat is opgeslagen in de recorder</value>
+  </data>
+  <data name="Recording saved: {0}" xml:space="preserve">
+    <value>Opname opgeslagen: {0}</value>
+  </data>
 </root>

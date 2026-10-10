@@ -303,7 +303,7 @@ public class SessionTests
     public void A_refresh_does_not_write_what_it_reads_back_to_the_service()
     {
         ScriptedSession source = new();
-        SessionViewModel session = new(source);
+        SessionViewModel session = new(source, new ShortcutHints());
         source.Settings["a"] = new PeerSettings(true, true, true, false, true);
 
         session.Refresh();
@@ -317,7 +317,7 @@ public class SessionTests
     public void A_refresh_updates_rows_in_place_adds_new_users_and_drops_the_ones_gone()
     {
         ScriptedSession source = new();
-        SessionViewModel session = new(source);
+        SessionViewModel session = new(source, new ShortcutHints());
         PeerRowViewModel a = session.Rows.Single();
         a.ToggleExpandedCommand.Execute(null);
 
@@ -568,7 +568,7 @@ public class AircraftAndObjectsTests
     {
         ScriptedTraffic traffic = new();
         AircraftViewModel aircraft = new(traffic, new JoinFS.UI.Services.Fake.FakeModelCatalog(), new JoinFS.UI.Services.Fake.FakeVariablesCatalog(), new JoinFS.UI.Services.Fake.NullPlatform(),
-            new ProfileViewModel(new JoinFS.UI.Services.Fake.InMemorySettingsStore()), new RecordSelection(), new NullShell());
+            new ProfileViewModel(new JoinFS.UI.Services.Fake.InMemorySettingsStore()), new RecordSelection(), new NullShell(), new ShortcutHints());
         AircraftRowViewModel row = aircraft.Rows.Single();
         Assert.Empty(traffic.Writes); // reading the list wrote nothing
 
@@ -586,7 +586,7 @@ public class AircraftAndObjectsTests
     {
         ScriptedTraffic traffic = new();
         AircraftViewModel aircraft = new(traffic, new JoinFS.UI.Services.Fake.FakeModelCatalog(), new JoinFS.UI.Services.Fake.FakeVariablesCatalog(), new JoinFS.UI.Services.Fake.NullPlatform(),
-            new ProfileViewModel(new JoinFS.UI.Services.Fake.InMemorySettingsStore()), new RecordSelection(), new NullShell());
+            new ProfileViewModel(new JoinFS.UI.Services.Fake.InMemorySettingsStore()), new RecordSelection(), new NullShell(), new ShortcutHints());
         AircraftRowViewModel a = aircraft.Rows.Single();
         a.ToggleExpandedCommand.Execute(null);
 
@@ -1496,14 +1496,14 @@ public class SettingsTests
     public void The_sections_start_closed_and_the_x_plane_card_is_only_in_the_xplane_build()
     {
         SettingsViewModel normal = new Rig().Main.Settings;
-        Assert.Equal(["Simulator", "User Interface", "Network", "Hub Mode (Public)", "Address Book", "Variables"], normal.Sections.Select(s => s.Title));
+        Assert.Equal(["Simulator", "User Interface", "Network", "Hub Mode (Public)", "Address Book", "Keyboard Shortcuts", "Variables"], normal.Sections.Select(s => s.Title));
         Assert.All(normal.Sections, s => Assert.False(s.IsOpen));
         Assert.Null(normal.OpenSection);
         Assert.False(normal.IsXPlaneBuild);
         Assert.False(normal.Simulator.IsXPlaneBuild);
 
         SettingsViewModel xplane = new Rig(xplaneBuild: true).Main.Settings;
-        Assert.Equal(7, xplane.Sections.Count);
+        Assert.Equal(8, xplane.Sections.Count);
         Assert.Contains(xplane.XPlane, xplane.Sections);
         Assert.True(xplane.Simulator.IsXPlaneBuild);
     }

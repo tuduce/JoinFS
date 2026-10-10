@@ -52,6 +52,10 @@ public sealed partial class ConnectionViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsDisconnected), nameof(IsConnecting), nameof(IsConnected), nameof(StateLabel), nameof(ActionLabel))]
     private ConnectionState _state = ConnectionState.Disconnected;
 
+    /// <summary>The tooltip that names the shortcut of this connector, or null when its shortcut is off.</summary>
+    [ObservableProperty]
+    private string? _shortcutHint;
+
     /// <summary>Why the last attempt failed, or null. The design has no error UI yet.</summary>
     [ObservableProperty]
     private string? _error;

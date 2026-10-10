@@ -81,7 +81,7 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                               <DataTemplate x:DataType="vm:ActionLink">
-                                <Button Classes="link" Command="{Binding Command}" Content="{Binding Label}" Margin="0,0,20,8" />
+                                <Button Classes="link" Command="{Binding Command}" Content="{Binding Label}" ToolTip.Tip="{Binding Hint}" Margin="0,0,20,8" />
                               </DataTemplate>
                             </ItemsControl.ItemTemplate>
                           </ItemsControl>

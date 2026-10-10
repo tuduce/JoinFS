@@ -311,6 +311,13 @@ public interface IRecorderSource
 
     void Stop();
 
+    /// <summary>
+    /// Writes the recording that is in the recorder to the documents folder under a name made of the date, the time and the first
+    /// callsign, never over a file. Returns the file's name. Throws with what to tell the user when it cannot be written, and then the
+    /// recording is still in the recorder. For when a dialog is not wanted, such as a shortcut pressed in VR.
+    /// </summary>
+    string AutoSave();
+
     /// <summary>Moves playback to this many seconds from the start.</summary>
     void Seek(double seconds);
 
@@ -554,6 +561,25 @@ public interface IMapTileSource
     Task<byte[]?> GetTileAsync(int zoom, int x, int y, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// The global keyboard shortcuts. They work while another program, such as the simulator, has the keys, so they are looked for by asking
+/// the system which keys are down, not by listening to the window.
+/// </summary>
+public interface IShortcutSource
+{
+    /// <summary>All the shortcuts, in the order of <see cref="ShortcutAction"/>.</summary>
+    IReadOnlyList<ShortcutBinding> Load();
+
+    /// <summary>Keeps the shortcut. It takes effect at once.</summary>
+    void Save(ShortcutBinding binding);
+
+    /// <summary>
+    /// The enabled shortcuts whose keys went down since this was last called. Each is reported once per press. Call it often, about ten
+    /// times a second, from the UI thread: a key tapped between two calls is missed.
+    /// </summary>
+    IReadOnlyList<ShortcutAction> TakePressed();
+}
+
 /// <summary>Messages the app wants the user to read: the ones the old forms showed in a message box.</summary>
 public interface IMessageSource
 {
@@ -585,4 +611,5 @@ public sealed record AppServices(
     IPreferencesStore Preferences,
     IModelScanSource ModelScan,
     IMapTileSource MapTiles,
-    IMessageSource Messages);
+    IMessageSource Messages,
+    IShortcutSource Shortcuts);

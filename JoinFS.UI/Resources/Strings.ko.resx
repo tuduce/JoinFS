@@ -1002,4 +1002,61 @@
   <data name="{0} requires a password to join." xml:space="preserve">
     <value>{0}에 참가하려면 비밀번호가 필요합니다.</value>
   </data>
+  <data name="Keyboard Shortcuts" xml:space="preserve">
+    <value>키보드 단축키</value>
+  </data>
+  <data name="Change Shortcut" xml:space="preserve">
+    <value>단축키 변경</value>
+  </data>
+  <data name="Change…" xml:space="preserve">
+    <value>변경…</value>
+  </data>
+  <data name="Hold Ctrl, Shift or Alt and press a letter." xml:space="preserve">
+    <value>Ctrl, Shift 또는 Alt를 누른 채 문자 키를 누르세요.</value>
+  </data>
+  <data name="Work while the simulator has the keys. The shortcuts for a user or an aircraft act on the row that is open in the Session or Aircraft tab." xml:space="preserve">
+    <value>시뮬레이터가 키보드를 사용 중일 때도 작동합니다. 사용자나 항공기에 대한 단축키는 "세션" 또는 "항공기" 탭에서 열려 있는 행에 적용됩니다.</value>
+  </data>
+  <data name="Shortcut: {0}" xml:space="preserve">
+    <value>단축키: {0}</value>
+  </data>
+  <data name="The previous recording was not saved: {0}. No new recording was started." xml:space="preserve">
+    <value>이전 녹화를 저장하지 못했습니다: {0}. 새 녹화를 시작하지 않았습니다.</value>
+  </data>
+  <data name="the simulator thread did not respond" xml:space="preserve">
+    <value>시뮬레이터 스레드가 응답하지 않았습니다</value>
+  </data>
+  <data name="Toggle the network state on/off" xml:space="preserve">
+    <value>네트워크 상태 켜기/끄기 전환</value>
+  </data>
+  <data name="Toggle the simulator state on/off" xml:space="preserve">
+    <value>시뮬레이터 상태 켜기/끄기 전환</value>
+  </data>
+  <data name="Allow shared cockpit with selected user" xml:space="preserve">
+    <value>선택한 사용자와 조종석 공유 허용</value>
+  </data>
+  <data name="Hand over controls to selected user" xml:space="preserve">
+    <value>선택한 사용자에게 제어권 넘기기</value>
+  </data>
+  <data name="Enter/leave cockpit of selected aircraft" xml:space="preserve">
+    <value>선택된 항공기의 / 휴가 조종석을 입력</value>
+  </data>
+  <data name="Follow selected aircraft" xml:space="preserve">
+    <value>선택한 항공기 팔로우</value>
+  </data>
+  <data name="Start recording the selected aircraft" xml:space="preserve">
+    <value>선택한 기체 기록 시작</value>
+  </data>
+  <data name="Start overdub recording" xml:space="preserve">
+    <value>오버더빙 녹화 시작</value>
+  </data>
+  <data name="Stop recording/playing" xml:space="preserve">
+    <value>기체 녹음/재생 중지</value>
+  </data>
+  <data name="Play/pause replay of the recorded aircraft" xml:space="preserve">
+    <value>레코더에 저장된 기체 재생/일시 중지</value>
+  </data>
+  <data name="Recording saved: {0}" xml:space="preserve">
+    <value>녹화 저장됨: {0}</value>
+  </data>
 </root>

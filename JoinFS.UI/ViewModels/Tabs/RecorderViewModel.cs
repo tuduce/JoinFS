@@ -117,8 +117,9 @@ public sealed partial class RecorderViewModel : ObservableObject
     private bool _unsaved;
     private RecorderStatus _state = new(false, false, false, true, 0, 0);
 
-    public RecorderViewModel(IRecorderSource source, ITrafficSource traffic, RecordSelection recordSelection, IPlatform platform, IShell shell)
+    public RecorderViewModel(IRecorderSource source, ITrafficSource traffic, RecordSelection recordSelection, IPlatform platform, IShell shell, ShortcutHints hints)
     {
+        Hints = hints;
         _source = source;
         _traffic = traffic;
         _selection = recordSelection;
@@ -126,6 +127,9 @@ public sealed partial class RecorderViewModel : ObservableObject
         _shell = shell;
         Refresh();
     }
+
+    /// <summary>The keys of the shortcuts, for the buttons' tooltips.</summary>
+    public ShortcutHints Hints { get; }
 
     /// <summary>The "Aircraft to record" list: the aircraft of the Aircraft tab, with the same ticks.</summary>
     public ObservableCollection<RecordItemViewModel> LiveAircraft { get; } = [];
@@ -305,6 +309,86 @@ public sealed partial class RecorderViewModel : ObservableObject
         _source.Record();
         _unsaved = true;
         Status = "";
+        Refresh();
+    }
+
+    // ---- the shortcuts
+    // They follow the rules of the old window's hotkeys: what a button would have disabled does nothing, a recording that is running is
+    // stopped and saved by the next one, an overdub of nothing is a plain recording, and no dialog is asked (they are used in VR).
+    // The tab is not refreshed while it is hidden, so each starts by reading the recorder.
+
+    /// <summary>Record shortcut: a recording that is running is stopped (and saved), and a new one starts. Nothing while a take plays.</summary>
+    public void HotkeyRecord()
+    {
+        Refresh();
+        if (IsRecording)
+        {
+            _source.Stop();
+            Refresh();
+        }
+        if (_state.Active)
+            return;
+
+        StartRecordingWithoutAsking();
+    }
+
+    /// <summary>Overdub shortcut: a recording that is running is stopped, then the take is recorded on top of. Without a take it records.</summary>
+    public void HotkeyOverdub()
+    {
+        Refresh();
+        if (IsRecording)
+        {
+            _source.Stop();
+            Refresh();
+        }
+
+        // overdubbing nothing is recording
+        if (Empty)
+        {
+            if (!_state.Active)
+                StartRecordingWithoutAsking();
+            return;
+        }
+
+        ToggleOverdub();
+    }
+
+    public void HotkeyStop()
+    {
+        Refresh();
+        if (CanStop)
+            Stop();
+    }
+
+    public void HotkeyReplay()
+    {
+        Refresh();
+        if (CanPlay)
+            TogglePlay();
+    }
+
+    /// <summary>Starts a new recording. A recording that was not saved is saved first, under a name of its own; if that fails, nothing is started.</summary>
+    private void StartRecordingWithoutAsking()
+    {
+        Status = "";
+        if (HasUnsavedRecording)
+        {
+            try
+            {
+                Status = Loc.F("Recording saved: {0}", _source.AutoSave());
+                _unsaved = false;
+            }
+            catch (Exception ex)
+            {
+                // the recording stays where it is; the user has to know that nothing was started
+                Status = Loc.F("The previous recording was not saved: {0}. No new recording was started.", ex.Message);
+                _shell.ShowOverlay(new MessageViewModel(Loc.T("Recorder"), Status));
+                return;
+            }
+        }
+
+        _source.Record();
+        _unsaved = true;
         Refresh();
     }
 

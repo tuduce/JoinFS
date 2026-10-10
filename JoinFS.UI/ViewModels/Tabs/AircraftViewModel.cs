@@ -145,9 +145,22 @@ public sealed partial class AircraftRowViewModel : ObservableObject
         RefreshActions();
     }
 
+    /// <summary>Does what the link does, if the aircraft allows it.</summary>
+    internal void RunEnterCockpit() => Run(_enter);
+
+    internal void RunFollow() => Run(_follow);
+
+    private static void Run(ActionLink link)
+    {
+        if (link.Command.CanExecute(null))
+            link.Command.Execute(null);
+    }
+
     /// <summary>Words each link by the state it acts on, and re-asks whether it is available.</summary>
     internal void RefreshActions()
     {
+        _follow.Hint = _owner.Hints.Follow;
+        _enter.Hint = _owner.Hints.EnterCockpit;
         _follow.Label = Loc.F("Follow '{0}'", Callsign);
         _enter.Label = _owner.InCockpit ? Loc.T("Leave Cockpit") : Loc.T("Enter Cockpit");
         _record.Label = Recording ? Loc.T("Remove From Recorder") : Loc.T("Add To Recorder");
@@ -192,15 +205,23 @@ public sealed partial class AircraftViewModel : ObservableObject
     private readonly Dictionary<string, AircraftRowViewModel> _rowsById = [];
     private List<AircraftRowViewModel> _inSourceOrder = [];
 
-    public AircraftViewModel(ITrafficSource traffic, IModelCatalog catalog, IVariablesCatalog variables, IPlatform platform, ProfileViewModel profile, RecordSelection recordSelection, IShell shell)
+    public AircraftViewModel(ITrafficSource traffic, IModelCatalog catalog, IVariablesCatalog variables, IPlatform platform, ProfileViewModel profile, RecordSelection recordSelection, IShell shell, ShortcutHints hints)
     {
         Source = traffic;
+        Hints = hints;
         _catalog = catalog;
         _variables = variables;
         _platform = platform;
         _profile = profile;
         _recordSelection = recordSelection;
         _shell = shell;
+
+        // a shortcut turned on or off changes the tooltips of the links
+        hints.PropertyChanged += (_, _) =>
+        {
+            foreach (AircraftRowViewModel row in _rowsById.Values)
+                row.RefreshActions();
+        };
 
         _sort = new SortController<AircraftRowViewModel>(Rebuild);
         CallsignColumn = _sort.Add("callsign", Loc.T("Callsign"), r => r.Callsign);
@@ -215,6 +236,9 @@ public sealed partial class AircraftViewModel : ObservableObject
     }
 
     internal ITrafficSource Source { get; }
+
+    /// <summary>The keys of the shortcuts, for the Enter Cockpit and Follow links.</summary>
+    public ShortcutHints Hints { get; }
 
     public SortColumn CallsignColumn { get; }
     public SortColumn OwnerColumn { get; }
@@ -270,6 +294,19 @@ public sealed partial class AircraftViewModel : ObservableObject
         row.Update(info); // fills the flag and the ignore state without writing them back
         return row;
     }
+
+    /// <summary>The aircraft whose row is open. Null when no row is open: the shortcuts have no aircraft to act on.</summary>
+    private AircraftRowViewModel? OpenRow()
+    {
+        Refresh(); // the tab is not refreshed while it is hidden, and a shortcut acts on what is true now
+        return Rows.FirstOrDefault(r => r.IsExpanded);
+    }
+
+    /// <summary>The shortcut that enters the cockpit of the aircraft whose row is open, or leaves the one you are in.</summary>
+    public void EnterCockpitOfOpenRow() => OpenRow()?.RunEnterCockpit();
+
+    /// <summary>The shortcut that follows the aircraft whose row is open.</summary>
+    public void FollowOpenRow() => OpenRow()?.RunFollow();
 
     internal void Expand(AircraftRowViewModel row)
     {

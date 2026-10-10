@@ -162,3 +162,33 @@ public sealed record FlightPlanData(
 }
 
 public sealed record UpdateInfo(string Version, string Url);
+
+/// <summary>The things a global keyboard shortcut can do. The same ten the old Shortcuts window had.</summary>
+public enum ShortcutAction
+{
+    /// <summary>Joins the network or leaves it, as the Network button does.</summary>
+    Network,
+    /// <summary>Connects the simulator or disconnects it, as the Simulator button does.</summary>
+    Simulator,
+    /// <summary>Allows or stops cockpit entry for the user whose row is open in the Session tab.</summary>
+    AllowShared,
+    /// <summary>Hands the flight controls to the user whose row is open in the Session tab, or takes them back.</summary>
+    HandOver,
+    /// <summary>Enters the cockpit of the aircraft whose row is open in the Aircraft tab, or leaves the one you are in.</summary>
+    EnterCockpit,
+    /// <summary>Follows the aircraft whose row is open in the Aircraft tab.</summary>
+    Follow,
+    /// <summary>Starts a new recording. One that is running is stopped and saved first.</summary>
+    Record,
+    /// <summary>Records on top of the take in the recorder.</summary>
+    Overdub,
+    /// <summary>Stops recording or playing.</summary>
+    Stop,
+    /// <summary>Plays the take, or pauses it.</summary>
+    Replay,
+}
+
+/// <summary>A shortcut: whether it is on, and its keys.</summary>
+/// <param name="Combination">Ctrl, Shift and Alt in any mix, then a letter, e.g. "CTRL+SHIFT+R".</param>
+public sealed record ShortcutBinding(ShortcutAction Action, bool Enabled, string Combination);
+

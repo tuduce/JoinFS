@@ -480,12 +480,12 @@ public sealed partial class VariableAssignmentViewModel : ObservableObject
     private void Edit() => _edit(this);
 }
 
-/// <summary>Settings tab: an accordion of seven cards, all collapsed at first, at most one open.</summary>
+/// <summary>Settings tab: an accordion of eight cards, all collapsed at first, at most one open.</summary>
 public sealed class SettingsViewModel : ObservableObject
 {
     /// <param name="isXPlaneBuild">Only the XPLANE build has the X-Plane card.</param>
     public SettingsViewModel(ProfileViewModel profile, AddressBookViewModel addressBook, IPreferencesStore preferences, IVariablesCatalog variables, IModelCatalog models, IXPlanePluginInstaller xplaneInstaller, IXPlaneScanSource xplaneScan, IModelScanSource modelScan,
-        IShell shell, IPlatform platform, Func<bool> isSimulatorConnected, bool isXPlaneBuild)
+        IShell shell, IPlatform platform, Func<bool> isSimulatorConnected, bool isXPlaneBuild, IShortcutSource shortcuts, Action<IEnumerable<ShortcutBinding>> shortcutsChanged)
     {
         PreferencesSession session = new(preferences);
         Simulator = new SimulatorSettingsViewModel(Toggle, session, profile, shell, isSimulatorConnected, platform, xplaneScan, modelScan, isXPlaneBuild);
@@ -496,10 +496,11 @@ public sealed class SettingsViewModel : ObservableObject
         XPlane = new XPlaneSettingsViewModel(Toggle, session, shell, xplaneInstaller, platform);
         IsXPlaneBuild = isXPlaneBuild;
         Variables = new VariablesSettingsViewModel(Toggle, variables, models, shell, platform);
+        Shortcuts = new ShortcutsSettingsViewModel(Toggle, shortcuts, shell, shortcutsChanged);
 
         Sections = isXPlaneBuild
-            ? [Simulator, UserInterface, Network, HubMode, AddressBook, XPlane, Variables]
-            : [Simulator, UserInterface, Network, HubMode, AddressBook, Variables];
+            ? [Simulator, UserInterface, Network, HubMode, AddressBook, XPlane, Shortcuts, Variables]
+            : [Simulator, UserInterface, Network, HubMode, AddressBook, Shortcuts, Variables];
     }
 
     public SimulatorSettingsViewModel Simulator { get; }
@@ -509,6 +510,7 @@ public sealed class SettingsViewModel : ObservableObject
     public AddressBookSettingsViewModel AddressBook { get; }
     public XPlaneSettingsViewModel XPlane { get; }
     public VariablesSettingsViewModel Variables { get; }
+    public ShortcutsSettingsViewModel Shortcuts { get; }
 
     public bool IsXPlaneBuild { get; }
 

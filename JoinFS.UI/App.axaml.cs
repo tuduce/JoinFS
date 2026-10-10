@@ -11,6 +11,9 @@ public partial class App : Application
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(250);
 
+    // The shortcuts ask the system which keys are down, so a key that is tapped has to be caught while it is down: faster than the poll.
+    private static readonly TimeSpan ShortcutInterval = TimeSpan.FromMilliseconds(100);
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
@@ -38,7 +41,25 @@ public partial class App : Application
                 }
             };
             poll.Start();
-            window.Closed += (_, _) => poll.Stop();
+
+            DispatcherTimer shortcuts = new() { Interval = ShortcutInterval };
+            shortcuts.Tick += (_, _) =>
+            {
+                try
+                {
+                    _ = viewModel.PollShortcuts();
+                }
+                catch (Exception ex)
+                {
+                    UiHost.Log("New UI shortcut failed: " + ex);
+                }
+            };
+            shortcuts.Start();
+            window.Closed += (_, _) =>
+            {
+                poll.Stop();
+                shortcuts.Stop();
+            };
         }
 
         base.OnFrameworkInitializationCompleted();

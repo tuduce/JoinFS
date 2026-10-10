@@ -96,6 +96,20 @@ namespace JoinFS.Live
 
         public void Stop() => OnSim(recorder => recorder.Stop());
 
+        public string AutoSave()
+        {
+            // copy on the sim thread, which owns the recording; the file is written here
+            List<Recorder.Obj> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
+            if (objects == null)
+            {
+                throw new InvalidOperationException(Loc.T("the simulator thread did not respond"));
+            }
+
+            string path = main.recorder.AutoSave(main.documentsPath, objects, DateTime.Now);
+            main.MonitorEvent("Recorder: auto-saved the previous recording to '" + path + "'.");
+            return Path.GetFileName(path);
+        }
+
         public void Seek(double seconds) => OnSim(recorder => recorder.Jump(seconds));
 
         public void TrimStart() => OnSim(recorder =>

@@ -32,18 +32,18 @@
       <StackPanel Spacing="14">
         <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto" ColumnSpacing="12">
           <Button Grid.Column="0" Classes="transport record" Classes.on="{Binding IsRecording}" BorderThickness="2"
-                  Command="{Binding ToggleRecordingCommand}" ToolTip.Tip="{l:T 'Record'}" AutomationProperties.Name="{l:T 'Record'}">
+                  Command="{Binding ToggleRecordingCommand}" ToolTip.Tip="{Binding Hints.RecordTip}" AutomationProperties.Name="{l:T 'Record'}">
             <Ellipse Width="12" Height="12" />
           </Button>
           <Button Grid.Column="1" Classes="transport" Classes.on="{Binding IsPlaying}"
-                  Command="{Binding TogglePlayCommand}" ToolTip.Tip="{l:T 'Play'}" AutomationProperties.Name="{l:T 'Play'}">
+                  Command="{Binding TogglePlayCommand}" ToolTip.Tip="{Binding Hints.PlayTip}" AutomationProperties.Name="{l:T 'Play'}">
             <c:Icon Source="{DynamicResource IconPlay}" Width="12" Height="12" />
           </Button>
-          <Button Grid.Column="2" Classes="transport" Command="{Binding StopCommand}" ToolTip.Tip="{l:T 'Stop'}" AutomationProperties.Name="{l:T 'Stop'}">
+          <Button Grid.Column="2" Classes="transport" Command="{Binding StopCommand}" ToolTip.Tip="{Binding Hints.StopTip}" AutomationProperties.Name="{l:T 'Stop'}">
             <c:Icon Source="{DynamicResource IconStop}" Width="11" Height="11" />
           </Button>
           <Button Grid.Column="3" Classes="transport overdub" Classes.on="{Binding IsOverdubbing}"
-                  Command="{Binding ToggleOverdubCommand}" ToolTip.Tip="{l:T 'Overdub — record on top of existing take'}" AutomationProperties.Name="{l:T 'Overdub'}">
+                  Command="{Binding ToggleOverdubCommand}" ToolTip.Tip="{Binding Hints.OverdubTip}" AutomationProperties.Name="{l:T 'Overdub'}">
             <c:Icon Source="{DynamicResource IconOverdub}" Width="14" Height="14" />
           </Button>
           <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
