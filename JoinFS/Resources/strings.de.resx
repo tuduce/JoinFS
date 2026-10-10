@@ -810,4 +810,10 @@
   <data name="GenerateLiveries" xml:space="preserve">
     <value>Bemalungen (Liveries) erzeugen - ein Modell je Bemalung</value>
   </data>
+  <data name="ScanNoCslHint" xml:space="preserve">
+    <value>Es sind noch keine CSL-Modelle vorhanden. Aktiviere „CSL-Objekte für installierte Flugzeuge generieren“ und scanne erneut.</value>
+  </data>
+  <data name="ScanRejectedHint" xml:space="preserve">
+    <value>CSL-Modelle wurden gefunden, aber keines wurde übernommen. Details stehen im Monitor-Protokoll.</value>
+  </data>
 </root>

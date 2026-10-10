@@ -810,4 +810,10 @@
   <data name="GenerateLiveries" xml:space="preserve">
     <value>Gerar pinturas (um modelo por pintura)</value>
   </data>
+  <data name="ScanNoCslHint" xml:space="preserve">
+    <value>Ainda não existem modelos CSL. Marque &quot;Gerar objetos CSL para as aeronaves instaladas&quot; e faça a varredura novamente.</value>
+  </data>
+  <data name="ScanRejectedHint" xml:space="preserve">
+    <value>Foram encontrados modelos CSL, mas nenhum foi aceito. Os detalhes estão no registo do monitor.</value>
+  </data>
 </root>

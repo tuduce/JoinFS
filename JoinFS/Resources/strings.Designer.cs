@@ -493,6 +493,24 @@ namespace JoinFS.Resources {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to No CSL models exist yet. Tick "Generate CSL objects for installed aircraft" and scan again..
+        /// </summary>
+        internal static string ScanNoCslHint {
+            get {
+                return ResourceManager.GetString("ScanNoCslHint", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to CSL models were found, but none was accepted. Details are in the monitor log..
+        /// </summary>
+        internal static string ScanRejectedHint {
+            get {
+                return ResourceManager.GetString("ScanRejectedHint", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Generate liveries (one model per livery).
         /// </summary>
         internal static string GenerateLiveries {

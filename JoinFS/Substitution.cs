@@ -103,6 +103,28 @@ namespace JoinFS
         public int lastBanExclusionCount = 0;
 
         /// <summary>
+        /// What the last X-Plane scan saw in each of its steps (null before the first scan)
+        /// </summary>
+        internal XPlaneScanReport lastXPlaneScanReport;
+
+        /// <summary>
+        /// "No models found", and for X-Plane which step lost them
+        /// </summary>
+        string NoModelsMessage()
+        {
+            string message = Resources.Strings.NoModelsFound;
+#if XPLANE
+            XPlaneScanReport report = lastXPlaneScanReport;
+            if (report != null && report.Outcome != XPlaneScanOutcome.Models)
+            {
+                string hint = XPlaneScanReport.NothingGenerated(report.Outcome) ? Resources.Strings.ScanNoCslHint : Resources.Strings.ScanRejectedHint;
+                message += Environment.NewLine + Environment.NewLine + hint;
+            }
+#endif
+            return message;
+        }
+
+        /// <summary>
         /// Convert a string to a typerole
         /// </summary>
         /// <param name="typerole"></param>
@@ -2247,6 +2269,8 @@ namespace JoinFS
 #if XPLANE || CONSOLE
                     // create path list
                     List<string> pathList = new List<string>();
+                    // what each step of the scan saw, for the report at the end
+                    int aircraftFiles = 0, entriesRead = 0, readErrors = 0;
 
                     // if interactive scan then auto-generate CSL
                     if (interactive && main.settingsGenerateCsl)
@@ -2268,6 +2292,7 @@ namespace JoinFS
                         {
                             main.MonitorEvent("Failed to search folder." + ex.Message);
                         }
+                        aircraftFiles = pathList.Count;
 
                         // for each file
                         foreach (var path in pathList)
@@ -2302,7 +2327,8 @@ namespace JoinFS
                     string cslFolder = Path.Combine(simFolder, "Resources", "plugins", "JoinFS", "Resources", "CSL");
 
                     // check for folder
-                    if (Directory.Exists(cslFolder))
+                    bool cslFolderExists = Directory.Exists(cslFolder);
+                    if (cslFolderExists)
                     {
                         // search for all xsb_aircraft files
                         SearchForFiles(cslFolder, "xsb_aircraft.txt", pathList, 0);
@@ -2312,6 +2338,7 @@ namespace JoinFS
                         // monitor
                         main.MonitorEvent("Unable to locate CSL folder, " + cslFolder);
                     }
+                    int xsbFiles = pathList.Count;
 
                     // for each file
                     foreach (var path in pathList)
@@ -2358,6 +2385,7 @@ namespace JoinFS
                                         else scanTitle = scanType + " " + scanManufacturer + " " + scanVariation;
                                         // submit the current scan
                                         scanBlock = true;
+                                        entriesRead++;
                                         SubmitScan();
                                     }
                                 }
@@ -2365,6 +2393,7 @@ namespace JoinFS
                         }
                         catch (Exception ex)
                         {
+                            readErrors++;
                             // monitor
                             main.MonitorEvent("Failed to read file '" + path + "'. " + ex.Message);
                         }
@@ -2374,6 +2403,10 @@ namespace JoinFS
                             if (reader != null) reader.Close();
                         }
                     }
+
+                    // say what the scan saw, so an empty result can be explained
+                    lastXPlaneScanReport = new XPlaneScanReport(cslFolderExists, aircraftFiles, xsbFiles, entriesRead, lastBanExclusionCount, readErrors, scanWork.Count);
+                    main.MonitorEvent(lastXPlaneScanReport.Summary());
 #else
                     // create path list
                     List<string> pathList = [];
@@ -2812,6 +2845,14 @@ namespace JoinFS
                             // for each scan folder
                             foreach (string folder in scanForm.scanFolders)
                             {
+#if XPLANE
+                                // every folder ticked is saved as "all" (empty), so aircraft folders
+                                // installed later are scanned without a visit to this dialog
+                                if (scanForm.AllFoldersSelected())
+                                {
+                                    break;
+                                }
+#endif
                                 // check if folder exists
                                 if (scanForm.folderList.Contains(folder))
                                 {
@@ -2955,7 +2996,7 @@ namespace JoinFS
                     }
                     else
                     {
-                        main.scheduleShowMessage = Resources.Strings.NoModelsFound;
+                        main.scheduleShowMessage = NoModelsMessage();
                     }
 #endif
                 }

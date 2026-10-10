@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Drawing;
 using System.Windows.Forms;
 using System.IO;
@@ -63,6 +64,21 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// True while the saved selection was empty (= every folder is scanned) and the user has not
+        /// ticked or unticked a folder yet
+        /// </summary>
+        bool selectAllUntilChanged;
+
+        /// <summary>
+        /// True when every listed aircraft folder is ticked, which is what "scan everything" is
+        /// saved as (so aircraft folders installed later are scanned too)
+        /// </summary>
+        public bool AllFoldersSelected()
+        {
+            return folderList.Count > 0 && folderList.All(folder => scanFolders.Contains(folder));
+        }
+
+        /// <summary>
         /// Refresh list of folders
         /// </summary>
         void RefreshFolders()
@@ -82,6 +98,12 @@ namespace JoinFS
                 {
                     // get folder
                     string folder = Path.GetFileName(path);
+                    // an empty saved selection means "scan every aircraft folder": show it as such
+                    // until the user picks folders themselves
+                    if (selectAllUntilChanged && scanFolders.Contains(folder) == false)
+                    {
+                        scanFolders.Add(folder);
+                    }
                     // add entry
                     DataGrid_Folders.Rows.Add(scanFolders.Contains(folder), folder);
                     // add to list
@@ -125,6 +147,9 @@ namespace JoinFS
             Check_Scan.CheckState = Settings.Default.ModelScanOnConnection ? CheckState.Checked : CheckState.Unchecked;
             Check_Generate.CheckState = Settings.Default.GenerateCsl ? CheckState.Checked : CheckState.Unchecked;
             Check_Skip.CheckState = Settings.Default.SkipCsl ? CheckState.Checked : CheckState.Unchecked;
+
+            // nothing saved: every aircraft folder is scanned, so start with all of them ticked
+            selectAllUntilChanged = initialScanFolders.Length == 0;
 
             // check for initial scan folders
             if (initialScanFolders.Length > 0)
@@ -251,11 +276,13 @@ namespace JoinFS
                 AutoSize = true,
                 Text = Resources.Strings.GenerateLiveries,
                 Checked = Settings.Default.GenerateLiveries,
-                Left = Check_Skip.Left,
-                Top = Check_Skip.Bottom + gap,
-                Anchor = Check_Skip.Anchor,
+                // under "generate CSL" on the left: the right-hand column has no room for the label
+                Left = Check_Generate.Left,
+                Top = Math.Max(Check_Generate.Bottom, Check_Skip.Bottom) + gap,
+                Anchor = Check_Generate.Anchor,
                 Enabled = Check_Generate.CheckState == CheckState.Checked,
             };
+            Check_Liveries.MaximumSize = new Size(Math.Max(100, ClientSize.Width - Check_Liveries.Left - 12), 0);
 
             SuspendLayout();
             MakeRoom(Check_Liveries.Top, Check_Liveries.Height + gap);
@@ -293,6 +320,8 @@ namespace JoinFS
                         // check index
                         if (e.RowIndex >= 0 && e.RowIndex < folderList.Count)
                         {
+                            // from now on the ticks are the user's own choice
+                            selectAllUntilChanged = false;
                             // check if folder is scanned
                             if (scanFolders.Contains(folderList[e.RowIndex]))
                             {

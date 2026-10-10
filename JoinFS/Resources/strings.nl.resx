@@ -810,4 +810,10 @@
   <data name="GenerateLiveries" xml:space="preserve">
     <value>Liveries genereren (één model per livery)</value>
   </data>
+  <data name="ScanNoCslHint" xml:space="preserve">
+    <value>Er zijn nog geen CSL-modellen. Vink &quot;CSL-objecten genereren voor geïnstalleerde vliegtuigen&quot; aan en scan opnieuw.</value>
+  </data>
+  <data name="ScanRejectedHint" xml:space="preserve">
+    <value>Er zijn CSL-modellen gevonden, maar geen enkele is geaccepteerd. Details staan in het monitorlogboek.</value>
+  </data>
 </root>

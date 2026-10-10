@@ -810,4 +810,10 @@
   <data name="GenerateLiveries" xml:space="preserve">
     <value>Generar libreas (un modelo por librea)</value>
   </data>
+  <data name="ScanNoCslHint" xml:space="preserve">
+    <value>Aún no hay modelos CSL. Marca «Generar objetos CSL para los aviones instalados» y escanea de nuevo.</value>
+  </data>
+  <data name="ScanRejectedHint" xml:space="preserve">
+    <value>Se encontraron modelos CSL, pero ninguno fue aceptado. Los detalles están en el registro del monitor.</value>
+  </data>
 </root>

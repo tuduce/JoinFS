@@ -810,4 +810,10 @@
   <data name="GenerateLiveries" xml:space="preserve">
     <value>Создавать ливреи (одна модель на ливрею)</value>
   </data>
+  <data name="ScanNoCslHint" xml:space="preserve">
+    <value>Моделей CSL пока нет. Включите «Создавать объекты CSL для установленных самолётов» и повторите сканирование.</value>
+  </data>
+  <data name="ScanRejectedHint" xml:space="preserve">
+    <value>Модели CSL найдены, но ни одна не принята. Подробности в журнале монитора.</value>
+  </data>
 </root>
