@@ -602,7 +602,7 @@ public sealed class FakeMonitorSource : IMonitorSource
 
 public sealed class FakeUpdateChecker : IUpdateChecker
 {
-    public UpdateInfo? CheckForUpdate() => new("26.7.0", "https://joinfs.net/download");
+    public UpdateInfo? CheckForUpdate() => new("26.7.0", "https://github.com/tuduce/JoinFS/releases");
 }
 
 public sealed class FakeXPlaneScanSource : IXPlaneScanSource
@@ -677,7 +677,7 @@ public sealed class FakeAppInfo(bool isXPlaneBuild = false) : IAppInfo
     // Says so in the title bar, so a run on the fakes cannot be mistaken for the live app.
     public string SessionLabel => "JoinFS-FS2024 (fake data)";
     public string DocumentationUrl => "https://github.com/tuduce/JoinFS/wiki";
-    public string DownloadUrl => "https://joinfs.net/download";
+    public string DownloadUrl => "https://github.com/tuduce/JoinFS/releases";
     public string Copyright => "© 2026 JoinFS Project. All rights reserved.";
 }
 

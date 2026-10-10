@@ -1059,4 +1059,10 @@
   <data name="Recording saved: {0}" xml:space="preserve">
     <value>Aufnahme gespeichert: {0}</value>
   </data>
+  <data name="New version available" xml:space="preserve">
+    <value>Neue Version verfügbar</value>
+  </data>
+  <data name="A newer version of JoinFS is available." xml:space="preserve">
+    <value>Eine neuere Version von JoinFS ist verfügbar.</value>
+  </data>
 </root>

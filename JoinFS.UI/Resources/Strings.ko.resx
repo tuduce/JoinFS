@@ -1059,4 +1059,10 @@
   <data name="Recording saved: {0}" xml:space="preserve">
     <value>녹화 저장됨: {0}</value>
   </data>
+  <data name="New version available" xml:space="preserve">
+    <value>새 버전을 사용할 수 있습니다</value>
+  </data>
+  <data name="A newer version of JoinFS is available." xml:space="preserve">
+    <value>JoinFS의 최신 버전을 사용할 수 있습니다.</value>
+  </data>
 </root>

@@ -44,6 +44,16 @@
                          Stroke="{DynamicResource SurfaceBrush}" StrokeThickness="1.5" />
               </Panel>
             </Button>
+            <!-- New version, after its startup card was closed: only while collapsed. Opens About, which has the download. -->
+            <Button Classes="ghost" IsVisible="{Binding ShowUpdateBadge}" Command="{Binding OpenAboutCommand}"
+                    ToolTip.Tip="{l:T 'New version available'}" AutomationProperties.Name="{l:T 'New version available'}">
+              <Panel>
+                <TextBlock Text="&#x2193;" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource AccentLinkStrongBrush}" />
+                <Ellipse Width="7" Height="7" Margin="0,-4,-7,0" HorizontalAlignment="Right" VerticalAlignment="Top"
+                         Fill="{DynamicResource AccentDotBrush}"
+                         Stroke="{DynamicResource SurfaceBrush}" StrokeThickness="1.5" />
+              </Panel>
+            </Button>
             <Button Classes="ghost" Command="{Binding ToggleExpandCommand}" ToolTip.Tip="{l:T 'Expand/collapse'}" AutomationProperties.Name="{l:T 'Expand or collapse'}">
               <c:Icon Source="{DynamicResource IconExpand}" Width="14" Height="14" />
             </Button>
