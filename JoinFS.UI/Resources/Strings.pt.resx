@@ -1095,4 +1095,13 @@
   <data name="Left out of playback. Load the recording again to bring it back." xml:space="preserve">
     <value>Excluído da reprodução. Carregue a gravação novamente para recuperá-lo.</value>
   </data>
+  <data name="Home map" xml:space="preserve">
+    <value>Mapa do Início</value>
+  </data>
+  <data name="OpenStreetMap" xml:space="preserve">
+    <value>OpenStreetMap</value>
+  </data>
+  <data name="Watercolor" xml:space="preserve">
+    <value>Aquarela</value>
+  </data>
 </root>

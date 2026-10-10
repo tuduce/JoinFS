@@ -473,6 +473,7 @@ public sealed class Preferences
     public bool AlwaysOnTop { get; set; }
     public bool AutoRefresh { get; set; } = true;
     public bool ToolTips { get; set; } = true;
+    public MapStyle MapStyle { get; set; } = MapStyle.Standard;
 
     // Simulator
     public bool ConnectOnLaunch { get; set; } = true;
@@ -561,6 +562,48 @@ public interface IMapTileSource
     Task<byte[]?> GetTileAsync(int zoom, int x, int y, CancellationToken cancellationToken);
 }
 
+/// <summary>Which pictures the Home map is made of.</summary>
+public enum MapStyle
+{
+    /// <summary>The usual street map of OpenStreetMap.</summary>
+    Standard,
+
+    /// <summary>Stamen's watercolor map, as the Smithsonian keeps it online.</summary>
+    Watercolor,
+}
+
+/// <summary>The tile source of each <see cref="MapStyle"/>. A source is made when its style is first asked for, and kept.</summary>
+public interface IMapTileProvider
+{
+    IMapTileSource Get(MapStyle style);
+}
+
+/// <param name="create">Makes the source of a style.</param>
+public sealed class MapTileProvider(Func<MapStyle, IMapTileSource> create) : IMapTileProvider, IDisposable
+{
+    private readonly Dictionary<MapStyle, IMapTileSource> _sources = [];
+
+    public IMapTileSource Get(MapStyle style)
+    {
+        lock (_sources)
+        {
+            if (!_sources.TryGetValue(style, out IMapTileSource? source))
+                _sources[style] = source = create(style);
+            return source;
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (_sources)
+        {
+            foreach (IDisposable source in _sources.Values.OfType<IDisposable>())
+                source.Dispose();
+            _sources.Clear();
+        }
+    }
+}
+
 /// <summary>
 /// The global keyboard shortcuts. They work while another program, such as the simulator, has the keys, so they are looked for by asking
 /// the system which keys are down, not by listening to the window.
@@ -610,6 +653,6 @@ public sealed record AppServices(
     IPlatform Platform,
     IPreferencesStore Preferences,
     IModelScanSource ModelScan,
-    IMapTileSource MapTiles,
+    IMapTileProvider MapTiles,
     IMessageSource Messages,
     IShortcutSource Shortcuts);

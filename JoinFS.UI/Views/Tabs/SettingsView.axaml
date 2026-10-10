@@ -126,10 +126,22 @@
             <Border IsVisible="{Binding UserInterface.IsOpen}"
                     BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="18,14,18,18">
               <Panel DataContext="{Binding UserInterface}">
-                <StackPanel x:DataType="tvm:UserInterfaceSettingsViewModel" Orientation="Horizontal" Spacing="20">
-                  <CheckBox IsChecked="{Binding AlwaysOnTop}" Content="{l:T 'Always on top'}" />
-                  <CheckBox IsChecked="{Binding AutoRefresh}" Content="{l:T 'Auto refresh'}" />
-                  <CheckBox IsChecked="{Binding ToolTips}" Content="{l:T 'Tool Tips'}" />
+                <StackPanel x:DataType="tvm:UserInterfaceSettingsViewModel" Spacing="14">
+                  <StackPanel Orientation="Horizontal" Spacing="20">
+                    <CheckBox IsChecked="{Binding AlwaysOnTop}" Content="{l:T 'Always on top'}" />
+                    <CheckBox IsChecked="{Binding AutoRefresh}" Content="{l:T 'Auto refresh'}" />
+                    <CheckBox IsChecked="{Binding ToolTips}" Content="{l:T 'Tool Tips'}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="{l:T 'Home map'}" VerticalAlignment="Center" />
+                    <ComboBox ItemsSource="{Binding MapStyleOptions}" SelectedItem="{Binding SelectedMapStyleOption}" MinWidth="160">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="tvm:MapStyleOption">
+                          <TextBlock Text="{Binding Name}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                  </StackPanel>
                 </StackPanel>
               </Panel>
             </Border>

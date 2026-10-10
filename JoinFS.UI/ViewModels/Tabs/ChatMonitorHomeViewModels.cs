@@ -200,14 +200,15 @@ public sealed partial class HomeViewModel : ObservableObject
     private readonly ISessionSource _session;
     private readonly ITrafficSource _traffic;
     private readonly IPlatform _platform;
+    private readonly IMapTileProvider _mapTiles;
 
-    public HomeViewModel(MainViewModel main, ISessionSource session, ITrafficSource traffic, IPlatform platform, IMapTileSource mapTiles)
+    public HomeViewModel(MainViewModel main, ISessionSource session, ITrafficSource traffic, IPlatform platform, IMapTileProvider mapTiles)
     {
         _main = main;
         _session = session;
         _traffic = traffic;
         _platform = platform;
-        MapTiles = mapTiles;
+        _mapTiles = mapTiles;
 
         // The two states feed both the greeting and the hub name, so Home follows them live.
         main.Simulator.PropertyChanged += (_, _) => OnPropertyChanged(nameof(Subtitle));
@@ -223,8 +224,13 @@ public sealed partial class HomeViewModel : ObservableObject
 
     public bool HasMapMarkers => MapMarkers.Count > 0;
 
+    /// <summary>Which map the pictures are of. Set from Settings → User Interface, and the open map changes at once.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MapTiles), nameof(MapAttribution), nameof(HasMapAttribution))]
+    private MapStyle _mapStyle;
+
     /// <summary>Where the map's pictures come from.</summary>
-    public IMapTileSource MapTiles { get; }
+    public IMapTileSource MapTiles => _mapTiles.Get(MapStyle);
 
     /// <summary>What the map has to say for the owners of its data. Empty when it has nothing to credit.</summary>
     public string MapAttribution => MapTiles.Attribution;

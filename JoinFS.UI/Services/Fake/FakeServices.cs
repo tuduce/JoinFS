@@ -35,7 +35,7 @@ public static class FakeServices
         Platform: platform ?? new NullPlatform(),
         Preferences: new InMemoryPreferencesStore(),
         ModelScan: new FakeModelScanSource(),
-        MapTiles: new NoMapTiles(),
+        MapTiles: new MapTileProvider(_ => new NoMapTiles()),
         Messages: new NoMessages(),
         Shortcuts: new FakeShortcutSource());
 }
