@@ -7,7 +7,7 @@ using JoinFS.UI.Services;
 namespace JoinFS.Live
 {
     /// <summary>
-    /// The chat of the session, from <c>main.notes</c>: what the pilots post on the session channel, kept there for a few minutes, and what
+    /// The chat of the session, from <c>main.notes</c>: what the pilots post on the session channel, kept there for three hours, and what
     /// is posted by sending. The "." commands are answered here and never leave: their lines are kept for an hour, as the old session
     /// window kept them. What counts as new for the dot is what others said since the chat was last looked at.
     /// </summary>
@@ -24,12 +24,16 @@ namespace JoinFS.Live
         /// <summary>The answers to commands, with when they were given. Only the UI thread touches them.</summary>
         readonly List<ChatMessage> commandLines = [];
 
+        /// <summary>The clock time of ElapsedTime zero. Fixed once, so that a line keeps the same time of day every time it is read.</summary>
+        readonly DateTime clockAtZero;
+
         double lastSend = double.NegativeInfinity;
         double lastRead = 0.0;
 
         public LiveChatSource(Main main)
         {
             this.main = main;
+            clockAtZero = DateTime.Now.AddSeconds(-main.ElapsedTime);
         }
 
         public bool IsConnected => main.network.Connected;
@@ -62,7 +66,8 @@ namespace JoinFS.Live
                             // empty notes are only there to take the place of ones that ended
                             if (note.Value.text.Length > 0 && note.Value.channel == Notes.SESSION_CHANNEL)
                             {
-                                lines.Add(new ChatMessage(userNotes.Value.uniqueNickname, note.Value.text, userNotes.Value.callsign, note.Value.time));
+                                lines.Add(new ChatMessage(userNotes.Value.uniqueNickname, note.Value.text, userNotes.Value.callsign, note.Value.time,
+                                    IsOwn: userNotes.Key == main.guid, At: clockAtZero.AddSeconds(note.Value.time)));
                             }
                         }
                     }
@@ -147,6 +152,10 @@ namespace JoinFS.Live
                 return false;
             }
         }
+
+        public double ReadUpTo => lastRead;
+
+        public int Arrivals => main.notes.liveSessionArrivals;
 
         public void MarkRead() => lastRead = main.ElapsedTime;
     }

@@ -120,10 +120,16 @@ public sealed record VariableAssignment(string Model, IReadOnlyList<string> File
 /// <param name="Callsign">The callsign the pilot was flying under, or empty.</param>
 /// <param name="Time">When it came, to put the lines in order and tell lines apart that read alike.</param>
 /// <param name="IsLocal">A line of JoinFS's own, shown only to you and not kept.</param>
-public sealed record ChatMessage(string From, string Text, string Callsign = "", double Time = 0, bool IsLocal = false)
+/// <param name="IsOwn">You said it. It is shown in a style of its own, without your name.</param>
+/// <param name="At">The clock time it was said, in local time. Unset for a line without one. It must not change between two reads of the same line.</param>
+/// <param name="IsFirstUnread">The first line you had not seen when you opened the chat: a separator is drawn above it. Set by the chat tab, not by the source.</param>
+public sealed record ChatMessage(string From, string Text, string Callsign = "", double Time = 0, bool IsLocal = false, bool IsOwn = false, DateTime At = default, bool IsFirstUnread = false)
 {
-    /// <summary>Who said it, ready to put before the text: the nickname, the callsign after it when there is one, and a colon. Empty for a line of JoinFS's own.</summary>
-    public string Label => From.Length == 0 ? "" : (Callsign.Length == 0 ? From : From + " · " + Callsign) + ": ";
+    /// <summary>Who said it, ready to put before the text: the nickname, the callsign after it when there is one, and a colon. Empty for a line of JoinFS's own and for your own.</summary>
+    public string Label => From.Length == 0 || IsOwn ? "" : (Callsign.Length == 0 ? From : From + " · " + Callsign) + ": ";
+
+    /// <summary>The time of day, ready to put before the label. Empty for a line without one.</summary>
+    public string Stamp => At == default ? "" : At.ToString("t") + "  ";
 }
 
 /// <param name="Id">Names the aircraft to the recorder, for the aircraft of a loaded recording.</param>

@@ -522,6 +522,9 @@
   <data name="New chat message" xml:space="preserve">
     <value>Neue Chat-Nachricht</value>
   </data>
+  <data name="New messages" xml:space="preserve">
+    <value>Neue Nachrichten</value>
+  </data>
   <data name="Next event" xml:space="preserve">
     <value>Nächste Veranstaltung</value>
   </data>
@@ -897,8 +900,8 @@
   <data name="Type" xml:space="preserve">
     <value>Typ</value>
   </data>
-  <data name="Type a message" xml:space="preserve">
-    <value>Nachricht eingeben</value>
+  <data name="Type a message, or .help for the commands" xml:space="preserve">
+    <value>Nachricht eingeben oder .help für die Befehle</value>
   </data>
   <data name="Unignore" xml:space="preserve">
     <value>Nicht mehr ignorieren</value>

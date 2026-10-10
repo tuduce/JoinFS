@@ -12,6 +12,8 @@ public sealed class AvaloniaPlatform(Func<TopLevel?> topLevel) : IPlatform
             await clipboard.SetTextAsync(text);
     }
 
+    public void PlayChime() => Chime.Play();
+
     public void OpenUrl(string url)
     {
         // Only web links: a URL from a hub's own data must not launch anything else.

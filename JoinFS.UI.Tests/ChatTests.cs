@@ -13,6 +13,8 @@ internal sealed class ScriptedChat : IChatSource
     public bool Connected { get; set; } = true;
     public bool Allowed { get; set; } = true;
     public bool Unread { get; set; }
+    public double Since { get; set; }
+    public int Arrived { get; set; }
     public List<string> Sent { get; } = [];
     public int Reads { get; private set; }
     public int MarkedRead { get; private set; }
@@ -27,10 +29,13 @@ internal sealed class ScriptedChat : IChatSource
     public bool CanSend => Connected && Allowed;
     public void Send(string text) => Sent.Add(text);
     public bool HasUnread => Unread;
+    public double ReadUpTo => Since;
+    public int Arrivals => Arrived;
 
     public void MarkRead()
     {
         MarkedRead++;
+        Since = double.MaxValue;
         Unread = false;
     }
 }
@@ -61,6 +66,24 @@ public class ChatTests
     {
         ChatMessage line = new("", "Command list:", IsLocal: true);
 
+        Assert.Equal("", line.Label);
+    }
+
+    [Fact]
+    public void A_line_shows_the_time_of_day_it_was_said()
+    {
+        ChatMessage line = new("Ann", "hello", At: new DateTime(2026, 10, 10, 19, 41, 0));
+
+        Assert.StartsWith(new DateTime(2026, 10, 10, 19, 41, 0).ToString("t"), line.Stamp);
+        Assert.Equal("", new ChatMessage("Ann", "hello").Stamp);
+    }
+
+    [Fact]
+    public void Your_own_line_is_marked_and_does_not_carry_your_name()
+    {
+        ChatMessage line = new("Me", "on my way", "G-ABCD", IsOwn: true);
+
+        Assert.True(line.IsOwn);
         Assert.Equal("", line.Label);
     }
 
@@ -158,7 +181,7 @@ public class ChatTests
         chat.Connected = true;
         tab.Refresh();
         Assert.True(tab.IsConnected);
-        Assert.Equal("Type a message", tab.ComposerHint);
+        Assert.Equal("Type a message, or .help for the commands", tab.ComposerHint);
     }
 
     // ---- the dot
@@ -222,5 +245,122 @@ public class ChatTests
             main.Poll();
 
         Assert.Equal(atStart, chat.Reads);
+    }
+
+    // ---- the separator
+
+    private static ScriptedChat ThreeLines(double readUpTo) => new()
+    {
+        Lines = [new("Ann", "one", "", 1), new("Bob", "two", "", 2), new("Cy", "three", "", 3)],
+        Since = readUpTo,
+    };
+
+    private static string[] Marked(MainViewModel main) => [.. main.Chat.Messages.Where(m => m.IsFirstUnread).Select(m => m.Text)];
+
+    [Fact]
+    public void Opening_the_chat_marks_the_first_line_that_was_not_seen()
+    {
+        MainViewModel main = OpenMain(ThreeLines(1.5));
+
+        main.GoTo(TabId.Chat);
+
+        Assert.Equal(["two"], Marked(main));
+    }
+
+    [Fact]
+    public void Nothing_is_marked_when_every_line_is_unseen_or_none_is()
+    {
+        MainViewModel all = OpenMain(ThreeLines(0));
+        all.GoTo(TabId.Chat);
+        Assert.Empty(Marked(all));
+
+        MainViewModel none = OpenMain(ThreeLines(3));
+        none.GoTo(TabId.Chat);
+        Assert.Empty(Marked(none));
+    }
+
+    [Fact]
+    public void What_you_said_yourself_is_never_the_first_unseen_line()
+    {
+        ScriptedChat chat = new() { Lines = [new("Ann", "one", "", 1), new("Me", "mine", "", 2, IsOwn: true), new("Bob", "two", "", 3)], Since = 1 };
+        MainViewModel main = OpenMain(chat);
+
+        main.GoTo(TabId.Chat);
+
+        Assert.Equal(["two"], Marked(main));
+    }
+
+    [Fact]
+    public void The_separator_stays_where_it_was_while_lines_come_in_front_of_you()
+    {
+        ScriptedChat chat = ThreeLines(1.5);
+        MainViewModel main = OpenMain(chat);
+        main.GoTo(TabId.Chat);
+
+        chat.Lines.Add(new ChatMessage("Di", "four", "", 4));
+        main.Poll();
+
+        Assert.Equal(["two"], Marked(main));
+        Assert.Equal("four", main.Chat.Messages[^1].Text);
+    }
+
+    [Fact]
+    public void Coming_back_after_reading_marks_only_what_came_since()
+    {
+        ScriptedChat chat = ThreeLines(1.5);
+        MainViewModel main = OpenMain(chat);
+        main.GoTo(TabId.Chat);
+
+        main.GoTo(TabId.Aircraft);
+        for (int i = 0; i < 8; i++)
+            main.Poll();
+        chat.Lines.Add(new ChatMessage("Di", "four", "", 4));
+        chat.Since = 3.5; // it was read up to the last poll with the chat on screen
+        main.GoTo(TabId.Chat);
+
+        Assert.Equal(["four"], Marked(main));
+    }
+
+    // ---- the chime
+
+    private static MainViewModel OpenMain(ScriptedChat chat, NullPlatform platform) =>
+        new(FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true, Nickname = "Me" }, platform) with { Chat = chat });
+
+    [Fact]
+    public void A_message_that_comes_in_chimes_once_whichever_tab_is_shown()
+    {
+        ScriptedChat chat = new();
+        NullPlatform platform = new();
+        MainViewModel main = OpenMain(chat, platform);
+        main.GoTo(TabId.Aircraft);
+
+        chat.Arrived++;
+        main.Poll();
+        main.Poll();
+
+        Assert.Equal(1, platform.Chimes);
+    }
+
+    [Fact]
+    public void Nothing_chimes_for_what_was_there_before_the_window_opened_or_for_a_quiet_chat()
+    {
+        ScriptedChat chat = new() { Arrived = 5 };
+        NullPlatform platform = new();
+        MainViewModel main = OpenMain(chat, platform);
+
+        main.Poll();
+
+        Assert.Equal(0, platform.Chimes);
+    }
+
+    [Fact]
+    public void The_chime_is_a_playable_wav_of_under_a_second()
+    {
+        byte[] wave = Chime.WaveFile;
+
+        Assert.Equal("RIFF", System.Text.Encoding.ASCII.GetString(wave, 0, 4));
+        Assert.Equal("WAVE", System.Text.Encoding.ASCII.GetString(wave, 8, 4));
+        Assert.Equal(wave.Length - 8, BitConverter.ToInt32(wave, 4));
+        Assert.InRange(wave.Length, 10_000, 100_000);
     }
 }

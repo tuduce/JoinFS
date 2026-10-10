@@ -522,6 +522,9 @@
   <data name="New chat message" xml:space="preserve">
     <value>새 채팅 메시지</value>
   </data>
+  <data name="New messages" xml:space="preserve">
+    <value>새 메시지</value>
+  </data>
   <data name="Next event" xml:space="preserve">
     <value>다음 이벤트</value>
   </data>
@@ -897,8 +900,8 @@
   <data name="Type" xml:space="preserve">
     <value>유형</value>
   </data>
-  <data name="Type a message" xml:space="preserve">
-    <value>메시지를 입력하세요</value>
+  <data name="Type a message, or .help for the commands" xml:space="preserve">
+    <value>메시지를 입력하거나 .help로 명령을 확인하세요</value>
   </data>
   <data name="Unignore" xml:space="preserve">
     <value>무시 해제</value>

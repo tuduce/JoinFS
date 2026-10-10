@@ -1145,6 +1145,7 @@ public sealed class SavingPlatform(string? savePath) : IPlatform
 
     public Task CopyTextAsync(string text) { Copied.Add(text); return Task.CompletedTask; }
     public void OpenUrl(string url) { }
+    public void PlayChime() { }
     public Task OpenFileAsync(string path) { Opened.Add(path); return Task.CompletedTask; }
     public Task<string?> PickOpenFileAsync(string title, string? startFolder = null, string? extension = null) => Task.FromResult<string?>(null);
     public Task<string?> PickSaveFileAsync(string title, string suggestedName, string? startFolder = null, string? extension = null) { SuggestedName = suggestedName; return Task.FromResult(savePath); }

@@ -188,6 +188,7 @@ internal sealed class FolderPlatform(string folder) : IPlatform
 {
     public Task CopyTextAsync(string text) => Task.CompletedTask;
     public void OpenUrl(string url) { }
+    public void PlayChime() { }
     public Task OpenFileAsync(string path) => Task.CompletedTask;
     public Task<string?> PickOpenFileAsync(string title, string? startFolder = null, string? extension = null) => Task.FromResult<string?>(null);
     public Task<string?> PickSaveFileAsync(string title, string suggestedName, string? startFolder = null, string? extension = null) => Task.FromResult<string?>(null);

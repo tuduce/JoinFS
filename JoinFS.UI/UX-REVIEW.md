@@ -51,7 +51,7 @@ Reviewed on 2026-10-10, branch `ui-revamp` (head `5fd93e6`), from a functionalit
 
 ### Low
 
-15. **Chat.** No timestamps, no distinction for your own messages, no unread separator, no hint that notes vanish after 10 minutes, and the `.help` command is undiscoverable.
+15. **[Fixed: lines have a clock time, your own are a tinted bubble on the right, a "New messages" separator marks where the unseen lines start, notes live three hours, and the empty line points to `.help`.] Chat.** No timestamps, no distinction for your own messages, no unread separator, no hint that notes vanish after 10 minutes, and the `.help` command is undiscoverable.
 16. **Blank and unexplained cells.** The Owner cell is blank for simulator-own aircraft (e.g. LV-ALB): show "Simulator" or "—". Red distance (`IsFar`) has no legend.
 17. **Home.** Map labels overlap (A320 / 9H-WDR). The fake data shows "Connected users 8" and a full map while the network is disconnected: check that live data never shows stale numbers in that state.
 18. **Frameless window.** `ExtendClientAreaChromeHints="NoChrome"` with custom caption buttons usually loses the Windows 11 Snap Layouts flyout on Maximize (not verified here). The window does not appear to remember its position and size (only the startup anchoring code was read).

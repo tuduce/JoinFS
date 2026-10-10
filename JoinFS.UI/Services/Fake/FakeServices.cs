@@ -417,13 +417,26 @@ public sealed class FakeChatSource : IChatSource
     public bool IsConnected { get; set; } = true;
     public bool CanSend { get; set; } = true;
 
-    public void Send(string text) => _messages.Add(new ChatMessage("You", text, Time: _messages.Count + 1));
+    public void Send(string text) => _messages.Add(new ChatMessage("You", text, Time: _messages.Count + 1, IsOwn: true, At: DateTime.Now));
 
     /// <summary>What the others said: a line is added to the chat.</summary>
-    public void Say(string from, string text) => _messages.Add(new ChatMessage(from, text, Time: _messages.Count + 1));
+    public void Say(string from, string text)
+    {
+        _messages.Add(new ChatMessage(from, text, Time: _messages.Count + 1, At: DateTime.Now));
+        Arrivals++;
+    }
 
     public bool HasUnread { get; private set; } = true;
-    public void MarkRead() => HasUnread = false;
+    public int Arrivals { get; private set; }
+
+    // The sample chat has been read up to its second line.
+    public double ReadUpTo { get; private set; } = 2;
+
+    public void MarkRead()
+    {
+        HasUnread = false;
+        ReadUpTo = double.MaxValue;
+    }
 }
 
 /// <summary>
@@ -713,7 +726,9 @@ public sealed class NullPlatform : IPlatform
     public List<string> OpenedFiles { get; } = [];
     public string? PickedFile { get; set; }
     public string? LastStartFolder { get; private set; }
+    public int Chimes { get; private set; }
 
+    public void PlayChime() => Chimes++;
     public Task CopyTextAsync(string text) { Copied.Add(text); return Task.CompletedTask; }
     public void OpenUrl(string url) => OpenedUrls.Add(url);
     public Task OpenFileAsync(string path) { OpenedFiles.Add(path); return Task.CompletedTask; }
