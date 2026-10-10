@@ -76,4 +76,18 @@ public class LiveAdapterTests
     {
         Assert.Equal(expected, LiveNetworkLink.MapState(state, reconnecting, joiningUser));
     }
+
+    [Fact]
+    public void The_match_explanation_names_the_engine_that_matched()
+    {
+        JoinFS.Substitution.MatchTrace trace = new() { engine = MatchingEngine.New };
+        Assert.Equal(JoinFS.Resources.Strings.MatchExplain_EngineNew, LiveMatchExplanation.EngineDescription(trace));
+
+        trace.engine = MatchingEngine.Classic;
+        Assert.Equal(JoinFS.Resources.Strings.MatchExplain_EngineClassic, LiveMatchExplanation.EngineDescription(trace));
+
+        trace.engine = null; // no engine involved, like a hand-picked match
+        Assert.Equal("", LiveMatchExplanation.EngineDescription(trace));
+        Assert.Equal("", LiveMatchExplanation.EngineDescription(null));
+    }
 }

@@ -54,6 +54,17 @@ namespace JoinFS.Live
         /// (wrong or blank), which JoinFS had to find another way (icao_model, a title guess, or a guess corroborated by class code and WTC).
         /// Empty when nothing needed correcting.
         /// </summary>
+        /// <summary>Which matching engine produced the trace, in the user's language; empty when none was involved (as the old dialog says it)</summary>
+        internal static string EngineDescription(Substitution.MatchTrace trace)
+        {
+            return trace?.engine switch
+            {
+                MatchingEngine.New => Resources.Strings.MatchExplain_EngineNew,
+                MatchingEngine.Classic => Resources.Strings.MatchExplain_EngineClassic,
+                _ => ""
+            };
+        }
+
         static string IcaoResolutionExplanation(Substitution.Model matched)
         {
             string note = matched?.icaoResolutionNote ?? "";
@@ -128,6 +139,12 @@ namespace JoinFS.Live
 
             // tier-by-tier trace, then the other candidates
             List<string> steps = new(trace.steps);
+            string engineText = EngineDescription(trace);
+            if (engineText.Length > 0)
+            {
+                steps.Insert(0, "");
+                steps.Insert(0, engineText);
+            }
             if (matched != null && matched.classCodeConfirmed)
             {
                 steps.Add(Resources.Strings.MatchExplain_ClassCodeConfirmedNote);
@@ -185,6 +202,12 @@ namespace JoinFS.Live
 
             sb.AppendLine("## " + Resources.Strings.MatchExplain_ReportStepsHeader);
             sb.AppendLine();
+            string engineSentence = EngineDescription(trace);
+            if (engineSentence.Length > 0)
+            {
+                sb.AppendLine(engineSentence);
+                sb.AppendLine();
+            }
             if (trace != null)
             {
                 int step = 1;

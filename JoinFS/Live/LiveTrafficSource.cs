@@ -167,12 +167,12 @@ namespace JoinFS.Live
                 // geo is longitude and latitude in radians, and the altitude
                 longitude = position.geo.x * 180.0 / Math.PI;
                 latitude = position.geo.z * 180.0 / Math.PI;
-                heading = Compass((int)(position.angles.y * 180.0 / Math.PI));
+                heading = Vector.HeadingDegrees(position.angles.y);
                 altitude = (int)Math.Round(position.geo.y * Sim.FEET_PER_METRE);
                 if (userPosition != null)
                 {
                     distance = Vector.GeodesicDistance(position.geo.x, position.geo.z, userPosition.geo.x, userPosition.geo.z) * 0.00053995680346;
-                    bearing = Compass((int)(Vector.GeodesicBearing(userPosition.geo.x, userPosition.geo.z, position.geo.x, position.geo.z) * 180.0 / Math.PI));
+                    bearing = Vector.HeadingDegrees(Vector.GeodesicBearing(userPosition.geo.x, userPosition.geo.z, position.geo.x, position.geo.z));
                 }
             }
 
@@ -219,7 +219,7 @@ namespace JoinFS.Live
             {
                 double lon = user.longitude * (Math.PI / 180.0), lat = user.latitude * (Math.PI / 180.0);
                 distance = Vector.GeodesicDistance(lon, lat, userPosition.geo.x, userPosition.geo.z) * 0.00053995680346;
-                bearing = Compass((int)(Vector.GeodesicBearing(userPosition.geo.x, userPosition.geo.z, lon, lat) * 180.0 / Math.PI));
+                bearing = Vector.HeadingDegrees(Vector.GeodesicBearing(userPosition.geo.x, userPosition.geo.z, lon, lat));
             }
 
             return new AircraftInfo(
@@ -229,8 +229,6 @@ namespace JoinFS.Live
                 Recording: false, Ignored: false, Tracked: false, Can: AircraftActions.None,
                 Latitude: user.latitude, Longitude: user.longitude);
         }
-
-        static int Compass(int degrees) => ((degrees % 360) + 360) % 360;
 
         static string Dash(string text) => string.IsNullOrWhiteSpace(text) ? "-" : text;
 
@@ -671,7 +669,7 @@ namespace JoinFS.Live
             if (count == 1 && userPosition != null && position != null)
             {
                 distance = Vector.GeodesicDistance(position.geo.x, position.geo.z, userPosition.geo.x, userPosition.geo.z) * 0.00053995680346;
-                bearing = Compass((int)(Vector.GeodesicBearing(userPosition.geo.x, userPosition.geo.z, position.geo.x, position.geo.z) * 180.0 / Math.PI));
+                bearing = Vector.HeadingDegrees(Vector.GeodesicBearing(userPosition.geo.x, userPosition.geo.z, position.geo.x, position.geo.z));
             }
 
             // a group is broadcast when its model is, or it is a TacPack model and those are
