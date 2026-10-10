@@ -42,9 +42,6 @@
   <data name="Add to Address Book" xml:space="preserve">
     <value>Aggiungi alla rubrica</value>
   </data>
-  <data name="Add To Recorder" xml:space="preserve">
-    <value>Aggiungi al registratore</value>
-  </data>
   <data name="Add variable file" xml:space="preserve">
     <value>Aggiungi file di variabili</value>
   </data>
@@ -204,6 +201,9 @@
   <data name="Continue" xml:space="preserve">
     <value>Continua</value>
   </data>
+  <data name="Control" xml:space="preserve">
+    <value>Controllo</value>
+  </data>
   <data name="Controls the floating label JoinFS draws above other aircraft in X-Plane." xml:space="preserve">
     <value>Controlla l'etichetta flottante che JoinFS disegna sopra gli altri aerei in X-Plane.</value>
   </data>
@@ -281,12 +281,6 @@
   </data>
   <data name="Enter Cockpit" xml:space="preserve">
     <value>Entra nel Cockpit</value>
-  </data>
-  <data name="Exclude Hub Aircraft" xml:space="preserve">
-    <value>Escludi gli aerei degli hub</value>
-  </data>
-  <data name="Exclude Simulator Aircraft" xml:space="preserve">
-    <value>Escludi gli aerei del simulatore</value>
   </data>
   <data name="Expand or collapse" xml:space="preserve">
     <value>Espandi o comprimi</value>
@@ -624,6 +618,9 @@
   <data name="Original Model" xml:space="preserve">
     <value>Modello Originale</value>
   </data>
+  <data name="Other" xml:space="preserve">
+    <value>Altro</value>
+  </data>
   <data name="Other folders to scan (one to a line):" xml:space="preserve">
     <value>Altre cartelle da scansionare (una per riga):</value>
   </data>
@@ -689,9 +686,6 @@
   </data>
   <data name="Remove From Address Book" xml:space="preserve">
     <value>Rimuovi dalla rubrica</value>
-  </data>
-  <data name="Remove From Recorder" xml:space="preserve">
-    <value>Rimuovi dal registratore</value>
   </data>
   <data name="Requested" xml:space="preserve">
     <value>Richiesto</value>

@@ -35,7 +35,7 @@ Reviewed on 2026-10-10, branch `ui-revamp` (head `5fd93e6`), from a functionalit
 
 ### Medium
 
-7. **The Aircraft row mixes scopes.** "Include All Hub / Simulator Aircraft" are list filters among per-aircraft actions (Follow, Ignore). Move them to the footer, as Objects does with "List ignored objects". Twelve links in a three-column grid is a lot to scan: group them (Control, Match, Record, Filter).
+7. **[Fixed: the two filters are ticks in the footer, the record column and link are gone (the Recorder tab chooses), and the links are in three groups, Control, Model and Other.] The Aircraft row mixes scopes.** "Include All Hub / Simulator Aircraft" are list filters among per-aircraft actions (Follow, Ignore). Move them to the footer, as Objects does with "List ignored objects". Twelve links in a three-column grid is a lot to scan: group them (Control, Match, Record, Filter).
 8. **Rows are one big Button with a CheckBox nested in it.** Nested interactive controls cause tab-order and announcement problems for the keyboard and screen readers, and rows have no `AutomationProperties` (a row is read as one blob). Row actions are also hidden behind the expand click. Use a separate expand chevron, or a grid-style row.
 9. **No confirmation or undo for destructive actions.** Address Book "Remove" and "Ignore" act at once. Only the Recorder uses `ConfirmViewModel`. Ignored items are hard to find again when "list ignored" is off.
 10. **Jargon without help text.** "Create Your Own Mesh" shows `40383 51901` unexplained. "Circle of activity", "Sub Model" and "Original Model" are undefined. A bare "Password" in the Network card does not say whether it is for your own hub or for joining. Add one-line helper text, as the Scan and Keyboard cards already do.

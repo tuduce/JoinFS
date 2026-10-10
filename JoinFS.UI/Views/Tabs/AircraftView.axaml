@@ -4,7 +4,7 @@
              xmlns:vm="using:JoinFS.UI.ViewModels"
              x:Class="JoinFS.UI.Views.Tabs.AircraftView"
              x:DataType="tvm:AircraftViewModel">
-  <Grid RowDefinitions="Auto,*" RowSpacing="14">
+  <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
     <Grid ColumnDefinitions="*,Auto">
       <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
         <TextBlock Text="{l:T 'Aircraft'}" Classes="h2" />
@@ -15,7 +15,7 @@
     <Border Grid.Row="1" Classes="card">
       <Grid RowDefinitions="Auto,*">
         <Border Classes="tableHeader">
-          <Grid ColumnDefinitions="110,110,90,80,80,60,*,70">
+          <Grid ColumnDefinitions="110,110,90,80,80,60,*">
             <Button Grid.Column="0" Classes="th" Command="{Binding CallsignColumn.SortCommand}" Content="{Binding CallsignColumn.Header}" />
             <Button Grid.Column="1" Classes="th" Command="{Binding OwnerColumn.SortCommand}" Content="{Binding OwnerColumn.Header}" />
             <Button Grid.Column="2" Classes="th" Command="{Binding DistanceColumn.SortCommand}" Content="{Binding DistanceColumn.Header}" />
@@ -23,7 +23,6 @@
             <Button Grid.Column="4" Classes="th" Command="{Binding AltitudeColumn.SortCommand}" Content="{Binding AltitudeColumn.Header}" />
             <Button Grid.Column="5" Classes="th" Command="{Binding GroundSpeedColumn.SortCommand}" Content="{Binding GroundSpeedColumn.Header}" />
             <Button Grid.Column="6" Classes="th" Command="{Binding ModelColumn.SortCommand}" Content="{Binding ModelColumn.Header}" />
-            <TextBlock Grid.Column="7" Text="{l:T 'Record'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
           </Grid>
         </Border>
 
@@ -35,7 +34,7 @@
                   <StackPanel>
                     <Button Classes="rowButton" Classes.selected="{Binding IsExpanded}" Classes.tracked="{Binding IsTracked}" Classes.ignored="{Binding IsIgnored}"
                             Command="{Binding ToggleExpandedCommand}">
-                      <Grid ColumnDefinitions="110,110,90,80,80,60,*,70" Margin="10,8">
+                      <Grid ColumnDefinitions="110,110,90,80,80,60,*" Margin="10,8">
                         <TextBlock Grid.Column="0" Text="{Binding Callsign}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Grid.Column="1" Text="{Binding Owner}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Grid.Column="2" Text="{Binding Distance}" Classes.far="{Binding IsFar}" Classes.failed="{Binding IsFailed}" />
@@ -43,7 +42,6 @@
                         <TextBlock Grid.Column="4" Text="{Binding Altitude}" />
                         <TextBlock Grid.Column="5" Text="{Binding GroundSpeed}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Grid.Column="6" Text="{Binding Model}" TextTrimming="CharacterEllipsis" />
-                        <CheckBox Grid.Column="7" IsChecked="{Binding Recording}" IsEnabled="{Binding CanRecord}" MinHeight="0" Padding="0" AutomationProperties.Name="{l:T 'Record'}" />
                       </Grid>
                     </Button>
 
@@ -70,21 +68,27 @@
 
                         <Border Grid.Column="1" Classes="vrule" />
 
-                        <StackPanel Grid.Column="2" Spacing="10">
-                          <TextBlock Classes="caps" Text="{l:T 'ACTIONS'}" />
-                          <ItemsControl ItemsSource="{Binding Actions}">
-                            <ItemsControl.ItemsPanel>
-                              <ItemsPanelTemplate>
-                                <UniformGrid Columns="3" />
-                              </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                              <DataTemplate x:DataType="vm:ActionLink">
-                                <Button Classes="link" Command="{Binding Command}" Content="{Binding Label}" ToolTip.Tip="{Binding Hint}" Margin="0,0,20,8" />
-                              </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                          </ItemsControl>
-                        </StackPanel>
+                        <ItemsControl Grid.Column="2" ItemsSource="{Binding ActionGroups}">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <StackPanel Orientation="Horizontal" Spacing="28" />
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="tvm:ActionGroup">
+                              <StackPanel Spacing="10">
+                                <TextBlock Classes="caps" Text="{Binding Title}" />
+                                <ItemsControl ItemsSource="{Binding Links}">
+                                  <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ActionLink">
+                                      <Button Classes="link" Command="{Binding Command}" Content="{Binding Label}" ToolTip.Tip="{Binding Hint}" Margin="0,0,0,8" />
+                                    </DataTemplate>
+                                  </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                              </StackPanel>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                       </Grid>
                     </Border>
                   </StackPanel>
@@ -95,5 +99,10 @@
         </ScrollViewer>
       </Grid>
     </Border>
+
+    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="24">
+      <CheckBox IsChecked="{Binding IncludeHubAircraft}" Content="{l:T 'Include All Hub Aircraft'}" />
+      <CheckBox IsChecked="{Binding IncludeSimulatorAircraft}" Content="{l:T 'Include All Simulator Aircraft'}" />
+    </StackPanel>
   </Grid>
 </UserControl>

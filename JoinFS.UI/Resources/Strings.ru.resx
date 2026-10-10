@@ -42,9 +42,6 @@
   <data name="Add to Address Book" xml:space="preserve">
     <value>Добавить в адресную книгу</value>
   </data>
-  <data name="Add To Recorder" xml:space="preserve">
-    <value>Добавить в рекордер</value>
-  </data>
   <data name="Add variable file" xml:space="preserve">
     <value>Добавить файл переменных</value>
   </data>
@@ -204,6 +201,9 @@
   <data name="Continue" xml:space="preserve">
     <value>Продолжить</value>
   </data>
+  <data name="Control" xml:space="preserve">
+    <value>Управление</value>
+  </data>
   <data name="Controls the floating label JoinFS draws above other aircraft in X-Plane." xml:space="preserve">
     <value>Управляет плавающей меткой, которую JoinFS рисует над другими самолётами в X-Plane.</value>
   </data>
@@ -281,12 +281,6 @@
   </data>
   <data name="Enter Cockpit" xml:space="preserve">
     <value>Войти в кабину</value>
-  </data>
-  <data name="Exclude Hub Aircraft" xml:space="preserve">
-    <value>Исключить самолёты хабов</value>
-  </data>
-  <data name="Exclude Simulator Aircraft" xml:space="preserve">
-    <value>Исключить самолёты симулятора</value>
   </data>
   <data name="Expand or collapse" xml:space="preserve">
     <value>Развернуть или свернуть</value>
@@ -624,6 +618,9 @@
   <data name="Original Model" xml:space="preserve">
     <value>Оригинальная модель</value>
   </data>
+  <data name="Other" xml:space="preserve">
+    <value>Прочее</value>
+  </data>
   <data name="Other folders to scan (one to a line):" xml:space="preserve">
     <value>Другие папки для сканирования (по одной в строке):</value>
   </data>
@@ -689,9 +686,6 @@
   </data>
   <data name="Remove From Address Book" xml:space="preserve">
     <value>Удалить из адресной книги</value>
-  </data>
-  <data name="Remove From Recorder" xml:space="preserve">
-    <value>Удалить с рекордера</value>
   </data>
   <data name="Requested" xml:space="preserve">
     <value>Запрошено</value>

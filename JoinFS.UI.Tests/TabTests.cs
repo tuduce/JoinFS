@@ -489,11 +489,12 @@ public class AircraftAndObjectsTests
     {
         AircraftRowViewModel row = new Rig().Main.Aircraft.Rows[1];
 
-        Assert.Equal(15, row.Actions.Count);
+        Assert.Equal(12, row.Actions.Count);
+        Assert.Equal(["CONTROL", "MODEL", "OTHER"], row.ActionGroups.Select(g => g.Title));
         Assert.Equal(
-            ["Substitute…", "Explain Match…", "Copy Flight Plan…", "Assign Variables…", "Adjust Height…", "Follow '9H-WDR'", "Enter Cockpit",
-             "Track Heading On Hdg", "Track Bearing On Hdg", "Copy Weather", "Remove From Recorder", "Include All Hub Aircraft",
-             "Include All Simulator Aircraft", "Ignore", "Stop Tracking"],
+            ["Follow '9H-WDR'", "Enter Cockpit", "Track Heading On Hdg", "Track Bearing On Hdg", "Stop Tracking",
+             "Substitute…", "Explain Match…", "Assign Variables…", "Adjust Height…",
+             "Copy Flight Plan…", "Copy Weather", "Ignore"],
             row.Actions.Select(a => a.Label));
     }
 
@@ -501,7 +502,7 @@ public class AircraftAndObjectsTests
     public void Only_the_actions_the_service_allows_can_be_used()
     {
         AircraftRowViewModel row = new Rig().Main.Aircraft.Rows[1];
-        Assert.All(row.Actions.Take(14), a => Assert.True(a.Command.CanExecute(null), a.Label));
+        Assert.All(row.Actions.Where(a => a.Label != "Stop Tracking"), a => Assert.True(a.Command.CanExecute(null), a.Label));
         Assert.False(Link(row, "Stop Tracking").Command.CanExecute(null)); // nothing is tracked
 
         row.Update(row.Info with { Can = AircraftActions.Ignore | AircraftActions.Record });
@@ -511,20 +512,6 @@ public class AircraftAndObjectsTests
         Assert.False(Link(row, "Enter Cockpit").Command.CanExecute(null));
         Assert.False(Link(row, "Track Heading").Command.CanExecute(null));
         Assert.True(Link(row, "Ignore").Command.CanExecute(null));
-        Assert.True(Link(row, "Remove From Recorder").Command.CanExecute(null));
-        Assert.True(Link(row, "Include All Hub Aircraft").Command.CanExecute(null)); // a list filter, always there
-    }
-
-    [Fact]
-    public void An_aircraft_you_cannot_record_has_its_box_disabled_and_ignores_the_tick()
-    {
-        AircraftRowViewModel row = new Rig().Main.Aircraft.Rows.First(r => !r.Recording);
-        row.Update(row.Info with { Can = AircraftActions.None });
-        Assert.False(row.CanRecord);
-
-        row.Recording = true;
-
-        Assert.False(row.Recording);
     }
 
     [Fact]
@@ -559,26 +546,8 @@ public class AircraftAndObjectsTests
         Link(row, "Ignore").Command.Execute(null);
 
         Assert.True(row.IsIgnored);
-        Assert.Equal("Unignore", row.Actions[^2].Label);
+        Assert.Equal("Unignore", row.Actions[^1].Label);
         Assert.Contains(rig.Services.Traffic.GetAircraft(), a => a.Id == row.Id && a.Ignored);
-    }
-
-    [Fact]
-    public void Recording_is_written_to_the_service_and_a_refresh_does_not_write_it_back()
-    {
-        ScriptedTraffic traffic = new();
-        AircraftViewModel aircraft = new(traffic, new JoinFS.UI.Services.Fake.FakeModelCatalog(), new JoinFS.UI.Services.Fake.FakeVariablesCatalog(), new JoinFS.UI.Services.Fake.NullPlatform(),
-            new ProfileViewModel(new JoinFS.UI.Services.Fake.InMemorySettingsStore()), new RecordSelection(), new NullShell(), new ShortcutHints());
-        AircraftRowViewModel row = aircraft.Rows.Single();
-        Assert.Empty(traffic.Writes); // reading the list wrote nothing
-
-        row.Recording = true;
-        Assert.Equal(["record a=True"], traffic.Writes);
-
-        traffic.Aircraft = [traffic.Info("a") with { Recording = false }];
-        aircraft.Refresh();
-        Assert.False(row.Recording);
-        Assert.Equal(["record a=True"], traffic.Writes); // the refresh took the service's word and wrote nothing
     }
 
     [Fact]
@@ -586,7 +555,7 @@ public class AircraftAndObjectsTests
     {
         ScriptedTraffic traffic = new();
         AircraftViewModel aircraft = new(traffic, new JoinFS.UI.Services.Fake.FakeModelCatalog(), new JoinFS.UI.Services.Fake.FakeVariablesCatalog(), new JoinFS.UI.Services.Fake.NullPlatform(),
-            new ProfileViewModel(new JoinFS.UI.Services.Fake.InMemorySettingsStore()), new RecordSelection(), new NullShell(), new ShortcutHints());
+            new ProfileViewModel(new JoinFS.UI.Services.Fake.InMemorySettingsStore()), new NullShell(), new ShortcutHints());
         AircraftRowViewModel a = aircraft.Rows.Single();
         a.ToggleExpandedCommand.Execute(null);
 
@@ -604,23 +573,21 @@ public class AircraftAndObjectsTests
     }
 
     [Fact]
-    public void The_two_include_links_are_list_filters_and_add_the_other_aircraft()
+    public void The_two_include_ticks_are_list_filters_and_add_the_other_aircraft()
     {
         Rig rig = new();
         AircraftViewModel aircraft = rig.Main.Aircraft;
-        AircraftRowViewModel any = aircraft.Rows[0];
         Assert.Equal(8, aircraft.AircraftCount);
 
-        Link(any, "Include All Hub Aircraft").Command.Execute(null);
+        aircraft.IncludeHubAircraft = true;
         Assert.True(rig.Services.Traffic.IncludeHubAircraft);
         Assert.Equal(10, aircraft.AircraftCount);
-        Assert.Equal("Exclude Hub Aircraft", Link(any, "Exclude Hub Aircraft").Label);
 
-        Link(any, "Include All Simulator Aircraft").Command.Execute(null);
+        aircraft.IncludeSimulatorAircraft = true;
         Assert.Equal(12, aircraft.AircraftCount);
 
-        Link(any, "Exclude Hub Aircraft").Command.Execute(null);
-        Link(any, "Exclude Simulator Aircraft").Command.Execute(null);
+        aircraft.IncludeHubAircraft = false;
+        aircraft.IncludeSimulatorAircraft = false;
         Assert.Equal(8, aircraft.AircraftCount);
     }
 
@@ -1013,7 +980,7 @@ public class ModelMatchingTests
     public void A_substitution_for_an_aircraft_model_becomes_a_removable_row()
     {
         Rig rig = new();
-        rig.Main.Aircraft.Rows[0].Actions[0].Command.Execute(null); // Substitute…
+        rig.Main.Aircraft.Rows[0].Actions.Single(a => a.Label.StartsWith("Substitute")).Command.Execute(null); // Substitute…
         ((SubstituteViewModel)rig.Main.Overlay!).SaveCommand.Execute(null);
         rig.Main.ModelMatching.Refresh();
 
@@ -1064,7 +1031,7 @@ public class ModelMatchingTests
     {
         (MainViewModel main, RecordingCatalog catalog, ScriptedTraffic traffic) = OpenScripted();
         traffic.AircraftModel = new ModelTarget("My Plane", TypeRole: 1, IsMasquerade: true);
-        main.Aircraft.Rows[0].Actions[0].Command.Execute(null);
+        main.Aircraft.Rows[0].Actions.Single(a => a.Label.StartsWith("Substitute")).Command.Execute(null);
 
         ((SubstituteViewModel)main.Overlay!).SaveCommand.Execute(null);
 
@@ -1077,7 +1044,7 @@ public class ModelMatchingTests
         (MainViewModel main, _, ScriptedTraffic traffic) = OpenScripted();
         traffic.AircraftModel = null;
 
-        main.Aircraft.Rows[0].Actions[0].Command.Execute(null);
+        main.Aircraft.Rows[0].Actions.Single(a => a.Label.StartsWith("Substitute")).Command.Execute(null);
 
         Assert.Null(main.Overlay);
     }
@@ -1746,48 +1713,59 @@ public class ChatMonitorHomeTests
 public class RecordSelectionTests
 {
     [Fact]
-    public void The_recorders_list_is_the_aircraft_list_with_the_same_ticks()
+    public void The_recorders_list_has_the_aircraft_that_can_be_recorded_with_the_services_ticks()
     {
         Rig rig = new();
 
-        Assert.Equal(rig.Main.Aircraft.Rows.Select(r => r.Id).Order(), rig.Main.Recorder.LiveAircraft.Select(r => r.Callsign).Order());
-        foreach (AircraftRowViewModel row in rig.Main.Aircraft.Rows)
-            Assert.Equal(row.Recording, rig.Main.Recorder.LiveAircraft.Single(r => r.Callsign == row.Id).IsChecked);
-        Assert.Equal(["9H-WDR", "AAL2693", "ASXGS", "LV-ALB"], rig.Main.Aircraft.Rows.Where(r => r.Recording).Select(r => r.Callsign).Order());
+        IReadOnlyList<AircraftInfo> aircraft = rig.Services.Traffic.GetAircraft();
+        Assert.Equal(aircraft.Where(a => a.Can.HasFlag(AircraftActions.Record)).Select(a => a.Callsign).Order(), rig.Main.Recorder.LiveAircraft.Select(r => r.Callsign).Order());
+        foreach (RecordItemViewModel item in rig.Main.Recorder.LiveAircraft)
+            Assert.Equal(aircraft.Single(a => a.Id == item.Id).Recording, item.IsChecked);
+        Assert.Equal(["9H-WDR", "AAL2693", "ASXGS", "LV-ALB"], rig.Main.Recorder.LiveAircraft.Where(r => r.IsChecked).Select(r => r.Callsign).Order());
     }
 
     [Fact]
-    public void Ticking_in_either_tab_ticks_in_the_other_and_reaches_the_service()
+    public void Ticking_reaches_the_service()
     {
         Rig rig = new();
-        AircraftRowViewModel row = rig.Main.Aircraft.Rows.Single(r => r.Callsign == "A320");
         RecordItemViewModel item = rig.Main.Recorder.LiveAircraft.Single(r => r.Callsign == "A320");
-        Assert.False(row.Recording);
+        Assert.False(item.IsChecked);
 
-        row.Recording = true;
-        Assert.True(item.IsChecked);
+        item.IsChecked = true;
         Assert.Contains(rig.Services.Traffic.GetAircraft(), a => a.Id == "A320" && a.Recording);
 
         item.IsChecked = false;
-        Assert.False(row.Recording);
         Assert.DoesNotContain(rig.Services.Traffic.GetAircraft(), a => a.Id == "A320" && a.Recording);
     }
 
     [Fact]
-    public void Remove_from_recorder_and_add_to_recorder_toggle_the_aircraft()
+    public void A_refresh_takes_the_services_word_on_a_tick_and_does_not_write_it_back()
     {
-        Rig rig = new();
-        AircraftRowViewModel row = rig.Main.Aircraft.Rows.Single(r => r.Callsign == "9H-WDR");
-        ActionLink link = row.Actions.Single(a => a.Label.EndsWith("Recorder"));
-        Assert.Equal("Remove From Recorder", link.Label);
+        ScriptedTraffic traffic = new();
+        RecorderViewModel recorder = new(new JoinFS.UI.Services.Fake.FakeRecorderSource(), traffic, new JoinFS.UI.Services.Fake.NullPlatform(), new NullShell(), new ShortcutHints());
+        RecordItemViewModel item = recorder.LiveAircraft.Single();
+        Assert.Empty(traffic.Writes); // reading the list wrote nothing
 
-        link.Command.Execute(null);
-        Assert.False(row.Recording);
-        Assert.Equal("Add To Recorder", link.Label);
-        Assert.False(rig.Main.Recorder.LiveAircraft.Single(r => r.Callsign == "9H-WDR").IsChecked);
+        item.IsChecked = true;
+        Assert.Equal(["record a=True"], traffic.Writes);
 
-        link.Command.Execute(null);
-        Assert.True(row.Recording);
+        traffic.Aircraft = [traffic.Info("a") with { Recording = false }];
+        recorder.Refresh();
+        Assert.False(item.IsChecked);
+        Assert.Equal(["record a=True"], traffic.Writes);
+    }
+
+    [Fact]
+    public void An_aircraft_that_cannot_be_recorded_is_not_listed()
+    {
+        ScriptedTraffic traffic = new();
+        RecorderViewModel recorder = new(new JoinFS.UI.Services.Fake.FakeRecorderSource(), traffic, new JoinFS.UI.Services.Fake.NullPlatform(), new NullShell(), new ShortcutHints());
+        Assert.Single(recorder.LiveAircraft);
+
+        traffic.Aircraft = [traffic.Info("a") with { Can = AircraftActions.None }];
+        recorder.Refresh();
+
+        Assert.Empty(recorder.LiveAircraft);
     }
 }
 

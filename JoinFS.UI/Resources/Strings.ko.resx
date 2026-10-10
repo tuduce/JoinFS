@@ -42,9 +42,6 @@
   <data name="Add to Address Book" xml:space="preserve">
     <value>주소록에 추가</value>
   </data>
-  <data name="Add To Recorder" xml:space="preserve">
-    <value>레코더에 추가</value>
-  </data>
   <data name="Add variable file" xml:space="preserve">
     <value>변수 파일 추가</value>
   </data>
@@ -204,6 +201,9 @@
   <data name="Continue" xml:space="preserve">
     <value>계속</value>
   </data>
+  <data name="Control" xml:space="preserve">
+    <value>제어</value>
+  </data>
   <data name="Controls the floating label JoinFS draws above other aircraft in X-Plane." xml:space="preserve">
     <value>X-Plane에서 JoinFS가 다른 항공기 위에 표시하는 떠 있는 라벨을 설정합니다.</value>
   </data>
@@ -281,12 +281,6 @@
   </data>
   <data name="Enter Cockpit" xml:space="preserve">
     <value>조종석에 입장</value>
-  </data>
-  <data name="Exclude Hub Aircraft" xml:space="preserve">
-    <value>허브 항공기 제외</value>
-  </data>
-  <data name="Exclude Simulator Aircraft" xml:space="preserve">
-    <value>시뮬레이터 항공기 제외</value>
   </data>
   <data name="Expand or collapse" xml:space="preserve">
     <value>확장 또는 축소</value>
@@ -624,6 +618,9 @@
   <data name="Original Model" xml:space="preserve">
     <value>오리지널 모델</value>
   </data>
+  <data name="Other" xml:space="preserve">
+    <value>기타</value>
+  </data>
   <data name="Other folders to scan (one to a line):" xml:space="preserve">
     <value>스캔할 다른 폴더(한 줄에 하나):</value>
   </data>
@@ -689,9 +686,6 @@
   </data>
   <data name="Remove From Address Book" xml:space="preserve">
     <value>주소록에서 제거</value>
-  </data>
-  <data name="Remove From Recorder" xml:space="preserve">
-    <value>레코더에서 제거</value>
   </data>
   <data name="Requested" xml:space="preserve">
     <value>요청됨</value>
