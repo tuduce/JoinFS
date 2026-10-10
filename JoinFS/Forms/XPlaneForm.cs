@@ -33,6 +33,30 @@ namespace JoinFS
 
             // change font
             Text_Folder.Font = main.dataFont;
+
+            // only accept a real X-Plane folder
+            FormClosing += XPlaneForm_FormClosing;
+        }
+
+        /// <summary>
+        /// Tell the user why a folder was rejected, without any dialog for valid ones
+        /// </summary>
+        internal static bool ConfirmValidFolder(string folder)
+        {
+            if (XPlaneInstallLocator.IsValidInstall(folder))
+            {
+                return true;
+            }
+            MessageBox.Show(Resources.Strings.InvalidXPlaneFolder, Main.Name, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+
+        private void XPlaneForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (DialogResult == DialogResult.OK && ConfirmValidFolder(GetFolder()) == false)
+            {
+                e.Cancel = true;
+            }
         }
 
         private void XPlane_Load(object sender, EventArgs e)

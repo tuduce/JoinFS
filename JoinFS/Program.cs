@@ -1001,7 +1001,7 @@ namespace JoinFS
                 // check for install plugin
                 if (doPlugin)
                 {
-                    sim.xplane.InstallPlugin(Settings.Default.XPlaneFolder);
+                    sim.xplane.InstallPluginIntoKnownFolder();
                     shutdown = "Finished plugin install.";
                 }
 #endif

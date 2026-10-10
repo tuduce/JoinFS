@@ -795,4 +795,16 @@
   <data name="MatchExplain_EngineClassic" xml:space="preserve">
     <value>Metodo di corrispondenza: classico (confronta solo tipo, compagnia, codice di classe e categoria di turbolenza), scelto con --classicmatching.</value>
   </data>
+  <data name="InvalidXPlaneFolder" xml:space="preserve">
+    <value>Questa non è una cartella di X-Plane. Seleziona la cartella che contiene &quot;Aircraft&quot; e &quot;Resources&quot;.</value>
+  </data>
+  <data name="PluginFilesMissing" xml:space="preserve">
+    <value>I file del plugin (win.xpl, lin.xpl) non sono stati trovati accanto a JoinFS. Reinstalla JoinFS.</value>
+  </data>
+  <data name="NoModelsFound" xml:space="preserve">
+    <value>Nessun modello trovato</value>
+  </data>
+  <data name="RestartXPlaneHint" xml:space="preserve">
+    <value>Riavvia X-Plane per caricare il plugin e i nuovi modelli.</value>
+  </data>
 </root>

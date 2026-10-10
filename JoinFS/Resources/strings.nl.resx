@@ -795,4 +795,16 @@
   <data name="MatchExplain_EngineClassic" xml:space="preserve">
     <value>Koppelmethode: klassiek (vergelijkt alleen type, maatschappij, klassecode en turbulentiecategorie), gekozen met --classicmatching.</value>
   </data>
+  <data name="InvalidXPlaneFolder" xml:space="preserve">
+    <value>Dit is geen X-Plane-map. Selecteer de map die &quot;Aircraft&quot; en &quot;Resources&quot; bevat.</value>
+  </data>
+  <data name="PluginFilesMissing" xml:space="preserve">
+    <value>De plug-inbestanden (win.xpl, lin.xpl) zijn niet naast JoinFS gevonden. Installeer JoinFS opnieuw.</value>
+  </data>
+  <data name="NoModelsFound" xml:space="preserve">
+    <value>Geen modellen gevonden</value>
+  </data>
+  <data name="RestartXPlaneHint" xml:space="preserve">
+    <value>Start X-Plane opnieuw op, zodat de plug-in en de nieuwe modellen worden geladen.</value>
+  </data>
 </root>

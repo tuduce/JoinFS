@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.IO;
+using System.Linq;
 #if !CONSOLE
 using System.Windows.Forms;
 #endif
@@ -374,118 +375,90 @@ namespace JoinFS
         /// <summary>
         /// Install the X-Plane plugin
         /// </summary>
-        public void InstallPlugin(string folder)
+        public bool InstallPlugin(string folder)
         {
             try
             {
                 // get plugins folder
-                folder += Path.DirectorySeparatorChar + "Resources" + Path.DirectorySeparatorChar + "plugins";
+                string pluginsFolder = Path.Combine(folder, "Resources", "plugins");
 
                 // check for plugins folder
-                if (Directory.Exists(folder))
+                if (Directory.Exists(pluginsFolder) == false)
                 {
-                    // create plugin folder
-                    folder += Path.DirectorySeparatorChar + "JoinFS";
-                    if (Directory.Exists(folder) == false) Directory.CreateDirectory(folder);
-
-                    // 64-bit folder
-                    string folder64 = folder + Path.DirectorySeparatorChar + "64";
-                    if (Directory.Exists(folder64) == false) Directory.CreateDirectory(folder64);
-                    File.Copy("win.xpl", folder64 + Path.DirectorySeparatorChar + "win.xpl", true);
-                    File.Copy("lin.xpl", folder64 + Path.DirectorySeparatorChar + "lin.xpl", true);
-
-                    // resources folder
-                    string resourcesFolder = folder + Path.DirectorySeparatorChar + "Resources";
-                    if (Directory.Exists(resourcesFolder) == false) Directory.CreateDirectory(resourcesFolder);
-
-                    // create Doc8643.txt
-                    using (Stream data = new MemoryStream(Properties.Resources_XPLANE.XPMP2_Doc8643))
-                    {
-                        Stream file = File.Create(resourcesFolder + Path.DirectorySeparatorChar + "Doc8643.txt");
-                        data.CopyTo(file);
-                        file.Close();
-                    }
-
-                    // create MapIcons.png
-                    using (Stream data = new MemoryStream(Properties.Resources_XPLANE.XPMP2_MapIcons))
-                    {
-                        Stream file = File.Create(resourcesFolder + Path.DirectorySeparatorChar + "MapIcons.png");
-                        data.CopyTo(file);
-                        file.Close();
-                    }
-
-                    // create Obj8DataRefs.txt
-                    using (Stream data = new MemoryStream(Properties.Resources_XPLANE.XPMP2_Obj8DataRefs))
-                    {
-                        Stream file = File.Create(resourcesFolder + Path.DirectorySeparatorChar + "Obj8DataRefs.txt");
-                        data.CopyTo(file);
-                        file.Close();
-                    }
-
-                    // create related.txt
-                    using (Stream data = new MemoryStream(Properties.Resources_XPLANE.XPMP2_related))
-                    {
-                        Stream file = File.Create(resourcesFolder + Path.DirectorySeparatorChar + "related.txt");
-                        data.CopyTo(file);
-                        file.Close();
-                    }
-
-                    // CSL folder
-                    string cslFolder = resourcesFolder + Path.DirectorySeparatorChar + "CSL";
-                    if (Directory.Exists(cslFolder) == false) Directory.CreateDirectory(cslFolder);
-                    // GA folder
-                    string gaFolder = cslFolder + Path.DirectorySeparatorChar + "BB_GA";
-                    if (Directory.Exists(gaFolder) == false) Directory.CreateDirectory(gaFolder);
-
-                    // create Credits.txt
-                    using (Stream data = new MemoryStream(Properties.Resources_XPLANE.XPMP2_Credits))
-                    {
-                        Stream file = File.Create(gaFolder + Path.DirectorySeparatorChar + "Credits.txt");
-                        data.CopyTo(file);
-                        file.Close();
-                    }
-
-                    // create xsb_aircraft.txt
-                    using (Stream data = new MemoryStream(Properties.Resources_XPLANE.XPMP2_xsb_aircraft))
-                    {
-                        Stream file = File.Create(gaFolder + Path.DirectorySeparatorChar + "xsb_aircraft.txt");
-                        data.CopyTo(file);
-                        file.Close();
-                    }
-
-                    // C172 folder
-                    string c172Folder = gaFolder + Path.DirectorySeparatorChar + "C172";
-                    if (Directory.Exists(c172Folder) == false) Directory.CreateDirectory(c172Folder);
-
-                    // create C172_r2.obj
-                    using (Stream data = new MemoryStream(Properties.Resources_XPLANE.XPMP2_C172_r2))
-                    {
-                        Stream file = File.Create(c172Folder + Path.DirectorySeparatorChar + "C172_r2.obj");
-                        data.CopyTo(file);
-                        file.Close();
-                    }
-
-                    // create r2.dds
-                    using (Stream data = new MemoryStream(Properties.Resources_XPLANE.XPMP2_r2))
-                    {
-                        Stream file = File.Create(c172Folder + Path.DirectorySeparatorChar + "r2.dds");
-                        data.CopyTo(file);
-                        file.Close();
-                    }
-
-                    // message
-                    main.ShowMessage(Resources.Strings.PluginInstalled);
+                    main.ShowMessage(Resources.Strings.LocatePluginFolder + ": " + pluginsFolder);
+                    return false;
                 }
-                else
+
+                // the binaries ship next to the executable, independent of the working directory
+                string binariesFolder = AppContext.BaseDirectory;
+                if (PluginBinariesExist(binariesFolder) == false)
                 {
-                    // message
-                    main.ShowMessage(Resources.Strings.LocatePluginFolder + ": " + folder);
+                    main.ShowMessage(Resources.Strings.PluginFilesMissing);
+                    return false;
                 }
+
+                // create plugin folder
+                string pluginFolder = Path.Combine(pluginsFolder, "JoinFS");
+                Directory.CreateDirectory(pluginFolder);
+
+                // 64-bit folder
+                string folder64 = Path.Combine(pluginFolder, "64");
+                Directory.CreateDirectory(folder64);
+                foreach (string binary in PluginBinaries)
+                {
+                    File.Copy(Path.Combine(binariesFolder, binary), Path.Combine(folder64, binary), true);
+                }
+
+                // resources folder
+                string resourcesFolder = Path.Combine(pluginFolder, "Resources");
+                Directory.CreateDirectory(resourcesFolder);
+                WriteResource(resourcesFolder, "Doc8643.txt", Properties.Resources_XPLANE.XPMP2_Doc8643);
+                WriteResource(resourcesFolder, "MapIcons.png", Properties.Resources_XPLANE.XPMP2_MapIcons);
+                WriteResource(resourcesFolder, "Obj8DataRefs.txt", Properties.Resources_XPLANE.XPMP2_Obj8DataRefs);
+                WriteResource(resourcesFolder, "related.txt", Properties.Resources_XPLANE.XPMP2_related);
+
+                // default CSL package (GA folder)
+                string gaFolder = Path.Combine(resourcesFolder, "CSL", "BB_GA");
+                Directory.CreateDirectory(gaFolder);
+                WriteResource(gaFolder, "Credits.txt", Properties.Resources_XPLANE.XPMP2_Credits);
+                WriteResource(gaFolder, "xsb_aircraft.txt", Properties.Resources_XPLANE.XPMP2_xsb_aircraft);
+
+                // C172 folder
+                string c172Folder = Path.Combine(gaFolder, "C172");
+                Directory.CreateDirectory(c172Folder);
+                WriteResource(c172Folder, "C172_r2.obj", Properties.Resources_XPLANE.XPMP2_C172_r2);
+                WriteResource(c172Folder, "r2.dds", Properties.Resources_XPLANE.XPMP2_r2);
+
+                // message
+                main.ShowMessage(Resources.Strings.PluginInstalled + Environment.NewLine + Environment.NewLine + Resources.Strings.RestartXPlaneHint);
+                return true;
             }
             catch (Exception ex)
             {
                 main.ShowMessage(ex.Message);
+                return false;
             }
+        }
+
+        /// <summary>
+        /// Plugin binaries shipped next to the JoinFS executable
+        /// </summary>
+        static readonly string[] PluginBinaries = { "win.xpl", "lin.xpl" };
+
+        /// <summary>
+        /// Check that every plugin binary is available in the folder
+        /// </summary>
+        static bool PluginBinariesExist(string folder)
+        {
+            return PluginBinaries.All(binary => File.Exists(Path.Combine(folder, binary)));
+        }
+
+        /// <summary>
+        /// Write an embedded resource to a file, replacing any existing one
+        /// </summary>
+        static void WriteResource(string folder, string fileName, byte[] data)
+        {
+            File.WriteAllBytes(Path.Combine(folder, fileName), data);
         }
 
         /// <summary>
@@ -499,18 +472,87 @@ namespace JoinFS
             {
                 // close simulator
                 main.SimCommand(sim => sim.Close());
-                // show dialog for installing plugin
-                XPlaneForm xplaneForm = new XPlaneForm(main, Settings.Default.XPlaneFolder);
-                // open dialog
-                if (xplaneForm.ShowDialog() == DialogResult.OK)
+                // use the known folder, only ask when none is valid
+                string folder = FindKnownInstallFolder();
+                if (folder == null)
                 {
-                    // save folder
-                    Settings.Default.XPlaneFolder = xplaneForm.GetFolder();
-                    // get specified folder
-                    InstallPlugin(Settings.Default.XPlaneFolder);
+                    // show dialog for installing plugin
+                    XPlaneForm xplaneForm = new XPlaneForm(main, GuessInstallFolder());
+                    // open dialog
+                    if (xplaneForm.ShowDialog() != DialogResult.OK)
+                    {
+                        return;
+                    }
+                    folder = xplaneForm.GetFolder();
+                }
+                // remember folder
+                Settings.Default.XPlaneFolder = folder;
+                if (InstallPlugin(folder))
+                {
+                    UseInstallForScan(folder);
                 }
             }
 #endif
+        }
+
+#if XPLANE
+        /// <summary>
+        /// Make the freshly installed X-Plane the folder the model scan uses, then scan it so
+        /// the user sees the number of aircraft found without any further interaction
+        /// </summary>
+        void UseInstallForScan(string folder)
+        {
+            if (string.Equals(main.substitution.simFolder, folder, StringComparison.OrdinalIgnoreCase) == false)
+            {
+                main.substitution.SaveManualFolder(main.sim.GetSimulatorName(), folder);
+            }
+            // nothing but the default C172 exists yet, so always generate the CSL packages
+            main.substitution.StartScanInBackground(forceCslGeneration: true);
+        }
+#endif
+
+        /// <summary>
+        /// Install the plugin into the known X-Plane folder without any dialog (command line)
+        /// </summary>
+        public void InstallPluginIntoKnownFolder()
+        {
+            string folder = FindKnownInstallFolder();
+            if (folder == null)
+            {
+                main.ShowMessage(Resources.Strings.LocatePluginFolder);
+                return;
+            }
+            InstallPlugin(folder);
+        }
+
+        /// <summary>
+        /// Candidate install folders in order of trust: the folder the scan uses, the
+        /// folder entered earlier, then whatever X-Plane's own install registry lists
+        /// </summary>
+        IEnumerable<string> InstallFolderCandidates()
+        {
+            yield return main.substitution?.simFolder;
+            yield return Settings.Default.XPlaneFolder;
+            foreach (XPlaneInstall install in XPlaneInstallLocator.FindInstalls())
+            {
+                yield return install.Path;
+            }
+        }
+
+        /// <summary>
+        /// First candidate that is a real X-Plane install, or null
+        /// </summary>
+        string FindKnownInstallFolder()
+        {
+            return InstallFolderCandidates().FirstOrDefault(XPlaneInstallLocator.IsValidInstall);
+        }
+
+        /// <summary>
+        /// Best pre-fill for the folder dialog when no candidate is valid
+        /// </summary>
+        string GuessInstallFolder()
+        {
+            return InstallFolderCandidates().FirstOrDefault(candidate => string.IsNullOrWhiteSpace(candidate) == false) ?? "";
         }
 
         /// <summary>

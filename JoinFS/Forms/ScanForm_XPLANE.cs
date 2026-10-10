@@ -135,8 +135,95 @@ namespace JoinFS
                 }
             }
 
+            // offer the other detected installations (XP11/XP12/Steam), if there are any
+            AddInstallPicker(XPlaneInstallLocator.FindInstalls());
+
             // set initial folder
             Text_Folder.Text = initialFolder;
+        }
+
+        /// <summary>
+        /// A detected installation as shown in the picker
+        /// </summary>
+        sealed class InstallChoice
+        {
+            public XPlaneInstall Install { get; }
+
+            public InstallChoice(XPlaneInstall install)
+            {
+                Install = install;
+            }
+
+            public override string ToString()
+            {
+                return "X-Plane " + Install.Version + " - " + Install.Path;
+            }
+        }
+
+        /// <summary>
+        /// Add a drop-down below the folder box that lists every detected installation. Only
+        /// shown when there is a real choice; the folder box stays the single source of the value.
+        /// Built in code so the localized designer layouts need no change.
+        /// </summary>
+        void AddInstallPicker(IReadOnlyList<XPlaneInstall> installs)
+        {
+            if (installs.Count < 2)
+            {
+                return;
+            }
+
+            const int gap = 6;
+            ComboBox picker = new()
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = main.dataFont,
+                Left = Text_Folder.Left,
+                Width = Text_Folder.Width,
+                Top = Text_Folder.Bottom + gap,
+                Anchor = Text_Folder.Anchor,
+            };
+            int shift = picker.Height + gap;
+
+            // make room: push down everything below the folder box
+            SuspendLayout();
+            foreach (Control control in Controls)
+            {
+                bool anchoredTop = (control.Anchor & AnchorStyles.Top) != 0;
+                bool anchoredBottom = (control.Anchor & AnchorStyles.Bottom) != 0;
+                if (control.Top >= picker.Top && anchoredTop)
+                {
+                    control.Top += shift;
+                    if (anchoredBottom)
+                    {
+                        // stretches with the form, so the resize below gives the height back
+                        control.Height -= shift;
+                    }
+                }
+            }
+            ClientSize = new Size(ClientSize.Width, ClientSize.Height + shift);
+
+            foreach (XPlaneInstall install in installs)
+            {
+                picker.Items.Add(new InstallChoice(install));
+            }
+            picker.SelectedIndexChanged += (sender, args) =>
+            {
+                if (picker.SelectedItem is InstallChoice choice)
+                {
+                    Text_Folder.Text = choice.Install.Path;
+                }
+            };
+            Controls.Add(picker);
+            ResumeLayout();
+
+            // pre-select the installation that is currently in use
+            for (int index = 0; index < picker.Items.Count; index++)
+            {
+                if (string.Equals(((InstallChoice)picker.Items[index]).Install.Path, initialFolder, StringComparison.OrdinalIgnoreCase))
+                {
+                    picker.SelectedIndex = index;
+                }
+            }
         }
 
         private void Button_Browse_Click(object sender, EventArgs e)
@@ -200,6 +287,13 @@ namespace JoinFS
 
         private void Button_Scan_Click(object sender, EventArgs e)
         {
+            // refuse folders that are not an X-Plane install and keep the dialog open
+            if (XPlaneForm.ConfirmValidFolder(Text_Folder.Text) == false)
+            {
+                DialogResult = DialogResult.None;
+                return;
+            }
+
             // update options
             main.settingsScan = Check_Scan.CheckState == CheckState.Checked;
             Settings.Default.ModelScanOnConnection = main.settingsScan;

@@ -491,6 +491,42 @@ namespace JoinFS.Resources {
                 return ResourceManager.GetString("LocatePluginFolder", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This is not an X-Plane folder. Select the folder that contains "Aircraft" and "Resources"..
+        /// </summary>
+        internal static string InvalidXPlaneFolder {
+            get {
+                return ResourceManager.GetString("InvalidXPlaneFolder", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Restart X-Plane so it loads the plugin and the new models..
+        /// </summary>
+        internal static string RestartXPlaneHint {
+            get {
+                return ResourceManager.GetString("RestartXPlaneHint", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to No models found.
+        /// </summary>
+        internal static string NoModelsFound {
+            get {
+                return ResourceManager.GetString("NoModelsFound", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The plugin files (win.xpl, lin.xpl) were not found next to JoinFS. Please reinstall JoinFS..
+        /// </summary>
+        internal static string PluginFilesMissing {
+            get {
+                return ResourceManager.GetString("PluginFilesMissing", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to JoinFS is already running on this system.

@@ -2736,7 +2736,7 @@ namespace JoinFS
                                 }
                                 else
                                 {
-                                    main.scheduleShowMessage = "No models found";
+                                    main.scheduleShowMessage = Resources.Strings.NoModelsFound;
                                 }
                             }
 #endif
@@ -2878,51 +2878,16 @@ namespace JoinFS
                             if (true)
 #endif
                             {
-                                // Scan() itself can take many seconds (a full aircraft.cfg directory walk,
-                                // plus for FS2024 the per-model disk-config reads added above) - run it and
-                                // its own follow-up off the UI thread so a manual "Scan For Models" doesn't
-                                // freeze the app, matching why the auto-on-connect scan already does this
-                                // (see Program.cs's scheduleSubstitutionLoad dispatch). manualScanRunning
-                                // guards against a second click firing an overlapping scan while one is
-                                // already in flight.
-                                if (manualScanRunning == false)
+#if XPLANE
+                                // a folder without the JoinFS plugin (e.g. the other X-Plane version) needs the
+                                // plugin first; installing it runs the generating scan afterwards
+                                if (XPlaneCslFolder.IsPluginInstalled(simFolder) == false)
                                 {
-                                    manualScanRunning = true;
-                                    Task.Run(() =>
-                                    {
-                                        try
-                                        {
-                                            // do model scan
-                                            Scan(true);
-
-                                            // reload matches
-#if FS2024
-                                            main.sim.requestModelListIsVerbose = true;
-#else
-                                            LoadMatches();
-                                            LoadMasquerades();
-
-                                            // check for models scanned
-                                            if (models.Count > 0)
-                                            {
-                                                main.scheduleShowMessage = Resources.Strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
-                                            }
-                                            else
-                                            {
-                                                main.scheduleShowMessage = "No models found";
-                                            }
-#endif
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            main.MonitorEvent("Error during manual model scan: " + ex);
-                                        }
-                                        finally
-                                        {
-                                            manualScanRunning = false;
-                                        }
-                                    });
+                                    main.scheduleAskPlugin = true;
                                 }
+                                else
+#endif
+                                StartScanInBackground();
                             }
                         }
                         break;
@@ -2939,6 +2904,81 @@ namespace JoinFS
 #endif // !SERVER
             return false;
         }
+
+#if !SERVER && !CONSOLE
+        /// <summary>
+        /// Scan the configured folders for models and report how many were found.
+        /// Scan() itself can take many seconds (a full aircraft.cfg directory walk, plus for
+        /// FS2024 the per-model disk-config reads) - run it and its own follow-up off the UI
+        /// thread so a manual "Scan For Models" doesn't freeze the app, matching why the
+        /// auto-on-connect scan already does this (see Program.cs's scheduleSubstitutionLoad
+        /// dispatch). manualScanRunning guards against a second request firing an overlapping
+        /// scan while one is already in flight.
+        /// </summary>
+        /// <param name="forceCslGeneration">Generate CSL for this run even if the user switched
+        /// generation off, e.g. right after the plugin was installed when nothing exists yet.
+        /// The saved setting is left alone.</param>
+        public void StartScanInBackground(bool forceCslGeneration = false)
+        {
+            if (manualScanRunning)
+            {
+                return;
+            }
+
+            manualScanRunning = true;
+            Task.Run(() =>
+            {
+#if XPLANE
+                bool generateBefore = main.settingsGenerateCsl;
+#endif
+                try
+                {
+#if XPLANE
+                    // CSL generation only exists for X-Plane
+                    main.settingsGenerateCsl |= forceCslGeneration;
+#endif
+                    // do model scan
+                    Scan(true);
+
+                    // reload matches
+#if FS2024
+                    main.sim.requestModelListIsVerbose = true;
+#else
+                    LoadMatches();
+                    LoadMasquerades();
+
+                    // check for models scanned
+                    if (models.Count > 0)
+                    {
+                        main.scheduleShowMessage = Resources.Strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
+#if XPLANE
+                        // X-Plane only loads CSL packages at start-up
+                        if (main.settingsGenerateCsl)
+                        {
+                            main.scheduleShowMessage += Environment.NewLine + Environment.NewLine + Resources.Strings.RestartXPlaneHint;
+                        }
+#endif
+                    }
+                    else
+                    {
+                        main.scheduleShowMessage = Resources.Strings.NoModelsFound;
+                    }
+#endif
+                }
+                catch (Exception ex)
+                {
+                    main.MonitorEvent("Error during manual model scan: " + ex);
+                }
+                finally
+                {
+#if XPLANE
+                    main.settingsGenerateCsl = generateBefore;
+#endif
+                    manualScanRunning = false;
+                }
+            });
+        }
+#endif
 
         /// <summary>
         /// List of model prefixes
@@ -3625,6 +3665,10 @@ namespace JoinFS
                 initialAddOns = DefaultAddOns();
                 initialAdditionals = "";
                 WriteFoldersFile(resolvedSimulatorName);
+#if XPLANE
+                // keep the plugin installer's folder in step with the scan folder
+                Settings.Default.XPlaneFolder = detected;
+#endif
                 return true;
             }
 
@@ -3928,7 +3972,14 @@ namespace JoinFS
                     Scan(false);
                 }
 
-                
+#if XPLANE
+                // plugin present but no generated CSL yet (older install, plugin copied by hand):
+                // generate it now so the user does not have to open the scan dialog
+                if (XPlaneCslFolder.NeedsGeneration(simFolder))
+                {
+                    StartScanInBackground(forceCslGeneration: true);
+                }
+#endif
             }
         }
 

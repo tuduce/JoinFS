@@ -795,4 +795,16 @@
   <data name="MatchExplain_EngineClassic" xml:space="preserve">
     <value>Способ подбора: классический (сравнивает только тип, авиакомпанию, код класса и категорию турбулентности следа), выбран параметром --classicmatching.</value>
   </data>
+  <data name="InvalidXPlaneFolder" xml:space="preserve">
+    <value>Это не папка X-Plane. Выберите папку, содержащую «Aircraft» и «Resources».</value>
+  </data>
+  <data name="PluginFilesMissing" xml:space="preserve">
+    <value>Файлы плагина (win.xpl, lin.xpl) не найдены рядом с JoinFS. Переустановите JoinFS.</value>
+  </data>
+  <data name="NoModelsFound" xml:space="preserve">
+    <value>Модели не найдены</value>
+  </data>
+  <data name="RestartXPlaneHint" xml:space="preserve">
+    <value>Перезапустите X-Plane, чтобы он загрузил плагин и новые модели.</value>
+  </data>
 </root>
