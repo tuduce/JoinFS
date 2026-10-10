@@ -117,9 +117,6 @@
   <data name="Auto import SimBrief flight plan" xml:space="preserve">
     <value>Auto import SimBrief flight plan</value>
   </data>
-  <data name="Auto refresh" xml:space="preserve">
-    <value>Auto refresh</value>
-  </data>
   <data name="Bearing" xml:space="preserve">
     <value>Bearing</value>
   </data>
@@ -675,9 +672,6 @@
   <data name="Recording not saved: the simulator thread did not respond. Please try again." xml:space="preserve">
     <value>Recording not saved: the simulator thread did not respond. Please try again.</value>
   </data>
-  <data name="Refresh" xml:space="preserve">
-    <value>Refresh</value>
-  </data>
   <data name="Remarks" xml:space="preserve">
     <value>Remarks</value>
   </data>
@@ -884,9 +878,6 @@
   </data>
   <data name="To" xml:space="preserve">
     <value>To</value>
-  </data>
-  <data name="Tool Tips" xml:space="preserve">
-    <value>Tool Tips</value>
   </data>
   <data name="Track Bearing On Hdg" xml:space="preserve">
     <value>Track Bearing On Hdg</value>

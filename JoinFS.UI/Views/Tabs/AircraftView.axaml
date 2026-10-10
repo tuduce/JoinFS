@@ -10,7 +10,6 @@
         <TextBlock Text="{l:T 'Aircraft'}" Classes="h2" />
         <TextBlock Text="{Binding AircraftCount, StringFormat='({0})'}" Classes="count" />
       </StackPanel>
-      <Button Grid.Column="1" Command="{Binding RefreshCommand}" Content="{l:T 'Refresh'}" />
     </Grid>
 
     <Border Grid.Row="1" Classes="card">

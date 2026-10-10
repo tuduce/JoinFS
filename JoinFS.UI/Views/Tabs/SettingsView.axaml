@@ -129,8 +129,6 @@
                 <StackPanel x:DataType="tvm:UserInterfaceSettingsViewModel" Spacing="14">
                   <StackPanel Orientation="Horizontal" Spacing="20">
                     <CheckBox IsChecked="{Binding AlwaysOnTop}" Content="{l:T 'Always on top'}" />
-                    <CheckBox IsChecked="{Binding AutoRefresh}" Content="{l:T 'Auto refresh'}" />
-                    <CheckBox IsChecked="{Binding ToolTips}" Content="{l:T 'Tool Tips'}" />
                   </StackPanel>
                   <StackPanel Orientation="Horizontal" Spacing="10">
                     <TextBlock Text="{l:T 'Home map'}" VerticalAlignment="Center" />

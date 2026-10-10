@@ -9,7 +9,6 @@
         <TextBlock Text="{l:T 'Session'}" Classes="h2" />
         <TextBlock Text="{Binding PeerCount, StringFormat='({0})'}" Classes="count" />
       </StackPanel>
-      <Button Grid.Column="1" Command="{Binding RefreshCommand}" Content="{l:T 'Refresh'}" />
     </Grid>
 
     <Border Grid.Row="1" Classes="card">

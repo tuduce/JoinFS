@@ -117,9 +117,6 @@
   <data name="Auto import SimBrief flight plan" xml:space="preserve">
     <value>SimBrief-vluchtplan automatisch importeren</value>
   </data>
-  <data name="Auto refresh" xml:space="preserve">
-    <value>Automatisch vernieuwen</value>
-  </data>
   <data name="Bearing" xml:space="preserve">
     <value>Peiling</value>
   </data>
@@ -675,9 +672,6 @@
   <data name="Recording not saved: the simulator thread did not respond. Please try again." xml:space="preserve">
     <value>Opname niet opgeslagen: de simulatorthread reageerde niet. Probeer het opnieuw.</value>
   </data>
-  <data name="Refresh" xml:space="preserve">
-    <value>Vernieuwen</value>
-  </data>
   <data name="Remarks" xml:space="preserve">
     <value>Opmerkingen</value>
   </data>
@@ -884,9 +878,6 @@
   </data>
   <data name="To" xml:space="preserve">
     <value>Naar</value>
-  </data>
-  <data name="Tool Tips" xml:space="preserve">
-    <value>Tooltips</value>
   </data>
   <data name="Track Bearing On Hdg" xml:space="preserve">
     <value>Peiling volgen op HDG</value>

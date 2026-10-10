@@ -93,10 +93,10 @@ public class PreferencesTests
         (MainViewModel main, InMemoryPreferencesStore store) = Open();
 
         main.Settings.Network.LowBandwidth = true;
-        main.Settings.UserInterface.ToolTips = false;
+        main.Settings.UserInterface.AlwaysOnTop = true;
 
         Assert.True(Last(store).LowBandwidth);
-        Assert.False(Last(store).ToolTips);
+        Assert.True(Last(store).AlwaysOnTop);
     }
 
     [Fact]

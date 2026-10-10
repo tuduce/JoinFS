@@ -295,7 +295,7 @@ public class SessionTests
         PeerSettings stored = rig.Services.Session.GetSettings(peer.Id);
         Assert.Equal((true, true, true), (stored.CockpitEntry, stored.HandOverControls, stored.MultipleObjects));
 
-        session.RefreshCommand.Execute(null);
+        session.Refresh();
         Assert.Equal((true, true, true), (peer.CockpitEntry, peer.HandOverControls, peer.MultipleObjects));
     }
 
