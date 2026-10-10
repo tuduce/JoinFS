@@ -189,8 +189,6 @@ public sealed partial class UserInterfaceSettingsViewModel : PersistedSettingsSe
         : base(Loc.T("User Interface"), toggle, preferences)
     {
         _alwaysOnTop = Prefs.AlwaysOnTop;
-        _autoRefresh = Prefs.AutoRefresh;
-        _toolTips = Prefs.ToolTips;
         _mapStyle = Prefs.MapStyle;
         MapStyleOptions =
         [
@@ -200,8 +198,6 @@ public sealed partial class UserInterfaceSettingsViewModel : PersistedSettingsSe
     }
 
     [ObservableProperty] private bool _alwaysOnTop;
-    [ObservableProperty] private bool _autoRefresh;
-    [ObservableProperty] private bool _toolTips;
 
     /// <summary>The pictures of the map on the Home tab.</summary>
     [ObservableProperty]
@@ -222,13 +218,11 @@ public sealed partial class UserInterfaceSettingsViewModel : PersistedSettingsSe
     }
 
     private protected override bool Persists(string? property) =>
-        property is nameof(AlwaysOnTop) or nameof(AutoRefresh) or nameof(ToolTips) or nameof(MapStyle);
+        property is nameof(AlwaysOnTop) or nameof(MapStyle);
 
     private protected override bool Write(Preferences p)
     {
         p.AlwaysOnTop = AlwaysOnTop;
-        p.AutoRefresh = AutoRefresh;
-        p.ToolTips = ToolTips;
         p.MapStyle = MapStyle;
         return true;
     }

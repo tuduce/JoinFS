@@ -68,13 +68,12 @@
       </Grid>
     </Border>
 
-    <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
-      <Button Grid.Column="0" Command="{Binding RefreshCommand}" Content="{l:T 'Refresh'}" />
-      <Button Grid.Column="1" Command="{Binding SubstituteCommand}" Content="{l:T 'Substitute...'}"
+    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+      <Button Grid.Column="0" Command="{Binding SubstituteCommand}" Content="{l:T 'Substitute...'}"
               ToolTip.Tip="{l:T 'Select an object in the table first'}" />
-      <TextBlock Grid.Column="2" Text="{l:T 'Click header to sort objects'}" Classes="label" HorizontalAlignment="Center" VerticalAlignment="Center" />
-      <CheckBox Grid.Column="3" IsChecked="{Binding GroupByModel}" Content="{l:T 'Group by model'}" Margin="0,0,8,0" />
-      <CheckBox Grid.Column="4" IsChecked="{Binding ListIgnoredObjects}" Content="{l:T 'List ignored objects'}" />
+      <TextBlock Grid.Column="1" Text="{l:T 'Click header to sort objects'}" Classes="label" HorizontalAlignment="Center" VerticalAlignment="Center" />
+      <CheckBox Grid.Column="2" IsChecked="{Binding GroupByModel}" Content="{l:T 'Group by model'}" Margin="0,0,8,0" />
+      <CheckBox Grid.Column="3" IsChecked="{Binding ListIgnoredObjects}" Content="{l:T 'List ignored objects'}" />
     </Grid>
   </Grid>
 </UserControl>

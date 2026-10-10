@@ -216,7 +216,6 @@ public sealed partial class ObjectsViewModel : ObservableObject
     private ObjectRowViewModel? _selectedRow;
 
     /// <summary>Reads the objects again. Rows still there are updated in place; new objects get a row, objects gone lose theirs.</summary>
-    [RelayCommand]
     public void Refresh()
     {
         _syncingGroup = true;

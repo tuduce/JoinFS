@@ -471,8 +471,6 @@ public sealed class Preferences
 {
     // User Interface
     public bool AlwaysOnTop { get; set; }
-    public bool AutoRefresh { get; set; } = true;
-    public bool ToolTips { get; set; } = true;
     public MapStyle MapStyle { get; set; } = MapStyle.Standard;
 
     // Simulator

@@ -144,7 +144,6 @@ public sealed partial class HubsViewModel : ObservableObject
     private string _meshCode;
 
     /// <summary>Reads the directory again. Rows of hubs still there are updated in place; new hubs get a row, hubs gone lose theirs.</summary>
-    [RelayCommand]
     public void Refresh()
     {
         _all = [];

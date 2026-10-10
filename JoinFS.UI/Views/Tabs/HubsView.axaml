@@ -10,10 +10,7 @@
           <TextBlock Text="{l:T 'Public Hubs'}" Classes="h2" />
           <TextBlock Text="{Binding HubCount, StringFormat='({0})'}" Classes="count" />
         </StackPanel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
-          <CheckBox IsChecked="{Binding ShowOfflineHubs}" Content="{l:T 'Show Offline Hubs'}" Foreground="{DynamicResource MutedBrush}" />
-          <Button Command="{Binding RefreshCommand}" Content="{l:T 'Refresh'}" />
-        </StackPanel>
+        <CheckBox Grid.Column="1" IsChecked="{Binding ShowOfflineHubs}" Content="{l:T 'Show Offline Hubs'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
       </Grid>
 
       <Border Classes="card">

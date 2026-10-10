@@ -172,7 +172,6 @@ public sealed partial class SessionViewModel : ObservableObject
     public int PeerCount => Rows.Count;
 
     /// <summary>Reads the session again. Rows of users still there are updated in place; new users get a row, users gone lose theirs.</summary>
-    [RelayCommand]
     public void Refresh()
     {
         IReadOnlyList<PeerInfo> peers = Source.GetPeers();

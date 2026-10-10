@@ -36,8 +36,6 @@ namespace JoinFS.Live
             applied = new Preferences
             {
                 AlwaysOnTop = s.AlwaysOnTop,
-                AutoRefresh = s.AutoRefresh,
-                ToolTips = s.ToolTips,
                 MapStyle = Enum.TryParse(s.MapStyle, out MapStyle style) ? style : MapStyle.Standard,
                 ConnectOnLaunch = s.ConnectOnLaunch,
                 ElevationCorrection = s.ElevationCorrection,
@@ -77,8 +75,6 @@ namespace JoinFS.Live
 
             // what the dialog's OK writes, in the same places
             s.AlwaysOnTop = next.AlwaysOnTop;
-            s.AutoRefresh = next.AutoRefresh;
-            s.ToolTips = next.ToolTips;
             s.MapStyle = next.MapStyle.ToString();
             s.ConnectOnLaunch = next.ConnectOnLaunch;
             s.ElevationCorrection = next.ElevationCorrection;

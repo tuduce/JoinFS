@@ -259,7 +259,6 @@ public sealed partial class AircraftViewModel : ObservableObject
     internal bool IncludeSimulatorAircraft => Source.IncludeSimulatorAircraft;
 
     /// <summary>Reads the aircraft again. Rows of aircraft still there are updated in place; new aircraft get a row, aircraft gone lose theirs.</summary>
-    [RelayCommand]
     public void Refresh()
     {
         InCockpit = Source.InCockpit;

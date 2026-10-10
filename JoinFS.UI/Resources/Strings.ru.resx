@@ -117,9 +117,6 @@
   <data name="Auto import SimBrief flight plan" xml:space="preserve">
     <value>Автоматически импортировать план полёта SimBrief</value>
   </data>
-  <data name="Auto refresh" xml:space="preserve">
-    <value>Автообновление</value>
-  </data>
   <data name="Bearing" xml:space="preserve">
     <value>Пеленг</value>
   </data>
@@ -675,9 +672,6 @@
   <data name="Recording not saved: the simulator thread did not respond. Please try again." xml:space="preserve">
     <value>Запись не сохранена: поток симулятора не ответил. Повторите попытку.</value>
   </data>
-  <data name="Refresh" xml:space="preserve">
-    <value>Обновить</value>
-  </data>
   <data name="Remarks" xml:space="preserve">
     <value>Замечания</value>
   </data>
@@ -884,9 +878,6 @@
   </data>
   <data name="To" xml:space="preserve">
     <value>Куда</value>
-  </data>
-  <data name="Tool Tips" xml:space="preserve">
-    <value>Всплывающие подсказки</value>
   </data>
   <data name="Track Bearing On Hdg" xml:space="preserve">
     <value>Следить за азимутом по HDG</value>
