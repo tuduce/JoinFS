@@ -2273,10 +2273,10 @@ namespace JoinFS
                         foreach (var path in pathList)
                         {
                             // get aircraft subfolder
-                            string subFolder = Path.GetDirectoryName(path.Substring(simFolder.Length + 1));
+                            string subFolder = XPlaneCslFolder.AircraftFolder(simFolder, path);
                             // split by folder seperator
                             string[] names = path.Split('\\');
-                            if (names.Length >= 4)
+                            if (subFolder != null && names.Length >= 4)
                             {
                                 // generate CSL for default
                                 main.sim ?. xplane.GenerateCsl(simFolder, subFolder, path, names[names.Length - 2], "default", true);

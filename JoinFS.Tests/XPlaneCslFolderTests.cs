@@ -95,6 +95,28 @@ public class XPlaneCslFolderTests : IDisposable
     }
 
     [Theory]
+    [InlineData(@"C:\X-Plane 12", @"C:\X-Plane 12\Aircraft\Laminar Research\C172\c172.acf")]
+    [InlineData(@"C:\X-Plane 12\", @"C:\X-Plane 12\Aircraft\Laminar Research\C172\c172.acf")]
+    [InlineData("C:\\X-Plane 12/", "C:\\X-Plane 12/Aircraft\\Laminar Research\\C172\\c172.acf")]
+    [InlineData("c:\\x-plane 12", "C:\\X-Plane 12\\Aircraft\\Laminar Research\\C172\\c172.acf")]
+    public void AircraftFolder_IsRelativeToTheInstallRegardlessOfSeparatorsAndCase(string install, string acf)
+    {
+        Assert.Equal(@"Aircraft\Laminar Research\C172", XPlaneCslFolder.AircraftFolder(install, acf));
+    }
+
+    [Fact]
+    public void AircraftFolder_AcfOutsideTheInstall_ReturnsNull()
+    {
+        Assert.Null(XPlaneCslFolder.AircraftFolder(@"C:\X-Plane 12", @"D:\Other\Aircraft\C172\c172.acf"));
+    }
+
+    [Fact]
+    public void AircraftFolder_AcfDirectlyInInstallRoot_ReturnsNull()
+    {
+        Assert.Null(XPlaneCslFolder.AircraftFolder(@"C:\X-Plane 12", @"C:\X-Plane 12\c172.acf"));
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData("")]
     public void NeedsGeneration_BlankFolder_ReturnsFalse(string? folder)
