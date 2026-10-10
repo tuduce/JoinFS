@@ -816,4 +816,7 @@
   <data name="ScanRejectedHint" xml:space="preserve">
     <value>Er zijn CSL-modellen gevonden, maar geen enkele is geaccepteerd. Details staan in het monitorlogboek.</value>
   </data>
+  <data name="UseInstalledCsl" xml:space="preserve">
+    <value>Geïnstalleerde CSL-pakketten gebruiken (gekoppeld, niet gekopieerd):</value>
+  </data>
 </root>

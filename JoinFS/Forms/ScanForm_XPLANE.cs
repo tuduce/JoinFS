@@ -166,6 +166,7 @@ namespace JoinFS
 
             // the liveries option, then the other detected installations (XP11/XP12/Steam), if any
             AddLiveriesCheckbox();
+            AddCslSourcesList();
             AddInstallPicker(XPlaneInstallLocator.FindInstalls());
 
             // set initial folder
@@ -290,6 +291,79 @@ namespace JoinFS
             ResumeLayout();
         }
 
+        /// <summary>
+        /// Installed CSL packs (X-CSL, Bluebell, IVAO_CSL ...) offered for linking; all ticked unless the
+        /// user switched one off earlier. Built in code so the localized designer layouts stay as they are.
+        /// </summary>
+        CheckedListBox Check_CslPacks;
+        readonly List<string> cslPackNames = new List<string>();
+
+        void AddCslSourcesList()
+        {
+            IReadOnlyList<XPlaneCslSource> sources = XPlaneCslSources.Discover(initialFolder);
+            if (sources.Count == 0)
+            {
+                return;
+            }
+
+            const int gap = 6;
+            HashSet<string> unlinked = new HashSet<string>(
+                (Settings.Default.UnlinkedCslSources ?? "").Split('|', StringSplitOptions.RemoveEmptyEntries),
+                StringComparer.OrdinalIgnoreCase);
+
+            Label caption = new Label
+            {
+                AutoSize = true,
+                Text = Resources.Strings.UseInstalledCsl,
+                Left = Check_Generate.Left,
+                Top = Check_Liveries.Bottom + gap,
+                Anchor = Check_Generate.Anchor,
+            };
+            Check_CslPacks = new CheckedListBox
+            {
+                CheckOnClick = true,
+                Font = main.dataFont,
+                Left = Check_Generate.Left,
+                Width = Text_Folder.Width,
+                Top = caption.Bottom + 2,
+                Anchor = Check_Generate.Anchor,
+                IntegralHeight = false,
+            };
+            foreach (XPlaneCslSource source in sources)
+            {
+                cslPackNames.Add(source.Name);
+                Check_CslPacks.Items.Add(source.Name + " (" + source.Packages + ")", unlinked.Contains(source.Name) == false);
+            }
+            Check_CslPacks.Height = Math.Min(sources.Count, 4) * Check_CslPacks.ItemHeight + 6;
+
+            SuspendLayout();
+            MakeRoom(caption.Top, caption.Height + 2 + Check_CslPacks.Height + gap);
+            Controls.Add(caption);
+            Controls.Add(Check_CslPacks);
+            ResumeLayout();
+        }
+
+        /// <summary>
+        /// Names of the packs the user switched off, '|' separated, for the settings
+        /// </summary>
+        string UnlinkedPackNames()
+        {
+            if (Check_CslPacks == null)
+            {
+                return Settings.Default.UnlinkedCslSources ?? "";
+            }
+
+            List<string> off = new List<string>();
+            for (int index = 0; index < cslPackNames.Count; index++)
+            {
+                if (Check_CslPacks.GetItemChecked(index) == false)
+                {
+                    off.Add(cslPackNames[index]);
+                }
+            }
+            return string.Join("|", off);
+        }
+
         private void Button_Browse_Click(object sender, EventArgs e)
         {
             var dialog = new FolderBrowserDialog
@@ -369,6 +443,7 @@ namespace JoinFS
             Settings.Default.SkipCsl = main.settingsSkipCsl;
             main.settingsGenerateLiveries = Check_Liveries.Checked;
             Settings.Default.GenerateLiveries = main.settingsGenerateLiveries;
+            Settings.Default.UnlinkedCslSources = UnlinkedPackNames();
             Settings.Default.Save();
         }
 

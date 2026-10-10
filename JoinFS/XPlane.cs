@@ -1891,7 +1891,7 @@ namespace JoinFS
             if (objCount == 0)
             {
                 // remove folder
-                if (Directory.Exists(packageFolder)) Directory.Delete(packageFolder, true);
+                if (Directory.Exists(packageFolder) && XPlaneCslLinks.IsLink(packageFolder) == false) Directory.Delete(packageFolder, true);
             }
         }
     }

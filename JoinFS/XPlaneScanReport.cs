@@ -24,7 +24,8 @@ namespace JoinFS
     /// <param name="Banned">entries dropped by the ban list</param>
     /// <param name="ReadErrors">xsb files that could not be read</param>
     /// <param name="Models">models in the published list</param>
-    internal sealed record XPlaneScanReport(bool CslFolderExists, int AircraftFiles, int XsbFiles, int Entries, int Banned, int ReadErrors, int Models)
+    /// <param name="LinkedPacks">installed CSL packs linked into JoinFS's CSL folder</param>
+    internal sealed record XPlaneScanReport(bool CslFolderExists, int AircraftFiles, int XsbFiles, int Entries, int Banned, int ReadErrors, int Models, int LinkedPacks = 0)
     {
         /// <summary>
         /// The step that lost the models when there are none
@@ -58,8 +59,8 @@ namespace JoinFS
         /// </summary>
         public string Summary()
         {
-            return "Scan: " + AircraftFiles + " aircraft file(s), " + XsbFiles + " CSL file(s), " + Entries + " entries, "
-                + Banned + " banned, " + ReadErrors + " unreadable, " + Models + " model(s) - " + Outcome;
+            return "Scan: " + AircraftFiles + " aircraft file(s), " + LinkedPacks + " linked pack(s), " + XsbFiles + " CSL file(s), "
+                + Entries + " entries, " + Banned + " banned, " + ReadErrors + " unreadable, " + Models + " model(s) - " + Outcome;
         }
 
         /// <summary>

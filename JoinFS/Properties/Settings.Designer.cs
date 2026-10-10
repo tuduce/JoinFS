@@ -1690,5 +1690,17 @@ namespace JoinFS.Properties {
                 this["GenerateLiveries"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string UnlinkedCslSources {
+            get {
+                return ((string)(this["UnlinkedCslSources"]));
+            }
+            set {
+                this["UnlinkedCslSources"] = value;
+            }
+        }
     }
 }

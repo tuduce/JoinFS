@@ -493,6 +493,15 @@ namespace JoinFS.Resources {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Use installed CSL packages (linked, not copied):.
+        /// </summary>
+        internal static string UseInstalledCsl {
+            get {
+                return ResourceManager.GetString("UseInstalledCsl", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to No CSL models exist yet. Tick "Generate CSL objects for installed aircraft" and scan again..
         /// </summary>
         internal static string ScanNoCslHint {

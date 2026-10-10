@@ -65,6 +65,13 @@ public class XPlaneScanReportTests
         Assert.Contains("Models", summary);
     }
 
+    [Fact]
+    public void Summary_ShowsLinkedPacks_AndDefaultsToNone()
+    {
+        Assert.Contains("0 linked pack(s)", Report().Summary());
+        Assert.Contains("3 linked pack(s)", new XPlaneScanReport(true, 0, 10, 10, 0, 0, 10, 3).Summary());
+    }
+
     [Theory]
     [InlineData(XPlaneScanOutcome.NoCslFolder, true)]
     [InlineData(XPlaneScanOutcome.NoXsbFiles, true)]

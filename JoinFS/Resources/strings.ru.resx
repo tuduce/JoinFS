@@ -816,4 +816,7 @@
   <data name="ScanRejectedHint" xml:space="preserve">
     <value>Модели CSL найдены, но ни одна не принята. Подробности в журнале монитора.</value>
   </data>
+  <data name="UseInstalledCsl" xml:space="preserve">
+    <value>Использовать установленные пакеты CSL (ссылки, без копирования):</value>
+  </data>
 </root>

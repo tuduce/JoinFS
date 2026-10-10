@@ -816,4 +816,7 @@
   <data name="ScanRejectedHint" xml:space="preserve">
     <value>CSL-Modelle wurden gefunden, aber keines wurde übernommen. Details stehen im Monitor-Protokoll.</value>
   </data>
+  <data name="UseInstalledCsl" xml:space="preserve">
+    <value>Installierte CSL-Pakete verwenden (verknüpft, nicht kopiert):</value>
+  </data>
 </root>

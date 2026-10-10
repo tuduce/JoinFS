@@ -816,4 +816,7 @@
   <data name="ScanRejectedHint" xml:space="preserve">
     <value>CSL 모델을 찾았지만 받아들여진 모델이 없습니다. 자세한 내용은 모니터 로그를 확인하세요.</value>
   </data>
+  <data name="UseInstalledCsl" xml:space="preserve">
+    <value>설치된 CSL 패키지 사용(복사하지 않고 링크):</value>
+  </data>
 </root>

@@ -2134,6 +2134,30 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Link every installed CSL pack the user has not switched off into JoinFS's CSL folder, so the
+        /// scan below and the plugin see them without copying. Never fails the scan.
+        /// </summary>
+        int SyncLinkedCslPacks()
+        {
+            try
+            {
+                HashSet<string> unlinked = new(StringComparer.OrdinalIgnoreCase);
+#if XPLANE
+                unlinked.UnionWith((Settings.Default.UnlinkedCslSources ?? "").Split('|', StringSplitOptions.RemoveEmptyEntries));
+#endif
+                List<XPlaneCslSource> enabled = XPlaneCslSources.Discover(simFolder)
+                    .Where(source => unlinked.Contains(source.Name) == false)
+                    .ToList();
+                return XPlaneCslLinks.Sync(simFolder, enabled, message => main.MonitorEvent(message));
+            }
+            catch (Exception ex)
+            {
+                main.MonitorEvent("Linking installed CSL packs failed: " + ex.Message);
+                return 0;
+            }
+        }
+
+        /// <summary>
         /// Publish the list a scan has built (it works on a private list so readers keep the current
         /// one until the scan is complete), then rebuild the ICAO and title indexes from it
         /// </summary>
@@ -2338,6 +2362,9 @@ namespace JoinFS
                     // clear paths
                     pathList.Clear();
 
+                    // installed CSL packs (X-CSL, Bluebell, IVAO_CSL ...) become reachable through links
+                    int linkedPacks = SyncLinkedCslPacks();
+
                     // get CSL folder
                     string cslFolder = Path.Combine(simFolder, "Resources", "plugins", "JoinFS", "Resources", "CSL");
 
@@ -2420,7 +2447,7 @@ namespace JoinFS
                     }
 
                     // say what the scan saw, so an empty result can be explained
-                    lastXPlaneScanReport = new XPlaneScanReport(cslFolderExists, aircraftFiles, xsbFiles, entriesRead, lastBanExclusionCount, readErrors, scanWork.Count);
+                    lastXPlaneScanReport = new XPlaneScanReport(cslFolderExists, aircraftFiles, xsbFiles, entriesRead, lastBanExclusionCount, readErrors, scanWork.Count, linkedPacks);
                     main.MonitorEvent(lastXPlaneScanReport.Summary());
 
                     // the scanned list only exists in scanWork until it is published; the shared publish

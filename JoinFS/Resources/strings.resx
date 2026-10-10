@@ -819,4 +819,7 @@
   <data name="ScanRejectedHint" xml:space="preserve">
     <value>CSL models were found, but none was accepted. Details are in the monitor log.</value>
   </data>
+  <data name="UseInstalledCsl" xml:space="preserve">
+    <value>Use installed CSL packages (linked, not copied):</value>
+  </data>
 </root>
