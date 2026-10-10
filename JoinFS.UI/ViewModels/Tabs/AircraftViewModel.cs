@@ -17,9 +17,6 @@ public sealed partial class AircraftRowViewModel : ObservableObject
 {
     private readonly AircraftViewModel _owner;
 
-    // True while the row is being filled from the service, so what it reads is not written back as if the user had set it.
-    private bool _syncing;
-
     private readonly ActionLink _substitute, _explain, _copyFlightPlan, _variables, _height, _follow, _enter, _trackHeading, _trackBearing,
         _copyWeather, _ignore, _stopTracking;
 
@@ -113,15 +110,7 @@ public sealed partial class AircraftRowViewModel : ObservableObject
     internal void Update(AircraftInfo info)
     {
         Info = info;
-        _syncing = true;
-        try
-        {
-            IsIgnored = info.Ignored;
-        }
-        finally
-        {
-            _syncing = false;
-        }
+        IsIgnored = info.Ignored;
         OnPropertyChanged(string.Empty); // every display property may have changed
         RefreshActions();
     }
@@ -156,18 +145,7 @@ public sealed partial class AircraftRowViewModel : ObservableObject
     private void ToggleExpanded() => _owner.Expand(this);
 
     /// <summary>Shows an ignore state the service already holds, without writing it again.</summary>
-    internal void ShowIgnored(bool ignored)
-    {
-        _syncing = true;
-        try
-        {
-            IsIgnored = ignored;
-        }
-        finally
-        {
-            _syncing = false;
-        }
-    }
+    internal void ShowIgnored(bool ignored) => IsIgnored = ignored;
 }
 
 /// <summary>A titled set of links in an expanded row's Actions block.</summary>
