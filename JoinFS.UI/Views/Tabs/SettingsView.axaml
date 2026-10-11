@@ -1,0 +1,413 @@
+<UserControl ClipToBounds="False" xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
+             xmlns:vm="using:JoinFS.UI.ViewModels"
+             xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
+             x:Class="JoinFS.UI.Views.Tabs.SettingsView"
+             x:DataType="tvm:SettingsViewModel">
+  <ScrollViewer x:Name="Page" Margin="0,0,-24,0" Padding="0,0,24,0">
+    <StackPanel Spacing="20">
+      <TextBlock Text="{l:T 'Settings'}" Classes="h2" />
+
+      <StackPanel Spacing="10">
+
+        <!-- Profile -->
+        <Border Classes="card" Tag="{Binding Profile}">
+          <StackPanel>
+            <Button Classes="accordion" Command="{Binding Profile.ToggleCommand}">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Profile.Title}" FontSize="14" FontWeight="SemiBold" />
+                <c:Icon Grid.Column="1" Classes="chevron" Classes.open="{Binding Profile.IsOpen}" Source="{DynamicResource IconChevron}" />
+              </Grid>
+            </Button>
+            <Border IsVisible="{Binding Profile.IsOpen}"
+                    BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="18,14,18,18">
+              <Panel DataContext="{Binding Profile}">
+                <StackPanel x:DataType="tvm:ProfileSettingsViewModel" Spacing="14">
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="{l:T 'Nickname'}" Classes="label" />
+                    <TextBox Text="{Binding Profile.Nickname}" Watermark="{l:T 'Nickname shown to other pilots'}" />
+                  </StackPanel>
+
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <CheckBox IsChecked="{Binding AutoImportSimbrief}" Content="{l:T 'Auto import SimBrief flight plan'}" VerticalAlignment="Center" />
+                    <TextBox Classes="compact" Width="200" Text="{Binding Profile.SimbriefUsername}" Watermark="{l:T 'SimBrief username'}" />
+                  </StackPanel>
+                </StackPanel>
+              </Panel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <!-- Simulator -->
+        <Border Classes="card" Tag="{Binding Simulator}">
+          <StackPanel>
+            <Button Classes="accordion" Command="{Binding Simulator.ToggleCommand}">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Simulator.Title}" FontSize="14" FontWeight="SemiBold" />
+                <c:Icon Grid.Column="1" Classes="chevron" Classes.open="{Binding Simulator.IsOpen}" Source="{DynamicResource IconChevron}" />
+              </Grid>
+            </Button>
+            <Border IsVisible="{Binding Simulator.IsOpen}"
+                    BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="18,14,18,18">
+              <Panel DataContext="{Binding Simulator}">
+                <StackPanel x:DataType="tvm:SimulatorSettingsViewModel" Spacing="14">
+                  <StackPanel Orientation="Horizontal" Spacing="14">
+                    <CheckBox IsChecked="{Binding ConnectOnLaunch}" Content="{l:T 'Connect simulator on launch'}" />
+                    <CheckBox IsChecked="{Binding ElevationCorrection}" Content="{l:T 'Elevation correction'}" />
+                  </StackPanel>
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="{Binding CircleLabel}" Classes="label" />
+                    <Slider Minimum="2" Maximum="600" Value="{Binding CircleOfActivityNm}" />
+                  </StackPanel>
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="{Binding FollowLabel}" Classes="label" />
+                    <Slider Minimum="20" Maximum="1000" Value="{Binding FollowDistanceM}" />
+                  </StackPanel>
+
+                  <!-- X-Plane label -->
+                  <Border Classes="card" CornerRadius="8" Padding="14" IsVisible="{Binding IsXPlaneBuild}">
+                    <StackPanel Spacing="10">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{l:T 'X-Plane label'}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <Border Classes="badge" VerticalAlignment="Center"><TextBlock Text="{l:T 'X-PLANE ONLY'}" /></Border>
+                      </StackPanel>
+                      <TextBlock Text="{l:T 'Controls the floating label JoinFS draws above other aircraft in X-Plane.'}" FontSize="12"
+                                 Foreground="{DynamicResource Muted2Brush}" TextWrapping="Wrap" />
+                      <UniformGrid Columns="2">
+                        <CheckBox IsChecked="{Binding ShowNickname}" Content="{l:T 'Show nickname'}" Margin="0,0,0,10" />
+                        <CheckBox IsChecked="{Binding ShowCallsign}" Content="{l:T 'Show callsign'}" Margin="0,0,0,10" />
+                        <CheckBox IsChecked="{Binding ShowDistance}" Content="{l:T 'Show distance'}" Margin="0,0,0,10" />
+                        <CheckBox IsChecked="{Binding ShowAltitude}" Content="{l:T 'Show altitude'}" Margin="0,0,0,10" />
+                        <CheckBox IsChecked="{Binding ShowSpeed}" Content="{l:T 'Show speed'}" />
+                      </UniformGrid>
+                      <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
+                        <TextBlock Text="{l:T 'Label text colour'}" Classes="label" VerticalAlignment="Center" />
+                        <Border Width="20" Height="20" CornerRadius="5" BorderThickness="1" VerticalAlignment="Center"
+                                BorderBrush="{DynamicResource BorderButtonBrush}" Background="{Binding LabelColor}" />
+                        <Button Command="{Binding ToggleLabelColorPickerCommand}" Content="{l:T 'Choose...'}" FontSize="12.5" Padding="14,8" />
+                      </StackPanel>
+                      <StackPanel IsVisible="{Binding IsLabelColorPickerOpen}" Spacing="8">
+                        <ItemsControl ItemsSource="{Binding LabelColorPresets}">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <WrapPanel />
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                              <Button Width="24" Height="24" Padding="0" Margin="0,0,6,6" CornerRadius="6"
+                                      Background="{Binding}" BorderBrush="{DynamicResource BorderButtonBrush}"
+                                      Command="{Binding $parent[ItemsControl].((tvm:SimulatorSettingsViewModel)DataContext).ChooseLabelColorCommand}"
+                                      CommandParameter="{Binding}" />
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBox Classes="mono compact" Text="{Binding LabelColor}" Watermark="#RRGGBB" Width="110" HorizontalAlignment="Left" />
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
+              </Panel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <!-- Network -->
+        <Border Classes="card" Tag="{Binding Network}">
+          <StackPanel>
+            <Button Classes="accordion" Command="{Binding Network.ToggleCommand}">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Network.Title}" FontSize="14" FontWeight="SemiBold" />
+                <c:Icon Grid.Column="1" Classes="chevron" Classes.open="{Binding Network.IsOpen}" Source="{DynamicResource IconChevron}" />
+              </Grid>
+            </Button>
+            <Border IsVisible="{Binding Network.IsOpen}"
+                    BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="18,14,18,18">
+              <Panel DataContext="{Binding Network}">
+                <StackPanel x:DataType="tvm:NetworkSettingsViewModel" Spacing="14">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <CheckBox IsChecked="{Binding ChooseOwnPort}" Content="{l:T 'Choose my own port'}" VerticalAlignment="Center" />
+                    <!-- The port is opened when it is saved, so it is saved when the box loses focus, not at every key. -->
+                    <TextBox Classes="compact mono" Width="90" Text="{Binding LocalPort, UpdateSourceTrigger=LostFocus}" IsEnabled="{Binding PortEnabled}" />
+                  </StackPanel>
+                  <TextBlock Text="{Binding PortError}" IsVisible="{Binding PortError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                             Classes="label" Foreground="{DynamicResource DangerBrush}" />
+
+                  <CheckBox IsChecked="{Binding JoinGlobalAtLaunch}" Content="{l:T 'Join global session at launch'}" />
+                  <CheckBox IsChecked="{Binding LowBandwidth}" Content="{l:T 'Low bandwidth'}" />
+                  <StackPanel Orientation="Horizontal" Spacing="16">
+                    <CheckBox IsChecked="{Binding GenerateWhazzup}" Content="{l:T 'Generate WhazzUp'}" />
+                    <CheckBox Classes="small" IsChecked="{Binding WhazzupIncludeGlobalUsers}" IsEnabled="{Binding WhazzupOptionsEnabled}" Content="{l:T 'Include global users'}" />
+                    <CheckBox Classes="small" IsChecked="{Binding WhazzupIncludeAi}" IsEnabled="{Binding WhazzupOptionsEnabled}" Content="{l:T 'Include AI'}" />
+                  </StackPanel>
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="{l:T 'Password'}" Classes="label" />
+                    <TextBox Text="{Binding Password}" PasswordChar="•" />
+                  </StackPanel>
+                </StackPanel>
+              </Panel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <!-- User Interface -->
+        <Border Classes="card" Tag="{Binding UserInterface}">
+          <StackPanel>
+            <Button Classes="accordion" Command="{Binding UserInterface.ToggleCommand}">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding UserInterface.Title}" FontSize="14" FontWeight="SemiBold" />
+                <c:Icon Grid.Column="1" Classes="chevron" Classes.open="{Binding UserInterface.IsOpen}" Source="{DynamicResource IconChevron}" />
+              </Grid>
+            </Button>
+            <Border IsVisible="{Binding UserInterface.IsOpen}"
+                    BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="18,14,18,18">
+              <Panel DataContext="{Binding UserInterface}">
+                <StackPanel x:DataType="tvm:UserInterfaceSettingsViewModel" Spacing="14">
+                  <StackPanel Orientation="Horizontal" Spacing="20">
+                    <CheckBox IsChecked="{Binding AlwaysOnTop}" Content="{l:T 'Always on top'}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="{l:T 'Home map'}" VerticalAlignment="Center" />
+                    <ComboBox ItemsSource="{Binding MapStyleOptions}" SelectedItem="{Binding SelectedMapStyleOption}" MinWidth="160">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="tvm:MapStyleOption">
+                          <TextBlock Text="{Binding Name}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                  </StackPanel>
+                </StackPanel>
+              </Panel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <!-- Models -->
+        <Border Classes="card" Tag="{Binding Models}">
+          <StackPanel>
+            <Button Classes="accordion" Command="{Binding Models.ToggleCommand}">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Models.Title}" FontSize="14" FontWeight="SemiBold" />
+                <c:Icon Grid.Column="1" Classes="chevron" Classes.open="{Binding Models.IsOpen}" Source="{DynamicResource IconChevron}" />
+              </Grid>
+            </Button>
+            <Border IsVisible="{Binding Models.IsOpen}"
+                    BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="18,14,18,18">
+              <Panel DataContext="{Binding Models}">
+                <StackPanel x:DataType="tvm:ModelsSettingsViewModel" Spacing="14">
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="{l:T 'Scan for models'}" FontSize="13.5" FontWeight="SemiBold" />
+                    <TextBlock Text="{l:T 'Builds the list of aircraft models JoinFS can substitute during a flight.'}" Classes="label" TextWrapping="Wrap" Margin="0,0,0,6" />
+                    <CheckBox IsChecked="{Binding Profile.ModelScanOnConnect}" Content="{l:T 'Model scan on connect'}" Margin="0,0,0,6" />
+                    <CheckBox IsChecked="{Binding Profile.BroadcastTacpack}" Content="{l:T 'Auto broadcast VRS TacPack'}" Margin="0,0,0,6" />
+                    <Button Classes="link strong" Command="{Binding OpenModelScanningCommand}" Content="{l:T 'Open Model Scanning...'}" />
+                  </StackPanel>
+
+                  <Border Classes="hrule" />
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="{l:T 'Model Matching'}" FontSize="13.5" FontWeight="SemiBold" />
+                    <TextBlock Text="{l:T 'Substitute models used when an exact match isn\'t installed.'}" Classes="label" TextWrapping="Wrap" Margin="0,0,0,6" />
+                    <Button Classes="link strong" Command="{Binding OpenModelMatchingCommand}" Content="{l:T 'Open Model Matching →'}" />
+                  </StackPanel>
+                </StackPanel>
+              </Panel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <!-- Keyboard Shortcuts -->
+        <Border Classes="card" Tag="{Binding Shortcuts}">
+          <StackPanel>
+            <Button Classes="accordion" Command="{Binding Shortcuts.ToggleCommand}">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Shortcuts.Title}" FontSize="14" FontWeight="SemiBold" />
+                <c:Icon Grid.Column="1" Classes="chevron" Classes.open="{Binding Shortcuts.IsOpen}" Source="{DynamicResource IconChevron}" />
+              </Grid>
+            </Button>
+            <Border IsVisible="{Binding Shortcuts.IsOpen}"
+                    BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="18,0,18,18">
+              <Panel DataContext="{Binding Shortcuts}">
+                <StackPanel x:DataType="vm:ShortcutsSettingsViewModel">
+                  <TextBlock Text="{l:T 'Work while the simulator has the keys. The shortcuts for a user or an aircraft act on the row that is open in the Session or Aircraft tab.'}"
+                             Classes="label" TextWrapping="Wrap" Margin="0,14,0,10" />
+                  <ItemsControl ItemsSource="{Binding Rows}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:ShortcutRowViewModel">
+                        <Border BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="0,7">
+                          <Grid ColumnDefinitions="*,140,Auto">
+                            <CheckBox Grid.Column="0" IsChecked="{Binding Enabled}" Content="{Binding Label}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Keys}" Classes="mono" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                            <Button Grid.Column="2" Classes="link strong" Margin="14,0,0,0" VerticalAlignment="Center" Command="{Binding ChangeCommand}" Content="{l:T 'Change…'}" />
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Panel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <!-- Variables -->
+        <Border Classes="card" Tag="{Binding Variables}">
+          <StackPanel>
+            <Button Classes="accordion" Command="{Binding Variables.ToggleCommand}">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Variables.Title}" FontSize="14" FontWeight="SemiBold" />
+                <c:Icon Grid.Column="1" Classes="chevron" Classes.open="{Binding Variables.IsOpen}" Source="{DynamicResource IconChevron}" />
+              </Grid>
+            </Button>
+            <Border IsVisible="{Binding Variables.IsOpen}"
+                    BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="18,0,18,18">
+              <Panel DataContext="{Binding Variables}">
+                <StackPanel x:DataType="tvm:VariablesSettingsViewModel">
+                  <TextBlock Text="{l:T 'Models with non-default variable files assigned.'}" Classes="label" Margin="0,14,0,10" />
+                  <ItemsControl ItemsSource="{Binding Assignments}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="tvm:VariableAssignmentViewModel">
+                        <Border BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="0,9">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel>
+                              <TextBlock Text="{Binding Model}" TextTrimming="CharacterEllipsis" />
+                              <TextBlock Text="{Binding FilesText}" Classes="mono" FontSize="12" Foreground="{DynamicResource Muted2Brush}" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Classes="link strong" Margin="14,0,0,0" VerticalAlignment="Center" Command="{Binding EditCommand}" Content="{l:T 'Edit…'}" />
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Panel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <!-- Address Book -->
+        <Border Classes="card" Tag="{Binding AddressBook}">
+          <StackPanel>
+            <Button Classes="accordion" Command="{Binding AddressBook.ToggleCommand}">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding AddressBook.Title}" FontSize="14" FontWeight="SemiBold" />
+                <c:Icon Grid.Column="1" Classes="chevron" Classes.open="{Binding AddressBook.IsOpen}" Source="{DynamicResource IconChevron}" />
+              </Grid>
+            </Button>
+            <Border IsVisible="{Binding AddressBook.IsOpen}"
+                    BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="18,14,18,18">
+              <Panel DataContext="{Binding AddressBook.Book}">
+                <StackPanel x:DataType="vm:AddressBookViewModel" Spacing="10">
+                  <TextBlock Text="{l:T 'Hubs available from the picker, including the built-in Global directory.'}" Classes="label" TextWrapping="Wrap" />
+                  <Border Classes="card" CornerRadius="8">
+                    <StackPanel>
+                      <Border Classes="tableHeader" Padding="12,8">
+                        <Grid ColumnDefinitions="*,*,64" ColumnSpacing="12" TextElement.FontSize="12" TextElement.Foreground="{DynamicResource MutedBrush}">
+                          <TextBlock Grid.Column="0" Text="{l:T 'Name'}" />
+                          <TextBlock Grid.Column="1" Text="{l:T 'Address'}" />
+                        </Grid>
+                      </Border>
+                      <ItemsControl ItemsSource="{Binding Entries}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:AddressBookRow">
+                            <Border BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="12,8">
+                              <Grid ColumnDefinitions="*,*,64" ColumnSpacing="12" TextElement.FontSize="12.5">
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+                                  <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                  <Border Classes="badge" IsVisible="{Binding IsBuiltIn}" VerticalAlignment="Center"><TextBlock Text="{l:T 'BUILT-IN'}" /></Border>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="{Binding Address}" Classes="mono" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <Button Grid.Column="2" Classes="link danger" IsVisible="{Binding CanRemove}" Command="{Binding RemoveCommand}" Content="{l:T 'Remove'}" />
+                              </Grid>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </Border>
+                  <Grid ColumnDefinitions="*,*,64" ColumnSpacing="12" Margin="12,0">
+                    <TextBox Grid.Column="0" Classes="compact" FontSize="12.5" Padding="12,8" Text="{Binding NewName}" Watermark="{l:T 'Name'}" />
+                    <TextBox Grid.Column="1" Classes="compact mono" FontSize="12.5" Padding="12,8" Text="{Binding NewAddress}" Watermark="{l:T 'Address:Port'}" />
+                    <Button Grid.Column="2" Classes="primary" Command="{Binding AddCommand}" Content="{l:T 'Add'}" Padding="0,8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                  </Grid>
+                </StackPanel>
+              </Panel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <TextBlock Classes="caps" Text="{l:T 'ADVANCED'}" Margin="2,10,0,0" />
+
+        <!-- Hub Mode -->
+        <Border Classes="card" Tag="{Binding HubMode}">
+          <StackPanel>
+            <Button Classes="accordion" Command="{Binding HubMode.ToggleCommand}">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding HubMode.Title}" FontSize="14" FontWeight="SemiBold" />
+                <c:Icon Grid.Column="1" Classes="chevron" Classes.open="{Binding HubMode.IsOpen}" Source="{DynamicResource IconChevron}" />
+              </Grid>
+            </Button>
+            <Border IsVisible="{Binding HubMode.IsOpen}"
+                    BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="18,14,18,18">
+              <Panel DataContext="{Binding HubMode}">
+                <StackPanel x:DataType="tvm:HubModeSettingsViewModel" Spacing="12">
+                  <TextBlock Text="{l:T 'Run your own hub for others to join.'}" Classes="label" TextWrapping="Wrap" />
+                  <CheckBox IsChecked="{Binding Enabled}" Content="{l:T 'Enable hub mode'}" />
+                  <TextBlock Text="{Binding NameError}" IsVisible="{Binding NameError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                             Classes="label" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
+                  <ItemsControl ItemsSource="{Binding Fields}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <StackPanel Spacing="12" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="tvm:HubFieldViewModel">
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="{Binding Label}" Classes="label" />
+                          <TextBox Text="{Binding Value}" Watermark="{Binding Placeholder}" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Panel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <!-- X-Plane: only in the XPLANE build -->
+        <Border Classes="card" Tag="{Binding XPlane}" IsVisible="{Binding IsXPlaneBuild}">
+          <StackPanel>
+            <Button Classes="accordion" Command="{Binding XPlane.ToggleCommand}">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding XPlane.Title}" FontSize="14" FontWeight="SemiBold" />
+                <c:Icon Grid.Column="1" Classes="chevron" Classes.open="{Binding XPlane.IsOpen}" Source="{DynamicResource IconChevron}" />
+              </Grid>
+            </Button>
+            <Border IsVisible="{Binding XPlane.IsOpen}"
+                    BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="18,14,18,18">
+              <Panel DataContext="{Binding XPlane}">
+                <StackPanel x:DataType="tvm:XPlaneSettingsViewModel" Spacing="14">
+                  <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <Button Grid.Column="0" Command="{Binding InstallPluginCommand}" Content="{l:T 'Install Plugin...'}" Padding="14,10" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                    <Button Grid.Column="1" Command="{Binding InstallCppCommand}" Content="{l:T 'Install C++...'}" Padding="14,10" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                  </Grid>
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <StackPanel Grid.Column="0" Spacing="6">
+                      <TextBlock Text="{l:T 'IP address'}" Classes="label" />
+                      <TextBox Classes="mono" Text="{Binding IpAddress}" />
+                    </StackPanel>
+                    <CheckBox Grid.Column="1" IsChecked="{Binding Tcas}" Content="{l:T 'TCAS'}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
+                  </Grid>
+                </StackPanel>
+              </Panel>
+            </Border>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

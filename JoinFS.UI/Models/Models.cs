@@ -1,0 +1,200 @@
+namespace JoinFS.UI.Models;
+
+public enum ConnectionState { Disconnected, Connecting, Connected }
+
+public enum HubStatus { Online, Password, Offline, Global }
+
+/// <summary>The sidebar tabs, in sidebar order. The README's ids are home|network|session|aircraft|objects|models|flightplan|recorder|chat|log|settings.</summary>
+public enum TabId { Home, Network, Session, Aircraft, Objects, Models, FlightPlan, Recorder, Chat, Monitor, Settings }
+
+/// <param name="Id">Names the hub to the service. Opaque to the UI.</param>
+/// <param name="Ignored">The user has ignored this hub.</param>
+/// <param name="Saved">The hub is in the address book.</param>
+/// <param name="CanJoin">An online hub with an address. This node's own hub (in hub mode) has none.</param>
+/// <param name="CanIgnore">This node's own hub cannot be ignored.</param>
+public sealed record HubInfo(
+    string Id, string Name, HubStatus Status, int Users, int Aircraft, string Version,
+    string About, string Voice, string NextEvent, string Address,
+    bool Ignored = false, bool Saved = false, bool CanJoin = true, bool CanIgnore = true);
+
+/// <summary>A hub the user can pick from the strip. <see cref="BuiltIn"/> entries (the Global directory) cannot be removed.</summary>
+public sealed record AddressBookEntry(string Name, string Address, bool BuiltIn = false, bool RequiresPassword = false);
+
+/// <summary>One row of the Session table: a user connected to the network, or this node itself.</summary>
+/// <param name="Id">Names the user to the service, for the settings and actions of the row. Opaque to the UI.</param>
+/// <param name="Connected">"Yes" (direct), "Route" (through another user) or "No".</param>
+/// <param name="Protocol">How the link is spoken: "JFP2", "Legacy" or "Pending". Empty for this node, which has no link.</param>
+public sealed record PeerInfo(
+    string Id, string Nick, string Callsign, string Connected, int LatencyMs, int Aircraft, int Objects,
+    string Simulator, string Version, string Protocol, int Port, bool IsMe = false)
+{
+    public const string LegacyProtocol = "Legacy";
+
+    public bool IsLegacy => Protocol == LegacyProtocol;
+}
+
+/// <summary>What the user has set for one other user (the old PermissionsForm, plus Save and Ignore).</summary>
+public sealed record PeerSettings(bool CockpitEntry, bool HandOverControls, bool MultipleObjects, bool IsSaved, bool IsIgnored);
+
+/// <summary>How far an aircraft got in the simulator: shows in the distance column.</summary>
+public enum AircraftLinkState { Pending, Created, Failed }
+
+/// <summary>What can be done with one aircraft right now. The old context menu enabled each item only in certain cases.</summary>
+[Flags]
+public enum AircraftActions
+{
+    None = 0,
+    Record = 1,
+    Ignore = 2,
+    Follow = 4,
+    EnterCockpit = 8,
+    Track = 16,
+    CopyWeather = 32,
+    Substitute = 64,
+    ExplainMatch = 128,
+    FlightPlan = 256,
+    Variables = 512,
+    AdjustHeight = 1024,
+    All = Record | Ignore | Follow | EnterCockpit | Track | CopyWeather | Substitute | ExplainMatch | FlightPlan | Variables | AdjustHeight,
+}
+
+/// <summary>One row of the Aircraft table. Values that may not be known (no user aircraft to measure from, no position yet) are null.</summary>
+/// <param name="Id">Names the aircraft to the service. Opaque to the UI.</param>
+/// <param name="Latitude">Degrees north, for the Home map. Null with the position.</param>
+/// <param name="Longitude">Degrees east, for the Home map. Null with the position.</param>
+/// <param name="Owner">The pilot, marked "(R)" for a recorded aircraft and "(A)" for an AI aircraft.</param>
+/// <param name="Model">The model shown, marked "(S)" substituted, "(A)" automatic, "(D)" default or "(AI)".</param>
+public sealed record AircraftInfo(
+    string Id, string Callsign, string Owner,
+    double? DistanceNm, int? Heading, int? AltitudeFt, double SpeedKnots, string Model,
+    int? Bearing, string Squawk, string Com1, string Com2, string Simulator, string OriginalModel, string FlightPlan, string Remarks,
+    AircraftLinkState Link, bool Recording, bool Ignored, bool Tracked, AircraftActions Can,
+    double? Latitude = null, double? Longitude = null);
+
+/// <summary>An aircraft on the Home map: where it is (degrees) and which way it points (compass degrees).</summary>
+public sealed record MapMarker(string Id, string Callsign, double Latitude, double Longitude, int Heading);
+
+/// <summary>One row of the Objects table: a scenery or shared object, or (grouped by model) all the objects of one owner and model.</summary>
+/// <param name="Id">Names the row to the service. Opaque to the UI.</param>
+/// <param name="Model">The model as shown, marked "(S)", "(A)" or "(D)" for objects of the network.</param>
+/// <param name="OriginalModel">The model the owner has, which the broadcast and ignore settings are kept by.</param>
+/// <param name="Count">How many objects the row stands for: 1, unless grouped by model.</param>
+/// <param name="Broadcast">Broadcast: this object, or for a group whether its model is.</param>
+/// <param name="ModelBroadcast">Every object of this model is broadcast.</param>
+/// <param name="CanBroadcast">Only your own objects can be broadcast, not ones already on the network.</param>
+/// <param name="CanIgnore">Only objects of the network can be ignored.</param>
+public sealed record ObjectInfo(
+    string Id, string Owner, string Model, string OriginalModel, int Count, int? Bearing, double? DistanceNm,
+    bool Broadcast, bool IgnoreOwner, bool IgnoreModel, bool ModelBroadcast, bool CanBroadcast, bool CanIgnore, bool CanSubstitute);
+
+/// <param name="Original">The model that is replaced.</param>
+/// <param name="Substitute">The model that stands in for it, as shown.</param>
+/// <param name="IsDefault">One of the built-in "default by kind" rules: it can be edited but not removed.</param>
+public sealed record ModelRule(string Original, string Substitute, bool IsDefault);
+
+/// <summary>
+/// The model a Substitute action is about, as its owner has it. Where it was seen decides what is changed: the match of an aircraft
+/// or object of the network, or the masquerade of your own aircraft, which is what the others see of it.
+/// </summary>
+/// <param name="Model">The model title.</param>
+/// <param name="Livery">The livery (FS2024). Empty when not known; the service then takes the one of the current match.</param>
+/// <param name="TypeRole">The kind of aircraft, as the matching numbers it. Zero when not known; the service then looks it up.</param>
+/// <param name="IsMasquerade">Changing it changes what others see of your own aircraft, not what you see of theirs.</param>
+public sealed record ModelTarget(string Model, string Livery = "", int TypeRole = 0, bool IsMasquerade = false);
+
+/// <summary>The height adjustment of a model: a vertical offset, kept per model and applied to every aircraft that shows it.</summary>
+/// <param name="Model">The model the adjustment is kept for, as it is named.</param>
+/// <param name="Centimetres">Zero means off.</param>
+public sealed record HeightAdjustment(string Model, int Centimetres);
+
+/// <summary>A model picked by its type and variation. Together they name one model.</summary>
+public sealed record ModelChoice(string Type, string Variation);
+
+public sealed record VariableAssignment(string Model, IReadOnlyList<string> Files)
+{
+    public string FilesText => string.Join(", ", Files);
+}
+
+/// <summary>A line of the chat: a message from a pilot of the session, or a line JoinFS says to you alone (the answer to a "." command).</summary>
+/// <param name="From">The pilot's nickname. Empty for a line of JoinFS's own.</param>
+/// <param name="Callsign">The callsign the pilot was flying under, or empty.</param>
+/// <param name="Time">When it came, to put the lines in order and tell lines apart that read alike.</param>
+/// <param name="IsLocal">A line of JoinFS's own, shown only to you and not kept.</param>
+/// <param name="IsOwn">You said it. It is shown in a style of its own, without your name.</param>
+/// <param name="At">The clock time it was said, in local time. Unset for a line without one. It must not change between two reads of the same line.</param>
+/// <param name="IsFirstUnread">The first line you had not seen when you opened the chat: a separator is drawn above it. Set by the chat tab, not by the source.</param>
+public sealed record ChatMessage(string From, string Text, string Callsign = "", double Time = 0, bool IsLocal = false, bool IsOwn = false, DateTime At = default, bool IsFirstUnread = false)
+{
+    /// <summary>Who said it, ready to put before the text: the nickname, the callsign after it when there is one, and a colon. Empty for a line of JoinFS's own and for your own.</summary>
+    public string Label => From.Length == 0 || IsOwn ? "" : (Callsign.Length == 0 ? From : From + " · " + Callsign) + ": ";
+
+    /// <summary>The time of day, ready to put before the label. Empty for a line without one.</summary>
+    public string Stamp => At == default ? "" : At.ToString("t") + "  ";
+}
+
+/// <param name="Id">Names the aircraft to the recorder, for the aircraft of a loaded recording.</param>
+/// <param name="Skipped">The aircraft is left out of playback.</param>
+public sealed record RecordedAircraft(string Callsign, string Model, string Id = "", bool Skipped = false);
+
+/// <summary>What the recorder is doing, as the transport shows it.</summary>
+/// <param name="Time">Where playback or recording is, in seconds. Zero when it is doing neither.</param>
+/// <param name="EndTime">The length of the recording, in seconds.</param>
+public sealed record RecorderStatus(bool Recording, bool Playing, bool Paused, bool Empty, double Time, double EndTime)
+{
+    public bool Active => Recording || Playing;
+}
+
+/// <param name="Matched">The matched value, followed by "(+N)" when the attribute added to the score.</param>
+/// <param name="Decisive">This attribute decided the match; the row is highlighted.</param>
+public sealed record ExplainRow(string Attribute, string Requested, string Matched, bool Decisive = false);
+
+/// <summary>
+/// How the model of an aircraft was chosen: what was asked for against what was matched, and the steps tried. Plain text, ready to show.
+/// </summary>
+/// <param name="Callsign">The aircraft.</param>
+/// <param name="Outcome">The result in one line, or that there is no match yet.</param>
+/// <param name="Note">A warning about the matched model (its ICAO type was guessed or corrected), or null.</param>
+/// <param name="Steps">What each tier tried, in order, and the other candidates considered.</param>
+/// <param name="Source">Where the list of known models comes from.</param>
+/// <param name="Report">All of it as a Markdown report: what "Copy to clipboard" copies and the debug bundle holds.</param>
+public sealed record MatchExplanation(
+    string Callsign, string Outcome, string? Note, IReadOnlyList<ExplainRow> Rows, IReadOnlyList<string> Steps, string Source, string Report);
+
+public sealed record FlightPlanData(
+    string Callsign, string Type, string Rules, string From, string To, string Altitude, string Route, string Remarks)
+{
+    /// <summary>No route fields filled: a cleared plan. The callsign, type and rules do not count, the aircraft has those anyway.</summary>
+    public bool IsBlank => From.Length == 0 && To.Length == 0 && Route.Length == 0 && Remarks.Length == 0 && Altitude.Length == 0;
+}
+
+public sealed record UpdateInfo(string Version, string Url);
+
+/// <summary>The things a global keyboard shortcut can do. The same ten the old Shortcuts window had.</summary>
+public enum ShortcutAction
+{
+    /// <summary>Joins the network or leaves it, as the Network button does.</summary>
+    Network,
+    /// <summary>Connects the simulator or disconnects it, as the Simulator button does.</summary>
+    Simulator,
+    /// <summary>Allows or stops cockpit entry for the user whose row is open in the Session tab.</summary>
+    AllowShared,
+    /// <summary>Hands the flight controls to the user whose row is open in the Session tab, or takes them back.</summary>
+    HandOver,
+    /// <summary>Enters the cockpit of the aircraft whose row is open in the Aircraft tab, or leaves the one you are in.</summary>
+    EnterCockpit,
+    /// <summary>Follows the aircraft whose row is open in the Aircraft tab.</summary>
+    Follow,
+    /// <summary>Starts a new recording. One that is running is stopped and saved first.</summary>
+    Record,
+    /// <summary>Records on top of the take in the recorder.</summary>
+    Overdub,
+    /// <summary>Stops recording or playing.</summary>
+    Stop,
+    /// <summary>Plays the take, or pauses it.</summary>
+    Replay,
+}
+
+/// <summary>A shortcut: whether it is on, and its keys.</summary>
+/// <param name="Combination">Ctrl, Shift and Alt in any mix, then a letter, e.g. "CTRL+SHIFT+R".</param>
+public sealed record ShortcutBinding(ShortcutAction Action, bool Enabled, string Combination);
+

@@ -1,0 +1,190 @@
+# JoinFS.UI
+
+The Avalonia (.NET 8, MVVM with CommunityToolkit.Mvvm) implementation of the desktop redesign in
+[`docs/design_handoff_avalonia_ui/`](../docs/design_handoff_avalonia_ui/README.md). The HTML prototype there is the visual and
+behavioural reference.
+
+## Status
+
+Every screen of the handoff is built (the collapsed and expanded shell, 11 tabs, the overlays). It is wired to the live app, service by service
+(see "Live wiring"). It is the default user interface of JoinFS. Two ways to run it:
+
+```
+# on its fake services only, to work on the screens
+dotnet run --project JoinFS.UI.Dev                       # first run shows the onboarding card
+dotnet run --project JoinFS.UI.Dev -- --skip-onboarding  # start as a returning user
+dotnet run --project JoinFS.UI.Dev -- --xplane           # what the XPLANE build shows
+
+# inside the real app (see "Live wiring"), every service real
+dotnet build JoinFS\JoinFS.csproj -c FS2024-Debug -p:Platform=x64
+JoinFS\bin\FS2024-Debug\net8.0-windows\JoinFS-FS2024-Debug.exe
+# or: dotnet run --project JoinFS\JoinFS.csproj -c FS2024-Debug -p:Platform=x64 --launch-profile "JoinFS"
+# the old WinForms forms: add -oldui (profile "Old UI")
+
+dotnet test JoinFS.UI.Tests/JoinFS.UI.Tests.csproj
+JOINFS_UI_SCREENSHOTS=<folder> dotnet test ...           # also keeps a PNG of every screen
+```
+
+## How to tell which one you are running
+
+The title bar of the fake launcher reads "JoinFS-FS2024 (fake data)". Anything you change there lives in memory and is gone when the window
+closes: nothing is saved. The live app's title bar is the build name (for example "JoinFS-FS2024-Debug"). A build started with `-oldui`
+opens the old forms.
+
+Where the live app keeps what the wired screens change, under `%LOCALAPPDATA%\JoinFS-<build>\`: the address book is `bookmarks2.txt`
+(one `name=address` per line), and the app's log (`log-<port>.txt`) says "Saved N entries in the address book" each time.
+
+## Live wiring
+
+The two connection buttons follow the real state. `MainViewModel.Poll()` (a UI timer calls it four times a second) reads each link's
+`State`; a click only asks for a change, and the button changes when the app does. A click while "connecting" gives up the attempt.
+
+**What the strip tells the user** (`ConnectionViewModel.Detail`, shown as a notice bar under the strip, or in place of the version in the
+small view; amber while an attempt is only slow, red when something went wrong; a × dismisses it). The app has no "join failed" signal, so
+the UI works it out from the state it polls: an attempt that ends without a click ("Simulator not found…", "Could not join the hub…"), a
+connection that drops ("… connection lost"), and a join with no answer after 15 s ("No answer from the hub yet. Click Network to cancel").
+An end counts only once it has lasted a second (a retry passes through "disconnected"), and not while the session is asking for a
+password (it is left and joined again). While connecting, the button's tooltip says "Cancel". The Flight Plan button says nothing: its
+attempts end by themselves in normal ways (no username yet, no plan found).
+
+`JoinFS.UI` is a library; `UiHost.Run(services, args)` starts it on the calling thread. `JoinFS/Live/` (in the JoinFS project, so it can
+see `Main`) holds the adapters and `NewUiLauncher`, which builds `AppServices` from the fakes and swaps in the real ones. `Main()` calls
+the launcher instead of opening the WinForms forms, unless it is started with `-oldui`.
+
+| Service | State |
+|---|---|
+| `IAppInfo` (version, title, links, build) | **Live**: `Main.Version`, `Main.Name`, `#if XPLANE` |
+| `ISettingsStore` (nickname, SimBrief name, broadcast and scan options) | **Live**: `Settings.Default`, plus the app's own copies (`settingsNickname`, `settingsScan`). Onboarding is shown while the nickname has fewer than 2 characters, as `MainForm` did. The simulator folder it shows is `main.substitution.simFolder`, set by auto-detection; a changed one is saved by `Substitution.ChangeFolder` |
+| `IAddressBookStore` | **Live**: `bookmarks2.txt` through `main.addressBook`, with the built-in Global entry in front; the picked entry is `JoinAddress` |
+| `IUpdateChecker` | **Live**: the same `version.txt` the forms read |
+| `ISimulatorLink` (the Simulator button) | **Live**: state from `sim.View` (the sim thread's snapshot); a click goes to the sim thread through `ToggleSimulator()`, as the old button did |
+| `INetworkLink` (the Network button, Join, Create, password) | **Live**: state from the session snapshot, mapped by the old button's own rule (`NetworkButtonStyle`); Join is `Main.Join(name)`, Disconnect leaves the session, Create is leave then create. A protected session is answered as the old window did: the remembered password first, then a prompt |
+| `ISessionSource` (Session tab, Home counts) | **Live**: the users, as the old `SessionForm` listed them, read once a second while the tab is open. Allow Cockpit Entry and Allow Multiple Objects are the `log` entries; Hand Over Controls is the flight controls only (`Peers.shareFlightControls`); Save adds or removes the user in the address book; Ignore is the `log` ignore list |
+| `ITrafficSource`, aircraft part (Aircraft tab, Home counts) | **Live**: the aircraft as the old `AircraftForm` listed them (yours, the network's, the recorder's, and on request the simulator's own and other hubs'), with its details and flight plan. The Recorder tab's tick sets the aircraft's `record` flag on the sim thread; Ignore is the `log` ignore list (by user, or by callsign for the simulator's own); Follow, Enter/Leave Cockpit, Track and Stop Tracking are the sim commands the old menu posted; each is enabled by the old menu's own rules. The two "Include …" ticks in the footer are the old list filters (`IncludeGlobalAircraft`, `IncludeSimulatorAircraft`). Substitute, Explain Match, Copy Flight Plan, Assign Variables and Adjust Height are disabled until the Model Matching work |
+| `ITrafficSource`, objects part (Objects tab) | **Live**: the objects as the old `ObjectsForm` listed them (grouped by owner and model when the `GroupObjects` setting is on, which "Group by model" now is). Only objects of the network can be ignored (owner or model, through the `log`); only your own can be broadcast: one object (sim thread), all of a model (`log`), the VRS TacPack and Everything (settings). Substitute is disabled until the Model Matching work. Not yet exercised against real objects (none were present when it was tried) |
+| `IHubDirectory` (Network Hubs tab) | **Live**: the hubs the old `HubsForm` listed, read from the app's hub list (online or not, ignored or not); a hub is joined by its address as the old double click did. Add to / Remove From Address Book edits `bookmarks2.txt` through `main.addressBook`; Ignore is the `log` ignore list, by guid and by address. The list is read when the tab opens and once a second after |
+| `IPreferencesStore` (the Settings cards: Profile, Simulator, Network, User Interface, Hub Mode, X-Plane; Models saves nothing of its own) | **Live**: `Settings.Default`, plus the app's own copies (`settingsPort`, `settingsHub*`, `settingsWhazzup*`, `settingsTcas`, …), as the old `SettingsForm`'s OK did. The cards have no OK: every change is saved at once, and `Settings.Default` is written to disk half a second after the last one. A save acts only on what changed: a new port is opened (when the box loses focus, and only if it is a whole port), hub mode starts or stops the hub, Show Nickname removes the injected aircraft, Low bandwidth goes to the network. Hub mode needs a name of 3 characters, as before; until it has one the card shows why and saves nothing. Always on top is applied to the window. The old dialog's Auto refresh and Tool Tips are gone: the lists always poll and the tool tips are always on (translated), and `Settings.Default` keeps those two values for the old forms |
+| `IFlightPlanStore` and `ISimBriefClient` (Flight Plan tab, the strip's Flight Plan button) | **Live**, both in `LiveFlightPlanSource`. The plan is the sim thread's `userFlightPlan`: read from `Sim.View`, changed by a posted command, as `FlightPlanForm`'s OK did (the callsign is then "set by user", the airline follows the callsign, a blank callsign or type is the aircraft's own again). The tab shows the live plan until the user edits it, then keeps their edits until Save or Clear. SimBrief is the old fetch (`Sim.FetchSimBriefAsync`). **The strip's button** fetches, makes the plan the user's and sends it to the network at once, as the old SimBrief button did, and shows `simBriefFetchState` (fetching, loaded; "not loaded" for nothing asked yet and for a failed fetch); clicking "Loaded" only forgets the fetch. **The tab's link** only fills the fields, to be checked and saved, as the old dialog's import did. A registration and an alternate that an import brings, which the tab has no field for, reach the plan on Save. Tried live with a real SimBrief user. |
+| `IModelCatalog` (Model Matching tab, Substitute, the model picker) | **Live**: `main.substitution`. The table is its match table, defaults first and then the others by name, with the substitute shown as the title and, in FS2024, ` [+] livery`. Substitute (from the table, from an object of the network, or from an aircraft) goes through `SetMatch`/`ClearMatch` for what is injected and `SetMasquerade`/`ClearMasquerade` for your own and the simulator's aircraft, the operations the old `EditMatch`/`EditMasquerade` now use too: the file is saved and the aircraft using the model are replaced. "Use Original" clears the match, so a default rule's row goes (it comes back when the defaults are chosen again). The picker is the old dialog's: filter words, type, variation, and the picker starts on what `Match()` gives for the model now. Without models it says to scan first. The tab says how many models are known, or that a scan is running |
+| `ITrafficSource`, model parts (Explain Match, Adjust Height, Assign Variables, Copy Flight Plan) | **Live**. **Explain Match** is the old window's: the table, the steps and the other candidates, with its Markdown report for the clipboard and the debug bundle (a zip of the report, the models, matching and masquerading files); for your own aircraft it runs the matcher as a preview. **Adjust Height** keeps the adjustment per substituted model in the sim's `HeightAdjustmentStore`, for aircraft JoinFS creates; OK saves, Cancel does not. **Assign Variables** is the old `VariablesForm`: the model picker, the model's files from the sim thread's `ModelVariableStore`, Add (a file under `Documents\JoinFS\Variables` only, as before), Remove, Edit (not the built-in files), and OK, which connects the simulator again so the lists take effect. **Copy Flight Plan** puts the row's plan on the clipboard; it has no old equivalent |
+| `IVariablesCatalog` (Settings → Variables) | **Live**: the models that have a list of their own (those not using the default of their kind), read when the card opens; Edit is the Variables overlay |
+| `IModelScanSource`, `IXPlaneScanSource` (Scan For Models) | **Live**: where the last scan looked (`Substitution` keeps it, in the folders file) and the scan itself, which runs in the background as before (`Substitution.ScanFolders`, shared with the old dialog). Microsoft Flight Simulator has no subfolder list (its packages nest `SimObjects`), FS2020 lists its add-ons, FS2024 has "FS2024 models via SimConnect"; the others list the `SimObjects` subfolders. X-Plane scans the aircraft folders ticked (all ticked is the default, and is saved as "all", so aircraft folders installed later are scanned too), refuses a folder that is no X-Plane install, can generate one model per livery, and links the installed CSL packs (X-CSL, Bluebell, IVAO_CSL ...) instead of copying them; the packs switched off are kept in `UnlinkedCslSources`. The old confirmation before generating CSL objects is the warning shown under the checkbox. A scan itself, which rewrites the models file, has been tried live. |
+| `IXPlanePluginInstaller` (Install X-Plane Plugin) | **Live** (XPLANE build): `LiveXPlanePluginInstaller`, which installs through `XPlane.InstallPluginAndScan` (the old dialog's install: copy the plugin, then scan the folder with CSL generation forced on, so the models show at once) and answers `TakeInstallRequest` from `Main.scheduleAskPlugin` (no plugin or an outdated one found, first run, or a scan of a folder without the plugin): the card opens on its own, once, when no other card is open. The card starts on the X-Plane in use or the first one X-Plane's install registry and Steam list; a picker shows when there are two or more. A folder without `Aircraft` and `Resourcesplugins` is refused with the message of the old dialogs |
+| `IMonitorSource` (Monitor tab) | **Live**: the last 50 lines of `main.monitor`, read once a second while the tab is shown and scrolled to the end, with the old window's note that the rest is in the files. FPS is measured as the old window did (SimConnect builds only; X-Plane shows none). **Log network traffic** and **Log variables** are the old context menu's switches (`monitor.network`, `monitor.variables`), chips that stay on. **Node Statistics** and **Received Packets** were one-shot menu items that write a dump into the log, so they are plain buttons under "Write to the log" (`Monitor.WriteNodeStatistics`/`WritePacketStatistics`, which the old window now calls too). View Logs opens this run's and the last run's file. The old "save the log" tick is gone: the log has been written to a file always |
+| `IChatSource` (Chat tab, the unread dot) | **Live**: the session channel of `main.notes`, as the old session window showed it: the notes of the pilots of the session that are not ignored, oldest first, with the callsign each flew under. Notes expire after three hours (`Notes.COMMS_EXPIRE`; the legacy wire still says ten minutes and readers ignore it), so that is as far back as the chat goes. Each line has its clock time; your own lines are a tinted bubble on the right, without your name; the empty line says that `.help` lists the commands. When the chat opens, a "New messages" separator sits above the first line you had not seen (not your own, not when everything is new) and stays there until you leave the tab. A message from another pilot that comes in live (not history sent on joining, not yours, not an ignored pilot's) plays a two-note chime on the default sound device, whichever tab is shown (`Notes.liveSessionArrivals`, `IPlatform.PlayChime`, `Chime`; Windows only, made in code, no setting yet). Heard in the live app. Sending posts a note to the session, at most one a second as before; a line that starts with "." is a command answered to you alone (only `.help`) and kept for an hour. The chat is read every quarter of a second while it is on screen and marks what it shows as read; elsewhere only the dot is kept up to date, from what others said since it was last looked at (your own messages and ignored pilots do not count). Without a session the line is off and says to join a hub. The old "show chat" tick is gone: the tab is the chat. Sending to a session and receiving from another pilot have been tried live. |
+| `IShortcutSource` (Settings → Keyboard Shortcuts) | **Live**: the old window's ten global shortcuts, kept in the same `Settings` entries (`ShortcutX`, `ShortcutXKey`), so both UIs see each other's choices. All are off until switched on. The keys are asked of the system (`Shortcut`, shared with `MainForm`), so they work while the simulator has the keys; `App` looks every 100 ms, faster than the 250 ms poll, so a tapped key is not missed. The card lists them with a switch and "Change…", which opens a card that takes Ctrl, Shift, Alt and a letter. Network and Simulator do what their buttons do. The Session ones act on the user whose row is open, the Aircraft ones (Enter Cockpit, Follow) on the aircraft whose row is open, the old windows' "selected" row; with no row open, or your own row, they do nothing. The Recorder ones follow the old hotkeys' rules: what a button would have disabled does nothing, Record and Overdub stop a running take first, an overdub of nothing is a record, and a take that was not saved is saved to the documents folder without a dialog (`IRecorderSource.AutoSave`; if that fails nothing starts and a message says so). The buttons name an enabled shortcut in their tooltip |
+| `IRecorderSource` (Recorder tab) | **Live**: the sim thread's recorder; its flags and published end time are read, everything else is asked of the sim thread, as the old window did. The mode, the time, the length and both lists are read again every quarter of a second while the tab is shown. **Record** starts a take of the aircraft ticked in the "Aircraft to record" list; it replaces playing and overdubbing. **Play** plays, pauses while playing and goes on when paused. **Overdub** plays and records on top. **Stop**, **Loop**, **Open** (replaces the recording and plays it), **Add** (after its end) and **Save** are the old window's, with the old `.jfs` files and folder. A recording that was made or added to and not saved is asked about before a new one starts, before another file is opened, and when the window closes. The playhead moves, and trims cut, only while a take plays or is paused: the old window would have cut the whole take from a playhead at zero. The "Aircraft to record" list leaves out aircraft that cannot be recorded (the ones the recorder plays). In "Loaded recording", **unticking an aircraft leaves it out of playback** (`Recorder.Skip`; it is still saved in the file), after a question ("Leave out of playback?": Cancel puts the tick back); its tick then goes grey, with a tooltip saying why, until the recording is loaded again, because ticking it back is postponed (see below) |
+| `IMessageSource` (messages of the app) | **Live**: what `Main.ShowMessage` leaves in `scheduleShowMessage`, which the old `MainForm` showed in a message box. It is shown as an overlay with an OK, titled with the build name; while another card is open it waits, and is shown when that closes. As before, a message that comes while another is still unshown is dropped |
+| `IPlatform` (clipboard, file pickers, browser, chime) | **Live**: `AvaloniaPlatform`, the same in the fake launcher |
+| `IMapTileProvider` (Home map) | **Live**: OpenStreetMap and the Smithsonian Watercolor tiles, cached under the app's storage folder |
+
+Not handled yet: the old login dialog (email and password, `JoinResult.LoginRequired`), and the message that a remembered password
+was rejected.
+
+The new UI is the default in every configuration except CONSOLE (which has no UI), and its libraries are part of what the installers
+ship. `-oldui` opens the old forms; `-newui` is still accepted and does nothing. `-p:NewUi=false` builds without the new UI and without
+the Avalonia libraries, and that build always opens the forms. The forms are not opened by the new UI, so anything that only a form
+handled (the scheduled plugin install, login and nickname prompts) does not happen.
+
+The onboarding card replaces the old `InitialSetupForm`. It floats over the expanded window (a new user starts expanded) and walks through
+four steps: nickname, SimBrief, the simulator folder JoinFS knows (changeable), and whether to scan for models. The shell compacts the
+window when it is done. A scan with SimConnect needs the simulator, so before it connects "scan" only sets "Scan for models when the
+simulator connects". Nothing is saved before the last step.
+
+## Languages
+
+The UI is in the languages the old forms had: German, Spanish, French, Italian, Korean, Dutch, Portuguese (Brazilian) and Russian,
+and English for any other. The language is the operating system's, as the forms' was. To see another one, start with `-lang de`
+(`--lang de` for the dev launcher), or run the render tests in it:
+`JOINFS_UI_LANG=de JOINFS_UI_SCREENSHOTS=<folder> dotnet test JoinFS.UI.Tests --filter RenderTests`.
+
+The texts are in `Resources/Strings*.resx`, keyed by their English text (see `Resources/README.md`). Where a text had an equivalent
+in the old forms, its translation is the old one, unless it was wrong for its new place (the old forms' "Save" was "Favorite" in Italian
+and Dutch). The others were translated for this UI. The language is read when the UI starts; there is no switch while it runs.
+
+Not translated: the unit symbols (nm, ft, kt), the names of protocols (Legacy, JFP2), the Match Report that Explain Match copies
+or exports (it is meant for the developers), the log lines, and the data of the hubs and the aircraft.
+
+## Left for later
+
+Old things the new UI does not take over. Each is marked in the code with a `TODO(newui-cleanup)` or `TODO(newui-review)` comment, so
+`git grep "TODO(newui-"` lists them.
+
+| Marker | What | Where |
+|---|---|---|
+| cleanup | **Early update.** Early updates no longer exist: remove the setting, the checkbox and the reads | `SettingsForm.cs`, `MainForm.cs` (three reads) |
+| cleanup | **Indicator colours.** Users no longer choose them: remove the `Colour*` settings, the buttons in `SettingsForm` and every form that reads them (all the old forms) | `SettingsForm.cs` |
+| review | **ATC mode** (airport, level, frequency, Euroscope). Decide where it lives, presumably the Atc view | `SettingsForm.cs` |
+| review | **Reset settings.** Does the new UI need one? | `SettingsForm.cs` |
+| review | **Tick a skipped aircraft again** in the Recorder's "Loaded recording" list, so it joins playback once more. Postponed: it has to start again at the right point of the take. Until then an unticked aircraft stays out until the recording is loaded again | `RecorderViewModel.cs` (`LoadedAircraftViewModel`) |
+
+## Layout
+
+| Folder | What |
+|---|---|
+| `Styles/` | `Tokens.axaml` (generated, see below), `Icons.axaml`, `Moth.axaml`, `Controls.axaml` |
+| `Models/` | Plain records the view models and services exchange |
+| `Services/` | One small interface per concern (`Services.cs`), the fakes, and `AvaloniaPlatform` (clipboard, file pickers, browser) |
+| `UiHost.cs` | How a program starts the UI |
+| `ViewModels/` | `MainViewModel` is the shell; `Tabs/` and `Overlays/` hold the rest |
+| `Views/` | AXAML. `App.axaml` maps each view model to its view |
+
+- **Tokens.** Avalonia cannot parse `oklch()`. `util/gen_tokens.py` turns the design's oklch values into sRGB and keeps each
+  original in a comment. Edit the table in the script and regenerate; do not edit `Tokens.axaml` by hand.
+- **Tabs and overlays reach the shell only through `IShell`** (go to a tab, show an overlay, join a hub), so they do not know each other.
+- **The real app stays behind the service interfaces.** The sim, the network and settings are reached through `ISimulatorLink`,
+  `INetworkLink`, `ISettingsStore` and the like; this project never references `Main`, a form or `Settings`. The adapters live in
+  `JoinFS/Live/`.
+
+## Not wired yet
+
+Nothing is a placeholder any more: every service of the app is live, and the fakes (`JoinFS.UI/Services/Fake/`) exist only for the dev launcher.
+What is missing is the old things listed under "Left for later".
+
+## Where the build departs from the handoff
+
+- **HTML wins over README** where they differ: the Aircraft and Objects columns, the Variables modal's Add/Remove/Edit buttons.
+- Recordings are `.jfs` (as `RecorderForm` writes them), not the README's `.jfr`.
+- Cancel in **Adjust Height** discards the edits (the prototype applies them immediately).
+- **Objects → Substitute…** acts on the selected row (the prototype hard-codes one model); it is disabled until a row is picked.
+- **Substitute**'s "Filter words" narrows the type list; the prototype only shows the box.
+- **Import** in the SimBrief prompt is disabled while the username is blank.
+- **Home** words its subtitle by what is connected; the prototype has one sentence.
+- Protocol shows `JFP2` where the prototype leaves it blank.
+- A disconnected (or "Not loaded") connector is neutral grey, not the prototype's red: disconnected is a normal state, and red is kept
+  for failures (`UX-REVIEW.md`, finding 3).
+- The strip's Flight Plan button shows "Loaded" after any successful SimBrief import, including one started from the Flight Plan tab.
+- The window is a real frameless window (custom title bar, square corners), not a floating rounded panel on a fake desktop.
+- "Label text colour → Choose…" is a swatch row plus a hex box (no colour-picker package is available offline).
+
+## Where each WinForms form went
+
+| Form | In the new UI |
+|---|---|
+| `MainForm` | The title bar and the strip (Simulator, hub picker, Network, Flight Plan). Join is the picked hub, Global is the built-in address-book entry, Create is the mesh card on Network Hubs |
+| `HubsForm` | Network Hubs tab |
+| `SessionForm` (list) | Session tab |
+| `SessionForm` (lower part) | Chat tab |
+| `PermissionsForm` | The Settings block in an expanded Session row |
+| `AircraftForm`, `ObjectsForm`, `MatchingForm`, `RecorderForm`, `MonitorForm`, `FlightPlanForm`, `SettingsForm` | The tab of the same name |
+| `SubstitutionForm`, `HeightForm`, `MatchExplainForm`, `VariablesForm`, `ScanForm`, `AboutForm`, `PasswordForm` | Overlays |
+| `BroadcastForm` | Links in an expanded Objects row: This object, All of the model, VRS TacPack, Everything |
+| `LoginForm` | Gone: joining a password hub asks for the password |
+| `InitialSetupForm` | The onboarding overlay |
+| `AddressBookForm`, `AddressForm` | Settings → Address Book |
+| `XPlaneForm` | The "Install X-Plane Plugin" overlay, from Settings → X-Plane (XPLANE build only) |
+| `ScanForm_XPLANE` | The Scan For Models overlay in the XPLANE build (`ScanXPlaneModelsViewModel`): X-Plane folder with a picker of the installations found, derived CSL folder, Generate / Skip CSL, Generate liveries, the installed CSL packs to link, the Aircraft Folders list, Scan at launch. Other builds get the other scan overlay |
+| `AtcForm` | Later, as a special view of Network Hubs |
+| `ShortcutsForm` | Settings → Keyboard Shortcuts card, and the keys it sets (`IShortcutSource`, below) |
+| `OptionsForm` | Not taken over. Maybe later in Settings |
+
+Per build: Hub Mode is in every build; the X-Plane card and the "X-Plane label" options show only in the XPLANE build
+(`IAppInfo.IsXPlaneBuild`; run with `--xplane` to see them). Hub Mode's fields are always editable.
+
+## Notes
+
+- Which aircraft are recorded is chosen only in the Recorder's "Aircraft to record" list; the Aircraft tab has no Record column or link
+  for it. "Include All Hub Aircraft" and "Include All Simulator Aircraft" are list filters, as in the old window (an earlier version of
+  this README guessed otherwise), and sit in the Aircraft tab's footer. The links of an expanded row are in three groups: Control,
+  Model and Other.
+- "Scan at launch" in the X-Plane scan dialog and "Model scan on connect" in Settings are one setting.

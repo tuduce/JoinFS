@@ -1,0 +1,88 @@
+<UserControl ClipToBounds="False" xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
+             xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
+             x:Class="JoinFS.UI.Views.Tabs.HubsView"
+             x:DataType="tvm:HubsViewModel">
+  <ScrollViewer Margin="0,0,-24,0" Padding="0,0,24,0">
+    <StackPanel>
+      <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <TextBlock Text="{l:T 'Public Hubs'}" Classes="h2" />
+          <TextBlock Text="{Binding HubCount, StringFormat='({0})'}" Classes="count" />
+        </StackPanel>
+        <CheckBox Grid.Column="1" IsChecked="{Binding ShowOfflineHubs}" Content="{l:T 'Show Offline Hubs'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+      </Grid>
+
+      <Border Classes="card">
+        <StackPanel>
+          <Border Classes="tableHeader" Padding="36,8,10,8">
+            <Grid ColumnDefinitions="*,90,60,70,90" ColumnSpacing="10">
+              <Button Grid.Column="0" Classes="th" Command="{Binding NameColumn.SortCommand}" Content="{Binding NameColumn.Header}" />
+              <Button Grid.Column="1" Classes="th" Command="{Binding StatusColumn.SortCommand}" Content="{Binding StatusColumn.Header}" />
+              <Button Grid.Column="2" Classes="th" Command="{Binding UsersColumn.SortCommand}" Content="{Binding UsersColumn.Header}" />
+              <Button Grid.Column="3" Classes="th" Command="{Binding AircraftColumn.SortCommand}" Content="{Binding AircraftColumn.Header}" />
+              <Button Grid.Column="4" Classes="th" Command="{Binding VersionColumn.SortCommand}" Content="{Binding VersionColumn.Header}" />
+            </Grid>
+          </Border>
+
+          <ItemsControl ItemsSource="{Binding Rows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="tvm:HubRowViewModel">
+                <Border Classes="row">
+                  <StackPanel>
+                    <Button Classes="rowButton" Classes.ignored="{Binding IsIgnored}" Command="{Binding ToggleExpandedCommand}"
+                            AutomationProperties.Name="{Binding AutomationName}"
+                            AutomationProperties.HelpText="{l:T 'Shows or hides the actions of this row'}">
+                      <Grid ColumnDefinitions="16,*,90,60,70,90" ColumnSpacing="10" Margin="10,7">
+                        <c:Icon Classes="chevron" Classes.open="{Binding IsExpanded}" Source="{DynamicResource IconChevron}" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="2" Classes="status" Text="{Binding Status}"
+                                   Classes.online="{Binding IsOnline}" Classes.global="{Binding IsGlobal}"
+                                   Classes.password="{Binding IsPassword}" Classes.offline="{Binding IsOffline}" />
+                        <TextBlock Grid.Column="3" Text="{Binding Users}" />
+                        <TextBlock Grid.Column="4" Text="{Binding Aircraft}" />
+                        <TextBlock Grid.Column="5" Text="{Binding Version}" Foreground="{DynamicResource Muted2Brush}" />
+                      </Grid>
+                    </Button>
+
+                    <Border Classes="expanded" IsVisible="{Binding IsExpanded}">
+                      <Grid ColumnDefinitions="360,1,Auto" ColumnSpacing="32" HorizontalAlignment="Left">
+                        <StackPanel Grid.Column="0" Spacing="8">
+                          <TextBlock Classes="caps" Text="{l:T 'INFO'}" />
+                          <TextBlock TextWrapping="Wrap"><Run Text="{l:T 'About: '}" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding About, Mode=OneWay}" /></TextBlock>
+                          <TextBlock TextWrapping="Wrap"><Run Text="{l:T 'Voice Server: '}" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding Voice, Mode=OneWay}" /></TextBlock>
+                          <TextBlock TextWrapping="Wrap"><Run Text="{l:T 'Next Event: '}" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding NextEvent, Mode=OneWay}" /></TextBlock>
+                        </StackPanel>
+                        <Border Grid.Column="1" Classes="vrule" />
+                        <StackPanel Grid.Column="2" Spacing="10">
+                          <TextBlock Classes="caps" Text="{l:T 'ACTIONS'}" />
+                          <StackPanel Orientation="Horizontal" Spacing="16">
+                            <Button Classes="link positive" Command="{Binding JoinCommand}" Content="{Binding JoinLabel}" />
+                            <Button Classes="link" Command="{Binding ToggleSaveCommand}" Content="{Binding SaveLabel}" />
+                            <Button Classes="link" Command="{Binding ToggleIgnoreCommand}" Content="{Binding IgnoreLabel}" />
+                          </StackPanel>
+                        </StackPanel>
+                      </Grid>
+                    </Border>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <TextBlock Text="{l:T 'Create Your Own Mesh'}" Classes="h2" Margin="0,28,0,14" />
+      <Border Classes="card" Padding="18">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <Border Background="{DynamicResource SurfaceHeaderBrush}" BorderBrush="{DynamicResource BorderInputBrush}"
+                  BorderThickness="1" CornerRadius="8" Padding="16,8">
+            <TextBlock Text="{Binding MeshCode}" Classes="mono" FontSize="16" FontWeight="SemiBold" LetterSpacing="1" />
+          </Border>
+          <Button Classes="primary" Command="{Binding CreateMeshCommand}" Content="{l:T 'Create'}" VerticalAlignment="Center" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

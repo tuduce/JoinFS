@@ -1,0 +1,631 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using JoinFS.UI.Localization;
+using JoinFS.UI.Models;
+using JoinFS.UI.Services;
+using JoinFS.UI.ViewModels.Overlays;
+using JoinFS.UI.ViewModels.Tabs;
+
+namespace JoinFS.UI.ViewModels;
+
+/// <summary>
+/// The app shell: collapsed or expanded, the active tab, the overlay on top, and the three connectors.
+/// Tabs reach it only through <see cref="IShell"/>.
+/// </summary>
+public sealed partial class MainViewModel : ObservableObject, IShell
+{
+    private readonly AppServices _services;
+
+    // The next Network connect, set by whoever asks for it (Join, hub row, Create mesh).
+    private Func<CancellationToken, Task> _networkAction = _ => Task.CompletedTask;
+
+    /// <param name="time">The clock for how long an attempt may be slow before the strip says so; the system's unless a test gives its own.</param>
+    public MainViewModel(AppServices services, TimeProvider? time = null)
+    {
+        _services = services;
+
+        Hints = new ShortcutHints();
+        Profile = new ProfileViewModel(services.Settings);
+        AddressBook = new AddressBookViewModel(services.AddressBook);
+
+        Simulator = new ConnectionViewModel(ConnectionLabels.Simulator, services.Simulator.ConnectAsync, services.Simulator.DisconnectAsync,
+            observed: services.Simulator.ReportsState, time: time);
+        Network = new ConnectionViewModel(ConnectionLabels.Network, ct => _networkAction(ct), services.Network.DisconnectAsync,
+            requestConnect: JoinSelectedAsync, observed: services.Network.ReportsState,
+            // a session that asks for a password is left and joined again: that end is part of the conversation
+            failureIsExpected: () => services.Network.PasswordRequestedBy is not null || Overlay is PasswordPromptViewModel, time: time);
+        Simulator.PropertyChanged += OnConnectionChanged;
+        Network.PropertyChanged += OnConnectionChanged;
+
+        Home = new HomeViewModel(this, services.Session, services.Traffic, services.Platform, services.MapTiles);
+        Hubs = new HubsViewModel(services.Hubs, services.Network, this);
+        Session = new SessionViewModel(services.Session, Hints);
+        Aircraft = new AircraftViewModel(services.Traffic, services.Models, services.Variables, services.Platform, Profile, this, Hints);
+        Objects = new ObjectsViewModel(services.Traffic, services.Models, Profile, this);
+        ModelMatching = new ModelMatchingViewModel(services.Models, this);
+        FlightPlan = new FlightPlanViewModel(services.FlightPlan, services.SimBrief, Profile, this);
+        Recorder = new RecorderViewModel(services.Recorder, services.Traffic, services.Platform, this, Hints);
+        Chat = new ChatViewModel(services.Chat);
+        Monitor = new MonitorViewModel(services.Monitor, services.Platform);
+        Settings = new SettingsViewModel(Profile, AddressBook, services.Preferences, services.Variables, services.Models, services.XPlanePlugin, services.XPlaneScan, services.ModelScan, this, services.Platform, () => Simulator.IsConnected, services.App.IsXPlaneBuild,
+            services.Shortcuts, ApplyShortcuts);
+        ApplyShortcuts(services.Shortcuts.Load());
+
+        // the map follows the choice in Settings → User Interface
+        Home.MapStyle = Settings.UserInterface.MapStyle;
+        Settings.UserInterface.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(UserInterfaceSettingsViewModel.MapStyle))
+                Home.MapStyle = Settings.UserInterface.MapStyle;
+        };
+
+        // The strip's flight-plan button fetches from SimBrief. If a username is still needed the prompt comes first and
+        // the import finishes after it, so this attempt ends "not loaded" and the import itself reports back through Imported.
+        // That also covers an import started from the Flight Plan tab. The button makes what it fetches the user's plan at once, as the
+        // old SimBrief button did; the tab's own link only shows it. Clicking "Loaded" forgets the fetch, the plan stays.
+        FlightPlanLoad = new ConnectionViewModel(ConnectionLabels.FlightPlan, async _ =>
+            {
+                if (!await FlightPlan.TryImportFromSimbriefAsync(commit: true))
+                    throw new OperationCanceledException();
+            },
+            disconnect: () =>
+            {
+                services.SimBrief.Reset();
+                return Task.CompletedTask;
+            },
+            observed: services.SimBrief.ReportsState);
+        FlightPlan.Imported += (_, _) => FlightPlanLoad.SetState(ConnectionState.Connected);
+        // A plan saved from the tab is loaded too, whatever it came from; a cleared one is not.
+        FlightPlan.Saved += (_, filled) => FlightPlanLoad.SetState(filled ? ConnectionState.Connected : ConnectionState.Disconnected);
+
+        // Save in the Session tab changes the address book; the strip's hub picker has to show it.
+        Session.AddressBookChanged += (_, _) => AddressBook.Reload();
+        Hubs.AddressBookChanged += (_, _) => AddressBook.Reload();
+
+        NavItems =
+        [
+            new(this, TabId.Home, Loc.T("Home"), "IconHome"),
+            new(this, TabId.Network, Loc.T("Network Hubs"), "IconHubs"),
+            new(this, TabId.Session, Loc.T("Session"), "IconSession"),
+            new(this, TabId.Aircraft, Loc.T("Aircraft"), "IconAircraft"),
+            new(this, TabId.Objects, Loc.T("Objects"), "IconObjects"),
+            new(this, TabId.Models, Loc.T("Model Matching"), "IconModels"),
+            new(this, TabId.FlightPlan, Loc.T("Flight Plan"), "IconFlightPlan"),
+            new(this, TabId.Recorder, Loc.T("Recorder"), "IconRecorder"),
+            new(this, TabId.Chat, Loc.T("Chat"), "IconChat"),
+            new(this, TabId.Monitor, Loc.T("Monitor"), "IconMonitor"),
+            new(this, TabId.Settings, Loc.T("Settings"), "IconSettings"),
+        ];
+
+        _hasNewChat = services.Chat.HasUnread;
+        _chatArrivals = services.Chat.Arrivals;
+        RefreshNav();
+
+        // A new user is welcomed over the full view, which has room for the card. It compacts the window when it is done.
+        if (!Profile.Onboarded)
+        {
+            IsExpanded = true;
+            ShowOverlay(new OnboardingViewModel(Profile, services.ModelScan, services.XPlaneScan, services.App.IsXPlaneBuild,
+                () => Simulator.IsConnected, services.Platform, () => IsExpanded = false));
+        }
+    }
+
+    public ProfileViewModel Profile { get; }
+    public AddressBookViewModel AddressBook { get; }
+
+    /// <summary>The keys of the shortcuts, which the buttons name in their tooltips.</summary>
+    public ShortcutHints Hints { get; }
+
+
+    public ConnectionViewModel Simulator { get; }
+    public ConnectionViewModel Network { get; }
+    public ConnectionViewModel FlightPlanLoad { get; }
+
+    /// <summary>
+    /// What the Simulator and Network buttons have to say besides their state (why an attempt failed, that a connection was lost, that a
+    /// join gets no answer), one line each, or null. Shown under the strip, so it is seen whatever tab is open.
+    /// </summary>
+    public string? Notice
+    {
+        get
+        {
+            string?[] lines = [Simulator.Detail, Network.Detail];
+            string text = string.Join(Environment.NewLine, lines.Where(l => l is not null));
+            return text.Length == 0 ? null : text;
+        }
+    }
+
+    public bool HasNotice => Notice is not null;
+
+    /// <summary>True when the notice is about something that went wrong, false when it only says an attempt is slow.</summary>
+    public bool NoticeIsProblem => Simulator.DetailIsProblem || Network.DetailIsProblem;
+
+    private void OnConnectionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ConnectionViewModel.Detail))
+        {
+            OnPropertyChanged(nameof(Notice));
+            OnPropertyChanged(nameof(HasNotice));
+            OnPropertyChanged(nameof(NoticeIsProblem));
+        }
+    }
+
+    [RelayCommand]
+    private void DismissNotice()
+    {
+        Simulator.DismissDetail();
+        Network.DismissDetail();
+    }
+
+    public HomeViewModel Home { get; }
+    public HubsViewModel Hubs { get; }
+    public SessionViewModel Session { get; }
+    public AircraftViewModel Aircraft { get; }
+    public ObjectsViewModel Objects { get; }
+    public ModelMatchingViewModel ModelMatching { get; }
+    public FlightPlanViewModel FlightPlan { get; }
+    public RecorderViewModel Recorder { get; }
+    public ChatViewModel Chat { get; }
+    public MonitorViewModel Monitor { get; }
+    public SettingsViewModel Settings { get; }
+
+    public IReadOnlyList<NavItemViewModel> NavItems { get; }
+
+    public string SessionLabel => _services.App.SessionLabel;
+    public string Version => _services.App.Version;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCollapsed), nameof(ShowChatBadge), nameof(ShowUpdateBadge))]
+    private bool _isExpanded;
+
+    public bool IsCollapsed => !IsExpanded;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentTab))]
+    private TabId _selectedTab = TabId.Home;
+
+    /// <summary>The view model of the active tab. The view picks its screen from the type.</summary>
+    public object CurrentTab => SelectedTab switch
+    {
+        TabId.Home => Home,
+        TabId.Network => Hubs,
+        TabId.Session => Session,
+        TabId.Aircraft => Aircraft,
+        TabId.Objects => Objects,
+        TabId.Models => ModelMatching,
+        TabId.FlightPlan => FlightPlan,
+        TabId.Recorder => Recorder,
+        TabId.Chat => Chat,
+        TabId.Monitor => Monitor,
+        _ => Settings,
+    };
+
+    /// <summary>Unread chat. Shows the dot in the sidebar, and in the title bar while the window is collapsed.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowChatBadge))]
+    private bool _hasNewChat;
+
+    public bool ShowChatBadge => IsCollapsed && HasNewChat;
+
+    /// <summary>
+    /// A newer release exists and the startup card about it was closed. Shows the reminder in the title bar while the window is
+    /// collapsed, and by the version in the sidebar while it is expanded. It stays until the app is restarted on the new version.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowUpdateBadge))]
+    private bool _hasUpdateReminder;
+
+    public bool ShowUpdateBadge => IsCollapsed && HasUpdateReminder;
+
+    // The release check runs in the background, so it is asked at each poll until it has an answer. The card is shown once per run.
+    private bool _updateAnnounced;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
+    private OverlayViewModel? _overlay;
+
+    public bool IsOverlayOpen => Overlay is not null;
+
+    private PasswordPromptViewModel? _passwordPrompt;
+
+    // How long the label of a joined hub may outlive a network that never started, in polls (about three seconds).
+    private const int LabelGracePolls = 12;
+    private bool _labelSawNetwork;
+    private int _labelIdlePolls;
+
+    private void ShowJoinedHubLabel(string name)
+    {
+        _labelSawNetwork = false;
+        _labelIdlePolls = 0;
+        AddressBook.ShowTransient(name);
+    }
+
+    private void ClearJoinedHubLabel() => AddressBook.ClearTransient();
+
+    /// <summary>
+    /// The label belongs to the hub that was joined, so it goes when the network has left it. A join takes a moment to show
+    /// as connecting, so the network must have been seen on its way, or the grace has run out, before "disconnected" counts.
+    /// </summary>
+    private void FollowJoinedHubLabel()
+    {
+        if (AddressBook.TransientLabel is null)
+            return;
+
+        if (!Network.IsDisconnected)
+        {
+            _labelSawNetwork = true;
+            _labelIdlePolls = 0;
+        }
+        else if (_labelSawNetwork || ++_labelIdlePolls > LabelGracePolls)
+        {
+            ClearJoinedHubLabel();
+        }
+    }
+    private int _polls;
+
+    // The live lists are re-read once a second (every fourth poll) and only while they are on screen.
+    private const int LiveListEvery = 4;
+
+    /// <summary>
+    /// Brings what the live app does by itself onto the screen: the state of the Simulator and Network buttons, and a hub asking for its
+    /// password. Call it regularly from the UI thread (every quarter of a second is plenty). Does nothing new on the fakes.
+    /// </summary>
+    public void Poll()
+    {
+        _services.Simulator.Poll();
+        _services.Network.Poll();
+        _services.SimBrief.Poll();
+        Simulator.Sync(_services.Simulator.State);
+        Network.Sync(_services.Network.State);
+        FlightPlanLoad.Sync(_services.SimBrief.State);
+        ShowPasswordRequest();
+        ShowAppMessage();
+        OfferPluginInstall();
+        AnnounceUpdate();
+        FollowJoinedHubLabel();
+        Hubs.SyncJoined();
+        FollowChat();
+
+        // the playhead moves as the take plays, so the transport is read every time while it is shown
+        if (IsExpanded && SelectedTab == TabId.Recorder)
+            Recorder.Refresh();
+
+        if (++_polls % LiveListEvery == 0)
+            RefreshVisibleTab();
+    }
+
+    /// <summary>
+    /// The chat is read often while it is on screen (what is said should appear as it is said), and it is all read there. Elsewhere only
+    /// whether something came that has not been seen is asked, for the dot.
+    /// </summary>
+    private void FollowChat()
+    {
+        // Whatever the window shows, a message that comes in live is announced by a chime.
+        int arrivals = _services.Chat.Arrivals;
+        if (arrivals != _chatArrivals)
+        {
+            _chatArrivals = arrivals;
+            _services.Platform.PlayChime();
+        }
+
+        if (IsExpanded && SelectedTab == TabId.Chat)
+        {
+            ChatSeen();
+            Chat.Refresh();
+        }
+        else
+        {
+            if (_chatOpen)
+            {
+                _chatOpen = false;
+                Chat.Close();
+            }
+            HasNewChat = _services.Chat.HasUnread;
+        }
+    }
+
+    // The chat is on screen: what is in it counts as read. When it was just opened, the chat first marks where the unseen lines start.
+    private bool _chatOpen;
+    private int _chatArrivals;
+
+    private void ChatSeen()
+    {
+        if (!_chatOpen)
+        {
+            _chatOpen = true;
+            Chat.Open(_services.Chat.ReadUpTo);
+        }
+        _services.Chat.MarkRead();
+        HasNewChat = false;
+    }
+
+    /// <summary>Reads the live data of the tab that is on screen. Nothing is read for a tab nobody is looking at.</summary>
+    private void RefreshVisibleTab()
+    {
+        if (!IsExpanded)
+            return;
+
+        switch (SelectedTab)
+        {
+            case TabId.Home:
+                Home.Refresh();
+                break;
+            case TabId.Network:
+                Hubs.Refresh();
+                break;
+            case TabId.Session:
+                Session.Refresh();
+                break;
+            case TabId.Aircraft:
+                Aircraft.Refresh();
+                break;
+            case TabId.Models:
+                ModelMatching.Refresh();
+                break;
+            case TabId.Monitor:
+                Monitor.Refresh();
+                break;
+            case TabId.Recorder:
+                Recorder.Refresh();
+                break;
+            case TabId.FlightPlan:
+                FlightPlan.Refresh();
+                break;
+            case TabId.Settings:
+                // The files are asked of the simulator, so only while the card that lists them is open.
+                if (Settings.Variables.IsOpen)
+                    Settings.Variables.Refresh();
+                break;
+            case TabId.Objects:
+                Objects.Refresh();
+                break;
+        }
+    }
+
+    // ---- the keyboard shortcuts
+
+    private void ApplyShortcuts(IEnumerable<ShortcutBinding> bindings)
+    {
+        Hints.Update(bindings);
+        Simulator.ShortcutHint = Hints.Simulator;
+        Network.ShortcutHint = Hints.Network;
+    }
+
+    /// <summary>
+    /// Does what the shortcuts that were pressed since the last call ask for. Call it about ten times a second from the UI thread: the
+    /// keys are asked of the system, so a key tapped between two calls would be missed (the poll above is too slow for that).
+    /// </summary>
+    /// <returns>Done when what the shortcuts started is done. The caller need not wait: a connect can take a while.</returns>
+    public Task PollShortcuts()
+    {
+        List<Task> started = [];
+        foreach (ShortcutAction action in _services.Shortcuts.TakePressed())
+        {
+            // while the keys of a shortcut are being chosen, pressing them must not run it
+            if (Overlay is ShortcutCaptureViewModel)
+                continue;
+            started.Add(RunShortcutAsync(action));
+        }
+        return Task.WhenAll(started);
+    }
+
+    private async Task RunShortcutAsync(ShortcutAction action)
+    {
+        switch (action)
+        {
+            case ShortcutAction.Network:
+                await Network.ToggleAsync();
+                break;
+            case ShortcutAction.Simulator:
+                await Simulator.ToggleAsync();
+                break;
+            case ShortcutAction.AllowShared:
+                Session.ToggleCockpitEntryOfOpenRow();
+                break;
+            case ShortcutAction.HandOver:
+                Session.ToggleHandOverOfOpenRow();
+                break;
+            case ShortcutAction.EnterCockpit:
+                Aircraft.EnterCockpitOfOpenRow();
+                break;
+            case ShortcutAction.Follow:
+                Aircraft.FollowOpenRow();
+                break;
+            case ShortcutAction.Record:
+                Recorder.HotkeyRecord();
+                break;
+            case ShortcutAction.Overdub:
+                Recorder.HotkeyOverdub();
+                break;
+            case ShortcutAction.Stop:
+                Recorder.HotkeyStop();
+                break;
+            case ShortcutAction.Replay:
+                Recorder.HotkeyReplay();
+                break;
+        }
+    }
+
+    private void ShowPasswordRequest()
+    {
+        string? hub = _services.Network.PasswordRequestedBy;
+        if (hub is null)
+            return;
+
+        // Asked already and still showing; or the user is in the middle of something else, so ask again at the next poll.
+        if (_passwordPrompt is not null && ReferenceEquals(Overlay, _passwordPrompt))
+            return;
+        if (Overlay is not null)
+            return;
+
+        _passwordPrompt = new PasswordPromptViewModel(
+            hub,
+            password =>
+            {
+                _services.Network.SubmitPassword(password);
+                return Task.CompletedTask;
+            },
+            onCancel: _services.Network.CancelPasswordRequest);
+        ShowOverlay(_passwordPrompt);
+    }
+
+    /// <summary>
+    /// What the old forms showed in a message box. It waits while another card is open, so as not to cover what the user is doing, and
+    /// stays in the app until then.
+    /// </summary>
+    private void ShowAppMessage()
+    {
+        if (Overlay is not null)
+            return;
+
+        if (_services.Messages.TakeMessage() is { Length: > 0 } message)
+            ShowOverlay(new MessageViewModel(null, message));
+    }
+
+    /// <summary>
+    /// The XPLANE build asks for the plugin when none (or an outdated one) is found, on a first run, and after a scan of an X-Plane folder
+    /// without it. Like a message, it waits while another card is open.
+    /// </summary>
+    private void OfferPluginInstall()
+    {
+        if (Overlay is not null || !_services.App.IsXPlaneBuild)
+            return;
+
+        if (_services.XPlanePlugin.TakeInstallRequest())
+            ShowOverlay(new InstallXPlanePluginViewModel(_services.XPlanePlugin, _services.Platform));
+    }
+
+    /// <summary>
+    /// Tells the user once that a newer release exists. Like a message, it waits while another card is open (the first-run card
+    /// included), so as not to cover what the user is doing.
+    /// </summary>
+    private void AnnounceUpdate()
+    {
+        if (_updateAnnounced || Overlay is not null)
+            return;
+
+        if (_services.Updates.CheckForUpdate() is not { } update)
+            return;
+
+        _updateAnnounced = true;
+        ShowOverlay(new UpdateAvailableViewModel(update, _services.Platform, () => HasUpdateReminder = true));
+    }
+
+    partial void OnIsExpandedChanged(bool value) => RefreshVisibleTab();
+
+    partial void OnSelectedTabChanged(TabId value)
+    {
+        RefreshNav();
+        RefreshVisibleTab(); // a tab opens on what is true now, not on what it saw last
+    }
+    partial void OnHasNewChatChanged(bool value) => RefreshNav();
+
+    [RelayCommand]
+    private void ToggleExpand() => IsExpanded = !IsExpanded;
+
+    [RelayCommand]
+    private void OpenChat() => GoTo(TabId.Chat);
+
+    [RelayCommand]
+    private void OpenAbout() =>
+        ShowOverlay(new AboutViewModel(_services.App, _services.Updates.CheckForUpdate(), _services.Platform));
+
+    /// <summary>What the strip's Network button does while disconnected: join the hub picked in the strip.</summary>
+    private Task JoinSelectedAsync() =>
+        AddressBook.EffectiveSelection is { } selected ? JoinAsync(selected.Entry) : Task.CompletedTask;
+
+    // --- IShell ---
+
+    public void GoTo(TabId tab)
+    {
+        IsExpanded = true; // first, so the tab that opens sees a window that is showing it
+        SelectedTab = tab;
+        if (tab == TabId.Chat)
+            ChatSeen();
+    }
+
+    public void ShowOverlay(OverlayViewModel overlay)
+    {
+        overlay.CloseRequested += OnOverlayCloseRequested;
+        Overlay = overlay;
+    }
+
+    public async Task JoinAsync(AddressBookEntry hub)
+    {
+        if (Network.IsConnecting)
+            return;
+
+        if (hub.RequiresPassword)
+        {
+            ShowOverlay(new PasswordPromptViewModel(hub.Name, password => ConnectToAsync(hub, password)));
+            return;
+        }
+        await ConnectToAsync(hub, password: null);
+    }
+
+    // True from the moment a mesh of our own was asked for until a hub is joined again: the picker's hub is not what is connected then.
+    private bool _onOwnMesh;
+
+    public string? JoinedHubName =>
+        Network.IsConnected && !_onOwnMesh ? AddressBook.TransientLabel ?? AddressBook.Selected?.Name : null;
+
+    public async Task LeaveAsync()
+    {
+        if (Network.IsConnected)
+            await Network.DisconnectAsync();
+        Hubs.SyncJoined();
+    }
+
+    public async Task<string?> CreateMeshAsync()
+    {
+        if (Network.IsConnecting)
+            return null;
+
+        _onOwnMesh = true;
+        // A mesh of your own is not a hub of the directory: the picker goes back to its pick.
+        ClearJoinedHubLabel();
+
+        string? code = null;
+        _networkAction = async ct => code = await _services.Network.CreateMeshAsync(ct);
+        if (Network.IsConnected)
+            await Network.DisconnectAsync();
+        await Network.ConnectAsync();
+        return code;
+    }
+
+    private async Task ConnectToAsync(AddressBookEntry hub, string? password)
+    {
+        _onOwnMesh = false;
+
+        // The picker shows the hub that was joined: its entry when the address book has it, otherwise just its name as the current text.
+        if (AddressBook.Select(hub.Name))
+            ClearJoinedHubLabel();
+        else
+            ShowJoinedHubLabel(hub.Name);
+        _networkAction = ct => _services.Network.JoinAsync(hub, password, ct);
+
+        if (Network.IsConnected)
+            await Network.DisconnectAsync();
+        await Network.ConnectAsync();
+        Hubs.SyncJoined();
+    }
+
+    private void OnOverlayCloseRequested(object? sender, EventArgs e)
+    {
+        if (sender is not OverlayViewModel overlay)
+            return;
+        overlay.CloseRequested -= OnOverlayCloseRequested;
+        // Another overlay may already have replaced this one (a prompt that opens the next step).
+        if (ReferenceEquals(Overlay, overlay))
+            Overlay = null;
+    }
+
+    private void RefreshNav()
+    {
+        foreach (NavItemViewModel item in NavItems)
+        {
+            item.IsActive = item.Tab == SelectedTab;
+            item.ShowBadge = item.Tab == TabId.Chat && HasNewChat;
+        }
+    }
+}

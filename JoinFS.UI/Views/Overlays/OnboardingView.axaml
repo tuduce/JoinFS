@@ -1,0 +1,91 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
+             xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
+             x:Class="JoinFS.UI.Views.Overlays.OnboardingView"
+             x:DataType="ovm:OnboardingViewModel">
+  <!-- First run: a card over the expanded window that asks one thing at a time. The shell compacts the window when it is done. -->
+  <c:ModalCard Width="480" Title="{Binding Title}" ShowClose="False">
+    <Panel MinHeight="250">
+
+      <!-- 1. Welcome and nickname -->
+      <StackPanel Spacing="10" IsVisible="{Binding IsWelcome}">
+        <TextBlock Text="{l:T 'Welcome aboard! JoinFS lets you fly together with other pilots, whatever simulator each of you uses. A few short steps and you are ready to fly.'}"
+                   TextWrapping="Wrap" />
+        <TextBlock Text="{l:T 'What should we call you?'}" FontWeight="SemiBold" Margin="0,8,0,0" />
+        <TextBox x:Name="NicknameBox" Text="{Binding Nickname}" Watermark="{l:T 'Your nickname'}">
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding NextCommand}" />
+          </TextBox.KeyBindings>
+        </TextBox>
+        <TextBlock Text="{l:T 'Your nickname is how other pilots see you: in the session list, in the chat and as the label above your aircraft in their simulator.'}"
+                   Classes="label" TextWrapping="Wrap" />
+        <TextBlock Text="{l:T 'At least 2 characters.'}" Classes="label" />
+      </StackPanel>
+
+      <!-- 2. SimBrief -->
+      <StackPanel Spacing="10" IsVisible="{Binding IsSimbrief}">
+        <TextBlock Text="{l:T 'Do you use SimBrief?'}" FontWeight="SemiBold" />
+        <TextBlock Text="{l:T 'SimBrief is an online flight planner. With your SimBrief username, JoinFS can load your flight plan into the Flight Plan tab.'}"
+                   Classes="label" TextWrapping="Wrap" />
+        <StackPanel Spacing="2">
+          <RadioButton GroupName="Simbrief" IsChecked="{Binding UsesSimbrief}" Content="{l:T 'Yes, I use SimBrief'}" />
+          <RadioButton GroupName="Simbrief" IsChecked="{Binding NoSimbrief}" Content="{l:T 'No, I don\'t'}" />
+        </StackPanel>
+        <StackPanel Spacing="6" IsVisible="{Binding UsesSimbrief}">
+          <TextBlock Text="{l:T 'SimBrief username'}" Classes="label" />
+          <TextBox x:Name="SimbriefBox" Text="{Binding SimbriefUsername}" Watermark="{l:T 'SimBrief username'}">
+            <TextBox.KeyBindings>
+              <KeyBinding Gesture="Enter" Command="{Binding NextCommand}" />
+            </TextBox.KeyBindings>
+          </TextBox>
+        </StackPanel>
+      </StackPanel>
+
+      <!-- 3. The simulator folder -->
+      <StackPanel Spacing="10" IsVisible="{Binding IsSimulator}">
+        <TextBlock Text="{l:T 'Where is your simulator?'}" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding FolderIntro}" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding FolderHint}" IsVisible="{Binding HasFolderHint}" Classes="label" TextWrapping="Wrap" />
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+          <TextBox x:Name="FolderBox" Classes="mono" FontSize="12.5" Text="{Binding Folder}">
+            <TextBox.KeyBindings>
+              <KeyBinding Gesture="Enter" Command="{Binding NextCommand}" />
+            </TextBox.KeyBindings>
+          </TextBox>
+          <Button Grid.Column="1" Command="{Binding BrowseCommand}" Content="{l:T 'Browse...'}" Padding="16,9" />
+        </Grid>
+        <TextBlock Text="{Binding FolderError}" IsVisible="{Binding HasFolderError}"
+                   Foreground="{DynamicResource DangerTextBrush}" FontSize="12.5" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <!-- 4. Scan for models -->
+      <StackPanel Spacing="10" IsVisible="{Binding IsModels}">
+        <TextBlock Text="{l:T 'Scan for aircraft models?'}" FontWeight="SemiBold" />
+        <TextBlock Text="{l:T 'JoinFS reads which aircraft are installed in your simulator, so that it can show the aircraft of other pilots with a model you have. A scan can take a few minutes.'}"
+                   TextWrapping="Wrap" />
+        <TextBlock Text="{l:T 'Your simulator is not connected yet. The scan starts as soon as it connects.'}"
+                   IsVisible="{Binding ScanWaitsForSimulator}" Classes="label" TextWrapping="Wrap" />
+        <TextBlock Text="{l:T 'No simulator folder is set, so there is nothing to scan yet.'}"
+                   IsVisible="{Binding HasNoFolderToScan}" Foreground="{DynamicResource DangerTextBrush}" FontSize="12.5" TextWrapping="Wrap" />
+        <TextBlock Text="{l:T 'You can change all of these settings later in the Settings tab.'}"
+                   Classes="label" TextWrapping="Wrap" Margin="0,8,0,0" />
+      </StackPanel>
+    </Panel>
+
+    <c:ModalCard.Footer>
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding StepText}" Classes="label" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Classes="footer" IsVisible="{Binding !IsModels}">
+          <Button Command="{Binding BackCommand}" Content="{l:T 'Back'}" Padding="18,8" IsVisible="{Binding CanGoBack}" />
+          <Button Classes="primary" Command="{Binding NextCommand}" Content="{l:T 'Next'}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Classes="footer" IsVisible="{Binding IsModels}">
+          <Button Command="{Binding BackCommand}" Content="{l:T 'Back'}" Padding="18,8" />
+          <Button Command="{Binding SkipScanCommand}" Content="{l:T 'Not now'}" Padding="18,8" />
+          <Button Classes="primary" Command="{Binding ScanCommand}" Content="{l:T 'Scan for models'}" />
+        </StackPanel>
+      </Grid>
+    </c:ModalCard.Footer>
+  </c:ModalCard>
+</UserControl>

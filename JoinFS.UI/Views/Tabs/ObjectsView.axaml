@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
+             xmlns:c="using:JoinFS.UI.Views.Controls"
+             xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
+             xmlns:vm="using:JoinFS.UI.ViewModels"
+             x:Class="JoinFS.UI.Views.Tabs.ObjectsView"
+             x:DataType="tvm:ObjectsViewModel">
+  <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
+    <TextBlock Text="{l:T 'Objects'}" Classes="h2" />
+
+    <Border Grid.Row="1" Classes="card">
+      <Grid RowDefinitions="Auto,*">
+        <Border Background="{DynamicResource SurfaceHeaderBrush}" Padding="27,8,6,8">
+          <Grid ColumnDefinitions="80,*,44,50,74,60,62,62" ColumnSpacing="5" TextElement.FontSize="11">
+            <Button Grid.Column="0" Classes="th" FontSize="11" Command="{Binding OwnerColumn.SortCommand}" Content="{Binding OwnerColumn.Header}" />
+            <Button Grid.Column="1" Classes="th" FontSize="11" Command="{Binding ModelColumn.SortCommand}" Content="{Binding ModelColumn.Header}" />
+            <Button Grid.Column="2" Classes="th" FontSize="11" Command="{Binding CountColumn.SortCommand}" Content="{Binding CountColumn.Header}" />
+            <Button Grid.Column="3" Classes="th" FontSize="11" Command="{Binding BearingColumn.SortCommand}" Content="{Binding BearingColumn.Header}" />
+            <Button Grid.Column="4" Classes="th" FontSize="11" Command="{Binding DistanceColumn.SortCommand}" Content="{Binding DistanceColumn.Header}" />
+            <TextBlock Grid.Column="5" Text="{l:T 'Broadcast'}" Foreground="{DynamicResource MutedBrush}" />
+            <TextBlock Grid.Column="6" Text="{l:T 'Ignore Owner'}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+            <TextBlock Grid.Column="7" Text="{l:T 'Ignore Model'}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+          </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1">
+          <ItemsControl ItemsSource="{Binding Rows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="tvm:ObjectRowViewModel">
+                <Border Classes="row">
+                  <StackPanel>
+                  <!-- The boxes are not inside the button (nested controls confuse the tab order and screen readers): they sit
+                       on top of it, in the same columns. Left-aligned, so the rest of their cells still reaches the button. -->
+                  <Grid>
+                    <Button Classes="rowButton" Classes.selected="{Binding IsSelected}" Classes.ignoredMuted="{Binding IsIgnored}"
+                            Command="{Binding SelectCommand}" AutomationProperties.Name="{Binding AutomationName}"
+                            AutomationProperties.HelpText="{l:T 'Shows or hides the actions of this row'}">
+                      <Grid ColumnDefinitions="16,80,*,44,50,74,60,62,62" ColumnSpacing="5" Margin="6,8" TextElement.FontSize="12.5">
+                        <c:Icon Classes="chevron" Classes.open="{Binding IsSelected}" Source="{DynamicResource IconChevron}" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding Owner}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="2" Text="{Binding Model}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="3" Text="{Binding Count}" />
+                        <TextBlock Grid.Column="4" Text="{Binding Bearing}" />
+                        <TextBlock Grid.Column="5" Text="{Binding Distance}" />
+                      </Grid>
+                    </Button>
+                    <Grid ColumnDefinitions="16,80,*,44,50,74,60,62,62" ColumnSpacing="5" Margin="6,0" VerticalAlignment="Center">
+                      <CheckBox Grid.Column="6" HorizontalAlignment="Left" IsChecked="{Binding Broadcast}" IsEnabled="{Binding CanBroadcast}" MinHeight="0" Padding="0" AutomationProperties.Name="{Binding BroadcastAutomationName}" />
+                      <CheckBox Grid.Column="7" HorizontalAlignment="Left" IsChecked="{Binding IgnoreOwner}" IsEnabled="{Binding CanIgnore}" MinHeight="0" Padding="0" AutomationProperties.Name="{Binding IgnoreOwnerAutomationName}" />
+                      <CheckBox Grid.Column="8" HorizontalAlignment="Left" IsChecked="{Binding IgnoreModel}" IsEnabled="{Binding CanIgnore}" MinHeight="0" Padding="0" AutomationProperties.Name="{Binding IgnoreModelAutomationName}" />
+                    </Grid>
+                  </Grid>
+
+                  <Border Classes="expanded" IsVisible="{Binding IsSelected}">
+                    <StackPanel Spacing="10">
+                      <TextBlock Classes="caps" Text="{l:T 'ACTIONS'}" />
+                      <ItemsControl ItemsSource="{Binding Actions}">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate>
+                            <WrapPanel />
+                          </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:ActionLink">
+                            <Button Classes="link" Command="{Binding Command}" Content="{Binding Label}" Margin="0,0,20,6" />
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </Border>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+      <Button Grid.Column="0" Command="{Binding SubstituteCommand}" Content="{l:T 'Substitute...'}"
+              ToolTip.Tip="{l:T 'Select an object in the table first'}" />
+      <TextBlock Grid.Column="1" Text="{l:T 'Click header to sort objects'}" Classes="label" HorizontalAlignment="Center" VerticalAlignment="Center" />
+      <CheckBox Grid.Column="2" IsChecked="{Binding GroupByModel}" Content="{l:T 'Group by model'}" Margin="0,0,8,0" />
+      <CheckBox Grid.Column="3" IsChecked="{Binding ListIgnoredObjects}" Content="{l:T 'List ignored objects'}" />
+    </Grid>
+  </Grid>
+</UserControl>

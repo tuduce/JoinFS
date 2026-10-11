@@ -25,6 +25,8 @@ namespace JoinFS
         string initialScanFolders = "";
         string initialAddOns = "";
         string initialAdditionals = "";
+        /// <summary>The simulator the folders file belongs to before the simulator has connected and can name it itself</summary>
+        string foldersSimulatorName;
         public static string[] AddonsFileContents = [ "" ];
 
         /// <summary>
@@ -2842,11 +2844,142 @@ namespace JoinFS
             return false;
         }
 
-#if !SERVER && !CONSOLE
         /// <summary>Guards against a second manual "Scan For Models" click firing an overlapping
         /// background Scan() while one triggered by ScanUI() is already in flight.</summary>
         volatile bool manualScanRunning = false;
+
+        /// <summary>
+        /// Scan in the background, as "Scan For Models" does once its dialog is accepted. Scan() itself can take many seconds (a full
+        /// aircraft.cfg directory walk, plus for FS2024 the per-model disk-config reads), so it and its own follow-up run off the calling
+        /// thread, as the auto-on-connect scan already does (see Program.cs's scheduleSubstitutionLoad dispatch). manualScanRunning
+        /// guards against a second click firing an overlapping scan while one is already in flight.
+        /// </summary>
+        /// <param name="forceCslGeneration">Generate CSL for this run even if the user switched generation off, e.g. right after the
+        /// plugin was installed when nothing exists yet. The saved setting is left alone.</param>
+        /// <returns>False when a scan is already running</returns>
+        public bool StartBackgroundScan(bool forceCslGeneration = false)
+        {
+            if (manualScanRunning)
+            {
+                return false;
+            }
+
+            manualScanRunning = true;
+            Task.Run(() =>
+            {
+#if XPLANE
+                bool generateBefore = main.settingsGenerateCsl;
 #endif
+                try
+                {
+#if XPLANE
+                    // CSL generation only exists for X-Plane
+                    main.settingsGenerateCsl |= forceCslGeneration;
+#endif
+                    // do model scan
+                    Scan(true);
+
+                    // reload matches
+#if FS2024
+                    main.sim.requestModelListIsVerbose = true;
+#else
+                    LoadMatches();
+                    LoadMasquerades();
+
+                    // check for models scanned
+                    if (models.Count > 0)
+                    {
+                        main.scheduleShowMessage = Resources.Strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
+#if XPLANE
+                        // X-Plane only loads CSL packages at start-up
+                        if (main.settingsGenerateCsl)
+                        {
+                            main.scheduleShowMessage += Environment.NewLine + Environment.NewLine + Resources.Strings.RestartXPlaneHint;
+                        }
+#endif
+                    }
+                    else
+                    {
+                        main.scheduleShowMessage = NoModelsMessage();
+                    }
+#endif
+                }
+                catch (Exception ex)
+                {
+                    main.MonitorEvent("Error during manual model scan: " + ex);
+                }
+                finally
+                {
+#if XPLANE
+                    main.settingsGenerateCsl = generateBefore;
+#endif
+                    manualScanRunning = false;
+                }
+            });
+            return true;
+        }
+
+        /// <summary>
+        /// Remember where to look and scan there (any thread): what ScanUI does with the choices of its dialog, for another way of asking
+        /// </summary>
+        /// <param name="folder">The simulator's folder</param>
+        /// <param name="subfolders">The folders under it to scan</param>
+        /// <param name="addOns">The add-ons to scan (not X-Plane)</param>
+        /// <param name="additionals">More folders to scan (not X-Plane)</param>
+        /// <returns>False when a scan is already running</returns>
+        public bool ScanFolders(string folder, IEnumerable<string> subfolders, IEnumerable<string> addOns, IEnumerable<string> additionals)
+        {
+            simFolder = CleanSimFolder(folder);
+            initialScanFolders = string.Join("|", subfolders);
+            initialAddOns = string.Join("|", addOns);
+            initialAdditionals = string.Join("|", additionals);
+
+            // save folders
+            SaveFolders();
+
+            return StartScanOrAskPlugin();
+        }
+
+        /// <summary>
+        /// Scan in the background. X-Plane needs the JoinFS plugin in the folder first (e.g. the other X-Plane version has none):
+        /// the plugin is asked for instead, and installing it runs the generating scan afterwards.
+        /// </summary>
+        /// <returns>False when a scan is already running</returns>
+        bool StartScanOrAskPlugin()
+        {
+#if XPLANE
+            if (XPlaneCslFolder.IsPluginInstalled(simFolder) == false)
+            {
+                main.scheduleAskPlugin = true;
+                return true;
+            }
+#endif
+            return StartBackgroundScan();
+        }
+
+        /// <summary>
+        /// Where the last scan looked, to start the next dialog on
+        /// </summary>
+        public string[] ScannedSubfolders => initialScanFolders.Length > 0 ? initialScanFolders.Split('|') : [];
+        public string[] ScannedAddOns => initialAddOns.Length > 0 ? initialAddOns.Split('|') : [];
+        public string[] ScannedAdditionals => initialAdditionals.Length > 0 ? initialAdditionals.Split('|') : [];
+
+        /// <summary>
+        /// True while a scan started by the user is running, and while FS2024 is still listing its models afterwards
+        /// </summary>
+        public bool ScanRunning
+        {
+            get
+            {
+#if FS2024
+                if (main.sim != null && main.sim.requestModelListInProgress)
+                {
+                    return true;
+                }
+#endif
+                return manualScanRunning;
+            }
+        }
 
         /// <summary>
         /// Scan simulator folders for models
@@ -2952,16 +3085,7 @@ namespace JoinFS
                             if (true)
 #endif
                             {
-#if XPLANE
-                                // a folder without the JoinFS plugin (e.g. the other X-Plane version) needs the
-                                // plugin first; installing it runs the generating scan afterwards
-                                if (XPlaneCslFolder.IsPluginInstalled(simFolder) == false)
-                                {
-                                    main.scheduleAskPlugin = true;
-                                }
-                                else
-#endif
-                                StartScanInBackground();
+                                StartScanOrAskPlugin();
                             }
                         }
                         break;
@@ -2978,81 +3102,6 @@ namespace JoinFS
 #endif // !SERVER
             return false;
         }
-
-#if !SERVER && !CONSOLE
-        /// <summary>
-        /// Scan the configured folders for models and report how many were found.
-        /// Scan() itself can take many seconds (a full aircraft.cfg directory walk, plus for
-        /// FS2024 the per-model disk-config reads) - run it and its own follow-up off the UI
-        /// thread so a manual "Scan For Models" doesn't freeze the app, matching why the
-        /// auto-on-connect scan already does this (see Program.cs's scheduleSubstitutionLoad
-        /// dispatch). manualScanRunning guards against a second request firing an overlapping
-        /// scan while one is already in flight.
-        /// </summary>
-        /// <param name="forceCslGeneration">Generate CSL for this run even if the user switched
-        /// generation off, e.g. right after the plugin was installed when nothing exists yet.
-        /// The saved setting is left alone.</param>
-        public void StartScanInBackground(bool forceCslGeneration = false)
-        {
-            if (manualScanRunning)
-            {
-                return;
-            }
-
-            manualScanRunning = true;
-            Task.Run(() =>
-            {
-#if XPLANE
-                bool generateBefore = main.settingsGenerateCsl;
-#endif
-                try
-                {
-#if XPLANE
-                    // CSL generation only exists for X-Plane
-                    main.settingsGenerateCsl |= forceCslGeneration;
-#endif
-                    // do model scan
-                    Scan(true);
-
-                    // reload matches
-#if FS2024
-                    main.sim.requestModelListIsVerbose = true;
-#else
-                    LoadMatches();
-                    LoadMasquerades();
-
-                    // check for models scanned
-                    if (models.Count > 0)
-                    {
-                        main.scheduleShowMessage = Resources.Strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
-#if XPLANE
-                        // X-Plane only loads CSL packages at start-up
-                        if (main.settingsGenerateCsl)
-                        {
-                            main.scheduleShowMessage += Environment.NewLine + Environment.NewLine + Resources.Strings.RestartXPlaneHint;
-                        }
-#endif
-                    }
-                    else
-                    {
-                        main.scheduleShowMessage = NoModelsMessage();
-                    }
-#endif
-                }
-                catch (Exception ex)
-                {
-                    main.MonitorEvent("Error during manual model scan: " + ex);
-                }
-                finally
-                {
-#if XPLANE
-                    main.settingsGenerateCsl = generateBefore;
-#endif
-                    manualScanRunning = false;
-                }
-            });
-        }
-#endif
 
         /// <summary>
         /// List of model prefixes
@@ -3718,6 +3767,8 @@ namespace JoinFS
             detected = SimPathDetector.TryDetect();
 #endif
 
+            foldersSimulatorName = resolvedSimulatorName;
+
             // folders file
             string foldersFile = Path.Combine(main.storagePath, "folders - " + resolvedSimulatorName + ".txt");
             // check if already configured with a real folder (whether from a previous run,
@@ -3794,6 +3845,27 @@ namespace JoinFS
             initialAddOns = DefaultAddOns();
             initialAdditionals = "";
             WriteFoldersFile(simulatorName);
+        }
+
+        /// <summary>
+        /// Remember a folder chosen in the new UI's first-run setup, without scanning it. Unlike <see cref="SaveFolders"/>
+        /// it also works before the simulator connects, as the simulator it was configured for names the folders file then.
+        /// </summary>
+        public void ChangeFolder(string folder)
+        {
+            string simulatorName = main.sim != null && main.sim.Connected ? main.sim.GetSimulatorName() : foldersSimulatorName;
+            if (string.IsNullOrEmpty(simulatorName))
+            {
+                simFolder = CleanSimFolder(folder);
+            }
+            else
+            {
+                SaveManualFolder(simulatorName, folder);
+            }
+#if XPLANE
+            // keep the plugin installer's folder in step with the scan folder
+            Settings.Default.XPlaneFolder = simFolder;
+#endif
         }
 
         /// <summary>
@@ -4065,7 +4137,7 @@ namespace JoinFS
                 // generate it now so the user does not have to open the scan dialog
                 if (XPlaneCslFolder.NeedsGeneration(simFolder))
                 {
-                    StartScanInBackground(forceCslGeneration: true);
+                    StartBackgroundScan(true);
                 }
 #endif
             }
@@ -4253,6 +4325,137 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Make <paramref name="model"/> the match for <paramref name="original"/> (any thread). The aircraft already using the
+        /// original are removed, so they come back with the new model.
+        /// </summary>
+        public void SetMatch(string original, Model model)
+        {
+            lock (writeLock)
+            {
+                // update model match (copy-on-write)
+                Dictionary<string, Model> updated = new(matches);
+                updated[original] = model;
+                matches = updated;
+                main.ScheduleSubstitutionSave();
+                // remove aircraft using the selected model
+                main.sim ?. ScheduleRemoveModel(original);
+            }
+        }
+
+        /// <summary>
+        /// Remove the match of <paramref name="original"/> (any thread): it is shown as itself again
+        /// </summary>
+        public void ClearMatch(string original)
+        {
+            lock (writeLock)
+            {
+                // remove this model match (copy-on-write)
+                Dictionary<string, Model> updated = new(matches);
+                updated.Remove(original);
+                matches = updated;
+                main.ScheduleSubstitutionSave();
+                // remove aircraft using the selected model
+                main.sim ?. ScheduleRemoveModel(original);
+            }
+        }
+
+        /// <summary>
+        /// Make <paramref name="model"/> the masquerade of <paramref name="original"/> (any thread): what is sent for your own aircraft
+        /// </summary>
+        public void SetMasquerade(string original, Model model)
+        {
+            lock (writeLock)
+            {
+                // update model masquerade (copy-on-write)
+                Dictionary<string, Model> updated = new(masquerades);
+                updated[original] = model;
+                masquerades = updated;
+                main.ScheduleSubstitutionSave();
+                // apply
+                ApplyMasquerade(original, model);
+            }
+        }
+
+        /// <summary>
+        /// Remove the masquerade of <paramref name="original"/> (any thread)
+        /// </summary>
+        public void ClearMasquerade(string original)
+        {
+            lock (writeLock)
+            {
+                // remove this model masquerade (copy-on-write)
+                Dictionary<string, Model> updated = new(masquerades);
+                updated.Remove(original);
+                masquerades = updated;
+                main.ScheduleSubstitutionSave();
+                // apply
+                ApplyMasquerade(original, null);
+            }
+        }
+
+        /// <summary>
+        /// The types of the models that have every word of <paramref name="filter"/> in their manufacturer, type or variation, sorted
+        /// </summary>
+        public List<string> TypesMatching(string filter)
+        {
+            // get filter words
+            string[] words = (filter ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            SortedSet<string> types = new(StringComparer.OrdinalIgnoreCase);
+            foreach (Model model in models)
+            {
+                // every filter word has to be found
+                bool add = true;
+                foreach (string word in words)
+                {
+                    if (!model.manufacturer.Contains(word, StringComparison.OrdinalIgnoreCase) &&
+                        !model.type.Contains(word, StringComparison.OrdinalIgnoreCase) &&
+                        !model.variation.Contains(word, StringComparison.OrdinalIgnoreCase))
+                    {
+                        add = false;
+                    }
+                }
+                if (add)
+                {
+                    types.Add(model.type);
+                }
+            }
+            return [.. types];
+        }
+
+        /// <summary>
+        /// The variations of the models of a type, sorted
+        /// </summary>
+        public List<string> VariationsOf(string type)
+        {
+            SortedSet<string> variations = new(StringComparer.OrdinalIgnoreCase);
+            foreach (Model model in models)
+            {
+                if (model.type.Equals(type))
+                {
+                    variations.Add(model.variation);
+                }
+            }
+            return [.. variations];
+        }
+
+        /// <summary>
+        /// The model of a type and variation, or null
+        /// </summary>
+        public Model FindModel(string type, string variation)
+        {
+            Model found = null;
+            foreach (Model model in models)
+            {
+                if (model.type.Equals(type) && model.variation.Equals(variation))
+                {
+                    found = model;
+                }
+            }
+            return found;
+        }
+
+        /// <summary>
         /// Edit an existing match
         /// </summary>
         /// <param name="modelTitle"></param>
@@ -4289,13 +4492,7 @@ namespace JoinFS
 #endif
                                 if (model != null)
                                 {
-                                    // update model match (copy-on-write)
-                                    Dictionary<string, Model> updated = new(matches);
-                                    updated[substitutionForm.GetReplaceModel()] = model;
-                                    matches = updated;
-                                    main.ScheduleSubstitutionSave();
-                                    // remove aircraft using the selected model
-                                    main.sim ?. ScheduleRemoveModel(substitutionForm.GetReplaceModel());
+                                    SetMatch(substitutionForm.GetReplaceModel(), model);
                                     // refresh
                                     main.aircraftForm ?. refresher.Schedule(2);
                                 }
@@ -4303,18 +4500,9 @@ namespace JoinFS
                             return true;
 
                         case System.Windows.Forms.DialogResult.No:
-                            lock (writeLock)
-                            {
-                                // remove this model match (copy-on-write)
-                                Dictionary<string, Model> updated = new(matches);
-                                updated.Remove(modelTitle);
-                                matches = updated;
-                                main.ScheduleSubstitutionSave();
-                                // remove aircraft using the selected model
-                                main.sim ?. ScheduleRemoveModel(modelTitle);
-                                // refresh
-                                main.aircraftForm ?. refresher.Schedule(2);
-                            }
+                            ClearMatch(modelTitle);
+                            // refresh
+                            main.aircraftForm ?. refresher.Schedule(2);
                             return true;
                     }
                 }
@@ -4370,28 +4558,13 @@ namespace JoinFS
 #endif
                                 if (model != null)
                                 {
-                                    // update model masquerade (copy-on-write)
-                                    Dictionary<string, Model> updated = new(masquerades);
-                                    updated[modelTitle] = model;
-                                    masquerades = updated;
-                                    main.ScheduleSubstitutionSave();
-                                    // apply
-                                    ApplyMasquerade(modelTitle, model);
+                                    SetMasquerade(modelTitle, model);
                                 }
                             }
                             return true;
 
                         case System.Windows.Forms.DialogResult.No:
-                            lock (writeLock)
-                            {
-                                // remove this model match (copy-on-write)
-                                Dictionary<string, Model> updated = new(masquerades);
-                                updated.Remove(modelTitle);
-                                masquerades = updated;
-                                main.ScheduleSubstitutionSave();
-                                // apply
-                                ApplyMasquerade(modelTitle, null);
-                            }
+                            ClearMasquerade(modelTitle);
                             return true;
                     }
                 }

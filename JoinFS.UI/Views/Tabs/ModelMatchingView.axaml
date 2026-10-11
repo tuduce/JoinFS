@@ -1,0 +1,42 @@
+<UserControl ClipToBounds="False" xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
+             xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
+             x:Class="JoinFS.UI.Views.Tabs.ModelMatchingView"
+             x:DataType="tvm:ModelMatchingViewModel">
+  <ScrollViewer Margin="0,0,-24,0" Padding="0,0,24,0">
+    <StackPanel Spacing="14">
+      <TextBlock Text="{l:T 'Model Matching'}" Classes="h2" />
+      <TextBlock Classes="label" TextWrapping="Wrap"
+                 Text="{l:T 'Another pilot may fly a model you do not have. Your simulator then shows a substitute instead. Original is the model they fly, Substitute is the one you see.'}" />
+      <TextBlock Text="{Binding ScanStatus}" Classes="label" IsVisible="{Binding ScanStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      <TextBox Text="{Binding Filter}" Watermark="{l:T 'Filter models'}" AutomationProperties.Name="{l:T 'Filter models'}" />
+      <Border Classes="card">
+        <StackPanel>
+          <Border Classes="tableHeader">
+            <Grid ColumnDefinitions="*,*,150" ColumnSpacing="10" TextElement.FontSize="12" TextElement.Foreground="{DynamicResource MutedBrush}">
+              <TextBlock Grid.Column="0" Text="{l:T 'Original Model'}" />
+              <TextBlock Grid.Column="1" Text="{l:T 'Substitute Model'}" />
+            </Grid>
+          </Border>
+          <ItemsControl ItemsSource="{Binding Rows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="tvm:ModelRuleRowViewModel">
+                <Border Classes="row" Background="Transparent">
+                  <Grid ColumnDefinitions="*,*,150" ColumnSpacing="10" Margin="10,7">
+                    <TextBlock Grid.Column="0" Text="{Binding Original}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding Substitute}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                      <Button Classes="link" FontSize="12.5" Command="{Binding EditCommand}" Content="{l:T 'Edit…'}" />
+                      <Button Classes="link danger" IsVisible="{Binding IsRemovable}" Command="{Binding RemoveCommand}" Content="{l:T 'Remove'}" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Classes="label" Margin="10,10" IsVisible="{Binding IsEmpty}" Text="{l:T 'No model matches this filter.'}" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

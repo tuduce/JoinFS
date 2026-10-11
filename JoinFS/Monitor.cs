@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using JoinFS.Net;
 
 namespace JoinFS
 {
@@ -165,6 +166,70 @@ namespace JoinFS
 #endif
                 repeatCount = 1;
             }
+        }
+
+        /// <summary>
+        /// Write what the network knows of its nodes
+        /// </summary>
+        public void WriteNodeStatistics()
+        {
+            Write("== NODE STATS ==");
+            Write("Session ID : " + main.network.Snapshot.Suid);
+            Write("Node Count : " + main.network.Snapshot.PeerCount);
+            Write("Routing Nodes : " + main.network.Snapshot.RelayCount);
+            Write("Guaranteed Incoming : " + main.network.Snapshot.GuaranteedInCount);
+            Write("Guaranteed Outgoing : " + main.network.Snapshot.GuaranteedOutCount);
+            // check for hub
+            if (main.settingsHub)
+            {
+                Write("Online Users : " + main.network.Users.OnlineUserCount);
+            }
+        }
+
+        /// <summary>
+        /// Write how many of each kind of packet were received
+        /// </summary>
+        public void WritePacketStatistics()
+        {
+            Write("== RECEIVED PACKETS ==");
+            Write("ID : Minute : Hour : Day : Total (count b/s)");
+            Write("Join : " + Stats.Join);
+            Write("JoinReply : " + Stats.JoinReply);
+            Write("JoinFail : " + Stats.JoinFail);
+            Write("Login : " + Stats.Login);
+            Write("LoginFail : " + Stats.LoginFail);
+            Write("Leave : " + Stats.Leave);
+            Write("AddNode : " + Stats.AddNode);
+            Write("Pulse : " + Stats.Pulse);
+            Write("PulseResponse : " + Stats.PulseResponse);
+            Write("GuaranteedDone : " + Stats.GuaranteedDone);
+            Write("Pathfinder : " + Stats.Pathfinder);
+            Write("PathfinderResponse : " + Stats.PathfinderResponse);
+            Write("ObjectPosition : " + Stats.ObjectPosition);
+            Write("AircraftPosition : " + Stats.AircraftPosition);
+            Write("SimEvent : " + Stats.SimEvent);
+            Write("WeatherRequest : " + Stats.WeatherRequest);
+            Write("WeatherReply : " + Stats.WeatherReply);
+            Write("WeatherUpdate : " + Stats.WeatherUpdate);
+            Write("SharedData : " + Stats.SharedData);
+            Write("StatusRequest : " + Stats.StatusRequest);
+            Write("Status : " + Stats.Status);
+            Write("HubList : " + Stats.HubList);
+            Write("RemoveObject : " + Stats.RemoveObject);
+            Write("UserListRequest : " + Stats.UserListRequest);
+            Write("UserList : " + Stats.UserList);
+            Write("UserList2 : " + Stats.UserList2);
+            Write("UserPositionRequest : " + Stats.UserPositionRequest);
+            Write("UserPositions : " + Stats.UserPositions);
+            Write("SessionCommsRequest : " + Stats.SessionCommsRequest);
+            Write("Notes : " + Stats.Notes);
+            Write("UserNuidRequest : " + Stats.UserNuidRequest);
+            Write("UserNuid : " + Stats.UserNuid);
+            Write("Online : " + Stats.Online);
+            Write("FlightPlanRequest : " + Stats.FlightPlanRequest);
+            Write("FlightPlan : " + Stats.FlightPlan);
+            Write("WrongVersion : " + Stats.WrongVersion);
+            Write("Total : " + Stats.Total);
         }
 
         /// <summary>
