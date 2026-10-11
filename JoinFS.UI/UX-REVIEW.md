@@ -56,7 +56,7 @@ Reviewed on 2026-10-10, branch `ui-revamp` (head `5fd93e6`), from a functionalit
 17. **Home.** Map labels overlap (A320 / 9H-WDR). The fake data shows "Connected users 8" and a full map while the network is disconnected: check that live data never shows stale numbers in that state.
 18. **Frameless window.** `ExtendClientAreaChromeHints="NoChrome"` with custom caption buttons usually loses the Windows 11 Snap Layouts flyout on Maximize (not verified here). The window does not appear to remember its position and size (only the startup anchoring code was read).
 19. **Language.** Follows the OS only, with no in-app switch. Acceptable; noted.
-20. **Model Matching.** No filter or search, and nothing explains what Original → Substitute means to a newcomer. Check the empty state.
+20. **[Fixed: a line under the title says what Original and Substitute mean, a filter box narrows the table by words of either model, and an empty result says so. The table always holds the default rules, so its own empty state never shows.] Model Matching.** No filter or search, and nothing explains what Original → Substitute means to a newcomer. Check the empty state.
 
 ## Suggested order
 

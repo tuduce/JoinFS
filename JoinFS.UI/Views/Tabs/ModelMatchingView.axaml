@@ -6,7 +6,10 @@
   <ScrollViewer>
     <StackPanel Spacing="14">
       <TextBlock Text="{l:T 'Model Matching'}" Classes="h2" />
+      <TextBlock Classes="label" TextWrapping="Wrap"
+                 Text="{l:T 'Another pilot may fly a model you do not have. Your simulator then shows a substitute instead. Original is the model they fly, Substitute is the one you see.'}" />
       <TextBlock Text="{Binding ScanStatus}" Classes="label" IsVisible="{Binding ScanStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      <TextBox Text="{Binding Filter}" Watermark="{l:T 'Filter models'}" AutomationProperties.Name="{l:T 'Filter models'}" />
       <Border Classes="card">
         <StackPanel>
           <Border Classes="tableHeader">
@@ -31,6 +34,7 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
+          <TextBlock Classes="label" Margin="10,10" IsVisible="{Binding IsEmpty}" Text="{l:T 'No model matches this filter.'}" />
         </StackPanel>
       </Border>
     </StackPanel>

@@ -935,6 +935,28 @@ public class ModelMatchingTests
     }
 
     [Fact]
+    public void The_filter_narrows_the_table_by_original_or_substitute_and_says_when_nothing_is_left()
+    {
+        ModelMatchingViewModel models = new Rig().Main.ModelMatching;
+
+        models.Filter = "default airliner";
+        Assert.Single(models.Rows);
+        Assert.Equal("Default Airliner", models.Rows[0].Original);
+        Assert.False(models.IsEmpty);
+
+        models.Filter = "pmdg 777"; // a word of the substitute
+        Assert.Contains(models.Rows, r => r.Original == "Default Airliner");
+
+        models.Filter = "no such model";
+        Assert.Empty(models.Rows);
+        Assert.True(models.IsEmpty);
+
+        models.Filter = "";
+        Assert.Equal(8, models.Rows.Count);
+        Assert.False(models.IsEmpty);
+    }
+
+    [Fact]
     public void Saving_a_substitution_changes_the_row()
     {
         Rig rig = new();

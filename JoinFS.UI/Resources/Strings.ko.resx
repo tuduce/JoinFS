@@ -1113,4 +1113,13 @@
   <data name="Run your own hub for others to join." xml:space="preserve">
     <value>다른 사람이 참여할 수 있는 나만의 허브를 운영합니다.</value>
   </data>
+  <data name="Another pilot may fly a model you do not have. Your simulator then shows a substitute instead. Original is the model they fly, Substitute is the one you see." xml:space="preserve">
+    <value>다른 파일럿이 당신에게 없는 모델로 비행할 수 있습니다. 그러면 시뮬레이터에 대신 교체 모델이 표시됩니다. 오리지널 모델은 상대가 타는 모델, 교체 모델은 당신에게 보이는 모델입니다.</value>
+  </data>
+  <data name="Filter models" xml:space="preserve">
+    <value>모델 필터</value>
+  </data>
+  <data name="No model matches this filter." xml:space="preserve">
+    <value>이 필터와 일치하는 모델이 없습니다.</value>
+  </data>
 </root>

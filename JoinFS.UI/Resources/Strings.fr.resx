@@ -1113,4 +1113,13 @@
   <data name="Run your own hub for others to join." xml:space="preserve">
     <value>Hébergez votre propre hub que d’autres peuvent rejoindre.</value>
   </data>
+  <data name="Another pilot may fly a model you do not have. Your simulator then shows a substitute instead. Original is the model they fly, Substitute is the one you see." xml:space="preserve">
+    <value>Un autre pilote peut voler avec un modèle que vous n'avez pas. Votre simulateur affiche alors un remplaçant. Le modèle d'origine est celui qu'il pilote, le modèle de remplacement celui que vous voyez.</value>
+  </data>
+  <data name="Filter models" xml:space="preserve">
+    <value>Filtrer les modèles</value>
+  </data>
+  <data name="No model matches this filter." xml:space="preserve">
+    <value>Aucun modèle ne correspond à ce filtre.</value>
+  </data>
 </root>

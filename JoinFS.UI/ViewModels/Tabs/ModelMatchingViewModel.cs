@@ -46,6 +46,7 @@ public sealed partial class ModelMatchingViewModel : ObservableObject
     private readonly IModelCatalog _catalog;
     private readonly IShell _shell;
     private readonly Dictionary<string, ModelRuleRowViewModel> _rowsByOriginal = [];
+    private string[] _filterWords = [];
 
     public ModelMatchingViewModel(IModelCatalog catalog, IShell shell)
     {
@@ -60,6 +61,24 @@ public sealed partial class ModelMatchingViewModel : ObservableObject
     [ObservableProperty]
     private string _scanStatus = "";
 
+    /// <summary>Words that narrow the table: a rule is listed when every word is in its original or its substitute model.</summary>
+    [ObservableProperty]
+    private string _filter = "";
+
+    /// <summary>True when the filter leaves no rule to show.</summary>
+    [ObservableProperty]
+    private bool _isEmpty;
+
+    partial void OnFilterChanged(string value)
+    {
+        _filterWords = value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        Refresh();
+    }
+
+    private bool Matches(ModelRule rule) =>
+        _filterWords.All(w => rule.Original.Contains(w, StringComparison.CurrentCultureIgnoreCase)
+                              || rule.Substitute.Contains(w, StringComparison.CurrentCultureIgnoreCase));
+
     /// <summary>Reads the table again. Rules still there are updated in place; new ones get a row, ones gone lose theirs.</summary>
     public void Refresh()
     {
@@ -73,13 +92,15 @@ public sealed partial class ModelMatchingViewModel : ObservableObject
                 row.Update(rule);
             else
                 _rowsByOriginal[rule.Original] = row = new ModelRuleRowViewModel(rule, this);
-            wanted.Add(row);
+            if (Matches(rule))
+                wanted.Add(row);
         }
 
         foreach (string gone in _rowsByOriginal.Keys.Except(seen).ToList())
             _rowsByOriginal.Remove(gone);
 
         CollectionSync.Reconcile(Rows, wanted);
+        IsEmpty = wanted.Count == 0;
         ScanStatus = _catalog.ScanStatus;
     }
 
