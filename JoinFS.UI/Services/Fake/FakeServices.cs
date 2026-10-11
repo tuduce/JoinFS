@@ -621,24 +621,45 @@ public sealed class FakeUpdateChecker : IUpdateChecker
 public sealed class FakeXPlaneScanSource : IXPlaneScanSource
 {
     public string SimFolder => @"C:\X-Plane 12";
-    public IReadOnlyList<string> InitialScanFolders => ["Laminar Research"];
+    public IReadOnlyList<string> InitialScanFolders { get; set; } = ["Laminar Research"];
 
     public IReadOnlyList<string> ListAircraftFolders(string xplaneFolder) =>
         string.IsNullOrWhiteSpace(xplaneFolder) ? [] : ["Extra Aircraft", "FlyJSim", "Laminar Research", "Zibo 737"];
 
+    public IReadOnlyList<XPlaneInstallInfo> Installs { get; set; } = FakeXPlaneInstalls.Default;
+
+    /// <summary>Folders that are no X-Plane folder, so a test can see them refused.</summary>
+    public HashSet<string> InvalidFolders { get; } = [];
+
+    public bool IsValidInstall(string folder) => !string.IsNullOrWhiteSpace(folder) && !InvalidFolders.Contains(folder);
+
+    /// <summary>The packs switched off last time (the others are linked).</summary>
+    public HashSet<string> UnlinkedPacks { get; } = [];
+
+    public IReadOnlyList<CslPackInfo> CslPacks(string xplaneFolder) => string.IsNullOrWhiteSpace(xplaneFolder)
+        ? []
+        : [.. new[] { ("X-CSL", 14), ("Bluebell", 6), ("IVAO_CSL", 9) }.Select(p => new CslPackInfo(p.Item1, p.Item2, !UnlinkedPacks.Contains(p.Item1)))];
+
     /// <summary>The scans that were asked for, so a test can see them.</summary>
-    public List<(string Folder, IReadOnlyList<string> AircraftFolders)> Scans { get; } = [];
+    public List<(string Folder, IReadOnlyList<string> AircraftFolders, IReadOnlyList<string> UnlinkedPacks)> Scans { get; } = [];
 
     /// <summary>Pretend a scan is already running, so asking for another is refused.</summary>
     public bool Busy { get; set; }
 
-    public bool Scan(string xplaneFolder, IReadOnlyList<string> aircraftFolders)
+    public bool Scan(string xplaneFolder, IReadOnlyList<string> aircraftFolders, IReadOnlyList<string> unlinkedPacks)
     {
         if (Busy)
             return false;
-        Scans.Add((xplaneFolder, aircraftFolders));
+        Scans.Add((xplaneFolder, aircraftFolders, unlinkedPacks));
         return true;
     }
+}
+
+/// <summary>The installations the fakes pretend to find.</summary>
+public static class FakeXPlaneInstalls
+{
+    public static IReadOnlyList<XPlaneInstallInfo> Default { get; } =
+        [new("12", @"C:\X-Plane 12"), new("11", @"D:\Games\X-Plane 11")];
 }
 
 public sealed class FakeModelScanSource : IModelScanSource
@@ -674,6 +695,23 @@ public sealed class FakeXPlanePluginInstaller : IXPlanePluginInstaller
 {
     public string SavedFolder { get; private set; } = @"C:\X-Plane 12";
     public List<string> Installed { get; } = [];
+
+    public IReadOnlyList<XPlaneInstallInfo> Installs { get; set; } = FakeXPlaneInstalls.Default;
+
+    /// <summary>Folders that are no X-Plane folder, so a test can see them refused.</summary>
+    public HashSet<string> InvalidFolders { get; } = [];
+
+    public bool IsValidInstall(string folder) => !string.IsNullOrWhiteSpace(folder) && !InvalidFolders.Contains(folder);
+
+    /// <summary>Set by a test to pretend the app wants the plugin; the next <see cref="TakeInstallRequest"/> returns and clears it.</summary>
+    public bool InstallRequested { get; set; }
+
+    public bool TakeInstallRequest()
+    {
+        bool requested = InstallRequested;
+        InstallRequested = false;
+        return requested;
+    }
 
     public Task InstallAsync(string folder, CancellationToken cancellationToken)
     {

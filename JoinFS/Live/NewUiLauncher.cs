@@ -40,6 +40,7 @@ namespace JoinFS.Live
                 Recorder = new LiveRecorderSource(main),
                 ModelScan = new LiveModelScanSource(main),
                 XPlaneScan = new LiveXPlaneScanSource(main),
+                XPlanePlugin = new LiveXPlanePluginInstaller(main),
                 Messages = new LiveMessageSource(main),
                 Shortcuts = new LiveShortcutSource(),
                 MapTiles = new MapTileProvider(style => style == MapStyle.Watercolor

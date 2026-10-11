@@ -23,6 +23,7 @@ public sealed partial class ProfileViewModel : ObservableObject
         _modelScanOnConnect = _settings.ModelScanOnConnect;
         _generateCsl = _settings.GenerateCsl;
         _skipCsl = _settings.SkipCsl;
+        _generateLiveries = _settings.GenerateLiveries;
     }
 
     public bool Onboarded => _settings.Onboarded;
@@ -64,6 +65,16 @@ public sealed partial class ProfileViewModel : ObservableObject
     /// <summary>X-Plane: leave out CSL objects that were already generated.</summary>
     [ObservableProperty]
     private bool _skipCsl;
+
+    /// <summary>X-Plane: also generate one CSL model per livery of each aircraft.</summary>
+    [ObservableProperty]
+    private bool _generateLiveries;
+
+    partial void OnGenerateLiveriesChanged(bool value)
+    {
+        _settings.GenerateLiveries = value;
+        Save();
+    }
 
     partial void OnModelScanOnConnectChanged(bool value)
     {

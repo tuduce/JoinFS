@@ -1122,4 +1122,13 @@
   <data name="No model matches this filter." xml:space="preserve">
     <value>Ни одна модель не подходит под этот фильтр.</value>
   </data>
+  <data name="This is not an X-Plane folder. Select the folder that contains &quot;Aircraft&quot; and &quot;Resources&quot;." xml:space="preserve">
+    <value>Это не папка X-Plane. Выберите папку, содержащую «Aircraft» и «Resources».</value>
+  </data>
+  <data name="Generate liveries (one model per livery)" xml:space="preserve">
+    <value>Создавать ливреи (одна модель на ливрею)</value>
+  </data>
+  <data name="Use installed CSL packages (linked, not copied):" xml:space="preserve">
+    <value>Использовать установленные пакеты CSL (ссылки, без копирования):</value>
+  </data>
 </root>

@@ -5,7 +5,10 @@ using JoinFS.UI.Services;
 
 namespace JoinFS.UI.ViewModels.Overlays;
 
-/// <summary>"Install X-Plane Plugin" (the old XPlaneForm): pick X-Plane's folder, then install the plugin into it. XPLANE build only.</summary>
+/// <summary>
+/// "Install X-Plane Plugin" (the old XPlaneForm): the installation to put the plugin into, then the install. XPLANE build only.
+/// The folder starts on the installation in use or the first one found, so most users only press Install.
+/// </summary>
 public sealed partial class InstallXPlanePluginViewModel : OverlayViewModel
 {
     private readonly IXPlanePluginInstaller _installer;
@@ -15,7 +18,9 @@ public sealed partial class InstallXPlanePluginViewModel : OverlayViewModel
     {
         _installer = installer;
         _platform = platform;
+        Installs = installer.Installs;
         _folder = installer.SavedFolder;
+        SelectedInstall = FindInstall(_folder);
     }
 
     public override string Title => Loc.T("Install X-Plane Plugin");
@@ -23,6 +28,29 @@ public sealed partial class InstallXPlanePluginViewModel : OverlayViewModel
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(InstallCommand))]
     private string _folder;
+
+    partial void OnFolderChanged(string value)
+    {
+        Error = null;
+        SelectedInstall = FindInstall(value);
+    }
+
+    /// <summary>Every X-Plane installation found, to pick from. The folder box stays the one value.</summary>
+    public IReadOnlyList<XPlaneInstallInfo> Installs { get; }
+
+    /// <summary>The picker is only worth showing when there is a choice.</summary>
+    public bool HasInstallChoice => Installs.Count >= 2;
+
+    [ObservableProperty]
+    private XPlaneInstallInfo? _selectedInstall;
+
+    partial void OnSelectedInstallChanged(XPlaneInstallInfo? value)
+    {
+        if (value is not null)
+            Folder = value.Path;
+    }
+
+    private XPlaneInstallInfo? FindInstall(string folder) => Installs.FirstOrDefault(i => XPlaneFolderText.Same(i.Path, folder));
 
     /// <summary>Why the last install failed, or null.</summary>
     [ObservableProperty]
@@ -41,9 +69,16 @@ public sealed partial class InstallXPlanePluginViewModel : OverlayViewModel
     [RelayCommand(CanExecute = nameof(CanInstall))]
     private async Task InstallAsync()
     {
+        string folder = Folder.Trim();
+        if (!_installer.IsValidInstall(folder))
+        {
+            Error = XPlaneFolderText.NotAnInstall;
+            return;
+        }
+
         try
         {
-            await _installer.InstallAsync(Folder.Trim(), CancellationToken.None);
+            await _installer.InstallAsync(folder, CancellationToken.None);
             Close();
         }
         catch (Exception ex)

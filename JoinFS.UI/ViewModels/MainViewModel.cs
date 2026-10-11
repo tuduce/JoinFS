@@ -277,6 +277,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         FlightPlanLoad.Sync(_services.SimBrief.State);
         ShowPasswordRequest();
         ShowAppMessage();
+        OfferPluginInstall();
         AnnounceUpdate();
         FollowJoinedHubLabel();
         Hubs.SyncJoined();
@@ -476,6 +477,19 @@ public sealed partial class MainViewModel : ObservableObject, IShell
 
         if (_services.Messages.TakeMessage() is { Length: > 0 } message)
             ShowOverlay(new MessageViewModel(_services.App.SessionLabel, message));
+    }
+
+    /// <summary>
+    /// The XPLANE build asks for the plugin when none (or an outdated one) is found, on a first run, and after a scan of an X-Plane folder
+    /// without it. Like a message, it waits while another card is open.
+    /// </summary>
+    private void OfferPluginInstall()
+    {
+        if (Overlay is not null || !_services.App.IsXPlaneBuild)
+            return;
+
+        if (_services.XPlanePlugin.TakeInstallRequest())
+            ShowOverlay(new InstallXPlanePluginViewModel(_services.XPlanePlugin, _services.Platform));
     }
 
     /// <summary>

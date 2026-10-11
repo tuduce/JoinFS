@@ -1,7 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:c="using:JoinFS.UI.Views.Controls"
-             xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
+             xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays" xmlns:sv="using:JoinFS.UI.Services"
              x:Class="JoinFS.UI.Views.Overlays.ScanXPlaneModelsView"
              x:DataType="ovm:ScanXPlaneModelsViewModel">
   <c:ModalCard Width="560" Title="{Binding Title}" CloseCommand="{Binding CloseCommand}" ShowClose="{Binding IsDismissable}">
@@ -12,6 +12,15 @@
           <TextBox Classes="mono" FontSize="12.5" Text="{Binding XplaneFolder}" Watermark="C:\X-Plane 12" />
           <Button Grid.Column="1" Command="{Binding BrowseCommand}" Content="{l:T 'Browse...'}" Padding="16,9" />
         </Grid>
+        <!-- Only when X-Plane 11 and 12 (or Steam) are both installed. -->
+        <ComboBox ItemsSource="{Binding Installs}" SelectedItem="{Binding SelectedInstall}" HorizontalAlignment="Stretch"
+                  IsVisible="{Binding HasInstallChoice}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="sv:XPlaneInstallInfo">
+              <TextBlock Text="{Binding Label}" FontSize="12.5" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
       </StackPanel>
 
       <StackPanel Spacing="8">
@@ -25,8 +34,25 @@
         <CheckBox Grid.Column="1" IsChecked="{Binding SkipCsl}" IsEnabled="{Binding CanSkipCsl}" Content="{l:T 'Skip CSL objects already done'}" />
       </Grid>
 
+      <CheckBox IsChecked="{Binding GenerateLiveries}" IsEnabled="{Binding CanSkipCsl}" Content="{l:T 'Generate liveries (one model per livery)'}" />
+
       <TextBlock Text="{l:T 'Generating CSL objects may take several minutes. You may need to restart X-Plane when complete.'}" FontSize="12" TextWrapping="Wrap"
                  Foreground="{DynamicResource Muted2Brush}" IsVisible="{Binding GenerateCsl}" />
+
+      <!-- Installed CSL packs (X-CSL, Bluebell, IVAO_CSL ...) are linked into JoinFS's CSL folder, not copied. -->
+      <StackPanel Spacing="6" IsVisible="{Binding HasCslPacks}">
+        <TextBlock Text="{l:T 'Use installed CSL packages (linked, not copied):'}" FontSize="13" FontWeight="SemiBold" />
+        <ItemsControl ItemsSource="{Binding CslPacks}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="ovm:CslPackViewModel">
+              <!-- A TextBlock, not Content: a CheckBox would read the underscore of "IVAO_CSL" as an access key. -->
+              <CheckBox IsChecked="{Binding IsChecked}">
+                <TextBlock Text="{Binding Label}" FontSize="12.5" />
+              </CheckBox>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
 
       <!-- Only while generating: which aircraft folders to generate for. -->
       <Border Classes="card" CornerRadius="8" BorderBrush="{DynamicResource BorderInputBrush}" Height="200"

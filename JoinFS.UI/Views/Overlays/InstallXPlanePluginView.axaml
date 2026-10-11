@@ -1,7 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:c="using:JoinFS.UI.Views.Controls"
-             xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays"
+             xmlns:ovm="using:JoinFS.UI.ViewModels.Overlays" xmlns:sv="using:JoinFS.UI.Services"
              x:Class="JoinFS.UI.Views.Overlays.InstallXPlanePluginView"
              x:DataType="ovm:InstallXPlanePluginViewModel">
   <c:ModalCard Width="460" Title="{Binding Title}" CloseCommand="{Binding CloseCommand}" ShowClose="{Binding IsDismissable}">
@@ -11,6 +11,15 @@
         <TextBox Classes="mono" FontSize="12.5" Text="{Binding Folder}" Watermark="C:\X-Plane 12" />
         <Button Grid.Column="1" Command="{Binding BrowseCommand}" Content="{l:T 'Browse...'}" Padding="16,9" />
       </Grid>
+      <!-- Only when X-Plane 11 and 12 (or Steam) are both installed. -->
+      <ComboBox ItemsSource="{Binding Installs}" SelectedItem="{Binding SelectedInstall}" HorizontalAlignment="Stretch"
+                IsVisible="{Binding HasInstallChoice}">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="sv:XPlaneInstallInfo">
+            <TextBlock Text="{Binding Label}" FontSize="12.5" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
       <TextBlock Text="{Binding Error}" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}"
                  Foreground="{DynamicResource DangerTextBrush}" FontSize="12.5" TextWrapping="Wrap" />
     </StackPanel>

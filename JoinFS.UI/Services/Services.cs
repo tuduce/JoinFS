@@ -371,8 +371,30 @@ public interface IMonitorSource
     IReadOnlyList<string> LogFiles { get; }
 }
 
+/// <summary>An X-Plane installation found on this computer (its own install registry, Steam).</summary>
+/// <param name="Version">"11" or "12".</param>
+public sealed record XPlaneInstallInfo(string Version, string Path)
+{
+    /// <summary>What a picker shows.</summary>
+    public string Label => "X-Plane " + Version + " - " + Path;
+}
+
+/// <summary>A CSL pack installed below X-Plane's plugins folder (X-CSL, Bluebell, IVAO_CSL ...) that JoinFS can link instead of copy.</summary>
+/// <param name="Linked">False when the user switched it off earlier.</param>
+public sealed record CslPackInfo(string Name, int Packages, bool Linked);
+
+/// <summary>What both X-Plane dialogs know of the installations on this computer (XPLANE build only).</summary>
+public interface IXPlaneInstalls
+{
+    /// <summary>Every installation found, X-Plane 12 first.</summary>
+    IReadOnlyList<XPlaneInstallInfo> Installs { get; }
+
+    /// <summary>True when <paramref name="folder"/> is an X-Plane folder (it has Aircraft and Resources\plugins).</summary>
+    bool IsValidInstall(string folder);
+}
+
 /// <summary>What the X-Plane "Scan For Models" dialog starts from and looks at on disk (XPLANE build only).</summary>
-public interface IXPlaneScanSource
+public interface IXPlaneScanSource : IXPlaneInstalls
 {
     string SimFolder { get; }
 
@@ -382,8 +404,15 @@ public interface IXPlaneScanSource
     /// <summary>The folders under the X-Plane folder's Aircraft folder. Empty when there is no such folder.</summary>
     IReadOnlyList<string> ListAircraftFolders(string xplaneFolder);
 
-    /// <summary>Remembers the folders and scans them in the background. False when a scan is already running.</summary>
-    bool Scan(string xplaneFolder, IReadOnlyList<string> aircraftFolders);
+    /// <summary>The CSL packs installed below the X-Plane folder. Empty when there are none.</summary>
+    IReadOnlyList<CslPackInfo> CslPacks(string xplaneFolder);
+
+    /// <summary>
+    /// Remembers the folders and scans them in the background. False when a scan is already running.
+    /// An empty <paramref name="aircraftFolders"/> scans every aircraft folder, also those installed later.
+    /// </summary>
+    /// <param name="unlinkedPacks">The CSL packs the user switched off.</param>
+    bool Scan(string xplaneFolder, IReadOnlyList<string> aircraftFolders, IReadOnlyList<string> unlinkedPacks);
 }
 
 /// <summary>An add-on that Scan For Models can include.</summary>
@@ -421,10 +450,15 @@ public interface IModelScanSource
 }
 
 /// <summary>Installs the JoinFS plugin into an X-Plane folder (XPLANE build only).</summary>
-public interface IXPlanePluginInstaller
+public interface IXPlanePluginInstaller : IXPlaneInstalls
 {
-    /// <summary>The X-Plane folder used last time, or empty.</summary>
+    /// <summary>The folder to start from: the X-Plane folder in use, else the best guess, or empty.</summary>
     string SavedFolder { get; }
+
+    /// <summary>True once when the app wants the install card shown: no plugin or an outdated one was found, or this is the first run.</summary>
+    bool TakeInstallRequest();
+
+    /// <summary>Installs the plugin and scans the folder. Fails with a message when the folder is no X-Plane folder.</summary>
     Task InstallAsync(string folder, CancellationToken cancellationToken);
 }
 
@@ -462,6 +496,7 @@ public sealed class UserSettings
     public bool ModelScanOnConnect { get; set; }
     public bool GenerateCsl { get; set; }
     public bool SkipCsl { get; set; }
+    public bool GenerateLiveries { get; set; }
 }
 
 public interface ISettingsStore

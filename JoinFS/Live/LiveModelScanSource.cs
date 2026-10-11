@@ -143,11 +143,38 @@ namespace JoinFS.Live
             return folders;
         }
 
-        public bool Scan(string xplaneFolder, IReadOnlyList<string> aircraftFolders)
+        public IReadOnlyList<XPlaneInstallInfo> Installs => LiveXPlaneInstalls.Installs;
+
+        public bool IsValidInstall(string folder) => LiveXPlaneInstalls.IsValid(folder);
+
+        public IReadOnlyList<CslPackInfo> CslPacks(string xplaneFolder)
+        {
+            HashSet<string> unlinked = new(LiveXPlaneInstalls.UnlinkedPacks(), StringComparer.OrdinalIgnoreCase);
+            List<CslPackInfo> packs = [];
+            try
+            {
+                foreach (XPlaneCslSource source in XPlaneCslSources.Discover(xplaneFolder))
+                {
+                    packs.Add(new CslPackInfo(source.Name, source.Packages, !unlinked.Contains(source.Name)));
+                }
+            }
+            catch (Exception)
+            {
+                // an unreadable plugins folder has no packs to offer
+            }
+            return packs;
+        }
+
+        public bool Scan(string xplaneFolder, IReadOnlyList<string> aircraftFolders, IReadOnlyList<string> unlinkedPacks)
         {
             Substitution substitution = main.substitution;
+            if (substitution == null)
+            {
+                return false;
+            }
+            LiveXPlaneInstalls.SaveUnlinkedPacks(unlinkedPacks);
             // X-Plane has no add-ons and no other folders
-            return substitution != null && substitution.ScanFolders(xplaneFolder, aircraftFolders, [], []);
+            return substitution.ScanFolders(xplaneFolder, aircraftFolders, [], []);
         }
     }
 }

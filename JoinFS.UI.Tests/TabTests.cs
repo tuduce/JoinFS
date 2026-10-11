@@ -1529,6 +1529,64 @@ public class SettingsTests
     }
 
     [Fact]
+    public async Task A_folder_that_is_no_x_plane_install_is_refused_before_anything_is_installed()
+    {
+        Rig rig = new(xplaneBuild: true);
+        JoinFS.UI.Services.Fake.FakeXPlanePluginInstaller installer = (JoinFS.UI.Services.Fake.FakeXPlanePluginInstaller)rig.Services.XPlanePlugin;
+        installer.InvalidFolders.Add(@"D:\Documents");
+        InstallXPlanePluginViewModel install = new(installer, rig.Platform);
+        rig.Main.ShowOverlay(install);
+
+        install.Folder = @"D:\Documents";
+        await install.InstallCommand.ExecuteAsync(null);
+
+        Assert.Same(install, rig.Main.Overlay);
+        Assert.Contains("not an X-Plane folder", install.Error);
+        Assert.Empty(installer.Installed);
+
+        // a new folder takes the complaint away
+        install.Folder = @"C:\X-Plane 12";
+        Assert.Null(install.Error);
+    }
+
+    [Fact]
+    public void The_install_card_offers_the_installations_found_and_follows_the_folder_box()
+    {
+        Rig rig = new(xplaneBuild: true);
+        InstallXPlanePluginViewModel install = new(rig.Services.XPlanePlugin, rig.Platform);
+
+        Assert.True(install.HasInstallChoice);
+        Assert.Equal(@"C:\X-Plane 12", install.SelectedInstall?.Path);
+
+        install.SelectedInstall = install.Installs.Single(i => i.Version == "11");
+        Assert.Equal(@"D:\Games\X-Plane 11", install.Folder);
+
+        install.Folder = @"E:\Elsewhere";
+        Assert.Null(install.SelectedInstall);
+    }
+
+    [Fact]
+    public void The_app_asking_for_the_plugin_shows_the_install_card_once_when_nothing_else_is_open()
+    {
+        Rig rig = new(xplaneBuild: true);
+        JoinFS.UI.Services.Fake.FakeXPlanePluginInstaller installer = (JoinFS.UI.Services.Fake.FakeXPlanePluginInstaller)rig.Services.XPlanePlugin;
+
+        installer.InstallRequested = true;
+        rig.Main.ShowOverlay(new MessageViewModel("JoinFS", "busy"));
+        rig.Main.Poll();
+        Assert.IsType<MessageViewModel>(rig.Main.Overlay);
+
+        rig.Main.Overlay!.CloseCommand.Execute(null);
+        rig.Main.Poll();
+        Assert.IsType<InstallXPlanePluginViewModel>(rig.Main.Overlay);
+
+        rig.Main.Overlay!.CloseCommand.Execute(null);
+        rig.Main.Poll();
+        // asked for once: whatever comes next (the fakes announce an update) is not the install card
+        Assert.IsNotType<InstallXPlanePluginViewModel>(rig.Main.Overlay);
+    }
+
+    [Fact]
     public async Task A_failed_install_stays_open_and_says_why()
     {
         Rig rig = new(xplaneBuild: true);
@@ -1544,6 +1602,9 @@ public class SettingsTests
     private sealed class FailingInstaller : JoinFS.UI.Services.IXPlanePluginInstaller
     {
         public string SavedFolder => "C:\\X-Plane";
+        public IReadOnlyList<JoinFS.UI.Services.XPlaneInstallInfo> Installs => [];
+        public bool IsValidInstall(string folder) => true;
+        public bool TakeInstallRequest() => false;
         public Task InstallAsync(string folder, CancellationToken cancellationToken) => throw new IOException("Access denied");
     }
 

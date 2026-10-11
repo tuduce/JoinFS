@@ -146,10 +146,123 @@ public class ScanTests
         scan.ScanCommand.Execute(null);
 
         FakeXPlaneScanSource source = (FakeXPlaneScanSource)rig.Services.XPlaneScan;
-        (string folder, IReadOnlyList<string> aircraft) = Assert.Single(source.Scans);
+        (string folder, IReadOnlyList<string> aircraft, IReadOnlyList<string> unlinked) = Assert.Single(source.Scans);
         Assert.Equal(@"C:\X-Plane 12", folder);
         Assert.Equal(["FlyJSim", "Laminar Research"], aircraft);
+        Assert.Empty(unlinked);
         Assert.Null(rig.Main.Overlay);
+    }
+
+    private static ScanXPlaneModelsViewModel OpenXPlaneScan(Rig rig)
+    {
+        rig.Main.Settings.Models.OpenModelScanningCommand.Execute(null);
+        return (ScanXPlaneModelsViewModel)rig.Main.Overlay!;
+    }
+
+    [Fact]
+    public void Nothing_saved_means_every_aircraft_folder_is_ticked_and_scanning_them_all_hands_over_none()
+    {
+        Rig rig = new(xplaneBuild: true);
+        FakeXPlaneScanSource source = (FakeXPlaneScanSource)rig.Services.XPlaneScan;
+        source.InitialScanFolders = [];
+        ScanXPlaneModelsViewModel scan = OpenXPlaneScan(rig);
+
+        Assert.All(scan.AircraftFolders, f => Assert.True(f.IsChecked));
+        scan.ScanCommand.Execute(null);
+
+        // "none" is how the scan is told to take every folder, also those installed later
+        Assert.Empty(Assert.Single(source.Scans).AircraftFolders);
+    }
+
+    [Fact]
+    public void Ticking_a_folder_ends_the_everything_ticked_default()
+    {
+        Rig rig = new(xplaneBuild: true);
+        FakeXPlaneScanSource source = (FakeXPlaneScanSource)rig.Services.XPlaneScan;
+        source.InitialScanFolders = [];
+        ScanXPlaneModelsViewModel scan = OpenXPlaneScan(rig);
+
+        scan.AircraftFolders.Single(f => f.Name == "Zibo 737").IsChecked = false;
+        scan.XplaneFolder = @"D:\Games\X-Plane 11";
+        scan.ScanCommand.Execute(null);
+
+        Assert.Equal(["Extra Aircraft", "FlyJSim", "Laminar Research"], Assert.Single(source.Scans).AircraftFolders);
+    }
+
+    [Fact]
+    public void A_folder_that_is_no_x_plane_install_is_refused_and_the_card_stays_open()
+    {
+        Rig rig = new(xplaneBuild: true);
+        FakeXPlaneScanSource source = (FakeXPlaneScanSource)rig.Services.XPlaneScan;
+        ScanXPlaneModelsViewModel scan = OpenXPlaneScan(rig);
+        source.InvalidFolders.Add(@"D:\Documents");
+
+        scan.XplaneFolder = @"D:\Documents";
+        scan.ScanCommand.Execute(null);
+
+        Assert.Same(scan, rig.Main.Overlay);
+        Assert.Contains("not an X-Plane folder", scan.Status);
+        Assert.Empty(source.Scans);
+
+        // changing the folder takes the complaint away
+        scan.XplaneFolder = @"C:\X-Plane 12";
+        Assert.Equal("", scan.Status);
+    }
+
+    [Fact]
+    public void The_picker_lists_the_installations_and_follows_the_folder_box()
+    {
+        Rig rig = new(xplaneBuild: true);
+        ScanXPlaneModelsViewModel scan = OpenXPlaneScan(rig);
+
+        Assert.True(scan.HasInstallChoice);
+        Assert.Equal(@"C:\X-Plane 12", scan.SelectedInstall?.Path);
+
+        scan.SelectedInstall = scan.Installs.Single(i => i.Version == "11");
+        Assert.Equal(@"D:\Games\X-Plane 11", scan.XplaneFolder);
+
+        scan.XplaneFolder = @"E:\Elsewhere\";
+        Assert.Null(scan.SelectedInstall);
+    }
+
+    [Fact]
+    public void Without_a_choice_of_installations_there_is_no_picker()
+    {
+        Rig rig = new(xplaneBuild: true);
+        ((FakeXPlaneScanSource)rig.Services.XPlaneScan).Installs = [new("12", @"C:\X-Plane 12")];
+
+        Assert.False(OpenXPlaneScan(rig).HasInstallChoice);
+    }
+
+    [Fact]
+    public void Installed_csl_packs_are_linked_unless_switched_off_and_the_ones_switched_off_are_handed_over()
+    {
+        Rig rig = new(xplaneBuild: true);
+        FakeXPlaneScanSource source = (FakeXPlaneScanSource)rig.Services.XPlaneScan;
+        source.UnlinkedPacks.Add("IVAO_CSL");
+        ScanXPlaneModelsViewModel scan = OpenXPlaneScan(rig);
+
+        Assert.True(scan.HasCslPacks);
+        Assert.Equal(["X-CSL (14)", "Bluebell (6)", "IVAO_CSL (9)"], scan.CslPacks.Select(p => p.Label));
+        Assert.Equal(["X-CSL", "Bluebell"], scan.CslPacks.Where(p => p.IsChecked).Select(p => p.Name));
+
+        scan.CslPacks.Single(p => p.Name == "Bluebell").IsChecked = false;
+        scan.ScanCommand.Execute(null);
+
+        Assert.Equal(["Bluebell", "IVAO_CSL"], Assert.Single(source.Scans).UnlinkedPacks);
+    }
+
+    [Fact]
+    public void Liveries_are_an_option_that_is_remembered_and_only_applies_while_generating()
+    {
+        Rig rig = new(xplaneBuild: true);
+        ScanXPlaneModelsViewModel scan = OpenXPlaneScan(rig);
+        Assert.False(scan.GenerateLiveries);
+
+        scan.GenerateLiveries = true;
+
+        Assert.True(rig.Settings.GenerateLiveries);
+        Assert.False(scan.CanSkipCsl);
     }
 
     [Fact]

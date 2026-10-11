@@ -485,12 +485,7 @@ namespace JoinFS
                     }
                     folder = xplaneForm.GetFolder();
                 }
-                // remember folder
-                Settings.Default.XPlaneFolder = folder;
-                if (InstallPlugin(folder))
-                {
-                    UseInstallForScan(folder);
-                }
+                InstallPluginAndScan(folder);
             }
 #endif
         }
@@ -508,6 +503,30 @@ namespace JoinFS
             }
             // nothing but the default C172 exists yet, so always generate the CSL packages
             main.substitution.StartBackgroundScan(true);
+        }
+
+        /// <summary>
+        /// The folder to offer for the plugin install: a valid known install, else the best guess
+        /// </summary>
+        public string SuggestedInstallFolder()
+        {
+            return FindKnownInstallFolder() ?? GuessInstallFolder();
+        }
+
+        /// <summary>
+        /// Remember the chosen X-Plane folder, install the plugin into it and scan it. The outcome
+        /// reaches the user through <see cref="Main.ShowMessage"/>.
+        /// </summary>
+        /// <returns>True when the plugin was installed</returns>
+        public bool InstallPluginAndScan(string folder)
+        {
+            Settings.Default.XPlaneFolder = folder;
+            if (InstallPlugin(folder) == false)
+            {
+                return false;
+            }
+            UseInstallForScan(folder);
+            return true;
         }
 #endif
 

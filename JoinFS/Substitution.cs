@@ -2927,7 +2927,7 @@ namespace JoinFS
         /// <returns>False when a scan is already running</returns>
         public bool ScanFolders(string folder, IEnumerable<string> subfolders, IEnumerable<string> addOns, IEnumerable<string> additionals)
         {
-            simFolder = folder;
+            simFolder = CleanSimFolder(folder);
             initialScanFolders = string.Join("|", subfolders);
             initialAddOns = string.Join("|", addOns);
             initialAdditionals = string.Join("|", additionals);
@@ -2935,6 +2935,23 @@ namespace JoinFS
             // save folders
             SaveFolders();
 
+            return StartScanOrAskPlugin();
+        }
+
+        /// <summary>
+        /// Scan in the background. X-Plane needs the JoinFS plugin in the folder first (e.g. the other X-Plane version has none):
+        /// the plugin is asked for instead, and installing it runs the generating scan afterwards.
+        /// </summary>
+        /// <returns>False when a scan is already running</returns>
+        bool StartScanOrAskPlugin()
+        {
+#if XPLANE
+            if (XPlaneCslFolder.IsPluginInstalled(simFolder) == false)
+            {
+                main.scheduleAskPlugin = true;
+                return true;
+            }
+#endif
             return StartBackgroundScan();
         }
 
@@ -3066,16 +3083,7 @@ namespace JoinFS
                             if (true)
 #endif
                             {
-#if XPLANE
-                                // a folder without the JoinFS plugin (e.g. the other X-Plane version) needs the
-                                // plugin first; installing it runs the generating scan afterwards
-                                if (XPlaneCslFolder.IsPluginInstalled(simFolder) == false)
-                                {
-                                    main.scheduleAskPlugin = true;
-                                }
-                                else
-#endif
-                                StartBackgroundScan();
+                                StartScanOrAskPlugin();
                             }
                         }
                         break;

@@ -35,6 +35,7 @@ namespace JoinFS.Live
             user.ModelScanOnConnect = s.ModelScanOnConnection;
             user.GenerateCsl = s.GenerateCsl;
             user.SkipCsl = s.SkipCsl;
+            user.GenerateLiveries = s.GenerateLiveries;
             return user;
         }
 
@@ -48,6 +49,7 @@ namespace JoinFS.Live
 #if XPLANE
             main.settingsGenerateCsl = settings.GenerateCsl;
             main.settingsSkipCsl = settings.SkipCsl;
+            main.settingsGenerateLiveries = settings.GenerateLiveries;
 #endif
 
             s.Nickname = settings.Nickname ?? "";
@@ -57,6 +59,7 @@ namespace JoinFS.Live
             s.ModelScanOnConnection = settings.ModelScanOnConnect;
             s.GenerateCsl = settings.GenerateCsl;
             s.SkipCsl = settings.SkipCsl;
+            s.GenerateLiveries = settings.GenerateLiveries;
             s.Save();
         }
     }
