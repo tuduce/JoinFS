@@ -620,7 +620,17 @@ public sealed class FakeUpdateChecker : IUpdateChecker
 
 public sealed class FakeXPlaneScanSource : IXPlaneScanSource
 {
-    public string SimFolder => @"C:\X-Plane 12";
+    public string SimFolder { get; private set; } = @"C:\X-Plane 12";
+
+    /// <summary>The folders that were remembered without a scan, so a test can see them.</summary>
+    public List<string> SavedFolders { get; } = [];
+
+    public void SaveFolder(string xplaneFolder)
+    {
+        SimFolder = xplaneFolder;
+        SavedFolders.Add(xplaneFolder);
+    }
+
     public IReadOnlyList<string> InitialScanFolders { get; set; } = ["Laminar Research"];
 
     public IReadOnlyList<string> ListAircraftFolders(string xplaneFolder) =>
@@ -665,7 +675,17 @@ public static class FakeXPlaneInstalls
 public sealed class FakeModelScanSource : IModelScanSource
 {
     public string SimulatorName => "Microsoft Flight Simulator 2020";
-    public string SimFolder => @"C:\Flight Simulator Packages";
+    public string SimFolder { get; private set; } = @"C:\Flight Simulator Packages";
+
+    /// <summary>The folders that were remembered without a scan, so a test can see them.</summary>
+    public List<string> SavedFolders { get; } = [];
+
+    public void SaveFolder(string simFolder)
+    {
+        SimFolder = simFolder;
+        SavedFolders.Add(simFolder);
+    }
+
     public string FolderPrompt => "Please specify the 'Flight Simulator Packages' folder:";
     public bool ListsSubfolders { get; set; } = true;
     public IReadOnlyList<string> InitialSubfolders => ["Airplanes"];
@@ -763,6 +783,7 @@ public sealed class NullPlatform : IPlatform
     public List<string> OpenedUrls { get; } = [];
     public List<string> OpenedFiles { get; } = [];
     public string? PickedFile { get; set; }
+    public string? PickedFolder { get; set; }
     public string? LastStartFolder { get; private set; }
     public int Chimes { get; private set; }
 
@@ -773,7 +794,7 @@ public sealed class NullPlatform : IPlatform
     public Task<string?> PickOpenFileAsync(string title, string? startFolder = null, string? extension = null) { LastStartFolder = startFolder; return Task.FromResult(PickedFile); }
     public string? SavePath { get; set; }
     public Task<string?> PickSaveFileAsync(string title, string suggestedName, string? startFolder = null, string? extension = null) => Task.FromResult(SavePath);
-    public Task<string?> PickFolderAsync(string title) => Task.FromResult<string?>(null);
+    public Task<string?> PickFolderAsync(string title) => Task.FromResult(PickedFolder);
 }
 
 /// <summary>

@@ -53,7 +53,8 @@ public class RenderTests
     {
         Rig rig = new(onboarded, xplaneBuild: xplaneBuild);
         MainWindow window = new() { DataContext = rig.Main };
-        if (expanded)
+        // a first run starts expanded, whatever the test asks for
+        if (expanded || rig.Main.IsExpanded)
         {
             rig.Main.IsExpanded = true;
             window.Width = 1200;
@@ -128,20 +129,31 @@ public class RenderTests
     }
 
     [AvaloniaFact]
-    public void The_onboarding_card_covers_the_whole_collapsed_window_and_fits_in_it()
+    public void The_onboarding_card_floats_in_the_middle_of_the_expanded_window_on_every_step()
     {
-        var (window, _, _) = Open(expanded: false, onboarded: false);
+        var (window, main, _) = Open(expanded: false, onboarded: false);
 
-        Border card = Find<JoinFS.UI.Views.Overlays.OnboardingView>(window).GetVisualDescendants().OfType<Border>().First();
-        Rect bounds = new Rect(card.Bounds.Size).TransformToAABB(card.TransformToVisual(window)!.Value);
-        Assert.Equal(new Rect(window.Bounds.Size), bounds);
+        // not over the compact view: the window is the full one, with the view behind the scrim
+        Assert.True(main.IsExpanded);
+        Assert.True(window.Bounds.Width >= 900 && window.Bounds.Height >= 560, $"the window is {window.Bounds.Size}");
+        Assert.Contains(window.GetVisualDescendants().OfType<ExpandedView>(), v => v.IsEffectivelyVisible);
 
-        // with the SimBrief box open too, nothing runs out of the window
-        window.GetVisualDescendants().OfType<Button>().First(b => b.Classes.Contains("link") && b.IsEffectivelyVisible).Command!.Execute(null);
-        Settle();
-        Button last = window.GetVisualDescendants().OfType<Button>().Last(b => b.Classes.Contains("primary") && b.IsEffectivelyVisible);
-        Rect button = new Rect(last.Bounds.Size).TransformToAABB(last.TransformToVisual(window)!.Value);
-        Assert.True(button.Bottom <= window.Bounds.Height - 8, $"the Continue button ends at {button.Bottom} in a window {window.Bounds.Height} high");
+        OnboardingViewModel onboarding = (OnboardingViewModel)main.Overlay!;
+        onboarding.Nickname = "Maverick";
+        onboarding.UsesSimbrief = true; // the longest SimBrief step
+        foreach (OnboardingStep step in Enum.GetValues<OnboardingStep>())
+        {
+            onboarding.Step = step;
+            Settle();
+
+            Border card = Find<JoinFS.UI.Views.Controls.ModalCard>(window).GetVisualDescendants().OfType<Border>().First();
+            Rect bounds = new Rect(card.Bounds.Size).TransformToAABB(card.TransformToVisual(window)!.Value);
+            Rect screen = new(window.Bounds.Size);
+            Assert.True(screen.Contains(bounds.TopLeft) && screen.Contains(bounds.BottomRight), $"{step}: the card {bounds} runs out of the window {screen}");
+            Assert.InRange(Math.Abs(screen.Center.X - bounds.Center.X), 0, 1);
+            Assert.InRange(Math.Abs(screen.Center.Y - bounds.Center.Y), 0, 40); // the title bar sits above the middle of the window
+            Snapshot(window, $"onboarding-{step}");
+        }
         window.Close();
     }
 
@@ -325,7 +337,7 @@ public class RenderTests
 
         (string Name, OverlayViewModel Overlay)[] overlays =
         [
-            ("onboarding", new OnboardingViewModel(main.Profile)),
+            ("onboarding", new OnboardingViewModel(main.Profile, rig.Services.ModelScan, rig.Services.XPlaneScan, false, () => false, rig.Platform, () => { })),
             ("password", new PasswordPromptViewModel("Aidan's Hub", _ => Task.CompletedTask)),
             ("simbrief", new SimbriefPromptViewModel(_ => Task.CompletedTask)),
             ("substitute", new SubstituteViewModel(new JoinFS.UI.Models.ModelTarget("GC1a Swift (Factory)"), new JoinFS.UI.Models.ModelChoice("GC1a Swift - factory", "Factory"), rig.Services.Models)),
@@ -396,18 +408,32 @@ public class RenderTests
     }
 
     [AvaloniaFact]
-    public void The_first_run_card_shows_over_the_collapsed_window()
+    public void The_first_run_card_shows_over_the_expanded_window_and_the_window_compacts_when_it_is_done()
     {
         Problems problems = new();
         Logger.Sink = problems;
         var (window, main, _) = Open(expanded: false, onboarded: false);
 
         Assert.IsType<OnboardingViewModel>(main.Overlay);
-        Snapshot(window, "onboarding-collapsed");
+        Snapshot(window, "onboarding-expanded");
+
+        OnboardingViewModel onboarding = (OnboardingViewModel)main.Overlay!;
+        onboarding.Nickname = "Maverick";
+        onboarding.NextCommand.Execute(null);
+        onboarding.NextCommand.Execute(null);
+        onboarding.NextCommand.Execute(null);
+        onboarding.SkipScanCommand.Execute(null);
+        Settle();
+
+        Assert.False(main.IsOverlayOpen);
+        Assert.False(main.IsExpanded);
+        Assert.Contains(window.GetVisualDescendants().OfType<CollapsedView>(), v => v.IsEffectivelyVisible);
+        Snapshot(window, "onboarding-done-collapsed");
 
         Assert.Empty(problems.Messages);
         window.Close();
     }
+
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]

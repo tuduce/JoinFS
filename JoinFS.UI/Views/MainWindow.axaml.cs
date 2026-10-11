@@ -73,6 +73,10 @@ public partial class MainWindow : Window
         Position = new PixelPoint(
             area.X + (int)(StartMargin * scale),
             area.Bottom - (int)((Height + StartMargin) * scale));
+
+        // A first run starts expanded, for the welcome card; the window grows from its corner like any expand.
+        if (_viewModel?.IsExpanded == true)
+            BeginResize(expanded: true);
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)

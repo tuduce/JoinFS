@@ -103,6 +103,8 @@ namespace JoinFS.Live
 
         public IReadOnlyList<string> AdditionalFolders => main.substitution?.ScannedAdditionals ?? [];
 
+        public void SaveFolder(string simFolder) => main.substitution?.ChangeFolder(simFolder);
+
         public bool Scan(string simFolder, IReadOnlyList<string> subfolders, IReadOnlyList<string> addOns, IReadOnlyList<string> additionalFolders)
         {
             Substitution substitution = main.substitution;
@@ -164,6 +166,8 @@ namespace JoinFS.Live
             }
             return packs;
         }
+
+        public void SaveFolder(string xplaneFolder) => main.substitution?.ChangeFolder(xplaneFolder);
 
         public bool Scan(string xplaneFolder, IReadOnlyList<string> aircraftFolders, IReadOnlyList<string> unlinkedPacks)
         {

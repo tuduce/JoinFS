@@ -105,6 +105,9 @@
   <data name="Assign Variables…" xml:space="preserve">
     <value>Atribuir variáveis…</value>
   </data>
+  <data name="At least 2 characters." xml:space="preserve">
+    <value>Pelo menos 2 caracteres.</value>
+  </data>
   <data name="Attribute" xml:space="preserve">
     <value>Atributo</value>
   </data>
@@ -113,6 +116,9 @@
   </data>
   <data name="Auto import SimBrief flight plan" xml:space="preserve">
     <value>Importar automaticamente o plano de voo do SimBrief</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>Voltar</value>
   </data>
   <data name="Bearing" xml:space="preserve">
     <value>Marcação</value>
@@ -242,6 +248,9 @@
   </data>
   <data name="Distance" xml:space="preserve">
     <value>Distância</value>
+  </data>
+  <data name="Do you use SimBrief?" xml:space="preserve">
+    <value>Você usa o SimBrief?</value>
   </data>
   <data name="Documentation" xml:space="preserve">
     <value>Documentação</value>
@@ -435,6 +444,15 @@
   <data name="Join global session at launch" xml:space="preserve">
     <value>Entrar na sessão global ao iniciar</value>
   </data>
+  <data name="JoinFS did not find your simulator. Please choose its folder." xml:space="preserve">
+    <value>O JoinFS não encontrou seu simulador. Escolha a pasta dele.</value>
+  </data>
+  <data name="JoinFS found your simulator in this folder. Change it if that is not right." xml:space="preserve">
+    <value>O JoinFS encontrou seu simulador nesta pasta. Altere-a se não estiver correta.</value>
+  </data>
+  <data name="JoinFS reads which aircraft are installed in your simulator, so that it can show the aircraft of other pilots with a model you have. A scan can take a few minutes." xml:space="preserve">
+    <value>O JoinFS lê quais aeronaves estão instaladas no seu simulador para poder mostrar as aeronaves de outros pilotos com um modelo que você tem. Um escaneamento pode levar alguns minutos.</value>
+  </data>
   <data name="Label text colour" xml:space="preserve">
     <value>Cor do texto do rótulo</value>
   </data>
@@ -525,6 +543,9 @@
   <data name="New messages" xml:space="preserve">
     <value>Novas mensagens</value>
   </data>
+  <data name="Next" xml:space="preserve">
+    <value>Avançar</value>
+  </data>
   <data name="Next event" xml:space="preserve">
     <value>Próximo evento</value>
   </data>
@@ -561,8 +582,14 @@
   <data name="No models are known yet. Scan for models from Settings, Simulator." xml:space="preserve">
     <value>Nenhum modelo conhecido ainda. Escaneie modelos em Configurações, Simulador.</value>
   </data>
+  <data name="No simulator folder is set, so there is nothing to scan yet." xml:space="preserve">
+    <value>Nenhuma pasta do simulador foi definida, então ainda não há nada para escanear.</value>
+  </data>
   <data name="No subfolders found" xml:space="preserve">
     <value>Nenhuma subpasta encontrada</value>
+  </data>
+  <data name="No, I don't" xml:space="preserve">
+    <value>Não, eu não uso</value>
   </data>
   <data name="Node Statistics" xml:space="preserve">
     <value>Estatísticas de nós</value>
@@ -572,6 +599,9 @@
   </data>
   <data name="Not loaded" xml:space="preserve">
     <value>Não carregado</value>
+  </data>
+  <data name="Not now" xml:space="preserve">
+    <value>Agora não</value>
   </data>
   <data name="not saved" xml:space="preserve">
     <value>não salvo</value>
@@ -717,6 +747,9 @@
   <data name="Scan at launch" xml:space="preserve">
     <value>Escanear ao iniciar</value>
   </data>
+  <data name="Scan for aircraft models?" xml:space="preserve">
+    <value>Escanear modelos de aeronaves?</value>
+  </data>
   <data name="Scan for models" xml:space="preserve">
     <value>Escanear modelos</value>
   </data>
@@ -780,6 +813,9 @@
   <data name="SimBrief has no flight plan for this user." xml:space="preserve">
     <value>O SimBrief não tem plano de voo para este usuário.</value>
   </data>
+  <data name="SimBrief is an online flight planner. With your SimBrief username, JoinFS can load your flight plan into the Flight Plan tab." xml:space="preserve">
+    <value>O SimBrief é um planejador de voo online. Com seu nome de usuário do SimBrief, o JoinFS pode carregar seu plano de voo na aba Plano de Voo.</value>
+  </data>
   <data name="SimBrief username" xml:space="preserve">
     <value>Nome de usuário Simbrief</value>
   </data>
@@ -803,6 +839,9 @@
   </data>
   <data name="Status" xml:space="preserve">
     <value>Status</value>
+  </data>
+  <data name="Step {0} of {1}" xml:space="preserve">
+    <value>Etapa {0} de {1}</value>
   </data>
   <data name="Stop" xml:space="preserve">
     <value>Parar</value>
@@ -948,11 +987,20 @@
   <data name="Voice Server: " xml:space="preserve">
     <value>Servidor de voz: </value>
   </data>
+  <data name="Welcome aboard! JoinFS lets you fly together with other pilots, whatever simulator each of you uses. A few short steps and you are ready to fly." xml:space="preserve">
+    <value>Bem-vindo a bordo! O JoinFS permite que você voe junto com outros pilotos, não importa qual simulador cada um use. Em poucas etapas rápidas você estará pronto para voar.</value>
+  </data>
   <data name="Welcome back" xml:space="preserve">
     <value>Bem-vindo de volta</value>
   </data>
   <data name="Welcome to JoinFS" xml:space="preserve">
     <value>Bem-vindo ao JoinFS</value>
+  </data>
+  <data name="What should we call you?" xml:space="preserve">
+    <value>Como devemos chamar você?</value>
+  </data>
+  <data name="Where is your simulator?" xml:space="preserve">
+    <value>Onde está o seu simulador?</value>
   </data>
   <data name="Would you like to save your current recording?" xml:space="preserve">
     <value>Você gostaria de salvar sua gravação atual?</value>
@@ -975,11 +1023,23 @@
   <data name="Yes" xml:space="preserve">
     <value>Sim</value>
   </data>
+  <data name="Yes, I use SimBrief" xml:space="preserve">
+    <value>Sim, eu uso o SimBrief</value>
+  </data>
+  <data name="You can change all of these settings later in the Settings tab." xml:space="preserve">
+    <value>Você pode alterar todas essas configurações depois na aba Configurações.</value>
+  </data>
   <data name="You can change this later in Settings." xml:space="preserve">
     <value>Você pode alterar isso depois em Configurações.</value>
   </data>
   <data name="Your nickname" xml:space="preserve">
     <value>Seu apelido</value>
+  </data>
+  <data name="Your nickname is how other pilots see you: in the session list, in the chat and as the label above your aircraft in their simulator." xml:space="preserve">
+    <value>Seu apelido é o nome pelo qual os outros pilotos veem você: na lista da sessão, no chat e como rótulo acima da sua aeronave no simulador deles.</value>
+  </data>
+  <data name="Your simulator is not connected yet. The scan starts as soon as it connects." xml:space="preserve">
+    <value>Seu simulador ainda não está conectado. O escaneamento começa assim que ele se conectar.</value>
   </data>
   <data name="Zoom in" xml:space="preserve">
     <value>Ampliar</value>

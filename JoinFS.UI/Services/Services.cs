@@ -407,6 +407,9 @@ public interface IXPlaneScanSource : IXPlaneInstalls
     /// <summary>The CSL packs installed below the X-Plane folder. Empty when there are none.</summary>
     IReadOnlyList<CslPackInfo> CslPacks(string xplaneFolder);
 
+    /// <summary>Remembers <paramref name="xplaneFolder"/> as the folder to scan, without scanning it.</summary>
+    void SaveFolder(string xplaneFolder);
+
     /// <summary>
     /// Remembers the folders and scans them in the background. False when a scan is already running.
     /// An empty <paramref name="aircraftFolders"/> scans every aircraft folder, also those installed later.
@@ -444,6 +447,9 @@ public interface IModelScanSource
 
     /// <summary>The other folders that were scanned last time.</summary>
     IReadOnlyList<string> AdditionalFolders { get; }
+
+    /// <summary>Remembers <paramref name="simFolder"/> as the simulator folder, without scanning it. It works before the simulator connects.</summary>
+    void SaveFolder(string simFolder);
 
     /// <summary>Remembers the choice and scans in the background. False when a scan is already running.</summary>
     bool Scan(string simFolder, IReadOnlyList<string> subfolders, IReadOnlyList<string> addOns, IReadOnlyList<string> additionalFolders);

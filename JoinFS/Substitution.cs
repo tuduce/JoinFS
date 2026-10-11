@@ -25,6 +25,8 @@ namespace JoinFS
         string initialScanFolders = "";
         string initialAddOns = "";
         string initialAdditionals = "";
+        /// <summary>The simulator the folders file belongs to before the simulator has connected and can name it itself</summary>
+        string foldersSimulatorName;
         public static string[] AddonsFileContents = [ "" ];
 
         /// <summary>
@@ -3765,6 +3767,8 @@ namespace JoinFS
             detected = SimPathDetector.TryDetect();
 #endif
 
+            foldersSimulatorName = resolvedSimulatorName;
+
             // folders file
             string foldersFile = Path.Combine(main.storagePath, "folders - " + resolvedSimulatorName + ".txt");
             // check if already configured with a real folder (whether from a previous run,
@@ -3841,6 +3845,27 @@ namespace JoinFS
             initialAddOns = DefaultAddOns();
             initialAdditionals = "";
             WriteFoldersFile(simulatorName);
+        }
+
+        /// <summary>
+        /// Remember a folder chosen in the new UI's first-run setup, without scanning it. Unlike <see cref="SaveFolders"/>
+        /// it also works before the simulator connects, as the simulator it was configured for names the folders file then.
+        /// </summary>
+        public void ChangeFolder(string folder)
+        {
+            string simulatorName = main.sim != null && main.sim.Connected ? main.sim.GetSimulatorName() : foldersSimulatorName;
+            if (string.IsNullOrEmpty(simulatorName))
+            {
+                simFolder = CleanSimFolder(folder);
+            }
+            else
+            {
+                SaveManualFolder(simulatorName, folder);
+            }
+#if XPLANE
+            // keep the plugin installer's folder in step with the scan folder
+            Settings.Default.XPlaneFolder = simFolder;
+#endif
         }
 
         /// <summary>

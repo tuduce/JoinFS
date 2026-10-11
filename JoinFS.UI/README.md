@@ -55,7 +55,7 @@ the launcher instead of opening the WinForms forms, unless it is started with `-
 | Service | State |
 |---|---|
 | `IAppInfo` (version, title, links, build) | **Live**: `Main.Version`, `Main.Name`, `#if XPLANE` |
-| `ISettingsStore` (nickname, SimBrief name, broadcast and scan options) | **Live**: `Settings.Default`, plus the app's own copies (`settingsNickname`, `settingsScan`). Onboarding is shown while the nickname has fewer than 2 characters, as `MainForm` did |
+| `ISettingsStore` (nickname, SimBrief name, broadcast and scan options) | **Live**: `Settings.Default`, plus the app's own copies (`settingsNickname`, `settingsScan`). Onboarding is shown while the nickname has fewer than 2 characters, as `MainForm` did. The simulator folder it shows is `main.substitution.simFolder`, set by auto-detection; a changed one is saved by `Substitution.ChangeFolder` |
 | `IAddressBookStore` | **Live**: `bookmarks2.txt` through `main.addressBook`, with the built-in Global entry in front; the picked entry is `JoinAddress` |
 | `IUpdateChecker` | **Live**: the same `version.txt` the forms read |
 | `ISimulatorLink` (the Simulator button) | **Live**: state from `sim.View` (the sim thread's snapshot); a click goes to the sim thread through `ToggleSimulator()`, as the old button did |
@@ -86,7 +86,10 @@ ship. `-oldui` opens the old forms; `-newui` is still accepted and does nothing.
 the Avalonia libraries, and that build always opens the forms. The forms are not opened by the new UI, so anything that only a form
 handled (the scheduled plugin install, login and nickname prompts) does not happen.
 
-The onboarding card has no simulator-folder section yet. The old `InitialSetupForm` asked for it when auto-detection failed.
+The onboarding card replaces the old `InitialSetupForm`. It floats over the expanded window (a new user starts expanded) and walks through
+four steps: nickname, SimBrief, the simulator folder JoinFS knows (changeable), and whether to scan for models. The shell compacts the
+window when it is done. A scan with SimConnect needs the simulator, so before it connects "scan" only sets "Scan for models when the
+simulator connects". Nothing is saved before the last step.
 
 ## Languages
 

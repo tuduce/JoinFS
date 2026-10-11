@@ -1,4 +1,5 @@
 using JoinFS.UI.Models;
+using JoinFS.UI.Services.Fake;
 using JoinFS.UI.ViewModels;
 using JoinFS.UI.ViewModels.Overlays;
 using JoinFS.UI.ViewModels.Tabs;
@@ -100,61 +101,296 @@ public class ShellTests
 
     // --- First run ---
 
+    private static OnboardingViewModel Onboarding(Rig rig) => (OnboardingViewModel)rig.Main.Overlay!;
+
+    private static void Next(OnboardingViewModel onboarding)
+    {
+        Assert.True(onboarding.NextCommand.CanExecute(null), "Next is not possible on " + onboarding.Step);
+        onboarding.NextCommand.Execute(null);
+    }
+
+    /// <summary>Answers the first three steps the shortest way and stops on the one that asks about the scan.</summary>
+    private static OnboardingViewModel AtScanStep(Rig rig)
+    {
+        OnboardingViewModel onboarding = Onboarding(rig);
+        onboarding.Nickname = "Maverick";
+        Next(onboarding);
+        Next(onboarding);
+        Next(onboarding);
+        Assert.Equal(OnboardingStep.Models, onboarding.Step);
+        return onboarding;
+    }
+
     [Fact]
-    public void A_first_run_shows_the_onboarding_card_which_cannot_be_dismissed()
+    public void A_first_run_shows_the_onboarding_card_over_the_expanded_window_and_it_cannot_be_dismissed()
     {
         Rig rig = new(onboarded: false);
 
         OnboardingViewModel onboarding = Assert.IsType<OnboardingViewModel>(rig.Main.Overlay);
         Assert.False(onboarding.IsDismissable);
+        Assert.Equal(OnboardingStep.Welcome, onboarding.Step);
+        Assert.True(rig.Main.IsExpanded);
     }
 
     [Fact]
-    public void A_returning_user_sees_no_overlay()
+    public void A_returning_user_sees_no_overlay_and_a_collapsed_window()
     {
-        Assert.Null(new Rig().Main.Overlay);
+        Rig rig = new();
+
+        Assert.Null(rig.Main.Overlay);
+        Assert.False(rig.Main.IsExpanded);
     }
 
     [Fact]
-    public void Continue_needs_a_nickname_then_remembers_it_and_closes()
+    public void The_steps_come_in_order_and_back_returns_to_the_one_before_with_the_answers_kept()
     {
         Rig rig = new(onboarded: false);
-        OnboardingViewModel onboarding = (OnboardingViewModel)rig.Main.Overlay!;
-        Assert.False(onboarding.ContinueCommand.CanExecute(null));
+        OnboardingViewModel onboarding = Onboarding(rig);
+        Assert.False(onboarding.BackCommand.CanExecute(null));
+        Assert.Equal("Step 1 of 4", onboarding.StepText);
+
+        onboarding.Nickname = "Maverick";
+        Next(onboarding);
+        Assert.Equal(OnboardingStep.SimBrief, onboarding.Step);
+        Assert.Equal("Step 2 of 4", onboarding.StepText);
+
+        Next(onboarding);
+        Assert.Equal(OnboardingStep.Simulator, onboarding.Step);
+        Next(onboarding);
+        Assert.Equal(OnboardingStep.Models, onboarding.Step);
+        Assert.False(onboarding.NextCommand.CanExecute(null)); // the last step has its own two buttons
+
+        onboarding.BackCommand.Execute(null);
+        onboarding.BackCommand.Execute(null);
+        onboarding.BackCommand.Execute(null);
+        Assert.Equal(OnboardingStep.Welcome, onboarding.Step);
+        Assert.Equal("Maverick", onboarding.Nickname);
+        Assert.False(onboarding.BackCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void The_nickname_needs_two_characters_before_the_next_step()
+    {
+        Rig rig = new(onboarded: false);
+        OnboardingViewModel onboarding = Onboarding(rig);
+        Assert.False(onboarding.NextCommand.CanExecute(null));
 
         onboarding.Nickname = "   ";
-        Assert.False(onboarding.ContinueCommand.CanExecute(null));
+        Assert.False(onboarding.NextCommand.CanExecute(null));
 
         onboarding.Nickname = " M "; // one letter is too short for the app
-        Assert.False(onboarding.ContinueCommand.CanExecute(null));
+        Assert.False(onboarding.NextCommand.CanExecute(null));
 
         onboarding.Nickname = " Maverick ";
-        Assert.True(onboarding.ContinueCommand.CanExecute(null));
-        onboarding.ContinueCommand.Execute(null);
+        Assert.True(onboarding.NextCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void Nothing_is_kept_before_the_last_step_and_finishing_remembers_the_nickname_closes_the_card_and_compacts_the_window()
+    {
+        Rig rig = new(onboarded: false);
+        OnboardingViewModel onboarding = Onboarding(rig);
+        onboarding.Nickname = " Maverick ";
+        Next(onboarding);
+        Next(onboarding);
+        Next(onboarding);
+        Assert.False(rig.Settings.Onboarded);
+        Assert.Equal("", rig.Settings.Nickname);
+
+        onboarding.SkipScanCommand.Execute(null);
 
         Assert.Null(rig.Main.Overlay);
         Assert.True(rig.Settings.Onboarded);
         Assert.Equal("Maverick", rig.Settings.Nickname);
         Assert.Null(rig.Settings.SimbriefUsername);
+        Assert.False(rig.Main.IsExpanded);
     }
 
     [Fact]
-    public void The_simbrief_username_is_only_kept_when_the_field_was_opened()
+    public void The_simbrief_username_is_asked_only_of_a_user_of_simbrief_and_kept_only_then()
     {
-        Rig hidden = new(onboarded: false);
-        OnboardingViewModel a = (OnboardingViewModel)hidden.Main.Overlay!;
-        a.Nickname = "A";
-        a.SimbriefUsername = "typed-then-hidden";
-        a.ContinueCommand.Execute(null);
-        Assert.Null(hidden.Settings.SimbriefUsername);
+        Rig no = new(onboarded: false);
+        OnboardingViewModel a = Onboarding(no);
+        a.Nickname = "Ace";
+        Next(a);
+        Assert.False(a.UsesSimbrief);
+        Assert.True(a.NoSimbrief); // "no" is what is selected until the user says otherwise
+        a.UsesSimbrief = true;
+        a.SimbriefUsername = "typed-then-switched-off";
+        a.NoSimbrief = true;
+        Assert.False(a.UsesSimbrief);
+        Next(a);
+        Next(a);
+        a.SkipScanCommand.Execute(null);
+        Assert.Null(no.Settings.SimbriefUsername);
 
-        Rig shown = new(onboarded: false);
-        OnboardingViewModel b = (OnboardingViewModel)shown.Main.Overlay!;
-        b.Nickname = "B";
-        b.ToggleSimbriefInputCommand.Execute(null);
+        Rig yes = new(onboarded: false);
+        OnboardingViewModel b = Onboarding(yes);
+        b.Nickname = "Bob";
+        Next(b);
+        b.UsesSimbrief = true;
+        Assert.False(b.NoSimbrief);
+        Assert.False(b.NextCommand.CanExecute(null)); // yes, but no name yet
         b.SimbriefUsername = " HBTDXnav ";
-        b.ContinueCommand.Execute(null);
-        Assert.Equal("HBTDXnav", shown.Settings.SimbriefUsername);
+        Next(b);
+        Next(b);
+        b.SkipScanCommand.Execute(null);
+        Assert.Equal("HBTDXnav", yes.Settings.SimbriefUsername);
+    }
+
+    [Fact]
+    public void The_simulator_step_shows_the_folder_that_is_known_and_what_it_is_asked_for()
+    {
+        Rig rig = new(onboarded: false);
+        OnboardingViewModel onboarding = Onboarding(rig);
+
+        Assert.Equal(@"C:\Flight Simulator Packages", onboarding.Folder);
+        Assert.Equal("JoinFS found your simulator in this folder. Change it if that is not right.", onboarding.FolderIntro);
+        Assert.True(onboarding.HasFolderHint);
+        Assert.Equal(rig.Services.ModelScan.FolderPrompt, onboarding.FolderHint);
+        Assert.False(onboarding.HasFolderError);
+    }
+
+    [Fact]
+    public void A_folder_the_user_chose_is_remembered_and_one_that_was_known_is_left_alone()
+    {
+        Rig kept = new(onboarded: false);
+        AtScanStep(kept).SkipScanCommand.Execute(null);
+        Assert.Empty(((FakeModelScanSource)kept.Services.ModelScan).SavedFolders);
+
+        Rig changed = new(onboarded: false);
+        OnboardingViewModel onboarding = Onboarding(changed);
+        onboarding.Nickname = "Maverick";
+        Next(onboarding);
+        Next(onboarding);
+        onboarding.Folder = @" D:\MSFS\Packages ";
+        Next(onboarding);
+        onboarding.SkipScanCommand.Execute(null);
+
+        FakeModelScanSource source = (FakeModelScanSource)changed.Services.ModelScan;
+        Assert.Equal([@"D:\MSFS\Packages"], source.SavedFolders);
+        Assert.Empty(source.Scans);
+    }
+
+    [Fact]
+    public async Task Browse_puts_the_folder_that_was_picked_in_the_box()
+    {
+        Rig rig = new(onboarded: false);
+        rig.Platform.PickedFolder = @"E:\Sims\Packages";
+
+        await Onboarding(rig).BrowseCommand.ExecuteAsync(null);
+
+        Assert.Equal(@"E:\Sims\Packages", Onboarding(rig).Folder);
+    }
+
+    [Fact]
+    public void X_plane_refuses_a_folder_that_is_not_an_installation_and_needs_no_hint_about_which_folder()
+    {
+        Rig rig = new(onboarded: false, xplaneBuild: true);
+        ((FakeXPlaneScanSource)rig.Services.XPlaneScan).InvalidFolders.Add(@"D:\Documents");
+        OnboardingViewModel onboarding = Onboarding(rig);
+        onboarding.Nickname = "Maverick";
+        Next(onboarding);
+        Next(onboarding);
+
+        Assert.Equal(@"C:\X-Plane 12", onboarding.Folder);
+        Assert.False(onboarding.HasFolderHint);
+
+        onboarding.Folder = @"D:\Documents";
+        Assert.True(onboarding.HasFolderError);
+        Assert.Contains("This is not an X-Plane folder", onboarding.FolderError);
+        Assert.False(onboarding.NextCommand.CanExecute(null));
+
+        onboarding.Folder = @"D:\Games\X-Plane 11";
+        Assert.False(onboarding.HasFolderError);
+        Assert.True(onboarding.NextCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Scanning_with_the_simulator_connected_scans_with_the_choices_that_are_saved_and_compacts_the_window()
+    {
+        Rig rig = new(onboarded: false);
+        await rig.Main.Simulator.ConnectAsync();
+        OnboardingViewModel onboarding = AtScanStep(rig);
+        Assert.False(onboarding.ScanWaitsForSimulator);
+
+        onboarding.ScanCommand.Execute(null);
+
+        FakeModelScanSource source = (FakeModelScanSource)rig.Services.ModelScan;
+        (string folder, IReadOnlyList<string> subfolders, IReadOnlyList<string> addOns, IReadOnlyList<string> additional) = Assert.Single(source.Scans);
+        Assert.Equal(@"C:\Flight Simulator Packages", folder);
+        Assert.Equal(["Airplanes"], subfolders);
+        Assert.Equal(["Aerosoft CRJ"], addOns);
+        Assert.Equal([@"D:\Community"], additional);
+        Assert.False(rig.Settings.ModelScanOnConnect);
+        Assert.True(rig.Settings.Onboarded);
+        Assert.Null(rig.Main.Overlay);
+        Assert.False(rig.Main.IsExpanded);
+    }
+
+    [Fact]
+    public void Scanning_before_the_simulator_connects_is_left_to_the_connection()
+    {
+        Rig rig = new(onboarded: false);
+        OnboardingViewModel onboarding = AtScanStep(rig);
+        Assert.True(onboarding.ScanWaitsForSimulator);
+
+        onboarding.ScanCommand.Execute(null);
+
+        Assert.Empty(((FakeModelScanSource)rig.Services.ModelScan).Scans);
+        Assert.True(rig.Settings.ModelScanOnConnect);
+        Assert.False(rig.Main.IsExpanded);
+    }
+
+    [Fact]
+    public void Not_now_scans_nothing_and_still_finishes()
+    {
+        Rig rig = new(onboarded: false);
+        OnboardingViewModel onboarding = AtScanStep(rig);
+
+        onboarding.SkipScanCommand.Execute(null);
+
+        Assert.Empty(((FakeModelScanSource)rig.Services.ModelScan).Scans);
+        Assert.False(rig.Settings.ModelScanOnConnect);
+        Assert.True(rig.Settings.Onboarded);
+        Assert.Null(rig.Main.Overlay);
+        Assert.False(rig.Main.IsExpanded);
+    }
+
+    [Fact]
+    public void X_plane_scans_its_folder_at_once_because_it_needs_no_connection()
+    {
+        Rig rig = new(onboarded: false, xplaneBuild: true);
+        OnboardingViewModel onboarding = AtScanStep(rig);
+        Assert.False(onboarding.ScanWaitsForSimulator);
+
+        onboarding.ScanCommand.Execute(null);
+
+        FakeXPlaneScanSource source = (FakeXPlaneScanSource)rig.Services.XPlaneScan;
+        (string folder, IReadOnlyList<string> aircraftFolders, IReadOnlyList<string> unlinked) = Assert.Single(source.Scans);
+        Assert.Equal(@"C:\X-Plane 12", folder);
+        Assert.Empty(aircraftFolders); // none named means all of them, also those installed later
+        Assert.Empty(unlinked);
+        Assert.False(rig.Settings.ModelScanOnConnect);
+    }
+
+    [Fact]
+    public void Without_a_simulator_folder_there_is_nothing_to_scan_but_the_user_can_still_finish()
+    {
+        Rig rig = new(onboarded: false);
+        OnboardingViewModel onboarding = Onboarding(rig);
+        onboarding.Nickname = "Maverick";
+        Next(onboarding);
+        Next(onboarding);
+        onboarding.Folder = "  ";
+        Next(onboarding);
+
+        Assert.True(onboarding.HasNoFolderToScan);
+        Assert.False(onboarding.ScanCommand.CanExecute(null));
+        onboarding.SkipScanCommand.Execute(null);
+
+        Assert.True(rig.Settings.Onboarded);
+        Assert.Empty(((FakeModelScanSource)rig.Services.ModelScan).SavedFolders);
     }
 
     // --- About ---

@@ -58,7 +58,7 @@ If an Avalonia project/environment doesn't already exist, scaffold one (.NET 8, 
 ## Overlays / Modals
 All modals follow the same shell: centered, `background: oklch(0.2 0.01 250 / 0.45-0.5)` scrim, white card, `12px` radius, header row (title + ✕ close) with bottom border, scrollable body, footer action row with top border.
 
-- **Onboarding** (`isOnboarding`): first-run only. Nickname input (required), optional "Using SimBrief?" toggle revealing a SimBrief-username field, Continue button (disabled until nickname entered).
+- **Onboarding** (`isOnboarding`): first-run only. *Implemented differently from this handoff:* a four-step card over the expanded window (nickname, SimBrief yes/no with username, the known simulator folder with Browse, scan for models), after which the window compacts. See `JoinFS.UI/README.md`.
 - **Password Required** (`isPasswordPrompt`): shown when joining a password-protected hub. Hub name + password field, Cancel/Join.
 - **SimBrief Import Prompt** (`isSimbriefPrompt`): shown once from Flight Plan if no SimBrief username stored; remembers the value after confirm.
 - **Model Scanning** (Simulator settings action): progress/scan overlay.

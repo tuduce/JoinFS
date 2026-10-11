@@ -101,8 +101,13 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         _chatArrivals = services.Chat.Arrivals;
         RefreshNav();
 
+        // A new user is welcomed over the full view, which has room for the card. It compacts the window when it is done.
         if (!Profile.Onboarded)
-            ShowOverlay(new OnboardingViewModel(Profile));
+        {
+            IsExpanded = true;
+            ShowOverlay(new OnboardingViewModel(Profile, services.ModelScan, services.XPlaneScan, services.App.IsXPlaneBuild,
+                () => Simulator.IsConnected, services.Platform, () => IsExpanded = false));
+        }
     }
 
     public ProfileViewModel Profile { get; }
@@ -216,12 +221,10 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     private bool _updateAnnounced;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsOverlayOpen), nameof(OverlayFillsWindow))]
+    [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
     private OverlayViewModel? _overlay;
 
     public bool IsOverlayOpen => Overlay is not null;
-
-    public bool OverlayFillsWindow => Overlay?.FillsWindow == true;
 
     private PasswordPromptViewModel? _passwordPrompt;
 
