@@ -47,7 +47,7 @@
                     ToolTip.Tip="{l:T 'New chat message'}" AutomationProperties.Name="{l:T 'New chat message'}">
               <Panel>
                 <c:Icon Source="{DynamicResource IconChat}" Width="16" Height="16" />
-                <Ellipse Width="7" Height="7" Margin="0,-6,-9,0" HorizontalAlignment="Right" VerticalAlignment="Top"
+                <Ellipse Width="7" Height="7" Margin="0,-2,-3,0" HorizontalAlignment="Right" VerticalAlignment="Top"
                          Fill="{DynamicResource UnreadBrush}"
                          Stroke="{DynamicResource SurfaceBrush}" StrokeThickness="1.5" />
               </Panel>
@@ -57,7 +57,7 @@
                     ToolTip.Tip="{l:T 'New version available'}" AutomationProperties.Name="{l:T 'New version available'}">
               <Panel>
                 <TextBlock Text="&#x2193;" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource AccentLinkStrongBrush}" />
-                <Ellipse Width="7" Height="7" Margin="0,-4,-7,0" HorizontalAlignment="Right" VerticalAlignment="Top"
+                <Ellipse Width="7" Height="7" Margin="0,3,-4,0" HorizontalAlignment="Right" VerticalAlignment="Top"
                          Fill="{DynamicResource AccentDotBrush}"
                          Stroke="{DynamicResource SurfaceBrush}" StrokeThickness="1.5" />
               </Panel>
