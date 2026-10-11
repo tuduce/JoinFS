@@ -479,7 +479,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
             return;
 
         if (_services.Messages.TakeMessage() is { Length: > 0 } message)
-            ShowOverlay(new MessageViewModel(_services.App.SessionLabel, message));
+            ShowOverlay(new MessageViewModel(null, message));
     }
 
     /// <summary>

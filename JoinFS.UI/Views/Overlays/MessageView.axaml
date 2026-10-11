@@ -5,7 +5,7 @@
              x:DataType="ovm:MessageViewModel">
   <Border Classes="dialog">
     <StackPanel Spacing="12">
-      <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding Title}" IsVisible="{Binding HasTitle}" FontSize="14.5" FontWeight="SemiBold" />
       <TextBlock Text="{Binding Message}" FontSize="12.5" Foreground="{DynamicResource Muted2Brush}" TextWrapping="Wrap" />
       <StackPanel Classes="footer" Margin="0,4,0,0" Spacing="10">
         <Button Classes="primary" Command="{Binding CloseCommand}" Content="{l:T 'OK'}" Padding="18,8" />
