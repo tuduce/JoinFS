@@ -97,7 +97,7 @@
       </Border>
 
       <Border Padding="24">
-        <ContentControl Content="{Binding CurrentTab}" />
+        <ContentControl Content="{Binding CurrentTab}" ClipToBounds="False" />
       </Border>
     </DockPanel>
   </Grid>

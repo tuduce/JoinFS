@@ -1,9 +1,9 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl ClipToBounds="False" xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              x:Class="JoinFS.UI.Views.Tabs.FlightPlanView"
              x:DataType="tvm:FlightPlanViewModel">
-  <ScrollViewer>
+  <ScrollViewer Margin="0,0,-24,0" Padding="0,0,24,0">
     <StackPanel Spacing="18">
       <TextBlock Text="{l:T 'Flight Plan'}" Classes="h2" />
 

@@ -1,11 +1,11 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl ClipToBounds="False" xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:l="using:JoinFS.UI.Localization"
              xmlns:c="using:JoinFS.UI.Views.Controls"
              xmlns:vm="using:JoinFS.UI.ViewModels"
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              x:Class="JoinFS.UI.Views.Tabs.SettingsView"
              x:DataType="tvm:SettingsViewModel">
-  <ScrollViewer x:Name="Page">
+  <ScrollViewer x:Name="Page" Margin="0,0,-24,0" Padding="0,0,24,0">
     <StackPanel Spacing="20">
       <TextBlock Text="{l:T 'Settings'}" Classes="h2" />
 
