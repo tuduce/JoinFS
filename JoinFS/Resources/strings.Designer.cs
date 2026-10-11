@@ -491,6 +491,78 @@ namespace JoinFS.Resources {
                 return ResourceManager.GetString("LocatePluginFolder", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Use installed CSL packages (linked, not copied):.
+        /// </summary>
+        internal static string UseInstalledCsl {
+            get {
+                return ResourceManager.GetString("UseInstalledCsl", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to No CSL models exist yet. Tick "Generate CSL objects for installed aircraft" and scan again..
+        /// </summary>
+        internal static string ScanNoCslHint {
+            get {
+                return ResourceManager.GetString("ScanNoCslHint", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to CSL models were found, but none was accepted. Details are in the monitor log..
+        /// </summary>
+        internal static string ScanRejectedHint {
+            get {
+                return ResourceManager.GetString("ScanRejectedHint", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Generate liveries (one model per livery).
+        /// </summary>
+        internal static string GenerateLiveries {
+            get {
+                return ResourceManager.GetString("GenerateLiveries", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This is not an X-Plane folder. Select the folder that contains "Aircraft" and "Resources"..
+        /// </summary>
+        internal static string InvalidXPlaneFolder {
+            get {
+                return ResourceManager.GetString("InvalidXPlaneFolder", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Restart X-Plane so it loads the plugin and the new models..
+        /// </summary>
+        internal static string RestartXPlaneHint {
+            get {
+                return ResourceManager.GetString("RestartXPlaneHint", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to No models found.
+        /// </summary>
+        internal static string NoModelsFound {
+            get {
+                return ResourceManager.GetString("NoModelsFound", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The plugin files (win.xpl, lin.xpl) were not found next to JoinFS. Please reinstall JoinFS..
+        /// </summary>
+        internal static string PluginFilesMissing {
+            get {
+                return ResourceManager.GetString("PluginFilesMissing", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to JoinFS is already running on this system.

@@ -822,7 +822,7 @@ namespace JoinFS
                         }
                         else
                         {
-                            main.scheduleShowMessage = "No models found";
+                            main.scheduleShowMessage = Resources.Strings.NoModelsFound;
                         }
                     }
                     // rebuild ICAO indexes now that all three enumeration requests have populated models[]

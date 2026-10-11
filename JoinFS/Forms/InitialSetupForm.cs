@@ -113,6 +113,14 @@ namespace JoinFS
 
         private void Button_OK_Click(object sender, EventArgs e)
         {
+#if XPLANE
+            // refuse a folder that is not an X-Plane install and keep the dialog open
+            if (showFolderPrompt && XPlaneForm.ConfirmValidFolder(Text_Folder.Text.Trim()) == false)
+            {
+                DialogResult = DialogResult.None;
+                return;
+            }
+#endif
             // return nickname
             nickname = Text_Nickname.Text;
             // return SimBrief username

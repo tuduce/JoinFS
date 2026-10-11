@@ -795,4 +795,28 @@
   <data name="MatchExplain_EngineClassic" xml:space="preserve">
     <value>Способ подбора: классический (сравнивает только тип, авиакомпанию, код класса и категорию турбулентности следа), выбран параметром --classicmatching.</value>
   </data>
+  <data name="InvalidXPlaneFolder" xml:space="preserve">
+    <value>Это не папка X-Plane. Выберите папку, содержащую «Aircraft» и «Resources».</value>
+  </data>
+  <data name="PluginFilesMissing" xml:space="preserve">
+    <value>Файлы плагина (win.xpl, lin.xpl) не найдены рядом с JoinFS. Переустановите JoinFS.</value>
+  </data>
+  <data name="NoModelsFound" xml:space="preserve">
+    <value>Модели не найдены</value>
+  </data>
+  <data name="RestartXPlaneHint" xml:space="preserve">
+    <value>Перезапустите X-Plane, чтобы он загрузил плагин и новые модели.</value>
+  </data>
+  <data name="GenerateLiveries" xml:space="preserve">
+    <value>Создавать ливреи (одна модель на ливрею)</value>
+  </data>
+  <data name="ScanNoCslHint" xml:space="preserve">
+    <value>Моделей CSL пока нет. Включите «Создавать объекты CSL для установленных самолётов» и повторите сканирование.</value>
+  </data>
+  <data name="ScanRejectedHint" xml:space="preserve">
+    <value>Модели CSL найдены, но ни одна не принята. Подробности в журнале монитора.</value>
+  </data>
+  <data name="UseInstalledCsl" xml:space="preserve">
+    <value>Использовать установленные пакеты CSL (ссылки, без копирования):</value>
+  </data>
 </root>

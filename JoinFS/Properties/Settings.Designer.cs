@@ -1678,5 +1678,29 @@ namespace JoinFS.Properties {
                 this["SkipCsl"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool GenerateLiveries {
+            get {
+                return ((bool)(this["GenerateLiveries"]));
+            }
+            set {
+                this["GenerateLiveries"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string UnlinkedCslSources {
+            get {
+                return ((string)(this["UnlinkedCslSources"]));
+            }
+            set {
+                this["UnlinkedCslSources"] = value;
+            }
+        }
     }
 }

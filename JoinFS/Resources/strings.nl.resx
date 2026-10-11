@@ -795,4 +795,28 @@
   <data name="MatchExplain_EngineClassic" xml:space="preserve">
     <value>Koppelmethode: klassiek (vergelijkt alleen type, maatschappij, klassecode en turbulentiecategorie), gekozen met --classicmatching.</value>
   </data>
+  <data name="InvalidXPlaneFolder" xml:space="preserve">
+    <value>Dit is geen X-Plane-map. Selecteer de map die &quot;Aircraft&quot; en &quot;Resources&quot; bevat.</value>
+  </data>
+  <data name="PluginFilesMissing" xml:space="preserve">
+    <value>De plug-inbestanden (win.xpl, lin.xpl) zijn niet naast JoinFS gevonden. Installeer JoinFS opnieuw.</value>
+  </data>
+  <data name="NoModelsFound" xml:space="preserve">
+    <value>Geen modellen gevonden</value>
+  </data>
+  <data name="RestartXPlaneHint" xml:space="preserve">
+    <value>Start X-Plane opnieuw op, zodat de plug-in en de nieuwe modellen worden geladen.</value>
+  </data>
+  <data name="GenerateLiveries" xml:space="preserve">
+    <value>Liveries genereren (één model per livery)</value>
+  </data>
+  <data name="ScanNoCslHint" xml:space="preserve">
+    <value>Er zijn nog geen CSL-modellen. Vink &quot;CSL-objecten genereren voor geïnstalleerde vliegtuigen&quot; aan en scan opnieuw.</value>
+  </data>
+  <data name="ScanRejectedHint" xml:space="preserve">
+    <value>Er zijn CSL-modellen gevonden, maar geen enkele is geaccepteerd. Details staan in het monitorlogboek.</value>
+  </data>
+  <data name="UseInstalledCsl" xml:space="preserve">
+    <value>Geïnstalleerde CSL-pakketten gebruiken (gekoppeld, niet gekopieerd):</value>
+  </data>
 </root>

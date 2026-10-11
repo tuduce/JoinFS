@@ -103,6 +103,28 @@ namespace JoinFS
         public int lastBanExclusionCount = 0;
 
         /// <summary>
+        /// What the last X-Plane scan saw in each of its steps (null before the first scan)
+        /// </summary>
+        internal XPlaneScanReport lastXPlaneScanReport;
+
+        /// <summary>
+        /// "No models found", and for X-Plane which step lost them
+        /// </summary>
+        string NoModelsMessage()
+        {
+            string message = Resources.Strings.NoModelsFound;
+#if XPLANE
+            XPlaneScanReport report = lastXPlaneScanReport;
+            if (report != null && report.Outcome != XPlaneScanOutcome.Models)
+            {
+                string hint = XPlaneScanReport.NothingGenerated(report.Outcome) ? Resources.Strings.ScanNoCslHint : Resources.Strings.ScanRejectedHint;
+                message += Environment.NewLine + Environment.NewLine + hint;
+            }
+#endif
+            return message;
+        }
+
+        /// <summary>
         /// Convert a string to a typerole
         /// </summary>
         /// <param name="typerole"></param>
@@ -2111,6 +2133,45 @@ namespace JoinFS
             }
         }
 
+        /// <summary>
+        /// Link every installed CSL pack the user has not switched off into JoinFS's CSL folder, so the
+        /// scan below and the plugin see them without copying. Never fails the scan.
+        /// </summary>
+        int SyncLinkedCslPacks()
+        {
+            try
+            {
+                HashSet<string> unlinked = new(StringComparer.OrdinalIgnoreCase);
+#if XPLANE
+                unlinked.UnionWith((Settings.Default.UnlinkedCslSources ?? "").Split('|', StringSplitOptions.RemoveEmptyEntries));
+#endif
+                List<XPlaneCslSource> enabled = XPlaneCslSources.Discover(simFolder)
+                    .Where(source => unlinked.Contains(source.Name) == false)
+                    .ToList();
+                return XPlaneCslLinks.Sync(simFolder, enabled, message => main.MonitorEvent(message));
+            }
+            catch (Exception ex)
+            {
+                main.MonitorEvent("Linking installed CSL packs failed: " + ex.Message);
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Publish the list a scan has built (it works on a private list so readers keep the current
+        /// one until the scan is complete), then rebuild the ICAO and title indexes from it
+        /// </summary>
+        void PublishScanWork()
+        {
+            lock (writeLock)
+            {
+                models = scanWork;
+            }
+            scanWork = null;
+            MakeIcaoIndex();
+            RebuildTitleIndex();
+        }
+
         bool ScanLocked(bool interactive, string simulatorNameOverride)
         {
             // name to branch on below - the real connected name, unless overridden by a caller
@@ -2247,6 +2308,8 @@ namespace JoinFS
 #if XPLANE || CONSOLE
                     // create path list
                     List<string> pathList = new List<string>();
+                    // what each step of the scan saw, for the report at the end
+                    int aircraftFiles = 0, entriesRead = 0, readErrors = 0;
 
                     // if interactive scan then auto-generate CSL
                     if (interactive && main.settingsGenerateCsl)
@@ -2268,35 +2331,30 @@ namespace JoinFS
                         {
                             main.MonitorEvent("Failed to search folder." + ex.Message);
                         }
+                        aircraftFiles = pathList.Count;
 
                         // for each file
                         foreach (var path in pathList)
                         {
                             // get aircraft subfolder
-                            string subFolder = Path.GetDirectoryName(path.Substring(simFolder.Length + 1));
+                            string subFolder = XPlaneCslFolder.AircraftFolder(simFolder, path);
                             // split by folder seperator
                             string[] names = path.Split('\\');
-                            if (names.Length >= 4)
+                            if (subFolder != null && names.Length >= 4)
                             {
                                 // generate CSL for default
                                 main.sim ?. xplane.GenerateCsl(simFolder, subFolder, path, names[names.Length - 2], "default", true);
 
-                                //// create livery list
-                                //List<string> liveryList = new List<string>();
-                                //// get livery folder
-                                //string liveryFolder = Path.Combine(Path.GetDirectoryName(path), "liveries");
-                                //// check for folder
-                                //if (Directory.Exists(liveryFolder))
-                                //{
-                                //    // search for all liveries in SimObjects
-                                //    liveryList.AddRange(Directory.GetDirectories(liveryFolder));
-                                //    // for each livery
-                                //    foreach (var liveryPath in liveryList)
-                                //    {
-                                //        // generate CSL for livery
-                                //        main.sim ?. xplane.GenerateCsl(simFolder, subFolder, path, names[names.Length - 2], Path.GetFileNameWithoutExtension(liveryPath), false);
-                                //    }
-                                //}
+                                // one model per livery, with the airline when the folder name tells it
+                                if (main.settingsGenerateLiveries)
+                                {
+                                    HashSet<string> usedIds = new(StringComparer.OrdinalIgnoreCase) { "default" };
+                                    foreach (string livery in XPlaneLiveryPlanner.EnumerateLiveries(Path.Combine(simFolder, subFolder)))
+                                    {
+                                        string airline = XPlaneLiveryPlanner.ResolveAirline(livery, Matching.MatchingData.Airlines);
+                                        main.sim ?. xplane.GenerateLiveryCsl(simFolder, subFolder, path, names[names.Length - 2], livery, airline, usedIds);
+                                    }
+                                }
                             }
                         }
                     }
@@ -2304,11 +2362,15 @@ namespace JoinFS
                     // clear paths
                     pathList.Clear();
 
+                    // installed CSL packs (X-CSL, Bluebell, IVAO_CSL ...) become reachable through links
+                    int linkedPacks = SyncLinkedCslPacks();
+
                     // get CSL folder
                     string cslFolder = Path.Combine(simFolder, "Resources", "plugins", "JoinFS", "Resources", "CSL");
 
                     // check for folder
-                    if (Directory.Exists(cslFolder))
+                    bool cslFolderExists = Directory.Exists(cslFolder);
+                    if (cslFolderExists)
                     {
                         // search for all xsb_aircraft files
                         SearchForFiles(cslFolder, "xsb_aircraft.txt", pathList, 0);
@@ -2318,6 +2380,7 @@ namespace JoinFS
                         // monitor
                         main.MonitorEvent("Unable to locate CSL folder, " + cslFolder);
                     }
+                    int xsbFiles = pathList.Count;
 
                     // for each file
                     foreach (var path in pathList)
@@ -2364,6 +2427,7 @@ namespace JoinFS
                                         else scanTitle = scanType + " " + scanManufacturer + " " + scanVariation;
                                         // submit the current scan
                                         scanBlock = true;
+                                        entriesRead++;
                                         SubmitScan();
                                     }
                                 }
@@ -2371,6 +2435,7 @@ namespace JoinFS
                         }
                         catch (Exception ex)
                         {
+                            readErrors++;
                             // monitor
                             main.MonitorEvent("Failed to read file '" + path + "'. " + ex.Message);
                         }
@@ -2380,6 +2445,14 @@ namespace JoinFS
                             if (reader != null) reader.Close();
                         }
                     }
+
+                    // say what the scan saw, so an empty result can be explained
+                    lastXPlaneScanReport = new XPlaneScanReport(cslFolderExists, aircraftFiles, xsbFiles, entriesRead, lastBanExclusionCount, readErrors, scanWork.Count, linkedPacks);
+                    main.MonitorEvent(lastXPlaneScanReport.Summary());
+
+                    // the scanned list only exists in scanWork until it is published; the shared publish
+                    // step further down belongs to the SimConnect branch, so X-Plane must do it here
+                    PublishScanWork();
 #else
                     // create path list
                     List<string> pathList = [];
@@ -2639,14 +2712,7 @@ namespace JoinFS
                         }
                     }
 
-                    // publish the scanned list, then rebuild the ICAO indexes from it
-                    lock (writeLock)
-                    {
-                        models = scanWork;
-                    }
-                    scanWork = null;
-                    MakeIcaoIndex();
-                    RebuildTitleIndex();
+                    PublishScanWork();
 
                     if (simulatorName == "Microsoft Flight Simulator 2020")
                     {
@@ -2736,7 +2802,7 @@ namespace JoinFS
                                 }
                                 else
                                 {
-                                    main.scheduleShowMessage = "No models found";
+                                    main.scheduleShowMessage = Resources.Strings.NoModelsFound;
                                 }
                             }
 #endif
@@ -2808,7 +2874,7 @@ namespace JoinFS
                     case System.Windows.Forms.DialogResult.OK:
                         {
                             // get simfolder
-                            simFolder = scanForm.GetFolder();
+                            simFolder = CleanSimFolder(scanForm.GetFolder());
 
                             // saved scan folders
                             initialScanFolders = "";
@@ -2818,6 +2884,14 @@ namespace JoinFS
                             // for each scan folder
                             foreach (string folder in scanForm.scanFolders)
                             {
+#if XPLANE
+                                // every folder ticked is saved as "all" (empty), so aircraft folders
+                                // installed later are scanned without a visit to this dialog
+                                if (scanForm.AllFoldersSelected())
+                                {
+                                    break;
+                                }
+#endif
                                 // check if folder exists
                                 if (scanForm.folderList.Contains(folder))
                                 {
@@ -2878,51 +2952,16 @@ namespace JoinFS
                             if (true)
 #endif
                             {
-                                // Scan() itself can take many seconds (a full aircraft.cfg directory walk,
-                                // plus for FS2024 the per-model disk-config reads added above) - run it and
-                                // its own follow-up off the UI thread so a manual "Scan For Models" doesn't
-                                // freeze the app, matching why the auto-on-connect scan already does this
-                                // (see Program.cs's scheduleSubstitutionLoad dispatch). manualScanRunning
-                                // guards against a second click firing an overlapping scan while one is
-                                // already in flight.
-                                if (manualScanRunning == false)
+#if XPLANE
+                                // a folder without the JoinFS plugin (e.g. the other X-Plane version) needs the
+                                // plugin first; installing it runs the generating scan afterwards
+                                if (XPlaneCslFolder.IsPluginInstalled(simFolder) == false)
                                 {
-                                    manualScanRunning = true;
-                                    Task.Run(() =>
-                                    {
-                                        try
-                                        {
-                                            // do model scan
-                                            Scan(true);
-
-                                            // reload matches
-#if FS2024
-                                            main.sim.requestModelListIsVerbose = true;
-#else
-                                            LoadMatches();
-                                            LoadMasquerades();
-
-                                            // check for models scanned
-                                            if (models.Count > 0)
-                                            {
-                                                main.scheduleShowMessage = Resources.Strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
-                                            }
-                                            else
-                                            {
-                                                main.scheduleShowMessage = "No models found";
-                                            }
-#endif
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            main.MonitorEvent("Error during manual model scan: " + ex);
-                                        }
-                                        finally
-                                        {
-                                            manualScanRunning = false;
-                                        }
-                                    });
+                                    main.scheduleAskPlugin = true;
                                 }
+                                else
+#endif
+                                StartScanInBackground();
                             }
                         }
                         break;
@@ -2939,6 +2978,81 @@ namespace JoinFS
 #endif // !SERVER
             return false;
         }
+
+#if !SERVER && !CONSOLE
+        /// <summary>
+        /// Scan the configured folders for models and report how many were found.
+        /// Scan() itself can take many seconds (a full aircraft.cfg directory walk, plus for
+        /// FS2024 the per-model disk-config reads) - run it and its own follow-up off the UI
+        /// thread so a manual "Scan For Models" doesn't freeze the app, matching why the
+        /// auto-on-connect scan already does this (see Program.cs's scheduleSubstitutionLoad
+        /// dispatch). manualScanRunning guards against a second request firing an overlapping
+        /// scan while one is already in flight.
+        /// </summary>
+        /// <param name="forceCslGeneration">Generate CSL for this run even if the user switched
+        /// generation off, e.g. right after the plugin was installed when nothing exists yet.
+        /// The saved setting is left alone.</param>
+        public void StartScanInBackground(bool forceCslGeneration = false)
+        {
+            if (manualScanRunning)
+            {
+                return;
+            }
+
+            manualScanRunning = true;
+            Task.Run(() =>
+            {
+#if XPLANE
+                bool generateBefore = main.settingsGenerateCsl;
+#endif
+                try
+                {
+#if XPLANE
+                    // CSL generation only exists for X-Plane
+                    main.settingsGenerateCsl |= forceCslGeneration;
+#endif
+                    // do model scan
+                    Scan(true);
+
+                    // reload matches
+#if FS2024
+                    main.sim.requestModelListIsVerbose = true;
+#else
+                    LoadMatches();
+                    LoadMasquerades();
+
+                    // check for models scanned
+                    if (models.Count > 0)
+                    {
+                        main.scheduleShowMessage = Resources.Strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
+#if XPLANE
+                        // X-Plane only loads CSL packages at start-up
+                        if (main.settingsGenerateCsl)
+                        {
+                            main.scheduleShowMessage += Environment.NewLine + Environment.NewLine + Resources.Strings.RestartXPlaneHint;
+                        }
+#endif
+                    }
+                    else
+                    {
+                        main.scheduleShowMessage = NoModelsMessage();
+                    }
+#endif
+                }
+                catch (Exception ex)
+                {
+                    main.MonitorEvent("Error during manual model scan: " + ex);
+                }
+                finally
+                {
+#if XPLANE
+                    main.settingsGenerateCsl = generateBefore;
+#endif
+                    manualScanRunning = false;
+                }
+            });
+        }
+#endif
 
         /// <summary>
         /// List of model prefixes
@@ -3625,6 +3739,10 @@ namespace JoinFS
                 initialAddOns = DefaultAddOns();
                 initialAdditionals = "";
                 WriteFoldersFile(resolvedSimulatorName);
+#if XPLANE
+                // keep the plugin installer's folder in step with the scan folder
+                Settings.Default.XPlaneFolder = detected;
+#endif
                 return true;
             }
 
@@ -3651,13 +3769,27 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// X-Plane's own install registry writes folders like "c:\X-Plane 12/". Scan() slices
+        /// scanned paths by the length of simFolder, so a trailing separator would shift every
+        /// sub-folder by one character; keep the folder in its canonical form.
+        /// </summary>
+        static string CleanSimFolder(string folder)
+        {
+#if XPLANE
+            return XPlaneInstallLocator.NormalizeFolder(folder);
+#else
+            return folder;
+#endif
+        }
+
+        /// <summary>
         /// Save a folder the user picked manually in the first-run setup dialog. Unlike
         /// <see cref="EnsureFoldersConfigured"/>, this always overwrites, and does not
         /// require the simulator to be connected.
         /// </summary>
         public void SaveManualFolder(string simulatorName, string folder)
         {
-            simFolder = folder;
+            simFolder = CleanSimFolder(folder);
             initialScanFolders = "";
             initialAddOns = DefaultAddOns();
             initialAdditionals = "";
@@ -3702,7 +3834,7 @@ namespace JoinFS
                     // open file
                     StreamReader reader = new(foldersFile);
                     // read folders
-                    simFolder = reader.ReadLine();
+                    simFolder = CleanSimFolder(reader.ReadLine());
                     initialScanFolders = reader.ReadLine();
                     initialAddOns = reader.ReadLine();
                     initialAdditionals = reader.ReadLine();
@@ -3713,7 +3845,7 @@ namespace JoinFS
                 {
 #if !CONSOLE
                     // read old settings
-                    simFolder = OldSettings.ReadString("SimFolder - " + main.sim.GetSimulatorName(), OldSettings.ReadString("SimFolder"));
+                    simFolder = CleanSimFolder(OldSettings.ReadString("SimFolder - " + main.sim.GetSimulatorName(), OldSettings.ReadString("SimFolder")));
                     initialScanFolders = OldSettings.ReadString("ScanFolders - " + main.sim.GetSimulatorName(), OldSettings.ReadString("ScanFolders"));
                     initialAddOns = OldSettings.ReadString("AddOns - " + main.sim.GetSimulatorName(), "Asobo Standard");
                     initialAdditionals = OldSettings.ReadString("ScanAdditionals - " + main.sim.GetSimulatorName(), OldSettings.ReadString("ScanAdditionals"));
@@ -3928,7 +4060,14 @@ namespace JoinFS
                     Scan(false);
                 }
 
-                
+#if XPLANE
+                // plugin present but no generated CSL yet (older install, plugin copied by hand):
+                // generate it now so the user does not have to open the scan dialog
+                if (XPlaneCslFolder.NeedsGeneration(simFolder))
+                {
+                    StartScanInBackground(forceCslGeneration: true);
+                }
+#endif
             }
         }
 
