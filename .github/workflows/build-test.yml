@@ -80,7 +80,20 @@ jobs:
       - name: Build Installers
         run: |
           cd JoinFS\Installer\
-          dotnet build JoinFS.wixproj -c ${{ matrix.configuration }} /p:Platform=${{ matrix.arch }}
+          # The wixproj rebuilds the app through its ProjectReference. Without PlatformTarget here the
+          # csproj default applies (ARM64 for CONSOLE) and overwrites the build above.
+          dotnet build JoinFS.wixproj -c ${{ matrix.configuration }} /p:Platform=${{ matrix.arch }} /p:PlatformTarget=${{ matrix.arch }}
+
+      - name: Verify packaged architecture
+        shell: pwsh
+        run: |
+          $expected = switch ("${{ matrix.arch }}") { "x64" { 0x8664 } "x86" { 0x14C } "ARM64" { 0xAA64 } }
+          $dll = Get-ChildItem -Path "JoinFS\bin\${{ matrix.configuration }}" -Recurse -Filter "JoinFS-${{ matrix.configuration }}.dll" | Select-Object -First 1
+          if (-not $dll) { throw "JoinFS-${{ matrix.configuration }}.dll not found" }
+          $bytes = [IO.File]::ReadAllBytes($dll.FullName)
+          $machine = [BitConverter]::ToUInt16($bytes, [BitConverter]::ToInt32($bytes, 0x3C) + 4)
+          Write-Host ("{0}: machine=0x{1:X}, expected 0x{2:X} for ${{ matrix.arch }}" -f $dll.FullName, $machine, $expected)
+          if ($machine -ne $expected) { throw "Architecture mismatch: built binary is not ${{ matrix.arch }}" }
 
       - name: Rename Output Files
         shell: pwsh
