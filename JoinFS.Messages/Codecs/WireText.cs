@@ -27,7 +27,7 @@ namespace JoinFS.Net.Jfp2.Codecs
         public const int PrefixSize = 2;
 
         /// <summary>The largest limit a field may have: the whole payload of a datagram (design §4.5).</summary>
-        public const int MaxLimit = Envelope.MaxPayloadSize;
+        public const int MaxLimit = Jfp2Limits.MaxPayloadSize;
 
         /// <summary>Limits up to this many bytes are encoded on the stack; larger ones (none today) on the heap.</summary>
         const int StackLimit = 1024;

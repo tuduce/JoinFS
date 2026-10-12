@@ -316,6 +316,9 @@
   <PropertyGroup Condition=" '$(NewUi)' == 'true' ">
     <DefineConstants>$(DefineConstants);NEWUI</DefineConstants>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\JoinFS.Messages\JoinFS.Messages.csproj" />
+  </ItemGroup>
   <ItemGroup Condition=" '$(NewUi)' == 'true' ">
     <ProjectReference Include="..\JoinFS.UI\JoinFS.UI.csproj" />
   </ItemGroup>
