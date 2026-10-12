@@ -357,3 +357,5 @@ Each step leaves a working recorder; the old one stays in place until step 5.
 | 2026-10-02 | Format name JFS2, extension `.jfs2` |
 | 2026-10-02 | Old `.jfs` recordings must remain playable, through the importer |
 | 2026-10-02 | No "Save as legacy `.jfs`"; the app writes `.jfs2` only |
+| 2026-10-12 | Format spec edition 1 approved with its ten decisions (`format-spec.md` Appendix C): signed delta times; times and ids in bodies not authoritative; the snapshot holds the latest position; `variables` records are upserts; first chunk is a keyframe and the Index is a rebuildable cache; file-local kind ids with recorder-private lifecycle kinds; no feature bits yet; a damaged chunk stops non-keyframe playback until the next keyframe; `variable-names.txt` attachment; edit by writing a new file and renaming. Open question 1 (keep the 12 redundant bytes) is settled by item 2; questions 2, 3 and 4 stay open |
+| 2026-10-12 | Project layout: the format library is a standalone project, `JoinFS.Recording.Format`, with no reference to JoinFS. The messages and codecs become a shared library as a separate prep refactor before stage 2 |

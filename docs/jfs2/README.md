@@ -1,41 +1,58 @@
 # JFS2 recorder: where we are
 
-Working notes for the recorder v2 project (branch `jfs2-recording`). Nothing is implemented yet.
+Working notes for the recorder v2 project (branch `jfs2-recording`). The format library exists; the app does not use it yet.
 
 | File | What |
 |---|---|
 | `recorder-v2-design.md` | The design: why, the options, the proposal. |
-| `format-spec.md` | Byte-exact draft of the `.jfs2` format, edition 1. **Draft, not yet approved.** Appendix C lists the decisions it makes. |
+| `format-spec.md` | Byte-exact specification of the `.jfs2` format, edition 1, approved 2026-10-12. Appendix C lists the decisions it makes. |
 | `tools/jfsstat.py` | Read-only statistics of legacy `.jfs` files (frame types, sizes, how much of each variable frame changes). |
-| `tools/jfs2ref.py`, `tools/example.jfs2` | Reference writer for the spec's Appendix A example (221 bytes). The stage 1 golden test should pin these bytes. |
+| `tools/jfs2ref.py`, `tools/example.jfs2` | Reference writer for the spec's Appendix A example (221 bytes). The format library's golden test pins these bytes (it reads `example.jfs2` from here). |
 
-## Status (2026-10-11)
+## Status (2026-10-12)
 
-Design analysed against the code; format spec drafted; delivery planned in stages. Waiting for the
-owner's answers (below). Then update the spec and the design's §11 Decisions table, and start stage 1.
+Spec edition 1 and its ten decisions approved; project layout decided (standalone format library).
+**Stage 1 is done**: `JoinFS.Recording.Format` (writer, reader, CRC-32, Deflate, repair, dump) with
+`JoinFS.Recording.Format.Tests` (54 tests: golden bytes of Appendix A, round trips, writer rules, every
+truncation, random corruption). Not wired into the app. Next is the prep refactor (shared messages and
+codecs library), then stage 2.
 
 ## Open decisions
 
-1. A yes or a change on each of the ten decisions in `format-spec.md` Appendix C.
-2. **Project layout.** Recommended: a standalone format library (blocks, chunks, CRC, index, repair,
-   no codec knowledge) in stage 1; the messages and codecs (`JoinFS/Net/Messages`,
-   `JoinFS/Net/Protocols/Jfp2/Codecs`, `WireText`, `MessageClasses`, `NodeId`) extracted into a
-   shared library as a separate prep refactor before stage 2, because the dump/convert tools and
-   RecordingXRay need them and "no `#if` by construction" only holds for extracted code.
-3. Later, not blocking: working-file location and crash-recovery prompt (stage 5), overdub merge on
+1. **Prep refactor before stage 2.** Extract the messages and codecs (`JoinFS/Net/Messages`,
+   `JoinFS/Net/Protocols/Jfp2/Codecs`, `WireText`, `MessageClasses`, `NodeId`) into a shared library
+   that JoinFS, the recorder, the tools and RecordingXRay all use, because "no `#if` by construction"
+   only holds for extracted code. A refactor with no behaviour change; the existing tests are its safety net.
+2. Later, not blocking: working-file location and crash-recovery prompt (stage 5), overdub merge on
    stop (design question 3), default metadata (question 4), what to do with an old `.jfs` that parses
    both ways under the FS2024 and non-FS2024 layouts (stage 4; recommended: ask the user).
 
-Pending small spec fix: §3.1 should say that a Header whose metadata strings run past the end of the
-block body is rejected.
+## The format library
+
+`JoinFS.Recording.Format/` (net8.0, no references, no build symbols). Records are opaque: (kind id,
+track, time, bytes).
+
+- `RecordingWriter`: `Create`, `BindKind`, `Add`, `StartKeyframeChunk` + `AddSnapshot`, `EndChunk`,
+  `AddAttachment`, `SetTrackLabel`, `Sync`, `Finish`. Enforces the track lifecycle and time rules of spec
+  §5; `Finish` closes tracks still open. The caller owns the chunking policy and builds snapshots,
+  because that needs codec knowledge. Not thread-safe; the engine puts it on a writer thread.
+- `RecordingReader`: `Open`, `Header`, `IsFinished`, `Chunks`, `Tracks`, `Kinds`, `Attachments`, `Damage`,
+  `FindKeyframeChunk`, `TryReadChunk`. Opens finished and unfinished files alike.
+- `RecordingRepair.Repair`, `RecordingDump.Write`.
+- Index tracks carry the callsign and model the writer was told; a scan of an unfinished file cannot know
+  them (it has no codec), so a repaired file lists them empty.
+- Finding for the spec: the Index does not list Schema blocks, so opening a finished file walks the
+  block heads (type and length only) to find them. Cheap, and written into §8.1. If it ever matters,
+  the Index could list schema offsets in a later minor edition.
 
 ## Plan
 
 Each stage fits a fresh session (low-consumption workflow).
 
-0. **Spec and decisions.** Approve the spec. Collect the `.jfs` corpus (see below).
-1. **Format library.** New standalone project: writer, reader, CRC-32, repair, `dump`. Opaque
+0. **Spec and decisions.** Done 2026-10-12. Collect the `.jfs` corpus (see below).
+1. **Format library.** Done 2026-10-12: new standalone project: writer, reader, CRC-32, repair, `dump`. Opaque
    records. Tests: round trip, truncation and corruption fuzzing, golden bytes from `tools/example.jfs2`.
+   Prep refactor: shared messages and codecs library, before stage 2.
 2. **Tracer bullet.** Codec binding for `track-open`, `identity`, `position`; record your own
    aircraft to `.jfs2` and play it back in the simulator. The old recorder stays in place.
 3. **Widen.** Remaining kinds; the track-state tracker (needed for keyframes and for Trim);

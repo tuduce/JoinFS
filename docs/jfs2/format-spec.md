@@ -1,11 +1,10 @@
 # JFS2: the JoinFS recording format
 
-**Specification, edition 1, DRAFT for review.** It defines the bytes of a `.jfs2` file and the rules
+**Specification, edition 1. Approved 2026-10-12** (the ten decisions of
+[Appendix C](#appendix-c-decisions) included). It defines the bytes of a `.jfs2` file and the rules
 a reader and a writer must follow. It does not say why the format looks this way
-(`recorder-v2-design.md`), nor how the code is organised or delivered. Nothing here is implemented.
-
-Where this draft goes beyond or decides something the design left open, it is listed in
-[Appendix C](#appendix-c-decisions-this-draft-makes) for review.
+(`recorder-v2-design.md`), nor how the code is organised or delivered. The container (§1 to §6, §8,
+§9) is implemented by `JoinFS.Recording.Format`; the record kinds of §7 are not yet.
 
 Key words **MUST**, **SHOULD** and **MAY** have their usual meaning (RFC 2119).
 
@@ -23,7 +22,7 @@ Key words **MUST**, **SHOULD** and **MAY** have their usual meaning (RFC 2119).
 10. [Extending the format](#10-extending-the-format)
 - [Appendix A. Example file](#appendix-a-example-file)
 - [Appendix B. Constants](#appendix-b-constants)
-- [Appendix C. Decisions this draft makes](#appendix-c-decisions-this-draft-makes)
+- [Appendix C. Decisions](#appendix-c-decisions)
 
 ---
 
@@ -129,6 +128,7 @@ Metadata:                MetadataCount × ( Key:string  Value:string )
   ASCII, unique within the block. Defined keys: `app` (the writer, for example `JoinFS 26.10`),
   `sim` (the simulator the recording was made on), `title`, `note`. Other keys MUST be kept when a file
   is rewritten.
+- A Header whose metadata strings run past the end of the block body is rejected.
 - No required or optional feature bits are defined in edition 1.
 
 ### 3.2 Schema (type 2)
@@ -225,7 +225,8 @@ A reader that does not know a kind's name or version skips the record by `Length
 
 A **track** is one recorded object for one stretch of its life. Its id is a varint chosen by the
 writer, unique in the file, and **never reused**: an object that leaves and returns gets a new track.
-Ids are numbers of this file only; they are not network ids.
+Ids are numbers of this file only; they are not network ids. A track id and a kind id fit 32 bits
+(the track id is stored in the `u32` `ObjectId` of bodies, below); a reader treats a larger one as damage.
 
 Lifecycle:
 
@@ -381,7 +382,10 @@ A reader opens a file in this order:
 1. Check the magic. Anything else is not a JFS2 file.
 2. Read the first block. It MUST be a valid Header (CRC, type 1). Apply the refusal rules of §3.1.
 3. Look for a valid footer (magic at the end, CRC of the offset), then read the Index block at that
-   offset. If every step is valid, the file is *finished*.
+   offset. Then walk the block heads (type and length, without reading chunk bodies) from the end of the
+   Header to the Index, to find the Schema and Attach blocks, which the Index does not list, and to check
+   that the chunks are those the Index lists. If every step is valid, the file is *finished*. If the
+   chunks and the Index disagree, the chunks win and the reader says so.
 4. Otherwise, or if the Index fails its CRC, the reader scans (§8.3).
 
 ### 8.2 Damage and unknown content
@@ -548,10 +552,9 @@ Offset  Bytes
 
 ---
 
-## Appendix C. Decisions this draft makes
+## Appendix C. Decisions
 
-Beyond or against the design (`recorder-v2-design.md`). Each wants a yes or a change before the
-format library is built.
+Beyond or against the design (`recorder-v2-design.md`). All ten were approved on 2026-10-12.
 
 1. **Time is a signed delta from the previous record**, not an unsigned delta from the chunk start
    (design §4.5). One byte less per record, and a snapshot can carry the original times of what it
