@@ -4,7 +4,8 @@
 [Appendix C](#appendix-c-decisions) included). It defines the bytes of a `.jfs2` file and the rules
 a reader and a writer must follow. It does not say why the format looks this way
 (`recorder-v2-design.md`), nor how the code is organised or delivered. The container (§1 to §6, §8,
-§9) is implemented by `JoinFS.Recording.Format`; the record kinds of §7 are not yet.
+§9) is implemented by `JoinFS.Recording.Format`; of the record kinds of §7 the engine writes and reads
+`track-open`, `track-close`, `identity` and `position` so far (`JoinFS/Recording/`).
 
 Key words **MUST**, **SHOULD** and **MAY** have their usual meaning (RFC 2119).
 

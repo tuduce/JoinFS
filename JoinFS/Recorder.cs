@@ -7,6 +7,8 @@ using System.Windows.Forms;
 #endif
 using JoinFS.Properties;
 using JoinFS.Net;
+using JoinFS.Recording;
+using JoinFS.Recording.Format;
 
 
 namespace JoinFS
@@ -1199,8 +1201,16 @@ namespace JoinFS
                 }
 
                 // add position velocity frame
-                obj.frames.Add(new AircraftPositionFrame(objTime + obj.timeOffset, ref aircraftPosition));
+                double frameTime = objTime + obj.timeOffset;
+                obj.frames.Add(new AircraftPositionFrame(frameTime, ref aircraftPosition));
                 IncrementRecordFrameCount(FrameType.AircraftPosition);
+
+                // and to the JFS2 file (flags: the old format keeps only on-ground)
+                if (jfs2 != null)
+                {
+                    PositionUpdate update = SimMessageMapper.ToPositionUpdate(obj.id, frameTime, ref aircraftPosition, aircraftPosition.ground != 0 ? PositionStateFlags.OnGround : PositionStateFlags.None);
+                    jfs2.Position(obj.id, frameTime, ref update);
+                }
             }
         }
 
@@ -1261,6 +1271,94 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Start recording a sim object: create its recorded object, link it and add it to the recording
+        /// </summary>
+        void AddRecordedObject(Sim.Obj simObject)
+        {
+            // check for aircraft
+            if (simObject is Sim.Aircraft simAircraft)
+            {
+                // create recorded aircraft
+                simObject.recorderObj = new Aircraft(simAircraft is Sim.Plane, simAircraft.flightPlan.callsign, main.network.Peers.GetNodeName(simAircraft.ownerNuid), simAircraft.ownerModel, simAircraft.ownerLivery, simAircraft.ownerIcaoType, simAircraft.ownerIcaoAirline, simAircraft.typerole, simAircraft.owner);
+                OpenJfs2Track(simAircraft, simObject.recorderObj.id);
+            }
+            else
+            {
+                // create recorded object
+                simObject.recorderObj = new Obj(simObject.ownerModel, simObject.ownerLivery, simObject.ownerIcaoType, simObject.ownerIcaoAirline, simObject.typerole, simObject.owner);
+            }
+            // add to list
+            objList.Add(simObject.recorderObj);
+        }
+
+        /// <summary>
+        /// The JFS2 file written beside the recording (docs/jfs2), or null. Stage 2 of the recorder v2 writes aircraft
+        /// identity and position only; the old recording stays the one that is saved and edited.
+        /// </summary>
+        Jfs2Capture jfs2;
+
+        /// <summary>
+        /// Start the JFS2 file for a new recording. A failure is logged and leaves the recording as it was.
+        /// </summary>
+        void StartJfs2Capture()
+        {
+            jfs2 = null;
+            if (!main.settingsJfs2Capture)
+            {
+                return;
+            }
+            try
+            {
+                string path = UniquePath(main.documentsPath, Path.ChangeExtension(BuildAutoSaveFileName(DateTime.Now, ""), Jfs2.Extension));
+                jfs2 = Jfs2Capture.Create(path, "JoinFS " + Main.Version, SimulatorLabel(), DateTime.UtcNow, main.MonitorEvent);
+                main.MonitorEvent("Recorder: writing the JFS2 recording '" + path + "'.");
+            }
+            catch (Exception ex)
+            {
+                main.MonitorEvent("Recorder: cannot write a JFS2 recording (" + ex.Message + "); recording without it.");
+            }
+        }
+
+        /// <summary>
+        /// The simulator being recorded in, or empty when none is connected
+        /// </summary>
+        string SimulatorLabel() => main.sim != null && main.sim.Connected ? main.sim.GetSimulatorName() : "";
+
+        /// <summary>
+        /// Open the JFS2 track of a recorded aircraft
+        /// </summary>
+        void OpenJfs2Track(Sim.Aircraft aircraft, uint track)
+        {
+            if (jfs2 != null)
+            {
+                TrackOwner owner = aircraft.owner switch
+                {
+                    Sim.Obj.Owner.Network => TrackOwner.Network,
+                    Sim.Obj.Owner.Recorder => TrackOwner.Recorded,
+                    _ => TrackOwner.Local,
+                };
+                jfs2.OpenTrack(track, Time, owner, main.network.Peers.GetNodeName(aircraft.ownerNuid), "JoinFS " + Main.Version, SimulatorLabel(), SimMessageMapper.BuildIdentity(aircraft, track));
+            }
+        }
+
+        /// <summary>
+        /// Finish the JFS2 file: close the open tracks and write its index
+        /// </summary>
+        void FinishJfs2Capture()
+        {
+            if (jfs2 != null)
+            {
+                Jfs2Capture finished = jfs2;
+                jfs2 = null;
+                finished.Finish();
+                if (!finished.Failed)
+                {
+                    main.MonitorEvent("Recorder: wrote the JFS2 recording '" + finished.Path + "' (" + finished.TrackCount + " aircraft, " + finished.PositionCount + " positions).");
+                }
+            }
+        }
+
+        /// <summary>
         /// Start recording
         /// </summary>
         public void StartRecord(bool overdub)
@@ -1281,35 +1379,23 @@ namespace JoinFS
                     recordFirstSimError = "";
                 }
 
+                // check for overdub
+                if (overdub == false)
+                {
+                    // set start time
+                    startTime = main.ElapsedTime;
+                    // the JFS2 file is made beside the recording; an overdub adds to a recording that is not in it
+                    StartJfs2Capture();
+                }
+
                 // for each object in the sim
                 foreach (var simObject in main.sim.objectList)
                 {
                     // check if object is flagged to record
                     if (simObject.record)
                     {
-                        // check for aircraft
-                        if (simObject is Sim.Aircraft)
-                        {
-                            // plane
-                            Sim.Aircraft simAircraft = simObject as Sim.Aircraft;
-                            // create recorded aircraft
-                            simObject.recorderObj = new Aircraft(simAircraft is Sim.Plane, simAircraft.flightPlan.callsign, main.network.Peers.GetNodeName(simAircraft.ownerNuid), simAircraft.ownerModel, simAircraft.ownerLivery, simAircraft.ownerIcaoType, simAircraft.ownerIcaoAirline, simAircraft.typerole, simAircraft.owner);
-                        }
-                        else
-                        {
-                            // create recorded object
-                            simObject.recorderObj = new Obj(simObject.ownerModel, simObject.ownerLivery, simObject.ownerIcaoType, simObject.ownerIcaoAirline, simObject.typerole, simObject.owner);
-                        }
-                        // add to list
-                        objList.Add(simObject.recorderObj);
+                        AddRecordedObject(simObject);
                     }
-                }
-
-                // check for overdub
-                if (overdub == false)
-                {
-                    // set start time
-                    startTime = main.ElapsedTime;
                 }
 
                 // summary
@@ -1367,6 +1453,7 @@ namespace JoinFS
             // check state
             if (main.sim != null && recording)
             {
+                FinishJfs2Capture();
                 LogRecordFrameCounts();
 
                 int positionCount = recordFrameCounts.GetValueOrDefault(FrameType.ObjectPosition) + recordFrameCounts.GetValueOrDefault(FrameType.AircraftPosition);
@@ -1849,21 +1936,7 @@ namespace JoinFS
                     // check if object is flagged to record but not being recorded
                     if (simObject.record && simObject.recorderObj == null)
                     {
-                        // check for aircraft
-                        if (simObject is Sim.Aircraft)
-                        {
-                            // plane
-                            Sim.Aircraft simAircraft = simObject as Sim.Aircraft;
-                            // create recorded aircraft
-                            simObject.recorderObj = new Aircraft(simAircraft is Sim.Plane, simAircraft.flightPlan.callsign, main.network.Peers.GetNodeName(simAircraft.ownerNuid), simAircraft.ownerModel, simAircraft.ownerLivery, simAircraft.ownerIcaoType, simAircraft.ownerIcaoAirline, simAircraft.typerole, simAircraft.owner);
-                        }
-                        else
-                        {
-                            // create recorded object
-                            simObject.recorderObj = new Obj(simObject.ownerModel, simObject.ownerLivery, simObject.ownerIcaoType, simObject.ownerIcaoAirline, simObject.typerole, simObject.owner);
-                        }
-                        // add to list
-                        objList.Add(simObject.recorderObj);
+                        AddRecordedObject(simObject);
                     }
                 }
             }
@@ -2091,6 +2164,12 @@ namespace JoinFS
                     short version = reader.ReadInt16();
                     // log version
                     main.MonitorEvent("Recorder: reading recording stream (version " + version + ").");
+                    // a JFS2 file starts with FA 00, which reads as version 250 (docs/jfs2/format-spec.md section 2)
+                    if (version == Jfs2VersionSignature && reader.BaseStream.CanSeek)
+                    {
+                        reader.BaseStream.Position -= sizeof(short);
+                        return ParseJfs2(reader.BaseStream);
+                    }
                     // check version
                     if (version < 10022)
                     {
@@ -2107,6 +2186,25 @@ namespace JoinFS
                     readTarget = null;
                 }
             }
+        }
+
+        /// <summary>
+        /// What a JFS2 file's first two bytes read as in the old reader: a version too low to be a recording
+        /// </summary>
+        const short Jfs2VersionSignature = 250;
+
+        /// <summary>
+        /// Read a JFS2 recording into objects, logging what was skipped. Throws, with a message for the user, if it can't be played.
+        /// </summary>
+        List<Obj> ParseJfs2(Stream stream)
+        {
+            Jfs2Loader.Result result = Jfs2Loader.Load(stream);
+            foreach (string note in result.Notes)
+            {
+                main.MonitorEvent("Recorder: " + note);
+            }
+            main.MonitorEvent("Recorder: read a JFS2 recording with " + result.Objects.Count + " aircraft.");
+            return result.Objects;
         }
 
         /// <summary>

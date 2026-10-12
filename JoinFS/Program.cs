@@ -132,6 +132,11 @@ namespace JoinFS
         public string settingsLanguage = "";
         public bool settingsNoSim = false;
         public bool settingsLoop = false;
+
+        /// <summary>
+        /// Write a JFS2 recording beside each new recording (docs/jfs2); -no-jfs2 switches it off
+        /// </summary>
+        public bool settingsJfs2Capture = true;
         public bool settingsXplane = false;
         public bool settingsTcas = false;
         public bool settingsScan = false;
@@ -348,6 +353,11 @@ namespace JoinFS
                             case "-loop":
                                 // enable looping
                                 settingsLoop = true;
+                                break;
+
+                            case "-no-jfs2":
+                                // record in the old format only
+                                settingsJfs2Capture = false;
                                 break;
 
                             case "-create":

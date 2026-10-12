@@ -1,6 +1,6 @@
 # JFS2 recorder: where we are
 
-Working notes for the recorder v2 project (branch `jfs2-recording`). The format library exists; the app does not use it yet.
+Working notes for the recorder v2 project (branch `jfs2-recording`). The format library exists; since stage 2 the app writes and plays a first slice of it (aircraft identity and position).
 
 | File | What |
 |---|---|
@@ -17,7 +17,8 @@ Spec edition 1 and its ten decisions approved; project layout decided (standalon
 truncation, random corruption). Not wired into the app.
 **Prep refactor done** (2026-10-12): the canonical messages, the JFP2 codecs, `NodeId`, `AddressCodec` and
 `MessageClasses` are now the standalone library `JoinFS.Messages/` (same namespaces, no call site
-changed; 1129 tests pass; all six build configurations compile). Next is stage 2, the tracer bullet.
+changed; 1129 tests pass; all six build configurations compile).
+**Stage 2, the tracer bullet, is built** (2026-10-12, not yet tested in a simulator; see "Stage 2 as built").
 
 ## Open decisions
 
@@ -52,8 +53,9 @@ Each stage fits a fresh session (low-consumption workflow).
 1. **Format library.** Done 2026-10-12: new standalone project: writer, reader, CRC-32, repair, `dump`. Opaque
    records. Tests: round trip, truncation and corruption fuzzing, golden bytes from `tools/example.jfs2`.
    Prep refactor (shared messages and codecs library `JoinFS.Messages`): done 2026-10-12.
-2. **Tracer bullet.** Codec binding for `track-open`, `identity`, `position`; record your own
-   aircraft to `.jfs2` and play it back in the simulator. The old recorder stays in place.
+2. **Tracer bullet.** Built 2026-10-12, waiting for an in-sim test. Codec binding for `track-open`,
+   `identity`, `position`; each new recording also writes a `.jfs2`, and a `.jfs2` opens and plays.
+   The old recorder stays in place.
 3. **Widen.** Remaining kinds; the track-state tracker (needed for keyframes and for Trim);
    keyframes, index, Jump; variable-change capture; a reader prefetch thread so interpolation can look
    ahead without blocking the sim thread.
@@ -63,6 +65,33 @@ Each stage fits a fresh session (low-consumption workflow).
    (WinForms `MainForm`/`RecorderForm`, Avalonia `LiveRecorderSource`/`RecorderViewModel`), dialogs,
    resx strings, hotkeys, `-play`, working file and crash recovery; delete the old write path.
 6. **Measured options.** Compression, recording rate, `PositionV2`, new kinds.
+
+## Stage 2 as built
+
+Code in `JoinFS/Recording/`, tests in `JoinFS.Tests/Recording/`. `JoinFS` references the format library.
+
+- `Jfs2Kinds.cs`: kind names and versions, `Jfs2KindIds.Bind`, and the `track-open` body (`TrackOpenV1`). `identity` and
+  `position` use the shared `IdentityV1Codec` and `PositionV1Codec` from `JoinFS.Messages`.
+- `Jfs2Capture`: takes canonical messages and recording seconds, writes the file. It chunks at about 2 s, clamps a time that
+  goes back (per track, and below the previous chunk's TMin, spec 5), writes the track id and time into the position body
+  (spec 5), and on any error switches itself off with one log line. It knows nothing of `Sim` or `Main`.
+- `Jfs2Loader`: reads a file into `Recorder.Obj`/`Recorder.AircraftPositionFrame`, so the old player, jump, trim and both UIs
+  work on it unchanged. It loads everything (the stage 3 player replaces that), ignores snapshots, applies nothing after a lost
+  chunk until the next keyframe (spec 8.2), and counts what it skipped by kind name and version. An essential kind of a newer
+  version gives an error that says so, not an empty scene.
+- `Recorder`: a new recording (not an overdub) also starts `Jfs2Capture` (`<documents>/<date>_<time>_recording.jfs2`, unique
+  name). `AddRecordedObject` replaces two copies of the object creation and opens the track; `Record(.., ref AircraftPosition)`
+  tees the position; `Stop` finishes the file. `Parse` recognises the magic (it reads as version 250 to the old reader) and
+  hands the stream to the loader, so File → Open, Add, `-play` and the Avalonia picker (open filter `jfs;jfs2`) need nothing
+  else. `-no-jfs2` switches the capture off.
+- `SimMessageMapper.ToPositionUpdate(objectId, netTime, ref position, flags)`: the recorder has no `Sim.Aircraft` to read flags
+  from; the old format keeps only on-ground, so only that flag is set.
+
+Limits of this stage, all deliberate: aircraft only (no `object-position`), no variables or events, so a played `.jfs2` has
+position but no gear, lights or flaps; one identity per track (later identity changes are not written by the capture, and
+ignored by the loader); only the first chunk is a keyframe; the file is written on the sim thread (a chunk of about 8 KB every
+2 s) and flushed to the operating system, not to disk, until it is finished; a `.jfs2` is not saved again as `.jfs2`
+(Save writes `.jfs`); an overdub is not captured. Not tested in a simulator yet.
 
 ## What the code check found (beyond the design)
 

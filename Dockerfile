@@ -3,6 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
 WORKDIR /src
 COPY JoinFS/JoinFS.csproj JoinFS/
 COPY JoinFS.Messages/JoinFS.Messages.csproj JoinFS.Messages/
+COPY JoinFS.Recording.Format/JoinFS.Recording.Format.csproj JoinFS.Recording.Format/
 # The CONSOLE configuration pins PlatformTarget to ARM64; override it so the RID decides.
 RUN dotnet restore JoinFS/JoinFS.csproj -r linux-musl-x64 /p:configuration=CONSOLE /p:PlatformTarget=AnyCPU
 COPY . .

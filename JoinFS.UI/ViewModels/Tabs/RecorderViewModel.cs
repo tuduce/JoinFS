@@ -158,6 +158,9 @@ public sealed partial class RecorderViewModel : ObservableObject
     private const string SuggestedName = "recording.jfs";
     private const string Extension = "jfs";
 
+    /// <summary>What the open dialog offers: the old format and JFS2.</summary>
+    private const string OpenExtensions = "jfs;jfs2";
+
     private readonly IRecorderSource _source;
     private readonly ITrafficSource _traffic;
     private readonly IPlatform _platform;
@@ -542,7 +545,7 @@ public sealed partial class RecorderViewModel : ObservableObject
         if (!append && !await AskToSaveAsync())
             return;
 
-        string? path = await _platform.PickOpenFileAsync(append ? Loc.T("Add recording") : Loc.T("Open recording"), _source.RecordingFolder, Extension);
+        string? path = await _platform.PickOpenFileAsync(append ? Loc.T("Add recording") : Loc.T("Open recording"), _source.RecordingFolder, OpenExtensions);
         if (path is null)
             return;
 

@@ -39,6 +39,12 @@ namespace JoinFS
             if (elevationCorrection) flags |= PositionStateFlags.ElevationCorrection;
             if (aircraft.user) flags |= PositionStateFlags.UserControlled;
             if (aircraft.paused) flags |= PositionStateFlags.Paused;
+            return ToPositionUpdate(objectId, netTime, ref position, flags);
+        }
+
+        /// <summary>The same for a caller that has no <see cref="Sim.Aircraft"/> to read the flags from (the recorder).</summary>
+        public static PositionUpdate ToPositionUpdate(uint objectId, double netTime, ref Sim.AircraftPosition position, PositionStateFlags flags)
+        {
             return new PositionUpdate
             {
                 ObjectId = objectId,
