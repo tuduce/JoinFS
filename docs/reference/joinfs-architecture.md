@@ -38,7 +38,7 @@ its simulator. There is no central server: instances form a peer-to-peer mesh.
 | **Object** | Anything shown in a simulator: an aircraft (plane, helicopter) or another object (boat, vehicle). `Sim.Obj` and subclasses. |
 | **Owner** | Who an object belongs to: *Me* (our own aircraft), *Network* (a remote node's), or *Recorder* (being played back from a `.jfs` file). |
 | **Protocol plugin** | An implementation of one wire protocol: legacy or JFP2. |
-| **Canonical message** | The protocol-independent, in-memory form of a message (`JoinFS/Net/Messages`). |
+| **Canonical message** | The protocol-independent, in-memory form of a message (`JoinFS.Messages/Messages`). |
 
 ## 2. Process structure and threads
 

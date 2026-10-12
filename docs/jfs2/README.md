@@ -14,15 +14,14 @@ Working notes for the recorder v2 project (branch `jfs2-recording`). The format 
 Spec edition 1 and its ten decisions approved; project layout decided (standalone format library).
 **Stage 1 is done**: `JoinFS.Recording.Format` (writer, reader, CRC-32, Deflate, repair, dump) with
 `JoinFS.Recording.Format.Tests` (54 tests: golden bytes of Appendix A, round trips, writer rules, every
-truncation, random corruption). Not wired into the app. Next is the prep refactor (shared messages and
-codecs library), then stage 2.
+truncation, random corruption). Not wired into the app.
+**Prep refactor done** (2026-10-12): the canonical messages, the JFP2 codecs, `NodeId`, `AddressCodec` and
+`MessageClasses` are now the standalone library `JoinFS.Messages/` (same namespaces, no call site
+changed; 1129 tests pass; all six build configurations compile). Next is stage 2, the tracer bullet.
 
 ## Open decisions
 
-1. **Prep refactor before stage 2.** Extract the messages and codecs (`JoinFS/Net/Messages`,
-   `JoinFS/Net/Protocols/Jfp2/Codecs`, `WireText`, `MessageClasses`, `NodeId`) into a shared library
-   that JoinFS, the recorder, the tools and RecordingXRay all use, because "no `#if` by construction"
-   only holds for extracted code. A refactor with no behaviour change; the existing tests are its safety net.
+1. Nothing blocks stage 2.
 2. Later, not blocking: working-file location and crash-recovery prompt (stage 5), overdub merge on
    stop (design question 3), default metadata (question 4), what to do with an old `.jfs` that parses
    both ways under the FS2024 and non-FS2024 layouts (stage 4; recommended: ask the user).
@@ -52,7 +51,7 @@ Each stage fits a fresh session (low-consumption workflow).
 0. **Spec and decisions.** Done 2026-10-12. Collect the `.jfs` corpus (see below).
 1. **Format library.** Done 2026-10-12: new standalone project: writer, reader, CRC-32, repair, `dump`. Opaque
    records. Tests: round trip, truncation and corruption fuzzing, golden bytes from `tools/example.jfs2`.
-   Prep refactor: shared messages and codecs library, before stage 2.
+   Prep refactor (shared messages and codecs library `JoinFS.Messages`): done 2026-10-12.
 2. **Tracer bullet.** Codec binding for `track-open`, `identity`, `position`; record your own
    aircraft to `.jfs2` and play it back in the simulator. The old recorder stays in place.
 3. **Widen.** Remaining kinds; the track-state tracker (needed for keyframes and for Trim);

@@ -76,7 +76,7 @@ index gives back random access. Recommended.
 
 1. *Sim structs* (today): `Sim.AircraftPosition`, three variable dictionaries. Tied to `Sim.cs`.
 2. *Wire datagrams* (option G).
-3. ***Canonical messages*** — the protocol-independent structs in `JoinFS/Net/Messages`. This is
+3. ***Canonical messages*** — the protocol-independent structs in `JoinFS.Messages/Messages`. This is
    the level the architecture already treats as the truth: `SimMessageMapper` converts to and from
    Sim types, the session layer consumes them, and they are a superset by design. **Recommended.**
    The recorder becomes, in effect, a peer that listens (capture) and a peer that speaks (playback).
