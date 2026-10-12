@@ -1225,6 +1225,7 @@ namespace JoinFS
                 // add event
                 obj.frames.Add(new SimEventFrame(Time, eventId, data));
                 IncrementRecordFrameCount(FrameType.SimEvent);
+                jfs2?.Event(obj.id, Time, eventId, data);
             }
         }
 
@@ -1239,6 +1240,7 @@ namespace JoinFS
                 // add event
                 obj.frames.Add(new IntegerVariablesFrame(Time, variables));
                 IncrementRecordFrameCount(FrameType.IntegerVariables);
+                jfs2?.Variables(obj.id, Time, variables, null, null);
             }
         }
 
@@ -1253,6 +1255,7 @@ namespace JoinFS
                 // add event
                 obj.frames.Add(new FloatVariablesFrame(Time, variables));
                 IncrementRecordFrameCount(FrameType.FloatVariables);
+                jfs2?.Variables(obj.id, Time, null, variables, null);
             }
         }
 
@@ -1267,6 +1270,7 @@ namespace JoinFS
                 // add event
                 obj.frames.Add(new String8VariablesFrame(Time, variables));
                 IncrementRecordFrameCount(FrameType.String8Variables);
+                jfs2?.Variables(obj.id, Time, null, null, variables);
             }
         }
 
@@ -1292,8 +1296,8 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// The JFS2 file written beside the recording (docs/jfs2), or null. Stage 2 of the recorder v2 writes aircraft
-        /// identity and position only; the old recording stays the one that is saved and edited.
+        /// The JFS2 file written beside the recording (docs/jfs2), or null. The recorder v2 writes aircraft
+        /// identity, position, variables and events so far; the old recording stays the one that is saved and edited.
         /// </summary>
         Jfs2Capture jfs2;
 
@@ -1353,7 +1357,7 @@ namespace JoinFS
                 finished.Finish();
                 if (!finished.Failed)
                 {
-                    main.MonitorEvent("Recorder: wrote the JFS2 recording '" + finished.Path + "' (" + finished.TrackCount + " aircraft, " + finished.PositionCount + " positions).");
+                    main.MonitorEvent("Recorder: wrote the JFS2 recording '" + finished.Path + "' (" + finished.TrackCount + " aircraft, " + finished.PositionCount + " positions, " + finished.VariableRecordCount + " variable records, " + finished.EventCount + " events).");
                 }
             }
         }

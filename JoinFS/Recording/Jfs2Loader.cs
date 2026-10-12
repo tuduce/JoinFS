@@ -25,7 +25,8 @@ namespace JoinFS.Recording
             public string Nickname = "";
             public IdentityUpdate Identity;
             public bool HasIdentity;
-            public readonly List<Recorder.AircraftPositionFrame> Frames = [];
+            public readonly List<Recorder.Frame> Frames = [];
+            public int PositionCount;
         }
 
         /// <summary>The kinds this stage plays; everything else is skipped by name and version.</summary>
@@ -35,6 +36,8 @@ namespace JoinFS.Recording
             (Jfs2Kinds.TrackClose, Jfs2Kinds.TrackCloseVersion),
             (Jfs2Kinds.Identity, Jfs2Kinds.IdentityVersion),
             (Jfs2Kinds.Position, Jfs2Kinds.PositionVersion),
+            (Jfs2Kinds.Variables, Jfs2Kinds.VariablesVersion),
+            (Jfs2Kinds.Event, Jfs2Kinds.EventVersion),
         ];
 
         /// <summary>Kinds without which a recording shows nothing (spec 8.2).</summary>
@@ -69,6 +72,8 @@ namespace JoinFS.Recording
 
             var positionCodec = new PositionV1Codec();
             var identityCodec = new IdentityV1Codec();
+            var variablesCodec = new VariableSyncV1Codec();
+            var eventCodec = new EventV1Codec();
 
             if (!reader.IsFinished)
             {
@@ -134,6 +139,22 @@ namespace JoinFS.Recording
                                     PositionUpdate position = positionCodec.Decode(entry.Body.Span);
                                     Sim.AircraftPosition data = SimMessageMapper.ToAircraftPosition(position);
                                     positionTrack.Frames.Add(new Recorder.AircraftPositionFrame(entry.Time / 1e6, ref data));
+                                    positionTrack.PositionCount++;
+                                }
+                                break;
+
+                            case Jfs2Kinds.Variables:
+                                if (tracks.TryGetValue(entry.Track, out Track variablesTrack))
+                                {
+                                    AddVariableFrames(variablesTrack.Frames, entry.Time / 1e6, variablesCodec.Decode(entry.Body.Span));
+                                }
+                                break;
+
+                            case Jfs2Kinds.Event:
+                                if (tracks.TryGetValue(entry.Track, out Track eventTrack))
+                                {
+                                    EventUpdate update = eventCodec.Decode(entry.Body.Span);
+                                    eventTrack.Frames.Add(new Recorder.SimEventFrame(entry.Time / 1e6, update.EventId, update.Data));
                                 }
                                 break;
                         }
@@ -167,7 +188,7 @@ namespace JoinFS.Recording
             foreach (uint id in order)
             {
                 Track track = tracks[id];
-                if (track.Frames.Count == 0 || !track.HasIdentity)
+                if (track.PositionCount == 0 || !track.HasIdentity)
                 {
                     continue;
                 }
@@ -193,6 +214,29 @@ namespace JoinFS.Recording
                     : "This recording holds nothing that can be played. " + string.Join(" ", notes));
             }
             return new Result(objects, notes);
+        }
+
+        /// <summary>
+        /// One variables record becomes up to three of the old frames, one per value kind. A frame holds only what the record
+        /// changed; the old player merges frames into the object's variable set, which is how an upsert reads (spec 7.6).
+        /// </summary>
+        static void AddVariableFrames(List<Recorder.Frame> frames, double time, VariableSyncUpdate update)
+        {
+            Dictionary<uint, int> integers = [];
+            Dictionary<uint, float> floats = [];
+            Dictionary<uint, string> strings = [];
+            foreach (VariableEntry entry in update.Entries)
+            {
+                switch (entry.Kind)
+                {
+                    case VariableKind.Int32: integers[entry.Vuid] = entry.IntValue; break;
+                    case VariableKind.Float32: floats[entry.Vuid] = entry.FloatValue; break;
+                    case VariableKind.String8: strings[entry.Vuid] = entry.StringValue ?? ""; break;
+                }
+            }
+            if (integers.Count > 0) frames.Add(new Recorder.IntegerVariablesFrame(time, integers));
+            if (floats.Count > 0) frames.Add(new Recorder.FloatVariablesFrame(time, floats));
+            if (strings.Count > 0) frames.Add(new Recorder.String8VariablesFrame(time, strings));
         }
 
         static bool IsPlayed(KindBinding kind) => Played.Any(played => played.Name == kind.Name && played.Version == kind.Version);

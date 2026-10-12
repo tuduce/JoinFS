@@ -9,7 +9,7 @@ namespace JoinFS.Recording
     /// <summary>
     /// Writes a recording as a JFS2 file while it is made (docs/jfs2/recorder-v2-design.md section 5.5). It takes canonical
     /// messages and times in recording seconds, and knows nothing of Sim or Main, so it is testable without a simulator.
-    /// Stage 2 writes track-open, identity and position only.
+    /// Writes track-open, identity, position, variables and event.
     /// </summary>
     /// <remarks>
     /// Runs on the thread that produces the records (the sim thread) and writes a chunk, about 8 KB, every couple of
@@ -22,6 +22,16 @@ namespace JoinFS.Recording
         /// <summary>A chunk ends once its records span this long (spec 9.2: about two seconds).</summary>
         const long ChunkSpanMicroseconds = 2_000_000;
 
+        /// <summary>The most entries a variables record holds (spec 7.6).</summary>
+        const int MaxVariablesPerRecord = 255;
+
+        sealed class VariableState
+        {
+            public readonly Dictionary<uint, int> Integers = [];
+            public readonly Dictionary<uint, float> Floats = [];
+            public readonly Dictionary<uint, string> Strings = [];
+        }
+
         readonly RecordingWriter writer;
         readonly Jfs2KindIds kinds;
         readonly Action<string> log;
@@ -30,6 +40,12 @@ namespace JoinFS.Recording
         readonly IdentityV1Codec identityCodec = new();
         readonly byte[] positionBody = new byte[PositionV1Codec.Size];
         readonly byte[] identityBody = new byte[IdentityV1Codec.MaxSize];
+        readonly VariableSyncV1Codec variablesCodec = new();
+        readonly EventV1Codec eventCodec = new();
+        readonly byte[] variablesBody = new byte[VariableSyncV1Codec.HeaderSize + MaxVariablesPerRecord * VariableSyncV1Codec.MaxEntrySize];
+        readonly byte[] eventBody = new byte[EventV1Codec.Size];
+        /// <summary>What the last variables record of each track left, so only changes are written (spec 7.6).</summary>
+        readonly Dictionary<uint, VariableState> variableStates = [];
 
         /// <summary>No record may be earlier than the TMin of the chunk before (spec 5).</summary>
         long floor;
@@ -50,6 +66,8 @@ namespace JoinFS.Recording
 
         public int TrackCount { get; private set; }
         public int PositionCount { get; private set; }
+        public int VariableRecordCount { get; private set; }
+        public int EventCount { get; private set; }
 
         /// <summary>Creates the file. Throws if it cannot be created.</summary>
         /// <param name="app">For the header's <c>app</c> metadata, for example "JoinFS 26.10".</param>
@@ -95,6 +113,7 @@ namespace JoinFS.Recording
                 long time = TimeOf(track, seconds);
                 writer.Add(kinds.TrackOpen, track, time, new TrackOpenV1(owner, nickname, sourceApp, simulator).Encode());
                 lastTime[track] = time;
+                variableStates[track] = new VariableState();
                 identity = Sanitised(identity, track);
                 int length = identityCodec.Encode(identity, identityBody);
                 writer.Add(kinds.Identity, track, time, identityBody.AsSpan(0, length));
@@ -127,6 +146,104 @@ namespace JoinFS.Recording
                 writer.Add(kinds.Position, track, time, positionBody);
                 lastTime[track] = time;
                 PositionCount++;
+                EndChunkIfDue();
+            }
+            catch (Exception ex)
+            {
+                Fail(ex);
+            }
+        }
+
+        /// <summary>
+        /// Adds the variables of an open track. Each dictionary is the object's current set (or null); only the entries that
+        /// differ from what this track last wrote are stored, and the first call of a track stores them all (spec 7.6: a
+        /// <c>variables</c> record is an upsert, and a writer SHOULD write changes). Nothing is written when nothing changed.
+        /// </summary>
+        public void Variables(uint track, double seconds, Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> strings)
+        {
+            if (Failed || finished || !variableStates.TryGetValue(track, out VariableState state))
+            {
+                return;
+            }
+            try
+            {
+                List<VariableEntry> changes = [];
+                if (integers != null)
+                {
+                    foreach (var variable in integers)
+                    {
+                        if (!state.Integers.TryGetValue(variable.Key, out int old) || old != variable.Value)
+                        {
+                            state.Integers[variable.Key] = variable.Value;
+                            changes.Add(new VariableEntry { Vuid = variable.Key, Kind = VariableKind.Int32, IntValue = variable.Value });
+                        }
+                    }
+                }
+                if (floats != null)
+                {
+                    foreach (var variable in floats)
+                    {
+                        // bit comparison: NaN equals itself, and -0 is not +0
+                        if (!state.Floats.TryGetValue(variable.Key, out float old) || BitConverter.SingleToInt32Bits(old) != BitConverter.SingleToInt32Bits(variable.Value))
+                        {
+                            state.Floats[variable.Key] = variable.Value;
+                            changes.Add(new VariableEntry { Vuid = variable.Key, Kind = VariableKind.Float32, FloatValue = variable.Value });
+                        }
+                    }
+                }
+                if (strings != null)
+                {
+                    foreach (var variable in strings)
+                    {
+                        string value = variable.Value ?? "";
+                        if (!state.Strings.TryGetValue(variable.Key, out string old) || old != value)
+                        {
+                            state.Strings[variable.Key] = value;
+                            changes.Add(new VariableEntry { Vuid = variable.Key, Kind = VariableKind.String8, StringValue = value });
+                        }
+                    }
+                }
+                if (changes.Count == 0)
+                {
+                    return;
+                }
+
+                long time = TimeOf(track, seconds);
+                // a larger update is split into records of the same time (spec 7.6)
+                for (int start = 0; start < changes.Count; start += MaxVariablesPerRecord)
+                {
+                    var update = new VariableSyncUpdate
+                    {
+                        ObjectId = track,
+                        Entries = changes.GetRange(start, Math.Min(MaxVariablesPerRecord, changes.Count - start)),
+                    };
+                    int length = variablesCodec.Encode(update, variablesBody);
+                    writer.Add(kinds.Variables, track, time, variablesBody.AsSpan(0, length));
+                    VariableRecordCount++;
+                }
+                lastTime[track] = time;
+                EndChunkIfDue();
+            }
+            catch (Exception ex)
+            {
+                Fail(ex);
+            }
+        }
+
+        /// <summary>Adds a simulator event raised on an open track.</summary>
+        public void Event(uint track, double seconds, uint eventId, uint data)
+        {
+            if (Failed || finished || !lastTime.ContainsKey(track))
+            {
+                return;
+            }
+            try
+            {
+                long time = TimeOf(track, seconds);
+                int length = eventCodec.Encode(new EventUpdate { ObjectId = track, EventId = eventId, Data = data }, eventBody);
+                writer.Add(kinds.Event, track, time, eventBody.AsSpan(0, length));
+                lastTime[track] = time;
+                EventCount++;
                 EndChunkIfDue();
             }
             catch (Exception ex)

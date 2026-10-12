@@ -16,21 +16,27 @@ namespace JoinFS.Recording
         public const string TrackClose = Jfs2.TrackCloseKind;
         public const string Identity = "identity";
         public const string Position = "position";
+        public const string Variables = "variables";
+        public const string Event = "event";
 
         public const byte TrackOpenVersion = 1;
         public const byte TrackCloseVersion = 1;
         public const byte IdentityVersion = 1;
         public const byte PositionVersion = 1;
+        public const byte VariablesVersion = 1;
+        public const byte EventVersion = 1;
     }
 
     /// <summary>The kind ids a writer bound for the kinds this engine writes.</summary>
-    public readonly record struct Jfs2KindIds(uint TrackOpen, uint TrackClose, uint Identity, uint Position)
+    public readonly record struct Jfs2KindIds(uint TrackOpen, uint TrackClose, uint Identity, uint Position, uint Variables, uint Event)
     {
         public static Jfs2KindIds Bind(RecordingWriter writer) => new(
             writer.BindKind(Jfs2Kinds.TrackOpen, Jfs2Kinds.TrackOpenVersion),
             writer.BindKind(Jfs2Kinds.TrackClose, Jfs2Kinds.TrackCloseVersion),
             writer.BindKind(Jfs2Kinds.Identity, Jfs2Kinds.IdentityVersion),
-            writer.BindKind(Jfs2Kinds.Position, Jfs2Kinds.PositionVersion));
+            writer.BindKind(Jfs2Kinds.Position, Jfs2Kinds.PositionVersion),
+            writer.BindKind(Jfs2Kinds.Variables, Jfs2Kinds.VariablesVersion),
+            writer.BindKind(Jfs2Kinds.Event, Jfs2Kinds.EventVersion));
     }
 
     /// <summary>Who owned the object when it was recorded (spec 7.1).</summary>

@@ -321,4 +321,130 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
     {
         Assert.Throws<FormatException>(() => TrackOpenV1.Decode(body));
     }
+
+    // ---- stage 3: variables and events ----
+
+    static Recorder.Aircraft OnlyAircraft(Jfs2Loader.Result result) => Assert.IsType<Recorder.Aircraft>(Assert.Single(result.Objects));
+
+    /// <summary>The variables an old-player object would hold after playing its frames up to <paramref name="time"/>, in order.</summary>
+    static (Dictionary<uint, int> Integers, Dictionary<uint, float> Floats, Dictionary<uint, string> Strings) Merged(Recorder.Obj obj, double time = double.MaxValue)
+    {
+        Dictionary<uint, int> integers = [];
+        Dictionary<uint, float> floats = [];
+        Dictionary<uint, string> strings = [];
+        foreach (var frame in obj.frames.Where(f => f.time <= time))
+        {
+            switch (frame)
+            {
+                case Recorder.IntegerVariablesFrame f: foreach (var v in f.variables) integers[v.Key] = v.Value; break;
+                case Recorder.FloatVariablesFrame f: foreach (var v in f.variables) floats[v.Key] = v.Value; break;
+                case Recorder.String8VariablesFrame f: foreach (var v in f.variables) strings[v.Key] = v.Value; break;
+            }
+        }
+        return (integers, floats, strings);
+    }
+
+    [Fact]
+    public void Variables_AreStoredAsChanges_AndMergeBackToTheFullSet()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(1, 0.0, TrackOwner.Local, "", "x", "", Identity("A", "M"));
+        PositionUpdate p = Position(0);
+        capture.Position(1, 0.0, ref p);
+        Dictionary<uint, int> integers = new() { [10] = 1, [11] = 2, [12] = 3 };
+        Dictionary<uint, float> floats = new() { [20] = 0.5f, [21] = float.NaN };
+        Dictionary<uint, string> strings = new() { [30] = "N123" };
+        capture.Variables(1, 0.1, integers, floats, strings);
+        // the same values again: nothing is written
+        capture.Variables(1, 0.2, integers, floats, strings);
+        integers[11] = 20;
+        floats[20] = 0.75f;
+        capture.Variables(1, 0.3, integers, floats, strings);
+        capture.Finish();
+
+        Assert.False(capture.Failed, string.Join(" ", logged));
+        // one record for the first call and one for the third; the call with the same values wrote nothing
+        Assert.Equal(2, capture.VariableRecordCount);
+
+        var aircraft = OnlyAircraft(Jfs2Loader.Load(Open(PathOf("a.jfs2"))));
+        var after = Merged(aircraft, 0.15);
+        Assert.Equal(new Dictionary<uint, int> { [10] = 1, [11] = 2, [12] = 3 }, after.Integers);
+        Assert.Equal("N123", after.Strings[30]);
+        Assert.True(float.IsNaN(after.Floats[21]));
+
+        var last = Merged(aircraft);
+        Assert.Equal(new Dictionary<uint, int> { [10] = 1, [11] = 20, [12] = 3 }, last.Integers);
+        Assert.Equal(0.75f, last.Floats[20]);
+        // the second sample stored one integer and one float, not the whole set
+        var changed = aircraft.frames.OfType<Recorder.IntegerVariablesFrame>().Last();
+        Assert.Equal(new Dictionary<uint, int> { [11] = 20 }, changed.variables);
+        Assert.Equal(0.3, changed.time, 5);
+    }
+
+    [Fact]
+    public void ALargeVariableUpdate_IsSplitInto255EntryRecords()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(1, 0.0, TrackOwner.Local, "", "x", "", Identity("A", "M"));
+        PositionUpdate p = Position(0);
+        capture.Position(1, 0.0, ref p);
+        Dictionary<uint, int> integers = Enumerable.Range(0, 600).ToDictionary(i => (uint)(1000 + i), i => i);
+        Dictionary<uint, string> strings = Enumerable.Range(0, 255).ToDictionary(i => (uint)(5000 + i), i => new string('é', 128));
+        capture.Variables(1, 0.1, integers, null, strings);
+        capture.Finish();
+
+        Assert.False(capture.Failed, string.Join(" ", logged));
+        Assert.Equal(4, capture.VariableRecordCount); // 855 entries: 255 + 255 + 255 + 90
+        var merged = Merged(OnlyAircraft(Jfs2Loader.Load(Open(PathOf("a.jfs2")))));
+        Assert.Equal(integers, merged.Integers);
+        Assert.Equal(255, merged.Strings.Count);
+        Assert.Equal(new string('é', 128), merged.Strings[5000]);
+    }
+
+    [Fact]
+    public void Events_RoundTripInOrderWithTheVariables()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(1, 0.0, TrackOwner.Local, "", "x", "", Identity("A", "M"));
+        PositionUpdate p = Position(0);
+        capture.Position(1, 0.0, ref p);
+        capture.Event(1, 0.5, 66000, 1);
+        capture.Variables(1, 0.5, new Dictionary<uint, int> { [1] = 1 }, null, null);
+        capture.Event(1, 0.6, 66001, 0xFFFFFFFF);
+        capture.Event(99, 0.7, 1, 1); // a track that was never opened
+        capture.Finish();
+
+        Assert.Equal(2, capture.EventCount);
+        var aircraft = OnlyAircraft(Jfs2Loader.Load(Open(PathOf("a.jfs2"))));
+        var events = aircraft.frames.OfType<Recorder.SimEventFrame>().ToArray();
+        Assert.Equal([(66000u, 1u), (66001u, 0xFFFFFFFFu)], events.Select(e => (e.eventId, e.data)).ToArray());
+        Assert.Equal([Recorder.FrameType.AircraftPosition, Recorder.FrameType.SimEvent, Recorder.FrameType.IntegerVariables, Recorder.FrameType.SimEvent],
+            aircraft.frames.Select(f => f.type).ToArray());
+    }
+
+    [Fact]
+    public void VariablesOfATrackThatWasNeverOpened_AreIgnored()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(1, 0.0, TrackOwner.Local, "", "x", "", Identity("A", "M"));
+        capture.Variables(5, 0.1, new Dictionary<uint, int> { [1] = 1 }, null, null);
+        capture.Finish();
+
+        Assert.False(capture.Failed);
+        Assert.Equal(0, capture.VariableRecordCount);
+    }
+
+    [Fact]
+    public void ARecordingWithOnlyVariablesAndEvents_HoldsNothingToPlay()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(1, 0.0, TrackOwner.Local, "", "x", "", Identity("A", "M"));
+        capture.Variables(1, 0.1, new Dictionary<uint, int> { [1] = 1 }, null, null);
+        capture.Event(1, 0.2, 1, 1);
+        capture.Finish();
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Jfs2Loader.Load(Open(PathOf("a.jfs2"))));
+
+        Assert.Contains("nothing that can be played", ex.Message);
+    }
 }

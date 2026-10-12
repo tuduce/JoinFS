@@ -18,7 +18,8 @@ truncation, random corruption). Not wired into the app.
 **Prep refactor done** (2026-10-12): the canonical messages, the JFP2 codecs, `NodeId`, `AddressCodec` and
 `MessageClasses` are now the standalone library `JoinFS.Messages/` (same namespaces, no call site
 changed; 1129 tests pass; all six build configurations compile).
-**Stage 2, the tracer bullet, is built** (2026-10-12, not yet tested in a simulator; see "Stage 2 as built").
+**Stage 2, the tracer bullet, is built** (2026-10-12, in-sim playback confirmed; see "Stage 2 as built").
+**Stage 3 is under way** in slices; slice 3a (variables and events) is built, see "Stage 3 as built".
 
 ## Open decisions
 
@@ -92,6 +93,21 @@ position but no gear, lights or flaps; one identity per track (later identity ch
 ignored by the loader); only the first chunk is a keyframe; the file is written on the sim thread (a chunk of about 8 KB every
 2 s) and flushed to the operating system, not to disk, until it is finished; a `.jfs2` is not saved again as `.jfs2`
 (Save writes `.jfs`); an overdub is not captured. Not tested in a simulator yet.
+
+## Stage 3 as built
+
+Stage 3 goes in slices, each leaving a working recorder.
+
+- **3a, variables and events** (2026-10-12, not yet tested in a simulator). `Jfs2Capture.Variables` keeps the last value it wrote
+  for each variable of a track and stores only the changes (spec 7.6: the first call of a track is the full set; a call
+  with no change writes nothing; more than 255 entries split into records of the same time; floats compare bit for bit).
+  `Jfs2Capture.Event` writes `event`. `Recorder.Record(..)` for events and the three variable dictionaries tee into them.
+  `Jfs2Loader` turns each `variables` record into up to three old frames (integers, floats, strings) holding only what the
+  record changed, and an `event` into a `SimEventFrame`; the old player merges them, which is how an upsert reads. A played
+  `.jfs2` now has gear, lights and flaps. The three dictionaries of one sample are three records (the old call sites record
+  them one by one); merging them into one is a size saving for later.
+- Still to do: 3b `object-position` and non-aircraft objects; identity changes during a track; 3c the track-state tracker,
+  keyframes every ~10 s and the Index-driven Jump; 3d the chunk-by-chunk player with a prefetch thread.
 
 ## What the code check found (beyond the design)
 
