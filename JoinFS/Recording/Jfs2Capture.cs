@@ -9,7 +9,7 @@ namespace JoinFS.Recording
     /// <summary>
     /// Writes a recording as a JFS2 file while it is made (docs/jfs2/recorder-v2-design.md section 5.5). It takes canonical
     /// messages and times in recording seconds, and knows nothing of Sim or Main, so it is testable without a simulator.
-    /// Writes track-open, identity, position, variables and event.
+    /// Writes track-open, identity, position, object-position, variables and event.
     /// </summary>
     /// <remarks>
     /// Runs on the thread that produces the records (the sim thread) and writes a chunk, about 8 KB, every couple of
@@ -43,6 +43,7 @@ namespace JoinFS.Recording
         readonly VariableSyncV1Codec variablesCodec = new();
         readonly EventV1Codec eventCodec = new();
         readonly byte[] variablesBody = new byte[VariableSyncV1Codec.HeaderSize + MaxVariablesPerRecord * VariableSyncV1Codec.MaxEntrySize];
+        readonly byte[] objectPositionBody = new byte[ObjectPositionV1Codec.Size];
         readonly byte[] eventBody = new byte[EventV1Codec.Size];
         /// <summary>What the last variables record of each track left, so only changes are written (spec 7.6).</summary>
         readonly Dictionary<uint, VariableState> variableStates = [];
@@ -66,6 +67,7 @@ namespace JoinFS.Recording
 
         public int TrackCount { get; private set; }
         public int PositionCount { get; private set; }
+        public int ObjectPositionCount { get; private set; }
         public int VariableRecordCount { get; private set; }
         public int EventCount { get; private set; }
 
@@ -146,6 +148,30 @@ namespace JoinFS.Recording
                 writer.Add(kinds.Position, track, time, positionBody);
                 lastTime[track] = time;
                 PositionCount++;
+                EndChunkIfDue();
+            }
+            catch (Exception ex)
+            {
+                Fail(ex);
+            }
+        }
+
+        /// <summary>Adds a position sample of an open track that is not an aircraft (spec 7.2). Time and object id are set as for <see cref="Position"/>.</summary>
+        public void ObjectPosition(uint track, double seconds, ref ObjectPositionUpdate position)
+        {
+            if (Failed || finished || !lastTime.ContainsKey(track))
+            {
+                return;
+            }
+            try
+            {
+                long time = TimeOf(track, seconds);
+                position.ObjectId = track;
+                position.NetTime = time / 1e6;
+                ObjectPositionV1Codec.Encode(position, objectPositionBody);
+                writer.Add(kinds.ObjectPosition, track, time, objectPositionBody);
+                lastTime[track] = time;
+                ObjectPositionCount++;
                 EndChunkIfDue();
             }
             catch (Exception ex)

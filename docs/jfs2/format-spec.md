@@ -5,7 +5,7 @@
 a reader and a writer must follow. It does not say why the format looks this way
 (`recorder-v2-design.md`), nor how the code is organised or delivered. The container (§1 to §6, §8,
 §9) is implemented by `JoinFS.Recording.Format`; of the record kinds of §7 the engine writes and reads
-`track-open`, `track-close`, `identity`, `position`, `variables` and `event` so far (`JoinFS/Recording/`).
+`track-open`, `track-close`, `identity`, `position`, `object-position`, `variables` and `event` so far (`JoinFS/Recording/`).
 
 Key words **MUST**, **SHOULD** and **MAY** have their usual meaning (RFC 2119).
 

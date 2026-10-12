@@ -36,12 +36,13 @@ namespace JoinFS.Recording
             (Jfs2Kinds.TrackClose, Jfs2Kinds.TrackCloseVersion),
             (Jfs2Kinds.Identity, Jfs2Kinds.IdentityVersion),
             (Jfs2Kinds.Position, Jfs2Kinds.PositionVersion),
+            (Jfs2Kinds.ObjectPosition, Jfs2Kinds.ObjectPositionVersion),
             (Jfs2Kinds.Variables, Jfs2Kinds.VariablesVersion),
             (Jfs2Kinds.Event, Jfs2Kinds.EventVersion),
         ];
 
         /// <summary>Kinds without which a recording shows nothing (spec 8.2).</summary>
-        static readonly string[] Essential = [Jfs2Kinds.TrackOpen, Jfs2Kinds.Identity, Jfs2Kinds.Position, "object-position"];
+        static readonly string[] Essential = [Jfs2Kinds.TrackOpen, Jfs2Kinds.Identity, Jfs2Kinds.Position, Jfs2Kinds.ObjectPosition];
 
         /// <exception cref="InvalidOperationException">The file is not a JFS2 file this build can play; the message says why.</exception>
         public static Result Load(Stream stream)
@@ -143,6 +144,15 @@ namespace JoinFS.Recording
                                 }
                                 break;
 
+                            case Jfs2Kinds.ObjectPosition:
+                                if (tracks.TryGetValue(entry.Track, out Track objectTrack))
+                                {
+                                    Sim.ObjectPositionVelocity data = SimMessageMapper.ToPositionVelocity(ObjectPositionV1Codec.Decode(entry.Body.Span));
+                                    objectTrack.Frames.Add(new Recorder.ObjectPositionFrame(entry.Time / 1e6, ref data));
+                                    objectTrack.PositionCount++;
+                                }
+                                break;
+
                             case Jfs2Kinds.Variables:
                                 if (tracks.TryGetValue(entry.Track, out Track variablesTrack))
                                 {
@@ -176,7 +186,7 @@ namespace JoinFS.Recording
             }
             if (identityChanges > 0)
             {
-                notes.Add(identityChanges + " identity changes were ignored; each aircraft plays with the identity it opened with.");
+                notes.Add(identityChanges + " identity changes were ignored; each object plays with the identity it opened with.");
             }
             foreach (var count in skipped.OrderBy(pair => pair.Key))
             {
@@ -184,7 +194,6 @@ namespace JoinFS.Recording
             }
 
             List<Recorder.Obj> objects = [];
-            int notAircraft = 0;
             foreach (uint id in order)
             {
                 Track track = tracks[id];
@@ -192,18 +201,7 @@ namespace JoinFS.Recording
                 {
                     continue;
                 }
-                if (track.Identity.IsAircraft)
-                {
-                    objects.Add(Build(track));
-                }
-                else
-                {
-                    notAircraft++;
-                }
-            }
-            if (notAircraft > 0)
-            {
-                notes.Add(notAircraft + " objects that are not aircraft were skipped; this build does not play them yet.");
+                objects.Add(Build(track));
             }
 
             if (objects.Count == 0)
@@ -244,7 +242,9 @@ namespace JoinFS.Recording
         static Recorder.Obj Build(Track track)
         {
             IdentityUpdate id = track.Identity;
-            var obj = new Recorder.Aircraft { plane = id.IsPlane, callsign = id.Callsign, nickname = track.Nickname };
+            Recorder.Obj obj = id.IsAircraft
+                ? new Recorder.Aircraft { plane = id.IsPlane, callsign = id.Callsign, nickname = track.Nickname }
+                : new Recorder.Obj();
             obj.model = id.Model;
             obj.livery = id.Livery;
             obj.icaoType = id.IcaoType;

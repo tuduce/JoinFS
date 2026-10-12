@@ -19,7 +19,7 @@ truncation, random corruption). Not wired into the app.
 `MessageClasses` are now the standalone library `JoinFS.Messages/` (same namespaces, no call site
 changed; 1129 tests pass; all six build configurations compile).
 **Stage 2, the tracer bullet, is built** (2026-10-12, in-sim playback confirmed; see "Stage 2 as built").
-**Stage 3 is under way** in slices; slice 3a (variables and events) is built, see "Stage 3 as built".
+**Stage 3 is under way** in slices; slices 3a (variables and events) and 3b (object-position) are built, see "Stage 3 as built".
 
 ## Open decisions
 
@@ -106,7 +106,13 @@ Stage 3 goes in slices, each leaving a working recorder.
   record changed, and an `event` into a `SimEventFrame`; the old player merges them, which is how an upsert reads. A played
   `.jfs2` now has gear, lights and flaps. The three dictionaries of one sample are three records (the old call sites record
   them one by one); merging them into one is a size saving for later.
-- Still to do: 3b `object-position` and non-aircraft objects; identity changes during a track; 3c the track-state tracker,
+- **3b, `object-position` and non-aircraft objects** (2026-10-12, not yet tested in a simulator). `ObjectPositionV1Codec`
+  (`JoinFS/Recording/`, 89 bytes, spec 7.2; private to the recorder, so not in `JoinFS.Messages`). Every recorded object now
+  gets a track (`Recorder.OpenJfs2Track` takes a `Sim.Obj`), `Jfs2Capture.ObjectPosition` writes its samples, and
+  `Jfs2Loader` turns a track whose identity is not an aircraft into a plain `Recorder.Obj` with `ObjectPositionFrame`s, so
+  boats and vehicles play instead of being skipped. `SimMessageMapper.ToObjectPositionUpdate` got an overload that takes the id,
+  time and flags (the recorder has no `Sim.Obj` to read them from).
+- Still to do: identity changes during a track; 3c the track-state tracker,
   keyframes every ~10 s and the Index-driven Jump; 3d the chunk-by-chunk player with a prefetch thread.
 
 ## What the code check found (beyond the design)

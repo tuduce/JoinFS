@@ -447,4 +447,92 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
 
         Assert.Contains("nothing that can be played", ex.Message);
     }
+
+    // ---- stage 3: object-position and objects that are not aircraft ----
+
+    static ObjectPositionUpdate ObjectPosition(double step) => new()
+    {
+        Latitude = 51.0 + step * 0.001,
+        Longitude = -0.5,
+        Altitude = 12.5,
+        Pitch = 0.01f,
+        Bank = 0.02f,
+        Heading = 3.0f,
+        VelocityX = 1,
+        VelocityY = 2,
+        VelocityZ = 3,
+        AngularVelocityX = 4,
+        AngularVelocityY = 5,
+        AngularVelocityZ = 6,
+        AccelerationX = 7,
+        AccelerationY = 8,
+        AccelerationZ = 9,
+        Height = 2.5f,
+        StateFlags = PositionStateFlags.OnGround | PositionStateFlags.Paused,
+    };
+
+    [Fact]
+    public void ObjectPositionBody_Is89BytesAndRoundTripsEveryField()
+    {
+        var original = ObjectPosition(3);
+        original.ObjectId = 77;
+        original.NetTime = 12.25;
+        byte[] body = new byte[ObjectPositionV1Codec.Size];
+
+        Assert.Equal(89, ObjectPositionV1Codec.Encode(original, body));
+        var decoded = ObjectPositionV1Codec.Decode(body);
+
+        Assert.Equal(original, decoded);
+        Assert.Equal(1, body[88] & 1); // OnGround is the low bit of the last byte, spec 7.2
+        Assert.Throws<FormatException>(() => ObjectPositionV1Codec.Decode(body.AsSpan(0, 88)));
+        Assert.Equal(original, ObjectPositionV1Codec.Decode([.. body, 1, 2]));
+    }
+
+    [Fact]
+    public void ABoat_RecordsAndPlaysNextToAnAircraft()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(1, 0.0, TrackOwner.Local, "me", "x", "", Identity("A", "Cessna"));
+        capture.OpenTrack(2, 0.0, TrackOwner.Network, "other", "x", "", Identity("", "Ferry", aircraft: false));
+        for (int i = 0; i < 20; i++)
+        {
+            PositionUpdate a = Position(i);
+            capture.Position(1, i * 0.1, ref a);
+            ObjectPositionUpdate b = ObjectPosition(i);
+            capture.ObjectPosition(2, i * 0.1, ref b);
+        }
+        capture.Variables(2, 1.0, new Dictionary<uint, int> { [5] = 1 }, null, null);
+        capture.Finish();
+
+        Assert.False(capture.Failed, string.Join(" ", logged));
+        Assert.Equal(20, capture.ObjectPositionCount);
+        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
+
+        Assert.Empty(result.Notes);
+        Assert.Equal(2, result.Objects.Count);
+        Assert.IsType<Recorder.Aircraft>(result.Objects[0]);
+        var boat = result.Objects[1];
+        Assert.IsNotType<Recorder.Aircraft>(boat);
+        Assert.Equal(("Ferry", Sim.Obj.Owner.Recorder), (boat.model, boat.owner));
+        var frames = boat.frames.OfType<Recorder.ObjectPositionFrame>().ToArray();
+        Assert.Equal(20, frames.Length);
+        Assert.Equal(51.005, frames[5].data.latitude, 9);
+        Assert.Equal(0.5, frames[5].time, 5);
+        Assert.Equal(1, frames[5].data.ground);
+        Assert.Equal(2.5f, frames[5].data.height);
+        Assert.Equal(9f, frames[5].data.accelerationZ);
+        Assert.Single(boat.frames.OfType<Recorder.IntegerVariablesFrame>());
+    }
+
+    [Fact]
+    public void ObjectPositionOfATrackThatWasNeverOpened_IsIgnored()
+    {
+        var capture = NewCapture();
+        ObjectPositionUpdate p = ObjectPosition(0);
+        capture.ObjectPosition(9, 1.0, ref p);
+        capture.Finish();
+
+        Assert.False(capture.Failed);
+        Assert.Equal(0, capture.ObjectPositionCount);
+    }
 }

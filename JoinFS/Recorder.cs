@@ -1177,6 +1177,13 @@ namespace JoinFS
                 // add position velocity frame
                 obj.frames.Add(new ObjectPositionFrame(objTime + obj.timeOffset, ref positionVelocity));
                 IncrementRecordFrameCount(FrameType.ObjectPosition);
+
+                // and to the JFS2 file (flags: the old format keeps only on-ground)
+                if (jfs2 != null)
+                {
+                    ObjectPositionUpdate update = SimMessageMapper.ToObjectPositionUpdate(obj.id, objTime + obj.timeOffset, ref positionVelocity, positionVelocity.ground != 0 ? PositionStateFlags.OnGround : PositionStateFlags.None);
+                    jfs2.ObjectPosition(obj.id, objTime + obj.timeOffset, ref update);
+                }
             }
         }
 
@@ -1284,13 +1291,13 @@ namespace JoinFS
             {
                 // create recorded aircraft
                 simObject.recorderObj = new Aircraft(simAircraft is Sim.Plane, simAircraft.flightPlan.callsign, main.network.Peers.GetNodeName(simAircraft.ownerNuid), simAircraft.ownerModel, simAircraft.ownerLivery, simAircraft.ownerIcaoType, simAircraft.ownerIcaoAirline, simAircraft.typerole, simAircraft.owner);
-                OpenJfs2Track(simAircraft, simObject.recorderObj.id);
             }
             else
             {
                 // create recorded object
                 simObject.recorderObj = new Obj(simObject.ownerModel, simObject.ownerLivery, simObject.ownerIcaoType, simObject.ownerIcaoAirline, simObject.typerole, simObject.owner);
             }
+            OpenJfs2Track(simObject, simObject.recorderObj.id);
             // add to list
             objList.Add(simObject.recorderObj);
         }
@@ -1329,19 +1336,19 @@ namespace JoinFS
         string SimulatorLabel() => main.sim != null && main.sim.Connected ? main.sim.GetSimulatorName() : "";
 
         /// <summary>
-        /// Open the JFS2 track of a recorded aircraft
+        /// Open the JFS2 track of a recorded object
         /// </summary>
-        void OpenJfs2Track(Sim.Aircraft aircraft, uint track)
+        void OpenJfs2Track(Sim.Obj simObject, uint track)
         {
             if (jfs2 != null)
             {
-                TrackOwner owner = aircraft.owner switch
+                TrackOwner owner = simObject.owner switch
                 {
                     Sim.Obj.Owner.Network => TrackOwner.Network,
                     Sim.Obj.Owner.Recorder => TrackOwner.Recorded,
                     _ => TrackOwner.Local,
                 };
-                jfs2.OpenTrack(track, Time, owner, main.network.Peers.GetNodeName(aircraft.ownerNuid), "JoinFS " + Main.Version, SimulatorLabel(), SimMessageMapper.BuildIdentity(aircraft, track));
+                jfs2.OpenTrack(track, Time, owner, main.network.Peers.GetNodeName(simObject.ownerNuid), "JoinFS " + Main.Version, SimulatorLabel(), SimMessageMapper.BuildIdentity(simObject, track));
             }
         }
 
@@ -1357,7 +1364,7 @@ namespace JoinFS
                 finished.Finish();
                 if (!finished.Failed)
                 {
-                    main.MonitorEvent("Recorder: wrote the JFS2 recording '" + finished.Path + "' (" + finished.TrackCount + " aircraft, " + finished.PositionCount + " positions, " + finished.VariableRecordCount + " variable records, " + finished.EventCount + " events).");
+                    main.MonitorEvent("Recorder: wrote the JFS2 recording '" + finished.Path + "' (" + finished.TrackCount + " objects, " + finished.PositionCount + " aircraft positions, " + finished.ObjectPositionCount + " object positions, " + finished.VariableRecordCount + " variable records, " + finished.EventCount + " events).");
                 }
             }
         }
