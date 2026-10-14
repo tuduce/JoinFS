@@ -645,6 +645,21 @@
   <data name="Opened, but part of the file is damaged: {0}" xml:space="preserve">
     <value>Aberto, mas parte do arquivo está danificada: {0}</value>
   </data>
+  <data name="Unsaved recording found" xml:space="preserve">
+    <value>Gravação não salva encontrada</value>
+  </data>
+  <data name="A recording from {0} ({1} KB) was never saved, for example because JoinFS closed unexpectedly. Recover it?" xml:space="preserve">
+    <value>Uma gravação de {0} ({1} KB) nunca foi salva, por exemplo porque o JoinFS foi fechado inesperadamente. Recuperá-la?</value>
+  </data>
+  <data name="Recover" xml:space="preserve">
+    <value>Recuperar</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Excluir</value>
+  </data>
+  <data name="The recording could not be recovered: {0}" xml:space="preserve">
+    <value>Não foi possível recuperar a gravação: {0}</value>
+  </data>
   <data name="Open..." xml:space="preserve">
     <value>Abrir...</value>
   </data>

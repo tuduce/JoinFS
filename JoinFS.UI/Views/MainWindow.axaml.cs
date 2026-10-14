@@ -77,6 +77,10 @@ public partial class MainWindow : Window
         // A first run starts expanded, for the welcome card; the window grows from its corner like any expand.
         if (_viewModel?.IsExpanded == true)
             BeginResize(expanded: true);
+
+        // a recording that was never saved is offered back
+        if (_viewModel is { } viewModel)
+            _ = viewModel.Recorder.OfferRecoveryAsync();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)

@@ -984,6 +984,7 @@ namespace JoinFS
                     main.MonitorEvent(message);
                     return;
                 }
+                main.InvokeOnSim(sim => { main.recorder.DiscardWorkingFile(); return true; });
                 // save folder
                 Settings.Default.RecordingFolder = Path.GetDirectoryName(dialog.FileName);
                 // now saved
@@ -1013,6 +1014,7 @@ namespace JoinFS
             try
             {
                 string path = main.recorder.AutoSave(main.documentsPath, objects, DateTime.Now);
+                main.InvokeOnSim(sim => { main.recorder.DiscardWorkingFile(); return true; });
                 main.MonitorEvent("Recorder: auto-saved the previous recording to '" + path + "'.");
                 ShowRecordingSaved(path);
                 unsaved = false;

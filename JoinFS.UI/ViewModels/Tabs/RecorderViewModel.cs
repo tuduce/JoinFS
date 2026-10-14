@@ -629,9 +629,58 @@ public sealed partial class RecorderViewModel : ObservableObject
         return await ask.Result switch
         {
             ConfirmChoice.Yes => await SaveCoreAsync(),
-            ConfirmChoice.No => true,
+            ConfirmChoice.No => GiveUp(),
             _ => false,
         };
+    }
+
+    /// <summary>The user does not want the recording that was not saved: what is kept on disk for it goes too.</summary>
+    private bool GiveUp()
+    {
+        _source.DiscardUnsaved();
+        _unsaved = false;
+        return true;
+    }
+
+    /// <summary>
+    /// At start-up, offers the recordings that were never saved (JoinFS crashed, or was closed without saving), newest first:
+    /// recover it (which stops the offers; the others are offered the next time), delete it, or decide later.
+    /// </summary>
+    public async Task OfferRecoveryAsync()
+    {
+        if (Mode != RecorderMode.Idle || HasUnsavedRecording)
+            return;
+
+        foreach (UnsavedRecording found in _source.FindUnsavedRecordings())
+        {
+            ConfirmViewModel ask = new(Loc.T("Unsaved recording found"),
+                Loc.F("A recording from {0} ({1} KB) was never saved, for example because JoinFS closed unexpectedly. Recover it?",
+                    found.Written.ToString("g", CultureInfo.CurrentCulture), Math.Max(1, found.Bytes / 1024)),
+                Loc.T("Recover"), Loc.T("Delete"));
+            _shell.ShowOverlay(ask);
+            switch (await ask.Result)
+            {
+                case ConfirmChoice.Yes:
+                    try
+                    {
+                        string warning = await _source.RecoverAsync(found.Path);
+                        _unsaved = true;
+                        Status = warning.Length > 0 ? Loc.F("Opened, but part of the file is damaged: {0}", warning) : "";
+                    }
+                    catch (Exception ex)
+                    {
+                        Status = Loc.F("The recording could not be recovered: {0}", ex.Message);
+                        _shell.ShowOverlay(new MessageViewModel(Loc.T("Recorder"), Status));
+                    }
+                    Refresh();
+                    return;
+                case ConfirmChoice.No:
+                    _source.DeleteUnsaved(found.Path);
+                    break;
+                default:
+                    return;
+            }
+        }
     }
 
     /// <summary>hh:mm:ss, like the prototype's readout.</summary>

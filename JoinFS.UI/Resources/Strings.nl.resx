@@ -645,6 +645,21 @@
   <data name="Opened, but part of the file is damaged: {0}" xml:space="preserve">
     <value>Geopend, maar een deel van het bestand is beschadigd: {0}</value>
   </data>
+  <data name="Unsaved recording found" xml:space="preserve">
+    <value>Niet-opgeslagen opname gevonden</value>
+  </data>
+  <data name="A recording from {0} ({1} KB) was never saved, for example because JoinFS closed unexpectedly. Recover it?" xml:space="preserve">
+    <value>Een opname van {0} ({1} KB) is nooit opgeslagen, bijvoorbeeld doordat JoinFS onverwacht werd afgesloten. Herstellen?</value>
+  </data>
+  <data name="Recover" xml:space="preserve">
+    <value>Herstellen</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Verwijderen</value>
+  </data>
+  <data name="The recording could not be recovered: {0}" xml:space="preserve">
+    <value>De opname kon niet worden hersteld: {0}</value>
+  </data>
   <data name="Open..." xml:space="preserve">
     <value>Openen...</value>
   </data>

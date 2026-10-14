@@ -167,13 +167,23 @@ format switches over first.
   (`BuildAutoSaveFileName` now ends in `.jfs2`), the WinForms Save dialog and the Avalonia `SaveAsync` all use it; the save dialogs offer
   `.jfs2` only. Open still reads both. A recording edited in memory (trim, append, overdub, remove, skip) therefore saves as `.jfs2`
   with the edits. Consequences: the file saved is built from the old objects, so it has the exporter's limits (identity changes made
-  during the live capture are not in it, ICAO strings cut to 8 bytes), and the live capture's own working file
-  (`<date>_<time>_recording.jfs2`) still stays in the documents folder beside the saved one: deleting it, and offering it after a crash,
-  is the working-file decision still open. The old `Recorder.Write` (the `.jfs` writer) is no longer called by the app.
+  during the live capture are not in it, ICAO strings cut to 8 bytes). The live capture's own working file is dealt with in 5c. The old `Recorder.Write` (the `.jfs` writer) is no longer called by the app.
 - **5b, a damaged file is announced in the new UI** (2026-10-14). `Jfs2Loader.Result.Warnings` holds the notes the user should see (lost
   chunks, unreadable records, kinds this build does not play); the identity note stays in the log. `Recorder.Parse(reader, warnings)`
   collects them, `IRecorderSource.OpenAsync` returns them as text, and the Recorder tab shows "Opened, but part of the file is damaged: ..."
   in its status and in a message overlay. The recording still plays. The WinForms recorder form does not show it (it goes away).
+
+- **5c, the working file** (2026-10-14, decided with the owner: delete on save). The live capture now writes to
+  `<documents>/Working/<date>_<time>_recording.jfs2`, not beside the saved recordings. `Recorder` remembers it (`workingFile`) and deletes
+  it when the recording is saved (`LiveRecorderSource` and the WinForms save call `DiscardWorkingFile`), when the user answers "Don't
+  save" (`IRecorderSource.DiscardUnsaved`), when another recording replaces it (`Load`, a new `StartRecord`), and at once when a take
+  recorded nothing. A recording opened from a file has no working file. The recording being held is never offered as a leftover.
+- **5d, recovery at start-up** (2026-10-14). `MainWindow.OnOpened` calls `RecorderViewModel.OfferRecoveryAsync`: for each leftover file in
+  `Working/`, newest first, "Unsaved recording found ... Recover it?" with Recover, Delete, or the cross to decide later. A file another
+  JoinFS is writing is skipped (it cannot be opened exclusively). Recover loads the file as it is (the loader reads unfinished files up to
+  the last good chunk and says what is damaged), plays it, and marks it unsaved; saving it removes the leftover. After one recovery the
+  offers stop, so recovering cannot replace itself; the others come at the next start. A leftover is always a recording the user did not
+  decide about: a crash, a force-quit, or the WinForms window (which does not ask).
 
 
 ## What the code check found (beyond the design)

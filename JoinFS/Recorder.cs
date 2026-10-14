@@ -1324,19 +1324,88 @@ namespace JoinFS
         void StartJfs2Capture()
         {
             jfs2 = null;
+            DiscardWorkingFile();
             if (!main.settingsJfs2Capture)
             {
                 return;
             }
             try
             {
-                string path = UniquePath(main.documentsPath, Path.ChangeExtension(BuildAutoSaveFileName(DateTime.Now, ""), Jfs2.Extension));
+                string folder = WorkingFolder(main.documentsPath);
+                Directory.CreateDirectory(folder);
+                string path = UniquePath(folder, BuildAutoSaveFileName(DateTime.Now, ""));
                 jfs2 = Jfs2Capture.Create(path, "JoinFS " + Main.Version, SimulatorLabel(), DateTime.UtcNow, main.MonitorEvent);
-                main.MonitorEvent("Recorder: writing the JFS2 recording '" + path + "'.");
+                workingFile = path;
+                main.MonitorEvent("Recorder: writing the working file '" + path + "'.");
             }
             catch (Exception ex)
             {
                 main.MonitorEvent("Recorder: cannot write a JFS2 recording (" + ex.Message + "); recording without it.");
+            }
+        }
+
+        /// <summary>
+        /// Where the files of recordings in progress are kept: the live capture writes there from the first second, so a crash
+        /// loses at most the last seconds, and the file goes when the recording is saved or thrown away. What is left there at
+        /// the next start is a recording that was never saved.
+        /// </summary>
+        public const string WorkingFolderName = "Working";
+
+        public static string WorkingFolder(string documentsPath) => Path.Combine(documentsPath, WorkingFolderName);
+
+        /// <summary>
+        /// The working file of the recording the recorder holds, or null (the recording was opened from a file, or has been saved)
+        /// </summary>
+        string workingFile;
+
+        /// <summary>
+        /// The recording has been saved (or its owner let it go), so its working file is not needed any more - sim thread
+        /// </summary>
+        public void DiscardWorkingFile()
+        {
+            string path = workingFile;
+            workingFile = null;
+            if (path != null)
+            {
+                TryDeleteQuietly(path);
+            }
+        }
+
+        /// <summary>
+        /// The working files left behind by recordings that were never saved (a crash, or a window closed without saving),
+        /// oldest first. The one of the recording being held is not among them, nor is one another JoinFS is still writing - any thread
+        /// </summary>
+        public List<string> FindUnsavedWorkingFiles(string documentsPath)
+        {
+            string folder = WorkingFolder(documentsPath);
+            if (!Directory.Exists(folder))
+            {
+                return [];
+            }
+            string current = workingFile;
+            return Directory.EnumerateFiles(folder, "*" + Jfs2.Extension)
+                .Where(path => !string.Equals(path, current, StringComparison.OrdinalIgnoreCase) && !InUse(path))
+                .OrderBy(path => File.GetLastWriteTimeUtc(path))
+                .ToList();
+        }
+
+        /// <summary>
+        /// A file that cannot be opened exclusively is being written by someone, for example another JoinFS on this machine
+        /// </summary>
+        static bool InUse(string path)
+        {
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+                return false;
+            }
+            catch (IOException)
+            {
+                return true;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return true;
             }
         }
 
@@ -1383,7 +1452,12 @@ namespace JoinFS
                 Jfs2Capture finished = jfs2;
                 jfs2 = null;
                 finished.Finish();
-                if (!finished.Failed)
+                if (finished.PositionCount + finished.ObjectPositionCount == 0)
+                {
+                    // nothing to play, nothing to recover
+                    DiscardWorkingFile();
+                }
+                else if (!finished.Failed)
                 {
                     main.MonitorEvent("Recorder: wrote the JFS2 recording '" + finished.Path + "' (" + finished.TrackCount + " objects, " + finished.PositionCount + " aircraft positions, " + finished.ObjectPositionCount + " object positions, " + finished.VariableRecordCount + " variable records, " + finished.EventCount + " events, " + finished.IdentityChangeCount + " identity changes).");
                 }
@@ -2243,7 +2317,7 @@ namespace JoinFS
         /// <summary>
         /// Replace the recording with parsed objects, or append them after its end (sim thread)
         /// </summary>
-        public void Load(List<Obj> objects, bool append)
+        public void Load(List<Obj> objects, bool append, string recoveredFrom = null)
         {
             if (objects == null)
             {
@@ -2265,10 +2339,16 @@ namespace JoinFS
             }
             else
             {
-                // clear all aircraft
+                // clear all aircraft; the recording that is replaced is saved or given up, so its working file goes
                 objList.Clear();
+                DiscardWorkingFile();
             }
             objList.AddRange(objects);
+            // a recording recovered from its working file stays unsaved until it is saved, which then removes that file
+            if (!append && recoveredFrom != null)
+            {
+                workingFile = recoveredFrom;
+            }
             PublishStatus();
         }
 

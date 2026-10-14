@@ -586,6 +586,35 @@ public sealed class FakeRecorderSource : IRecorderSource
         return Task.FromResult(path.Contains("damaged", StringComparison.OrdinalIgnoreCase) ? "Damaged recording: A chunk could not be read. (at byte 180561)." : "");
     }
 
+    /// <summary>What <see cref="FindUnsavedRecordings"/> finds; a test puts recordings here.</summary>
+    public List<UnsavedRecording> Unsaved { get; } = [];
+
+    public IReadOnlyList<UnsavedRecording> FindUnsavedRecordings() => [.. Unsaved];
+
+    public Task<string> RecoverAsync(string path)
+    {
+        Calls.Add("recover " + path);
+        if (path.Contains("bad", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("This recording holds nothing that can be played.");
+        Unsaved.RemoveAll(u => u.Path == path);
+        _aircraft = [.. SampleData.LoadedRecordList.Select((a, i) => a with { Id = "r" + i })];
+        _end = 92;
+        LoadedRecordingName = "";
+        _recording = false;
+        _playing = true;
+        _paused = false;
+        _time = 0;
+        return Task.FromResult("");
+    }
+
+    public void DeleteUnsaved(string path)
+    {
+        Calls.Add("delete " + path);
+        Unsaved.RemoveAll(u => u.Path == path);
+    }
+
+    public void DiscardUnsaved() => Calls.Add("discard");
+
     public Task SaveAsync(string path)
     {
         Calls.Add("save " + path);

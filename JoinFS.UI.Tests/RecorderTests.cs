@@ -467,6 +467,101 @@ public class RecorderTests
     }
 
     [Fact]
+    public async Task Giving_the_recording_up_tells_the_source_to_drop_what_it_kept()
+    {
+        Rig rig = new();
+        RecorderViewModel recorder = Open(rig);
+        await recorder.ToggleRecordingCommand.ExecuteAsync(null);
+        recorder.StopCommand.Execute(null);
+
+        Task again = recorder.ToggleRecordingCommand.ExecuteAsync(null);
+        ((ConfirmViewModel)rig.Main.Overlay!).NoCommand.Execute(null);
+        await again;
+
+        Assert.Contains("discard", Source(rig).Calls);
+    }
+
+    // ---- recordings that were never saved, found at start-up
+
+    static UnsavedRecording Unsaved(string name, int hour) => new(@"C:\Docs\Working\" + name, new DateTime(2026, 10, 14, hour, 0, 0), 300 * 1024);
+
+    [Fact]
+    public async Task Nothing_is_offered_when_nothing_was_left()
+    {
+        Rig rig = new();
+
+        await Open(rig).OfferRecoveryAsync();
+
+        Assert.Null(rig.Main.Overlay);
+    }
+
+    [Fact]
+    public async Task A_recording_that_was_left_can_be_recovered_and_is_then_unsaved()
+    {
+        Rig rig = new();
+        Source(rig).Unsaved.Add(Unsaved("a.jfs2", 14));
+        RecorderViewModel recorder = Open(rig);
+
+        Task offer = recorder.OfferRecoveryAsync();
+        ConfirmViewModel ask = Assert.IsType<ConfirmViewModel>(rig.Main.Overlay);
+        Assert.Contains("300 KB", ask.Message);
+        ask.YesCommand.Execute(null);
+        await offer;
+
+        Assert.Contains(@"recover C:\Docs\Working\a.jfs2", Source(rig).Calls);
+        Assert.True(recorder.HasUnsavedRecording); // saving it is what removes the leftover file
+        Assert.Equal(RecorderMode.Playing, recorder.Mode);
+    }
+
+    [Fact]
+    public async Task Deleting_a_left_recording_offers_the_next_one_and_recovering_stops_the_offers()
+    {
+        Rig rig = new();
+        Source(rig).Unsaved.AddRange([Unsaved("new.jfs2", 15), Unsaved("old.jfs2", 9), Unsaved("older.jfs2", 8)]); // newest first, as the source lists them
+        RecorderViewModel recorder = Open(rig);
+
+        Task offer = recorder.OfferRecoveryAsync();
+        ((ConfirmViewModel)rig.Main.Overlay!).NoCommand.Execute(null); // delete the newest
+        for (int i = 0; i < 200 && rig.Main.Overlay is null; i++)
+            await Task.Delay(10); // the next offer follows the answer on another thread
+        ((ConfirmViewModel)rig.Main.Overlay!).YesCommand.Execute(null); // recover the next
+        await offer;
+
+        Assert.Equal([@"delete C:\Docs\Working\new.jfs2", @"recover C:\Docs\Working\old.jfs2"], Source(rig).Calls.Where(c => c.StartsWith("delete") || c.StartsWith("recover")));
+        Assert.Single(Source(rig).Unsaved); // the third waits for the next start
+    }
+
+    [Fact]
+    public async Task Deciding_later_keeps_the_left_recordings()
+    {
+        Rig rig = new();
+        Source(rig).Unsaved.AddRange([Unsaved("a.jfs2", 14), Unsaved("b.jfs2", 13)]);
+
+        Task offer = Open(rig).OfferRecoveryAsync();
+        rig.Main.Overlay!.Close(); // the cross
+        await offer;
+
+        Assert.Equal(2, Source(rig).Unsaved.Count);
+        Assert.DoesNotContain(Source(rig).Calls, c => c.StartsWith("delete") || c.StartsWith("recover"));
+    }
+
+    [Fact]
+    public async Task A_left_recording_that_cannot_be_recovered_says_so()
+    {
+        Rig rig = new();
+        Source(rig).Unsaved.Add(Unsaved("bad.jfs2", 14));
+        RecorderViewModel recorder = Open(rig);
+
+        Task offer = recorder.OfferRecoveryAsync();
+        ((ConfirmViewModel)rig.Main.Overlay!).YesCommand.Execute(null);
+        await offer;
+
+        Assert.Contains("could not be recovered", recorder.Status);
+        Assert.IsType<MessageViewModel>(rig.Main.Overlay);
+        Assert.False(recorder.HasUnsavedRecording);
+    }
+
+    [Fact]
     public async Task A_save_that_was_cancelled_does_not_start_the_new_recording()
     {
         Rig rig = new();
