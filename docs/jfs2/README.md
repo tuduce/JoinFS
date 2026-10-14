@@ -21,7 +21,7 @@ changed; 1129 tests pass; all six build configurations compile).
 **Stage 2, the tracer bullet, is built** (2026-10-12, in-sim playback confirmed; see "Stage 2 as built").
 **Stage 3 is built**: 3a variables and events, 3b object-position, 3c keyframes, identity changes (see
 "Stage 3 as built"); 3d, the streaming player, moved to stage 5.
-**Stage 4 is partly built** (2026-10-14): `.jfs` to `.jfs2` conversion, in the app and as `JoinFS -convert` (see "Stage 4 as built").
+**Stage 4 is built** (2026-10-14): `.jfs` to `.jfs2` conversion, in the app and as `JoinFS -convert` (see "Stage 4 as built").
 
 ## Open decisions
 
@@ -143,8 +143,25 @@ Code in `JoinFS/Recording/`, tests in `JoinFS.Tests/Recording/Jfs2ImportTests.cs
 - `Jfs2Convert` and `JoinFS -convert a.jfs [b.jfs ...]` write `a.jfs2` beside each file, never overwriting (`a-2.jfs2`) and never
   touching the original. It runs before the application starts, so it needs no simulator. A windowed build attaches to the
   parent console for its report. A file it cannot read is reported and the rest go on; the exit code is 1 if any failed.
-- Open by magic already worked (stage 2: `Recorder.Parse` sniffs the format). Not done yet: `RecordingXRay` still has its own
-  reader; the importer as a separate module.
+- Open by magic already worked (stage 2: `Recorder.Parse` sniffs the format). The in-app reader of old files (`Recorder.Parse`) stays
+  until stage 5 replaces playback; everything else that reads or converts old files uses the importer below.
+- **The standalone library `JoinFS.Recording/`** (2026-10-14; references only `JoinFS.Messages` and `JoinFS.Recording.Format`, no build
+  symbols, same namespace `JoinFS.Recording` as before): the kind bindings (`Jfs2Kinds`), the capture writer (`Jfs2Capture`, moved from
+  `JoinFS/Recording/`), the codec of `object-position`, and three new pieces:
+  - `Jfs2Scene.Load` reads a `.jfs2` into tracks of canonical messages (`SceneTrack`, `ScenePositionFrame`, ...) with the keyframe
+    restore after a lost chunk, the notes and the user-facing warnings. `Jfs2Loader` (in the app) only maps a scene onto `Recorder.Obj`;
+    `RecordingXRay` maps it onto its own model (`Jfs2Reader`) and shows a `.jfs2` like a `.jfs`, label "JFS2".
+  - `Jfs2SceneWriter` writes tracks of canonical messages as a `.jfs2` (frames of all tracks in time order). `Jfs2Exporter` (recorder
+    objects, used by Save) and the importer both end in it.
+  - `LegacyJfsImporter` is the importer of design section 8: the old reader, frozen, with no `Sim` and no `#if`. It parses the file with both
+    layouts of the trailing strings (an FS2024 build wrote livery, ICAO type and airline; any other build only the last two) and accepts the
+    one that validates (known frame types, plausible positions, ends exactly at the end of the file); if both do it takes FS2024 and warns.
+    It reads every frame type on plain objects (recording-protocol 7.2), refuses the eight reserved frame types, and sets
+    `StaticCgToGround` to NaN (the in-app reader leaves 0). `JoinFS -convert` uses it. Corpus test: the importer and the in-app reader
+    agree on all 11 tiger files, and none of them is ambiguous.
+  - `RecordingXRay` keeps its own reader for `.jfs` files: it shows what the old file stores, frame by frame, which a viewer should not
+    pass through canonical messages.
+- Not done yet: the in-app open of a `.jfs` still goes through `Recorder.Parse`; stage 5 replaces it with importer then `Jfs2Loader`'s mapping.
 - `JoinFS.Recording.Tool/` (2026-10-14) builds `jfs2`, a command-line tool that uses only the format library: `jfs2 dump [--records] f`,
   `jfs2 verify f` (reads every chunk, exit code 1 if anything is wrong), `jfs2 repair f [-o out]` (works on a copy, never overwrites;
   default `<name>-repaired.jfs2`). Tested in `JoinFS.Recording.Format.Tests/ToolTests.cs`.

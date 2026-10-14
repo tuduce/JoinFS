@@ -39,7 +39,7 @@ namespace JoinFS.Recording
                 {
                     output.WriteLine(Convert(file));
                 }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or FormatException or EndOfStreamException)
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException or FormatException or EndOfStreamException)
                 {
                     failures++;
                     output.WriteLine(file + ": not converted: " + ex.Message);
@@ -49,30 +49,32 @@ namespace JoinFS.Recording
         }
 
         /// <summary>Converts one file and describes the result in a line.</summary>
-        /// <exception cref="InvalidOperationException">The file is not a recording this release reads, or holds nothing to play.</exception>
+        /// <exception cref="InvalidOperationException">The file holds nothing to play.</exception>
+        /// <exception cref="InvalidDataException">The file is not a recording the importer reads.</exception>
         public static string Convert(string file)
         {
-            List<Recorder.Obj> objects;
+            LegacyJfsImporter.Result imported;
             using (FileStream stream = File.OpenRead(file))
             {
-                objects = new Recorder(null).Parse(new BinaryReader(stream))
-                    ?? throw new InvalidOperationException("this recording is from a version too old to read");
+                // the old format does not say when it started; the file was last written when the recording ended
+                imported = LegacyJfsImporter.Read(stream, File.GetLastWriteTimeUtc(file));
             }
-            if (!objects.Any(obj => obj.frames.Count > 0))
+            if (!imported.Scene.Tracks.Any(track => track.Frames.Count > 0))
             {
                 throw new InvalidOperationException("the recording holds no frames");
             }
 
-            // the old format does not say when it started; the file was last written when the recording ended
-            double length = objects.Max(obj => obj.frames.Count == 0 ? 0 : obj.frames[^1].time);
-            DateTime start = File.GetLastWriteTimeUtc(file).AddSeconds(-length);
-
             string folder = Path.GetDirectoryName(Path.GetFullPath(file));
             string path = Recorder.UniquePath(folder, Path.ChangeExtension(Path.GetFileName(file), Format.Jfs2.Extension));
-            Jfs2Exporter.Result result = Jfs2Exporter.Write(path, objects, "JoinFS (converted from " + Path.GetFileName(file) + ")", start, _ => { });
+            Jfs2SceneWriter.Result result = Jfs2SceneWriter.Write(path, imported.Scene.Tracks, "JoinFS (converted from " + Path.GetFileName(file) + ")", imported.Scene.StartUtc, _ => { });
 
-            return Path.GetFileName(file) + " -> " + path + " (" + result.Tracks + " objects, " + result.Frames + " frames, "
+            string line = Path.GetFileName(file) + " -> " + path + " (" + result.Tracks + " objects, " + result.Frames + " frames, "
                 + (new FileInfo(file).Length / 1024) + " KB -> " + (new FileInfo(path).Length / 1024) + " KB)";
+            foreach (string warning in imported.Scene.Warnings)
+            {
+                line += Environment.NewLine + "  note: " + warning;
+            }
+            return line;
         }
     }
 }

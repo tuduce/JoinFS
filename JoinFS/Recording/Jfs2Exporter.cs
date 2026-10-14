@@ -7,10 +7,9 @@ using JoinFS.Net.Jfp2.Codecs;
 namespace JoinFS.Recording
 {
     /// <summary>
-    /// Writes recorded objects (<see cref="Recorder.Obj"/>) as a JFS2 file: the importer of docs/jfs2/recorder-v2-design.md section 8.
-    /// The old <c>.jfs</c> reader (<see cref="Recorder.Parse"/>) produces the objects, so every file the current release plays can be
-    /// converted, and a recording that was edited in memory can be saved in the new format. Knows nothing of Main, so it is testable
-    /// without a simulator.
+    /// Writes recorded objects (<see cref="Recorder.Obj"/>) as a JFS2 file, so a recording that was edited in memory can be saved in the new
+    /// format. It maps the objects onto tracks of canonical messages and hands them to <see cref="Jfs2SceneWriter"/>, which the importer of
+    /// old files (<see cref="LegacyJfsImporter"/>) uses too. Knows nothing of Main, so it is testable without a simulator.
     /// </summary>
     public static class Jfs2Exporter
     {
@@ -25,103 +24,79 @@ namespace JoinFS.Recording
         /// <param name="startUtc">When recording time 0 happened, if known; the old format does not say.</param>
         public static Result Write(string path, IReadOnlyList<Recorder.Obj> objects, string app, DateTime startUtc, Action<string> log)
         {
-            Jfs2Capture capture = Jfs2Capture.Create(path, app, "", startUtc, log);
-            try
-            {
-                Result result = Write(capture, objects, app);
-                capture.Finish();
-                if (capture.Failed)
-                {
-                    throw new InvalidOperationException("The JFS2 file could not be written; see the log.");
-                }
-                return result;
-            }
-            catch
-            {
-                capture.Dispose();
-                try { System.IO.File.Delete(path); } catch (System.IO.IOException) { }
-                throw;
-            }
+            List<SceneTrack> tracks = Tracks(objects, out int skipped);
+            Jfs2SceneWriter.Result result = Jfs2SceneWriter.Write(path, tracks, app, startUtc, log);
+            return new Result(result.Tracks, result.Frames, skipped);
         }
 
         /// <summary>Feeds the objects into an open capture, frames of all objects in time order (a chunk may not go back in time, spec 5).</summary>
         public static Result Write(Jfs2Capture capture, IReadOnlyList<Recorder.Obj> objects, string app)
         {
-            // every object with a position gets a track, numbered from 1 in the order of the list
-            List<(Recorder.Obj Obj, uint Track)> tracks = [];
+            List<SceneTrack> tracks = Tracks(objects, out int skipped);
+            Jfs2SceneWriter.Result result = Jfs2SceneWriter.Write(capture, tracks, app);
+            return new Result(result.Tracks, result.Frames, skipped);
+        }
+
+        /// <summary>The objects as tracks of canonical messages; frames that fit no message of their object are counted, not kept.</summary>
+        static List<SceneTrack> Tracks(IReadOnlyList<Recorder.Obj> objects, out int skipped)
+        {
+            skipped = 0;
+            List<SceneTrack> tracks = [];
             foreach (Recorder.Obj obj in objects)
             {
-                if (obj.frames.Any(IsPosition))
+                if (!obj.frames.Any(IsPosition))
                 {
-                    tracks.Add((obj, (uint)tracks.Count + 1));
+                    continue;
                 }
-            }
-
-            // all frames in time order; equal times keep object order, then frame order, so the result is deterministic
-            List<(double Time, int Object, int Index)> order = [];
-            for (int o = 0; o < tracks.Count; o++)
-            {
-                List<Recorder.Frame> frames = tracks[o].Obj.frames;
-                for (int i = 0; i < frames.Count; i++)
+                var track = new SceneTrack
                 {
-                    order.Add((frames[i].time, o, i));
-                }
-            }
-            order.Sort((a, b) =>
-            {
-                int byTime = a.Time.CompareTo(b.Time);
-                if (byTime != 0) return byTime;
-                int byObject = a.Object.CompareTo(b.Object);
-                return byObject != 0 ? byObject : a.Index.CompareTo(b.Index);
-            });
-
-            bool[] opened = new bool[tracks.Count];
-            int written = 0, skipped = 0;
-            foreach (var (time, o, index) in order)
-            {
-                (Recorder.Obj obj, uint track) = tracks[o];
-                if (!opened[o])
+                    Id = (uint)tracks.Count + 1,
+                    Nickname = (obj as Recorder.Aircraft)?.nickname ?? "",
+                    Identity = Identity(obj, (uint)tracks.Count + 1),
+                };
+                foreach (Recorder.Frame frame in obj.frames)
                 {
-                    opened[o] = true;
-                    capture.OpenTrack(track, time, TrackOwner.Recorded, (obj as Recorder.Aircraft)?.nickname ?? "", app, "", Identity(obj, track));
-                }
-
-                Recorder.Frame frame = obj.frames[index];
-                switch (frame)
-                {
-                    case Recorder.AircraftPositionFrame position when obj is Recorder.Aircraft:
+                    SceneFrame mapped = Map(obj, frame);
+                    if (mapped == null)
                     {
-                        Sim.AircraftPosition data = position.data;
-                        PositionUpdate update = SimMessageMapper.ToPositionUpdate(track, time, ref data, data.ground != 0 ? PositionStateFlags.OnGround : PositionStateFlags.None);
-                        capture.Position(track, time, ref update);
-                        break;
-                    }
-                    case Recorder.ObjectPositionFrame position when obj is not Recorder.Aircraft:
-                    {
-                        Sim.ObjectPositionVelocity data = position.data;
-                        ObjectPositionUpdate update = SimMessageMapper.ToObjectPositionUpdate(track, time, ref data, data.ground != 0 ? PositionStateFlags.OnGround : PositionStateFlags.None);
-                        capture.ObjectPosition(track, time, ref update);
-                        break;
-                    }
-                    case Recorder.SimEventFrame sim:
-                        capture.Event(track, time, sim.eventId, sim.data);
-                        break;
-                    case Recorder.IntegerVariablesFrame integers:
-                        capture.Variables(track, time, integers.variables, null, null);
-                        break;
-                    case Recorder.FloatVariablesFrame floats:
-                        capture.Variables(track, time, null, floats.variables, null);
-                        break;
-                    case Recorder.String8VariablesFrame strings:
-                        capture.Variables(track, time, null, null, strings.variables);
-                        break;
-                    default:
                         skipped++;
-                        continue;
+                    }
+                    else
+                    {
+                        track.Frames.Add(mapped);
+                    }
                 }
-                written++;
+                tracks.Add(track);
             }
-            return new Result(tracks.Count, written, skipped);
+            return tracks;
+        }
+
+        static SceneFrame Map(Recorder.Obj obj, Recorder.Frame frame)
+        {
+            double time = frame.time;
+            switch (frame)
+            {
+                case Recorder.AircraftPositionFrame position when obj is Recorder.Aircraft:
+                {
+                    Sim.AircraftPosition data = position.data;
+                    return new ScenePositionFrame(time, SimMessageMapper.ToPositionUpdate(0, time, ref data, data.ground != 0 ? PositionStateFlags.OnGround : PositionStateFlags.None));
+                }
+                case Recorder.ObjectPositionFrame position when obj is not Recorder.Aircraft:
+                {
+                    Sim.ObjectPositionVelocity data = position.data;
+                    return new SceneObjectPositionFrame(time, SimMessageMapper.ToObjectPositionUpdate(0, time, ref data, data.ground != 0 ? PositionStateFlags.OnGround : PositionStateFlags.None));
+                }
+                case Recorder.SimEventFrame sim:
+                    return new SceneEventFrame(time, sim.eventId, sim.data);
+                case Recorder.IntegerVariablesFrame integers:
+                    return new SceneVariablesFrame(time, new VariableSyncUpdate { Entries = SimMessageMapper.ToVariableEntries(integers.variables, null, null) });
+                case Recorder.FloatVariablesFrame floats:
+                    return new SceneVariablesFrame(time, new VariableSyncUpdate { Entries = SimMessageMapper.ToVariableEntries(null, floats.variables, null) });
+                case Recorder.String8VariablesFrame strings:
+                    return new SceneVariablesFrame(time, new VariableSyncUpdate { Entries = SimMessageMapper.ToVariableEntries(null, null, strings.variables) });
+                default:
+                    return null;
+            }
         }
 
         static bool IsPosition(Recorder.Frame frame) => frame.type == Recorder.FrameType.AircraftPosition || frame.type == Recorder.FrameType.ObjectPosition;

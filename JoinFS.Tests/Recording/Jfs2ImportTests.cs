@@ -17,15 +17,15 @@ public sealed class Jfs2ImportTests : IDisposable
     }
 
     /// <summary>The real recordings of the project owner; the test is skipped on a machine that does not have them.</summary>
-    static string CorpusFolder => Environment.GetEnvironmentVariable("JOINFS_JFS_CORPUS") ?? @"C:\Users\crist\Downloads\tiger recordings";
+    internal static string CorpusFolder => Environment.GetEnvironmentVariable("JOINFS_JFS_CORPUS") ?? @"C:\Users\crist\Downloads\tiger recordings";
 
-    static List<Recorder.Obj> ReadJfs(string path)
+    internal static List<Recorder.Obj> ReadJfs(string path)
     {
         using FileStream stream = File.OpenRead(path);
         return new Recorder(null!).Parse(new BinaryReader(stream))!;
     }
 
-    static List<Recorder.Obj> ReadJfs2(string path)
+    internal static List<Recorder.Obj> ReadJfs2(string path)
     {
         using FileStream stream = File.OpenRead(path);
         return Jfs2Loader.Load(stream).Objects;
@@ -55,7 +55,7 @@ public sealed class Jfs2ImportTests : IDisposable
     }
 
     /// <summary>Everything the design promises is the same, as a list of differences; empty when the two play alike.</summary>
-    static List<string> Differences(List<Recorder.Obj> before, List<Recorder.Obj> after)
+    internal static List<string> Differences(List<Recorder.Obj> before, List<Recorder.Obj> after)
     {
         List<string> differences = [];
         // the new loader leaves out objects that never had a position, as the exporter does
@@ -129,7 +129,8 @@ public sealed class Jfs2ImportTests : IDisposable
             if (!Same(p.accelerationX, q.accelerationX) || !Same(p.accelerationY, q.accelerationY) || !Same(p.accelerationZ, q.accelerationZ)) { why = "acceleration"; return false; }
             if (!Near(p.rudder, q.rudder) || !Near(p.elevator, q.elevator) || !Near(p.aileron, q.aileron) || !Near(p.brakeLeft, q.brakeLeft) || !Near(p.brakeRight, q.brakeRight)) { why = "controls"; return false; }
             if (!Same(p.elevation, q.elevation) || p.ground != q.ground) { why = "elevation or ground"; return false; }
-            if (!Same(p.staticCgToGround, q.staticCgToGround)) { why = "staticCgToGround"; return false; }
+            // the in-app reader leaves it 0 for an old file, which never held it; the importer says "no data" with NaN (design section 8)
+            if (!Same(p.staticCgToGround, q.staticCgToGround) && !(float.IsNaN(q.staticCgToGround) && p.staticCgToGround == 0)) { why = "staticCgToGround"; return false; }
             return true;
         }
         if (a is Recorder.ObjectPositionFrame oa && b is Recorder.ObjectPositionFrame ob)
@@ -147,8 +148,8 @@ public sealed class Jfs2ImportTests : IDisposable
 
     static Sim.AircraftPosition Aircraft(int i) => new()
     {
-        latitude = 47.0 + i * 1e-4,
-        longitude = 8.0 - i * 1e-4,
+        latitude = 0.82 + i * 1e-6, // radians, as recorded
+        longitude = 0.14 - i * 1e-6,
         altitude = 500 + i,
         pitch = 0.05f,
         bank = -0.1f,
@@ -166,7 +167,7 @@ public sealed class Jfs2ImportTests : IDisposable
         staticCgToGround = float.NaN,
     };
 
-    static List<Recorder.Obj> MakeRecording()
+    internal static List<Recorder.Obj> MakeRecording()
     {
         var plane = new Recorder.Aircraft(true, "DLH1", "Pilot", "Cessna 172", "Red", "C172", "", 3, Sim.Obj.Owner.Network);
         var boat = new Recorder.Obj("Ferry", "", "", "", 1, Sim.Obj.Owner.Network);
@@ -185,7 +186,7 @@ public sealed class Jfs2ImportTests : IDisposable
             {
                 plane.frames.Add(new Recorder.SimEventFrame(t, 66000, 1));
             }
-            Sim.ObjectPositionVelocity b = new() { latitude = 51 + i * 1e-4, longitude = 1, altitude = 2, heading = 3, height = 1.5f, ground = 1 };
+            Sim.ObjectPositionVelocity b = new() { latitude = 0.89 + i * 1e-6, longitude = 0.02, altitude = 2, heading = 3, height = 1.5f, ground = 1 };
             boat.frames.Add(new Recorder.ObjectPositionFrame(t + 0.01, ref b));
         }
         return [plane, boat, new Recorder.Aircraft(true, "NOPOS", "", "x", "", "", "", 3, Sim.Obj.Owner.Network)];
@@ -280,7 +281,8 @@ public sealed class Jfs2ImportTests : IDisposable
         byte[] original = File.ReadAllBytes(jfs);
         StringWriter output = new();
 
-        Assert.Equal(0, Jfs2Convert.Run([jfs, jfs], output));
+        int code = Jfs2Convert.Run([jfs, jfs], output);
+        Assert.True(code == 0, output.ToString());
 
         Assert.True(File.Exists(Path.Combine(folder, "old.jfs2")));
         Assert.True(File.Exists(Path.Combine(folder, "old-2.jfs2")));

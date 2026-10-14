@@ -56,6 +56,13 @@ namespace JoinFS.Recording
         /// <summary>Identity records that differed from the one a track opened with; a viewer that shows one identity per object ignores them.</summary>
         public int IdentityChanges { get; private set; }
 
+        /// <summary>For the readers in this library (the JFS2 reader here and the importer of old recordings) to fill in what the header holds.</summary>
+        internal void Initialise(DateTime startUtc, IReadOnlyList<KeyValuePair<string, string>> metadata)
+        {
+            StartUtc = startUtc;
+            Metadata = metadata;
+        }
+
         sealed class Building
         {
             public string Nickname = "";
