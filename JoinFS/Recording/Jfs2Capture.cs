@@ -25,11 +25,28 @@ namespace JoinFS.Recording
         /// <summary>The most entries a variables record holds (spec 7.6).</summary>
         const int MaxVariablesPerRecord = 255;
 
-        sealed class VariableState
+        /// <summary>Every fifth chunk (about 10 s) is a keyframe (spec 9.2).</summary>
+        const int ChunksPerKeyframe = 5;
+
+        /// <summary>
+        /// What a keyframe's snapshot needs of a track (spec 6.1): its track-open, its latest identity and position, and the merged
+        /// variables, each with the time of the record it summarises (spec 6.2).
+        /// </summary>
+        sealed class TrackState
         {
             public readonly Dictionary<uint, int> Integers = [];
             public readonly Dictionary<uint, float> Floats = [];
             public readonly Dictionary<uint, string> Strings = [];
+            /// <summary>Time of the latest variables record, which is when a snapshot's variables keep (spec 6.2).</summary>
+            public long VariablesTime;
+            public byte[] Open;
+            public long OpenTime;
+            public byte[] Identity;
+            public long IdentityTime;
+            /// <summary>The latest position or object-position body; null until the track has had one.</summary>
+            public byte[] Position;
+            public uint PositionKind;
+            public long PositionTime;
         }
 
         readonly RecordingWriter writer;
@@ -45,11 +62,14 @@ namespace JoinFS.Recording
         readonly byte[] variablesBody = new byte[VariableSyncV1Codec.HeaderSize + MaxVariablesPerRecord * VariableSyncV1Codec.MaxEntrySize];
         readonly byte[] objectPositionBody = new byte[ObjectPositionV1Codec.Size];
         readonly byte[] eventBody = new byte[EventV1Codec.Size];
-        /// <summary>What the last variables record of each track left, so only changes are written (spec 7.6).</summary>
-        readonly Dictionary<uint, VariableState> variableStates = [];
+        /// <summary>What was written of each open track: the variables so only changes are written (spec 7.6), and the rest for snapshots.</summary>
+        readonly Dictionary<uint, TrackState> states = [];
+        /// <summary>The tracks in the order they opened, which is the order of a snapshot.</summary>
+        readonly List<uint> trackOrder = [];
 
         /// <summary>No record may be earlier than the TMin of the chunk before (spec 5).</summary>
         long floor;
+        int chunksSinceKeyframe;
         bool finished;
 
         Jfs2Capture(RecordingWriter writer, string path, Action<string> log)
@@ -70,6 +90,8 @@ namespace JoinFS.Recording
         public int ObjectPositionCount { get; private set; }
         public int VariableRecordCount { get; private set; }
         public int EventCount { get; private set; }
+        /// <summary>Chunks started as keyframes after the first (which always is one).</summary>
+        public int KeyframeCount { get; private set; }
 
         /// <summary>Creates the file. Throws if it cannot be created.</summary>
         /// <param name="app">For the header's <c>app</c> metadata, for example "JoinFS 26.10".</param>
@@ -113,12 +135,14 @@ namespace JoinFS.Recording
             try
             {
                 long time = TimeOf(track, seconds);
-                writer.Add(kinds.TrackOpen, track, time, new TrackOpenV1(owner, nickname, sourceApp, simulator).Encode());
+                byte[] open = new TrackOpenV1(owner, nickname, sourceApp, simulator).Encode();
+                writer.Add(kinds.TrackOpen, track, time, open);
                 lastTime[track] = time;
-                variableStates[track] = new VariableState();
                 identity = Sanitised(identity, track);
                 int length = identityCodec.Encode(identity, identityBody);
                 writer.Add(kinds.Identity, track, time, identityBody.AsSpan(0, length));
+                states[track] = new TrackState { Open = open, OpenTime = time, Identity = identityBody.AsSpan(0, length).ToArray(), IdentityTime = time };
+                trackOrder.Add(track);
                 writer.SetTrackLabel(track, identity.Callsign, identity.Model);
                 TrackCount++;
                 EndChunkIfDue();
@@ -135,7 +159,7 @@ namespace JoinFS.Recording
         /// </summary>
         public void Position(uint track, double seconds, ref PositionUpdate position)
         {
-            if (Failed || finished || !lastTime.ContainsKey(track))
+            if (Failed || finished || !states.TryGetValue(track, out TrackState state))
             {
                 return;
             }
@@ -146,6 +170,7 @@ namespace JoinFS.Recording
                 position.NetTime = time / 1e6;
                 positionCodec.Encode(position, positionBody);
                 writer.Add(kinds.Position, track, time, positionBody);
+                KeepPosition(state, kinds.Position, time, positionBody);
                 lastTime[track] = time;
                 PositionCount++;
                 EndChunkIfDue();
@@ -159,7 +184,7 @@ namespace JoinFS.Recording
         /// <summary>Adds a position sample of an open track that is not an aircraft (spec 7.2). Time and object id are set as for <see cref="Position"/>.</summary>
         public void ObjectPosition(uint track, double seconds, ref ObjectPositionUpdate position)
         {
-            if (Failed || finished || !lastTime.ContainsKey(track))
+            if (Failed || finished || !states.TryGetValue(track, out TrackState state))
             {
                 return;
             }
@@ -170,6 +195,7 @@ namespace JoinFS.Recording
                 position.NetTime = time / 1e6;
                 ObjectPositionV1Codec.Encode(position, objectPositionBody);
                 writer.Add(kinds.ObjectPosition, track, time, objectPositionBody);
+                KeepPosition(state, kinds.ObjectPosition, time, objectPositionBody);
                 lastTime[track] = time;
                 ObjectPositionCount++;
                 EndChunkIfDue();
@@ -187,7 +213,7 @@ namespace JoinFS.Recording
         /// </summary>
         public void Variables(uint track, double seconds, Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> strings)
         {
-            if (Failed || finished || !variableStates.TryGetValue(track, out VariableState state))
+            if (Failed || finished || !states.TryGetValue(track, out TrackState state))
             {
                 return;
             }
@@ -235,18 +261,8 @@ namespace JoinFS.Recording
                 }
 
                 long time = TimeOf(track, seconds);
-                // a larger update is split into records of the same time (spec 7.6)
-                for (int start = 0; start < changes.Count; start += MaxVariablesPerRecord)
-                {
-                    var update = new VariableSyncUpdate
-                    {
-                        ObjectId = track,
-                        Entries = changes.GetRange(start, Math.Min(MaxVariablesPerRecord, changes.Count - start)),
-                    };
-                    int length = variablesCodec.Encode(update, variablesBody);
-                    writer.Add(kinds.Variables, track, time, variablesBody.AsSpan(0, length));
-                    VariableRecordCount++;
-                }
+                WriteVariableRecords(track, time, changes, snapshot: false);
+                state.VariablesTime = time;
                 lastTime[track] = time;
                 EndChunkIfDue();
             }
@@ -319,7 +335,80 @@ namespace JoinFS.Recording
             {
                 floor = tmin;
                 writer.EndChunk();
+                if (++chunksSinceKeyframe >= ChunksPerKeyframe)
+                {
+                    StartKeyframe();
+                }
             }
+        }
+
+        /// <summary>
+        /// Starts a keyframe chunk and writes the snapshot of every open track (spec 6.1). It is the state after everything
+        /// written so far, so a seek or a reader that lost a chunk can start here.
+        /// </summary>
+        void StartKeyframe()
+        {
+            chunksSinceKeyframe = 0;
+            writer.StartKeyframeChunk();
+            KeyframeCount++;
+            foreach (uint track in trackOrder)
+            {
+                TrackState state = states[track];
+                writer.AddSnapshot(kinds.TrackOpen, track, state.OpenTime, state.Open);
+                writer.AddSnapshot(kinds.Identity, track, state.IdentityTime, state.Identity);
+                if (state.Position != null)
+                {
+                    writer.AddSnapshot(state.PositionKind, track, state.PositionTime, state.Position);
+                }
+                List<VariableEntry> merged = [];
+                foreach (var variable in state.Integers)
+                {
+                    merged.Add(new VariableEntry { Vuid = variable.Key, Kind = VariableKind.Int32, IntValue = variable.Value });
+                }
+                foreach (var variable in state.Floats)
+                {
+                    merged.Add(new VariableEntry { Vuid = variable.Key, Kind = VariableKind.Float32, FloatValue = variable.Value });
+                }
+                foreach (var variable in state.Strings)
+                {
+                    merged.Add(new VariableEntry { Vuid = variable.Key, Kind = VariableKind.String8, StringValue = variable.Value });
+                }
+                WriteVariableRecords(track, state.VariablesTime, merged, snapshot: true);
+            }
+        }
+
+        /// <summary>Writes entries as variables records of at most 255 entries each, all of the same time (spec 7.6).</summary>
+        void WriteVariableRecords(uint track, long time, List<VariableEntry> entries, bool snapshot)
+        {
+            for (int start = 0; start < entries.Count; start += MaxVariablesPerRecord)
+            {
+                var update = new VariableSyncUpdate
+                {
+                    ObjectId = track,
+                    Entries = entries.GetRange(start, Math.Min(MaxVariablesPerRecord, entries.Count - start)),
+                };
+                int length = variablesCodec.Encode(update, variablesBody);
+                if (snapshot)
+                {
+                    writer.AddSnapshot(kinds.Variables, track, time, variablesBody.AsSpan(0, length));
+                }
+                else
+                {
+                    writer.Add(kinds.Variables, track, time, variablesBody.AsSpan(0, length));
+                    VariableRecordCount++;
+                }
+            }
+        }
+
+        static void KeepPosition(TrackState state, uint kind, long time, byte[] body)
+        {
+            if (state.Position == null || state.Position.Length != body.Length)
+            {
+                state.Position = new byte[body.Length];
+            }
+            body.CopyTo(state.Position, 0);
+            state.PositionKind = kind;
+            state.PositionTime = time;
         }
 
         static IdentityUpdate Sanitised(IdentityUpdate identity, uint track)

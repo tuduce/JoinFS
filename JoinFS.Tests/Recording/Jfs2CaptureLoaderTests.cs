@@ -524,6 +524,141 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         Assert.Single(boat.frames.OfType<Recorder.IntegerVariablesFrame>());
     }
 
+    // ---- stage 3c: keyframes ----
+
+    /// <summary>
+    /// 30 s at 20 Hz. Track 1 (aircraft) has variables 10 and 11 from the start; variable 10 changes at 5.5 s. Track 2 (a boat)
+    /// opens at 5.0 s, which lies in a chunk that is neither the first nor a keyframe.
+    /// </summary>
+    Jfs2Capture RecordThirtySeconds()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(1, 0.0, TrackOwner.Local, "me", "x", "", Identity("A", "Cessna"));
+        Dictionary<uint, int> integers = new() { [10] = 1, [11] = 7 };
+        capture.Variables(1, 0.0, integers, null, null);
+        for (int i = 0; i < 600; i++)
+        {
+            double t = i * 0.05;
+            if (i == 100)
+            {
+                capture.OpenTrack(2, t, TrackOwner.Network, "", "x", "", Identity("", "Ferry", aircraft: false));
+                capture.Variables(2, t, new Dictionary<uint, int> { [5] = 9 }, null, null);
+            }
+            if (i == 110)
+            {
+                integers[10] = 2;
+                capture.Variables(1, t, integers, null, null);
+            }
+            PositionUpdate a = Position(i);
+            capture.Position(1, t, ref a);
+            if (i >= 100)
+            {
+                ObjectPositionUpdate b = ObjectPosition(i);
+                capture.ObjectPosition(2, t, ref b);
+            }
+        }
+        capture.Finish();
+        Assert.False(capture.Failed, string.Join(" ", logged));
+        return capture;
+    }
+
+    [Fact]
+    public void EveryFifthChunk_IsAKeyframeWithTheStateOfTheOpenTracks()
+    {
+        var capture = RecordThirtySeconds();
+
+        using var reader = RecordingReader.Open(PathOf("a.jfs2"));
+        int[] keyframes = [.. Enumerable.Range(0, reader.Chunks.Count).Where(i => reader.Chunks[i].IsKeyframe)];
+        Assert.Equal(capture.KeyframeCount + 1, keyframes.Length);
+        Assert.True(keyframes.Length >= 3, "30 s at about 2 s per chunk: " + string.Join(",", keyframes));
+        Assert.Equal([0, 5, 10], keyframes.Take(3));
+
+        Assert.True(reader.TryReadChunk(keyframes[1], out RecordChunk? chunk));
+        string[] snapshot = [.. chunk!.Records.Take(chunk.SnapshotCount).Select(r => $"{reader.GetKind(r.Kind)!.Name}:{r.Track}")];
+        Assert.Equal(
+            ["track-open:1", "identity:1", "position:1", "variables:1", "track-open:2", "identity:2", "object-position:2", "variables:2"],
+            snapshot);
+        Assert.All(chunk.Records.Take(chunk.SnapshotCount), r => Assert.True(r.IsSnapshot));
+        // the snapshot keeps the time of what it summarises: the variables of track 1 changed at 5.5 s
+        RecordEntry variables = chunk.Records.First(r => r.IsSnapshot && r.Track == 1 && reader.GetKind(r.Kind)!.Name == "variables");
+        Assert.Equal(5_500_000, variables.Time);
+        var merged = new VariableSyncV1Codec().Decode(variables.Body.Span).Entries.ToDictionary(e => e.Vuid, e => e.IntValue);
+        Assert.Equal(new Dictionary<uint, int> { [10] = 2, [11] = 7 }, merged);
+        Assert.True(chunk.Info.TMin > variables.Time);
+    }
+
+    [Fact]
+    public void ACleanRead_DoesNotPlayTheSnapshotsAgain()
+    {
+        RecordThirtySeconds();
+
+        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
+
+        Assert.Empty(result.Notes);
+        var aircraft = Assert.IsType<Recorder.Aircraft>(result.Objects[0]);
+        Assert.Equal(600, aircraft.frames.OfType<Recorder.AircraftPositionFrame>().Count());
+        Assert.Equal(2, aircraft.frames.OfType<Recorder.IntegerVariablesFrame>().Count());
+        Assert.Equal(500, result.Objects[1].frames.OfType<Recorder.ObjectPositionFrame>().Count());
+        Assert.Equal(aircraft.frames.Select(f => f.time).Order(), aircraft.frames.Select(f => f.time));
+    }
+
+    /// <summary>Damages the middle of a chunk of the finished file so its CRC fails.</summary>
+    void Corrupt(int chunk)
+    {
+        long at;
+        using (var reader = RecordingReader.Open(PathOf("a.jfs2")))
+        {
+            at = reader.Chunks[chunk].Offset + 60;
+        }
+        byte[] bytes = File.ReadAllBytes(PathOf("a.jfs2"));
+        bytes[at] ^= 0xFF;
+        File.WriteAllBytes(PathOf("a.jfs2"), bytes);
+    }
+
+    [Fact]
+    public void AfterALostChunk_TheNextKeyframeRestoresTheState()
+    {
+        RecordThirtySeconds();
+        Corrupt(2); // 4 s to 6 s: holds the opening of track 2 and the change of variable 10
+
+        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
+
+        Assert.Contains(result.Notes, n => n.StartsWith("Damaged recording"));
+        Assert.Equal(2, result.Objects.Count); // track 2 opened in the lost chunk and came back with the keyframe
+        var aircraft = (Recorder.Aircraft)result.Objects[0];
+        var boat = result.Objects[1];
+        Assert.Equal("Ferry", boat.model);
+
+        // nothing from the chunks after the lost one up to the keyframe at chunk 5 (about 10 s)
+        double[] times = [.. aircraft.frames.OfType<Recorder.AircraftPositionFrame>().Select(f => f.time)];
+        Assert.DoesNotContain(times, t => t > 4.1 && t < 10.0);
+        Assert.Contains(times, t => t > 12.0);
+        // the state the lost chunk changed is back: variable 10 changed there, variable 11 never did
+        var merged = Merged(aircraft);
+        Assert.Equal(new Dictionary<uint, int> { [10] = 2, [11] = 7 }, merged.Integers);
+        Assert.Equal(new Dictionary<uint, int> { [5] = 9 }, Merged(boat).Integers);
+        // frames stay in time order, so the old player interpolates correctly
+        Assert.Equal(aircraft.frames.Select(f => f.time).Order(), aircraft.frames.Select(f => f.time));
+        Assert.Equal(boat.frames.Select(f => f.time).Order(), boat.frames.Select(f => f.time));
+        // a snapshot's position that is a copy of one already read is not added twice
+        Assert.Equal(times.Length, times.Distinct().Count());
+    }
+
+    [Fact]
+    public void ALostKeyframe_WaitsForTheNextOne()
+    {
+        RecordThirtySeconds();
+        Corrupt(5);
+
+        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
+
+        var aircraft = (Recorder.Aircraft)result.Objects[0];
+        double[] times = [.. aircraft.frames.OfType<Recorder.AircraftPositionFrame>().Select(f => f.time)];
+        Assert.Contains(times, t => t > 20.0);
+        Assert.DoesNotContain(times, t => t > 10.5 && t < 19.0); // chunk 4 ends at about 10 s; the next keyframe is chunk 10, about 20 s
+        Assert.Equal(new Dictionary<uint, int> { [10] = 2, [11] = 7 }, Merged(aircraft).Integers);
+    }
+
     [Fact]
     public void ObjectPositionOfATrackThatWasNeverOpened_IsIgnored()
     {

@@ -98,7 +98,7 @@ ignored by the loader); only the first chunk is a keyframe; the file is written 
 
 Stage 3 goes in slices, each leaving a working recorder.
 
-- **3a, variables and events** (2026-10-12, not yet tested in a simulator). `Jfs2Capture.Variables` keeps the last value it wrote
+- **3a, variables and events** (2026-10-12). `Jfs2Capture.Variables` keeps the last value it wrote
   for each variable of a track and stores only the changes (spec 7.6: the first call of a track is the full set; a call
   with no change writes nothing; more than 255 entries split into records of the same time; floats compare bit for bit).
   `Jfs2Capture.Event` writes `event`. `Recorder.Record(..)` for events and the three variable dictionaries tee into them.
@@ -106,14 +106,21 @@ Stage 3 goes in slices, each leaving a working recorder.
   record changed, and an `event` into a `SimEventFrame`; the old player merges them, which is how an upsert reads. A played
   `.jfs2` now has gear, lights and flaps. The three dictionaries of one sample are three records (the old call sites record
   them one by one); merging them into one is a size saving for later.
-- **3b, `object-position` and non-aircraft objects** (2026-10-12, not yet tested in a simulator). `ObjectPositionV1Codec`
+- **3b, `object-position` and non-aircraft objects** (2026-10-12; boats and vehicles not yet checked in a simulator). `ObjectPositionV1Codec`
   (`JoinFS/Recording/`, 89 bytes, spec 7.2; private to the recorder, so not in `JoinFS.Messages`). Every recorded object now
   gets a track (`Recorder.OpenJfs2Track` takes a `Sim.Obj`), `Jfs2Capture.ObjectPosition` writes its samples, and
   `Jfs2Loader` turns a track whose identity is not an aircraft into a plain `Recorder.Obj` with `ObjectPositionFrame`s, so
   boats and vehicles play instead of being skipped. `SimMessageMapper.ToObjectPositionUpdate` got an overload that takes the id,
   time and flags (the recorder has no `Sim.Obj` to read them from).
-- Still to do: identity changes during a track; 3c the track-state tracker,
-  keyframes every ~10 s and the Index-driven Jump; 3d the chunk-by-chunk player with a prefetch thread.
+  Confirmed in a simulator 2026-10-14: gear and lights record and play.
+- **3c, keyframes** (2026-10-14, unit tests only). `Jfs2Capture` keeps a `TrackState` per track (its track-open and latest
+  identity and position bodies, the merged variables, and the time of each) and starts a keyframe chunk after every fifth chunk
+  (about 10 s) with the spec 6.1 snapshot: track-open, identity, latest position, merged variables, per track in opening order, each
+  with the time of what it summarises. `Jfs2Loader` still skips snapshots on a clean read, but after a lost chunk (CRC failure, or a
+  gap in an unfinished file) it waits for the next keyframe and restores from its snapshot (spec 8.2): tracks opened in the lost
+  chunk appear, the merged variables come back, and a snapshot position already read is not added twice; frames stay in time order.
+- Still to do: identity changes during a track; 3d the chunk-by-chunk player with a prefetch thread, which also brings the
+  Index-driven Jump (`RecordingReader.FindKeyframeChunk` is there; the loader loads everything, so the old Jump needs no seek yet).
 
 ## What the code check found (beyond the design)
 

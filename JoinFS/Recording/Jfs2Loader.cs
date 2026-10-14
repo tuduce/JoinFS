@@ -27,6 +27,14 @@ namespace JoinFS.Recording
             public bool HasIdentity;
             public readonly List<Recorder.Frame> Frames = [];
             public int PositionCount;
+            /// <summary>Time of the latest frame, so a snapshot after a lost chunk adds nothing out of order.</summary>
+            public double LastTime = double.NegativeInfinity;
+
+            public void Add(Recorder.Frame frame)
+            {
+                Frames.Add(frame);
+                LastTime = Math.Max(LastTime, frame.time);
+            }
         }
 
         /// <summary>The kinds this stage plays; everything else is skipped by name and version.</summary>
@@ -89,14 +97,16 @@ namespace JoinFS.Recording
                     lost = true;
                     continue;
                 }
+                lost |= chunk.Info.PrecededByGap;
                 if (lost && !chunk.Info.IsKeyframe)
                 {
                     continue;
                 }
+                // A linear read has seen what a snapshot summarises, so the snapshot is used only to restore the state after a lost chunk.
+                bool restore = lost;
                 lost = false;
 
-                // A linear read has seen what a snapshot summarises. (After a lost chunk it would restore state; stage 3.)
-                foreach (RecordEntry entry in chunk.Records.Skip(chunk.SnapshotCount))
+                foreach (RecordEntry entry in restore ? chunk.Records : chunk.Records.Skip(chunk.SnapshotCount))
                 {
                     KindBinding kind = reader.GetKind(entry.Kind);
                     if (kind == null || !IsPlayed(kind))
@@ -135,20 +145,21 @@ namespace JoinFS.Recording
                                 break;
 
                             case Jfs2Kinds.Position:
-                                if (tracks.TryGetValue(entry.Track, out Track positionTrack))
+                                // a snapshot's position that the track already has (it is not newer than its last frame) is a duplicate
+                                if (tracks.TryGetValue(entry.Track, out Track positionTrack) && !(entry.IsSnapshot && entry.Time / 1e6 <= positionTrack.LastTime))
                                 {
                                     PositionUpdate position = positionCodec.Decode(entry.Body.Span);
                                     Sim.AircraftPosition data = SimMessageMapper.ToAircraftPosition(position);
-                                    positionTrack.Frames.Add(new Recorder.AircraftPositionFrame(entry.Time / 1e6, ref data));
+                                    positionTrack.Add(new Recorder.AircraftPositionFrame(entry.Time / 1e6, ref data));
                                     positionTrack.PositionCount++;
                                 }
                                 break;
 
                             case Jfs2Kinds.ObjectPosition:
-                                if (tracks.TryGetValue(entry.Track, out Track objectTrack))
+                                if (tracks.TryGetValue(entry.Track, out Track objectTrack) && !(entry.IsSnapshot && entry.Time / 1e6 <= objectTrack.LastTime))
                                 {
                                     Sim.ObjectPositionVelocity data = SimMessageMapper.ToPositionVelocity(ObjectPositionV1Codec.Decode(entry.Body.Span));
-                                    objectTrack.Frames.Add(new Recorder.ObjectPositionFrame(entry.Time / 1e6, ref data));
+                                    objectTrack.Add(new Recorder.ObjectPositionFrame(entry.Time / 1e6, ref data));
                                     objectTrack.PositionCount++;
                                 }
                                 break;
@@ -156,7 +167,9 @@ namespace JoinFS.Recording
                             case Jfs2Kinds.Variables:
                                 if (tracks.TryGetValue(entry.Track, out Track variablesTrack))
                                 {
-                                    AddVariableFrames(variablesTrack.Frames, entry.Time / 1e6, variablesCodec.Decode(entry.Body.Span));
+                                    // a snapshot's variables keep the time of what they summarise, which may lie before frames already read
+                                    double time = entry.IsSnapshot ? Math.Max(entry.Time / 1e6, variablesTrack.LastTime) : entry.Time / 1e6;
+                                    AddVariableFrames(variablesTrack, time, variablesCodec.Decode(entry.Body.Span));
                                 }
                                 break;
 
@@ -164,7 +177,7 @@ namespace JoinFS.Recording
                                 if (tracks.TryGetValue(entry.Track, out Track eventTrack))
                                 {
                                     EventUpdate update = eventCodec.Decode(entry.Body.Span);
-                                    eventTrack.Frames.Add(new Recorder.SimEventFrame(entry.Time / 1e6, update.EventId, update.Data));
+                                    eventTrack.Add(new Recorder.SimEventFrame(entry.Time / 1e6, update.EventId, update.Data));
                                 }
                                 break;
                         }
@@ -218,7 +231,7 @@ namespace JoinFS.Recording
         /// One variables record becomes up to three of the old frames, one per value kind. A frame holds only what the record
         /// changed; the old player merges frames into the object's variable set, which is how an upsert reads (spec 7.6).
         /// </summary>
-        static void AddVariableFrames(List<Recorder.Frame> frames, double time, VariableSyncUpdate update)
+        static void AddVariableFrames(Track track, double time, VariableSyncUpdate update)
         {
             Dictionary<uint, int> integers = [];
             Dictionary<uint, float> floats = [];
@@ -232,9 +245,9 @@ namespace JoinFS.Recording
                     case VariableKind.String8: strings[entry.Vuid] = entry.StringValue ?? ""; break;
                 }
             }
-            if (integers.Count > 0) frames.Add(new Recorder.IntegerVariablesFrame(time, integers));
-            if (floats.Count > 0) frames.Add(new Recorder.FloatVariablesFrame(time, floats));
-            if (strings.Count > 0) frames.Add(new Recorder.String8VariablesFrame(time, strings));
+            if (integers.Count > 0) track.Add(new Recorder.IntegerVariablesFrame(time, integers));
+            if (floats.Count > 0) track.Add(new Recorder.FloatVariablesFrame(time, floats));
+            if (strings.Count > 0) track.Add(new Recorder.String8VariablesFrame(time, strings));
         }
 
         static bool IsPlayed(KindBinding kind) => Played.Any(played => played.Name == kind.Name && played.Version == kind.Version);
