@@ -2185,7 +2185,7 @@ namespace JoinFS
         /// any thread and then applied on the sim thread with <see cref="Load"/>. Null when the
         /// recording can't be used.
         /// </summary>
-        public List<Obj> Parse(BinaryReader reader)
+        public List<Obj> Parse(BinaryReader reader, List<string> warnings = null)
         {
             lock (parseLock)
             {
@@ -2200,7 +2200,7 @@ namespace JoinFS
                     if (version == Jfs2VersionSignature && reader.BaseStream.CanSeek)
                     {
                         reader.BaseStream.Position -= sizeof(short);
-                        return ParseJfs2(reader.BaseStream);
+                        return ParseJfs2(reader.BaseStream, warnings);
                     }
                     // check version
                     if (version < 10022)
@@ -2228,13 +2228,14 @@ namespace JoinFS
         /// <summary>
         /// Read a JFS2 recording into objects, logging what was skipped. Throws, with a message for the user, if it can't be played.
         /// </summary>
-        List<Obj> ParseJfs2(Stream stream)
+        List<Obj> ParseJfs2(Stream stream, List<string> warnings)
         {
             Jfs2Loader.Result result = Jfs2Loader.Load(stream);
             foreach (string note in result.Notes)
             {
                 main?.MonitorEvent("Recorder: " + note);
             }
+            warnings?.AddRange(result.Warnings);
             main?.MonitorEvent("Recorder: read a JFS2 recording with " + result.Objects.Count + " aircraft.");
             return result.Objects;
         }

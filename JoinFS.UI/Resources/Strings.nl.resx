@@ -642,6 +642,9 @@
   <data name="Open recording" xml:space="preserve">
     <value>Opname openen</value>
   </data>
+  <data name="Opened, but part of the file is damaged: {0}" xml:space="preserve">
+    <value>Geopend, maar een deel van het bestand is beschadigd: {0}</value>
+  </data>
   <data name="Open..." xml:space="preserve">
     <value>Openen...</value>
   </data>

@@ -339,9 +339,10 @@ public interface IRecorderSource
 
     /// <summary>
     /// Loads a recording file, or with <paramref name="append"/> adds it after the end of the one in the recorder, and plays it.
-    /// Throws with what to tell the user when the file cannot be used.
+    /// Throws with what to tell the user when the file cannot be used. Returns what to warn the user about when the file was
+    /// opened but part of it was lost or is not played (a damaged file), and an empty string otherwise.
     /// </summary>
-    Task OpenAsync(string path, bool append);
+    Task<string> OpenAsync(string path, bool append);
 
     Task SaveAsync(string path);
 }

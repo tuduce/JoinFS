@@ -322,6 +322,20 @@ public class RecorderTests
     }
 
     [Fact]
+    public async Task A_damaged_file_is_played_and_the_user_is_told_part_of_it_is_lost()
+    {
+        Rig rig = new();
+        rig.Platform.PickedFile = @"C:\Recordings\damaged.jfs2";
+
+        await Open(rig).OpenCommand.ExecuteAsync(null);
+
+        Assert.Equal(RecorderMode.Playing, Open(rig).Mode);
+        Assert.Contains("Opened, but part of the file is damaged", Open(rig).Status);
+        Assert.Contains("A chunk could not be read", Open(rig).Status);
+        Assert.IsType<MessageViewModel>(rig.Main.Overlay);
+    }
+
+    [Fact]
     public async Task A_file_that_cannot_be_used_says_why_and_changes_nothing()
     {
         Rig rig = new();

@@ -132,15 +132,16 @@ namespace JoinFS.Live
             }
         }
 
-        public async Task OpenAsync(string path, bool append)
+        public async Task<string> OpenAsync(string path, bool append)
         {
             main.MonitorEvent("Recorder: " + (append ? "appending" : "opening") + " recording file '" + path + "'.");
 
             // parse off the sim thread, then apply and play on it
+            List<string> warnings = [];
             List<Recorder.Obj> objects = await Task.Run(() =>
             {
                 using FileStream stream = File.OpenRead(path);
-                return main.recorder.Parse(new BinaryReader(stream));
+                return main.recorder.Parse(new BinaryReader(stream), warnings);
             });
             if (objects == null)
             {
@@ -160,6 +161,7 @@ namespace JoinFS.Live
             {
                 loadedName = Path.GetFileName(path);
             }
+            return string.Join(" ", warnings);
         }
 
         public async Task SaveAsync(string path)

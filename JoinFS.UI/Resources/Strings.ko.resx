@@ -642,6 +642,9 @@
   <data name="Open recording" xml:space="preserve">
     <value>녹음 열기</value>
   </data>
+  <data name="Opened, but part of the file is damaged: {0}" xml:space="preserve">
+    <value>열었지만 파일의 일부가 손상되었습니다: {0}</value>
+  </data>
   <data name="Open..." xml:space="preserve">
     <value>열기...</value>
   </data>

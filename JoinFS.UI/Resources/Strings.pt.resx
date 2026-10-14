@@ -642,6 +642,9 @@
   <data name="Open recording" xml:space="preserve">
     <value>Abrir gravação</value>
   </data>
+  <data name="Opened, but part of the file is damaged: {0}" xml:space="preserve">
+    <value>Aberto, mas parte do arquivo está danificada: {0}</value>
+  </data>
   <data name="Open..." xml:space="preserve">
     <value>Abrir...</value>
   </data>

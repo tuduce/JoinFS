@@ -18,7 +18,9 @@ namespace JoinFS.Recording
     {
         /// <param name="Objects">The recorded objects, in the order their tracks opened. Objects without a position are left out.</param>
         /// <param name="Notes">What was skipped or damaged, for the log; empty when the file was read completely.</param>
-        public sealed record Result(List<Recorder.Obj> Objects, IReadOnlyList<string> Notes);
+        /// <param name="Notes">Everything the load has to say, for the log.</param>
+        /// <param name="Warnings">The notes the user should see: parts of the file that were lost or are not played.</param>
+        public sealed record Result(List<Recorder.Obj> Objects, IReadOnlyList<string> Notes, IReadOnlyList<string> Warnings);
 
         sealed class Track
         {
@@ -197,6 +199,7 @@ namespace JoinFS.Recording
             {
                 notes.Add(damaged + " records could not be read and were skipped.");
             }
+            int warningCount = notes.Count;
             if (identityChanges > 0)
             {
                 notes.Add(identityChanges + " identity changes were ignored; each object plays with the identity it opened with.");
@@ -205,6 +208,8 @@ namespace JoinFS.Recording
             {
                 notes.Add(count.Value + " '" + count.Key + "' records were skipped; this build does not play them yet.");
             }
+            // the identity note is for the log only: it changes nothing the user can see go missing
+            List<string> warnings = [.. notes.Take(warningCount), .. notes.Skip(warningCount).Where(n => !n.Contains("identity changes"))];
 
             List<Recorder.Obj> objects = [];
             foreach (uint id in order)
@@ -224,7 +229,7 @@ namespace JoinFS.Recording
                     ? "This recording needs a newer version of JoinFS to play: " + string.Join(" ", notes)
                     : "This recording holds nothing that can be played. " + string.Join(" ", notes));
             }
-            return new Result(objects, notes);
+            return new Result(objects, notes, warnings);
         }
 
         /// <summary>

@@ -551,10 +551,16 @@ public sealed partial class RecorderViewModel : ObservableObject
 
         try
         {
-            await _source.OpenAsync(path, append);
+            string warning = await _source.OpenAsync(path, append);
             // A file that was opened is what it is on disk; one that was added to the recording changes it.
             _unsaved = append;
             Status = "";
+            if (warning.Length > 0)
+            {
+                // the recording plays, but not all of it: say so where it cannot be missed
+                Status = Loc.F("Opened, but part of the file is damaged: {0}", warning);
+                _shell.ShowOverlay(new MessageViewModel(Loc.T("Recorder"), Status));
+            }
         }
         catch (Exception ex)
         {

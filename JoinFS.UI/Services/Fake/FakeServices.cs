@@ -567,7 +567,7 @@ public sealed class FakeRecorderSource : IRecorderSource
         _aircraft = [.. _aircraft.Select(a => a.Id == aircraftId ? a with { Skipped = true } : a)];
     }
 
-    public Task OpenAsync(string path, bool append)
+    public Task<string> OpenAsync(string path, bool append)
     {
         Calls.Add((append ? "add " : "open ") + path);
         if (path.Contains("bad", StringComparison.OrdinalIgnoreCase))
@@ -583,7 +583,7 @@ public sealed class FakeRecorderSource : IRecorderSource
         _playing = true;
         _paused = false;
         _time = 0;
-        return Task.CompletedTask;
+        return Task.FromResult(path.Contains("damaged", StringComparison.OrdinalIgnoreCase) ? "Damaged recording: A chunk could not be read. (at byte 180561)." : "");
     }
 
     public Task SaveAsync(string path)

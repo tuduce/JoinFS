@@ -624,6 +624,7 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
 
         Assert.Contains(result.Notes, n => n.StartsWith("Damaged recording"));
+        Assert.Contains(result.Warnings, n => n.StartsWith("Damaged recording")); // the user is told
         Assert.Equal(2, result.Objects.Count); // track 2 opened in the lost chunk and came back with the keyframe
         var aircraft = (Recorder.Aircraft)result.Objects[0];
         var boat = result.Objects[1];
@@ -738,5 +739,6 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
 
         Assert.Equal("N1", OnlyAircraft(result).callsign);
         Assert.Contains(result.Notes, n => n.Contains("1 identity changes were ignored"));
+        Assert.Empty(result.Warnings); // for the log only
     }
 }
