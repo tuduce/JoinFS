@@ -35,7 +35,7 @@ public sealed record RecordingSummary(
         }
 
         return new RecordingSummary(
-            recording.Version.ToString(CultureInfo.InvariantCulture),
+            recording.FormatLabel ?? recording.Version.ToString(CultureInfo.InvariantCulture),
             recording.Aircraft.Count.ToString(CultureInfo.InvariantCulture),
             recording.Objects.Count.ToString(CultureInfo.InvariantCulture),
             totalFrames.ToString("N0", CultureInfo.InvariantCulture),

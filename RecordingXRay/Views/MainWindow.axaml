@@ -102,7 +102,7 @@
           <Path Data="{StaticResource IconEmptyRecording}" Stroke="{StaticResource AccentBrush}" StrokeThickness="2.4"
                 StrokeLineCap="Round" StrokeJoin="Round" Width="72" Height="72" Stretch="None" HorizontalAlignment="Center" />
           <TextBlock Text="Open a joinfs recording" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" />
-          <TextBlock Text="Drop a .jfs file here to see every aircraft on a map, browse its frames on a timeline and inspect each recorded value."
+          <TextBlock Text="Drop a .jfs or .jfs2 file here to see every aircraft on a map, browse its frames on a timeline and inspect each recorded value."
                      TextWrapping="Wrap" TextAlignment="Center" LineHeight="20" Foreground="{StaticResource KeyLabelBrush}" />
           <Button Classes="primary large" Command="{Binding OpenCommand}" HorizontalAlignment="Center"
                   AutomationProperties.Name="Choose file">
