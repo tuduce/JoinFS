@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\JoinFS.Recording.Format\JoinFS.Recording.Format.csproj" />
+    <ProjectReference Include="..\JoinFS.Recording.Tool\JoinFS.Recording.Tool.csproj" />
   </ItemGroup>
 
   <!-- The golden file is the spec's Appendix A example; one copy, in docs. -->

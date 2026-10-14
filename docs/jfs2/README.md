@@ -144,8 +144,10 @@ Code in `JoinFS/Recording/`, tests in `JoinFS.Tests/Recording/Jfs2ImportTests.cs
   touching the original. It runs before the application starts, so it needs no simulator. A windowed build attaches to the
   parent console for its report. A file it cannot read is reported and the rest go on; the exit code is 1 if any failed.
 - Open by magic already worked (stage 2: `Recorder.Parse` sniffs the format). Not done yet: `RecordingXRay` still has its own
-  reader; a standalone `dump`/`verify`/`repair` tool (the library has `RecordingDump` and `RecordingRepair`); the importer as a
-  separate module.
+  reader; the importer as a separate module.
+- `JoinFS.Recording.Tool/` (2026-10-14) builds `jfs2`, a command-line tool that uses only the format library: `jfs2 dump [--records] f`,
+  `jfs2 verify f` (reads every chunk, exit code 1 if anything is wrong), `jfs2 repair f [-o out]` (works on a copy, never overwrites;
+  default `<name>-repaired.jfs2`). Tested in `JoinFS.Recording.Format.Tests/ToolTests.cs`.
 - Acceptance test on the 11 real recordings in the owner's `Downloads/tiger recordings` (or the folder in `JOINFS_JFS_CORPUS`;
   skipped when absent): same objects, same number of position frames and events per object, same positions (the five control
   axes to 1/16384, everything else bit for bit), same merged variables at four moments. What it found, all accepted:
@@ -168,6 +170,11 @@ format switches over first.
   during the live capture are not in it, ICAO strings cut to 8 bytes), and the live capture's own working file
   (`<date>_<time>_recording.jfs2`) still stays in the documents folder beside the saved one: deleting it, and offering it after a crash,
   is the working-file decision still open. The old `Recorder.Write` (the `.jfs` writer) is no longer called by the app.
+- **5b, a damaged file is announced in the new UI** (2026-10-14). `Jfs2Loader.Result.Warnings` holds the notes the user should see (lost
+  chunks, unreadable records, kinds this build does not play); the identity note stays in the log. `Recorder.Parse(reader, warnings)`
+  collects them, `IRecorderSource.OpenAsync` returns them as text, and the Recorder tab shows "Opened, but part of the file is damaged: ..."
+  in its status and in a message overlay. The recording still plays. The WinForms recorder form does not show it (it goes away).
+
 
 ## What the code check found (beyond the design)
 
