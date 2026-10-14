@@ -23,12 +23,18 @@ namespace JoinFS.Recording
         public static Result Load(Stream stream)
         {
             Jfs2Scene scene = Jfs2Scene.Load(stream);
+            return new Result(Objects(scene), scene.Notes, scene.Warnings);
+        }
+
+        /// <summary>The objects of a scene, whether it was read from a JFS2 file or imported from an old recording.</summary>
+        public static List<Recorder.Obj> Objects(Jfs2Scene scene)
+        {
             List<Recorder.Obj> objects = [];
             foreach (SceneTrack track in scene.Tracks)
             {
                 objects.Add(Build(track));
             }
-            return new Result(objects, scene.Notes, scene.Warnings);
+            return objects;
         }
 
         static Recorder.Obj Build(SceneTrack track)

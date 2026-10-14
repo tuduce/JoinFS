@@ -20,14 +20,6 @@ namespace JoinFS
     public class Recorder
     {
         /// <summary>
-        /// Version written into .jfs recordings, and the newest this build reads. It used to be the
-        /// network data version (Sim.VERSION), so any wire change bumped recordings too; the legacy
-        /// wire now has its own (JoinFS.Net.Legacy.LegacyWire.DataVersion) and this changes only when
-        /// the recording format does. Same value as before, so files are unchanged.
-        /// </summary>
-        public const short FileVersion = 21008;
-
-        /// <summary>
         /// Reference to the main form
         /// </summary>
         Main main;
@@ -39,12 +31,6 @@ namespace JoinFS
         {
             // set main form
             this.main = main;
-
-            // read versions
-            readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
-            {
-                { 10022, Read1 },
-            };
         }
 
         /// <summary>
@@ -87,52 +73,9 @@ namespace JoinFS
             /// </summary>
             public Frame()
             {
-                // versions
-                readVersions = new Dictionary<short,JfsFrames.ReadVersion>()
-                {
-                    { 10022, Read1 },
-                };
             }
 
-            /// <summary>
-            /// Write frame to stream
-            /// </summary>
-            /// <param name="writer">Stream</param>
-            public virtual void Write(BinaryWriter writer)
-            {
-                // write type
-                writer.Write((byte)type);
-                // write time
-                writer.Write(time);
-            }
 
-            /// <summary>
-            /// Read frame from a stream VERSION 1
-            /// </summary>
-            /// <param name="reader">Stream</param>
-            public virtual void Read1(short version, BinaryReader reader)
-            {
-                // read type
-                type = (FrameType)reader.ReadByte();
-                // read time
-                time = reader.ReadDouble();
-            }
-
-            /// <summary>
-            /// Version table for reading data
-            /// </summary>
-            protected Dictionary<short, JfsFrames.ReadVersion> readVersions;
-
-            /// <summary>
-            /// Read data
-            /// </summary>
-            /// <param name="version">Version to read</param>
-            /// <param name="reader">Reader</param>
-            public void Read(short version, BinaryReader reader)
-            {
-                // read correct version
-                JfsFrames.Read(version, readVersions, reader);
-            }
         }
 
         /// <summary>
@@ -164,33 +107,8 @@ namespace JoinFS
             /// </summary>
             public ObjectPositionFrame()
             {
-                // versions
-                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
-                {
-                    { 10022, Read1 },
-                };
             }
 
-            /// <summary>
-            /// Write position and velocity to a stream
-            /// </summary>
-            public override void Write(BinaryWriter writer)
-            {
-                // write frame
-                base.Write(writer);
-                // write position velocity
-                JfsFrames.Write(writer, ref data);
-            }
-
-            /// <summary>
-            /// Read position and velocity from a stream
-            /// </summary>
-            /// <param name="reader">Stream</param>
-            public override void Read1(short version, BinaryReader reader)
-            {
-                // read position velocity
-                JfsFrames.Read(version, reader, ref data);
-            }
         }
 
         /// <summary>
@@ -222,33 +140,8 @@ namespace JoinFS
             /// </summary>
             public AircraftPositionFrame()
             {
-                // versions
-                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
-                {
-                    { 10022, Read1 },
-                };
             }
 
-            /// <summary>
-            /// Write position and velocity to a stream
-            /// </summary>
-            public override void Write(BinaryWriter writer)
-            {
-                // write frame
-                base.Write(writer);
-                // write position velocity
-                JfsFrames.Write(writer, ref data);
-            }
-
-            /// <summary>
-            /// Read position and velocity from a stream
-            /// </summary>
-            /// <param name="reader">Stream</param>
-            public override void Read1(short version, BinaryReader reader)
-            {
-                // read position velocity
-                JfsFrames.Read(version, reader, ref data);
-            }
         }
 
         /// <summary>
@@ -282,38 +175,8 @@ namespace JoinFS
             /// </summary>
             public SimEventFrame()
             {
-                // versions
-                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
-                {
-                    { 10022, Read1 },
-                };
             }
 
-            /// <summary>
-            /// Write recorded data to a stream
-            /// </summary>
-            /// <param name="writer">Stream</param>
-            public override void Write(BinaryWriter writer)
-            {
-                // write frame
-                base.Write(writer);
-                // write event ID
-                writer.Write(eventId);
-                // write data
-                writer.Write(data);
-            }
-
-            /// <summary>
-            /// Read recorded data from a stream
-            /// </summary>
-            /// <param name="reader">Stream</param>
-            public override void Read1(short version, BinaryReader reader)
-            {
-                // read event
-                eventId = reader.ReadUInt32();
-                // read data
-                data = reader.ReadUInt32();
-            }
         }
 
         /// <summary>
@@ -349,38 +212,10 @@ namespace JoinFS
             /// </summary>
             public IntegerVariablesFrame()
             {
-                // versions
-                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
-                {
-                    { 10022, Read1 },
-                };
                 // new variables
                 variables = [];
             }
 
-            /// <summary>
-            /// Write recorded data to a stream
-            /// </summary>
-            /// <param name="writer">Stream</param>
-            public override void Write(BinaryWriter writer)
-            {
-                // write frame
-                base.Write(writer);
-                // write variables
-                JfsFrames.Write(writer, variables);
-            }
-
-            /// <summary>
-            /// Read recorded data from a stream
-            /// </summary>
-            /// <param name="reader">Stream</param>
-            public override void Read1(short version, BinaryReader reader)
-            {
-                // clear variables
-                variables.Clear();
-                // read variables
-                JfsFrames.Read(version, reader, variables);
-            }
         }
 
         /// <summary>
@@ -416,38 +251,10 @@ namespace JoinFS
             /// </summary>
             public FloatVariablesFrame()
             {
-                // versions
-                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
-                {
-                    { 10022, Read1 },
-                };
                 // new variables
                 variables = [];
             }
 
-            /// <summary>
-            /// Write recorded data to a stream
-            /// </summary>
-            /// <param name="writer">Stream</param>
-            public override void Write(BinaryWriter writer)
-            {
-                // write frame
-                base.Write(writer);
-                // write variables
-                JfsFrames.Write(writer, variables);
-            }
-
-            /// <summary>
-            /// Read recorded data from a stream
-            /// </summary>
-            /// <param name="reader">Stream</param>
-            public override void Read1(short version, BinaryReader reader)
-            {
-                // clear variables
-                variables.Clear();
-                // read variables
-                JfsFrames.Read(version, reader, variables);
-            }
         }
 
         /// <summary>
@@ -483,38 +290,10 @@ namespace JoinFS
             /// </summary>
             public String8VariablesFrame()
             {
-                // versions
-                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
-                {
-                    { 10022, Read1 },
-                };
                 // new variables
                 variables = [];
             }
 
-            /// <summary>
-            /// Write recorded data to a stream
-            /// </summary>
-            /// <param name="writer">Stream</param>
-            public override void Write(BinaryWriter writer)
-            {
-                // write frame
-                base.Write(writer);
-                // write variables
-                JfsFrames.Write(writer, variables);
-            }
-
-            /// <summary>
-            /// Read recorded data from a stream
-            /// </summary>
-            /// <param name="reader">Stream</param>
-            public override void Read1(short version, BinaryReader reader)
-            {
-                // clear variables
-                variables.Clear();
-                // read variables
-                JfsFrames.Read(version, reader, variables);
-            }
         }
 
         /// <summary>
@@ -603,11 +382,6 @@ namespace JoinFS
                 this.owner = owner;
                 this.livery = livery;
 
-                // versions
-                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
-                {
-                    { 10022, Read1 },
-                };
             }
 
             /// <summary>
@@ -619,11 +393,6 @@ namespace JoinFS
                 this.id = nextId++;
                 this.owner = Sim.Obj.Owner.Recorder;
 
-                // versions
-                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
-                {
-                    { 10022, Read1 },
-                };
             }
 
             /// <summary>
@@ -656,96 +425,7 @@ namespace JoinFS
                 frames.Sort(delegate(Frame f1, Frame f2) { return f1.time.CompareTo(f2.time); });
             }
 
-            public virtual void Write(BinaryWriter writer)
-            {
-                // write model
-                writer.Write(model);
-                // write typerole
-                writer.Write((byte)typerole);
 
-                // write frame count
-                writer.Write(frames.Count);
-                // for each position and velocity
-                foreach (var frame in frames)
-                {
-                    // write position and velocity
-                    frame.Write(writer);
-                }
-#if FS2024
-                writer.Write(livery);
-#endif
-                // write ICAO type/airline
-                writer.Write(icaoType);
-                writer.Write(icaoAirline);
-            }
-
-            /// <summary>
-            /// Read aircraft from a stream VERSION 1
-            /// </summary>
-            /// <param name="reader">Stream</param>
-            public void Read1(short version, BinaryReader reader)
-            {
-                // counter
-                int n, count;
-                // read model
-                model = reader.ReadString();
-                // read typerole
-                typerole = reader.ReadByte();
-                // read frame count
-                count = reader.ReadInt32();
-                for (n = 0; n < count; n++)
-                {
-                    // read generic frame
-                    Frame baseFrame = new();
-                    baseFrame.Read(version, reader);
-
-                    // check frame type
-                    Frame frame = null;
-                    switch (baseFrame.type)
-                    {
-                        case FrameType.ObjectPosition:
-                            // read position velocity frame
-                            frame = new ObjectPositionFrame();
-                            break;
-                    }
-
-                    // check for valid frame
-                    if (frame != null)
-                    {
-                        // copy base frame
-                        frame.type = baseFrame.type;
-                        frame.time = baseFrame.time;
-                        // read frame specific data
-                        frame.Read(version, reader);
-                        // add to list
-                        frames.Add(frame);
-                    }
-                }
-#if FS2024
-                livery = (version >= 21004) ? reader.ReadString() : "";
-                icaoType = (version >= 21005) ? reader.ReadString() : "";
-                icaoAirline = (version >= 21005) ? reader.ReadString() : "";
-#else
-                icaoType = (version >= 21004) ? reader.ReadString() : "";
-                icaoAirline = (version >= 21004) ? reader.ReadString() : "";
-#endif
-            }
-
-            /// <summary>
-            /// Version table for reading data
-            /// </summary>
-            protected Dictionary<short, JfsFrames.ReadVersion> readVersions;
-
-            /// <summary>
-            /// Read data
-            /// </summary>
-            /// <param name="version">Version to read</param>
-            /// <param name="reader">Reader</param>
-            public void Read(short version, BinaryReader reader)
-            {
-                // read correct version
-                JfsFrames.Read(version, readVersions, reader);
-            }
         }
 
         /// <summary>
@@ -779,11 +459,6 @@ namespace JoinFS
                 this.nickname = nickname;
                 this.livery = livery;
 
-                // versions
-                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
-                {
-                    { 10022, Read1 },
-                };
             }
 
             /// <summary>
@@ -791,96 +466,8 @@ namespace JoinFS
             /// </summary>
             public Aircraft()
             {
-                // versions
-                readVersions = new Dictionary<short, JfsFrames.ReadVersion>()
-                {
-                    { 10022, Read1 },
-                };
             }
 
-            public override void Write(BinaryWriter writer)
-            {
-                // write plane
-                writer.Write(plane);
-                // write callsign
-                writer.Write(callsign);
-                // write nickname
-                writer.Write(nickname);
-                // write object
-                base.Write(writer);
-            }
-
-            /// <summary>
-            /// Read aircraft from a stream VERSION 1
-            /// </summary>
-            /// <param name="reader">Stream</param>
-            public new void Read1(short version, BinaryReader reader)
-            {
-                // counter
-                int n, count;
-                // read plane flag
-                plane = reader.ReadBoolean();
-                // read callsign
-                callsign = reader.ReadString();
-                // read nickname
-                nickname = reader.ReadString();
-                // read model
-                model = reader.ReadString();
-                // read typerole
-                typerole = reader.ReadByte();
-                // read frame count
-                count = reader.ReadInt32();
-                for (n = 0; n < count; n++)
-                {
-                    // read generic frame
-                    Frame baseFrame = new();
-                    baseFrame.Read(version, reader);
-
-                    // check frame type
-                    Frame frame = null;
-                    switch (baseFrame.type)
-                    {
-                        case FrameType.ObjectPosition:
-                            frame = new ObjectPositionFrame();
-                            break;
-                        case FrameType.AircraftPosition:
-                            frame = new AircraftPositionFrame();
-                            break;
-                        case FrameType.SimEvent:
-                            frame = new SimEventFrame();
-                            break;
-                        case FrameType.IntegerVariables:
-                            frame = new IntegerVariablesFrame();
-                            break;
-                        case FrameType.FloatVariables:
-                            frame = new FloatVariablesFrame();
-                            break;
-                        case FrameType.String8Variables:
-                            frame = new String8VariablesFrame();
-                            break;
-                    }
-
-                    // check for valid frame
-                    if (frame != null)
-                    {
-                        // copy base frame
-                        frame.type = baseFrame.type;
-                        frame.time = baseFrame.time;
-                        // read frame specific data
-                        frame.Read(version, reader);
-                        // add to list
-                        frames.Add(frame);
-                    }
-                }
-#if FS2024
-                livery = (version >= 21004) ? reader.ReadString() : "";
-                icaoType = (version >= 21005) ? reader.ReadString() : "";
-                icaoAirline = (version >= 21005) ? reader.ReadString() : "";
-#else
-                icaoType = (version >= 21004) ? reader.ReadString() : "";
-                icaoAirline = (version >= 21004) ? reader.ReadString() : "";
-#endif
-            }
         }
 
         /// <summary>
@@ -2067,16 +1654,6 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Write the recording to a stream
-        /// </summary>
-        /// <param name="writer"></param>
-        public void Write(BinaryWriter writer)
-        {
-            // sim thread (or before it starts)
-            Write(writer, objList);
-        }
-
-        /// <summary>
         /// Copies of the objects with their own frame lists, so a recording can be written on
         /// another thread while this one goes on (sim thread)
         /// </summary>
@@ -2085,213 +1662,58 @@ namespace JoinFS
             return objList.ConvertAll(o => o.CopyForSave());
         }
 
-        /// <summary>
-        /// Write <paramref name="objList"/> (from <see cref="CopyForSave"/>) - any thread
-        /// </summary>
-        public void Write(BinaryWriter writer, List<Obj> objList)
-        {
-            // write header
-            writer.Write(FileVersion);
-            // count aircraft
-            int aircraftCount = 0;
-            // for each object
-            foreach (var obj in objList)
-            {
-                // check if object is aircraft
-                if (obj is Aircraft)
-                {
-                    // increment aircraft count
-                    aircraftCount++;
-                }
-            }
-            // write aircraft count
-            writer.Write(aircraftCount);
-            // for each object
-            foreach (var obj in objList)
-            {
-                // check for aircraft
-                if (obj is Aircraft)
-                {
-                    // write object to stream
-                    obj.Write(writer);
-                }
-            }
-            // write object count
-            writer.Write(objList.Count - aircraftCount);
-            // for each object
-            foreach (var obj in objList)
-            {
-                // check for object
-                if ((obj is Aircraft) == false)
-                {
-                    // write object to stream
-                    obj.Write(writer);
-                }
-            }
-        }
-
 #region Reader
-
-        /// <summary>
-        /// Where Read1 puts what it parses (only while <see cref="Parse"/> runs)
-        /// </summary>
-        List<Obj> readTarget;
-
-        /// <summary>
-        /// One parse at a time
-        /// </summary>
-        readonly object parseLock = new();
-
-        /// <summary>
-        /// Read recording from a stream VERSION 1
-        /// </summary>
-        /// <param name="reader"></param>
-        public void Read1(short version, BinaryReader reader)
-        {
-            // loaded counters
-            int loadedAircraft = 0;
-            int loadedObjects = 0;
-            int loadedFrames = 0;
-
-
-            // read aircraft count
-            int count = reader.ReadInt32();
-            // for each aircraft
-            for (int n = 0; n < count; n++)
-            {
-                // create aircraft
-                Aircraft aircraft = new();
-                // read aircraft
-                aircraft.Read(version, reader);
-
-                // frame stats
-                Dictionary<FrameType, int> frameCounts = [];
-                foreach (var frame in aircraft.frames)
-                {
-                    if (frameCounts.ContainsKey(frame.type))
-                    {
-                        frameCounts[frame.type]++;
-                    }
-                    else
-                    {
-                        frameCounts[frame.type] = 1;
-                    }
-                }
-
-                int aircraftPositionCount = frameCounts.GetValueOrDefault(FrameType.AircraftPosition);
-                int objectPositionCount = frameCounts.GetValueOrDefault(FrameType.ObjectPosition);
-
-                StringBuilder frameSummary = new();
-                foreach (var frameCount in frameCounts)
-                {
-                    if (frameSummary.Length > 0)
-                    {
-                        frameSummary.Append(", ");
-                    }
-                    frameSummary.Append(frameCount.Key);
-                    frameSummary.Append('=');
-                    frameSummary.Append(frameCount.Value);
-                }
-
-                main?.MonitorEvent("Recorder: aircraft '" + aircraft.callsign + "' frames=" + aircraft.frames.Count + " (" + frameSummary + ").");
-
-                if (aircraftPositionCount == 0 && objectPositionCount == 0)
-                {
-                    main?.MonitorEvent("Recorder: warning - aircraft '" + aircraft.callsign + "' has no ObjectPosition/AircraftPosition frames.");
-                }
-
-                // add to list
-                readTarget.Add(aircraft);
-                loadedAircraft++;
-                loadedFrames += aircraft.frames.Count;
-            }
-
-            if (reader.PeekChar() != -1)
-            {
-                // read object count
-                count = reader.ReadInt32();
-                // for each object
-                for (int n = 0; n < count; n++)
-                {
-                    // create object
-                    Obj obj = new();
-                    // read obj
-                    obj.Read(version, reader);
-
-
-                    // add to list
-                    readTarget.Add(obj);
-                    loadedObjects++;
-                    loadedFrames += obj.frames.Count;
-                }
-            }
-
-            // log load summary
-            main?.MonitorEvent("Recorder: loaded " + loadedAircraft + " aircraft, " + loadedObjects + " objects, " + loadedFrames + " frames.");
-        }
-
-        /// <summary>
-        /// Version table for reading data
-        /// </summary>
-        readonly Dictionary<short, JfsFrames.ReadVersion> readVersions;
-
-        /// <summary>
-        /// Read data
-        /// </summary>
-        /// <param name="reader">Reader</param>
-        public void Read(BinaryReader reader)
-        {
-            // sim thread (or before it starts)
-            Load(Parse(reader), false);
-        }
-
-        /// <summary>
-        /// Append data (sim thread)
-        /// </summary>
-        /// <param name="reader">Reader</param>
-        public void Append(BinaryReader reader)
-        {
-            Load(Parse(reader), true);
-        }
 
         /// <summary>
         /// Parse a recording into objects without touching the recorder, so a file can be read on
         /// any thread and then applied on the sim thread with <see cref="Load"/>. Null when the
-        /// recording can't be used.
+        /// recording can't be used. Throws with a message for the user when the file is damaged.
         /// </summary>
         public List<Obj> Parse(BinaryReader reader, List<string> warnings = null)
         {
-            lock (parseLock)
+            // get version
+            short version = reader.ReadInt16();
+            // log version
+            main?.MonitorEvent("Recorder: reading recording stream (version " + version + ").");
+            // a JFS2 file starts with FA 00, which reads as version 250 (docs/jfs2/format-spec.md section 2)
+            if (version == Jfs2VersionSignature && reader.BaseStream.CanSeek)
             {
-                readTarget = [];
-                try
-                {
-                    // get version
-                    short version = reader.ReadInt16();
-                    // log version
-                    main?.MonitorEvent("Recorder: reading recording stream (version " + version + ").");
-                    // a JFS2 file starts with FA 00, which reads as version 250 (docs/jfs2/format-spec.md section 2)
-                    if (version == Jfs2VersionSignature && reader.BaseStream.CanSeek)
-                    {
-                        reader.BaseStream.Position -= sizeof(short);
-                        return ParseJfs2(reader.BaseStream, warnings);
-                    }
-                    // check version
-                    if (version < 10022)
-                    {
-                        // warning
-                        main?.ShowMessage(Resources.Strings.OldRecording);
-                        return null;
-                    }
-                    // read correct version
-                    JfsFrames.Read(version, readVersions, reader);
-                    return readTarget;
-                }
-                finally
-                {
-                    readTarget = null;
-                }
+                reader.BaseStream.Position -= sizeof(short);
+                return ParseJfs2(reader.BaseStream, warnings);
             }
+            // check version
+            if (version < 10022)
+            {
+                // warning
+                main?.ShowMessage(Resources.Strings.OldRecording);
+                return null;
+            }
+            // an old recording is read by the importer (docs/jfs2/recorder-v2-design.md section 8), which parses the file both ways
+            // the trailing strings were written and takes the one that fits, then plays like any other recording
+            return ParseLegacy(version, reader.BaseStream, warnings);
+        }
+
+        /// <summary>
+        /// Read an old .jfs recording whose version has just been read from the stream
+        /// </summary>
+        List<Obj> ParseLegacy(short version, Stream rest, List<string> warnings)
+        {
+            // the importer wants the whole file, version included
+            var whole = new MemoryStream();
+            whole.Write(BitConverter.GetBytes(version));
+            rest.CopyTo(whole);
+            whole.Position = 0;
+
+            LegacyJfsImporter.Result imported = LegacyJfsImporter.Read(whole);
+            foreach (string note in imported.Scene.Notes)
+            {
+                main?.MonitorEvent("Recorder: " + note);
+            }
+            warnings?.AddRange(imported.Scene.Warnings);
+
+            List<Obj> objects = Jfs2Loader.Objects(imported.Scene);
+            main?.MonitorEvent("Recorder: loaded " + objects.Count(o => o is Aircraft) + " aircraft, " + objects.Count(o => o is not Aircraft) + " objects, " + objects.Sum(o => o.frames.Count) + " frames (trailing strings: " + imported.Layout + ").");
+            return objects;
         }
 
         /// <summary>

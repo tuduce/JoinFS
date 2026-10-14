@@ -196,10 +196,7 @@ public sealed class Jfs2ImportTests : IDisposable
     public void ARecordingInTheOldFormat_ConvertsToAFileThatPlaysTheSame()
     {
         string jfs = Path.Combine(folder, "old.jfs");
-        using (FileStream stream = File.Create(jfs))
-        {
-            new Recorder(null!).Write(new BinaryWriter(stream), MakeRecording());
-        }
+        File.WriteAllBytes(jfs, LegacyJfsWriter.Write(MakeRecording()));
         List<Recorder.Obj> old = ReadJfs(jfs);
         Assert.Equal(3, old.Count);
 
@@ -274,10 +271,7 @@ public sealed class Jfs2ImportTests : IDisposable
     public void Convert_WritesBesideTheOriginalAndNeverOverwrites()
     {
         string jfs = Path.Combine(folder, "old.jfs");
-        using (FileStream stream = File.Create(jfs))
-        {
-            new Recorder(null!).Write(new BinaryWriter(stream), MakeRecording());
-        }
+        File.WriteAllBytes(jfs, LegacyJfsWriter.Write(MakeRecording()));
         byte[] original = File.ReadAllBytes(jfs);
         StringWriter output = new();
 

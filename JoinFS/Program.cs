@@ -1108,7 +1108,7 @@ namespace JoinFS
                             if (reader != null)
                             {
                                 // read recording
-                                recorder.Read(reader);
+                                recorder.Load(recorder.Parse(reader), false);
                                 // start playing
                                 recorder.StartPlay();
                             }

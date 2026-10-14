@@ -237,10 +237,7 @@ public sealed class LegacyJfsImporterTests : IDisposable
     public void ImportedAndWritten_PlaysTheSameAsTheInAppReader()
     {
         string jfs = Path.Combine(folder, "old.jfs");
-        using (FileStream stream = File.Create(jfs))
-        {
-            new Recorder(null!).Write(new BinaryWriter(stream), Jfs2ImportTests.MakeRecording());
-        }
+        File.WriteAllBytes(jfs, LegacyJfsWriter.Write(Jfs2ImportTests.MakeRecording()));
         List<Recorder.Obj> oracle = Jfs2ImportTests.ReadJfs(jfs);
 
         string path = Path.Combine(folder, "out.jfs2");

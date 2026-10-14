@@ -6,50 +6,21 @@ using JoinFS.Properties;
 namespace JoinFS
 {
     /// <summary>
-    /// The legacy wire's binary codec for the frame types Recorder stores in .jfs files and XPlane
-    /// exchanges with the native plugin (docs/network-plugin-architecture.md §6 calls this
-    /// "Sim.Write/Read"; it used to live on Sim itself). This message format is frozen - the same
+    /// The legacy wire's binary codec for the aircraft position XPlane exchanges with the native
+    /// plugin (docs/network-plugin-architecture.md §6 calls this "Sim.Write/Read"; it used to live
+    /// on Sim itself). It also wrote the frames of old .jfs recordings, which the application no
+    /// longer writes; LegacyJfsImporter reads them. This message format is frozen - the same
     /// rule as LegacyPlugin's codecs (see CLAUDE.md's networking rules): never add fields here, only
     /// to JFP2.
     /// </summary>
     public static class JfsFrames
     {
-        /// <summary>
-        /// Method for reading specific data versions
-        /// </summary>
-        /// <param name="reader"></param>
-        public delegate void ReadVersion(short version, BinaryReader reader);
 
         /// <summary>
         /// Exception for reading data
         /// </summary>
         public class ReadException(string message) : Exception(message)
         {
-        }
-
-        /// <summary>
-        /// Generic read handler
-        /// </summary>
-        /// <param name="versions">List of versions</param>
-        /// <param name="version">Version to read</param>
-        /// <param name="reader">Reader</param>
-        public static void Read(short version, Dictionary<short, ReadVersion> versions, BinaryReader reader)
-        {
-            // get keys
-            List<short> keys = [.. versions.Keys];
-            // sort keys
-            keys.Sort();
-            // go backwards through the versions
-            for (int index = keys.Count - 1; index >= 0; index--)
-            {
-                // check version
-                if (version >= keys[index])
-                {
-                    // read version
-                    versions[keys[index]](version, reader);
-                    break;
-                }
-            }
         }
 
         /// <summary>
@@ -92,86 +63,6 @@ namespace JoinFS
         /// </summary>
         static short ConvertToAxis(float input) { return (short)(input * 16384.0); }
         static float ConvertFromAxis(short input) { return (float)(int)input * (1.0f / 16384.0f); }
-
-        /// <summary>
-        /// Write position/velocity to a stream
-        /// </summary>
-        /// <param name="writer">Binary writer</param>
-        /// <param name="simPositionVelocity">Position and Velocity</param>
-        public static void Write(BinaryWriter writer, ref Sim.ObjectPositionVelocity positionVelocity)
-        {
-            // add position
-            writer.Write(positionVelocity.latitude);
-            writer.Write(positionVelocity.longitude);
-            writer.Write(positionVelocity.altitude);
-            writer.Write(positionVelocity.pitch);
-            writer.Write(positionVelocity.bank);
-            writer.Write(positionVelocity.heading);
-            // add velocity
-            writer.Write(positionVelocity.velocityX);
-            writer.Write(positionVelocity.velocityY);
-            writer.Write(positionVelocity.velocityZ);
-            writer.Write(positionVelocity.angularVelocityX);
-            writer.Write(positionVelocity.angularVelocityY);
-            writer.Write(positionVelocity.angularVelocityZ);
-            writer.Write(positionVelocity.accelerationX);
-            writer.Write(positionVelocity.accelerationY);
-            writer.Write(positionVelocity.accelerationZ);
-            writer.Write(positionVelocity.height);
-            // ground flags
-            byte flags = 0;
-            if (positionVelocity.ground != 0) flags |= 0x01;
-            if (Settings.Default.ElevationCorrection) flags |= 0x02;
-            writer.Write(flags);
-        }
-
-        /// <summary>
-        /// Read position and velocity from a stream
-        /// </summary>
-        /// <param name="reader">Binary reader</param>
-        public static void ReadPositionVelocity1(short version, BinaryReader reader, ref Sim.ObjectPositionVelocity positionVelocity)
-        {
-            // update position
-            positionVelocity.latitude = reader.ReadDouble();
-            positionVelocity.longitude = reader.ReadDouble();
-            positionVelocity.altitude = reader.ReadDouble();
-            positionVelocity.pitch = reader.ReadSingle();
-            positionVelocity.bank = reader.ReadSingle();
-            positionVelocity.heading = reader.ReadSingle();
-            // update velocity
-            positionVelocity.velocityX = reader.ReadSingle();
-            positionVelocity.velocityY = reader.ReadSingle();
-            positionVelocity.velocityZ = reader.ReadSingle();
-            positionVelocity.angularVelocityX = reader.ReadSingle();
-            positionVelocity.angularVelocityY = reader.ReadSingle();
-            positionVelocity.angularVelocityZ = reader.ReadSingle();
-            positionVelocity.accelerationX = reader.ReadSingle();
-            positionVelocity.accelerationY = reader.ReadSingle();
-            positionVelocity.accelerationZ = reader.ReadSingle();
-            // update ground state
-            positionVelocity.height = version >= 10023 ? reader.ReadSingle() : 0.0f;
-            byte flags = version >= 10023 ? reader.ReadByte() : (byte)0;
-            positionVelocity.ground = (flags & 0x01) != 0 ? 1 : 0;
-        }
-
-        /// <summary>
-        /// Version table for reading position and velocity
-        /// </summary>
-        static readonly Dictionary<short, ReadVersion<Sim.ObjectPositionVelocity>> positionVelocityVersions = new()
-        {
-            { 10022, ReadPositionVelocity1 },
-        };
-
-        /// <summary>
-        /// Generic read handler
-        /// </summary>
-        /// <param name="versions">List of versions</param>
-        /// <param name="version">Version to read</param>
-        /// <param name="reader">Reader</param>
-        public static void Read(short version, BinaryReader reader, ref Sim.ObjectPositionVelocity positionVelocity)
-        {
-            Read(version, positionVelocityVersions, reader, ref positionVelocity);
-        }
 
         /// <summary>
         /// Write aircraft position/velocity to a stream
@@ -282,112 +173,5 @@ namespace JoinFS
             Read(version, aircraftPositionVersions, reader, ref aircraftPosition);
         }
 
-        /// <summary>
-        /// Write integer variables to a stream
-        /// </summary>
-        public static void Write(BinaryWriter writer, Dictionary<uint, int> variables)
-        {
-            // write count
-            writer.Write((ushort)variables.Count);
-            // for each variable
-            foreach (var variable in variables)
-            {
-                // add variable ID
-                writer.Write(variable.Key);
-                // add value
-                writer.Write(variable.Value);
-            }
-        }
-
-        /// <summary>
-        /// Read integer variables from a stream
-        /// </summary>
-        public static void Read(short version, BinaryReader reader, Dictionary<uint, int> variables)
-        {
-            // read count
-            ushort count = reader.ReadUInt16();
-            // for each variable
-            for (int i = 0; i < count; i++)
-            {
-                // read variable ID
-                uint vuid = reader.ReadUInt32();
-                // read integer
-                int value = reader.ReadInt32();
-                // add variable
-                variables[vuid] = value;
-            }
-        }
-
-        /// <summary>
-        /// Write float variables to a stream
-        /// </summary>
-        public static void Write(BinaryWriter writer, Dictionary<uint, float> variables)
-        {
-            // write count
-            writer.Write((ushort)variables.Count);
-            // for each variable
-            foreach (var variable in variables)
-            {
-                // add variable ID
-                writer.Write(variable.Key);
-                // add value
-                writer.Write(variable.Value);
-            }
-        }
-
-        /// <summary>
-        /// Read float variables from a stream
-        /// </summary>
-        public static void Read(short version, BinaryReader reader, Dictionary<uint, float> variables)
-        {
-            // read count
-            ushort count = reader.ReadUInt16();
-            // for each variable
-            for (int i = 0; i < count; i++)
-            {
-                // read variable ID
-                uint vuid = reader.ReadUInt32();
-                // read float
-                float value = reader.ReadSingle();
-                // add variable
-                variables[vuid] = value;
-            }
-        }
-
-        /// <summary>
-        /// Write string8 variables to a stream
-        /// </summary>
-        public static void Write(BinaryWriter writer, Dictionary<uint, string> variables)
-        {
-            // write count
-            writer.Write((ushort)variables.Count);
-            // for each variable in the set
-            foreach (var variable in variables)
-            {
-                // add variable ID
-                writer.Write(variable.Key);
-                // add value
-                writer.Write(variable.Value);
-            }
-        }
-
-        /// <summary>
-        /// Read string8 variables from a stream
-        /// </summary>
-        public static void Read(short version, BinaryReader reader, Dictionary<uint, string> variables)
-        {
-            // read count
-            ushort count = reader.ReadUInt16();
-            // for each variable
-            for (int i = 0; i < count; i++)
-            {
-                // read variable ID
-                uint vuid = reader.ReadUInt32();
-                // read string
-                string value = reader.ReadString();
-                // add variable
-                variables[vuid] = value;
-            }
-        }
     }
 }

@@ -161,7 +161,7 @@ Code in `JoinFS/Recording/`, tests in `JoinFS.Tests/Recording/Jfs2ImportTests.cs
     agree on all 11 tiger files, and none of them is ambiguous.
   - `RecordingXRay` keeps its own reader for `.jfs` files: it shows what the old file stores, frame by frame, which a viewer should not
     pass through canonical messages.
-- Not done yet: the in-app open of a `.jfs` still goes through `Recorder.Parse`; stage 5 replaces it with importer then `Jfs2Loader`'s mapping.
+- The in-app open of a `.jfs` now goes through the importer too (stage 5e below).
 - `JoinFS.Recording.Tool/` (2026-10-14) builds `jfs2`, a command-line tool that uses only the format library: `jfs2 dump [--records] f`,
   `jfs2 verify f` (reads every chunk, exit code 1 if anything is wrong), `jfs2 repair f [-o out]` (works on a copy, never overwrites;
   default `<name>-repaired.jfs2`). Tested in `JoinFS.Recording.Format.Tests/ToolTests.cs`.
@@ -201,6 +201,22 @@ format switches over first.
   the last good chunk and says what is damaged), plays it, and marks it unsaved; saving it removes the leftover. After one recovery the
   offers stop, so recovering cannot replace itself; the others come at the next start. A leftover is always a recording the user did not
   decide about: a crash, a force-quit, or the WinForms window (which does not ask).
+
+- **5e, old files are read by the importer only** (2026-10-14). `Recorder.Parse` hands an old `.jfs` to `LegacyJfsImporter` and maps the scene
+  with `Jfs2Loader.Objects`, so File -> Open, Add, `-play` and the Avalonia picker read old files with the layout detection, and plain
+  objects keep their variables and events. For old files the position's `StaticCgToGround` is now NaN ("no data") where the old reader left
+  0, which the playback correction treats as "do not correct" instead of adding the substitute's clearance. All the old file code is gone from
+  the application: the `Read`/`Write` of every frame class and of `Recorder`, `Recorder.FileVersion`, `Recorder.Append`, and the variables and
+  object-position codecs of `JfsFrames` (it keeps the aircraft position, which the X-Plane link uses). The one thing that still writes the old
+  format is the test-side `LegacyJfsWriter` (byte-identical to the writer it replaced, checked before the deletion), which the importer
+  tests need to make files. Since the importer is now also the reader, the importer tests that compared it with the in-app reader compare it
+  with itself; the independent check is the corpus run of 2026-10-14 (all 11 files agreed) and the hand-made files of
+  `LegacyJfsImporterTests`.
+- **What stage 5 still has to do.** Playback and editing still run on the old in-memory model: `Recorder.Obj` holds a frame list per object,
+  and play, jump, trim, remove, skip and overdub work on it. That is correct and well tested, and a recording is loaded whole (a one-hour
+  recording with ten aircraft is about 80 MB of file). The design's chunk-by-chunk player (section 5.5, memory bounded by chunk size) is not
+  built; whether it is worth building is a measurement for stage 6 (load time and memory of the longest recordings), not a prerequisite for
+  anything else. What is left that is not optional: the WinForms recorder goes with the WinForms UI.
 
 
 ## What the code check found (beyond the design)
