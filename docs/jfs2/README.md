@@ -19,7 +19,9 @@ truncation, random corruption). Not wired into the app.
 `MessageClasses` are now the standalone library `JoinFS.Messages/` (same namespaces, no call site
 changed; 1129 tests pass; all six build configurations compile).
 **Stage 2, the tracer bullet, is built** (2026-10-12, in-sim playback confirmed; see "Stage 2 as built").
-**Stage 3 is under way** in slices; slices 3a (variables and events) and 3b (object-position) are built, see "Stage 3 as built".
+**Stage 3 is built** except identity changes during a track: 3a variables and events, 3b object-position, 3c keyframes (see
+"Stage 3 as built"); 3d, the streaming player, moved to stage 5.
+**Stage 4 is partly built** (2026-10-14): `.jfs` to `.jfs2` conversion, in the app and as `JoinFS -convert` (see "Stage 4 as built").
 
 ## Open decisions
 
@@ -119,8 +121,34 @@ Stage 3 goes in slices, each leaving a working recorder.
   with the time of what it summarises. `Jfs2Loader` still skips snapshots on a clean read, but after a lost chunk (CRC failure, or a
   gap in an unfinished file) it waits for the next keyframe and restores from its snapshot (spec 8.2): tracks opened in the lost
   chunk appear, the merged variables come back, and a snapshot position already read is not added twice; frames stay in time order.
-- Still to do: identity changes during a track; 3d the chunk-by-chunk player with a prefetch thread, which also brings the
-  Index-driven Jump (`RecordingReader.FindKeyframeChunk` is there; the loader loads everything, so the old Jump needs no seek yet).
+- Still to do in stage 3: identity changes during a track. **3d, the chunk-by-chunk player with a prefetch thread, moves to
+  stage 5** (decided 2026-10-14): it would have to plug into the old `Recorder`, which still holds every frame while recording
+  and has four open paths (WinForms, Avalonia, `-play`, Add), and stage 5 rebuilds playback on the new engine anyway. The pieces
+  it needs exist: `RecordingReader.FindKeyframeChunk`, the snapshots, and the restore code in `Jfs2Loader`. One gap it would
+  close: the old `Jump` moves the position but does not restore variables (gear, flaps and lights stay as they were before it).
+
+## Stage 4 as built
+
+Code in `JoinFS/Recording/`, tests in `JoinFS.Tests/Recording/Jfs2ImportTests.cs`.
+
+- `Jfs2Exporter` writes `Recorder.Obj`s as a `.jfs2`. The old reader (`Recorder.Parse`, now usable without a `Main`) produces
+  the objects, so it is the frozen importer of design section 8 until stage 5 moves it into its own module. Frames of all objects
+  go in time order (a chunk may not go back), tracks are numbered from 1 and opened at their first frame, with owner `recorded`
+  and the nickname kept. Objects without a position are left out. A time before 0 is held at 0.
+- `Jfs2Convert` and `JoinFS -convert a.jfs [b.jfs ...]` write `a.jfs2` beside each file, never overwriting (`a-2.jfs2`) and never
+  touching the original. It runs before the application starts, so it needs no simulator. A windowed build attaches to the
+  parent console for its report. A file it cannot read is reported and the rest go on; the exit code is 1 if any failed.
+- Open by magic already worked (stage 2: `Recorder.Parse` sniffs the format). Not done yet: `RecordingXRay` still has its own
+  reader; a standalone `dump`/`verify`/`repair` tool (the library has `RecordingDump` and `RecordingRepair`); the importer as a
+  separate module.
+- Acceptance test on the 11 real recordings in the owner's `Downloads/tiger recordings` (or the folder in `JOINFS_JFS_CORPUS`;
+  skipped when absent): same objects, same number of position frames and events per object, same positions (the five control
+  axes to 1/16384, everything else bit for bit), same merged variables at four moments. What it found, all accepted:
+  - `IcaoType` and `IcaoAirline` are cut to 8 bytes by `IdentityV1Codec`. FS2024 recordings keep a long model string in
+    `IcaoType` (for example `ATCCOM.AC_MODEL TIGER MOTH.0.tex`), which becomes `ATCCOM.A`. Live capture has the same limit.
+  - Old files hold some frames out of order and some at negative times (down to -7 s); the new file has them in order and
+    holds negative times at 0.
+  - The new file is about 60% smaller for a one-aircraft recording (variables are stored on change): 2678 KB became 1035 KB.
 
 ## What the code check found (beyond the design)
 

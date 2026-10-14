@@ -2371,12 +2371,27 @@ namespace JoinFS
         //    }
         //}
 
+#if !CONSOLE
+        [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+        static extern bool AttachConsole(int processId);
+#endif
+
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
         [STAThread]
         static void Main()
         {
+            // a conversion of old recordings needs neither the application nor a simulator (docs/jfs2/recorder-v2-design.md section 8)
+            if (JoinFS.Recording.Jfs2Convert.FilesOf(Environment.GetCommandLineArgs()[1..]) is { } convertFiles)
+            {
+#if !CONSOLE
+                // a windowed program has no console of its own: write to the one that started it
+                AttachConsole(-1);
+#endif
+                Environment.Exit(JoinFS.Recording.Jfs2Convert.Run(convertFiles, Console.Out));
+            }
+
             Main main = new();
 
             // log any unhandled exception before the process dies, instead of silently vanishing with

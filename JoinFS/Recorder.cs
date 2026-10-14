@@ -2098,11 +2098,11 @@ namespace JoinFS
                     frameSummary.Append(frameCount.Value);
                 }
 
-                main.MonitorEvent("Recorder: aircraft '" + aircraft.callsign + "' frames=" + aircraft.frames.Count + " (" + frameSummary + ").");
+                main?.MonitorEvent("Recorder: aircraft '" + aircraft.callsign + "' frames=" + aircraft.frames.Count + " (" + frameSummary + ").");
 
                 if (aircraftPositionCount == 0 && objectPositionCount == 0)
                 {
-                    main.MonitorEvent("Recorder: warning - aircraft '" + aircraft.callsign + "' has no ObjectPosition/AircraftPosition frames.");
+                    main?.MonitorEvent("Recorder: warning - aircraft '" + aircraft.callsign + "' has no ObjectPosition/AircraftPosition frames.");
                 }
 
                 // add to list
@@ -2132,7 +2132,7 @@ namespace JoinFS
             }
 
             // log load summary
-            main.MonitorEvent("Recorder: loaded " + loadedAircraft + " aircraft, " + loadedObjects + " objects, " + loadedFrames + " frames.");
+            main?.MonitorEvent("Recorder: loaded " + loadedAircraft + " aircraft, " + loadedObjects + " objects, " + loadedFrames + " frames.");
         }
 
         /// <summary>
@@ -2174,7 +2174,7 @@ namespace JoinFS
                     // get version
                     short version = reader.ReadInt16();
                     // log version
-                    main.MonitorEvent("Recorder: reading recording stream (version " + version + ").");
+                    main?.MonitorEvent("Recorder: reading recording stream (version " + version + ").");
                     // a JFS2 file starts with FA 00, which reads as version 250 (docs/jfs2/format-spec.md section 2)
                     if (version == Jfs2VersionSignature && reader.BaseStream.CanSeek)
                     {
@@ -2185,7 +2185,7 @@ namespace JoinFS
                     if (version < 10022)
                     {
                         // warning
-                        main.ShowMessage(Resources.Strings.OldRecording);
+                        main?.ShowMessage(Resources.Strings.OldRecording);
                         return null;
                     }
                     // read correct version
@@ -2212,9 +2212,9 @@ namespace JoinFS
             Jfs2Loader.Result result = Jfs2Loader.Load(stream);
             foreach (string note in result.Notes)
             {
-                main.MonitorEvent("Recorder: " + note);
+                main?.MonitorEvent("Recorder: " + note);
             }
-            main.MonitorEvent("Recorder: read a JFS2 recording with " + result.Objects.Count + " aircraft.");
+            main?.MonitorEvent("Recorder: read a JFS2 recording with " + result.Objects.Count + " aircraft.");
             return result.Objects;
         }
 
