@@ -1353,6 +1353,17 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// Write the identity of a recorded object again when it has changed (callsign, model) since the last one written
+        /// </summary>
+        public void RecordIdentity(Sim.Obj simObject)
+        {
+            if (jfs2 != null && simObject.recorderObj is Obj recorded && recorded.playing == false)
+            {
+                jfs2.Identity(recorded.id, Time, SimMessageMapper.BuildIdentity(simObject, recorded.id));
+            }
+        }
+
+        /// <summary>
         /// Finish the JFS2 file: close the open tracks and write its index
         /// </summary>
         void FinishJfs2Capture()
@@ -1364,7 +1375,7 @@ namespace JoinFS
                 finished.Finish();
                 if (!finished.Failed)
                 {
-                    main.MonitorEvent("Recorder: wrote the JFS2 recording '" + finished.Path + "' (" + finished.TrackCount + " objects, " + finished.PositionCount + " aircraft positions, " + finished.ObjectPositionCount + " object positions, " + finished.VariableRecordCount + " variable records, " + finished.EventCount + " events).");
+                    main.MonitorEvent("Recorder: wrote the JFS2 recording '" + finished.Path + "' (" + finished.TrackCount + " objects, " + finished.PositionCount + " aircraft positions, " + finished.ObjectPositionCount + " object positions, " + finished.VariableRecordCount + " variable records, " + finished.EventCount + " events, " + finished.IdentityChangeCount + " identity changes).");
                 }
             }
         }

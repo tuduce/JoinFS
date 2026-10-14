@@ -670,4 +670,73 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         Assert.False(capture.Failed);
         Assert.Equal(0, capture.ObjectPositionCount);
     }
+
+    /// <summary>Identity records of a track in the finished file, with their times, snapshots included when asked.</summary>
+    List<(long Time, string Callsign, bool Snapshot)> IdentityRecords(uint track, bool snapshots)
+    {
+        var found = new List<(long, string, bool)>();
+        using var reader = RecordingReader.Open(PathOf("a.jfs2"));
+        for (int i = 0; i < reader.Chunks.Count; i++)
+        {
+            Assert.True(reader.TryReadChunk(i, out RecordChunk? chunk));
+            foreach (RecordEntry r in chunk!.Records)
+            {
+                if (r.Track == track && reader.GetKind(r.Kind)!.Name == "identity" && (snapshots || !r.IsSnapshot))
+                {
+                    found.Add((r.Time, new IdentityV1Codec().Decode(r.Body.Span).Callsign, r.IsSnapshot));
+                }
+            }
+        }
+        return found;
+    }
+
+    [Fact]
+    public void AChangedIdentity_IsWrittenOnceAndAnUnchangedOneNotAtAll()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(1, 0.0, TrackOwner.Local, "me", "JoinFS test", "MSFS2024", Identity("N1", "Cessna 172"));
+        capture.Identity(1, 1.0, Identity("N1", "Cessna 172"));
+        capture.Identity(1, 2.0, Identity("DLH1", "Cessna 172"));
+        capture.Identity(1, 3.0, Identity("DLH1", "Cessna 172"));
+        capture.Identity(7, 3.0, Identity("X", "Y")); // not a track
+        capture.Finish();
+
+        Assert.False(capture.Failed);
+        Assert.Equal(1, capture.IdentityChangeCount);
+        Assert.Equal([(0L, "N1", false), (2_000_000L, "DLH1", false)], IdentityRecords(1, false));
+    }
+
+    [Fact]
+    public void AKeyframeAfterAnIdentityChange_HoldsTheLatestIdentityWithItsTime()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(1, 0.0, TrackOwner.Local, "me", "JoinFS test", "MSFS2024", Identity("N1", "Cessna 172"));
+        capture.Identity(1, 1.0, Identity("DLH1", "Cessna 172"));
+        for (int i = 0; i < 400; i++)
+        {
+            PositionUpdate p = Position(i);
+            capture.Position(1, 1.5 + i * 0.1, ref p);
+        }
+        capture.Finish();
+
+        var snapshots = IdentityRecords(1, true).Where(r => r.Snapshot).ToList();
+        Assert.NotEmpty(snapshots);
+        Assert.All(snapshots, r => Assert.Equal(("DLH1", 1_000_000L), (r.Callsign, r.Time)));
+    }
+
+    [Fact]
+    public void ALoaderReadingAnIdentityChange_KeepsTheOpeningIdentityAndSaysSo()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(1, 0.0, TrackOwner.Local, "me", "JoinFS test", "MSFS2024", Identity("N1", "Cessna 172"));
+        PositionUpdate p = Position(0);
+        capture.Position(1, 0.5, ref p);
+        capture.Identity(1, 1.0, Identity("DLH1", "Cessna 172"));
+        capture.Finish();
+
+        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
+
+        Assert.Equal("N1", OnlyAircraft(result).callsign);
+        Assert.Contains(result.Notes, n => n.Contains("1 identity changes were ignored"));
+    }
 }

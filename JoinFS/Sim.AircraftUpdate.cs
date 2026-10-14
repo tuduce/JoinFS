@@ -630,7 +630,8 @@ namespace JoinFS
                 // check if recording
                 if (sendDue && main.recorder.recording && aircraft.record && aircraft.Injected == false)
                 {
-                    // record position and velocity
+                    // record a changed identity, then position and velocity
+                    main.recorder.RecordIdentity(aircraft);
                     main.recorder.Record(aircraft.recorderObj, main.ElapsedTime, ref aircraftPosition);
                 }
             }

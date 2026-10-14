@@ -88,6 +88,7 @@ namespace JoinFS.Recording
         public int TrackCount { get; private set; }
         public int PositionCount { get; private set; }
         public int ObjectPositionCount { get; private set; }
+        public int IdentityChangeCount { get; private set; }
         public int VariableRecordCount { get; private set; }
         public int EventCount { get; private set; }
         /// <summary>Chunks started as keyframes after the first (which always is one).</summary>
@@ -145,6 +146,37 @@ namespace JoinFS.Recording
                 trackOrder.Add(track);
                 writer.SetTrackLabel(track, identity.Callsign, identity.Model);
                 TrackCount++;
+                EndChunkIfDue();
+            }
+            catch (Exception ex)
+            {
+                Fail(ex);
+            }
+        }
+
+        /// <summary>
+        /// Writes the identity of an open track again when it differs from the latest one written (a new callsign or model, spec 7.1).
+        /// The comparison is on the encoded bytes, so a change the codec cuts off (a long ICAO string) writes nothing.
+        /// </summary>
+        public void Identity(uint track, double seconds, IdentityUpdate identity)
+        {
+            if (Failed || finished || !states.TryGetValue(track, out TrackState state))
+            {
+                return;
+            }
+            try
+            {
+                int length = identityCodec.Encode(Sanitised(identity, track), identityBody);
+                if (identityBody.AsSpan(0, length).SequenceEqual(state.Identity))
+                {
+                    return;
+                }
+                long time = TimeOf(track, seconds);
+                writer.Add(kinds.Identity, track, time, identityBody.AsSpan(0, length));
+                state.Identity = identityBody.AsSpan(0, length).ToArray();
+                state.IdentityTime = time;
+                lastTime[track] = time;
+                IdentityChangeCount++;
                 EndChunkIfDue();
             }
             catch (Exception ex)

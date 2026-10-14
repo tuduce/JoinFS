@@ -19,7 +19,7 @@ truncation, random corruption). Not wired into the app.
 `MessageClasses` are now the standalone library `JoinFS.Messages/` (same namespaces, no call site
 changed; 1129 tests pass; all six build configurations compile).
 **Stage 2, the tracer bullet, is built** (2026-10-12, in-sim playback confirmed; see "Stage 2 as built").
-**Stage 3 is built** except identity changes during a track: 3a variables and events, 3b object-position, 3c keyframes (see
+**Stage 3 is built**: 3a variables and events, 3b object-position, 3c keyframes, identity changes (see
 "Stage 3 as built"); 3d, the streaming player, moved to stage 5.
 **Stage 4 is partly built** (2026-10-14): `.jfs` to `.jfs2` conversion, in the app and as `JoinFS -convert` (see "Stage 4 as built").
 
@@ -121,7 +121,12 @@ Stage 3 goes in slices, each leaving a working recorder.
   with the time of what it summarises. `Jfs2Loader` still skips snapshots on a clean read, but after a lost chunk (CRC failure, or a
   gap in an unfinished file) it waits for the next keyframe and restores from its snapshot (spec 8.2): tracks opened in the lost
   chunk appear, the merged variables come back, and a snapshot position already read is not added twice; frames stay in time order.
-- Still to do in stage 3: identity changes during a track. **3d, the chunk-by-chunk player with a prefetch thread, moves to
+- **Identity changes** (2026-10-14, unit tests only). `Jfs2Capture.Identity` writes a new `identity` record when the encoded body
+  differs from the latest one (a long ICAO string the codec cuts off changes nothing); a keyframe's snapshot carries the latest identity
+  with its own time. `Recorder.RecordIdentity(Sim.Obj)` is called just before each recorded position (`Sim.AircraftUpdate.cs`,
+  `Sim.SimConnect.cs`). `Jfs2Loader` still plays each object with the identity it opened with (the old `Recorder.Obj` has one) and says
+  how many changes it ignored; the stage 5 player applies them.
+- Stage 3 is complete. **3d, the chunk-by-chunk player with a prefetch thread, moves to
   stage 5** (decided 2026-10-14): it would have to plug into the old `Recorder`, which still holds every frame while recording
   and has four open paths (WinForms, Avalonia, `-play`, Add), and stage 5 rebuilds playback on the new engine anyway. The pieces
   it needs exist: `RecordingReader.FindKeyframeChunk`, the snapshots, and the restore code in `Jfs2Loader`. One gap it would
