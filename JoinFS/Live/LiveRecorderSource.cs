@@ -173,11 +173,8 @@ namespace JoinFS.Live
                 throw new InvalidOperationException(Loc.T("Recording not saved: the simulator thread did not respond. Please try again."));
             }
 
-            await Task.Run(() =>
-            {
-                using FileStream stream = File.Create(path);
-                main.recorder.Write(new BinaryWriter(stream), objects);
-            });
+            // the file picker has already asked about replacing a file
+            await Task.Run(() => main.recorder.SaveJfs2(path, objects, DateTime.Now, true));
 
             // save folder
             Settings.Default.RecordingFolder = Path.GetDirectoryName(path);

@@ -952,11 +952,11 @@ namespace JoinFS
         public void SaveRecording()
         {
             // get filename
-            Stream stream;
             SaveFileDialog dialog = new()
             {
                 InitialDirectory = Settings.Default.RecordingFolder,
-                Filter = "JoinFS files (*.jfs)|*.jfs",
+                Filter = "JoinFS 2 files (*.jfs2)|*.jfs2",
+                DefaultExt = "jfs2",
                 FilterIndex = 1,
                 RestoreDirectory = true
             };
@@ -972,18 +972,22 @@ namespace JoinFS
                     main.MonitorEvent(message);
                     return;
                 }
-                if ((stream = dialog.OpenFile()) != null)
+                try
                 {
-                    // write here
-                    using (stream)
-                    {
-                        main.recorder.Write(new BinaryWriter(stream), objects);
-                    }
-                    // save folder
-                    Settings.Default.RecordingFolder = Path.GetDirectoryName(dialog.FileName);
-                    // now saved
-                    unsaved = false;
+                    // the dialog has already asked about replacing a file
+                    main.recorder.SaveJfs2(dialog.FileName, objects, DateTime.Now, true);
                 }
+                catch (Exception ex)
+                {
+                    string message = "ERROR - Recording not saved: " + ex.Message;
+                    MessageBox.Show(message, Main.Name + ": " + Resources.Strings.RecorderStr);
+                    main.MonitorEvent(message);
+                    return;
+                }
+                // save folder
+                Settings.Default.RecordingFolder = Path.GetDirectoryName(dialog.FileName);
+                // now saved
+                unsaved = false;
             }
         }
 

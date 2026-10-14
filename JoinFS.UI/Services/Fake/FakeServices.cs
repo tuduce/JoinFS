@@ -529,7 +529,7 @@ public sealed class FakeRecorderSource : IRecorderSource
         Calls.Add("autosave");
         if (AutoSaveFails)
             throw new InvalidOperationException("disk full");
-        return "2026-10-10_120000_Me.jfs";
+        return "2026-10-10_120000_Me.jfs2";
     }
 
     /// <summary>Makes <see cref="AutoSave"/> fail, to test what is done then.</summary>

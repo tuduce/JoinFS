@@ -155,8 +155,8 @@ public sealed partial class LoadedAircraftViewModel : ObservableObject
 /// </summary>
 public sealed partial class RecorderViewModel : ObservableObject
 {
-    private const string SuggestedName = "recording.jfs";
-    private const string Extension = "jfs";
+    private const string SuggestedName = "recording.jfs2";
+    private const string Extension = "jfs2";
 
     /// <summary>What the open dialog offers: the old format and JFS2.</summary>
     private const string OpenExtensions = "jfs;jfs2";

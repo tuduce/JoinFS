@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.IO;
 #if !CONSOLE
@@ -989,7 +990,7 @@ namespace JoinFS
             {
                 callsign = callsign.Replace(invalid, '_');
             }
-            return now.ToString("yyyy-MM-dd_HHmmss", System.Globalization.CultureInfo.InvariantCulture) + "_" + callsign + ".jfs";
+            return now.ToString("yyyy-MM-dd_HHmmss", System.Globalization.CultureInfo.InvariantCulture) + "_" + callsign + Jfs2.Extension;
         }
 
         /// <summary>
@@ -1025,26 +1026,35 @@ namespace JoinFS
         /// <summary>
         /// Write a copy of a recording (from <see cref="CopyForSave"/>) into the folder under an
         /// automatic name, never overwriting a file. Returns the path; throws if it can't be written
-        /// (a partially written file is deleted first) - any thread
+        /// (nothing is left behind) - any thread
         /// </summary>
         public string AutoSave(string folder, List<Obj> objects, DateTime now)
         {
             string path = UniquePath(folder, BuildAutoSaveFileName(now, FirstCallsign(objects)));
-            using (var stream = new FileStream(path, FileMode.CreateNew))
-            {
-                try
-                {
-                    using var writer = new BinaryWriter(stream);
-                    Write(writer, objects);
-                }
-                catch
-                {
-                    stream.Dispose();
-                    TryDeleteQuietly(path);
-                    throw;
-                }
-            }
+            SaveJfs2(path, objects, now, false);
             return path;
+        }
+
+        /// <summary>
+        /// Save a recording (from <see cref="CopyForSave"/>) as a JFS2 file. It is written beside the target and moved into place,
+        /// so a failure leaves nothing behind and does not destroy a file that is being replaced. Throws if it can't be written - any thread
+        /// </summary>
+        /// <param name="now">When the recording ended (local time); the file's start time is that minus the recording's length</param>
+        /// <param name="overwrite">Replace an existing file (the user confirmed it in the dialog) instead of failing</param>
+        public void SaveJfs2(string path, List<Obj> objects, DateTime now, bool overwrite)
+        {
+            double length = objects.Count == 0 ? 0 : objects.Max(obj => obj.frames.Count == 0 ? 0 : obj.frames[^1].time);
+            string temp = path + ".tmp";
+            try
+            {
+                Jfs2Exporter.Write(temp, objects, "JoinFS " + Main.Version, now.ToUniversalTime().AddSeconds(-length), _ => { });
+                File.Move(temp, path, overwrite);
+            }
+            catch
+            {
+                TryDeleteQuietly(temp);
+                throw;
+            }
         }
 
         /// <summary>

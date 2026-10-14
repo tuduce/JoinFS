@@ -155,6 +155,20 @@ Code in `JoinFS/Recording/`, tests in `JoinFS.Tests/Recording/Jfs2ImportTests.cs
     holds negative times at 0.
   - The new file is about 60% smaller for a one-aircraft recording (variables are stored on change): 2678 KB became 1035 KB.
 
+## Stage 5 as built
+
+Stage 5 goes in slices too. The editing stays on the old in-memory `Recorder` until the end (it already holds every frame), and the
+format switches over first.
+
+- **5a, Save writes `.jfs2`** (2026-10-14, unit tests only). `Recorder.SaveJfs2(path, objects, now, overwrite)` runs the exporter into
+  `<path>.tmp` and moves it into place, so a failure leaves nothing behind and does not destroy a file being replaced. Auto-save
+  (`BuildAutoSaveFileName` now ends in `.jfs2`), the WinForms Save dialog and the Avalonia `SaveAsync` all use it; the save dialogs offer
+  `.jfs2` only. Open still reads both. A recording edited in memory (trim, append, overdub, remove, skip) therefore saves as `.jfs2`
+  with the edits. Consequences: the file saved is built from the old objects, so it has the exporter's limits (identity changes made
+  during the live capture are not in it, ICAO strings cut to 8 bytes), and the live capture's own working file
+  (`<date>_<time>_recording.jfs2`) still stays in the documents folder beside the saved one: deleting it, and offering it after a crash,
+  is the working-file decision still open. The old `Recorder.Write` (the `.jfs` writer) is no longer called by the app.
+
 ## What the code check found (beyond the design)
 
 - Redundant `ObjectId`/`NetTime` in the `PositionV1` body go stale after Append, Trim or track
