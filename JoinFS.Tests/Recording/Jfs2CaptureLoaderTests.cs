@@ -741,4 +741,29 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         Assert.Contains(result.Notes, n => n.Contains("1 identity changes were ignored"));
         Assert.Empty(result.Warnings); // for the log only
     }
+
+    [Fact]
+    public void TheScene_HoldsCanonicalMessagesPerTrack_ForAnyViewer()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(10000, 0.0, TrackOwner.Local, "me", "JoinFS test", "MSFS2024", Identity("DLH1", "Cessna 172"));
+        PositionUpdate p = Position(1);
+        capture.Position(10000, 0.5, ref p);
+        capture.Variables(10000, 0.6, new Dictionary<uint, int> { [10] = 1 }, null, null);
+        capture.Event(10000, 0.7, 5, 6);
+        capture.Finish();
+
+        Jfs2Scene scene = Jfs2Scene.Load(Open(PathOf("a.jfs2")));
+
+        SceneTrack track = Assert.Single(scene.Tracks);
+        Assert.Equal(10000u, track.Id);
+        Assert.Equal("me", track.Nickname);
+        Assert.Equal("DLH1", track.Identity.Callsign);
+        Assert.Collection(track.Frames,
+            f => Assert.Equal(0.5, Assert.IsType<ScenePositionFrame>(f).Time),
+            f => Assert.Equal(1, Assert.Single(Assert.IsType<SceneVariablesFrame>(f).Variables.Entries).IntValue),
+            f => Assert.Equal((5u, 6u), (Assert.IsType<SceneEventFrame>(f).EventId, ((SceneEventFrame)f).Data)));
+        Assert.Equal(new DateTime(2026, 10, 12, 18, 0, 0, DateTimeKind.Utc), scene.StartUtc);
+        Assert.Contains(scene.Metadata, m => m.Key == "app" && m.Value == "JoinFS test");
+    }
 }

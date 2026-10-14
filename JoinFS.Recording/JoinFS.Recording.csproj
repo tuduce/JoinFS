@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The recorder's engine pieces that know the record kinds but not the simulator (docs/jfs2/README.md): the kind
+       bindings, the capture writer and the neutral scene reader. Built on the format library and the shared messages;
+       no reference to JoinFS, Sim or UI and no build symbol, so the app, the tools and RecordingXRay read and write the
+       same bytes. Namespaces are those the code had inside JoinFS (JoinFS.Recording). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <RootNamespace>JoinFS.Recording</RootNamespace>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\JoinFS.Messages\JoinFS.Messages.csproj" />
+    <ProjectReference Include="..\JoinFS.Recording.Format\JoinFS.Recording.Format.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="JoinFS" />
+    <InternalsVisibleTo Include="JoinFS.Tests" />
+  </ItemGroup>
+
+</Project>

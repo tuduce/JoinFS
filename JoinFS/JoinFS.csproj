@@ -319,6 +319,7 @@
   <ItemGroup>
     <ProjectReference Include="..\JoinFS.Messages\JoinFS.Messages.csproj" />
     <ProjectReference Include="..\JoinFS.Recording.Format\JoinFS.Recording.Format.csproj" />
+    <ProjectReference Include="..\JoinFS.Recording\JoinFS.Recording.csproj" />
   </ItemGroup>
   <ItemGroup Condition=" '$(NewUi)' == 'true' ">
     <ProjectReference Include="..\JoinFS.UI\JoinFS.UI.csproj" />

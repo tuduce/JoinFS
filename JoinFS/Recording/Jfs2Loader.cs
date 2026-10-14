@@ -1,242 +1,79 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using JoinFS.Net;
 using JoinFS.Net.Jfp2.Codecs;
-using JoinFS.Recording.Format;
 
 namespace JoinFS.Recording
 {
     /// <summary>
     /// Reads a JFS2 file into the objects the recorder plays (<see cref="Recorder.Obj"/>), so that opening, playing, jumping,
-    /// trimming and the player UI work on it unchanged. This is the stage 2 tracer bullet: it loads the whole file, which stage 3
-    /// replaces with a player that reads chunk by chunk. Stage 2 plays track-open, identity and position; everything else in the
-    /// file is skipped and counted (spec 8.2, 10.2). Knows nothing of Main, so it is testable without a simulator.
+    /// trimming and the player UI work on it unchanged. The file is read by <see cref="Jfs2Scene"/> (shared with RecordingXRay);
+    /// this maps its canonical messages onto the old frames. It loads everything, which the stage 5 player replaces with one that reads chunk by
+    /// chunk. Knows nothing of Main, so it is testable without a simulator.
     /// </summary>
     public static class Jfs2Loader
     {
         /// <param name="Objects">The recorded objects, in the order their tracks opened. Objects without a position are left out.</param>
-        /// <param name="Notes">What was skipped or damaged, for the log; empty when the file was read completely.</param>
         /// <param name="Notes">Everything the load has to say, for the log.</param>
         /// <param name="Warnings">The notes the user should see: parts of the file that were lost or are not played.</param>
         public sealed record Result(List<Recorder.Obj> Objects, IReadOnlyList<string> Notes, IReadOnlyList<string> Warnings);
 
-        sealed class Track
-        {
-            public string Nickname = "";
-            public IdentityUpdate Identity;
-            public bool HasIdentity;
-            public readonly List<Recorder.Frame> Frames = [];
-            public int PositionCount;
-            /// <summary>Time of the latest frame, so a snapshot after a lost chunk adds nothing out of order.</summary>
-            public double LastTime = double.NegativeInfinity;
-
-            public void Add(Recorder.Frame frame)
-            {
-                Frames.Add(frame);
-                LastTime = Math.Max(LastTime, frame.time);
-            }
-        }
-
-        /// <summary>The kinds this stage plays; everything else is skipped by name and version.</summary>
-        static readonly (string Name, byte Version)[] Played =
-        [
-            (Jfs2Kinds.TrackOpen, Jfs2Kinds.TrackOpenVersion),
-            (Jfs2Kinds.TrackClose, Jfs2Kinds.TrackCloseVersion),
-            (Jfs2Kinds.Identity, Jfs2Kinds.IdentityVersion),
-            (Jfs2Kinds.Position, Jfs2Kinds.PositionVersion),
-            (Jfs2Kinds.ObjectPosition, Jfs2Kinds.ObjectPositionVersion),
-            (Jfs2Kinds.Variables, Jfs2Kinds.VariablesVersion),
-            (Jfs2Kinds.Event, Jfs2Kinds.EventVersion),
-        ];
-
-        /// <summary>Kinds without which a recording shows nothing (spec 8.2).</summary>
-        static readonly string[] Essential = [Jfs2Kinds.TrackOpen, Jfs2Kinds.Identity, Jfs2Kinds.Position, Jfs2Kinds.ObjectPosition];
-
         /// <exception cref="InvalidOperationException">The file is not a JFS2 file this build can play; the message says why.</exception>
         public static Result Load(Stream stream)
         {
-            RecordingReader reader;
-            try
-            {
-                reader = RecordingReader.Open(stream, leaveOpen: true);
-            }
-            catch (Jfs2FormatException ex)
-            {
-                throw new InvalidOperationException("This recording cannot be opened: " + ex.Message, ex);
-            }
-            using (reader)
-            {
-                return Read(reader);
-            }
-        }
-
-        static Result Read(RecordingReader reader)
-        {
-            List<string> notes = [];
-            Dictionary<uint, Track> tracks = [];
-            List<uint> order = [];
-            Dictionary<string, int> skipped = [];
-            int damaged = 0, identityChanges = 0;
-            bool lost = false;
-
-            var positionCodec = new PositionV1Codec();
-            var identityCodec = new IdentityV1Codec();
-            var variablesCodec = new VariableSyncV1Codec();
-            var eventCodec = new EventV1Codec();
-
-            if (!reader.IsFinished)
-            {
-                notes.Add("The recording was not finished (the program stopped while recording); it is played as far as it was written.");
-            }
-
-            for (int index = 0; index < reader.Chunks.Count; index++)
-            {
-                if (!reader.TryReadChunk(index, out RecordChunk chunk))
-                {
-                    // spec 8.2: the track state is unreliable until the next keyframe
-                    lost = true;
-                    continue;
-                }
-                lost |= chunk.Info.PrecededByGap;
-                if (lost && !chunk.Info.IsKeyframe)
-                {
-                    continue;
-                }
-                // A linear read has seen what a snapshot summarises, so the snapshot is used only to restore the state after a lost chunk.
-                bool restore = lost;
-                lost = false;
-
-                foreach (RecordEntry entry in restore ? chunk.Records : chunk.Records.Skip(chunk.SnapshotCount))
-                {
-                    KindBinding kind = reader.GetKind(entry.Kind);
-                    if (kind == null || !IsPlayed(kind))
-                    {
-                        string key = kind == null ? "kind " + entry.Kind : kind.Name + " v" + kind.Version;
-                        skipped[key] = skipped.GetValueOrDefault(key) + 1;
-                        continue;
-                    }
-
-                    try
-                    {
-                        switch (kind.Name)
-                        {
-                            case Jfs2Kinds.TrackOpen:
-                                if (!tracks.ContainsKey(entry.Track))
-                                {
-                                    tracks[entry.Track] = new Track { Nickname = TrackOpenV1.Decode(entry.Body.Span).Nickname };
-                                    order.Add(entry.Track);
-                                }
-                                break;
-
-                            case Jfs2Kinds.Identity:
-                                if (tracks.TryGetValue(entry.Track, out Track identityTrack))
-                                {
-                                    IdentityUpdate identity = identityCodec.Decode(entry.Body.Span);
-                                    if (!identityTrack.HasIdentity)
-                                    {
-                                        identityTrack.Identity = identity;
-                                        identityTrack.HasIdentity = true;
-                                    }
-                                    else if (!identityTrack.Identity.SameAs(in identity))
-                                    {
-                                        identityChanges++;
-                                    }
-                                }
-                                break;
-
-                            case Jfs2Kinds.Position:
-                                // a snapshot's position that the track already has (it is not newer than its last frame) is a duplicate
-                                if (tracks.TryGetValue(entry.Track, out Track positionTrack) && !(entry.IsSnapshot && entry.Time / 1e6 <= positionTrack.LastTime))
-                                {
-                                    PositionUpdate position = positionCodec.Decode(entry.Body.Span);
-                                    Sim.AircraftPosition data = SimMessageMapper.ToAircraftPosition(position);
-                                    positionTrack.Add(new Recorder.AircraftPositionFrame(entry.Time / 1e6, ref data));
-                                    positionTrack.PositionCount++;
-                                }
-                                break;
-
-                            case Jfs2Kinds.ObjectPosition:
-                                if (tracks.TryGetValue(entry.Track, out Track objectTrack) && !(entry.IsSnapshot && entry.Time / 1e6 <= objectTrack.LastTime))
-                                {
-                                    Sim.ObjectPositionVelocity data = SimMessageMapper.ToPositionVelocity(ObjectPositionV1Codec.Decode(entry.Body.Span));
-                                    objectTrack.Add(new Recorder.ObjectPositionFrame(entry.Time / 1e6, ref data));
-                                    objectTrack.PositionCount++;
-                                }
-                                break;
-
-                            case Jfs2Kinds.Variables:
-                                if (tracks.TryGetValue(entry.Track, out Track variablesTrack))
-                                {
-                                    // a snapshot's variables keep the time of what they summarise, which may lie before frames already read
-                                    double time = entry.IsSnapshot ? Math.Max(entry.Time / 1e6, variablesTrack.LastTime) : entry.Time / 1e6;
-                                    AddVariableFrames(variablesTrack, time, variablesCodec.Decode(entry.Body.Span));
-                                }
-                                break;
-
-                            case Jfs2Kinds.Event:
-                                if (tracks.TryGetValue(entry.Track, out Track eventTrack))
-                                {
-                                    EventUpdate update = eventCodec.Decode(entry.Body.Span);
-                                    eventTrack.Add(new Recorder.SimEventFrame(entry.Time / 1e6, update.EventId, update.Data));
-                                }
-                                break;
-                        }
-                    }
-                    catch (Exception ex) when (ex is FormatException or ArgumentException or IndexOutOfRangeException)
-                    {
-                        damaged++;
-                    }
-                }
-            }
-
-            foreach (Jfs2Damage damage in reader.Damage)
-            {
-                notes.Add("Damaged recording: " + damage.Message + " (at byte " + damage.Offset + ").");
-            }
-            if (damaged > 0)
-            {
-                notes.Add(damaged + " records could not be read and were skipped.");
-            }
-            int warningCount = notes.Count;
-            if (identityChanges > 0)
-            {
-                notes.Add(identityChanges + " identity changes were ignored; each object plays with the identity it opened with.");
-            }
-            foreach (var count in skipped.OrderBy(pair => pair.Key))
-            {
-                notes.Add(count.Value + " '" + count.Key + "' records were skipped; this build does not play them yet.");
-            }
-            // the identity note is for the log only: it changes nothing the user can see go missing
-            List<string> warnings = [.. notes.Take(warningCount), .. notes.Skip(warningCount).Where(n => !n.Contains("identity changes"))];
-
+            Jfs2Scene scene = Jfs2Scene.Load(stream);
             List<Recorder.Obj> objects = [];
-            foreach (uint id in order)
+            foreach (SceneTrack track in scene.Tracks)
             {
-                Track track = tracks[id];
-                if (track.PositionCount == 0 || !track.HasIdentity)
-                {
-                    continue;
-                }
                 objects.Add(Build(track));
             }
+            return new Result(objects, scene.Notes, scene.Warnings);
+        }
 
-            if (objects.Count == 0)
+        static Recorder.Obj Build(SceneTrack track)
+        {
+            IdentityUpdate id = track.Identity;
+            Recorder.Obj obj = id.IsAircraft
+                ? new Recorder.Aircraft { plane = id.IsPlane, callsign = id.Callsign, nickname = track.Nickname }
+                : new Recorder.Obj();
+            obj.model = id.Model;
+            obj.livery = id.Livery;
+            obj.icaoType = id.IcaoType;
+            obj.icaoAirline = id.IcaoAirline;
+            obj.typerole = id.TypeRole;
+            foreach (SceneFrame frame in track.Frames)
             {
-                bool newer = skipped.Keys.Any(key => Essential.Any(name => key.StartsWith(name + " v", StringComparison.Ordinal)));
-                throw new InvalidOperationException(newer
-                    ? "This recording needs a newer version of JoinFS to play: " + string.Join(" ", notes)
-                    : "This recording holds nothing that can be played. " + string.Join(" ", notes));
+                switch (frame)
+                {
+                    case ScenePositionFrame position:
+                    {
+                        Sim.AircraftPosition data = SimMessageMapper.ToAircraftPosition(position.Position);
+                        obj.frames.Add(new Recorder.AircraftPositionFrame(frame.Time, ref data));
+                        break;
+                    }
+                    case SceneObjectPositionFrame position:
+                    {
+                        Sim.ObjectPositionVelocity data = SimMessageMapper.ToPositionVelocity(position.Position);
+                        obj.frames.Add(new Recorder.ObjectPositionFrame(frame.Time, ref data));
+                        break;
+                    }
+                    case SceneVariablesFrame variables:
+                        AddVariableFrames(obj, frame.Time, variables.Variables);
+                        break;
+                    case SceneEventFrame sim:
+                        obj.frames.Add(new Recorder.SimEventFrame(frame.Time, sim.EventId, sim.Data));
+                        break;
+                }
             }
-            return new Result(objects, notes, warnings);
+            return obj;
         }
 
         /// <summary>
         /// One variables record becomes up to three of the old frames, one per value kind. A frame holds only what the record
         /// changed; the old player merges frames into the object's variable set, which is how an upsert reads (spec 7.6).
         /// </summary>
-        static void AddVariableFrames(Track track, double time, VariableSyncUpdate update)
+        static void AddVariableFrames(Recorder.Obj obj, double time, VariableSyncUpdate update)
         {
             Dictionary<uint, int> integers = [];
             Dictionary<uint, float> floats = [];
@@ -250,26 +87,9 @@ namespace JoinFS.Recording
                     case VariableKind.String8: strings[entry.Vuid] = entry.StringValue ?? ""; break;
                 }
             }
-            if (integers.Count > 0) track.Add(new Recorder.IntegerVariablesFrame(time, integers));
-            if (floats.Count > 0) track.Add(new Recorder.FloatVariablesFrame(time, floats));
-            if (strings.Count > 0) track.Add(new Recorder.String8VariablesFrame(time, strings));
-        }
-
-        static bool IsPlayed(KindBinding kind) => Played.Any(played => played.Name == kind.Name && played.Version == kind.Version);
-
-        static Recorder.Obj Build(Track track)
-        {
-            IdentityUpdate id = track.Identity;
-            Recorder.Obj obj = id.IsAircraft
-                ? new Recorder.Aircraft { plane = id.IsPlane, callsign = id.Callsign, nickname = track.Nickname }
-                : new Recorder.Obj();
-            obj.model = id.Model;
-            obj.livery = id.Livery;
-            obj.icaoType = id.IcaoType;
-            obj.icaoAirline = id.IcaoAirline;
-            obj.typerole = id.TypeRole;
-            obj.frames.AddRange(track.Frames);
-            return obj;
+            if (integers.Count > 0) obj.frames.Add(new Recorder.IntegerVariablesFrame(time, integers));
+            if (floats.Count > 0) obj.frames.Add(new Recorder.FloatVariablesFrame(time, floats));
+            if (strings.Count > 0) obj.frames.Add(new Recorder.String8VariablesFrame(time, strings));
         }
     }
 }
