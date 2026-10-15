@@ -52,6 +52,9 @@ namespace JoinFS.Recording
                 {
                     Id = (uint)tracks.Count + 1,
                     Nickname = (obj as Recorder.Aircraft)?.nickname ?? "",
+                    Owner = Recorder.ToTrackOwner(obj.owner),
+                    SourceApp = obj.sourceApp ?? "",
+                    Simulator = obj.simulator ?? "",
                     Identity = Identity(obj, (uint)tracks.Count + 1),
                 };
                 foreach (Recorder.Frame frame in obj.frames)

@@ -48,6 +48,10 @@ namespace JoinFS.Recording
             obj.icaoType = id.IcaoType;
             obj.icaoAirline = id.IcaoAirline;
             obj.typerole = id.TypeRole;
+            // what the track-open said, so saving the recording again says it too
+            obj.owner = Recorder.FromTrackOwner(track.Owner);
+            obj.sourceApp = track.SourceApp;
+            obj.simulator = track.Simulator;
             foreach (SceneFrame frame in track.Frames)
             {
                 switch (frame)

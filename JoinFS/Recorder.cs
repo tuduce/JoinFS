@@ -343,6 +343,11 @@ namespace JoinFS
             /// </summary>
             public Sim.Obj.Owner owner = Sim.Obj.Owner.Me;
             /// <summary>
+            /// The application that recorded the object and the simulator it was seen in (a JFS2 track-open); empty when unknown
+            /// </summary>
+            public string sourceApp = "";
+            public string simulator = "";
+            /// <summary>
             /// Object is currently being played
             /// </summary>
             public bool playing = false;
@@ -634,7 +639,7 @@ namespace JoinFS
             string temp = path + ".tmp";
             try
             {
-                Jfs2Exporter.Write(temp, objects, "JoinFS " + Main.Version, now.ToUniversalTime().AddSeconds(-length), _ => { });
+                Jfs2Exporter.Write(temp, objects, AppLabel, now.ToUniversalTime().AddSeconds(-length), _ => { });
                 File.Move(temp, path, overwrite);
             }
             catch
@@ -894,7 +899,9 @@ namespace JoinFS
                 // create recorded object
                 simObject.recorderObj = new Obj(simObject.ownerModel, simObject.ownerLivery, simObject.ownerIcaoType, simObject.ownerIcaoAirline, simObject.typerole, simObject.owner);
             }
-            OpenJfs2Track(simObject, simObject.recorderObj.id);
+            simObject.recorderObj.sourceApp = AppLabel;
+            simObject.recorderObj.simulator = SimulatorLabel();
+            OpenJfs2Track(simObject.recorderObj, main.network.Peers.GetNodeName(simObject.ownerNuid), SimMessageMapper.BuildIdentity(simObject, simObject.recorderObj.id));
             // add to list
             objList.Add(simObject.recorderObj);
         }
@@ -921,7 +928,7 @@ namespace JoinFS
                 string folder = WorkingFolder(main.documentsPath);
                 Directory.CreateDirectory(folder);
                 string path = UniquePath(folder, BuildAutoSaveFileName(DateTime.Now, ""));
-                jfs2 = Jfs2Capture.Create(path, "JoinFS " + Main.Version, SimulatorLabel(), DateTime.UtcNow, main.MonitorEvent);
+                jfs2 = Jfs2Capture.Create(path, AppLabel, SimulatorLabel(), DateTime.UtcNow, main.MonitorEvent);
                 workingFile = path;
                 main.MonitorEvent("Recorder: writing the working file '" + path + "'.");
             }
@@ -1002,20 +1009,36 @@ namespace JoinFS
         string SimulatorLabel() => main.sim != null && main.sim.Connected ? main.sim.GetSimulatorName() : "";
 
         /// <summary>
+        /// This application, as a recording names it (header metadata, track-open)
+        /// </summary>
+        static string AppLabel => "JoinFS " + Main.Version;
+
+        /// <summary>
+        /// The owner a JFS2 track-open states for an object (spec 7.1): our own objects and the simulator's are local
+        /// </summary>
+        public static TrackOwner ToTrackOwner(Sim.Obj.Owner owner) => owner switch
+        {
+            Sim.Obj.Owner.Network => TrackOwner.Network,
+            Sim.Obj.Owner.Recorder => TrackOwner.Recorded,
+            _ => TrackOwner.Local,
+        };
+
+        /// <summary>
+        /// The owner of a recorded object read from a JFS2 track-open, so saving it again states the same owner
+        /// </summary>
+        public static Sim.Obj.Owner FromTrackOwner(TrackOwner owner) => owner switch
+        {
+            TrackOwner.Network => Sim.Obj.Owner.Network,
+            TrackOwner.Local => Sim.Obj.Owner.Me,
+            _ => Sim.Obj.Owner.Recorder,
+        };
+
+        /// <summary>
         /// Open the JFS2 track of a recorded object
         /// </summary>
-        void OpenJfs2Track(Sim.Obj simObject, uint track)
+        void OpenJfs2Track(Obj obj, string nickname, IdentityUpdate identity)
         {
-            if (jfs2 != null)
-            {
-                TrackOwner owner = simObject.owner switch
-                {
-                    Sim.Obj.Owner.Network => TrackOwner.Network,
-                    Sim.Obj.Owner.Recorder => TrackOwner.Recorded,
-                    _ => TrackOwner.Local,
-                };
-                jfs2.OpenTrack(track, Time, owner, main.network.Peers.GetNodeName(simObject.ownerNuid), "JoinFS " + Main.Version, SimulatorLabel(), SimMessageMapper.BuildIdentity(simObject, track));
-            }
+            jfs2?.OpenTrack(obj.id, Time, ToTrackOwner(obj.owner), nickname, obj.sourceApp, obj.simulator, identity);
         }
 
         /// <summary>

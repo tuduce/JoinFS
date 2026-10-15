@@ -239,6 +239,47 @@ public sealed class Jfs2ImportTests : IDisposable
     }
 
     [Fact]
+    public void ASavedRecording_KeepsWhoOwnedEachObjectAndWhereItWasRecorded_AndSavingItAgainKeepsThatToo()
+    {
+        List<Recorder.Obj> recording = MakeRecording();
+        recording[0].owner = Sim.Obj.Owner.Me;
+        foreach (Recorder.Obj obj in recording)
+        {
+            obj.sourceApp = "JoinFS 26.10";
+            obj.simulator = "MSFS2024";
+        }
+
+        string path = Convert(recording);
+        string again = Convert(ReadJfs2(path), "again.jfs2");
+
+        foreach (string file in new[] { path, again })
+        {
+            Jfs2Scene scene;
+            using (FileStream stream = File.OpenRead(file))
+            {
+                scene = Jfs2Scene.Load(stream);
+            }
+            Assert.Equal("MSFS2024", scene.Metadata.Single(kv => kv.Key == "sim").Value);
+            Assert.Equal([TrackOwner.Local, TrackOwner.Network], scene.Tracks.Select(t => t.Owner));
+            Assert.All(scene.Tracks, t => Assert.Equal("JoinFS 26.10", t.SourceApp));
+            Assert.All(scene.Tracks, t => Assert.Equal("MSFS2024", t.Simulator));
+        }
+    }
+
+    [Fact]
+    public void ARecordingFromTwoSimulators_NamesEachOnItsTrackAndNoneInTheHeader()
+    {
+        List<Recorder.Obj> recording = MakeRecording();
+        recording[0].simulator = "MSFS2024";
+        recording[1].simulator = "X-Plane";
+
+        using var reader = JoinFS.Recording.Format.RecordingReader.Open(Convert(recording));
+
+        Assert.Null(reader.Header.GetMetadata("sim"));
+        Assert.Equal("JoinFS test (converted)", reader.Header.GetMetadata("app"));
+    }
+
+    [Fact]
     public void ARecordingWithNothingToPlay_LeavesNoFileBehind()
     {
         string path = Path.Combine(folder, "nothing.jfs2");

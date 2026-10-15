@@ -91,7 +91,9 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         Assert.Equal(("DLH1", "me", "Cessna 172", "Livery", "C172"), (first.callsign, first.nickname, first.model, first.livery, first.icaoType));
         Assert.Equal(("DLH2", "other", "Piper"), (second.callsign, second.nickname, second.model));
         Assert.Equal(3, first.typerole);
-        Assert.Equal(Sim.Obj.Owner.Recorder, first.owner);
+        // the track-open is kept, so saving the recording again states the same owner, application and simulator
+        Assert.Equal((Sim.Obj.Owner.Me, "JoinFS test", "MSFS2024"), (first.owner, first.sourceApp, first.simulator));
+        Assert.Equal(Sim.Obj.Owner.Network, second.owner);
         Assert.Equal(100, first.frames.Count);
         Assert.Equal(100, second.frames.Count);
 
@@ -513,7 +515,7 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         Assert.IsType<Recorder.Aircraft>(result.Objects[0]);
         var boat = result.Objects[1];
         Assert.IsNotType<Recorder.Aircraft>(boat);
-        Assert.Equal(("Ferry", Sim.Obj.Owner.Recorder), (boat.model, boat.owner));
+        Assert.Equal(("Ferry", Sim.Obj.Owner.Network), (boat.model, boat.owner));
         var frames = boat.frames.OfType<Recorder.ObjectPositionFrame>().ToArray();
         Assert.Equal(20, frames.Length);
         Assert.Equal(51.005, frames[5].data.latitude, 9);

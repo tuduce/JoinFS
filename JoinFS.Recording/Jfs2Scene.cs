@@ -23,11 +23,17 @@ namespace JoinFS.Recording
     /// <summary>A simulator event (kind <c>event</c>).</summary>
     public sealed record SceneEventFrame(double Time, uint EventId, uint Data) : SceneFrame(Time);
 
-    /// <summary>One recorded object: the identity it opened with and its frames in time order.</summary>
+    /// <summary>One recorded object: its track-open (spec 7.1), the identity it opened with and its frames in time order.</summary>
     public sealed class SceneTrack
     {
         public uint Id { get; init; }
         public string Nickname { get; init; } = "";
+        /// <summary>Who owned the object when it was recorded; <see cref="TrackOwner.Recorded"/> when the source does not say (an old .jfs file).</summary>
+        public TrackOwner Owner { get; init; } = TrackOwner.Recorded;
+        /// <summary>The application that recorded the object; empty when unknown.</summary>
+        public string SourceApp { get; init; } = "";
+        /// <summary>The simulator the object was seen in; empty when unknown.</summary>
+        public string Simulator { get; init; } = "";
         public IdentityUpdate Identity { get; init; }
         public List<SceneFrame> Frames { get; } = [];
     }
@@ -65,7 +71,7 @@ namespace JoinFS.Recording
 
         sealed class Building
         {
-            public string Nickname = "";
+            public TrackOpenV1 Open;
             public IdentityUpdate Identity;
             public bool HasIdentity;
             public readonly List<SceneFrame> Frames = [];
@@ -195,7 +201,7 @@ namespace JoinFS.Recording
                             case Jfs2Kinds.TrackOpen:
                                 if (!tracks.ContainsKey(entry.Track))
                                 {
-                                    tracks[entry.Track] = new Building { Nickname = TrackOpenV1.Decode(entry.Body.Span).Nickname };
+                                    tracks[entry.Track] = new Building { Open = TrackOpenV1.Decode(entry.Body.Span) };
                                     order.Add(entry.Track);
                                 }
                                 break;
@@ -294,7 +300,15 @@ namespace JoinFS.Recording
                 {
                     continue;
                 }
-                var built = new SceneTrack { Id = id, Nickname = track.Nickname, Identity = track.Identity };
+                var built = new SceneTrack
+                {
+                    Id = id,
+                    Nickname = track.Open.Nickname ?? "",
+                    Owner = track.Open.Owner,
+                    SourceApp = track.Open.SourceApp ?? "",
+                    Simulator = track.Open.Simulator ?? "",
+                    Identity = track.Identity,
+                };
                 built.Frames.AddRange(track.Frames);
                 scene.Tracks.Add(built);
             }
