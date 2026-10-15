@@ -72,6 +72,11 @@ namespace JoinFS
             public readonly TrackTimeBase timeBase = new();
             public Vector playbackAngles = new();
             public bool playbackAnglesValid = false;
+            /// <summary>
+            /// Recorded: its track has started, with its first position that counts (<see cref="Recorder.StartTrack"/>); until then it
+            /// records nothing and is not in the recording
+            /// </summary>
+            public bool started = false;
 
             /// <summary>
             /// Next ID
@@ -477,6 +482,7 @@ namespace JoinFS
             // check object
             if (obj != null && obj.playing == false)
             {
+                StartTrack(obj);
                 // flags: only on-ground, as the old format kept
                 double frameTime = obj.timeBase.Position(Time, objTime);
                 ObjectPositionUpdate update = SimMessageMapper.ToObjectPositionUpdate(obj.id, frameTime, ref positionVelocity, positionVelocity.ground != 0 ? PositionStateFlags.OnGround : PositionStateFlags.None);
@@ -494,8 +500,10 @@ namespace JoinFS
         public void Record(Obj obj, double objTime, ref Sim.AircraftPosition aircraftPosition)
         {
             // check object
-            if (obj != null && obj.playing == false)
+            // an aircraft at exactly 0/0 is not anywhere yet: MSFS puts the user's aircraft there while it loads a flight (README limit 16)
+            if (obj != null && obj.playing == false && !AtNullIsland(aircraftPosition))
             {
+                StartTrack(obj);
                 // flags: only on-ground, as the old format kept
                 double frameTime = obj.timeBase.Position(Time, objTime);
                 PositionUpdate update = SimMessageMapper.ToPositionUpdate(obj.id, frameTime, ref aircraftPosition, aircraftPosition.ground != 0 ? PositionStateFlags.OnGround : PositionStateFlags.None);
@@ -511,7 +519,7 @@ namespace JoinFS
         public void Record(Obj obj, uint eventId, uint data)
         {
             // check object
-            if (obj != null && obj.playing == false)
+            if (obj != null && obj.playing == false && obj.started)
             {
                 // add event, on the time base of the object's positions
                 double time = obj.timeBase.Other(Time);
@@ -539,7 +547,7 @@ namespace JoinFS
         void RecordVariables(Obj obj, Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> strings, Captured type)
         {
             // check object
-            if (obj != null && obj.playing == false)
+            if (obj != null && obj.playing == false && obj.started)
             {
                 // add variables (copied: the dictionaries are the object's live set), on the time base of the object's positions
                 double time = obj.timeBase.Other(Time);
@@ -563,11 +571,28 @@ namespace JoinFS
                 Simulator = SimulatorLabel(),
                 Identity = RecordedIdentity(simObject),
             };
+            // its track starts with its first position that counts
             simObject.recorderObj = new Obj(track);
-            jfs2?.OpenTrack(simObject.recorderObj.id, Time, track.Owner, nickname, track.SourceApp, track.Simulator, track.Identity);
-            // add to list
-            objList.Add(simObject.recorderObj);
         }
+
+        /// <summary>
+        /// Start the track of a recorded object, if it has not started: it opens in the file with the identity it has now, and joins the
+        /// recording. An object whose positions never count (an aircraft that stays at 0/0) leaves no track.
+        /// </summary>
+        void StartTrack(Obj obj)
+        {
+            if (!obj.started)
+            {
+                obj.started = true;
+                jfs2?.OpenTrack(obj.id, Time, obj.track.Owner, obj.track.Nickname, obj.track.SourceApp, obj.track.Simulator, obj.track.Identity);
+                objList.Add(obj);
+            }
+        }
+
+        /// <summary>
+        /// An aircraft position at exactly latitude 0 and longitude 0, where no flight is: the simulator's placeholder while it loads one
+        /// </summary>
+        public static bool AtNullIsland(in Sim.AircraftPosition position) => position.latitude == 0.0 && position.longitude == 0.0;
 
         /// <summary>
         /// What a recorded object is: what its owner says (its model, not the one it is shown with here), as the network sends it. The
@@ -754,7 +779,13 @@ namespace JoinFS
             if (simObject.recorderObj is Obj recorded && recorded.playing == false)
             {
                 IdentityUpdate identity = RecordedIdentity(simObject);
-                if (!identity.SameAs(in recorded.identity))
+                if (!recorded.started)
+                {
+                    // not started yet: its track opens with this
+                    recorded.track.Identity = identity;
+                    recorded.identity = identity;
+                }
+                else if (!identity.SameAs(in recorded.identity))
                 {
                     double time = recorded.timeBase.Other(Time);
                     recorded.track.Frames.Add(new SceneIdentityFrame(time, identity));
@@ -922,25 +953,24 @@ namespace JoinFS
                 StartJfs2Capture(overdub);
 
                 // for each object in the sim
+                int objectCount = 0;
+                int aircraftCount = 0;
                 foreach (var simObject in main.sim.objectList)
                 {
                     // check if object is flagged to record
                     if (simObject.record)
                     {
                         AddRecordedObject(simObject);
+                        objectCount++;
+                        if (simObject.recorderObj.IsAircraft)
+                        {
+                            aircraftCount++;
+                        }
                     }
                 }
 
                 // summary
-                int aircraftCount = 0;
-                foreach (var obj in objList)
-                {
-                    if (obj.IsAircraft)
-                    {
-                        aircraftCount++;
-                    }
-                }
-                main.MonitorEvent("Recorder: start recording " + objList.Count + " objects (" + aircraftCount + " aircraft). SimConnected=" + main.sim.Connected + ", NetworkConnected=" + main.network.Connected + ".");
+                main.MonitorEvent("Recorder: start recording " + objectCount + " objects (" + aircraftCount + " aircraft). SimConnected=" + main.sim.Connected + ", NetworkConnected=" + main.network.Connected + ".");
 
                 // now recording
                 recording = true;

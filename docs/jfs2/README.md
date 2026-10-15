@@ -11,7 +11,7 @@ next. The design is `recorder-v2-design.md`, the bytes are `format-spec.md`; thi
 | `tools/jfs2ref.py`, `tools/example.jfs2` | Reference writer for the spec's Appendix A example (221 bytes). The format library's golden test pins these bytes. |
 | `tools/jfs2bench/` | Stage 6 measurements (not in `JoinFS.sln`): convert old files, build a synthetic long recording with `Jfs2Capture`, time and size `Jfs2Scene.Load`, copy a file with and without Deflate per chunk. Usage at the top of `Program.cs`. |
 
-## Status (2026-10-15, stage 6 closed; field test fix, limits 5, 7 and 13 done; limit 16 waits for a decision)
+## Status (2026-10-15, stage 6 closed; field test fixes, limits 5, 7, 13 and 16 done)
 
 The app records, saves, opens, plays and recovers `.jfs2` files, and opens old `.jfs` files through the importer. It no longer writes
 `.jfs`. The recording in memory is the scene: one `SceneTrack` of canonical messages per object, which the recorder records into, plays,
@@ -22,21 +22,21 @@ recording stays loaded whole, the working file is read back at Stop on a worker 
 writer). Step 3 measured recording rate and a quantised position record; as decided, the rate stays and `PositionV2` waits for JFP2.
 New kinds (design 9, stage 6) are closed by decision: none is needed. After stage 6: the field test fix (the player shows a track only
 while it lasts), the writer thread and the sync every 5 s (limit 5), unflagging closes a track (limit 7), RecordingXRay shows identity
-changes (limit 13). Open: positions at 0/0 while a flight loads (limit 16, "Open decisions"). Not merged into `main` yet (owner's
-decision).
+changes (limit 13), an aircraft at exactly 0/0 is ignored and a track starts with its first position that counts (limit 16). Not
+merged into `main` yet (owner's decision).
 
-Checked in a simulator: stage 2 playback (2026-10-12); gear and lights record and play (2026-10-14); a recording with a change of aircraft, saved right after Stop, trimmed at the start with the gear up (2026-10-15: variables and events good, but every track was shown from the start, fixed since, and the flight's loading phase is recorded at 0/0, limit 16). Everything after that is checked by
+Checked in a simulator: stage 2 playback (2026-10-12); gear and lights record and play (2026-10-14); a recording with a change of aircraft, saved right after Stop, trimmed at the start with the gear up (2026-10-15: variables and events good, but every track was shown from the start, fixed since, and the flight's loading phase was recorded at 0/0, ignored since: limit 16). Everything after that is checked by
 unit tests only: keyframes, identity changes, boats and vehicles, Save as `.jfs2`, the working file and recovery, the importer in the app,
 the time base, the player on the scene (play, Jump with its state, identity changes, tracks that start later or end), the writer thread,
 unflagging, the trims, the working file as the recording (the
 swap of the read-back, not the Stop that starts it), Deflate chunks, overdub working files and their recovery, track-close, variable names. The Stop that starts the read-back is not unit-tested (it needs a simulator). In a field test the log line "Recorder: wrote the
-JFS2 recording" should end in "0 records held back"; worth checking in a simulator: a change of aircraft during a recording (each aircraft appears only while its track lasts, also after
-a Jump back), unflagging an aircraft during a recording, a Jump back past a gear or lights change, a callsign
+JFS2 recording" should end in "0 records held back"; worth checking in a simulator: a change of aircraft during a recording (no track at 0/0; each aircraft appears only while its track lasts,
+also after a Jump back), unflagging an aircraft during a recording, a Jump back past a gear or lights change, a callsign
 or model change during a recording, a trim at the start after the gear went up (the aircraft should start with it up), Save right after
 a recording (the saved file is the working file, moved, once the read-back is done; Save before that writes the tracks in memory), and an overdub that is recovered
 after closing JoinFS without saving.
 
-Tests: `JoinFS.Recording.Format.Tests` 69, `JoinFS.Tests` 1238 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
+Tests: `JoinFS.Recording.Format.Tests` 69, `JoinFS.Tests` 1242 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
 `RecordingXRay.Tests` 208, `JoinFS.UI.Tests` 506 (the recorder tab in `RecorderTests`).
 
 ## The code
@@ -64,7 +64,8 @@ Format library notes:
 ## How a recording flows today
 
 - **Record.** `Recorder.StartRecord` starts `Jfs2Capture` on `<documents>/Working/<date>_<time>_recording.jfs2` (unless `-no-jfs2`).
-  Every recorded object gets a `SceneTrack` in memory and a track in the file; its positions, variables, events and identity changes go
+  Every recorded object gets a `SceneTrack` in memory and a track in the file, from its first position that counts (an aircraft
+  at exactly 0/0 does not); its positions, variables, events and identity changes go
   to both as canonical messages (the file keeps variables as changes only, spec 7.6). The identity is what the owner says the object is:
   its own model, not the one it is shown with here. A chunk ends every 2 s and every fifth is a keyframe with the snapshot of every open
   track (spec 6.1); the writer's own thread deflates and writes each chunk, and syncs the file every 5 s. An object that leaves (`Sim.RemoveFromListAndIndex` calls `Recorder.ObjectLeft`) or is unflagged gets its `track-close` and is
@@ -151,22 +152,20 @@ From the design or the spec, all known, none silent:
     the tracks in on the sim thread. Until then Save writes the tracks in memory; a read that ends after the recording was edited, saved,
     recorded again or played is dropped (the tracks in memory stay, Save writes them). Left: while it reads, the tracks recorded in memory
     and the ones read back are both alive (about 570 MB for an hour of ten aircraft, and the read allocates about 840 MB).
-16. **A flight that loads during a recording is recorded at latitude/longitude 0/0** (field test 2026-10-15). While MSFS loads a flight
-    after a change of aircraft, the user's aircraft is listed for about 25 s at 0/0 before it is listed again where the flight starts;
-    the recorder records that as a track of its own (RecordingXRay shows it, the player shows it there). Proposal in "Open decisions".
-    Done after the field test: the player showed every track from the start of playing, at its first position, so the aircraft of each
-    track appeared together; now an object is in the sim only from its track's first position to its last frame
-    (`SceneTrack.ShownAt`), after a Jump too, and a jump back brings back one that had ended.
+16. Done after stage 6 (field test 2026-10-15): while MSFS loads a flight after a change of aircraft, it lists the user's aircraft
+    for about 25 s at 0/0, which was recorded as a track of its own. Decided by the owner: an aircraft at exactly 0/0 is ignored. Its
+    position there is left out (`Recorder.AtNullIsland`), and a recorded object's track starts with its first position that counts
+    (`Recorder.StartTrack`; before, it started when the object was flagged), so the loading phase leaves no track; until then its
+    variables and events are not recorded, and an identity change becomes the identity its track opens with. Objects that are not
+    aircraft are not filtered. Also done after the field test: the player showed every track from the start of playing, at its first
+    position, so the aircraft of each track appeared together; now an object is in the sim only from its track's first position to
+    its last frame (`SceneTrack.ShownAt`), after a Jump too, and a jump back brings back one that had ended.
 
 ## Open decisions
 
-Design questions 1 to 4 are decided (design 11). Open:
+Design questions 1 to 4 are decided (design 11). None is open.
 
-- **Positions at 0/0 (limit 16), proposed 2026-10-15.** The capture leaves out a position at exactly latitude 0 and longitude 0 (no
-  real flight is there; MSFS puts the user's aircraft there while a flight loads), and opens an object's track with its first position
-  that is not, so the loading phase leaves no track at all and a track never starts at 0/0. Alternatives: record it and let the player
-  and RecordingXRay hide it (the file keeps junk), or leave the user's aircraft out while the simulator reports it is loading (needs a
-  SimConnect state the recorder does not have today, and X-Plane has none). Not done until decided.
+- **Positions at 0/0 (limit 16)**, decided by the owner on 2026-10-15: an aircraft at exactly 0/0 is ignored (done).
 
 Stage 6 step 3's proposals (measured in "Measurements", step 3), decided
 by the owner on 2026-10-15:
@@ -238,7 +237,8 @@ Stages as planned in design section 9; dates are 2026-10.
 | limit 5 | `8aef5f2`, `5baead5` | The writer's own thread deflates and writes the chunks the sim thread encodes; the file is synced every 5 s. |
 | limit 7 | `5baead5` | An object unflagged during a recording gets its `track-close`; flagged again, it is a new track. |
 | limit 13 | `5956680` | RecordingXRay shows identity changes. |
-| new kinds | | Closed by decision: not needed. Stage 6 closed. |
+| new kinds | `2d7d828` | Closed by decision: not needed. Stage 6 closed. |
+| limit 16 | | An aircraft at exactly 0/0 is ignored; a recorded object's track starts with its first position that counts. |
 
 ## Measurements (stage 6, 2026-10-15)
 
