@@ -11,7 +11,7 @@ next. The design is `recorder-v2-design.md`, the bytes are `format-spec.md`; thi
 | `tools/jfs2ref.py`, `tools/example.jfs2` | Reference writer for the spec's Appendix A example (221 bytes). The format library's golden test pins these bytes. |
 | `tools/jfs2bench/` | Stage 6 measurements (not in `JoinFS.sln`): convert old files, build a synthetic long recording with `Jfs2Capture`, time and size `Jfs2Scene.Load`, copy a file with and without Deflate per chunk. Usage at the top of `Program.cs`. |
 
-## Status (2026-10-15, after stage 6: field test fix, then limits 5, 7 and 13)
+## Status (2026-10-15, stage 6 closed; field test fix, limits 5, 7 and 13 done; limit 16 waits for a decision)
 
 The app records, saves, opens, plays and recovers `.jfs2` files, and opens old `.jfs` files through the importer. It no longer writes
 `.jfs`. The recording in memory is the scene: one `SceneTrack` of canonical messages per object, which the recorder records into, plays,
@@ -20,12 +20,18 @@ recording moves it into place; an edited one is written by `Jfs2SceneWriter`. An
 player work (stage 5, slices 1 to 4) is done. Stage 6 measured load time, memory and Deflate ("Measurements" below); as decided, the
 recording stays loaded whole, the working file is read back at Stop on a worker thread, and every chunk is deflated (capture and scene
 writer). Step 3 measured recording rate and a quantised position record; as decided, the rate stays and `PositionV2` waits for JFP2.
+New kinds (design 9, stage 6) are closed by decision: none is needed. After stage 6: the field test fix (the player shows a track only
+while it lasts), the writer thread and the sync every 5 s (limit 5), unflagging closes a track (limit 7), RecordingXRay shows identity
+changes (limit 13). Open: positions at 0/0 while a flight loads (limit 16, "Open decisions"). Not merged into `main` yet (owner's
+decision).
 
 Checked in a simulator: stage 2 playback (2026-10-12); gear and lights record and play (2026-10-14); a recording with a change of aircraft, saved right after Stop, trimmed at the start with the gear up (2026-10-15: variables and events good, but every track was shown from the start, fixed since, and the flight's loading phase is recorded at 0/0, limit 16). Everything after that is checked by
 unit tests only: keyframes, identity changes, boats and vehicles, Save as `.jfs2`, the working file and recovery, the importer in the app,
-the time base, the player on the scene (play, Jump with its state, identity changes), the trims, the working file as the recording (the
+the time base, the player on the scene (play, Jump with its state, identity changes, tracks that start later or end), the writer thread,
+unflagging, the trims, the working file as the recording (the
 swap of the read-back, not the Stop that starts it), Deflate chunks, overdub working files and their recovery, track-close, variable names. The Stop that starts the read-back is not unit-tested (it needs a simulator). In a field test the log line "Recorder: wrote the
-JFS2 recording" should end in "0 records held back"; worth checking in a simulator: a Jump back past a gear or lights change, a callsign
+JFS2 recording" should end in "0 records held back"; worth checking in a simulator: a change of aircraft during a recording (each aircraft appears only while its track lasts, also after
+a Jump back), unflagging an aircraft during a recording, a Jump back past a gear or lights change, a callsign
 or model change during a recording, a trim at the start after the gear went up (the aircraft should start with it up), Save right after
 a recording (the saved file is the working file, moved, once the read-back is done; Save before that writes the tracks in memory), and an overdub that is recovered
 after closing JoinFS without saving.
@@ -197,7 +203,7 @@ writes is the recording. Suggested slices, each leaving a working recorder, one 
    recording moves it into place, an edited one is written by the scene writer; an overdub has its own working file whose `base` names
    the file under it (limit 14); `track-close` when an object leaves (limit 7); `variable-names.txt` (limit 8).
 
-## Next: stage 6, the measured options
+## Stage 6: the measured options (closed)
 
 1. **Load time, memory, Deflate**, measured (no code change; "Measurements"). Proposals in "Open decisions".
 2. **The decisions of step 1**, done: no chunk-by-chunk player (limit 4 closed), the read-back at Stop on a worker thread (limit 15),
@@ -205,6 +211,7 @@ writes is the recording. Suggested slices, each leaving a working recorder, one 
 3. **Recording rate and `PositionV2`**: positions are recorded at about 19 Hz and variables change about as often (the busiest tiger
    track); measure what a lower rate or a smaller position record saves against playback quality. Measured (`jfs2bench rate`,
    `quant`; "Measurements", step 3). Decided: the rate stays, `PositionV2` comes with JFP2 ("Open decisions"). No app code changed.
+4. **New kinds**: closed by the owner's decision (2026-10-15), not needed. A kind is added when something needs it (design 5.6).
 
 ## History
 
@@ -227,10 +234,11 @@ Stages as planned in design section 9; dates are 2026-10.
 | 6 measurements, step 1 | `10614c6` | Load time and memory of long recordings, Deflate per chunk; `tools/jfs2bench`. Proposals: no chunk-by-chunk player, read-back off the sim thread, Deflate on. |
 | 6, step 2 | `cab5060` | The decisions: no chunk-by-chunk player; read-back at Stop on a worker thread, swapped in on the sim thread; Deflate per chunk in the capture and the scene writer. |
 | 6, step 3 | `f58b67d`, `c2350f6` | Recording rate and a quantised position record measured; decided: the rate stays, `PositionV2` with JFP2. |
-| field test fix | | The player shows a track only from its first position to its last frame (`SceneTrack.ShownAt`), also after a Jump; a jump back brings back an object that had ended. |
-| limit 5 | | The writer's own thread deflates and writes the chunks the sim thread encodes; the file is synced every 5 s. |
-| limit 7 | | An object unflagged during a recording gets its `track-close`; flagged again, it is a new track. |
-| limit 13 | | RecordingXRay shows identity changes. |
+| field test fix | `9019b84` | The player shows a track only from its first position to its last frame (`SceneTrack.ShownAt`), also after a Jump; a jump back brings back an object that had ended. |
+| limit 5 | `8aef5f2`, `5baead5` | The writer's own thread deflates and writes the chunks the sim thread encodes; the file is synced every 5 s. |
+| limit 7 | `5baead5` | An object unflagged during a recording gets its `track-close`; flagged again, it is a new track. |
+| limit 13 | `5956680` | RecordingXRay shows identity changes. |
+| new kinds | | Closed by decision: not needed. Stage 6 closed. |
 
 ## Measurements (stage 6, 2026-10-15)
 
