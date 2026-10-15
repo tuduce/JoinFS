@@ -37,7 +37,7 @@ Each needs its own design, approved by the owner, before it is built.
 | B6 | **Large messages.** Split at message level where handlers are idempotent; multi-segment guaranteed delivery only for bulk notes and hub lists. | `design-future.md` §8 | B3 |
 | — | **Dual-stack socket and IPv6 endpoint candidates.** One dual-mode socket; IPv4-mapped sources converted back; the legacy encoder never handed an IPv6 node. | `design-future.md` §4 | B3 |
 | B4 | **Relaying as a first-class feature.** Hubs advertise their relay budget in `Status`; fan-out to "all members"; amplification limits. | `design-future.md` §5 | B3 |
-| B5 | **Remaining kinds.** In-session: ObjectPosition (as Position + Identity with `IsAircraft=0`), RemoveObject, PeerInfo. Directory kinds after B2. Do not port WeatherRequest and ShowOnRadar. Redesign the bulk notes catch-up. | `design-future.md` §8 | B2 |
+| B5 | **Remaining kinds.** In-session: ObjectPosition (the recorder's `ObjectPositionV1Codec` moved into `JoinFS.Messages`, `docs/jfs2/recorder-v2-design.md` §11), RemoveObject, PeerInfo. Directory kinds after B2. Do not port WeatherRequest and ShowOnRadar. Redesign the bulk notes catch-up. | `design-future.md` §8 | B2 |
 | B7 | **Security.** Challenge-response Join, node names bound to a key pair (kind 2), per-hop protection of every datagram. | `design-future.md` §6, `rationale.md` §7 | B3 |
 | — | **Retire legacy.** Delete the legacy plugin when the `Build` counts hubs log show enough users run the build with the JFP2 mesh. The X-Plane link keeps the framing constants it shares. | `goals.md` §5 | B3 and field data |
 

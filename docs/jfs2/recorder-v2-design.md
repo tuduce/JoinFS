@@ -346,6 +346,8 @@ Each step leaves a working recorder; the old one stays in place until step 5.
 
 ## 10. Open questions
 
+All four are decided (§11, 2026-10-15); kept here for the record.
+
 1. Accept the 12 redundant bytes in `PositionV1` for the sake of one codec, or wait for `PositionV2`?
 2. Should JFP2 adopt the new `object-position` codec, so non-aircraft objects leave the legacy wire?
 3. Overdub: merge on stop (proposed), or let chunks overlap in time and merge in the player?
@@ -365,3 +367,7 @@ Each step leaves a working recorder; the old one stays in place until step 5.
 | 2026-10-14 | Working file: the live capture writes to `<documents>/Working/`; the file is deleted when the recording is saved or given up, and leftovers are offered for recovery at start-up |
 | 2026-10-14 | Switch the format over first: Save writes `.jfs2` from the in-memory recording, and the old `.jfs` code is deleted, before playback and editing move to the new engine |
 | 2026-10-15 | After a review: keep the code; next, a player and editing on the scene of canonical messages, so the capture's file becomes the recording and Save finishes and moves it (§7). Plan in `README.md` |
+| 2026-10-15 | Open question 1 confirmed: keep the 12 redundant bytes and use `PositionV1`; size is `PositionV2`'s business (stage 6) |
+| 2026-10-15 | Open question 2: yes. JFP2 adopts `object-position`: `ObjectPositionV1Codec` moves into `JoinFS.Messages` and becomes a JFP2 message class (roadmap B5), instead of Position + Identity with `IsAircraft=0` |
+| 2026-10-15 | Open question 3: a saved file always has one time line, and an overdub is merged into it when saved (the scene writer). Chunks never overlap in time within a file. Until Save, an overdub is journalled to its own working file on the recording's time line (header key `base` names the recording it adds to), which recovery lays over the recording at its own times. "Merge in the player" can only mean reading several files at once. An overdub or an edit marks the recording edited; edits are not journalled |
+| 2026-10-15 | Open question 4: default metadata stays `app` and `sim`. A key is added by default only if it is known when recording starts, cannot be derived from the records or the Index, and reveals nothing personal the records do not already hold. `title` and `note` only when the user types them, which marks the recording edited |

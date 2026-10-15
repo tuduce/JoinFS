@@ -121,9 +121,7 @@ From the design or the spec, all known, none silent:
 
 ## Open decisions
 
-- Design question 2 (JFP2 adopting `object-position`), 4 (default metadata). Question 3 (overdub: merge on stop or in the player) is
-  answered for the in-memory scene: overdub tracks join the scene and Save writes one time-ordered file. It comes back with the
-  chunk-by-chunk player (limit 4).
+- None. Design questions 1 to 4 are decided (design 11).
 
 ## Next: a player on the scene (stage 5, remaining)
 
