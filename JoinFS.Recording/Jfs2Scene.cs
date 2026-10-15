@@ -130,6 +130,31 @@ namespace JoinFS.Recording
             return new SceneState(next, position, identity, integers, floats, strings);
         }
 
+        /// <summary>
+        /// Whether a player shows the object at <paramref name="time"/>: once its first position has passed (as in <see cref="StateAt"/>)
+        /// and until its last frame has. A track that opens later in the recording (an object that came later, the user's aircraft after a
+        /// change of aircraft) is not there before it.
+        /// </summary>
+        public bool ShownAt(double time)
+        {
+            if (Frames.Count == 0 || time > Frames[^1].Time)
+            {
+                return false;
+            }
+            foreach (SceneFrame frame in Frames)
+            {
+                if (frame.Time >= time)
+                {
+                    return false;
+                }
+                if (frame is ScenePositionFrame or SceneObjectPositionFrame)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /// <summary>Moves every frame by some seconds, for example to append a recording after another.</summary>
         public void Shift(double seconds)
         {

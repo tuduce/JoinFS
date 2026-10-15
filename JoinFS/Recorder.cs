@@ -1152,6 +1152,12 @@ namespace JoinFS
             // for each object
             foreach (var obj in objList)
             {
+                // one that has played to its end plays again from a jump back; not while recording, whose own objects play nothing
+                if (playing && !recording && !obj.playing)
+                {
+                    obj.Play();
+                }
+
                 // check if object is playing
                 if (obj.playing)
                 {
@@ -1160,8 +1166,13 @@ namespace JoinFS
                     obj.frameIndex = state.Next;
                     obj.identity = state.Identity;
 
-                    // check for recent position frame
-                    if (state.Position != null)
+                    // not there at that time (its track starts later, or has ended): out of the sim, which a jump back may need
+                    if (!obj.track.ShownAt(time))
+                    {
+                        obj.playbackAnglesValid = false;
+                        main.sim ?. RemoveObject(new NodeId(), obj.id);
+                    }
+                    else if (state.Position != null)
                     {
                         // the position creates the object, then its state goes to it
                         obj.playbackAnglesValid = false;
@@ -1169,6 +1180,11 @@ namespace JoinFS
                         ApplyVariables(obj, state.Integers, state.Floats, state.Strings);
                         // reset object
                         main.sim ?. ResetObject(new NodeId(), obj.id);
+                        // one that was out of the sim when playing was paused is paused now
+                        if (paused)
+                        {
+                            main.sim ?. PauseObject(new NodeId(), obj.id, true);
+                        }
                     }
                 }
             }
@@ -1439,8 +1455,12 @@ namespace JoinFS
                                 obj.frameIndex++;
                             }
 
-                            // continuously update interpolated position
-                            UpdateInterpolatedPosition(obj, Time);
+                            // continuously update interpolated position, once the track has started: one that opens later in
+                            // the recording is not shown at its first position before then
+                            if (obj.track.ShownAt(Time))
+                            {
+                                UpdateInterpolatedPosition(obj, Time);
+                            }
 
                             // end object playback when all frames are consumed
                             if (obj.frameIndex >= frames.Count)

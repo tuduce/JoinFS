@@ -107,6 +107,54 @@ public sealed class SceneStateTests : IDisposable
         Assert.Equal(10.0, state.Position!.Time);
     }
 
+    /// <summary>
+    /// The field test of 2026-10-15: a change of aircraft during a recording leaves the user's aircraft as tracks that start one after
+    /// another, and the player showed every one of them from the start, at its first position.
+    /// </summary>
+    [Fact]
+    public void ATrackThatStartsLater_IsNotShownBeforeItsFirstPosition()
+    {
+        SceneTrack later = Flight();
+        later.Shift(30);
+
+        Assert.False(later.ShownAt(0.1));
+        Assert.False(later.ShownAt(30), "its first position is at 30 and plays once that time has passed");
+        Assert.True(later.ShownAt(30.001));
+        Assert.True(later.ShownAt(40));
+    }
+
+    [Fact]
+    public void ATrackIsNotShownAfterItsLastFrame()
+    {
+        SceneTrack track = Flight();
+
+        Assert.True(track.ShownAt(10));
+        Assert.False(track.ShownAt(10.001));
+    }
+
+    [Fact]
+    public void ATrackWhoseFirstFramesAreNotPositions_IsShownFromItsFirstPosition()
+    {
+        SceneTrack track = Jfs2ImportTests.Track(true, "N1", "me", "Cessna 172");
+        track.Frames.Add(Jfs2ImportTests.Variables(1, new() { [1] = 1 }));
+        track.Frames.Add(Jfs2ImportTests.Position(2, At(0.8)));
+        track.Frames.Add(Jfs2ImportTests.Position(3, At(0.8)));
+
+        Assert.False(track.ShownAt(1.5));
+        Assert.True(track.ShownAt(2.5));
+    }
+
+    [Fact]
+    public void ATrackWithNoPosition_IsNeverShown()
+    {
+        SceneTrack track = Jfs2ImportTests.Track(true, "N1", "me", "Cessna 172");
+        Assert.False(track.ShownAt(1));
+
+        track.Frames.Add(Jfs2ImportTests.Variables(1, new() { [1] = 1 }));
+        Assert.False(track.ShownAt(0.5));
+        Assert.False(track.ShownAt(1));
+    }
+
     [Fact]
     public void IdentityChanges_SurviveASave()
     {
