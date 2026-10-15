@@ -11,25 +11,26 @@ next. The design is `recorder-v2-design.md`, the bytes are `format-spec.md`; thi
 | `tools/jfs2ref.py`, `tools/example.jfs2` | Reference writer for the spec's Appendix A example (221 bytes). The format library's golden test pins these bytes. |
 | `tools/jfs2bench/` | Stage 6 measurements (not in `JoinFS.sln`): convert old files, build a synthetic long recording with `Jfs2Capture`, time and size `Jfs2Scene.Load`, copy a file with and without Deflate per chunk. Usage at the top of `Program.cs`. |
 
-## Status (2026-10-15, stage 6: load and Deflate measured)
+## Status (2026-10-15, stage 6: step 2 done, read-back off the sim thread, Deflate on)
 
 The app records, saves, opens, plays and recovers `.jfs2` files, and opens old `.jfs` files through the importer. It no longer writes
 `.jfs`. The recording in memory is the scene: one `SceneTrack` of canonical messages per object, which the recorder records into, plays,
 edits and saves. The working file is the recording: when recording stops the recorder reads it back as the scene, and Save of an unedited
 recording moves it into place; an edited one is written by `Jfs2SceneWriter`. An overdub is captured into a working file of its own. The
-player work (stage 5, slices 1 to 4) is done. Stage 6 has measured load time, memory and Deflate ("Measurements" below); its
-proposals wait for the owner's decision ("Open decisions"), and no code changed for them yet.
+player work (stage 5, slices 1 to 4) is done. Stage 6 measured load time, memory and Deflate ("Measurements" below); as decided, the
+recording stays loaded whole, the working file is read back at Stop on a worker thread, and every chunk is deflated (capture and scene
+writer). Next is step 3, recording rate and `PositionV2`.
 
 Checked in a simulator: stage 2 playback (2026-10-12); gear and lights record and play (2026-10-14). Everything after that is checked by
 unit tests only: keyframes, identity changes, boats and vehicles, Save as `.jfs2`, the working file and recovery, the importer in the app,
-the time base, the player on the scene (play, Jump with its state, identity changes), the trims, the working file as the recording,
-overdub working files and their recovery, track-close, variable names. The read-back at Stop is not unit-tested (it needs a simulator). In a field test the log line "Recorder: wrote the
+the time base, the player on the scene (play, Jump with its state, identity changes), the trims, the working file as the recording (the
+swap of the read-back, not the Stop that starts it), Deflate chunks, overdub working files and their recovery, track-close, variable names. The Stop that starts the read-back is not unit-tested (it needs a simulator). In a field test the log line "Recorder: wrote the
 JFS2 recording" should end in "0 records held back"; worth checking in a simulator: a Jump back past a gear or lights change, a callsign
 or model change during a recording, a trim at the start after the gear went up (the aircraft should start with it up), Save right after
-a recording (the log says the working file was read back; the saved file is the working file, moved), and an overdub that is recovered
+a recording (the saved file is the working file, moved, once the read-back is done; Save before that writes the tracks in memory), and an overdub that is recovered
 after closing JoinFS without saving.
 
-Tests: `JoinFS.Recording.Format.Tests` 61, `JoinFS.Tests` 1223 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
+Tests: `JoinFS.Recording.Format.Tests` 61, `JoinFS.Tests` 1228 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
 `RecordingXRay.Tests` 206, `JoinFS.UI.Tests` 506 (the recorder tab in `RecorderTests`).
 
 ## The code
@@ -108,9 +109,11 @@ From the design or the spec, all known, none silent:
 1. Done in slice 4: Save of an unedited recording moves its working file; only an edited one is written again.
 2. Done in slice 2: identity changes are frames of the scene, captured for network objects too, played and saved.
 3. Done in slice 2: Jump restores position, identity and variables (design 5.4).
-4. **Everything is loaded whole.** Measured in stage 6: a one-hour recording with ten aircraft is about 90 to 115 MB of file, loads in
-   0.75 s and holds about 285 MB in memory ("Measurements"). Proposed: keep loading whole, no chunk-by-chunk player (design 5.5).
-5. **Chunks are written on the sim thread** (about 5 KB per aircraft every 2 s: 25 KB with five, 62 KB with ten, 0.15 ms to write) and
+4. Closed by decision in stage 6: everything is loaded whole, there is no chunk-by-chunk player (design 5.5). A one-hour recording with
+   ten aircraft is about 63 MB of file (Deflate), loads in 0.85 s and holds about 285 MB in memory ("Measurements"). Revisit only if much
+   longer recordings turn up.
+5. **Chunks are written on the sim thread** (about 5 KB per aircraft every 2 s before Deflate: 25 KB with five, 62 KB with ten; 0.4 ms to
+   deflate and write with five, 0.9 ms with ten) and
    flushed to the operating system, not to disk, until the file is finished. Spec 9.1 asks for a flush to disk every few seconds
    (SHOULD); design 5.5 wants a writer thread.
 6. **A clock that steps back still holds records.** Since slice 1 an object's records share one time base, so jitter holds nothing. A
@@ -135,14 +138,14 @@ From the design or the spec, all known, none silent:
     overdub made after a trim at the start is laid over the untrimmed recording when recovered, offset by the trim; recovering the
     recording alone leaves its overdub's file a leftover, which recovered later finds its base gone (if it was saved meanwhile, under another
     name) and plays alone; the `base` key is not in `format-spec.md` (it is private to working files and never in a saved file).
-15. **The read-back at Stop runs on the sim thread**: reading a long recording holds the sim thread up for its load time, 45 ms for twelve
-    minutes of five aircraft (130 ms the first time, JIT), 0.75 s for an hour of ten; meanwhile the tracks recorded in memory and the
-    ones read back are both alive (about 570 MB for the hour, and the read allocates 715 MB). Proposed: read on another thread, swap the
-    tracks in on the sim thread.
+15. Done in stage 6 step 2: the read-back at Stop reads the working file on a worker thread (`Recorder.ReadBackWorkingFile`) and swaps
+    the tracks in on the sim thread. Until then Save writes the tracks in memory; a read that ends after the recording was edited, saved,
+    recorded again or played is dropped (the tracks in memory stay, Save writes them). Left: while it reads, the tracks recorded in memory
+    and the ones read back are both alive (about 570 MB for an hour of ten aircraft, and the read allocates about 840 MB).
 
 ## Open decisions
 
-Design questions 1 to 4 are decided (design 11). Stage 6 proposes, from the measurements below:
+Design questions 1 to 4 are decided (design 11). None is open. Stage 6's proposals, decided by the owner on 2026-10-15 and done in step 2:
 
 - **No chunk-by-chunk player** (limit 4). The worst case measured, an hour of ten aircraft, loads in under a second and holds 285 MB;
   the scene in memory is what makes Jump, the trims, overdub and Save simple. Revisit only if much longer recordings turn up.
@@ -170,8 +173,8 @@ writes is the recording. Suggested slices, each leaving a working recorder, one 
 ## Next: stage 6, the measured options
 
 1. **Load time, memory, Deflate**, measured (no code change; "Measurements"). Proposals in "Open decisions".
-2. **What the owner decides of step 1**: likely the read-back at Stop on another thread (limit 15), and Deflate on in the capture and
-   the scene writer (a writer option; the reader already inflates).
+2. **The decisions of step 1**, done: no chunk-by-chunk player (limit 4 closed), the read-back at Stop on a worker thread (limit 15),
+   Deflate on in the capture and so in the scene writer (`Jfs2Capture.WriterOptions`).
 3. **Recording rate and `PositionV2`**: positions are recorded at about 19 Hz and variables change about as often (the busiest tiger
    track); measure what a lower rate or a smaller position record saves against playback quality.
 
@@ -193,7 +196,8 @@ Stages as planned in design section 9; dates are 2026-10.
 | 5 player, slice 2 | `38f7d81` | The recorder records into, plays and saves `SceneTrack`s; identity frames (network objects captured too); Jump restores state; loader and exporter removed. |
 | 5 player, slice 3 | `37f052a` | Editing on the scene: trims on `SceneTrack` with the state at the cut first; objects left empty by a trim removed. |
 | 5 player, slice 4 | `375b29f`, `f1226e8` | Design questions 1 to 4 decided. The working file is the recording (read back at Stop, moved on Save unless edited); overdub working files with `base`, recovered over their base; `track-close`; `variable-names.txt`. |
-| 6 measurements, step 1 | the commit adding `tools/jfs2bench` | Load time and memory of long recordings, Deflate per chunk; `tools/jfs2bench`. Proposals: no chunk-by-chunk player, read-back off the sim thread, Deflate on. |
+| 6 measurements, step 1 | `10614c6` | Load time and memory of long recordings, Deflate per chunk; `tools/jfs2bench`. Proposals: no chunk-by-chunk player, read-back off the sim thread, Deflate on. |
+| 6, step 2 | `cab5060` | The decisions: no chunk-by-chunk player; read-back at Stop on a worker thread, swapped in on the sim thread; Deflate per chunk in the capture and the scene writer. |
 
 ## Measurements (stage 6, 2026-10-15)
 
@@ -208,6 +212,8 @@ everything the load allocated.
 | tigers 3rd, Deflate | 5.6 MB | | 61 ms (72) | 21 MB | 64 MB |
 | synthetic, 10 aircraft, 1 h | 114.3 MB | 10, 60 min | 733 ms (787) | 285 MB | 715 MB |
 | synthetic, Deflate | 63.0 MB | | 852 ms (964) | 285 MB | 841 MB |
+| step 2: tigers 3rd, converted (Deflate on) | 5.6 MB | 5, 11.9 min | 63 ms (105) | 21 MB | 64 MB |
+| step 2: synthetic, captured (Deflate on) | 63.0 MB | 10, 60 min | 842 ms (924) | 285 MB | 841 MB |
 
 - Converting: the five largest tiger recordings (12 to 29 MB) become 3.6 to 9.0 MB, in under 0.3 s to import and 0.4 s to write each.
   Real data is about 0.15 MB per aircraft-minute, so an hour of ten aircraft is about 90 MB.
@@ -217,6 +223,9 @@ everything the load allocated.
 - In memory a frame costs about 205 bytes (1.39 M frames, 285 MB), about 2.5 times its bytes in the file.
 - Deflate per chunk (`CompressionLevel.Optimal`, kept only when smaller): tigers 3rd to 62%, the synthetic file to 55%. Writing a chunk
   takes 0.38 ms median (p99 0.63) with five aircraft and 0.87 ms (p99 1.20, max 3.05) with ten, against 0.15 ms without.
+- Step 2, with Deflate on in the capture and the scene writer: tigers 3rd converts to 5.6 MB in 0.53 s of writing (0.4 s before),
+  tigers taxi to 2.1 MB; the synthetic hour is captured in 2.0 s (0.7 s before, so about 0.7 ms more per chunk), 63.0 MB. Load times
+  match the Deflate rows of step 1.
 - The scene writer's frame count is of frames handed to the capture: an imported old file's unchanged variable frames count but write
   nothing (tigers 3rd: 144,753 counted, 104,854 read back).
 
