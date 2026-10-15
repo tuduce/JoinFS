@@ -357,13 +357,9 @@ namespace JoinFS
             /// </summary>
             public bool skipped = false;
             /// <summary>
-            /// Offset between recorder time and object time
+            /// The recording times of the object's records while it is recorded: positions at their sample time, the rest with them
             /// </summary>
-            public double timeOffset = 0.0;
-            /// <summary>
-            /// Is the time offset valid
-            /// </summary>
-            public bool timeOffsetValid = false;
+            public readonly TrackTimeBase timeBase = new();
             public Vector playbackAngles = new();
             public bool playbackAnglesValid = false;
 
@@ -759,32 +755,23 @@ namespace JoinFS
         /// <summary>
         /// Record position velocity
         /// </summary>
-        /// <param name="time">Record time</param>
-        /// <param name="sampleTime">Time of position</param>
+        /// <param name="objTime">When the position was sampled, on the object's clock (the sender's network time for a network object)</param>
         /// <param name="positionVelocity">Position and Velocity</param>
         public void Record(Obj obj, double objTime, ref Sim.ObjectPositionVelocity positionVelocity)
         {
             // check object
             if (obj != null && obj.playing == false)
             {
-                // check for invalid time offset
-                if (obj.timeOffsetValid == false)
-                {
-                    // intialize time offset
-                    obj.timeOffset = Time - objTime;
-                    // time offset is now valid
-                    obj.timeOffsetValid = true;
-                }
-
                 // add position velocity frame
-                obj.frames.Add(new ObjectPositionFrame(objTime + obj.timeOffset, ref positionVelocity));
+                double frameTime = obj.timeBase.Position(Time, objTime);
+                obj.frames.Add(new ObjectPositionFrame(frameTime, ref positionVelocity));
                 IncrementRecordFrameCount(FrameType.ObjectPosition);
 
                 // and to the JFS2 file (flags: the old format keeps only on-ground)
                 if (jfs2 != null)
                 {
-                    ObjectPositionUpdate update = SimMessageMapper.ToObjectPositionUpdate(obj.id, objTime + obj.timeOffset, ref positionVelocity, positionVelocity.ground != 0 ? PositionStateFlags.OnGround : PositionStateFlags.None);
-                    jfs2.ObjectPosition(obj.id, objTime + obj.timeOffset, ref update);
+                    ObjectPositionUpdate update = SimMessageMapper.ToObjectPositionUpdate(obj.id, frameTime, ref positionVelocity, positionVelocity.ground != 0 ? PositionStateFlags.OnGround : PositionStateFlags.None);
+                    jfs2.ObjectPosition(obj.id, frameTime, ref update);
                 }
             }
         }
@@ -792,25 +779,15 @@ namespace JoinFS
         /// <summary>
         /// Record aircraft position
         /// </summary>
-        /// <param name="time">Record time</param>
-        /// <param name="sampleTime">Time of position</param>
+        /// <param name="objTime">When the position was sampled, on the object's clock (the sender's network time for a network object)</param>
         /// <param name="positionVelocity">Position and Velocity</param>
         public void Record(Obj obj, double objTime, ref Sim.AircraftPosition aircraftPosition)
         {
             // check object
             if (obj != null && obj.playing == false)
             {
-                // check for invalid time offset
-                if (obj.timeOffsetValid == false)
-                {
-                    // intialize time offset
-                    obj.timeOffset = Time - objTime;
-                    // time offset is now valid
-                    obj.timeOffsetValid = true;
-                }
-
                 // add position velocity frame
-                double frameTime = objTime + obj.timeOffset;
+                double frameTime = obj.timeBase.Position(Time, objTime);
                 obj.frames.Add(new AircraftPositionFrame(frameTime, ref aircraftPosition));
                 IncrementRecordFrameCount(FrameType.AircraftPosition);
 
@@ -831,10 +808,11 @@ namespace JoinFS
             // check object
             if (obj != null && obj.playing == false)
             {
-                // add event
-                obj.frames.Add(new SimEventFrame(Time, eventId, data));
+                // add event, on the time base of the object's positions
+                double time = obj.timeBase.Other(Time);
+                obj.frames.Add(new SimEventFrame(time, eventId, data));
                 IncrementRecordFrameCount(FrameType.SimEvent);
-                jfs2?.Event(obj.id, Time, eventId, data);
+                jfs2?.Event(obj.id, time, eventId, data);
             }
         }
 
@@ -846,10 +824,11 @@ namespace JoinFS
             // check object
             if (obj != null && obj.playing == false)
             {
-                // add event
-                obj.frames.Add(new IntegerVariablesFrame(Time, variables));
+                // add variables, on the time base of the object's positions
+                double time = obj.timeBase.Other(Time);
+                obj.frames.Add(new IntegerVariablesFrame(time, variables));
                 IncrementRecordFrameCount(FrameType.IntegerVariables);
-                jfs2?.Variables(obj.id, Time, variables, null, null);
+                jfs2?.Variables(obj.id, time, variables, null, null);
             }
         }
 
@@ -861,10 +840,11 @@ namespace JoinFS
             // check object
             if (obj != null && obj.playing == false)
             {
-                // add event
-                obj.frames.Add(new FloatVariablesFrame(Time, variables));
+                // add variables, on the time base of the object's positions
+                double time = obj.timeBase.Other(Time);
+                obj.frames.Add(new FloatVariablesFrame(time, variables));
                 IncrementRecordFrameCount(FrameType.FloatVariables);
-                jfs2?.Variables(obj.id, Time, null, variables, null);
+                jfs2?.Variables(obj.id, time, null, variables, null);
             }
         }
 
@@ -876,10 +856,11 @@ namespace JoinFS
             // check object
             if (obj != null && obj.playing == false)
             {
-                // add event
-                obj.frames.Add(new String8VariablesFrame(Time, variables));
+                // add variables, on the time base of the object's positions
+                double time = obj.timeBase.Other(Time);
+                obj.frames.Add(new String8VariablesFrame(time, variables));
                 IncrementRecordFrameCount(FrameType.String8Variables);
-                jfs2?.Variables(obj.id, Time, null, null, variables);
+                jfs2?.Variables(obj.id, time, null, null, variables);
             }
         }
 
@@ -1048,7 +1029,7 @@ namespace JoinFS
         {
             if (jfs2 != null && simObject.recorderObj is Obj recorded && recorded.playing == false)
             {
-                jfs2.Identity(recorded.id, Time, SimMessageMapper.BuildIdentity(simObject, recorded.id));
+                jfs2.Identity(recorded.id, recorded.timeBase.Other(Time), SimMessageMapper.BuildIdentity(simObject, recorded.id));
             }
         }
 
@@ -1069,7 +1050,7 @@ namespace JoinFS
                 }
                 else if (!finished.Failed)
                 {
-                    main.MonitorEvent("Recorder: wrote the JFS2 recording '" + finished.Path + "' (" + finished.TrackCount + " objects, " + finished.PositionCount + " aircraft positions, " + finished.ObjectPositionCount + " object positions, " + finished.VariableRecordCount + " variable records, " + finished.EventCount + " events, " + finished.IdentityChangeCount + " identity changes).");
+                    main.MonitorEvent("Recorder: wrote the JFS2 recording '" + finished.Path + "' (" + finished.TrackCount + " objects, " + finished.PositionCount + " aircraft positions, " + finished.ObjectPositionCount + " object positions, " + finished.VariableRecordCount + " variable records, " + finished.EventCount + " events, " + finished.IdentityChangeCount + " identity changes, " + finished.HeldCount + " records held back).");
                 }
             }
         }

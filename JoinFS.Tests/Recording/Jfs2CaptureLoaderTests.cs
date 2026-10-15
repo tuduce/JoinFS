@@ -168,6 +168,7 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
         var times = result.Objects.Cast<Recorder.Aircraft>().Single().frames.Select(f => f.time).ToArray();
         Assert.Equal([6.0, 6.0, 7.0], times);
+        Assert.Equal(1, capture.HeldCount);
     }
 
     [Fact]

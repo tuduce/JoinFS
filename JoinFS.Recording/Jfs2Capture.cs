@@ -93,6 +93,11 @@ namespace JoinFS.Recording
         public int EventCount { get; private set; }
         /// <summary>Chunks started as keyframes after the first (which always is one).</summary>
         public int KeyframeCount { get; private set; }
+        /// <summary>
+        /// Records written later than their time, so a track's times do not go back (spec 5). None when each object's records are on
+        /// one time base (<see cref="TrackTimeBase"/>) and its clock does not step back.
+        /// </summary>
+        public int HeldCount { get; private set; }
 
         /// <summary>Creates the file. Throws if it cannot be created.</summary>
         /// <param name="app">For the header's <c>app</c> metadata, for example "JoinFS 26.10".</param>
@@ -357,11 +362,13 @@ namespace JoinFS.Recording
         long TimeOf(uint track, double seconds)
         {
             long time = (long)Math.Round(seconds * 1e6);
-            if (lastTime.TryGetValue(track, out long last) && time < last)
+            long earliest = lastTime.TryGetValue(track, out long last) ? Math.Max(last, floor) : floor;
+            if (time < earliest)
             {
-                time = last;
+                HeldCount++;
+                return earliest;
             }
-            return Math.Max(time, floor);
+            return time;
         }
 
         void EndChunkIfDue()
