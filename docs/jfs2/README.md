@@ -26,7 +26,8 @@ changes (limit 13), an aircraft at 0/0 is ignored and a track starts with its fi
 gives the variables again every 0.2 s (limit 17). Not merged into `main` yet (owner's decision).
 
 Checked in a simulator: stage 2 playback (2026-10-12); gear and lights record and play (2026-10-14); a recording with a change of aircraft, saved right after Stop, trimmed at the start with the gear up (2026-10-15: variables and events good, but every track was shown from the start, fixed since, and the flight's loading phase was recorded at 0/0, ignored since: limit 16); a third one
-(2026-10-15: timing and positions good, no 0/0 track; a Bonanza taxied with its gear up, fixed since: limit 17). Everything after that is checked by
+(2026-10-15: timing and positions good, no 0/0 track; a Bonanza taxied with its gear up, fixed: limit 17, and
+confirmed in a fourth). Everything after that is checked by
 unit tests only: keyframes, identity changes, boats and vehicles, Save as `.jfs2`, the working file and recovery, the importer in the app,
 the time base, the player on the scene (play, Jump with its state, identity changes, tracks that start later or end), the writer thread,
 unflagging, the trims, the working file as the recording (the
