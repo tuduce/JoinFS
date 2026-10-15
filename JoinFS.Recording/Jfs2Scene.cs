@@ -40,6 +40,25 @@ namespace JoinFS.Recording
             }
             return (integers, floats, strings);
         }
+
+        /// <summary>The entries of the dictionaries by value kind, the other way round from <see cref="ByKind"/>; a null dictionary has none.</summary>
+        public static List<VariableEntry> Entries(Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> strings)
+        {
+            List<VariableEntry> entries = [];
+            foreach (var variable in integers ?? [])
+            {
+                entries.Add(new VariableEntry { Vuid = variable.Key, Kind = VariableKind.Int32, IntValue = variable.Value });
+            }
+            foreach (var variable in floats ?? [])
+            {
+                entries.Add(new VariableEntry { Vuid = variable.Key, Kind = VariableKind.Float32, FloatValue = variable.Value });
+            }
+            foreach (var variable in strings ?? [])
+            {
+                entries.Add(new VariableEntry { Vuid = variable.Key, Kind = VariableKind.String8, StringValue = variable.Value });
+            }
+            return entries;
+        }
     }
 
     /// <summary>A simulator event (kind <c>event</c>).</summary>
@@ -67,7 +86,8 @@ namespace JoinFS.Recording
         public string SourceApp { get; init; } = "";
         /// <summary>The simulator the object was seen in; empty when unknown.</summary>
         public string Simulator { get; init; } = "";
-        public IdentityUpdate Identity { get; init; }
+        /// <summary>The identity the track opens with; a trim at the start sets it to the one at the cut.</summary>
+        public IdentityUpdate Identity { get; set; }
         public List<SceneFrame> Frames { get; } = [];
 
         /// <summary>A copy with its own frame list (the frames themselves are immutable and shared), for example to write it on another thread.</summary>
@@ -109,6 +129,61 @@ namespace JoinFS.Recording
             }
             return new SceneState(next, position, identity, integers, floats, strings);
         }
+
+        /// <summary>Moves every frame by some seconds, for example to append a recording after another.</summary>
+        public void Shift(double seconds)
+        {
+            for (int i = 0; i < Frames.Count; i++)
+            {
+                Frames[i] = Frames[i] with { Time = Frames[i].Time + seconds };
+            }
+        }
+
+        /// <summary>
+        /// Cuts off the frames before <paramref name="time"/> and starts the rest at 0. What they left the object as comes first, as a
+        /// keyframe would put it (README limit 12): the track opens with the identity at the cut, then its variables merged and its latest
+        /// position at 0, unless a position is at the cut itself. Events before the cut go. False when nothing is at or after the cut: the
+        /// object is gone by then, and the track is left as it was.
+        /// </summary>
+        public bool TrimStart(double time)
+        {
+            SceneState state = StateAt(time);
+            if (state.Next >= Frames.Count)
+            {
+                return false;
+            }
+
+            List<SceneFrame> kept = Frames.GetRange(state.Next, Frames.Count - state.Next);
+            Frames.Clear();
+            Identity = state.Identity;
+            if (state.Integers != null || state.Floats != null || state.Strings != null)
+            {
+                Frames.Add(new SceneVariablesFrame(time, new VariableSyncUpdate { Entries = SceneVariablesFrame.Entries(state.Integers, state.Floats, state.Strings) }));
+            }
+            if (state.Position != null && !kept.Exists(frame => frame.Time == time && IsPosition(frame)))
+            {
+                Frames.Add(state.Position with { Time = time });
+            }
+            Frames.AddRange(kept);
+            Shift(-time);
+            return true;
+        }
+
+        /// <summary>
+        /// Cuts off the frames at and after <paramref name="time"/>. False when no position is left: the object only came later and has
+        /// nothing to show (a writer leaves such a track out).
+        /// </summary>
+        public bool TrimEnd(double time)
+        {
+            int first = Frames.FindIndex(frame => frame.Time >= time);
+            if (first >= 0)
+            {
+                Frames.RemoveRange(first, Frames.Count - first);
+            }
+            return Frames.Exists(IsPosition);
+        }
+
+        static bool IsPosition(SceneFrame frame) => frame is ScenePositionFrame or SceneObjectPositionFrame;
 
         static void Merge<T>(ref Dictionary<uint, T> into, Dictionary<uint, T> from)
         {

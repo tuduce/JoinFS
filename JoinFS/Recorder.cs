@@ -1383,7 +1383,7 @@ namespace JoinFS
                 main.MonitorEvent("Recorder: appending recording from " + appendTime.ToString("0.00") + "s.");
                 foreach (var track in tracks)
                 {
-                    Shift(track.Frames, appendTime);
+                    track.Shift(appendTime);
                 }
             }
             else
@@ -1401,37 +1401,30 @@ namespace JoinFS
             PublishStatus();
         }
 
-        /// <summary>
-        /// Move frames by some seconds
-        /// </summary>
-        static void Shift(List<SceneFrame> frames, double seconds)
-        {
-            for (int i = 0; i < frames.Count; i++)
-            {
-                frames[i] = frames[i] with { Time = frames[i].Time + seconds };
-            }
-        }
-
 #endregion
 
 #region Edit
 
         /// <summary>
-        /// Remove frames since start
+        /// Cut the recording before the current time, which becomes its start (sim thread). Each object starts in the state the cut
+        /// frames left it in (<see cref="SceneTrack.TrimStart"/>); an object gone by then is removed.
         /// </summary>
         public void TrimFromStart()
         {
             // get current time
             double now = Time;
-            // for each object
-            foreach (var obj in objList)
+            // for each object; one gone by now is taken out of the list
+            foreach (var obj in objList.ToList())
             {
-                // remove the frames before the current time and start the rest there
-                List<SceneFrame> frames = obj.track.Frames;
-                int first = frames.FindIndex(frame => frame.Time >= now);
-                frames.RemoveRange(0, first < 0 ? frames.Count : first);
-                Shift(frames, -now);
-                obj.frameIndex = 0;
+                if (obj.track.TrimStart(now))
+                {
+                    obj.frameIndex = 0;
+                    obj.identity = obj.track.Identity;
+                }
+                else
+                {
+                    Remove(obj.id);
+                }
             }
 
             // reset time
@@ -1441,22 +1434,22 @@ namespace JoinFS
 
 
         /// <summary>
-        /// Remove frames up to end
+        /// Cut the recording from the current time on (sim thread). An object that only came later is removed.
         /// </summary>
         public void TrimToEnd()
         {
             // get current time
             double now = Time;
-            // for each object
-            foreach (var obj in objList)
+            // for each object; one with nothing left to show is taken out of the list
+            foreach (var obj in objList.ToList())
             {
-                // remove the frames from the current time on
-                List<SceneFrame> frames = obj.track.Frames;
-                int first = frames.FindIndex(frame => frame.Time >= now);
-                if (first >= 0)
+                if (obj.track.TrimEnd(now))
                 {
-                    frames.RemoveRange(first, frames.Count - first);
-                    obj.frameIndex = Math.Min(obj.frameIndex, frames.Count);
+                    obj.frameIndex = Math.Min(obj.frameIndex, obj.track.Frames.Count);
+                }
+                else
+                {
+                    Remove(obj.id);
                 }
             }
         }

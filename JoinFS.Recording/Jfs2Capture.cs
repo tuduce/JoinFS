@@ -402,20 +402,7 @@ namespace JoinFS.Recording
                 {
                     writer.AddSnapshot(state.PositionKind, track, state.PositionTime, state.Position);
                 }
-                List<VariableEntry> merged = [];
-                foreach (var variable in state.Integers)
-                {
-                    merged.Add(new VariableEntry { Vuid = variable.Key, Kind = VariableKind.Int32, IntValue = variable.Value });
-                }
-                foreach (var variable in state.Floats)
-                {
-                    merged.Add(new VariableEntry { Vuid = variable.Key, Kind = VariableKind.Float32, FloatValue = variable.Value });
-                }
-                foreach (var variable in state.Strings)
-                {
-                    merged.Add(new VariableEntry { Vuid = variable.Key, Kind = VariableKind.String8, StringValue = variable.Value });
-                }
-                WriteVariableRecords(track, state.VariablesTime, merged, snapshot: true);
+                WriteVariableRecords(track, state.VariablesTime, SceneVariablesFrame.Entries(state.Integers, state.Floats, state.Strings), snapshot: true);
             }
         }
 

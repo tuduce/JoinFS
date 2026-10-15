@@ -27,7 +27,7 @@ public sealed class SceneStateTests : IDisposable
     }
 
     /// <summary>Positions every second from 0 to 10; gear (1) down at 0 and up at 4, flaps (2) at 3, a string at 6; renamed at 5; an event at 7.</summary>
-    static SceneTrack Flight()
+    internal static SceneTrack Flight()
     {
         SceneTrack track = Jfs2ImportTests.Track(true, "N1", "me", "Cessna 172");
         for (int i = 0; i <= 10; i++)
