@@ -11,7 +11,7 @@ next. The design is `recorder-v2-design.md`, the bytes are `format-spec.md`; thi
 | `tools/jfs2ref.py`, `tools/example.jfs2` | Reference writer for the spec's Appendix A example (221 bytes). The format library's golden test pins these bytes. |
 | `tools/jfs2bench/` | Stage 6 measurements (not in `JoinFS.sln`): convert old files, build a synthetic long recording with `Jfs2Capture`, time and size `Jfs2Scene.Load`, copy a file with and without Deflate per chunk. Usage at the top of `Program.cs`. |
 
-## Status (2026-10-15, stage 6: step 3 measured, rate and PositionV2 proposals open)
+## Status (2026-10-15, stage 6 done: rate stays, PositionV2 waits for JFP2)
 
 The app records, saves, opens, plays and recovers `.jfs2` files, and opens old `.jfs` files through the importer. It no longer writes
 `.jfs`. The recording in memory is the scene: one `SceneTrack` of canonical messages per object, which the recorder records into, plays,
@@ -19,7 +19,7 @@ edits and saves. The working file is the recording: when recording stops the rec
 recording moves it into place; an edited one is written by `Jfs2SceneWriter`. An overdub is captured into a working file of its own. The
 player work (stage 5, slices 1 to 4) is done. Stage 6 measured load time, memory and Deflate ("Measurements" below); as decided, the
 recording stays loaded whole, the working file is read back at Stop on a worker thread, and every chunk is deflated (capture and scene
-writer). Step 3 measured recording rate and a quantised position record (no code change); its two proposals wait in "Open decisions".
+writer). Step 3 measured recording rate and a quantised position record; as decided, the rate stays and `PositionV2` waits for JFP2.
 
 Checked in a simulator: stage 2 playback (2026-10-12); gear and lights record and play (2026-10-14). Everything after that is checked by
 unit tests only: keyframes, identity changes, boats and vehicles, Save as `.jfs2`, the working file and recovery, the importer in the app,
@@ -145,18 +145,15 @@ From the design or the spec, all known, none silent:
 
 ## Open decisions
 
-Design questions 1 to 4 are decided (design 11). Open: stage 6 step 3's proposals (measured in "Measurements", step 3), for the owner:
+Design questions 1 to 4 are decided (design 11). None is open. Stage 6 step 3's proposals (measured in "Measurements", step 3), decided
+by the owner on 2026-10-15:
 
-- **Record positions at 10 Hz, variables merged to the same tick** (proposed). Against today's full rate it halves the file (tigers
-  3rd 4.6 to 2.5 MB) and the memory (21 to 11 MB); a dropped position played by interpolation is off by p99 0.13 deg in attitude (max
-  1.3), 0.07 in altitude, under 1 cm sideways (max 12 cm). A variable change plays up to 0.1 s late. 5 Hz saves another half (1.4 MB,
-  4 MB) for p99 0.23 deg, but single samples go to 3 to 9 deg off in quick rolls; 2 Hz goes to 37. The change is small: a minimum
-  interval per track in `Jfs2Capture` (or in the recorder's feed), held-back variables merged and written at the next tick, flushed at
-  track-close and Finish. Old full-rate files and the importer stay as they are.
-- **`PositionV2` later, with JFP2, not for the recorder alone** (proposed). A quantised 52-byte record (no ObjectId or NetTime, lat/lon
-  1e-7 deg, int16 angles, Half velocities) halves the file again at any rate (51% at full rate, 57% at 5 Hz) with rounding under 1 cm and
-  0.003 deg, but it saves no memory (the scene holds decoded `PositionUpdate`s), JFP2 does not specify it yet, and a codec of the
-  recorder's own would undo design decision 1 (one codec). Do it when JFP2 defines `PositionV2`; the harness layout is a starting point.
+- **Positions stay at the current rate** (about 19 Hz; the proposal of 10 Hz is rejected). The interpolation errors were measured on
+  the Tiger Moth, so slow that its errors say nothing about faster aircraft. The capture keeps every position and every variable record.
+- **`PositionV2` later, with JFP2, not for the recorder alone.** A quantised 52-byte record (no ObjectId or NetTime, lat/lon 1e-7 deg,
+  int16 angles, Half velocities) halves the file (51% at full rate) with rounding under 1 cm and 0.003 deg, but it saves no memory (the
+  scene holds decoded `PositionUpdate`s), JFP2 does not specify it yet, and a codec of the recorder's own would undo design decision 1
+  (one codec). It is done when JFP2 defines `PositionV2` (`docs/jfp2/roadmap.md` 2.3); the harness layout is a starting point.
 
 Stage 6's earlier proposals, decided by the owner on 2026-10-15 and done in step 2:
 
@@ -190,7 +187,7 @@ writes is the recording. Suggested slices, each leaving a working recorder, one 
    Deflate on in the capture and so in the scene writer (`Jfs2Capture.WriterOptions`).
 3. **Recording rate and `PositionV2`**: positions are recorded at about 19 Hz and variables change about as often (the busiest tiger
    track); measure what a lower rate or a smaller position record saves against playback quality. Measured (`jfs2bench rate`,
-   `quant`; "Measurements", step 3); proposals in "Open decisions", waiting for the owner. No app code changed.
+   `quant`; "Measurements", step 3). Decided: the rate stays, `PositionV2` comes with JFP2 ("Open decisions"). No app code changed.
 
 ## History
 

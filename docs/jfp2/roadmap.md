@@ -48,7 +48,7 @@ Each needs its own design, approved by the owner, before it is built.
 | D3 | **DNS lookup** keeps only the first address returned, so a hostname that also has an IPv6 address can fail to join. | Open. |
 | C3 | Split `Jfp2Plugin.cs` further, into separate classes (the partial-class split is done). | Optional; the partial split covers the need. |
 | C5 | Separate `MeshManager`'s wire-visible rules from local policy. The relay budget is a setting (stage 9); the Pulse and Pathfinder timings are not. | Partly done. |
-| — | **Position v2, coalescing, selective acknowledgement.** Each is designed when a measurement says it pays. | `design-future.md` §7 |
+| — | **Position v2, coalescing, selective acknowledgement.** Each is designed when a measurement says it pays. The recorder will use Position v2 too (decided 2026-10-15): a quantised 52-byte candidate halves a `.jfs2` file (`docs/jfs2/README.md`, Measurements, step 3). | `design-future.md` §7 |
 | — | **Recording codecs.** Adopt the `ICodec` pattern in `Recorder.cs`, replacing the `#if FS2024` compile-time gate that causes the bug in `../recording-protocol.md` §7.1. Separate piece of work; do not block JFP2 on it. | Open. |
 | — | **Variable-name (vuid) table sync at scale.** | Open. |
 
