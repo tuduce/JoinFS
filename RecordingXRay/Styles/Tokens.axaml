@@ -35,6 +35,7 @@
   <SolidColorBrush x:Key="TypeFloatBrush" Color="#4FD1B5" />
   <SolidColorBrush x:Key="TypeString8Brush" Color="#F28BB0" />
   <SolidColorBrush x:Key="TypeSimEventBrush" Color="#F2C14B" />
+  <SolidColorBrush x:Key="TypeIdentityBrush" Color="#9CD67A" />
 
   <!-- Status -->
   <SolidColorBrush x:Key="OkBrush" Color="#4FD1B5" />

@@ -67,6 +67,9 @@ internal static class Jfs2Reader
             case SceneObjectPositionFrame position:
                 yield return ObjectPosition(frame.Time, position.Position);
                 break;
+            case SceneIdentityFrame change:
+                yield return Identity(frame.Time, change.Identity);
+                break;
             case SceneEventFrame sim:
                 yield return new SimEventFrame { Type = FrameType.SimEvent, Time = frame.Time, EventId = sim.EventId, Data = sim.Data };
                 break;
@@ -84,6 +87,22 @@ internal static class Jfs2Reader
             }
         }
     }
+
+    private static IdentityFrame Identity(double time, IdentityUpdate id) => new()
+    {
+        Type = FrameType.Identity,
+        Time = time,
+        Aircraft = id.IsAircraft,
+        Plane = id.IsPlane,
+        Callsign = id.Callsign ?? string.Empty,
+        Registration = id.Registration ?? string.Empty,
+        FlightNumber = id.FlightNumber ?? string.Empty,
+        Model = id.Model ?? string.Empty,
+        Livery = id.Livery ?? string.Empty,
+        TypeRole = id.TypeRole,
+        IcaoType = id.IcaoType ?? string.Empty,
+        IcaoAirline = id.IcaoAirline ?? string.Empty,
+    };
 
     private static AircraftPositionFrame AircraftPosition(double time, PositionUpdate p) => new()
     {

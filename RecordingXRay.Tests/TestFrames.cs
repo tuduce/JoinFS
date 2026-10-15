@@ -60,6 +60,9 @@ internal static class TestFrames
 
     public static SimEventFrame Event(double time) => new() { Type = FrameType.SimEvent, Time = time, EventId = 7, Data = 9 };
 
+    public static IdentityFrame Identity(double time, string callsign, string model) =>
+        new() { Type = FrameType.Identity, Time = time, Aircraft = true, Plane = true, Callsign = callsign, Model = model, TypeRole = 1 };
+
     public static RecordedAircraft Aircraft(string callsign, params RecordedFrame[] frames)
     {
         RecordedAircraft aircraft = new() { Callsign = callsign, Model = "Tiger Moth TIGER-4 01001011110", Plane = true, TypeRole = 1 };

@@ -20,6 +20,7 @@ public sealed class KindBrushConverter : IValueConverter
             FrameKind.Float => "TypeFloatBrush",
             FrameKind.String8 => "TypeString8Brush",
             FrameKind.SimEvent => "TypeSimEventBrush",
+            FrameKind.Identity => "TypeIdentityBrush",
             _ => "DimBrush",
         };
 

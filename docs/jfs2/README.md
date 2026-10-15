@@ -31,7 +31,7 @@ a recording (the saved file is the working file, moved, once the read-back is do
 after closing JoinFS without saving.
 
 Tests: `JoinFS.Recording.Format.Tests` 69, `JoinFS.Tests` 1238 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
-`RecordingXRay.Tests` 206, `JoinFS.UI.Tests` 506 (the recorder tab in `RecorderTests`).
+`RecordingXRay.Tests` 208, `JoinFS.UI.Tests` 506 (the recorder tab in `RecorderTests`).
 
 ## The code
 
@@ -135,7 +135,8 @@ From the design or the spec, all known, none silent:
     with the WinForms UI.
 12. Done in slice 3: a trim at the start puts the state at the cut first. Left: the position at the cut is the latest one before it, moved
     to 0 (at most one sample early), not one interpolated at the cut.
-13. **RecordingXRay does not show identity changes**; it lists positions, variables and events.
+13. Done after stage 6: RecordingXRay shows identity changes as frames of their own (`IdentityFrame`, kind "Identity"), with the
+    new callsign, model, livery and ICAO strings in the inspector and the raw view.
 14. Done in slice 4: an overdub has a working file of its own (design 11). Left, all by decision or rare: edits are not journalled, so an
     overdub made after a trim at the start is laid over the untrimmed recording when recovered, offset by the trim; recovering the
     recording alone leaves its overdub's file a leftover, which recovered later finds its base gone (if it was saved meanwhile, under another
@@ -229,6 +230,7 @@ Stages as planned in design section 9; dates are 2026-10.
 | field test fix | | The player shows a track only from its first position to its last frame (`SceneTrack.ShownAt`), also after a Jump; a jump back brings back an object that had ended. |
 | limit 5 | | The writer's own thread deflates and writes the chunks the sim thread encodes; the file is synced every 5 s. |
 | limit 7 | | An object unflagged during a recording gets its `track-close`; flagged again, it is a new track. |
+| limit 13 | | RecordingXRay shows identity changes. |
 
 ## Measurements (stage 6, 2026-10-15)
 

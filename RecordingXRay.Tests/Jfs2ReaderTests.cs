@@ -90,6 +90,29 @@ public sealed class Jfs2ReaderTests : IDisposable
             });
     }
 
+    /// <summary>README limit 13: a callsign or model change during a recording is a frame of its own.</summary>
+    [Fact]
+    public void An_identity_change_is_a_frame_with_the_new_identity()
+    {
+        string path = Path.Combine(folder, "renamed.jfs2");
+        var capture = Jfs2Capture.Create(path, "test", "MSFS2024", new DateTime(2026, 10, 14, 12, 0, 0, DateTimeKind.Utc), _ => { });
+        capture.OpenTrack(1, 0.0, TrackOwner.Local, "nick", "test", "MSFS2024", Identity("YR-SCD", "Tiger Moth", aircraft: true));
+        PositionUpdate position = new() { Latitude = 0.9, Longitude = 0.2, StaticCgToGround = float.NaN };
+        capture.Position(1, 1.0, ref position);
+        capture.Identity(1, 2.0, Identity("DLH1", "Bonanza", aircraft: true));
+        capture.Finish();
+
+        RecordedAircraft aircraft = Assert.Single(RecordingReader.Read(path).Aircraft);
+
+        // the aircraft is listed as it opened; the change is a frame at its time
+        Assert.Equal(("YR-SCD", "Tiger Moth"), (aircraft.Callsign, aircraft.Model));
+        IdentityFrame change = Assert.IsType<IdentityFrame>(aircraft.Frames[^1]);
+        Assert.Equal((FrameType.Identity, 2.0), (change.Type, change.Time));
+        Assert.Equal(("DLH1", "Bonanza", "DH82", "Livery", 3), (change.Callsign, change.Model, change.IcaoType, change.Livery, change.TypeRole));
+        Assert.True(change.Aircraft && change.Plane);
+        Assert.Contains("Model: Bonanza", FrameFormatter.FormatFrame(change, _ => "unknown"));
+    }
+
     [Fact]
     public void A_boat_has_object_position_frames()
     {

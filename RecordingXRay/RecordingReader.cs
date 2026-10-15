@@ -18,6 +18,8 @@ public enum FrameType : byte
     IntegerVariables,
     FloatVariables,
     String8Variables,
+    /// <summary>JFS2 only: the object's identity changed (callsign, model, ...). No old .jfs frame has this type.</summary>
+    Identity,
 }
 
 public sealed class RecordingFile
@@ -105,6 +107,21 @@ public sealed class SimEventFrame : RecordedFrame
 {
     public uint EventId { get; init; }
     public uint Data { get; init; }
+}
+
+/// <summary>The object's identity changed (JFS2 kind <c>identity</c>, after the one its track opened with); it is shown as this from here on.</summary>
+public sealed class IdentityFrame : RecordedFrame
+{
+    public bool Aircraft { get; init; }
+    public bool Plane { get; init; }
+    public string Callsign { get; init; } = string.Empty;
+    public string Registration { get; init; } = string.Empty;
+    public string FlightNumber { get; init; } = string.Empty;
+    public string Model { get; init; } = string.Empty;
+    public string Livery { get; init; } = string.Empty;
+    public int TypeRole { get; init; }
+    public string IcaoType { get; init; } = string.Empty;
+    public string IcaoAirline { get; init; } = string.Empty;
 }
 
 public sealed class IntegerVariablesFrame : RecordedFrame
