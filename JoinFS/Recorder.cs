@@ -590,9 +590,16 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// An aircraft position at exactly latitude 0 and longitude 0, where no flight is: the simulator's placeholder while it loads one
+        /// How near 0/0 an aircraft counts as at 0/0 (radians, 0.001 degrees, about 110 m): MSFS 2024 put a loading flight's aircraft
+        /// 0.00002 degrees east of it (field test 2026-10-15), and no airport is within hundreds of kilometres
         /// </summary>
-        public static bool AtNullIsland(in Sim.AircraftPosition position) => position.latitude == 0.0 && position.longitude == 0.0;
+        const double NullIslandRadius = 0.001 * Math.PI / 180.0;
+
+        /// <summary>
+        /// An aircraft position at 0/0, where no flight is: the simulator's placeholder while it loads one (README limit 16)
+        /// </summary>
+        public static bool AtNullIsland(in Sim.AircraftPosition position) =>
+            Math.Abs(position.latitude) < NullIslandRadius && Math.Abs(position.longitude) < NullIslandRadius;
 
         /// <summary>
         /// What a recorded object is: what its owner says (its model, not the one it is shown with here), as the network sends it. The

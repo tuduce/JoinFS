@@ -22,7 +22,7 @@ recording stays loaded whole, the working file is read back at Stop on a worker 
 writer). Step 3 measured recording rate and a quantised position record; as decided, the rate stays and `PositionV2` waits for JFP2.
 New kinds (design 9, stage 6) are closed by decision: none is needed. After stage 6: the field test fix (the player shows a track only
 while it lasts), the writer thread and the sync every 5 s (limit 5), unflagging closes a track (limit 7), RecordingXRay shows identity
-changes (limit 13), an aircraft at exactly 0/0 is ignored and a track starts with its first position that counts (limit 16). Not
+changes (limit 13), an aircraft at 0/0 is ignored and a track starts with its first position that counts (limit 16). Not
 merged into `main` yet (owner's decision).
 
 Checked in a simulator: stage 2 playback (2026-10-12); gear and lights record and play (2026-10-14); a recording with a change of aircraft, saved right after Stop, trimmed at the start with the gear up (2026-10-15: variables and events good, but every track was shown from the start, fixed since, and the flight's loading phase was recorded at 0/0, ignored since: limit 16). Everything after that is checked by
@@ -65,7 +65,7 @@ Format library notes:
 
 - **Record.** `Recorder.StartRecord` starts `Jfs2Capture` on `<documents>/Working/<date>_<time>_recording.jfs2` (unless `-no-jfs2`).
   Every recorded object gets a `SceneTrack` in memory and a track in the file, from its first position that counts (an aircraft
-  at exactly 0/0 does not); its positions, variables, events and identity changes go
+  within 0.001 degrees of 0/0 does not); its positions, variables, events and identity changes go
   to both as canonical messages (the file keeps variables as changes only, spec 7.6). The identity is what the owner says the object is:
   its own model, not the one it is shown with here. A chunk ends every 2 s and every fifth is a keyframe with the snapshot of every open
   track (spec 6.1); the writer's own thread deflates and writes each chunk, and syncs the file every 5 s. An object that leaves (`Sim.RemoveFromListAndIndex` calls `Recorder.ObjectLeft`) or is unflagged gets its `track-close` and is
@@ -153,8 +153,9 @@ From the design or the spec, all known, none silent:
     recorded again or played is dropped (the tracks in memory stay, Save writes them). Left: while it reads, the tracks recorded in memory
     and the ones read back are both alive (about 570 MB for an hour of ten aircraft, and the read allocates about 840 MB).
 16. Done after stage 6 (field test 2026-10-15): while MSFS loads a flight after a change of aircraft, it lists the user's aircraft
-    for about 25 s at 0/0, which was recorded as a track of its own. Decided by the owner: an aircraft at exactly 0/0 is ignored. Its
-    position there is left out (`Recorder.AtNullIsland`), and a recorded object's track starts with its first position that counts
+    for about 25 s at 0/0, which was recorded as a track of its own. Decided by the owner: an aircraft at 0/0 is ignored. Its position
+    there is left out (`Recorder.AtNullIsland`: within 0.001 degrees, about 110 m; the second field test found MSFS 2024 loading a DA40
+    at latitude 0, longitude 0.00002 degrees, so an exact test missed it), and a recorded object's track starts with its first position that counts
     (`Recorder.StartTrack`; before, it started when the object was flagged), so the loading phase leaves no track; until then its
     variables and events are not recorded, and an identity change becomes the identity its track opens with. Objects that are not
     aircraft are not filtered. Also done after the field test: the player showed every track from the start of playing, at its first
@@ -165,7 +166,7 @@ From the design or the spec, all known, none silent:
 
 Design questions 1 to 4 are decided (design 11). None is open.
 
-- **Positions at 0/0 (limit 16)**, decided by the owner on 2026-10-15: an aircraft at exactly 0/0 is ignored (done).
+- **Positions at 0/0 (limit 16)**, decided by the owner on 2026-10-15: an aircraft at 0/0 is ignored (done; within 0.001 degrees, since MSFS does not put it exactly there).
 
 Stage 6 step 3's proposals (measured in "Measurements", step 3), decided
 by the owner on 2026-10-15:
@@ -238,7 +239,7 @@ Stages as planned in design section 9; dates are 2026-10.
 | limit 7 | `5baead5` | An object unflagged during a recording gets its `track-close`; flagged again, it is a new track. |
 | limit 13 | `5956680` | RecordingXRay shows identity changes. |
 | new kinds | `2d7d828` | Closed by decision: not needed. Stage 6 closed. |
-| limit 16 | | An aircraft at exactly 0/0 is ignored; a recorded object's track starts with its first position that counts. |
+| limit 16 | `223dbb2`, | An aircraft within 0.001 degrees of 0/0 is ignored (the exact test of `223dbb2` missed the second field test's); a recorded object's track starts with its first position that counts. |
 
 ## Measurements (stage 6, 2026-10-15)
 
