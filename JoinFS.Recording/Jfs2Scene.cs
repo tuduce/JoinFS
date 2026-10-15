@@ -129,6 +129,8 @@ namespace JoinFS.Recording
             Dictionary<string, int> skipped = [];
             int damaged = 0, identityChanges = 0;
             bool lost = false;
+            // tracks with a record that could not be decoded: their state is wrong until a snapshot sets it again
+            HashSet<uint> unreliable = [];
 
             var positionCodec = new PositionV1Codec();
             var identityCodec = new IdentityV1Codec();
@@ -153,12 +155,30 @@ namespace JoinFS.Recording
                 {
                     continue;
                 }
-                // A linear read has seen what a snapshot summarises, so the snapshot is used only to restore the state after a lost chunk.
+                // A linear read has seen what a snapshot summarises, so the snapshot is used only to restore the state after a lost chunk,
+                // and to heal a track whose track-open, identity or another record could not be read (spec 8.2).
                 bool restore = lost;
                 lost = false;
-
-                foreach (RecordEntry entry in restore ? chunk.Records : chunk.Records.Skip(chunk.SnapshotCount))
+                HashSet<uint> heal = [];
+                for (int i = 0; i < chunk.SnapshotCount; i++)
                 {
+                    uint track = chunk.Records[i].Track;
+                    if (!tracks.TryGetValue(track, out Building known) || !known.HasIdentity || unreliable.Contains(track))
+                    {
+                        heal.Add(track);
+                    }
+                }
+                for (int i = 0; i < chunk.SnapshotCount; i++)
+                {
+                    unreliable.Remove(chunk.Records[i].Track);
+                }
+
+                foreach (RecordEntry entry in chunk.Records)
+                {
+                    if (entry.IsSnapshot && !restore && !heal.Contains(entry.Track))
+                    {
+                        continue;
+                    }
                     KindBinding kind = reader.GetKind(entry.Kind);
                     if (kind == null || !IsKnown(kind))
                     {
@@ -234,7 +254,14 @@ namespace JoinFS.Recording
                     catch (Exception ex) when (ex is FormatException or ArgumentException or IndexOutOfRangeException)
                     {
                         damaged++;
+                        unreliable.Add(entry.Track);
                     }
+                }
+
+                // the rest of the chunk was not read, so what it held is lost like a skipped chunk (spec 8.2)
+                if (!chunk.IsComplete)
+                {
+                    lost = true;
                 }
             }
 

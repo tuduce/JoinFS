@@ -660,6 +660,74 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         Assert.Equal(new Dictionary<uint, int> { [10] = 2, [11] = 7 }, Merged(aircraft).Integers);
     }
 
+    /// <summary>
+    /// Changes bytes inside a chunk of the finished file and puts its CRC right, so the chunk reads but what is inside is damaged.
+    /// <paramref name="change"/> gets the file bytes and the offset of the chunk's block.
+    /// </summary>
+    void DamageInside(int chunk, Action<byte[], long> change)
+    {
+        long at;
+        using (var reader = RecordingReader.Open(PathOf("a.jfs2")))
+        {
+            at = reader.Chunks[chunk].Offset;
+        }
+        byte[] bytes = File.ReadAllBytes(PathOf("a.jfs2"));
+        int length = BitConverter.ToInt32(bytes, (int)at + 1);
+        change(bytes, at);
+        uint crc = 0xFFFFFFFF;
+        foreach (byte b in bytes.AsSpan((int)at, 5 + length))
+        {
+            crc ^= b;
+            for (int k = 0; k < 8; k++) crc = (crc & 1) != 0 ? 0xEDB88320 ^ (crc >> 1) : crc >> 1;
+        }
+        BitConverter.GetBytes(~crc).CopyTo(bytes, at + 5 + length);
+        File.WriteAllBytes(PathOf("a.jfs2"), bytes);
+    }
+
+    [Fact]
+    public void AChunkWhoseRecordsStopParsing_IsLostUntilTheNextKeyframe()
+    {
+        RecordThirtySeconds();
+        // the first record of chunk 0, the track-open of track 1, names a kind no Schema binds, so chunk 0 yields nothing
+        DamageInside(0, (bytes, at) => bytes[at + 5 + Jfs2.ChunkHeaderLength] = 0x7F);
+
+        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
+
+        Assert.Contains(result.Warnings, n => n.StartsWith("Damaged recording"));
+        Assert.Equal(2, result.Objects.Count); // both tracks come back with the keyframe at chunk 5 (about 10 s)
+        var aircraft = (Recorder.Aircraft)result.Objects[0];
+        Assert.Equal("A", aircraft.callsign);
+        double[] times = [.. aircraft.frames.OfType<Recorder.AircraftPositionFrame>().Select(f => f.time)];
+        Assert.DoesNotContain(times, t => t < 9.0);
+        Assert.Contains(times, t => t > 29.0);
+        Assert.Equal(new Dictionary<uint, int> { [10] = 2, [11] = 7 }, Merged(aircraft).Integers);
+        Assert.Equal(new Dictionary<uint, int> { [5] = 9 }, Merged(result.Objects[1]).Integers);
+    }
+
+    [Fact]
+    public void ARecordThatCannotBeDecoded_IsHealedByTheNextKeyframe_WithoutLosingTheChunksBetween()
+    {
+        RecordThirtySeconds();
+        // the variables record of track 1 at 5.5 s (chunk 2) claims 255 entries, so it does not decode
+        DamageInside(2, (bytes, at) =>
+        {
+            using var reader = RecordingReader.Open(new MemoryStream(bytes));
+            Assert.True(reader.TryReadChunk(2, out RecordChunk? chunk));
+            RecordEntry variables = chunk!.Records.Single(r => !r.IsSnapshot && r.Track == 1 && reader.GetKind(r.Kind)!.Name == "variables");
+            Assert.True(System.Runtime.InteropServices.MemoryMarshal.TryGetArray(variables.Body, out ArraySegment<byte> body));
+            bytes[at + body.Offset + 4] = 255;
+        });
+
+        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
+
+        Assert.Contains(result.Warnings, n => n.Contains("could not be read"));
+        var aircraft = (Recorder.Aircraft)result.Objects[0];
+        // only that record is lost: every position plays, and the keyframe at about 10 s sets the variables right again
+        Assert.Equal(600, aircraft.frames.OfType<Recorder.AircraftPositionFrame>().Count());
+        Assert.Equal(new Dictionary<uint, int> { [10] = 2, [11] = 7 }, Merged(aircraft).Integers);
+        Assert.Equal(aircraft.frames.Select(f => f.time).Order(), aircraft.frames.Select(f => f.time));
+    }
+
     [Fact]
     public void ObjectPositionOfATrackThatWasNeverOpened_IsIgnored()
     {
