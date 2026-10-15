@@ -73,6 +73,10 @@ namespace JoinFS
             public Vector playbackAngles = new();
             public bool playbackAnglesValid = false;
             /// <summary>
+            /// The variables played to it so far, merged, which it is given again and again as the network does (README limit 17)
+            /// </summary>
+            public readonly PlayedVariables played = new();
+            /// <summary>
             /// Recorded: its track has started, with its first position that counts (<see cref="Recorder.StartTrack"/>); until then it
             /// records nothing and is not in the recording
             /// </summary>
@@ -112,6 +116,7 @@ namespace JoinFS
                 frameIndex = 0;
                 identity = track.Identity;
                 playbackAnglesValid = false;
+                played.Clear();
                 // start playing
                 playing = true;
             }
@@ -1222,6 +1227,7 @@ namespace JoinFS
                     SceneState state = obj.track.StateAt(time);
                     obj.frameIndex = state.Next;
                     obj.identity = state.Identity;
+                    obj.played.Set(state);
 
                     // not there at that time (its track starts later, or has ended): out of the sim, which a jump back may need
                     if (!obj.track.ShownAt(time))
@@ -1501,6 +1507,7 @@ namespace JoinFS
                                     {
                                         var (integers, floats, strings) = variables.ByKind();
                                         ApplyVariables(obj, integers, floats, strings);
+                                        obj.played.Merge(variables);
                                         break;
                                     }
                                     case SceneIdentityFrame change:
@@ -1517,6 +1524,11 @@ namespace JoinFS
                             if (obj.track.ShownAt(Time))
                             {
                                 UpdateInterpolatedPosition(obj, Time);
+                                // the whole set again now and then: the file holds changes only, and the simulator does not take every one
+                                if (obj.played.Due(main.ElapsedTime))
+                                {
+                                    ApplyVariables(obj, obj.played.Integers, obj.played.Floats, obj.played.Strings);
+                                }
                             }
 
                             // end object playback when all frames are consumed

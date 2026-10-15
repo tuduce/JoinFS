@@ -22,10 +22,11 @@ recording stays loaded whole, the working file is read back at Stop on a worker 
 writer). Step 3 measured recording rate and a quantised position record; as decided, the rate stays and `PositionV2` waits for JFP2.
 New kinds (design 9, stage 6) are closed by decision: none is needed. After stage 6: the field test fix (the player shows a track only
 while it lasts), the writer thread and the sync every 5 s (limit 5), unflagging closes a track (limit 7), RecordingXRay shows identity
-changes (limit 13), an aircraft at 0/0 is ignored and a track starts with its first position that counts (limit 16). Not
-merged into `main` yet (owner's decision).
+changes (limit 13), an aircraft at 0/0 is ignored and a track starts with its first position that counts (limit 16), the player
+gives the variables again every 0.2 s (limit 17). Not merged into `main` yet (owner's decision).
 
-Checked in a simulator: stage 2 playback (2026-10-12); gear and lights record and play (2026-10-14); a recording with a change of aircraft, saved right after Stop, trimmed at the start with the gear up (2026-10-15: variables and events good, but every track was shown from the start, fixed since, and the flight's loading phase was recorded at 0/0, ignored since: limit 16). Everything after that is checked by
+Checked in a simulator: stage 2 playback (2026-10-12); gear and lights record and play (2026-10-14); a recording with a change of aircraft, saved right after Stop, trimmed at the start with the gear up (2026-10-15: variables and events good, but every track was shown from the start, fixed since, and the flight's loading phase was recorded at 0/0, ignored since: limit 16); a third one
+(2026-10-15: timing and positions good, no 0/0 track; a Bonanza taxied with its gear up, fixed since: limit 17). Everything after that is checked by
 unit tests only: keyframes, identity changes, boats and vehicles, Save as `.jfs2`, the working file and recovery, the importer in the app,
 the time base, the player on the scene (play, Jump with its state, identity changes, tracks that start later or end), the writer thread,
 unflagging, the trims, the working file as the recording (the
@@ -36,7 +37,7 @@ or model change during a recording, a trim at the start after the gear went up (
 a recording (the saved file is the working file, moved, once the read-back is done; Save before that writes the tracks in memory), and an overdub that is recovered
 after closing JoinFS without saving.
 
-Tests: `JoinFS.Recording.Format.Tests` 69, `JoinFS.Tests` 1242 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
+Tests: `JoinFS.Recording.Format.Tests` 69, `JoinFS.Tests` 1247 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
 `RecordingXRay.Tests` 208, `JoinFS.UI.Tests` 506 (the recorder tab in `RecorderTests`).
 
 ## The code
@@ -80,7 +81,8 @@ Format library notes:
 - **Play.** Each `Recorder.Obj` plays its track: a frame plays once its time has passed (variables, events; an identity change makes the
   next position show the object as that, so the simulator swaps the model or callsign), and the position is interpolated between the
   frames around the play time. Jump folds the frames before the time (`SceneTrack.StateAt`): the latest position, identity and merged
-  variables go to the object, so gear, flaps and lights are right wherever playing starts. Events are not replayed by a jump.
+  variables go to the object, so gear, flaps and lights are right wherever playing starts. Events are not replayed by a jump. The
+  variables played so far are given again every 0.2 s (limit 17), as the network does.
 - **Edit.** All in memory, on the tracks; Save writes the result. Trim at the start (`SceneTrack.TrimStart`) cuts the frames before the
   play time and starts each track there with the state they left (opening identity at the cut, variables merged and latest position at 0,
   as a keyframe would); trim at the end cuts the frames from the play time on; an object with nothing left is removed. Remove takes an
@@ -161,6 +163,11 @@ From the design or the spec, all known, none silent:
     aircraft are not filtered. Also done after the field test: the player showed every track from the start of playing, at its first
     position, so the aircraft of each track appeared together; now an object is in the sim only from its track's first position to
     its last frame (`SceneTrack.ShownAt`), after a Jump too, and a jump back brings back one that had ended.
+17. Done after stage 6 (third field test 2026-10-15, `da40-bonanza.jfs2`): a Bonanza taxied with its gear up. The file has the gear
+    down, 0.85 s after the aircraft appeared, once (variables are changes only, spec 7.6); but an aircraft the simulator has just
+    created reads its own values and refuses others for 3 s (`VariableMgr.Set`, `SLAVE_DELAY`), so that one value was lost. The network
+    and the old recorder sent or recorded the whole set five times a second, which healed it. Now the player gives each object the
+    variables played so far again every 0.2 s (`PlayedVariables`), from the frames played or the state a Jump put it in.
 
 ## Open decisions
 
@@ -240,6 +247,7 @@ Stages as planned in design section 9; dates are 2026-10.
 | limit 13 | `5956680` | RecordingXRay shows identity changes. |
 | new kinds | `2d7d828` | Closed by decision: not needed. Stage 6 closed. |
 | limit 16 | `223dbb2`, `00e5464` | An aircraft within 0.001 degrees of 0/0 is ignored (the exact test of `223dbb2` missed the second field test's); a recorded object's track starts with its first position that counts. |
+| limit 17 | | The player gives the variables played so far again every 0.2 s (`PlayedVariables`). |
 
 ## Measurements (stage 6, 2026-10-15)
 

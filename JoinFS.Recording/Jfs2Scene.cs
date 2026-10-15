@@ -210,7 +210,7 @@ namespace JoinFS.Recording
 
         static bool IsPosition(SceneFrame frame) => frame is ScenePositionFrame or SceneObjectPositionFrame;
 
-        static void Merge<T>(ref Dictionary<uint, T> into, Dictionary<uint, T> from)
+        internal static void Merge<T>(ref Dictionary<uint, T> into, Dictionary<uint, T> from)
         {
             if (from != null)
             {
