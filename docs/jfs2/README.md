@@ -247,7 +247,7 @@ Stages as planned in design section 9; dates are 2026-10.
 | limit 13 | `5956680` | RecordingXRay shows identity changes. |
 | new kinds | `2d7d828` | Closed by decision: not needed. Stage 6 closed. |
 | limit 16 | `223dbb2`, `00e5464` | An aircraft within 0.001 degrees of 0/0 is ignored (the exact test of `223dbb2` missed the second field test's); a recorded object's track starts with its first position that counts. |
-| limit 17 | | The player gives the variables played so far again every 0.2 s (`PlayedVariables`). |
+| limit 17 | `5098e9d` | The player gives the variables played so far again every 0.2 s (`PlayedVariables`). |
 
 ## Measurements (stage 6, 2026-10-15)
 
