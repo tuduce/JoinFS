@@ -10,18 +10,20 @@ next. The design is `recorder-v2-design.md`, the bytes are `format-spec.md`; thi
 | `tools/jfsstat.py` | Read-only statistics of legacy `.jfs` files (frame types, sizes, how much of each variable frame changes). |
 | `tools/jfs2ref.py`, `tools/example.jfs2` | Reference writer for the spec's Appendix A example (221 bytes). The format library's golden test pins these bytes. |
 
-## Status (2026-10-15)
+## Status (2026-10-15, after player slice 2)
 
 The app records, saves, opens, plays and recovers `.jfs2` files, and opens old `.jfs` files through the importer. It no longer writes
-`.jfs`. Playback and editing still run on the old in-memory model (`Recorder.Obj`, a frame list per object); the live JFS2 capture is a
-crash-recovery journal, and Save exports the in-memory objects. Replacing that model is the one piece of design work left ("Next"); slice 1
-of it (one time base per object) is done.
+`.jfs`. The recording in memory is the scene: one `SceneTrack` of canonical messages per object, which the recorder records into, plays,
+edits and saves (`Jfs2SceneWriter`). The live JFS2 capture is still a crash-recovery journal beside it, and Save writes the tracks again
+rather than finishing that file. Of the player work ("Next"), slices 1 (one time base per object) and 2 (the player on the scene) are done.
 
 Checked in a simulator: stage 2 playback (2026-10-12); gear and lights record and play (2026-10-14). Everything after that is checked by
 unit tests only: keyframes, identity changes, boats and vehicles, Save as `.jfs2`, the working file and recovery, the importer in the app,
-the time base. In a field test the log line "Recorder: wrote the JFS2 recording" should end in "0 records held back".
+the time base, the player on the scene (play, Jump with its state, identity changes). In a field test the log line "Recorder: wrote the
+JFS2 recording" should end in "0 records held back"; worth checking in a simulator: a Jump back past a gear or lights change, and a callsign
+or model change during a recording.
 
-Tests: `JoinFS.Recording.Format.Tests` 61, `JoinFS.Tests` 1201 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
+Tests: `JoinFS.Recording.Format.Tests` 61, `JoinFS.Tests` 1209 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
 `RecordingXRay.Tests` 206, `JoinFS.UI.Tests` 506 (the recorder tab in `RecorderTests`).
 
 ## The code
@@ -30,10 +32,10 @@ Tests: `JoinFS.Recording.Format.Tests` 61, `JoinFS.Tests` 1201 (the recording on
 |---|---|---|
 | `JoinFS.Recording.Format/` | The container (spec 1 to 6, 8, 9): `RecordingWriter`, `RecordingReader`, `RecordingRepair`, `RecordingDump`, CRC-32, Deflate. Records are opaque (kind id, track, time, bytes). | nothing else; no build symbols |
 | `JoinFS.Messages/` | The canonical messages and the JFP2 body codecs, shared by the network and the recorder (design 4.4). | nothing else; no build symbols |
-| `JoinFS.Recording/` | The engine pieces that know the record kinds but not the simulator: `Jfs2Kinds` (names, versions, `TrackOpenV1`), `ObjectPositionV1Codec`, `Jfs2Capture` (writer), `Jfs2Scene` (reader into tracks of canonical messages), `Jfs2SceneWriter` (scene to file), `LegacyJfsImporter` (old `.jfs` to scene),
+| `JoinFS.Recording/` | The engine pieces that know the record kinds but not the simulator: `Jfs2Kinds` (names, versions, `TrackOpenV1`), `ObjectPositionV1Codec`, `Jfs2Capture` (writer), `Jfs2Scene` (reader into tracks of canonical messages; `SceneTrack.StateAt` is what a jump restores), `Jfs2SceneWriter` (scene to file), `LegacyJfsImporter` (old `.jfs` to scene),
 `TrackTimeBase` (the recording times of one object's records). | the two libraries above; no build symbols |
-| `JoinFS/Recording/` | The app's side: `Jfs2Loader` (scene to `Recorder.Obj`), `Jfs2Exporter` (`Recorder.Obj` to scene to file), `Jfs2Convert` (`JoinFS -convert`). | `Recorder`, `Sim` types |
-| `JoinFS/Recorder.cs` | Recording, playback, editing (in memory), the live capture, Save, the working file. | everything |
+| `JoinFS/Recording/` | `Jfs2Convert` (`JoinFS -convert`). | the importer, the scene writer |
+| `JoinFS/Recorder.cs` | Recording into tracks, playback of tracks (`Recorder.Obj` is a track plus its play state), editing (in memory), the live capture, Save, the working file. | everything |
 | `JoinFS.Recording.Tool/` | `jfs2 dump [--records] f`, `jfs2 verify f`, `jfs2 repair f [-o out]`. | the format library only |
 | `RecordingXRay/` | Opens `.jfs2` through `Jfs2Scene`; keeps its own `.jfs` reader on purpose (it shows what the old file stores, frame by frame). | `JoinFS.Recording` |
 
@@ -47,20 +49,26 @@ Format library notes:
 
 ## How a recording flows today
 
-- **Record.** `Recorder.StartRecord` starts `Jfs2Capture` on `<documents>/Working/<date>_<time>_recording.jfs2` (unless `-no-jfs2`) and
-  keeps filling the in-memory `Recorder.Obj` frames as before. Every recorded object gets a track; positions, variables (changes only,
-  spec 7.6), events and, for our own and simulator objects, identity changes go to the file. A chunk ends every 2 s and every fifth is a
-  keyframe with the snapshot of every open track (spec 6.1). An overdub is not captured.
+- **Record.** `Recorder.StartRecord` starts `Jfs2Capture` on `<documents>/Working/<date>_<time>_recording.jfs2` (unless `-no-jfs2`).
+  Every recorded object gets a `SceneTrack` in memory and a track in the file; its positions, variables, events and identity changes go
+  to both as canonical messages (the file keeps variables as changes only, spec 7.6). The identity is what the owner says the object is:
+  its own model, not the one it is shown with here. A chunk ends every 2 s and every fifth is a keyframe with the snapshot of every open
+  track (spec 6.1). An overdub is not captured.
 - **Time base.** Each recorded object has a `TrackTimeBase`. Positions keep their sample spacing (for a network object, its sender's
   clock), offset so the first is at the recorder's time; variables, events and identities take the time of the object's latest position,
   and move on only when positions are more than 0.5 s overdue. The in-memory frames and the file get the same times.
-- **Stop.** The capture finishes the file (Index, Footer). A take with no position is deleted at once.
-- **Save and auto-save.** `Recorder.SaveJfs2` runs `Jfs2Exporter` over a copy of the in-memory objects into `<path>.tmp` and moves it into
-  place, then the working file is deleted. The saved file therefore has what the in-memory model has: one identity per object, but each
-  object's owner, source application and simulator (from the track-open it was loaded with, or from the live recording), and the header's
-  `sim` when all objects share one.
+- **Stop.** The capture finishes the file (Index, Footer). A take with no position is deleted at once. Frames recorded out of time order
+  (limit 6) are put in order in memory.
+- **Play.** Each `Recorder.Obj` plays its track: a frame plays once its time has passed (variables, events; an identity change makes the
+  next position show the object as that, so the simulator swaps the model or callsign), and the position is interpolated between the
+  frames around the play time. Jump folds the frames before the time (`SceneTrack.StateAt`): the latest position, identity and merged
+  variables go to the object, so gear, flaps and lights are right wherever playing starts. Events are not replayed by a jump.
+- **Save and auto-save.** `Recorder.SaveJfs2` runs `Jfs2SceneWriter` over copies of the tracks (`CopyForSave`, taken on the sim thread)
+  into `<path>.tmp` and moves it into place, then the working file is deleted. The saved file has what the tracks hold: identity changes,
+  each object's owner, source application and simulator, and the header's `sim` when all objects share one.
 - **Open, Add, `-play`.** `Recorder.Parse` sniffs the first two bytes (`Jfs2.LegacyVersionSignature`): a `.jfs2` goes through `Jfs2Scene`,
-  an old `.jfs` through `LegacyJfsImporter`; both end in `Jfs2Loader.Objects`. Damage is reported to the user in the Avalonia UI.
+  an old `.jfs` through `LegacyJfsImporter`; both end in tracks that `Recorder.Load` plays (Add shifts them to the end). Damage is reported
+  to the user in the Avalonia UI.
 - **Recovery.** At start-up the Avalonia UI offers each leftover file in `Working/` (newest first): Recover, Delete, or later. A file another
   JoinFS is writing is skipped. A recovered recording is unsaved until saved, which removes the leftover. The WinForms UI neither asks nor
   offers; its leftovers are offered by the Avalonia UI at the next start.
@@ -74,12 +82,10 @@ Format library notes:
 
 From the design or the spec, all known, none silent:
 
-1. **Two writers of one recording.** The capture writes the working file, Save exports the in-memory objects again. What only the capture
-   has is lost on Save: identity changes during a track. This goes with "Next".
-2. **Identity changes have no effect yet.** They are written to the working file only, the scene keeps one identity per track (it logs how
-   many it ignored), and changes of network aircraft are not captured (`Recorder.RecordIdentity` is called on the local send paths only).
-3. **Jump does not restore variables** (gear, flaps, lights stay as they were before the jump). Design 5.4 promises it; it comes with the
-   player.
+1. **Two writers of one recording.** The capture writes the working file, Save writes the in-memory tracks again. Both hold the same
+   records (since slice 2 nothing is only in the file), but Save does the work twice; slice 4 makes the working file the saved one.
+2. Done in slice 2: identity changes are frames of the scene, captured for network objects too, played and saved.
+3. Done in slice 2: Jump restores position, identity and variables (design 5.4).
 4. **Everything is loaded whole.** A one-hour recording with ten aircraft is about 80 MB of file. Design 5.5's chunk-by-chunk player is a
    stage 6 measurement.
 5. **Chunks are written on the sim thread** (about 8 KB every 2 s) and flushed to the operating system, not to disk, until the file is
@@ -87,7 +93,7 @@ From the design or the spec, all known, none silent:
 6. **A clock that steps back still holds records.** Since slice 1 an object's records share one time base, so jitter holds nothing. A
    track's time may not go back (spec 5), so when a sender's network clock is corrected backwards (or positions arrive out of order), the
    capture writes the late records at the track's last time; it counts them ("records held back" in the log). Saved files are not affected
-   (the exporter sorts by time).
+   (the tracks in memory are sorted when recording stops).
 7. **No `track-close` when an object leaves**; tracks close when recording stops. Until then every keyframe repeats the snapshot of objects
    that have gone.
 8. **`variable-names.txt` is not written** (spec decision 9). RecordingXRay names variables from its own tables.
@@ -99,27 +105,30 @@ From the design or the spec, all known, none silent:
     lived in the app. The importer is standalone now, so it could move.
 11. **The WinForms recorder** does not show damage warnings, does not ask about unsaved recordings, and does not offer recovery. It goes away
     with the WinForms UI.
+12. **A trim at the start drops the state before the cut**: variables and identity changes before it are gone, so the object starts with
+    the identity it opened with and only the variables recorded after the cut. Slice 3 puts the state at the cut first.
+13. **RecordingXRay does not show identity changes**; it lists positions, variables and events.
 
 ## Open decisions
 
 - Design question 2 (JFP2 adopting `object-position`), 3 (overdub: merge on stop or in the player), 4 (default metadata).
-- Whether to drop identity-change capture or apply it in the player (limit 2). The player plan below assumes apply.
 
 ## Next: a player on the scene (stage 5, remaining)
 
-Replace `Recorder.Obj` playback and editing with a player that works on `Jfs2Scene` tracks of canonical messages, so the file the capture
+Replace the old frame model of playback and editing with a player that works on `Jfs2Scene` tracks of canonical messages, so the file the capture
 writes is the recording. Suggested slices, each leaving a working recorder, one fresh session each:
 
 1. **Time base** (limit 6), done (`30c3dbf`): variables, events and identities of an object are stamped on the time base of its positions
    (`TrackTimeBase`), so jitter holds nothing back; the capture counts what it still holds.
-2. **Player on the scene.** `Recorder` holds a scene instead of `List<Obj>`; play, pause, loop, skip and both UIs (through `Recorder`'s
-   existing surface) work on it. The scene gains identity frames, and the player applies them. Jump folds the frames up to T (latest
-   position before T, merged variables, latest identity), which removes limit 3. `Jfs2Loader` and the `Recorder.Obj` frame classes go.
+2. **Player on the scene**, done (`38f7d81`): `Recorder.Obj` is a `SceneTrack` plus its play state; play, pause, loop, skip and both UIs
+   work on it through `Recorder`'s existing surface (`Parse`, `Load`, `CopyForSave` and Save take tracks). The scene has identity frames,
+   the player applies them; Jump folds the frames up to T (`SceneTrack.StateAt`). `Jfs2Loader`, `Jfs2Exporter` and the old frame classes
+   are gone (Save already writes with `Jfs2SceneWriter`).
 3. **Editing on the scene.** Trim start and end, remove, skip, append (time offset, renumbered tracks) and overdub (record new tracks while
    playing, merge on stop as design 7 proposes) change the in-memory scene; Save writes it with `Jfs2SceneWriter`. A trim at the start puts
-   the state at the cut first, as a keyframe would.
+   the state at the cut first, as a keyframe would (limit 12).
 4. **The working file is the recording.** After Stop, the recorder loads its own working file as the scene. Save of a recording that was not
-   edited finishes the file and moves it into place (design 7); an edited one is written by the scene writer. `Jfs2Exporter` goes. Add
+   edited finishes the file and moves it into place (design 7); an edited one is written by the scene writer. Add
    `track-close` when an object leaves (limit 7) and `variable-names.txt` on stop (limit 8).
 
 Stage 6 then measures load time and memory of long recordings to decide on the chunk-by-chunk player (limit 4), and the other measured
@@ -140,6 +149,7 @@ Stages as planned in design section 9; dates are 2026-10.
 | 5 switch-over | `4c92254`, `d71f22d`, `ea24225`, `1594f38` | Save writes `.jfs2`; damage shown in the Avalonia UI; working file and recovery; old `.jfs` read by the importer only, all old file code deleted (the test-side `LegacyJfsWriter` makes old files for tests). |
 | review fixes | `a363179`, `f5afe92`, `4721867` | Restore after a chunk whose records stop parsing and healing of unreadable tracks; owner, application and simulator kept on Save; clean-up. |
 | 5 player, slice 1 | `30c3dbf` | One time base per recorded object (`TrackTimeBase`); the capture counts held records. |
+| 5 player, slice 2 | `38f7d81` | The recorder records into, plays and saves `SceneTrack`s; identity frames (network objects captured too); Jump restores state; loader and exporter removed. |
 
 ## Findings that still hold
 
