@@ -14,12 +14,14 @@ next. The design is `recorder-v2-design.md`, the bytes are `format-spec.md`; thi
 
 The app records, saves, opens, plays and recovers `.jfs2` files, and opens old `.jfs` files through the importer. It no longer writes
 `.jfs`. Playback and editing still run on the old in-memory model (`Recorder.Obj`, a frame list per object); the live JFS2 capture is a
-crash-recovery journal, and Save exports the in-memory objects. Replacing that model is the one piece of design work left ("Next").
+crash-recovery journal, and Save exports the in-memory objects. Replacing that model is the one piece of design work left ("Next"); slice 1
+of it (one time base per object) is done.
 
 Checked in a simulator: stage 2 playback (2026-10-12); gear and lights record and play (2026-10-14). Everything after that is checked by
-unit tests only: keyframes, identity changes, boats and vehicles, Save as `.jfs2`, the working file and recovery, the importer in the app.
+unit tests only: keyframes, identity changes, boats and vehicles, Save as `.jfs2`, the working file and recovery, the importer in the app,
+the time base. In a field test the log line "Recorder: wrote the JFS2 recording" should end in "0 records held back".
 
-Tests: `JoinFS.Recording.Format.Tests` 61, `JoinFS.Tests` 1196 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
+Tests: `JoinFS.Recording.Format.Tests` 61, `JoinFS.Tests` 1201 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
 `RecordingXRay.Tests` 206, `JoinFS.UI.Tests` 506 (the recorder tab in `RecorderTests`).
 
 ## The code
@@ -28,7 +30,8 @@ Tests: `JoinFS.Recording.Format.Tests` 61, `JoinFS.Tests` 1196 (the recording on
 |---|---|---|
 | `JoinFS.Recording.Format/` | The container (spec 1 to 6, 8, 9): `RecordingWriter`, `RecordingReader`, `RecordingRepair`, `RecordingDump`, CRC-32, Deflate. Records are opaque (kind id, track, time, bytes). | nothing else; no build symbols |
 | `JoinFS.Messages/` | The canonical messages and the JFP2 body codecs, shared by the network and the recorder (design 4.4). | nothing else; no build symbols |
-| `JoinFS.Recording/` | The engine pieces that know the record kinds but not the simulator: `Jfs2Kinds` (names, versions, `TrackOpenV1`), `ObjectPositionV1Codec`, `Jfs2Capture` (writer), `Jfs2Scene` (reader into tracks of canonical messages), `Jfs2SceneWriter` (scene to file), `LegacyJfsImporter` (old `.jfs` to scene). | the two libraries above; no build symbols |
+| `JoinFS.Recording/` | The engine pieces that know the record kinds but not the simulator: `Jfs2Kinds` (names, versions, `TrackOpenV1`), `ObjectPositionV1Codec`, `Jfs2Capture` (writer), `Jfs2Scene` (reader into tracks of canonical messages), `Jfs2SceneWriter` (scene to file), `LegacyJfsImporter` (old `.jfs` to scene),
+`TrackTimeBase` (the recording times of one object's records). | the two libraries above; no build symbols |
 | `JoinFS/Recording/` | The app's side: `Jfs2Loader` (scene to `Recorder.Obj`), `Jfs2Exporter` (`Recorder.Obj` to scene to file), `Jfs2Convert` (`JoinFS -convert`). | `Recorder`, `Sim` types |
 | `JoinFS/Recorder.cs` | Recording, playback, editing (in memory), the live capture, Save, the working file. | everything |
 | `JoinFS.Recording.Tool/` | `jfs2 dump [--records] f`, `jfs2 verify f`, `jfs2 repair f [-o out]`. | the format library only |
@@ -48,6 +51,9 @@ Format library notes:
   keeps filling the in-memory `Recorder.Obj` frames as before. Every recorded object gets a track; positions, variables (changes only,
   spec 7.6), events and, for our own and simulator objects, identity changes go to the file. A chunk ends every 2 s and every fifth is a
   keyframe with the snapshot of every open track (spec 6.1). An overdub is not captured.
+- **Time base.** Each recorded object has a `TrackTimeBase`. Positions keep their sample spacing (for a network object, its sender's
+  clock), offset so the first is at the recorder's time; variables, events and identities take the time of the object's latest position,
+  and move on only when positions are more than 0.5 s overdue. The in-memory frames and the file get the same times.
 - **Stop.** The capture finishes the file (Index, Footer). A take with no position is deleted at once.
 - **Save and auto-save.** `Recorder.SaveJfs2` runs `Jfs2Exporter` over a copy of the in-memory objects into `<path>.tmp` and moves it into
   place, then the working file is deleted. The saved file therefore has what the in-memory model has: one identity per object, but each
@@ -78,10 +84,10 @@ From the design or the spec, all known, none silent:
    stage 6 measurement.
 5. **Chunks are written on the sim thread** (about 8 KB every 2 s) and flushed to the operating system, not to disk, until the file is
    finished. Spec 9.1 asks for a flush to disk every few seconds (SHOULD); design 5.5 wants a writer thread.
-6. **Two time bases in the working file.** Positions carry the sample time, variables and events the recorder's time. A per-track time may
-   not go back (spec 5), so the capture holds a late position at the time of the record before it; for network aircraft, network jitter can
-   shift position times by tens of milliseconds in a recovered file. Saved files are not affected (the exporter sorts by time). Must be
-   fixed before the working file becomes the saved file.
+6. **A clock that steps back still holds records.** Since slice 1 an object's records share one time base, so jitter holds nothing. A
+   track's time may not go back (spec 5), so when a sender's network clock is corrected backwards (or positions arrive out of order), the
+   capture writes the late records at the track's last time; it counts them ("records held back" in the log). Saved files are not affected
+   (the exporter sorts by time).
 7. **No `track-close` when an object leaves**; tracks close when recording stops. Until then every keyframe repeats the snapshot of objects
    that have gone.
 8. **`variable-names.txt` is not written** (spec decision 9). RecordingXRay names variables from its own tables.
@@ -104,8 +110,8 @@ From the design or the spec, all known, none silent:
 Replace `Recorder.Obj` playback and editing with a player that works on `Jfs2Scene` tracks of canonical messages, so the file the capture
 writes is the recording. Suggested slices, each leaving a working recorder, one fresh session each:
 
-1. **Time base** (limit 6): stamp variables and events of an object on the same time base as its positions, so the working file needs no
-   clamping. Prerequisite for slice 4.
+1. **Time base** (limit 6), done (`30c3dbf`): variables, events and identities of an object are stamped on the time base of its positions
+   (`TrackTimeBase`), so jitter holds nothing back; the capture counts what it still holds.
 2. **Player on the scene.** `Recorder` holds a scene instead of `List<Obj>`; play, pause, loop, skip and both UIs (through `Recorder`'s
    existing surface) work on it. The scene gains identity frames, and the player applies them. Jump folds the frames up to T (latest
    position before T, merged variables, latest identity), which removes limit 3. `Jfs2Loader` and the `Recorder.Obj` frame classes go.
@@ -133,6 +139,7 @@ Stages as planned in design section 9; dates are 2026-10.
 | 4 importer and tools | `7e915f7`, `5bc464b`, `d3238e1`, `cf415f3`, `2ae203f` | First done with the old in-app reader as the importer (`7e915f7`), then redone: the engine moved into `JoinFS.Recording` (`d3238e1`, the loader became `Jfs2Scene`), the real `LegacyJfsImporter` and `Jfs2SceneWriter` (`2ae203f`, the exporter and convert rewritten on them); the `jfs2` tool; RecordingXRay on the scene. |
 | 5 switch-over | `4c92254`, `d71f22d`, `ea24225`, `1594f38` | Save writes `.jfs2`; damage shown in the Avalonia UI; working file and recovery; old `.jfs` read by the importer only, all old file code deleted (the test-side `LegacyJfsWriter` makes old files for tests). |
 | review fixes | `a363179`, `f5afe92`, `4721867` | Restore after a chunk whose records stop parsing and healing of unreadable tracks; owner, application and simulator kept on Save; clean-up. |
+| 5 player, slice 1 | `30c3dbf` | One time base per recorded object (`TrackTimeBase`); the capture counts held records. |
 
 ## Findings that still hold
 
