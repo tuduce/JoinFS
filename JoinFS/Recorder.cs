@@ -855,7 +855,27 @@ namespace JoinFS
         /// <summary>
         /// A sim object has gone: a recorded one's track is closed (spec 7.1), so it is in no later keyframe - sim thread
         /// </summary>
-        public void ObjectLeft(Sim.Obj simObject)
+        public void ObjectLeft(Sim.Obj simObject) => EndRecordedTrack(simObject);
+
+        public enum Step { None, Start, End }
+
+        /// <summary>
+        /// What a pass of a recording does with a sim object: start a track for one flagged to record and not recorded, end the track
+        /// of one recorded and no longer flagged (README limit 7)
+        /// </summary>
+        /// <param name="linked">The recorded object it is linked to, or null</param>
+        public static Step RecordingStep(bool flagged, Obj linked) => (flagged, linked) switch
+        {
+            (true, null) => Step.Start,
+            (false, { playing: false }) => Step.End,
+            _ => Step.None,
+        };
+
+        /// <summary>
+        /// A recorded object is recorded no more (it has gone, or is no longer flagged to record): its track is closed, and the
+        /// object is unlinked, so it is a new track if it is recorded again (design 5.3) - sim thread
+        /// </summary>
+        void EndRecordedTrack(Sim.Obj simObject)
         {
             if (recording && simObject.recorderObj is Obj recorded && recorded.playing == false)
             {
@@ -1481,10 +1501,14 @@ namespace JoinFS
                 // for each object in the sim
                 foreach (var simObject in main.sim.objectList)
                 {
-                    // check if object is flagged to record but not being recorded
-                    if (simObject.record && simObject.recorderObj == null)
+                    switch (RecordingStep(simObject.record, simObject.recorderObj))
                     {
-                        AddRecordedObject(simObject);
+                        case Step.Start:
+                            AddRecordedObject(simObject);
+                            break;
+                        case Step.End:
+                            EndRecordedTrack(simObject);
+                            break;
                     }
                 }
             }

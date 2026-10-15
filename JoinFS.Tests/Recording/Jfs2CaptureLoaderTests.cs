@@ -232,7 +232,9 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
     [Fact]
     public void AFileThatWasNeverFinished_PlaysAsFarAsItWasWritten()
     {
-        var capture = NewCapture();
+        // without the writer thread, so the chunks that ended are on disk when the file is read (the format library's
+        // WriterThreadTests cover what a writer thread leaves)
+        var capture = NewCapture(options: new RecordingWriterOptions { Compression = ChunkCompression.Deflate });
         capture.OpenTrack(1, 0.0, TrackOwner.Local, "", "x", "", Identity("A", "M"));
         for (int i = 0; i < 200; i++)
         {
@@ -966,6 +968,35 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
 
         Jfs2Scene scene = Load(Open(PathOf("a.jfs2")));
         Assert.Equal(100, scene.Tracks.Single(t => t.Identity.Callsign == "B").Frames.OfType<ScenePositionFrame>().Count());
+    }
+
+    /// <summary>An object unflagged and flagged again during a recording (README limit 7): its first track ends, and a new one starts.</summary>
+    [Fact]
+    public void AnObjectRecordedAgainAfterItsTrackClosed_IsANewTrack()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(1, 0.0, TrackOwner.Network, "you", "x", "", Identity("B", "Piper"));
+        for (int i = 0; i < 20; i++)
+        {
+            PositionUpdate b = Position(i);
+            capture.Position(1, i * 0.05, ref b);
+        }
+        capture.CloseTrack(1, 1.0);
+        capture.OpenTrack(2, 3.0, TrackOwner.Network, "you", "x", "", Identity("B", "Piper"));
+        for (int i = 60; i < 80; i++)
+        {
+            PositionUpdate b = Position(i);
+            capture.Position(2, i * 0.05, ref b);
+        }
+        capture.Finish();
+        Assert.False(capture.Failed, string.Join(" ", logged));
+
+        Jfs2Scene scene = Load(Open(PathOf("a.jfs2")));
+        Assert.Collection(scene.Tracks,
+            first => Assert.Equal((0.0, 0.95), (first.Frames[0].Time, first.Frames[^1].Time)),
+            second => Assert.Equal((3.0, 3.95), (second.Frames[0].Time, second.Frames[^1].Time)));
+        Assert.All(scene.Tracks, track => Assert.Equal("B", track.Identity.Callsign));
+        Assert.False(scene.Tracks[0].ShownAt(2.0));
     }
 
     [Fact]

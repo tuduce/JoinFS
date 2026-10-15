@@ -30,7 +30,7 @@ or model change during a recording, a trim at the start after the gear went up (
 a recording (the saved file is the working file, moved, once the read-back is done; Save before that writes the tracks in memory), and an overdub that is recovered
 after closing JoinFS without saving.
 
-Tests: `JoinFS.Recording.Format.Tests` 69, `JoinFS.Tests` 1232 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
+Tests: `JoinFS.Recording.Format.Tests` 69, `JoinFS.Tests` 1238 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
 `RecordingXRay.Tests` 206, `JoinFS.UI.Tests` 506 (the recorder tab in `RecorderTests`).
 
 ## The code
@@ -61,8 +61,8 @@ Format library notes:
   Every recorded object gets a `SceneTrack` in memory and a track in the file; its positions, variables, events and identity changes go
   to both as canonical messages (the file keeps variables as changes only, spec 7.6). The identity is what the owner says the object is:
   its own model, not the one it is shown with here. A chunk ends every 2 s and every fifth is a keyframe with the snapshot of every open
-  track (spec 6.1); the writer's own thread deflates and writes each chunk, and syncs the file every 5 s. An object that leaves (`Sim.RemoveFromListAndIndex` calls `Recorder.ObjectLeft`) gets its `track-close` and is in no
-  later snapshot; one that comes back is a new track.
+  track (spec 6.1); the writer's own thread deflates and writes each chunk, and syncs the file every 5 s. An object that leaves (`Sim.RemoveFromListAndIndex` calls `Recorder.ObjectLeft`) or is unflagged gets its `track-close` and is
+  in no later snapshot; one that comes back, or is flagged again, is a new track.
 - **Time base.** Each recorded object has a `TrackTimeBase`. Positions keep their sample spacing (for a network object, its sender's
   clock), offset so the first is at the recorder's time; variables, events and identities take the time of the object's latest position,
   and move on only when positions are more than 0.5 s overdue. The in-memory frames and the file get the same times.
@@ -122,8 +122,8 @@ From the design or the spec, all known, none silent:
    track's time may not go back (spec 5), so when a sender's network clock is corrected backwards (or positions arrive out of order), the
    capture writes the late records at the track's last time; it counts them ("records held back" in the log). Saved files are not affected
    (the tracks in memory are sorted when recording stops).
-7. Done in slice 4: an object that leaves gets its `track-close`. Left: an object that is unflagged for recording during a recording is still
-   recorded until it leaves (design 5.3 says unflagging closes its track too).
+7. Done in slice 4: an object that leaves gets its `track-close`. Done after stage 6: one that is unflagged for recording during a
+   recording gets its `track-close` too (design 5.3, `Recorder.RecordingStep`), and is a new track if it is flagged again.
 8. Done in slice 4: the capture and the scene writer write `variable-names.txt`. RecordingXRay still names variables from its own tables.
 9. **ICAO type and airline are cut to 8 bytes** by `IdentityV1Codec` (the JFP2 limit, `docs/jfp2/protocol.md` 9.7). Real designators fit.
    Old FS2024 recordings keep SimConnect's raw `ATC MODEL` string there (for example `ATCCOM.AC_MODEL TIGER MOTH.0.tex`), which becomes
@@ -228,6 +228,7 @@ Stages as planned in design section 9; dates are 2026-10.
 | 6, step 3 | `f58b67d`, `c2350f6` | Recording rate and a quantised position record measured; decided: the rate stays, `PositionV2` with JFP2. |
 | field test fix | | The player shows a track only from its first position to its last frame (`SceneTrack.ShownAt`), also after a Jump; a jump back brings back an object that had ended. |
 | limit 5 | | The writer's own thread deflates and writes the chunks the sim thread encodes; the file is synced every 5 s. |
+| limit 7 | | An object unflagged during a recording gets its `track-close`; flagged again, it is a new track. |
 
 ## Measurements (stage 6, 2026-10-15)
 
