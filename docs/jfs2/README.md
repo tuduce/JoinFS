@@ -10,21 +10,24 @@ next. The design is `recorder-v2-design.md`, the bytes are `format-spec.md`; thi
 | `tools/jfsstat.py` | Read-only statistics of legacy `.jfs` files (frame types, sizes, how much of each variable frame changes). |
 | `tools/jfs2ref.py`, `tools/example.jfs2` | Reference writer for the spec's Appendix A example (221 bytes). The format library's golden test pins these bytes. |
 
-## Status (2026-10-15, after player slice 3)
+## Status (2026-10-15, after player slice 4)
 
 The app records, saves, opens, plays and recovers `.jfs2` files, and opens old `.jfs` files through the importer. It no longer writes
 `.jfs`. The recording in memory is the scene: one `SceneTrack` of canonical messages per object, which the recorder records into, plays,
-edits and saves (`Jfs2SceneWriter`). The live JFS2 capture is still a crash-recovery journal beside it, and Save writes the tracks again
-rather than finishing that file. Of the player work ("Next"), slices 1 (one time base per object), 2 (the player on the scene) and 3 (editing
-on the scene) are done.
+edits and saves. The working file is the recording: when recording stops the recorder reads it back as the scene, and Save of an unedited
+recording moves it into place; an edited one is written by `Jfs2SceneWriter`. An overdub is captured into a working file of its own. The
+player work ("Next", slices 1 to 4) is done; stage 6 is next.
 
 Checked in a simulator: stage 2 playback (2026-10-12); gear and lights record and play (2026-10-14). Everything after that is checked by
 unit tests only: keyframes, identity changes, boats and vehicles, Save as `.jfs2`, the working file and recovery, the importer in the app,
-the time base, the player on the scene (play, Jump with its state, identity changes), the trims. In a field test the log line "Recorder: wrote the
+the time base, the player on the scene (play, Jump with its state, identity changes), the trims, the working file as the recording,
+overdub working files and their recovery, track-close, variable names. The read-back at Stop is not unit-tested (it needs a simulator). In a field test the log line "Recorder: wrote the
 JFS2 recording" should end in "0 records held back"; worth checking in a simulator: a Jump back past a gear or lights change, a callsign
-or model change during a recording, and a trim at the start after the gear went up (the aircraft should start with it up).
+or model change during a recording, a trim at the start after the gear went up (the aircraft should start with it up), Save right after
+a recording (the log says the working file was read back; the saved file is the working file, moved), and an overdub that is recovered
+after closing JoinFS without saving.
 
-Tests: `JoinFS.Recording.Format.Tests` 61, `JoinFS.Tests` 1216 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
+Tests: `JoinFS.Recording.Format.Tests` 61, `JoinFS.Tests` 1223 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
 `RecordingXRay.Tests` 206, `JoinFS.UI.Tests` 506 (the recorder tab in `RecorderTests`).
 
 ## The code
@@ -34,9 +37,9 @@ Tests: `JoinFS.Recording.Format.Tests` 61, `JoinFS.Tests` 1216 (the recording on
 | `JoinFS.Recording.Format/` | The container (spec 1 to 6, 8, 9): `RecordingWriter`, `RecordingReader`, `RecordingRepair`, `RecordingDump`, CRC-32, Deflate. Records are opaque (kind id, track, time, bytes). | nothing else; no build symbols |
 | `JoinFS.Messages/` | The canonical messages and the JFP2 body codecs, shared by the network and the recorder (design 4.4). | nothing else; no build symbols |
 | `JoinFS.Recording/` | The engine pieces that know the record kinds but not the simulator: `Jfs2Kinds` (names, versions, `TrackOpenV1`), `ObjectPositionV1Codec`, `Jfs2Capture` (writer), `Jfs2Scene` (reader into tracks of canonical messages; `SceneTrack.StateAt` is what a jump restores), `SceneTrack.TrimStart`/`TrimEnd`/`Shift` are the edits, `Jfs2SceneWriter` (scene to file), `LegacyJfsImporter` (old `.jfs` to scene),
-`TrackTimeBase` (the recording times of one object's records). | the two libraries above; no build symbols |
+`TrackTimeBase` (the recording times of one object's records). The capture writes `track-close` (`CloseTrack`) and `variable-names.txt` (`Finish` with a namer). | the two libraries above; no build symbols |
 | `JoinFS/Recording/` | `Jfs2Convert` (`JoinFS -convert`). | the importer, the scene writer |
-| `JoinFS/Recorder.cs` | Recording into tracks, playback of tracks (`Recorder.Obj` is a track plus its play state), editing (in memory), the live capture, Save, the working file. | everything |
+| `JoinFS/Recorder.cs` | Recording into tracks, playback of tracks (`Recorder.Obj` is a track plus its play state), editing (in memory), the live capture, the working files (the recording's own and its overdubs'), Save (`SaveCopy`: the unedited working file or the tracks). | everything |
 | `JoinFS.Recording.Tool/` | `jfs2 dump [--records] f`, `jfs2 verify f`, `jfs2 repair f [-o out]`. | the format library only |
 | `RecordingXRay/` | Opens `.jfs2` through `Jfs2Scene`; keeps its own `.jfs` reader on purpose (it shows what the old file stores, frame by frame). | `JoinFS.Recording` |
 
@@ -54,12 +57,15 @@ Format library notes:
   Every recorded object gets a `SceneTrack` in memory and a track in the file; its positions, variables, events and identity changes go
   to both as canonical messages (the file keeps variables as changes only, spec 7.6). The identity is what the owner says the object is:
   its own model, not the one it is shown with here. A chunk ends every 2 s and every fifth is a keyframe with the snapshot of every open
-  track (spec 6.1). An overdub is not captured.
+  track (spec 6.1). An object that leaves (`Sim.RemoveFromListAndIndex` calls `Recorder.ObjectLeft`) gets its `track-close` and is in no
+  later snapshot; one that comes back is a new track.
 - **Time base.** Each recorded object has a `TrackTimeBase`. Positions keep their sample spacing (for a network object, its sender's
   clock), offset so the first is at the recorder's time; variables, events and identities take the time of the object's latest position,
   and move on only when positions are more than 0.5 s overdue. The in-memory frames and the file get the same times.
-- **Stop.** The capture finishes the file (Index, Footer). A take with no position is deleted at once. Frames recorded out of time order
-  (limit 6) are put in order in memory.
+- **Stop.** The capture finishes the file: `variable-names.txt` (named from `VariableMgr.definitions`: the text each vuid was hashed
+  from), Index, Footer. A take with no position is deleted at once. The recorder then reads the working file back (`ReloadWorkingFile`) and
+  its tracks replace the ones recorded in memory, so what plays, is edited and is saved is what the file holds; if it cannot be read, the
+  tracks in memory stay (sorted, limit 6) and Save writes them.
 - **Play.** Each `Recorder.Obj` plays its track: a frame plays once its time has passed (variables, events; an identity change makes the
   next position show the object as that, so the simulator swaps the model or callsign), and the position is interpolated between the
   frames around the play time. Jump folds the frames before the time (`SceneTrack.StateAt`): the latest position, identity and merged
@@ -69,16 +75,23 @@ Format library notes:
   as a keyframe would); trim at the end cuts the frames from the play time on; an object with nothing left is removed. Remove takes an
   object out, Skip leaves it out of playback but in the recording. Add shifts the new tracks to the end (`SceneTrack.Shift`); the writer
   numbers tracks from 1, so ids never clash. An overdub records new tracks into the scene while it plays; Save's writer puts all tracks
-  in one time order, which is the merge design 7 asks for. Edits do not reach the working file, so a recovery brings back the recording
-  as captured.
-- **Save and auto-save.** `Recorder.SaveJfs2` runs `Jfs2SceneWriter` over copies of the tracks (`CopyForSave`, taken on the sim thread)
-  into `<path>.tmp` and moves it into place, then the working file is deleted. The saved file has what the tracks hold: identity changes,
-  each object's owner, source application and simulator, and the header's `sim` when all objects share one.
+  in one time order, which is the merge design 7 asks for. Every edit (trim, remove, add, overdub, loading a file) marks the recording
+  edited, so Save writes the tracks. Edits do not reach the working files (design 11), so a recovery brings back the recording as captured,
+  with its overdubs.
+- **Overdub.** Captured into a working file of its own (`..._overdub.jfs2`), on the recording's time line, whose header key `base` names the
+  file it adds to: the recording's latest working file (its own or the overdub before), else the file it was opened from or last saved to.
+- **Save and auto-save.** `CopyForSave` (sim thread) gives a `SaveCopy`: copies of the tracks, and the finished working file when the
+  recording is unedited. `Recorder.SaveJfs2` moves that file into place (a rename on the same drive; across drives a copy to `<path>.tmp`
+  first), or runs `Jfs2SceneWriter` over the tracks into `<path>.tmp` and moves that; then `Recorder.Saved` deletes the working files and
+  remembers the path as the base of a later overdub. A written file has what the tracks hold: identity changes, each object's owner, source
+  application and simulator, the header's `sim` when all objects share one, and `variable-names.txt`.
 - **Open, Add, `-play`.** `Recorder.Parse` sniffs the first two bytes (`Jfs2.LegacyVersionSignature`): a `.jfs2` goes through `Jfs2Scene`,
   an old `.jfs` through `LegacyJfsImporter`; both end in tracks that `Recorder.Load` plays (Add shifts them to the end). Damage is reported
   to the user in the Avalonia UI.
 - **Recovery.** At start-up the Avalonia UI offers each leftover file in `Working/` (newest first): Recover, Delete, or later. A file another
-  JoinFS is writing is skipped. A recovered recording is unsaved until saved, which removes the leftover. The WinForms UI neither asks nor
+  JoinFS is writing is skipped. Reading an overdub's file reads the file its `base` names first, then lays the overdub's tracks over it at
+  their own times; a base that is gone or unreadable is reported and the overdub plays alone. A recovered recording owns its file and the
+  working files under it (`Recorder.WorkingFileChain`), is unsaved until saved, and Save removes them all. The WinForms UI neither asks nor
   offers; its leftovers are offered by the Avalonia UI at the next start.
 - **Reading damaged files** (`Jfs2Scene`, spec 8.2). After a lost chunk, or a chunk whose records stop parsing, nothing is applied until the
   next keyframe, whose snapshot restores the state. A record that does not decode marks its track unreliable, and the next keyframe's
@@ -90,8 +103,7 @@ Format library notes:
 
 From the design or the spec, all known, none silent:
 
-1. **Two writers of one recording.** The capture writes the working file, Save writes the in-memory tracks again. Both hold the same
-   records (since slice 2 nothing is only in the file), but Save does the work twice; slice 4 makes the working file the saved one.
+1. Done in slice 4: Save of an unedited recording moves its working file; only an edited one is written again.
 2. Done in slice 2: identity changes are frames of the scene, captured for network objects too, played and saved.
 3. Done in slice 2: Jump restores position, identity and variables (design 5.4).
 4. **Everything is loaded whole.** A one-hour recording with ten aircraft is about 80 MB of file. Design 5.5's chunk-by-chunk player is a
@@ -102,9 +114,9 @@ From the design or the spec, all known, none silent:
    track's time may not go back (spec 5), so when a sender's network clock is corrected backwards (or positions arrive out of order), the
    capture writes the late records at the track's last time; it counts them ("records held back" in the log). Saved files are not affected
    (the tracks in memory are sorted when recording stops).
-7. **No `track-close` when an object leaves**; tracks close when recording stops. Until then every keyframe repeats the snapshot of objects
-   that have gone.
-8. **`variable-names.txt` is not written** (spec decision 9). RecordingXRay names variables from its own tables.
+7. Done in slice 4: an object that leaves gets its `track-close`. Left: an object that is unflagged for recording during a recording is still
+   recorded until it leaves (design 5.3 says unflagging closes its track too).
+8. Done in slice 4: the capture and the scene writer write `variable-names.txt`. RecordingXRay still names variables from its own tables.
 9. **ICAO type and airline are cut to 8 bytes** by `IdentityV1Codec` (the JFP2 limit, `docs/jfp2/protocol.md` 9.7). Real designators fit.
    Old FS2024 recordings keep SimConnect's raw `ATC MODEL` string there (for example `ATCCOM.AC_MODEL TIGER MOTH.0.tex`), which becomes
    `ATCCOM.A`. Whether model matching ever got a usable hint from the long string is unchecked; if it did, the importer should clean the
@@ -116,8 +128,12 @@ From the design or the spec, all known, none silent:
 12. Done in slice 3: a trim at the start puts the state at the cut first. Left: the position at the cut is the latest one before it, moved
     to 0 (at most one sample early), not one interpolated at the cut.
 13. **RecordingXRay does not show identity changes**; it lists positions, variables and events.
-14. **An overdub is not in the working file** (the capture journals a new recording only), so a crash during or after an overdub recovers
-    the recording without it; slice 4 has the same question for edits.
+14. Done in slice 4: an overdub has a working file of its own (design 11). Left, all by decision or rare: edits are not journalled, so an
+    overdub made after a trim at the start is laid over the untrimmed recording when recovered, offset by the trim; recovering the
+    recording alone leaves its overdub's file a leftover, which recovered later finds its base gone (if it was saved meanwhile, under another
+    name) and plays alone; the `base` key is not in `format-spec.md` (it is private to working files and never in a saved file).
+15. **The read-back at Stop runs on the sim thread**: reading a long recording holds the sim thread up (about the load time of the same file
+    opened). Stage 6 measures load time with the chunk-by-chunk player (limit 4); reading it on another thread is the fix if it matters.
 
 ## Open decisions
 
@@ -136,9 +152,9 @@ writes is the recording. Suggested slices, each leaving a working recorder, one 
    are gone (Save already writes with `Jfs2SceneWriter`).
 3. **Editing on the scene**, done (`37f052a`): trims are `SceneTrack.TrimStart`/`TrimEnd`, a trim at the start puts the state at the cut
    first (limit 12), an object with nothing left is removed; remove, skip, append and overdub already worked on the tracks since slice 2.
-4. **The working file is the recording.** After Stop, the recorder loads its own working file as the scene. Save of a recording that was not
-   edited finishes the file and moves it into place (design 7); an edited one is written by the scene writer. Decide whether an overdub
-   and the edits reach the working file (limit 14). Add `track-close` when an object leaves (limit 7) and `variable-names.txt` on stop (limit 8).
+4. **The working file is the recording**, done: after Stop the recorder reads its working file back as the scene; Save of an unedited
+   recording moves it into place, an edited one is written by the scene writer; an overdub has its own working file whose `base` names
+   the file under it (limit 14); `track-close` when an object leaves (limit 7); `variable-names.txt` (limit 8).
 
 Stage 6 then measures load time and memory of long recordings to decide on the chunk-by-chunk player (limit 4), and the other measured
 options (compression, recording rate, `PositionV2`).
@@ -160,6 +176,7 @@ Stages as planned in design section 9; dates are 2026-10.
 | 5 player, slice 1 | `30c3dbf` | One time base per recorded object (`TrackTimeBase`); the capture counts held records. |
 | 5 player, slice 2 | `38f7d81` | The recorder records into, plays and saves `SceneTrack`s; identity frames (network objects captured too); Jump restores state; loader and exporter removed. |
 | 5 player, slice 3 | `37f052a` | Editing on the scene: trims on `SceneTrack` with the state at the cut first; objects left empty by a trim removed. |
+| 5 player, slice 4 | `375b29f`, `f1226e8` | Design questions 1 to 4 decided. The working file is the recording (read back at Stop, moved on Save unless edited); overdub working files with `base`, recovered over their base; `track-close`; `variable-names.txt`. |
 
 ## Findings that still hold
 
