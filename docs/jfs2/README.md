@@ -11,7 +11,7 @@ next. The design is `recorder-v2-design.md`, the bytes are `format-spec.md`; thi
 | `tools/jfs2ref.py`, `tools/example.jfs2` | Reference writer for the spec's Appendix A example (221 bytes). The format library's golden test pins these bytes. |
 | `tools/jfs2bench/` | Stage 6 measurements (not in `JoinFS.sln`): convert old files, build a synthetic long recording with `Jfs2Capture`, time and size `Jfs2Scene.Load`, copy a file with and without Deflate per chunk. Usage at the top of `Program.cs`. |
 
-## Status (2026-10-15, stage 6: step 2 done, read-back off the sim thread, Deflate on)
+## Status (2026-10-15, stage 6: step 3 measured, rate and PositionV2 proposals open)
 
 The app records, saves, opens, plays and recovers `.jfs2` files, and opens old `.jfs` files through the importer. It no longer writes
 `.jfs`. The recording in memory is the scene: one `SceneTrack` of canonical messages per object, which the recorder records into, plays,
@@ -19,7 +19,7 @@ edits and saves. The working file is the recording: when recording stops the rec
 recording moves it into place; an edited one is written by `Jfs2SceneWriter`. An overdub is captured into a working file of its own. The
 player work (stage 5, slices 1 to 4) is done. Stage 6 measured load time, memory and Deflate ("Measurements" below); as decided, the
 recording stays loaded whole, the working file is read back at Stop on a worker thread, and every chunk is deflated (capture and scene
-writer). Next is step 3, recording rate and `PositionV2`.
+writer). Step 3 measured recording rate and a quantised position record (no code change); its two proposals wait in "Open decisions".
 
 Checked in a simulator: stage 2 playback (2026-10-12); gear and lights record and play (2026-10-14). Everything after that is checked by
 unit tests only: keyframes, identity changes, boats and vehicles, Save as `.jfs2`, the working file and recovery, the importer in the app,
@@ -145,7 +145,20 @@ From the design or the spec, all known, none silent:
 
 ## Open decisions
 
-Design questions 1 to 4 are decided (design 11). None is open. Stage 6's proposals, decided by the owner on 2026-10-15 and done in step 2:
+Design questions 1 to 4 are decided (design 11). Open: stage 6 step 3's proposals (measured in "Measurements", step 3), for the owner:
+
+- **Record positions at 10 Hz, variables merged to the same tick** (proposed). Against today's full rate it halves the file (tigers
+  3rd 4.6 to 2.5 MB) and the memory (21 to 11 MB); a dropped position played by interpolation is off by p99 0.13 deg in attitude (max
+  1.3), 0.07 in altitude, under 1 cm sideways (max 12 cm). A variable change plays up to 0.1 s late. 5 Hz saves another half (1.4 MB,
+  4 MB) for p99 0.23 deg, but single samples go to 3 to 9 deg off in quick rolls; 2 Hz goes to 37. The change is small: a minimum
+  interval per track in `Jfs2Capture` (or in the recorder's feed), held-back variables merged and written at the next tick, flushed at
+  track-close and Finish. Old full-rate files and the importer stay as they are.
+- **`PositionV2` later, with JFP2, not for the recorder alone** (proposed). A quantised 52-byte record (no ObjectId or NetTime, lat/lon
+  1e-7 deg, int16 angles, Half velocities) halves the file again at any rate (51% at full rate, 57% at 5 Hz) with rounding under 1 cm and
+  0.003 deg, but it saves no memory (the scene holds decoded `PositionUpdate`s), JFP2 does not specify it yet, and a codec of the
+  recorder's own would undo design decision 1 (one codec). Do it when JFP2 defines `PositionV2`; the harness layout is a starting point.
+
+Stage 6's earlier proposals, decided by the owner on 2026-10-15 and done in step 2:
 
 - **No chunk-by-chunk player** (limit 4). The worst case measured, an hour of ten aircraft, loads in under a second and holds 285 MB;
   the scene in memory is what makes Jump, the trims, overdub and Save simple. Revisit only if much longer recordings turn up.
@@ -176,7 +189,8 @@ writes is the recording. Suggested slices, each leaving a working recorder, one 
 2. **The decisions of step 1**, done: no chunk-by-chunk player (limit 4 closed), the read-back at Stop on a worker thread (limit 15),
    Deflate on in the capture and so in the scene writer (`Jfs2Capture.WriterOptions`).
 3. **Recording rate and `PositionV2`**: positions are recorded at about 19 Hz and variables change about as often (the busiest tiger
-   track); measure what a lower rate or a smaller position record saves against playback quality.
+   track); measure what a lower rate or a smaller position record saves against playback quality. Measured (`jfs2bench rate`,
+   `quant`; "Measurements", step 3); proposals in "Open decisions", waiting for the owner. No app code changed.
 
 ## History
 
@@ -228,6 +242,33 @@ everything the load allocated.
   match the Deflate rows of step 1.
 - The scene writer's frame count is of frames handed to the capture: an imported old file's unchanged variable frames count but write
   nothing (tigers 3rd: 144,753 counted, 104,854 read back).
+
+Step 3, recording rate and a smaller position record (`jfs2bench rate` and `quant`, three tiger recordings converted). `rate` rewrites
+a file through `Jfs2Capture` keeping a position when at least 0.95/rate after the last kept, merging the variables between into one record
+at the next tick; each dropped position is interpolated from the kept ones as the player does (linear; angles by shortest delta) and
+compared with the recorded one. The baseline is the same rewrite with nothing dropped (it is smaller than the converted file, because
+the scene writer writes the importer's variable frames one by one). Sizes with Deflate; error columns p99 (max); altitude in the
+record's units; angle the worst of pitch, bank and heading.
+
+| tigers 3rd (5 tracks, 11.9 min) | Size | Positions | Variable records | Retained | Sideways m | Altitude | Angle deg |
+|---|---|---|---|---|---|---|---|
+| full rate (baseline) | 4.63 MB | 58,620 | 46,233 | 21 MB | | | |
+| 19 Hz | 3.83 MB | 46,983 | 32,054 | | 0.006 (0.12) | 0.06 (0.7) | 0.09 (1.1) |
+| 10 Hz | 2.52 MB | 30,249 | 24,712 | 11 MB | 0.009 (0.12) | 0.07 (1.1) | 0.13 (1.3) |
+| 5 Hz | 1.44 MB | 16,209 | 6,889 | 4 MB | 0.009 (0.15) | 0.09 (1.3) | 0.23 (2.7) |
+| 2 Hz | 0.73 MB | 7,075 | 5,867 | | 0.012 (0.26) | 0.26 (1.9) | 0.79 (4.6) |
+| candidate PositionV2, full rate | 2.37 MB | | | 21 MB | 0.007 (0.008) | 0.000 | 0.003 (0.003) |
+| candidate PositionV2, 5 Hz | 0.82 MB | | | | | | |
+
+- The other two agree: tigers taxi 1.62 MB at full rate, 0.87 at 10 Hz, 0.50 at 5 Hz, angles p99 0.07 and 0.10 deg; tigers s3 (few
+  variables) 2.20, 1.07, 0.65 MB, angles p99 0.14 and 0.24 deg, but single samples off by 12 deg at 10 Hz and 9 at 5 Hz (37 at 2 Hz):
+  quick rolls between ticks, where the player's slerp cuts the corner.
+- The recorded rate is already uneven: "19 Hz" (0.05 s) drops a fifth of the positions, so many arrive closer than 50 ms apart; and
+  variables come in bursts, which the merge collapses (46k to 32k records at 0.05 s).
+- The candidate PositionV2 (`quant`; layout in the harness, 52 bytes against `PositionV1`'s 103) gives 45 to 51% of the file at full
+  rate and 51 to 58% at 5 Hz; rounding under 1 cm sideways, 0.003 deg in angle, 0.03 in velocity. Memory does not change: the scene
+  holds decoded positions.
+- Memory follows the frame count: about 205 bytes a frame at any rate.
 
 ## Findings that still hold
 
