@@ -239,7 +239,7 @@ Stages as planned in design section 9; dates are 2026-10.
 | limit 7 | `5baead5` | An object unflagged during a recording gets its `track-close`; flagged again, it is a new track. |
 | limit 13 | `5956680` | RecordingXRay shows identity changes. |
 | new kinds | `2d7d828` | Closed by decision: not needed. Stage 6 closed. |
-| limit 16 | `223dbb2`, | An aircraft within 0.001 degrees of 0/0 is ignored (the exact test of `223dbb2` missed the second field test's); a recorded object's track starts with its first position that counts. |
+| limit 16 | `223dbb2`, `00e5464` | An aircraft within 0.001 degrees of 0/0 is ignored (the exact test of `223dbb2` missed the second field test's); a recorded object's track starts with its first position that counts. |
 
 ## Measurements (stage 6, 2026-10-15)
 
