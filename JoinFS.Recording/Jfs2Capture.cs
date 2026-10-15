@@ -12,10 +12,11 @@ namespace JoinFS.Recording
     /// Writes track-open, identity, position, object-position, variables and event.
     /// </summary>
     /// <remarks>
-    /// Runs on the thread that produces the records (the sim thread) and writes a chunk, about 8 KB, every couple of
-    /// seconds. A failure (disk full, file removed) switches the capture off and is reported once through the log
-    /// callback; the recording itself carries on, so a fault here never costs the user the old recorder's result.
-    /// Not thread-safe.
+    /// Runs on the thread that produces the records (the sim thread), which encodes a chunk every couple of seconds; the
+    /// writer's own thread deflates and writes it, and asks for the file to reach the disk every few seconds
+    /// (<see cref="SyncInterval"/>), so the disk never blocks the sim thread. A failure (disk full, file removed) switches the
+    /// capture off and is reported once through the log callback, at the latest when the next chunk ends; the recording itself
+    /// carries on in memory. Not thread-safe.
     /// </remarks>
     public sealed class Jfs2Capture : IDisposable
     {
@@ -107,7 +108,17 @@ namespace JoinFS.Recording
         /// Every chunk is deflated (kept as is when that is not smaller): files shrink to 55 to 62% for under 1 ms a chunk
         /// (docs/jfs2/README.md, stage 6). The scene writer writes through a capture, so Save writes the same.
         /// </summary>
-        static readonly RecordingWriterOptions WriterOptions = new() { Compression = ChunkCompression.Deflate };
+        static readonly RecordingWriterOptions WriterOptions = new()
+        {
+            Compression = ChunkCompression.Deflate,
+            // spec 9.1 and 9.2 (README limit 5): the disk never blocks the sim thread, and a crash or a power cut loses the last few
+            // seconds at most
+            WriterThread = true,
+            SyncInterval = SyncInterval,
+        };
+
+        /// <summary>How often the file is asked to reach the disk while it is written: every few seconds (spec 9.1), a chunk ends every 2.</summary>
+        public static TimeSpan SyncInterval => TimeSpan.FromSeconds(5);
 
         /// <summary>Creates the file. Throws if it cannot be created.</summary>
         /// <param name="app">For the header's <c>app</c> metadata, for example "JoinFS 26.10".</param>
@@ -115,7 +126,7 @@ namespace JoinFS.Recording
         /// <param name="startUtc">When recording time 0 happened.</param>
         /// <param name="log">Told once if the capture fails.</param>
         /// <param name="more">More header metadata, for example an overdub's <c>base</c>.</param>
-        /// <param name="options">How chunks are written; Deflate when null.</param>
+        /// <param name="options">How chunks are written; when null Deflate, on a writer thread, synced every <see cref="SyncInterval"/>.</param>
         public static Jfs2Capture Create(string path, string app, string simulator, DateTime startUtc, Action<string> log, IEnumerable<KeyValuePair<string, string>> more = null,
             RecordingWriterOptions options = null)
         {

@@ -6,6 +6,18 @@ public sealed class RecordingWriterOptions
 {
     /// <summary>Deflate is used per chunk only when it makes the chunk smaller.</summary>
     public ChunkCompression Compression { get; init; } = ChunkCompression.None;
+
+    /// <summary>
+    /// A thread of the writer's own writes the blocks (spec 9.2): the caller's thread encodes each chunk's records, and the writer
+    /// thread deflates it, writes it and asks for the flushes, so the disk never blocks the caller. Off: the caller's thread does it all.
+    /// </summary>
+    public bool WriterThread { get; init; }
+
+    /// <summary>
+    /// While the file is written, how often it is asked to reach the disk (spec 9.1), checked after each chunk; null: only when it is
+    /// finished. With <see cref="WriterThread"/> the writer thread waits for the disk, else the caller's thread does.
+    /// </summary>
+    public TimeSpan? SyncInterval { get; init; }
 }
 
 /// <summary>
@@ -17,6 +29,8 @@ public sealed class RecordingWriterOptions
 /// <remarks>
 /// <see cref="Dispose"/> without <see cref="Finish"/> abandons the file as an unfinished one, which
 /// <see cref="RecordingRepair"/> can complete; records of the chunk still pending are lost.
+/// With <see cref="RecordingWriterOptions.WriterThread"/> a block is written some time after the call that ended it; a write that
+/// fails stops the writer thread, and the next call on the writer throws an <see cref="IOException"/> with that failure.
 /// </remarks>
 public sealed class RecordingWriter : IDisposable
 {
@@ -25,6 +39,18 @@ public sealed class RecordingWriter : IDisposable
         public long First, Last;
         public bool Open;
         public string Callsign = "", Model = "";
+    }
+
+    /// <summary>What the writer thread is handed: a whole block to write as it is, a chunk's encoded payload, or a request to sync.</summary>
+    sealed class Job
+    {
+        public byte[]? Bytes;   // rented from the pool; the block, or the chunk's raw payload
+        public int Length;
+        public bool Chunk;
+        public bool SyncOnly;
+        public long TMin, TMax;
+        public bool Keyframe;
+        public int SnapshotCount, RecordCount;
     }
 
     // Largest estimate of a payload we accept, so the chunk block stays within MaxBlockLength.
@@ -36,15 +62,29 @@ public sealed class RecordingWriter : IDisposable
     readonly ChunkCompression _compression;
     readonly ByteWriter _block = new(4096);
     readonly ByteWriter _payload = new(4096);
+    // The block of a chunk, built by whoever writes it (the writer thread, or the caller's thread without one).
+    readonly ByteWriter _chunkBlock = new(4096);
 
     readonly Dictionary<uint, KindBinding> _kinds = new();
     readonly Dictionary<(string, byte), uint> _kindIds = new();
     readonly SortedDictionary<uint, WriterTrack> _tracks = new();
+    // Written by whoever writes the blocks; read by the caller only once the writer thread has stopped (Finish).
     readonly List<ChunkInfo> _chunks = new();
     uint _nextKind = 1;
     long _position;
+    int _chunkCount;
+    // Chunks ended by the caller, written or not yet.
+    int _chunksEnded;
     long _lastChunkTMin = long.MinValue;
     bool _finished;
+
+    readonly TimeSpan? _syncInterval;
+    readonly System.Diagnostics.Stopwatch _sinceSync = System.Diagnostics.Stopwatch.StartNew();
+
+    // The writer thread and its queue (null without one); what stopped it, for the caller.
+    System.Collections.Concurrent.BlockingCollection<Job>? _queue;
+    Thread? _thread;
+    volatile Exception? _failure;
 
     // The chunk being built.
     bool _active;
@@ -62,7 +102,14 @@ public sealed class RecordingWriter : IDisposable
         _stream = stream;
         _leaveOpen = leaveOpen;
         _compression = options?.Compression ?? ChunkCompression.None;
+        _syncInterval = options?.SyncInterval;
         _position = position;
+        if (options?.WriterThread == true)
+        {
+            _queue = new System.Collections.Concurrent.BlockingCollection<Job>();
+            _thread = new Thread(WriterLoop) { IsBackground = true, Name = "JFS2 writer" };
+            _thread.Start();
+        }
     }
 
     /// <summary>Starts a file at the stream's current position, which must be its start.</summary>
@@ -70,9 +117,17 @@ public sealed class RecordingWriter : IDisposable
         bool leaveOpen = false)
     {
         var w = new RecordingWriter(stream, leaveOpen, options, 0);
-        w._block.Bytes(Jfs2.Magic);
-        BlockCodec.WriteHeader(w._block, header);
-        w.WriteBlock();
+        try
+        {
+            w._block.Bytes(Jfs2.Magic);
+            BlockCodec.WriteHeader(w._block, header);
+            w.WriteBlock();
+        }
+        catch
+        {
+            w.StopWriterThread();
+            throw;
+        }
         return w;
     }
 
@@ -104,6 +159,7 @@ public sealed class RecordingWriter : IDisposable
             w._nextKind = Math.Max(w._nextKind, k.Id + 1);
         }
         w._chunks.AddRange(model.Chunks);
+        w._chunkCount = w._chunksEnded = w._chunks.Count;
         foreach (var c in model.Chunks)
             w._lastChunkTMin = Math.Max(w._lastChunkTMin, c.TMin);
         foreach (var t in model.Tracks)
@@ -111,9 +167,10 @@ public sealed class RecordingWriter : IDisposable
         return w;
     }
 
-    /// <summary>Bytes written so far; the file length.</summary>
-    public long Position => _position;
-    public int ChunkCount => _chunks.Count;
+    /// <summary>Bytes written so far; the file length. With a writer thread, as far as it has got.</summary>
+    public long Position => Interlocked.Read(ref _position);
+    /// <summary>Chunks written so far. With a writer thread, as far as it has got.</summary>
+    public int ChunkCount => Volatile.Read(ref _chunkCount);
     public int PendingRecords => _records.Count;
     /// <summary>An estimate of the size of the chunk being built, for the caller's chunking policy.</summary>
     public int PendingBytes => _estimate;
@@ -215,11 +272,12 @@ public sealed class RecordingWriter : IDisposable
     }
 
     /// <summary>
-    /// Writes the pending chunk as one block and hands it to the operating system. A chunk without
-    /// records is dropped (a snapshot alone says nothing).
+    /// Writes the pending chunk as one block and hands it to the operating system (with a writer thread, hands it to that thread).
+    /// A chunk without records is dropped (a snapshot alone says nothing).
     /// </summary>
     public void EndChunk()
     {
+        CheckFailure();
         if (!_active)
             return;
         if (_records.Count == 0)
@@ -228,39 +286,18 @@ public sealed class RecordingWriter : IDisposable
             return;
         }
 
-        long tmin = _pendingTMin, tmax = _pendingTMax;
+        long tmin = _pendingTMin;
         _payload.Clear();
         EncodePayload(_payload, tmin, _snapshot, _records, _bodies);
-        var raw = _payload.Span;
-        var stored = raw;
-        byte compression = (byte)ChunkCompression.None;
-        if (_compression == ChunkCompression.Deflate)
+        var job = new Job
         {
-            var deflated = Deflate(raw);
-            if (deflated.Length < raw.Length)
-            {
-                stored = deflated;
-                compression = (byte)ChunkCompression.Deflate;
-            }
-        }
-
-        long offset = _position;
-        int start = _block.BeginBlock(BlockType.Chunk);
-        _block.I64(tmin);
-        _block.I64(tmax);
-        _block.U8((byte)(_keyframe ? 1 : 0));
-        _block.U8(compression);
-        _block.U32((uint)_snapshot.Count);
-        _block.U32((uint)_records.Count);
-        _block.U32((uint)raw.Length);
-        _block.Bytes(stored);
-        _block.EndBlock(start);
-        WriteBlock();
-        _stream.Flush();
-
-        _chunks.Add(new ChunkInfo(offset, tmin, tmax, _keyframe));
+            Bytes = Rent(_payload.Span), Length = _payload.Length, Chunk = true,
+            TMin = tmin, TMax = _pendingTMax, Keyframe = _keyframe, SnapshotCount = _snapshot.Count, RecordCount = _records.Count,
+        };
         _lastChunkTMin = tmin;
+        _chunksEnded++;
         ResetChunk();
+        Hand(job);
     }
 
     /// <summary>Writes an attachment block now (spec 3.5). A later one of the same name replaces an earlier one.</summary>
@@ -281,16 +318,19 @@ public sealed class RecordingWriter : IDisposable
         t.Model = model;
     }
 
-    /// <summary>Flushes to the operating system and, for a file, asks it to reach the disk (spec 9.1).</summary>
+    /// <summary>
+    /// Flushes to the operating system and, for a file, asks it to reach the disk (spec 9.1). With a writer thread, that thread does it
+    /// after the blocks handed to it so far.
+    /// </summary>
     public void Sync()
     {
-        _stream.Flush();
-        if (_stream is FileStream fs)
-            fs.Flush(true);
+        CheckFailure();
+        Hand(new Job { SyncOnly = true });
     }
 
     /// <summary>
-    /// Ends the pending chunk, closes every track still open at its last time, and writes the Index and Footer (spec 9.1).
+    /// Ends the pending chunk, closes every track still open at its last time, and writes the Index and Footer (spec 9.1). With a writer
+    /// thread, waits for it to write what it was handed, and writes the rest on the caller's thread.
     /// </summary>
     public void Finish()
     {
@@ -298,6 +338,8 @@ public sealed class RecordingWriter : IDisposable
             return;
         CheckUsable();
         EndChunk();
+        StopWriterThread();
+        CheckFailure();
 
         var open = _tracks.Where(kv => kv.Value.Open).ToList();
         if (open.Count > 0)
@@ -321,8 +363,10 @@ public sealed class RecordingWriter : IDisposable
         _finished = true;
     }
 
+    /// <summary>Lets the writer thread write what it was handed, then closes the stream (unless it is left open).</summary>
     public void Dispose()
     {
+        StopWriterThread();
         if (!_leaveOpen)
             _stream.Dispose();
     }
@@ -333,6 +377,144 @@ public sealed class RecordingWriter : IDisposable
     {
         if (_finished)
             throw new InvalidOperationException("The file is finished.");
+        CheckFailure();
+    }
+
+    /// <summary>A write on the writer thread failed: the file ends with the blocks before it.</summary>
+    void CheckFailure()
+    {
+        if (_failure is { } failure)
+            throw new IOException("Writing the recording failed: " + failure.Message, failure);
+    }
+
+    static byte[] Rent(ReadOnlySpan<byte> bytes)
+    {
+        byte[] copy = System.Buffers.ArrayPool<byte>.Shared.Rent(bytes.Length);
+        bytes.CopyTo(copy);
+        return copy;
+    }
+
+    /// <summary>Does a job now, or hands it to the writer thread.</summary>
+    void Hand(Job job)
+    {
+        if (_queue == null)
+            Do(job);
+        else
+            _queue.Add(job);
+    }
+
+    void WriterLoop()
+    {
+        foreach (Job job in _queue!.GetConsumingEnumerable())
+        {
+            if (_failure != null)
+            {
+                Return(job);
+                continue;
+            }
+            try
+            {
+                Do(job);
+            }
+            catch (Exception ex)
+            {
+                _failure = ex;
+            }
+        }
+    }
+
+    /// <summary>Waits for the writer thread to write what it was handed, and ends it; the caller's thread writes from then on.</summary>
+    void StopWriterThread()
+    {
+        if (_queue == null)
+            return;
+        _queue.CompleteAdding();
+        _thread!.Join();
+        _queue.Dispose();
+        _queue = null;
+        _thread = null;
+    }
+
+    static void Return(Job job)
+    {
+        if (job.Bytes != null)
+            System.Buffers.ArrayPool<byte>.Shared.Return(job.Bytes);
+        job.Bytes = null;
+    }
+
+    /// <summary>Writes a block, or a chunk's block from its payload, or syncs (the writer thread, or the caller's thread without one).</summary>
+    void Do(Job job)
+    {
+        try
+        {
+            if (job.SyncOnly)
+            {
+                SyncNow();
+            }
+            else if (!job.Chunk)
+            {
+                Write(job.Bytes!, job.Length);
+            }
+            else
+            {
+                WriteChunk(job);
+            }
+        }
+        finally
+        {
+            Return(job);
+        }
+    }
+
+    void WriteChunk(Job job)
+    {
+        var raw = job.Bytes!.AsSpan(0, job.Length);
+        var stored = raw;
+        byte compression = (byte)ChunkCompression.None;
+        if (_compression == ChunkCompression.Deflate)
+        {
+            var deflated = Deflate(raw);
+            if (deflated.Length < raw.Length)
+            {
+                stored = deflated;
+                compression = (byte)ChunkCompression.Deflate;
+            }
+        }
+
+        long offset = _position;
+        _chunkBlock.Clear();
+        int start = _chunkBlock.BeginBlock(BlockType.Chunk);
+        _chunkBlock.I64(job.TMin);
+        _chunkBlock.I64(job.TMax);
+        _chunkBlock.U8((byte)(job.Keyframe ? 1 : 0));
+        _chunkBlock.U8(compression);
+        _chunkBlock.U32((uint)job.SnapshotCount);
+        _chunkBlock.U32((uint)job.RecordCount);
+        _chunkBlock.U32((uint)raw.Length);
+        _chunkBlock.Bytes(stored);
+        _chunkBlock.EndBlock(start);
+        Write(_chunkBlock.Buffer, _chunkBlock.Length);
+        _stream.Flush();
+
+        _chunks.Add(new ChunkInfo(offset, job.TMin, job.TMax, job.Keyframe));
+        Volatile.Write(ref _chunkCount, _chunks.Count);
+        if (_syncInterval is { } interval && _sinceSync.Elapsed >= interval)
+            SyncNow();
+    }
+
+    void SyncNow()
+    {
+        _stream.Flush();
+        if (_stream is FileStream fs)
+            fs.Flush(true);
+        _sinceSync.Restart();
+    }
+
+    /// <summary>One write per block, so a crash leaves a whole block or a truncated one (spec 9.1).</summary>
+    void Write(byte[] bytes, int length)
+    {
+        _stream.Write(bytes, 0, length);
+        Interlocked.Add(ref _position, length);
     }
 
     string NameOf(uint kind) =>
@@ -349,7 +531,7 @@ public sealed class RecordingWriter : IDisposable
         if (_active)
             return;
         _active = true;
-        _keyframe = _chunks.Count == 0; // the first chunk is always a keyframe (spec 3.3)
+        _keyframe = _chunksEnded == 0; // the first chunk is always a keyframe (spec 3.3)
     }
 
     Pending Stash(uint kind, uint track, long time, ReadOnlySpan<byte> body)
@@ -375,11 +557,13 @@ public sealed class RecordingWriter : IDisposable
         _pendingTMax = long.MinValue;
     }
 
-    /// <summary>One write per block, so a crash leaves a whole block or a truncated one (spec 9.1).</summary>
+    /// <summary>Writes the block built in <see cref="_block"/>, or hands a copy of it to the writer thread.</summary>
     void WriteBlock()
     {
-        _stream.Write(_block.Buffer, 0, _block.Length);
-        _position += _block.Length;
+        if (_queue == null)
+            Write(_block.Buffer, _block.Length);
+        else
+            _queue.Add(new Job { Bytes = Rent(_block.Span), Length = _block.Length });
         _block.Clear();
     }
 }

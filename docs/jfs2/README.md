@@ -30,7 +30,7 @@ or model change during a recording, a trim at the start after the gear went up (
 a recording (the saved file is the working file, moved, once the read-back is done; Save before that writes the tracks in memory), and an overdub that is recovered
 after closing JoinFS without saving.
 
-Tests: `JoinFS.Recording.Format.Tests` 61, `JoinFS.Tests` 1232 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
+Tests: `JoinFS.Recording.Format.Tests` 69, `JoinFS.Tests` 1232 (the recording ones are in `Recording/` and `RecorderAutoSaveTests`),
 `RecordingXRay.Tests` 206, `JoinFS.UI.Tests` 506 (the recorder tab in `RecorderTests`).
 
 ## The code
@@ -49,7 +49,8 @@ Tests: `JoinFS.Recording.Format.Tests` 61, `JoinFS.Tests` 1232 (the recording on
 Format library notes:
 
 - The writer enforces the track lifecycle and time rules of spec 5; `Finish` closes tracks still open. The caller owns the chunking policy
-  and builds snapshots, because that needs codec knowledge. Not thread-safe.
+  and builds snapshots, because that needs codec knowledge. Not thread-safe; with `WriterThread` it writes the blocks on a thread of
+  its own, and a failed write is thrown by the next call.
 - The reader opens finished and unfinished files alike. The Index does not list Schema blocks, so opening a finished file walks the block
   heads to find them (spec 8.1).
 - A scan of an unfinished file cannot know callsigns and models (it has no codec), so a repaired file's Index lists them empty.
@@ -60,7 +61,7 @@ Format library notes:
   Every recorded object gets a `SceneTrack` in memory and a track in the file; its positions, variables, events and identity changes go
   to both as canonical messages (the file keeps variables as changes only, spec 7.6). The identity is what the owner says the object is:
   its own model, not the one it is shown with here. A chunk ends every 2 s and every fifth is a keyframe with the snapshot of every open
-  track (spec 6.1). An object that leaves (`Sim.RemoveFromListAndIndex` calls `Recorder.ObjectLeft`) gets its `track-close` and is in no
+  track (spec 6.1); the writer's own thread deflates and writes each chunk, and syncs the file every 5 s. An object that leaves (`Sim.RemoveFromListAndIndex` calls `Recorder.ObjectLeft`) gets its `track-close` and is in no
   later snapshot; one that comes back is a new track.
 - **Time base.** Each recorded object has a `TrackTimeBase`. Positions keep their sample spacing (for a network object, its sender's
   clock), offset so the first is at the recorder's time; variables, events and identities take the time of the object's latest position,
@@ -112,10 +113,11 @@ From the design or the spec, all known, none silent:
 4. Closed by decision in stage 6: everything is loaded whole, there is no chunk-by-chunk player (design 5.5). A one-hour recording with
    ten aircraft is about 63 MB of file (Deflate), loads in 0.85 s and holds about 285 MB in memory ("Measurements"). Revisit only if much
    longer recordings turn up.
-5. **Chunks are written on the sim thread** (about 5 KB per aircraft every 2 s before Deflate: 25 KB with five, 62 KB with ten; 0.4 ms to
-   deflate and write with five, 0.9 ms with ten) and
-   flushed to the operating system, not to disk, until the file is finished. Spec 9.1 asks for a flush to disk every few seconds
-   (SHOULD); design 5.5 wants a writer thread.
+5. Done after stage 6: the sim thread encodes each chunk and the writer's own thread (`RecordingWriterOptions.WriterThread`) deflates
+   and writes it, so the disk never blocks the sim thread (spec 9.2); the file is asked to reach the disk every 5 s
+   (`Jfs2Capture.SyncInterval`, spec 9.1: a power cut loses the last few seconds at most) and when it is finished. A write that fails
+   is reported when the next chunk ends. Left: Stop waits on the sim thread for the writer thread to write what it holds (a chunk or
+   two) and writes the Index and Footer there, as before.
 6. **A clock that steps back still holds records.** Since slice 1 an object's records share one time base, so jitter holds nothing. A
    track's time may not go back (spec 5), so when a sender's network clock is corrected backwards (or positions arrive out of order), the
    capture writes the late records at the track's last time; it counts them ("records held back" in the log). Saved files are not affected
@@ -225,6 +227,7 @@ Stages as planned in design section 9; dates are 2026-10.
 | 6, step 2 | `cab5060` | The decisions: no chunk-by-chunk player; read-back at Stop on a worker thread, swapped in on the sim thread; Deflate per chunk in the capture and the scene writer. |
 | 6, step 3 | `f58b67d`, `c2350f6` | Recording rate and a quantised position record measured; decided: the rate stays, `PositionV2` with JFP2. |
 | field test fix | | The player shows a track only from its first position to its last frame (`SceneTrack.ShownAt`), also after a Jump; a jump back brings back an object that had ended. |
+| limit 5 | | The writer's own thread deflates and writes the chunks the sim thread encodes; the file is synced every 5 s. |
 
 ## Measurements (stage 6, 2026-10-15)
 

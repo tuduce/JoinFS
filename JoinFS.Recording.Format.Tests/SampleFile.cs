@@ -27,11 +27,11 @@ public sealed class SampleFile
         return b;
     }
 
-    public static SampleFile Build(ChunkCompression compression = ChunkCompression.None, bool finish = true)
+    public static SampleFile Build(ChunkCompression compression = ChunkCompression.None, bool finish = true, bool writerThread = false)
     {
         var s = new SampleFile();
         var ms = new MemoryStream();
-        var w = RecordingWriter.Create(ms, Header(), new RecordingWriterOptions { Compression = compression }, leaveOpen: true);
+        var w = RecordingWriter.Create(ms, Header(), new RecordingWriterOptions { Compression = compression, WriterThread = writerThread }, leaveOpen: true);
         uint open = w.BindKind("track-open", 1);
         uint close = w.BindKind("track-close", 1);
         uint pos = w.BindKind("position", 1);
@@ -78,6 +78,8 @@ public sealed class SampleFile
             w.Finish();
         else
             w.Sync();
+        // lets a writer thread write what it was handed
+        w.Dispose();
         s.Bytes = ms.ToArray();
         return s;
     }
