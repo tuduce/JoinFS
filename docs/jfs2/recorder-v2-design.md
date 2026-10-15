@@ -1,8 +1,9 @@
 # Recorder v2 — design space and proposal
 
-**Status: proposal, nothing implemented.** Written against `main` at `2f44e5c` (2026-10-02).
+**Status: accepted, being implemented** on branch `jfs2-recording`. Written against `main` at `2f44e5c` (2026-10-02). How far
+the code has got, and where it differs from this design, is in `README.md` (one home for that); decisions taken since are in §11.
 Builds on `docs/recording-protocol.md` (the audit of today's `.jfs` format),
-`docs/reference/jfp2-protocol.md` and `docs/reference/joinfs-architecture.md`.
+`docs/jfp2/protocol.md` and `docs/reference/joinfs-architecture.md`.
 
 ## 1. Summary
 
@@ -359,3 +360,8 @@ Each step leaves a working recorder; the old one stays in place until step 5.
 | 2026-10-02 | No "Save as legacy `.jfs`"; the app writes `.jfs2` only |
 | 2026-10-12 | Format spec edition 1 approved with its ten decisions (`format-spec.md` Appendix C): signed delta times; times and ids in bodies not authoritative; the snapshot holds the latest position; `variables` records are upserts; first chunk is a keyframe and the Index is a rebuildable cache; file-local kind ids with recorder-private lifecycle kinds; no feature bits yet; a damaged chunk stops non-keyframe playback until the next keyframe; `variable-names.txt` attachment; edit by writing a new file and renaming. Open question 1 (keep the 12 redundant bytes) is settled by item 2; questions 2, 3 and 4 stay open |
 | 2026-10-12 | Project layout: the format library is a standalone project, `JoinFS.Recording.Format`, with no reference to JoinFS. The messages and codecs become a shared library as a separate prep refactor before stage 2 |
+| 2026-10-14 | The chunk-by-chunk player (§5.5) moves out of stage 3; whether it is needed at all is measured in stage 6 (load time and memory of long recordings) |
+| 2026-10-14 | The engine pieces that know the record kinds but not the simulator (kinds, capture, scene reader and writer, importer) are a standalone library, `JoinFS.Recording`, used by the app, RecordingXRay and the tests |
+| 2026-10-14 | Working file: the live capture writes to `<documents>/Working/`; the file is deleted when the recording is saved or given up, and leftovers are offered for recovery at start-up |
+| 2026-10-14 | Switch the format over first: Save writes `.jfs2` from the in-memory recording, and the old `.jfs` code is deleted, before playback and editing move to the new engine |
+| 2026-10-15 | After a review: keep the code; next, a player and editing on the scene of canonical messages, so the capture's file becomes the recording and Save finishes and moves it (§7). Plan in `README.md` |
