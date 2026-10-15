@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using System.Threading.Tasks;
 #if !CONSOLE
 using System.Windows.Forms;
 #endif
@@ -583,7 +584,7 @@ namespace JoinFS
 
         /// <summary>
         /// The live capture into a working file (docs/jfs2), or null. A new recording is captured into its working file, which becomes
-        /// the recording when it stops (<see cref="ReloadWorkingFile"/>); an overdub into a working file of its own on the recording's
+        /// the recording when it stops (<see cref="ReadBackWorkingFile"/>); an overdub into a working file of its own on the recording's
         /// time line, whose <see cref="BaseKey"/> names the file it adds to, so a recovery lays it over that file.
         /// </summary>
         Jfs2Capture jfs2;
@@ -657,7 +658,11 @@ namespace JoinFS
         /// <summary>
         /// The recording is being changed from what its working file holds, so Save must write the tracks
         /// </summary>
-        void Edited() => unedited = null;
+        void Edited()
+        {
+            unedited = null;
+            readingBack = null;
+        }
 
         /// <summary>
         /// The recording has been saved to the path, so its working files are not needed any more - sim thread
@@ -676,6 +681,7 @@ namespace JoinFS
             List<string> paths = workingFiles;
             workingFiles = [];
             unedited = null;
+            readingBack = null;
             foreach (string path in paths)
             {
                 TryDeleteQuietly(path);
@@ -787,26 +793,63 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Make the working file of a recording that has just stopped the recording: its tracks replace the ones recorded in memory,
-        /// so what plays, is edited and is saved is what the file holds, and Save of an unedited recording moves the file. If the file
-        /// cannot be read the tracks in memory stay, and Save writes them.
+        /// The working file being read back on a worker thread (<see cref="ReadBackWorkingFile"/>), or null. Anything that changes the
+        /// recording meanwhile clears it, so a read that ends after that is dropped.
         /// </summary>
-        void ReloadWorkingFile(string path)
+        string readingBack;
+
+        /// <summary>
+        /// Make the working file of a recording that has just stopped the recording: it is read on a worker thread, and its tracks
+        /// replace the ones recorded in memory on the sim thread (<paramref name="post"/>), so what plays, is edited and is saved is what
+        /// the file holds, and Save of an unedited recording moves the file. Until then, or if the file cannot be read, the tracks in
+        /// memory stay and Save writes them - sim thread
+        /// </summary>
+        internal Task ReadBackWorkingFile(string path, Action<Action> post)
+        {
+            readingBack = path;
+            return Task.Run(() =>
+            {
+                List<SceneTrack> tracks = ReadWorkingFile(path);
+                if (tracks != null)
+                {
+                    post(() => SwapInWorkingFile(path, tracks));
+                }
+            });
+        }
+
+        /// <summary>
+        /// Read a working file into tracks, or null if it cannot be read. Save may delete it meanwhile - any thread
+        /// </summary>
+        List<SceneTrack> ReadWorkingFile(string path)
         {
             try
             {
-                List<SceneTrack> tracks;
-                using (FileStream stream = File.OpenRead(path))
-                {
-                    tracks = ParseJfs2(stream, null);
-                }
-                objList = tracks.ConvertAll(track => new Obj(track));
-                unedited = path;
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+                return ParseJfs2(stream, null);
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is InvalidOperationException)
             {
-                main.MonitorEvent("Recorder: cannot read back the working file '" + path + "' (" + ex.Message + "); the recording in memory is kept.");
+                main?.MonitorEvent("Recorder: cannot read back the working file '" + path + "' (" + ex.Message + "); the recording in memory is kept.");
+                return null;
             }
+        }
+
+        /// <summary>
+        /// The tracks read back from the working file replace the ones recorded in memory, unless the recording was changed, saved,
+        /// recorded again or played since it stopped. Returns whether they did - sim thread
+        /// </summary>
+        internal bool SwapInWorkingFile(string path, List<SceneTrack> tracks)
+        {
+            if (readingBack != path || recording || playing)
+            {
+                main?.MonitorEvent("Recorder: the working file '" + path + "' was read back after the recording changed; the recording in memory is kept.");
+                return false;
+            }
+            readingBack = null;
+            objList = tracks.ConvertAll(track => new Obj(track));
+            unedited = path;
+            PublishStatus();
+            return true;
         }
 
         /// <summary>
@@ -954,7 +997,7 @@ namespace JoinFS
                 // a new recording is what its working file holds; an overdub stays merged in memory until Save
                 if (captured != null && !overdubbing)
                 {
-                    ReloadWorkingFile(captured);
+                    ReadBackWorkingFile(captured, main.PostToSim);
                 }
             }
 

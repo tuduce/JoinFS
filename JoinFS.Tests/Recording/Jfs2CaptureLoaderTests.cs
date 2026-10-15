@@ -21,8 +21,8 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
 
     string PathOf(string name) => Path.Combine(folder, name);
 
-    Jfs2Capture NewCapture(string name = "a.jfs2") =>
-        Jfs2Capture.Create(PathOf(name), "JoinFS test", "MSFS2024", new DateTime(2026, 10, 12, 18, 0, 0, DateTimeKind.Utc), logged.Add);
+    Jfs2Capture NewCapture(string name = "a.jfs2", RecordingWriterOptions? options = null) =>
+        Jfs2Capture.Create(PathOf(name), "JoinFS test", "MSFS2024", new DateTime(2026, 10, 12, 18, 0, 0, DateTimeKind.Utc), logged.Add, null, options);
 
     static IdentityUpdate Identity(string callsign, string model, bool aircraft = true) => new()
     {
@@ -135,6 +135,45 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         Assert.Equal(new DateTime(2026, 10, 12, 18, 0, 0, DateTimeKind.Utc), DateTime.UnixEpoch.AddTicks(reader.Header.StartUtcMicroseconds * 10));
         var track = Assert.Single(reader.Tracks);
         Assert.Equal(("A", "M"), (track.Callsign, track.Model));
+    }
+
+    /// <summary>The Compression byte of each chunk block: after the block's type and length, TMin, TMax and Flags (spec 3.3)</summary>
+    static List<byte> ChunkCompressions(string path)
+    {
+        using var reader = RecordingReader.Open(path);
+        byte[] bytes = File.ReadAllBytes(path);
+        return reader.Chunks.Select(chunk => bytes[chunk.Offset + 5 + 8 + 8 + 1]).ToList();
+    }
+
+    [Fact]
+    public void ChunksAreDeflated_ByTheCaptureAndTheSceneWriter()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(10000, 0.0, TrackOwner.Local, "", "JoinFS test", "", Identity("A", "M"));
+        for (int i = 0; i < 400; i++)
+        {
+            PositionUpdate p = Position(i);
+            capture.Position(10000, i * 0.05, ref p);
+        }
+        capture.Finish();
+        List<byte> captured = ChunkCompressions(PathOf("a.jfs2"));
+        Assert.True(captured.Count >= 9);
+        // a chunk is kept as is when deflating does not make it smaller: only the short last one here
+        Assert.All(captured.SkipLast(1), compression => Assert.Equal((byte)ChunkCompression.Deflate, compression));
+
+        List<SceneTrack> tracks;
+        using (FileStream stream = File.OpenRead(PathOf("a.jfs2")))
+        {
+            tracks = Jfs2Scene.Load(stream).Tracks;
+        }
+        Jfs2SceneWriter.Write(PathOf("b.jfs2"), tracks, "JoinFS test", DateTime.UtcNow, logged.Add);
+        List<byte> written = ChunkCompressions(PathOf("b.jfs2"));
+        Assert.True(written.Count >= 2);
+        Assert.All(written.SkipLast(1), compression => Assert.Equal((byte)ChunkCompression.Deflate, compression));
+        using (FileStream stream = File.OpenRead(PathOf("b.jfs2")))
+        {
+            Assert.Equal(400, Jfs2Scene.Load(stream).Tracks.Single().Frames.Count(frame => frame is ScenePositionFrame));
+        }
     }
 
     [Fact]
@@ -543,9 +582,10 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
     /// 30 s at 20 Hz. Track 1 (aircraft) has variables 10 and 11 from the start; variable 10 changes at 5.5 s. Track 2 (a boat)
     /// opens at 5.0 s, which lies in a chunk that is neither the first nor a keyframe.
     /// </summary>
-    Jfs2Capture RecordThirtySeconds()
+    /// <param name="uncompressed">For tests that change bytes inside a chunk's records</param>
+    Jfs2Capture RecordThirtySeconds(bool uncompressed = false)
     {
-        var capture = NewCapture();
+        var capture = NewCapture(options: uncompressed ? new RecordingWriterOptions { Compression = ChunkCompression.None } : null);
         capture.OpenTrack(1, 0.0, TrackOwner.Local, "me", "x", "", Identity("A", "Cessna"));
         Dictionary<uint, int> integers = new() { [10] = 1, [11] = 7 };
         capture.Variables(1, 0.0, integers, null, null);
@@ -700,7 +740,7 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
     [Fact]
     public void AChunkWhoseRecordsStopParsing_IsLostUntilTheNextKeyframe()
     {
-        RecordThirtySeconds();
+        RecordThirtySeconds(uncompressed: true);
         // the first record of chunk 0, the track-open of track 1, names a kind no Schema binds, so chunk 0 yields nothing
         DamageInside(0, (bytes, at) => bytes[at + 5 + Jfs2.ChunkHeaderLength] = 0x7F);
 
@@ -720,7 +760,7 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
     [Fact]
     public void ARecordThatCannotBeDecoded_IsHealedByTheNextKeyframe_WithoutLosingTheChunksBetween()
     {
-        RecordThirtySeconds();
+        RecordThirtySeconds(uncompressed: true);
         // the variables record of track 1 at 5.5 s (chunk 2) claims 255 entries, so it does not decode
         DamageInside(2, (bytes, at) =>
         {

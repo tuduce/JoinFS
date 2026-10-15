@@ -103,13 +103,21 @@ namespace JoinFS.Recording
         /// </summary>
         public int HeldCount { get; private set; }
 
+        /// <summary>
+        /// Every chunk is deflated (kept as is when that is not smaller): files shrink to 55 to 62% for under 1 ms a chunk
+        /// (docs/jfs2/README.md, stage 6). The scene writer writes through a capture, so Save writes the same.
+        /// </summary>
+        static readonly RecordingWriterOptions WriterOptions = new() { Compression = ChunkCompression.Deflate };
+
         /// <summary>Creates the file. Throws if it cannot be created.</summary>
         /// <param name="app">For the header's <c>app</c> metadata, for example "JoinFS 26.10".</param>
         /// <param name="simulator">For the header's <c>sim</c> metadata; empty when unknown.</param>
         /// <param name="startUtc">When recording time 0 happened.</param>
         /// <param name="log">Told once if the capture fails.</param>
         /// <param name="more">More header metadata, for example an overdub's <c>base</c>.</param>
-        public static Jfs2Capture Create(string path, string app, string simulator, DateTime startUtc, Action<string> log, IEnumerable<KeyValuePair<string, string>> more = null)
+        /// <param name="options">How chunks are written; Deflate when null.</param>
+        public static Jfs2Capture Create(string path, string app, string simulator, DateTime startUtc, Action<string> log, IEnumerable<KeyValuePair<string, string>> more = null,
+            RecordingWriterOptions options = null)
         {
             List<KeyValuePair<string, string>> metadata = [new("app", app)];
             if (simulator.Length > 0)
@@ -125,7 +133,7 @@ namespace JoinFS.Recording
                 StartUtcMicroseconds = (startUtc.ToUniversalTime() - DateTime.UnixEpoch).Ticks / 10,
                 Metadata = metadata,
             };
-            var writer = RecordingWriter.Create(path, header);
+            var writer = RecordingWriter.Create(path, header, options ?? WriterOptions);
             try
             {
                 return new Jfs2Capture(writer, path, log);

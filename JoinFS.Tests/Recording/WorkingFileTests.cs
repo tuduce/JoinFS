@@ -180,4 +180,86 @@ public sealed class WorkingFileTests : IDisposable
         Assert.False(File.Exists(first) || File.Exists(second) || File.Exists(third));
         Assert.True(File.Exists(saved));
     }
+    /// <summary>A recorder holding the tracks recorded in memory (DLH1) of a recording that has just stopped into its working file</summary>
+    static Recorder Stopped(string working)
+    {
+        var recorder = new Recorder(null!);
+        recorder.Load(OneAircraft(), false, working);
+        return recorder;
+    }
+
+    [Fact]
+    public async Task ReadBack_SwapsTheWorkingFileIn_OnThePostedThread()
+    {
+        string working = Working("take.jfs2");
+        WriteRecording(working, "DLH7", 0, 10);
+        Recorder recorder = Stopped(working);
+        Action? posted = null;
+
+        await recorder.ReadBackWorkingFile(working, action => posted = action);
+
+        // until the sim thread swaps the tracks in, Save writes the tracks in memory
+        Recorder.SaveCopy before = recorder.CopyForSave();
+        Assert.Null(before.File);
+        Assert.Equal("DLH1", Assert.Single(before.Tracks).Identity.Callsign);
+        Assert.NotNull(posted);
+        posted!();
+        Recorder.SaveCopy after = recorder.CopyForSave();
+        Assert.Equal(working, after.File);
+        Assert.Equal("DLH7", Assert.Single(after.Tracks).Identity.Callsign);
+    }
+
+    [Fact]
+    public async Task ReadBack_IsDropped_WhenTheRecordingIsSavedMeanwhile()
+    {
+        string working = Working("take.jfs2");
+        WriteRecording(working, "DLH7", 0, 10);
+        Recorder recorder = Stopped(working);
+        Action? posted = null;
+        Task reading = recorder.ReadBackWorkingFile(working, action => posted = action);
+
+        // Save during the read: the tracks in memory are written, and the working file goes even while it is open for the read
+        Assert.Null(recorder.CopyForSave().File);
+        recorder.Saved(Path.Combine(documents, "saved.jfs2"));
+        await reading;
+        posted?.Invoke();
+
+        Assert.False(File.Exists(working));
+        Recorder.SaveCopy copy = recorder.CopyForSave();
+        Assert.Null(copy.File);
+        Assert.Equal("DLH1", Assert.Single(copy.Tracks).Identity.Callsign);
+    }
+
+    [Fact]
+    public async Task ReadBack_IsDropped_WhenTheRecordingIsEditedMeanwhile()
+    {
+        string working = Working("take.jfs2");
+        WriteRecording(working, "DLH7", 0, 10);
+        Recorder recorder = Stopped(working);
+        Action? posted = null;
+
+        await recorder.ReadBackWorkingFile(working, action => posted = action);
+        recorder.Load(OneAircraft(), false); // another recording opened
+        posted!();
+
+        Recorder.SaveCopy copy = recorder.CopyForSave();
+        Assert.Null(copy.File);
+        Assert.All(copy.Tracks, track => Assert.Equal("DLH1", track.Identity.Callsign));
+    }
+
+    [Fact]
+    public async Task ReadBack_OfAnUnreadableFile_KeepsTheTracksInMemory()
+    {
+        string working = Working("take.jfs2");
+        File.WriteAllBytes(working, [1, 2, 3]);
+        Recorder recorder = Stopped(working);
+        bool posted = false;
+
+        await recorder.ReadBackWorkingFile(working, _ => posted = true);
+
+        Assert.False(posted);
+        Recorder.SaveCopy copy = recorder.CopyForSave();
+        Assert.Null(copy.File);
+        Assert.Equal("DLH1", Assert.Single(copy.Tracks).Identity.Callsign);
+    }
 }
