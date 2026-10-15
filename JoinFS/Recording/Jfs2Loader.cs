@@ -9,8 +9,8 @@ namespace JoinFS.Recording
     /// <summary>
     /// Reads a JFS2 file into the objects the recorder plays (<see cref="Recorder.Obj"/>), so that opening, playing, jumping,
     /// trimming and the player UI work on it unchanged. The file is read by <see cref="Jfs2Scene"/> (shared with RecordingXRay);
-    /// this maps its canonical messages onto the old frames. It loads everything, which the stage 5 player replaces with one that reads chunk by
-    /// chunk. Knows nothing of Main, so it is testable without a simulator.
+    /// this maps its canonical messages onto the old frames. It loads everything; a player on the scene itself would replace it (docs/jfs2/README.md,
+    /// "Next"). Knows nothing of Main, so it is testable without a simulator.
     /// </summary>
     public static class Jfs2Loader
     {
@@ -69,37 +69,21 @@ namespace JoinFS.Recording
                         break;
                     }
                     case SceneVariablesFrame variables:
-                        AddVariableFrames(obj, frame.Time, variables.Variables);
+                    {
+                        // one record becomes up to three of the old frames, holding only what it changed: the old player merges frames
+                        // into the object's variable set, which is how an upsert reads (spec 7.6)
+                        var (integers, floats, strings) = variables.ByKind();
+                        if (integers != null) obj.frames.Add(new Recorder.IntegerVariablesFrame(frame.Time, integers));
+                        if (floats != null) obj.frames.Add(new Recorder.FloatVariablesFrame(frame.Time, floats));
+                        if (strings != null) obj.frames.Add(new Recorder.String8VariablesFrame(frame.Time, strings));
                         break;
+                    }
                     case SceneEventFrame sim:
                         obj.frames.Add(new Recorder.SimEventFrame(frame.Time, sim.EventId, sim.Data));
                         break;
                 }
             }
             return obj;
-        }
-
-        /// <summary>
-        /// One variables record becomes up to three of the old frames, one per value kind. A frame holds only what the record
-        /// changed; the old player merges frames into the object's variable set, which is how an upsert reads (spec 7.6).
-        /// </summary>
-        static void AddVariableFrames(Recorder.Obj obj, double time, VariableSyncUpdate update)
-        {
-            Dictionary<uint, int> integers = [];
-            Dictionary<uint, float> floats = [];
-            Dictionary<uint, string> strings = [];
-            foreach (VariableEntry entry in update.Entries)
-            {
-                switch (entry.Kind)
-                {
-                    case VariableKind.Int32: integers[entry.Vuid] = entry.IntValue; break;
-                    case VariableKind.Float32: floats[entry.Vuid] = entry.FloatValue; break;
-                    case VariableKind.String8: strings[entry.Vuid] = entry.StringValue ?? ""; break;
-                }
-            }
-            if (integers.Count > 0) obj.frames.Add(new Recorder.IntegerVariablesFrame(time, integers));
-            if (floats.Count > 0) obj.frames.Add(new Recorder.FloatVariablesFrame(time, floats));
-            if (strings.Count > 0) obj.frames.Add(new Recorder.String8VariablesFrame(time, strings));
         }
     }
 }

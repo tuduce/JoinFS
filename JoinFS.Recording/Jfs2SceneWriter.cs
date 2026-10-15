@@ -50,7 +50,7 @@ namespace JoinFS.Recording
         /// times keep track order, then frame order, so the result is deterministic. Tracks are numbered from 1 in the order of the list
         /// and opened at their first frame with their own owner, source application and simulator; a time before 0 is held at 0 by the capture.
         /// </summary>
-        public static Result Write(Jfs2Capture capture, IReadOnlyList<SceneTrack> scene, string app)
+        static Result Write(Jfs2Capture capture, IReadOnlyList<SceneTrack> scene, string app)
         {
             List<SceneTrack> tracks = [];
             foreach (SceneTrack track in scene)
@@ -109,8 +109,11 @@ namespace JoinFS.Recording
                         capture.Event(id, time, sim.EventId, sim.Data);
                         break;
                     case SceneVariablesFrame variables:
-                        Variables(capture, id, time, variables.Variables);
+                    {
+                        var (integers, floats, strings) = variables.ByKind();
+                        capture.Variables(id, time, integers, floats, strings);
                         break;
+                    }
                     default:
                         continue;
                 }
@@ -120,22 +123,5 @@ namespace JoinFS.Recording
         }
 
         static bool IsPosition(SceneFrame frame) => frame is ScenePositionFrame or SceneObjectPositionFrame;
-
-        static void Variables(Jfs2Capture capture, uint track, double time, VariableSyncUpdate update)
-        {
-            Dictionary<uint, int> integers = null;
-            Dictionary<uint, float> floats = null;
-            Dictionary<uint, string> strings = null;
-            foreach (VariableEntry entry in update.Entries ?? [])
-            {
-                switch (entry.Kind)
-                {
-                    case VariableKind.Int32: (integers ??= [])[entry.Vuid] = entry.IntValue; break;
-                    case VariableKind.Float32: (floats ??= [])[entry.Vuid] = entry.FloatValue; break;
-                    case VariableKind.String8: (strings ??= [])[entry.Vuid] = entry.StringValue ?? ""; break;
-                }
-            }
-            capture.Variables(track, time, integers, floats, strings);
-        }
     }
 }

@@ -29,14 +29,6 @@ namespace JoinFS.Recording
             return new Result(result.Tracks, result.Frames, skipped);
         }
 
-        /// <summary>Feeds the objects into an open capture, frames of all objects in time order (a chunk may not go back in time, spec 5).</summary>
-        public static Result Write(Jfs2Capture capture, IReadOnlyList<Recorder.Obj> objects, string app)
-        {
-            List<SceneTrack> tracks = Tracks(objects, out int skipped);
-            Jfs2SceneWriter.Result result = Jfs2SceneWriter.Write(capture, tracks, app);
-            return new Result(result.Tracks, result.Frames, skipped);
-        }
-
         /// <summary>The objects as tracks of canonical messages; frames that fit no message of their object are counted, not kept.</summary>
         static List<SceneTrack> Tracks(IReadOnlyList<Recorder.Obj> objects, out int skipped)
         {

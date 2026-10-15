@@ -12,6 +12,12 @@ public static class Jfs2
     public static ReadOnlySpan<byte> Magic => new byte[] { 0xFA, 0x00, 0x4A, 0x46, 0x53, 0x32, 0x0D, 0x0A };
     public static ReadOnlySpan<byte> EndMagic => "JFS2END\n"u8;
 
+    /// <summary>
+    /// The first two bytes of the magic (FA 00) read as a little-endian int16, which is how a reader of the legacy <c>.jfs</c> format sees
+    /// its version: below the oldest it reads, so old builds refuse the file, and new ones tell the two formats apart by it (spec 2).
+    /// </summary>
+    public const short LegacyVersionSignature = 250;
+
     public const int MagicLength = 8;
     public const int FooterLength = 20;
     /// <summary>Type, length and CRC around a block body.</summary>

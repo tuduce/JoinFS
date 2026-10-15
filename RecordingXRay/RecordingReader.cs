@@ -124,16 +124,13 @@ public sealed class String8VariablesFrame : RecordedFrame
 
 public static class RecordingReader
 {
-    /// <summary>The first two bytes of a JFS2 file (FA 00) read as this "version" of the old format (docs/jfs2/format-spec.md section 2).</summary>
-    private const short Jfs2Signature = 250;
-
     public static RecordingFile Read(string filePath)
     {
         using FileStream stream = File.OpenRead(filePath);
         using BinaryReader reader = new(stream);
 
         short version = reader.ReadInt16();
-        if (version == Jfs2Signature)
+        if (version == JoinFS.Recording.Format.Jfs2.LegacyVersionSignature)
         {
             stream.Position = 0;
             return Jfs2Reader.Read(stream);

@@ -5,7 +5,7 @@ namespace JoinFS.Tests.Recording;
 
 /// <summary>
 /// The importer of old <c>.jfs</c> recordings (docs/jfs2/recorder-v2-design.md section 8): the frozen old reader, free of Sim and of build
-/// symbols. The in-app reader (<see cref="Recorder.Parse"/>) is its oracle for the files that reader gets right.
+/// symbols, and since stage 5e the only reader of old files in the application. The files here are made by the test-side <see cref="LegacyJfsWriter"/>.
 /// </summary>
 public sealed class LegacyJfsImporterTests : IDisposable
 {
@@ -169,7 +169,7 @@ public sealed class LegacyJfsImporterTests : IDisposable
     }
 
     [Fact]
-    public void ThePlainObjectKeepsEveryKindOfFrame_WhichTheInAppReaderLoses()
+    public void ThePlainObjectKeepsEveryKindOfFrame_WhichTheOldInAppReaderLost()
     {
         SceneTrack boat = Import(OldFile(true, [1.0], withObject: true)).Scene.Tracks[1];
 
@@ -231,25 +231,14 @@ public sealed class LegacyJfsImporterTests : IDisposable
         Assert.Equal(ended.AddSeconds(-61), scene.StartUtc);
     }
 
-    // ---- the whole way: old file -> importer -> JFS2 file -> loader ----
+    // ---- the real recordings ----
 
+    /// <summary>
+    /// The project owner's real recordings (<see cref="Jfs2ImportTests.CorpusFolder"/>; skipped where they are absent): each reads with one
+    /// layout only, and plays the same after conversion to JFS2 (design section 8: same objects, frames and values).
+    /// </summary>
     [Fact]
-    public void ImportedAndWritten_PlaysTheSameAsTheInAppReader()
-    {
-        string jfs = Path.Combine(folder, "old.jfs");
-        File.WriteAllBytes(jfs, LegacyJfsWriter.Write(Jfs2ImportTests.MakeRecording()));
-        List<Recorder.Obj> oracle = Jfs2ImportTests.ReadJfs(jfs);
-
-        string path = Path.Combine(folder, "out.jfs2");
-        LegacyJfsImporter.Result imported = LegacyJfsImporter.Read(File.OpenRead(jfs));
-        Jfs2SceneWriter.Write(path, imported.Scene.Tracks, "test", DateTime.UtcNow, _ => { });
-
-        Assert.Empty(Jfs2ImportTests.Differences(oracle, Jfs2ImportTests.ReadJfs2(path)));
-        Assert.Empty(imported.Scene.Warnings);
-    }
-
-    [Fact]
-    public void EveryRecordingOfTheCorpus_IsImportedAsTheInAppReaderReadsIt()
+    public void EveryRecordingOfTheCorpus_ReadsUnambiguouslyAndPlaysTheSameAfterConversion()
     {
         if (!Directory.Exists(Jfs2ImportTests.CorpusFolder))
         {
@@ -261,7 +250,7 @@ public sealed class LegacyJfsImporterTests : IDisposable
             string name = Path.GetFileName(jfs);
             try
             {
-                List<Recorder.Obj> oracle = Jfs2ImportTests.ReadJfs(jfs);
+                List<Recorder.Obj> read = Jfs2ImportTests.ReadJfs(jfs);
                 LegacyJfsImporter.Result imported;
                 using (FileStream stream = File.OpenRead(jfs))
                 {
@@ -271,7 +260,7 @@ public sealed class LegacyJfsImporterTests : IDisposable
                 foreach (string warning in imported.Scene.Warnings) problems.Add(name + ": " + warning); // the layout is not ambiguous
                 string path = Path.Combine(folder, name + ".jfs2");
                 Jfs2SceneWriter.Write(path, imported.Scene.Tracks, "test", imported.Scene.StartUtc, _ => { });
-                foreach (string difference in Jfs2ImportTests.Differences(oracle, Jfs2ImportTests.ReadJfs2(path)))
+                foreach (string difference in Jfs2ImportTests.Differences(read, Jfs2ImportTests.ReadJfs2(path)))
                 {
                     problems.Add(name + ": " + difference);
                 }

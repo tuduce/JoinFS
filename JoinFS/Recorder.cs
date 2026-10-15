@@ -907,8 +907,8 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// The JFS2 file written beside the recording (docs/jfs2), or null. The recorder v2 writes aircraft
-        /// identity, position, variables and events so far; the old recording stays the one that is saved and edited.
+        /// The live capture into the working file (docs/jfs2), or null: a journal of the recording that survives a crash and is offered
+        /// for recovery. The in-memory objects stay the recording that is played, edited and saved (Save exports them).
         /// </summary>
         Jfs2Capture jfs2;
 
@@ -1100,7 +1100,7 @@ namespace JoinFS
                 {
                     // set start time
                     startTime = main.ElapsedTime;
-                    // the JFS2 file is made beside the recording; an overdub adds to a recording that is not in it
+                    // the working file journals a new recording; an overdub adds to a recording that is not in it
                     StartJfs2Capture();
                 }
 
@@ -1699,7 +1699,7 @@ namespace JoinFS
             // log version
             main?.MonitorEvent("Recorder: reading recording stream (version " + version + ").");
             // a JFS2 file starts with FA 00, which reads as version 250 (docs/jfs2/format-spec.md section 2)
-            if (version == Jfs2VersionSignature && reader.BaseStream.CanSeek)
+            if (version == Jfs2.LegacyVersionSignature && reader.BaseStream.CanSeek)
             {
                 reader.BaseStream.Position -= sizeof(short);
                 return ParseJfs2(reader.BaseStream, warnings);
@@ -1738,11 +1738,6 @@ namespace JoinFS
             main?.MonitorEvent("Recorder: loaded " + objects.Count(o => o is Aircraft) + " aircraft, " + objects.Count(o => o is not Aircraft) + " objects, " + objects.Sum(o => o.frames.Count) + " frames (trailing strings: " + imported.Layout + ").");
             return objects;
         }
-
-        /// <summary>
-        /// What a JFS2 file's first two bytes read as in the old reader: a version too low to be a recording
-        /// </summary>
-        const short Jfs2VersionSignature = 250;
 
         /// <summary>
         /// Read a JFS2 recording into objects, logging what was skipped. Throws, with a message for the user, if it can't be played.

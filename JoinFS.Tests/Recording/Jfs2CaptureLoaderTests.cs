@@ -775,6 +775,9 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         Assert.False(capture.Failed);
         Assert.Equal(1, capture.IdentityChangeCount);
         Assert.Equal([(0L, "N1", false), (2_000_000L, "DLH1", false)], IdentityRecords(1, false));
+        // the Index lists the latest callsign (spec 3.4)
+        using var reader = RecordingReader.Open(PathOf("a.jfs2"));
+        Assert.Equal("DLH1", reader.Tracks.Single().Callsign);
     }
 
     [Fact]

@@ -11,7 +11,7 @@ namespace RecordingXRay;
 /// </summary>
 internal static class Jfs2Reader
 {
-    /// <summary>The old format stored the five control axes as 1/16384 in a short; the new one does too (spec 7.1).</summary>
+    /// <summary>The old format stored the five control axes as 1/16384 in a short; the new one does too (spec 7.3).</summary>
     private const float AxisScale = 16384.0f;
 
     public static RecordingFile Read(Stream stream)
@@ -26,7 +26,7 @@ internal static class Jfs2Reader
             throw new InvalidDataException(ex.Message, ex);
         }
 
-        RecordingFile recording = new() { Version = 250, FormatLabel = "JFS2" };
+        RecordingFile recording = new() { Version = JoinFS.Recording.Format.Jfs2.LegacyVersionSignature, FormatLabel = "JFS2" };
         foreach (SceneTrack track in scene.Tracks)
         {
             IdentityUpdate id = track.Identity;
@@ -71,11 +71,17 @@ internal static class Jfs2Reader
                 yield return new SimEventFrame { Type = FrameType.SimEvent, Time = frame.Time, EventId = sim.EventId, Data = sim.Data };
                 break;
             case SceneVariablesFrame variables:
-                foreach (RecordedFrame split in Variables(frame.Time, variables.Variables))
-                {
-                    yield return split;
-                }
+            {
+                // one record becomes up to three frames, one per value kind, as the old format stored them
+                var (integers, floats, strings) = variables.ByKind();
+                if (integers != null)
+                    yield return new IntegerVariablesFrame { Type = FrameType.IntegerVariables, Time = frame.Time, Variables = new ReadOnlyDictionary<uint, int>(integers) };
+                if (floats != null)
+                    yield return new FloatVariablesFrame { Type = FrameType.FloatVariables, Time = frame.Time, Variables = new ReadOnlyDictionary<uint, float>(floats) };
+                if (strings != null)
+                    yield return new String8VariablesFrame { Type = FrameType.String8Variables, Time = frame.Time, Variables = new ReadOnlyDictionary<uint, string>(strings) };
                 break;
+            }
         }
     }
 
@@ -133,28 +139,4 @@ internal static class Jfs2Reader
     };
 
     private static short Raw(float axis) => (short)(axis * AxisScale);
-
-    /// <summary>One variables record becomes up to three frames, one per value kind, as the old format stored them.</summary>
-    private static IEnumerable<RecordedFrame> Variables(double time, VariableSyncUpdate update)
-    {
-        Dictionary<uint, int> integers = [];
-        Dictionary<uint, float> floats = [];
-        Dictionary<uint, string> strings = [];
-        foreach (VariableEntry entry in update.Entries)
-        {
-            switch (entry.Kind)
-            {
-                case VariableKind.Int32: integers[entry.Vuid] = entry.IntValue; break;
-                case VariableKind.Float32: floats[entry.Vuid] = entry.FloatValue; break;
-                case VariableKind.String8: strings[entry.Vuid] = entry.StringValue ?? string.Empty; break;
-            }
-        }
-
-        if (integers.Count > 0)
-            yield return new IntegerVariablesFrame { Type = FrameType.IntegerVariables, Time = time, Variables = new ReadOnlyDictionary<uint, int>(integers) };
-        if (floats.Count > 0)
-            yield return new FloatVariablesFrame { Type = FrameType.FloatVariables, Time = time, Variables = new ReadOnlyDictionary<uint, float>(floats) };
-        if (strings.Count > 0)
-            yield return new String8VariablesFrame { Type = FrameType.String8Variables, Time = time, Variables = new ReadOnlyDictionary<uint, string>(strings) };
-    }
 }

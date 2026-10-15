@@ -3,8 +3,8 @@ using JoinFS.Recording;
 namespace JoinFS.Tests.Recording;
 
 /// <summary>
-/// Stage 4 of the recorder v2 (docs/jfs2/README.md): an old <c>.jfs</c> is read by the old reader and written as <c>.jfs2</c>, and
-/// the new file plays the same (design section 8: same objects, same frames per object and type, same values).
+/// The exporter and <c>JoinFS -convert</c> (docs/jfs2/README.md): recorded objects, or an old <c>.jfs</c> read by the importer, are written as
+/// <c>.jfs2</c>, and the new file plays the same (design section 8: same objects, same frames per object and type, same values).
 /// </summary>
 public sealed class Jfs2ImportTests : IDisposable
 {
@@ -350,39 +350,5 @@ public sealed class Jfs2ImportTests : IDisposable
         Assert.Equal(1, Jfs2Convert.Run([], output));
 
         Assert.Contains("Usage", output.ToString());
-    }
-
-    // ---- the real recordings ----
-
-    [Fact]
-    public void EveryRecordingOfTheCorpus_ConvertsToAFileThatPlaysTheSame()
-    {
-        if (!Directory.Exists(CorpusFolder))
-        {
-            return; // no corpus on this machine
-        }
-        List<string> problems = [];
-        foreach (string jfs in Directory.EnumerateFiles(CorpusFolder, "*.jfs"))
-        {
-            string name = Path.GetFileName(jfs);
-            List<Recorder.Obj> old;
-            try
-            {
-                old = ReadJfs(jfs);
-            }
-            catch (Exception ex)
-            {
-                problems.Add(name + ": the old reader failed: " + ex.Message);
-                continue;
-            }
-            if (old == null) continue; // a version the release does not read
-
-            string path = Convert(old, name + ".jfs2");
-            foreach (string difference in Differences(old, ReadJfs2(path)))
-            {
-                problems.Add(name + ": " + difference);
-            }
-        }
-        Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
     }
 }

@@ -18,7 +18,29 @@ namespace JoinFS.Recording
     public sealed record SceneObjectPositionFrame(double Time, ObjectPositionUpdate Position) : SceneFrame(Time);
 
     /// <summary>Variables that changed (kind <c>variables</c>): an upsert, to be merged over what came before (spec 7.6).</summary>
-    public sealed record SceneVariablesFrame(double Time, VariableSyncUpdate Variables) : SceneFrame(Time);
+    public sealed record SceneVariablesFrame(double Time, VariableSyncUpdate Variables) : SceneFrame(Time)
+    {
+        /// <summary>
+        /// The entries by value kind, one dictionary each, as the old frames, RecordingXRay and <see cref="Jfs2Capture.Variables"/> take
+        /// them; null for a kind the record has none of.
+        /// </summary>
+        public (Dictionary<uint, int> Integers, Dictionary<uint, float> Floats, Dictionary<uint, string> Strings) ByKind()
+        {
+            Dictionary<uint, int> integers = null;
+            Dictionary<uint, float> floats = null;
+            Dictionary<uint, string> strings = null;
+            foreach (VariableEntry entry in Variables.Entries ?? [])
+            {
+                switch (entry.Kind)
+                {
+                    case VariableKind.Int32: (integers ??= [])[entry.Vuid] = entry.IntValue; break;
+                    case VariableKind.Float32: (floats ??= [])[entry.Vuid] = entry.FloatValue; break;
+                    case VariableKind.String8: (strings ??= [])[entry.Vuid] = entry.StringValue ?? ""; break;
+                }
+            }
+            return (integers, floats, strings);
+        }
+    }
 
     /// <summary>A simulator event (kind <c>event</c>).</summary>
     public sealed record SceneEventFrame(double Time, uint EventId, uint Data) : SceneFrame(Time);
@@ -58,9 +80,6 @@ namespace JoinFS.Recording
 
         /// <summary>The header's metadata (app, sim, ...).</summary>
         public IReadOnlyList<KeyValuePair<string, string>> Metadata { get; private set; } = [];
-
-        /// <summary>Identity records that differed from the one a track opened with; a viewer that shows one identity per object ignores them.</summary>
-        public int IdentityChanges { get; private set; }
 
         /// <summary>For the readers in this library (the JFS2 reader here and the importer of old recordings) to fill in what the header holds.</summary>
         internal void Initialise(DateTime startUtc, IReadOnlyList<KeyValuePair<string, string>> metadata)
@@ -130,6 +149,12 @@ namespace JoinFS.Recording
                 Metadata = reader.Header.Metadata,
             };
             List<string> notes = scene.Notes;
+            // what the user should be told goes to the log too; the rest is for the log only
+            void Warn(string text)
+            {
+                notes.Add(text);
+                scene.Warnings.Add(text);
+            }
             Dictionary<uint, Building> tracks = [];
             List<uint> order = [];
             Dictionary<string, int> skipped = [];
@@ -145,7 +170,7 @@ namespace JoinFS.Recording
 
             if (!reader.IsFinished)
             {
-                notes.Add("The recording was not finished (the program stopped while recording); it is played as far as it was written.");
+                Warn("The recording was not finished (the program stopped while recording); it is played as far as it was written.");
             }
 
             for (int index = 0; index < reader.Chunks.Count; index++)
@@ -273,25 +298,20 @@ namespace JoinFS.Recording
 
             foreach (Jfs2Damage damage in reader.Damage)
             {
-                notes.Add("Damaged recording: " + damage.Message + " (at byte " + damage.Offset + ").");
+                Warn("Damaged recording: " + damage.Message + " (at byte " + damage.Offset + ").");
             }
             if (damaged > 0)
             {
-                notes.Add(damaged + " records could not be read and were skipped.");
+                Warn(damaged + " records could not be read and were skipped.");
             }
-            int warningCount = notes.Count;
             if (identityChanges > 0)
             {
                 notes.Add(identityChanges + " identity changes were ignored; each object plays with the identity it opened with.");
             }
             foreach (var count in skipped.OrderBy(pair => pair.Key))
             {
-                notes.Add(count.Value + " '" + count.Key + "' records were skipped; this build does not play them yet.");
+                Warn(count.Value + " '" + count.Key + "' records were skipped; this build does not play them yet.");
             }
-            // the identity note is for the log only: it changes nothing the user can see go missing
-            scene.Warnings.AddRange(notes.Take(warningCount));
-            scene.Warnings.AddRange(notes.Skip(warningCount).Where(n => !n.Contains("identity changes")));
-            scene.IdentityChanges = identityChanges;
 
             foreach (uint id in order)
             {

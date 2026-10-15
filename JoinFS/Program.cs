@@ -134,7 +134,7 @@ namespace JoinFS
         public bool settingsLoop = false;
 
         /// <summary>
-        /// Write a JFS2 recording beside each new recording (docs/jfs2); -no-jfs2 switches it off
+        /// Journal each new recording to a working file (docs/jfs2), so it can be recovered after a crash; -no-jfs2 switches it off
         /// </summary>
         public bool settingsJfs2Capture = true;
         public bool settingsXplane = false;
@@ -356,7 +356,7 @@ namespace JoinFS
                                 break;
 
                             case "-no-jfs2":
-                                // record in the old format only
+                                // no working file, so no recovery after a crash
                                 settingsJfs2Capture = false;
                                 break;
 

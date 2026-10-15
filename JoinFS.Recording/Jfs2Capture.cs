@@ -166,7 +166,8 @@ namespace JoinFS.Recording
             }
             try
             {
-                int length = identityCodec.Encode(Sanitised(identity, track), identityBody);
+                identity = Sanitised(identity, track);
+                int length = identityCodec.Encode(identity, identityBody);
                 if (identityBody.AsSpan(0, length).SequenceEqual(state.Identity))
                 {
                     return;
@@ -176,6 +177,8 @@ namespace JoinFS.Recording
                 state.Identity = identityBody.AsSpan(0, length).ToArray();
                 state.IdentityTime = time;
                 lastTime[track] = time;
+                // the Index lists the latest callsign and model (spec 3.4)
+                writer.SetTrackLabel(track, identity.Callsign, identity.Model);
                 IdentityChangeCount++;
                 EndChunkIfDue();
             }
