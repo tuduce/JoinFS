@@ -250,7 +250,7 @@ public sealed class LegacyJfsImporterTests : IDisposable
             string name = Path.GetFileName(jfs);
             try
             {
-                List<Recorder.Obj> read = Jfs2ImportTests.ReadJfs(jfs);
+                List<SceneTrack> read = Jfs2ImportTests.ReadJfs(jfs);
                 LegacyJfsImporter.Result imported;
                 using (FileStream stream = File.OpenRead(jfs))
                 {

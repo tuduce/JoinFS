@@ -964,7 +964,7 @@ namespace JoinFS
             {
                 // copy on the sim thread (which owns the recording) before opening the file, which
                 // truncates it - a failed copy must not leave an empty file marked as saved
-                List<Recorder.Obj> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
+                List<JoinFS.Recording.SceneTrack> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
                 if (objects == null)
                 {
                     string message = "ERROR - Recording not saved: the simulator thread did not respond. Please try again.";
@@ -1005,7 +1005,7 @@ namespace JoinFS
             }
 
             // copy on the sim thread, which owns the recording
-            List<Recorder.Obj> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
+            List<JoinFS.Recording.SceneTrack> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
             if (objects == null)
             {
                 return ReportAutoSaveFailure("the simulator thread did not respond");

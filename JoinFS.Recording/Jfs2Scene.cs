@@ -45,7 +45,18 @@ namespace JoinFS.Recording
     /// <summary>A simulator event (kind <c>event</c>).</summary>
     public sealed record SceneEventFrame(double Time, uint EventId, uint Data) : SceneFrame(Time);
 
-    /// <summary>One recorded object: its track-open (spec 7.1), the identity it opened with and its frames in time order.</summary>
+    /// <summary>The object's identity changed (kind <c>identity</c>, after the one its track opened with): it plays as this from here on.</summary>
+    public sealed record SceneIdentityFrame(double Time, IdentityUpdate Identity) : SceneFrame(Time);
+
+    /// <summary>
+    /// What the frames of a track before a time leave its object as (design 5.4): where a player that jumps there goes on, the latest
+    /// position (null if none yet), the identity, and the variables merged (spec 7.6; null for a kind with none).
+    /// </summary>
+    /// <param name="Next">The index of the first frame at or after the time.</param>
+    public sealed record SceneState(int Next, SceneFrame Position, IdentityUpdate Identity,
+        Dictionary<uint, int> Integers, Dictionary<uint, float> Floats, Dictionary<uint, string> Strings);
+
+    /// <summary>One recorded object: its track-open (spec 7.1), the identity it opened with and its frames in time order (identity changes among them).</summary>
     public sealed class SceneTrack
     {
         public uint Id { get; init; }
@@ -58,6 +69,58 @@ namespace JoinFS.Recording
         public string Simulator { get; init; } = "";
         public IdentityUpdate Identity { get; init; }
         public List<SceneFrame> Frames { get; } = [];
+
+        /// <summary>A copy with its own frame list (the frames themselves are immutable and shared), for example to write it on another thread.</summary>
+        public SceneTrack Copy()
+        {
+            var copy = new SceneTrack { Id = Id, Nickname = Nickname, Owner = Owner, SourceApp = SourceApp, Simulator = Simulator, Identity = Identity };
+            copy.Frames.AddRange(Frames);
+            return copy;
+        }
+
+        /// <summary>What the frames before <paramref name="time"/> leave the object as; events are not state and are left out.</summary>
+        public SceneState StateAt(double time)
+        {
+            SceneFrame position = null;
+            IdentityUpdate identity = Identity;
+            Dictionary<uint, int> integers = null;
+            Dictionary<uint, float> floats = null;
+            Dictionary<uint, string> strings = null;
+            int next = 0;
+            for (; next < Frames.Count && Frames[next].Time < time; next++)
+            {
+                switch (Frames[next])
+                {
+                    case ScenePositionFrame or SceneObjectPositionFrame:
+                        position = Frames[next];
+                        break;
+                    case SceneIdentityFrame change:
+                        identity = change.Identity;
+                        break;
+                    case SceneVariablesFrame variables:
+                    {
+                        var (i, f, t) = variables.ByKind();
+                        Merge(ref integers, i);
+                        Merge(ref floats, f);
+                        Merge(ref strings, t);
+                        break;
+                    }
+                }
+            }
+            return new SceneState(next, position, identity, integers, floats, strings);
+        }
+
+        static void Merge<T>(ref Dictionary<uint, T> into, Dictionary<uint, T> from)
+        {
+            if (from != null)
+            {
+                into ??= [];
+                foreach (var pair in from)
+                {
+                    into[pair.Key] = pair.Value;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -93,6 +156,8 @@ namespace JoinFS.Recording
             public TrackOpenV1 Open;
             public IdentityUpdate Identity;
             public bool HasIdentity;
+            /// <summary>The identity in effect after the frames read so far, so only a change becomes a frame.</summary>
+            public IdentityUpdate Latest;
             public readonly List<SceneFrame> Frames = [];
             public int PositionCount;
             /// <summary>Time of the latest frame, so a snapshot after a lost chunk adds nothing out of order.</summary>
@@ -238,10 +303,15 @@ namespace JoinFS.Recording
                                     if (!identityTrack.HasIdentity)
                                     {
                                         identityTrack.Identity = identity;
+                                        identityTrack.Latest = identity;
                                         identityTrack.HasIdentity = true;
                                     }
-                                    else if (!identityTrack.Identity.SameAs(in identity))
+                                    else if (!identityTrack.Latest.SameAs(in identity))
                                     {
+                                        // a snapshot's identity keeps the time of the change it summarises, which may lie before frames already read
+                                        double time = entry.IsSnapshot ? Math.Max(seconds, identityTrack.LastTime) : seconds;
+                                        identityTrack.Add(new SceneIdentityFrame(time, identity));
+                                        identityTrack.Latest = identity;
                                         identityChanges++;
                                     }
                                 }
@@ -306,7 +376,7 @@ namespace JoinFS.Recording
             }
             if (identityChanges > 0)
             {
-                notes.Add(identityChanges + " identity changes were ignored; each object plays with the identity it opened with.");
+                notes.Add(identityChanges + " identity changes (callsign, model) during tracks.");
             }
             foreach (var count in skipped.OrderBy(pair => pair.Key))
             {

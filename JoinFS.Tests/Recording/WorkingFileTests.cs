@@ -22,7 +22,7 @@ public sealed class WorkingFileTests : IDisposable
         return Path.Combine(folder, name);
     }
 
-    static List<Recorder.Obj> OneAircraft() => [new Recorder.Aircraft(true, "DLH1", "a", "", "", "", "", 0, default(Sim.Obj.Owner))];
+    static List<SceneTrack> OneAircraft() => [Jfs2ImportTests.Track(true, "DLH1", "a", "")];
 
     [Fact]
     public void WithoutAWorkingFolder_NothingIsLeft()

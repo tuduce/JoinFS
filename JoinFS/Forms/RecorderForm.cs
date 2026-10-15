@@ -409,7 +409,7 @@ namespace JoinFS
                             using (stream)
                             {
                                 // parse here, then apply and play on the sim thread
-                                List<Recorder.Obj> objects = main.recorder.Parse(new BinaryReader(stream));
+                                List<JoinFS.Recording.SceneTrack> objects = main.recorder.Parse(new BinaryReader(stream));
                                 main.InvokeOnSim(sim =>
                                 {
                                     main.recorder.Load(objects, false);
@@ -476,7 +476,7 @@ namespace JoinFS
                             using (stream)
                             {
                                 // parse here, then apply and play on the sim thread
-                                List<Recorder.Obj> objects = main.recorder.Parse(new BinaryReader(stream));
+                                List<JoinFS.Recording.SceneTrack> objects = main.recorder.Parse(new BinaryReader(stream));
                                 main.InvokeOnSim(sim =>
                                 {
                                     main.recorder.Load(objects, true);

@@ -9,7 +9,7 @@ namespace JoinFS.Recording
 {
     /// <summary>
     /// Writes tracks of canonical messages (<see cref="SceneTrack"/>) as a JFS2 file: what the importer of old recordings and the
-    /// exporter of the recorder's in-memory objects both end in. Knows nothing of Sim or Main, so it is testable without a simulator.
+    /// recorder's Save both end in. Knows nothing of Sim or Main, so it is testable without a simulator.
     /// </summary>
     public static class Jfs2SceneWriter
     {
@@ -114,6 +114,9 @@ namespace JoinFS.Recording
                         capture.Variables(id, time, integers, floats, strings);
                         break;
                     }
+                    case SceneIdentityFrame identity:
+                        capture.Identity(id, time, identity.Identity);
+                        break;
                     default:
                         continue;
                 }

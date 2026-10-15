@@ -47,14 +47,14 @@ public class RecorderAutoSaveTests : IDisposable
     [Fact]
     public void FirstCallsign_IsTakenFromTheFirstAircraft()
     {
-        var objects = new List<Recorder.Obj>
-        {
-            new Recorder.Obj("", "", "", "", 0, default(Sim.Obj.Owner)),
-            new Recorder.Aircraft(true, "DLH1", "a", "", "", "", "", 0, default(Sim.Obj.Owner)),
-            new Recorder.Aircraft(true, "DLH2", "b", "", "", "", "", 0, default(Sim.Obj.Owner)),
-        };
+        List<SceneTrack> tracks =
+        [
+            Recording.Jfs2ImportTests.Track(false, "", "", ""),
+            Recording.Jfs2ImportTests.Track(true, "DLH1", "a", ""),
+            Recording.Jfs2ImportTests.Track(true, "DLH2", "b", ""),
+        ];
 
-        Assert.Equal("DLH1", Recorder.FirstCallsign(objects));
+        Assert.Equal("DLH1", Recorder.FirstCallsign(tracks));
     }
 
     [Fact]
@@ -86,18 +86,18 @@ public class RecorderAutoSaveTests : IDisposable
     public void AutoSave_WritesAJfs2FileThatPlaysBack()
     {
         var recorder = new Recorder(null!);
-        var aircraft = new Recorder.Aircraft(true, "DLH1", "a", "", "", "", "", 0, default(Sim.Obj.Owner));
-        aircraft.frames.Add(new Recorder.AircraftPositionFrame(1.0, ref Position));
-        aircraft.frames.Add(new Recorder.AircraftPositionFrame(2.0, ref Position));
+        SceneTrack aircraft = Recording.Jfs2ImportTests.Track(true, "DLH1", "a", "");
+        aircraft.Frames.Add(Recording.Jfs2ImportTests.Position(1.0, Position));
+        aircraft.Frames.Add(Recording.Jfs2ImportTests.Position(2.0, Position));
 
         string path = recorder.AutoSave(folder, [aircraft], Moment);
 
         Assert.Equal(Path.Combine(folder, "2026-10-04_070509_DLH1.jfs2"), path);
         Assert.Equal([path], Directory.GetFiles(folder));
-        var loaded = Jfs2Loader.Load(new MemoryStream(File.ReadAllBytes(path)));
-        var back = Assert.IsType<Recorder.Aircraft>(Assert.Single(loaded.Objects));
-        Assert.Equal("DLH1", back.callsign);
-        Assert.Equal(2, back.frames.OfType<Recorder.AircraftPositionFrame>().Count());
+        var loaded = Jfs2Scene.Load(new MemoryStream(File.ReadAllBytes(path)));
+        var back = Assert.Single(loaded.Tracks);
+        Assert.Equal("DLH1", back.Identity.Callsign);
+        Assert.Equal(2, back.Frames.OfType<ScenePositionFrame>().Count());
     }
 
     static Sim.AircraftPosition Position = new() { latitude = 47, longitude = 8, altitude = 500 };

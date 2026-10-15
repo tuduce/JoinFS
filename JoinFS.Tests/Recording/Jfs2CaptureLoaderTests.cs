@@ -7,7 +7,7 @@ namespace JoinFS.Tests.Recording;
 
 /// <summary>
 /// The stage 2 tracer bullet of the recorder v2 (docs/jfs2/README.md): what <see cref="Jfs2Capture"/> writes,
-/// <see cref="Jfs2Loader"/> reads back into the objects the old player plays.
+/// <see cref="Jfs2Scene"/> reads back into the tracks the player plays.
 /// </summary>
 public sealed class Jfs2CaptureLoaderTests : IDisposable
 {
@@ -63,8 +63,12 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
 
     static Stream Open(string path) => new MemoryStream(File.ReadAllBytes(path));
 
+    static Jfs2Scene Load(Stream stream) => Jfs2Scene.Load(stream);
+
+    static Sim.AircraftPosition Data(SceneFrame frame) => SimMessageMapper.ToAircraftPosition(Assert.IsType<ScenePositionFrame>(frame).Position);
+
     [Fact]
-    public void RoundTrip_GivesTheObjectsTheOldPlayerPlays()
+    public void RoundTrip_GivesTheTracksThePlayerPlays()
     {
         var capture = NewCapture();
         capture.OpenTrack(10000, 0.0, TrackOwner.Local, "me", "JoinFS test", "MSFS2024", Identity("DLH1", "Cessna 172"));
@@ -82,31 +86,32 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         Assert.Equal(2, capture.TrackCount);
         Assert.Equal(200, capture.PositionCount);
 
-        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
+        var result = Load(Open(PathOf("a.jfs2")));
 
         Assert.Empty(result.Notes);
-        Assert.Equal(2, result.Objects.Count);
-        var first = Assert.IsType<Recorder.Aircraft>(result.Objects[0]);
-        var second = Assert.IsType<Recorder.Aircraft>(result.Objects[1]);
-        Assert.Equal(("DLH1", "me", "Cessna 172", "Livery", "C172"), (first.callsign, first.nickname, first.model, first.livery, first.icaoType));
-        Assert.Equal(("DLH2", "other", "Piper"), (second.callsign, second.nickname, second.model));
-        Assert.Equal(3, first.typerole);
+        Assert.Equal(2, result.Tracks.Count);
+        var first = result.Tracks[0];
+        var second = result.Tracks[1];
+        Assert.True(first.Identity.IsAircraft && second.Identity.IsAircraft);
+        Assert.Equal(("DLH1", "me", "Cessna 172", "Livery", "C172"), (first.Identity.Callsign, first.Nickname, first.Identity.Model, first.Identity.Livery, first.Identity.IcaoType));
+        Assert.Equal(("DLH2", "other", "Piper"), (second.Identity.Callsign, second.Nickname, second.Identity.Model));
+        Assert.Equal(3, first.Identity.TypeRole);
         // the track-open is kept, so saving the recording again states the same owner, application and simulator
-        Assert.Equal((Sim.Obj.Owner.Me, "JoinFS test", "MSFS2024"), (first.owner, first.sourceApp, first.simulator));
-        Assert.Equal(Sim.Obj.Owner.Network, second.owner);
-        Assert.Equal(100, first.frames.Count);
-        Assert.Equal(100, second.frames.Count);
+        Assert.Equal((TrackOwner.Local, "JoinFS test", "MSFS2024"), (first.Owner, first.SourceApp, first.Simulator));
+        Assert.Equal(TrackOwner.Network, second.Owner);
+        Assert.Equal(100, first.Frames.Count);
+        Assert.Equal(100, second.Frames.Count);
 
-        var frame = Assert.IsType<Recorder.AircraftPositionFrame>(first.frames[40]);
-        Assert.Equal(2.0, frame.time, 5);
-        Assert.Equal(47.04, frame.data.latitude, 9);
-        Assert.Equal(1040.0, frame.data.altitude, 9);
-        Assert.Equal(1.5f, frame.data.heading);
-        Assert.Equal(1, frame.data.ground);
-        Assert.Equal(0.25f, frame.data.rudder, 4);
-        Assert.Equal(-0.5f, frame.data.elevator, 4);
-        Assert.True(float.IsNaN(frame.data.staticCgToGround));
-        Assert.Equal(0.5, second.frames[0].time, 5);
+        Sim.AircraftPosition data = Data(first.Frames[40]);
+        Assert.Equal(2.0, first.Frames[40].Time, 5);
+        Assert.Equal(47.04, data.latitude, 9);
+        Assert.Equal(1040.0, data.altitude, 9);
+        Assert.Equal(1.5f, data.heading);
+        Assert.Equal(1, data.ground);
+        Assert.Equal(0.25f, data.rudder, 4);
+        Assert.Equal(-0.5f, data.elevator, 4);
+        Assert.True(float.IsNaN(data.staticCgToGround));
+        Assert.Equal(0.5, second.Frames[0].Time, 5);
     }
 
     [Fact]
@@ -165,8 +170,8 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         capture.Finish();
 
         Assert.False(capture.Failed, string.Join(" ", logged));
-        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
-        var times = result.Objects.Cast<Recorder.Aircraft>().Single().frames.Select(f => f.time).ToArray();
+        var result = Load(Open(PathOf("a.jfs2")));
+        var times = result.Tracks.Single().Frames.Select(f => f.Time).ToArray();
         Assert.Equal([6.0, 6.0, 7.0], times);
         Assert.Equal(1, capture.HeldCount);
     }
@@ -202,11 +207,11 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         onDisk.Position = 0;
         capture.Dispose();
 
-        var result = Jfs2Loader.Load(onDisk);
+        var result = Load(onDisk);
 
         Assert.Contains(result.Notes, n => n.Contains("not finished"));
-        var aircraft = Assert.IsType<Recorder.Aircraft>(Assert.Single(result.Objects));
-        Assert.InRange(aircraft.frames.Count, 60, 200);
+        var aircraft = Assert.Single(result.Tracks);
+        Assert.InRange(aircraft.Frames.Count, 60, 200);
     }
 
     [Fact]
@@ -230,9 +235,9 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
             writer.Finish();
         }
 
-        var result = Jfs2Loader.Load(Open(path));
+        var result = Load(Open(path));
 
-        Assert.Single(result.Objects);
+        Assert.Single(result.Tracks);
         Assert.Contains(result.Notes, n => n.StartsWith("2 'weather v1' records were skipped"));
     }
 
@@ -249,7 +254,7 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
             writer.Finish();
         }
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Jfs2Loader.Load(Open(path)));
+        var ex = Assert.Throws<InvalidOperationException>(() => Load(Open(path)));
 
         Assert.Contains("newer version", ex.Message);
     }
@@ -272,16 +277,16 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
             writer.Finish();
         }
 
-        var result = Jfs2Loader.Load(Open(path));
+        var result = Load(Open(path));
 
-        Assert.Single(Assert.Single(result.Objects).frames);
+        Assert.Single(Assert.Single(result.Tracks).Frames);
         Assert.Contains(result.Notes, n => n.StartsWith("1 records could not be read"));
     }
 
     [Fact]
     public void ANonJfs2File_SaysWhy()
     {
-        var ex = Assert.Throws<InvalidOperationException>(() => Jfs2Loader.Load(new MemoryStream(new byte[100])));
+        var ex = Assert.Throws<InvalidOperationException>(() => Load(new MemoryStream(new byte[100])));
 
         Assert.Contains("cannot be opened", ex.Message);
     }
@@ -327,22 +332,25 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
 
     // ---- stage 3: variables and events ----
 
-    static Recorder.Aircraft OnlyAircraft(Jfs2Loader.Result result) => Assert.IsType<Recorder.Aircraft>(Assert.Single(result.Objects));
+    static SceneTrack OnlyAircraft(Jfs2Scene result)
+    {
+        SceneTrack track = Assert.Single(result.Tracks);
+        Assert.True(track.Identity.IsAircraft);
+        return track;
+    }
 
-    /// <summary>The variables an old-player object would hold after playing its frames up to <paramref name="time"/>, in order.</summary>
-    static (Dictionary<uint, int> Integers, Dictionary<uint, float> Floats, Dictionary<uint, string> Strings) Merged(Recorder.Obj obj, double time = double.MaxValue)
+    /// <summary>The variables an object holds after playing its frames up to <paramref name="time"/>, in order.</summary>
+    static (Dictionary<uint, int> Integers, Dictionary<uint, float> Floats, Dictionary<uint, string> Strings) Merged(SceneTrack track, double time = double.MaxValue)
     {
         Dictionary<uint, int> integers = [];
         Dictionary<uint, float> floats = [];
         Dictionary<uint, string> strings = [];
-        foreach (var frame in obj.frames.Where(f => f.time <= time))
+        foreach (var frame in track.Frames.OfType<SceneVariablesFrame>().Where(f => f.Time <= time))
         {
-            switch (frame)
-            {
-                case Recorder.IntegerVariablesFrame f: foreach (var v in f.variables) integers[v.Key] = v.Value; break;
-                case Recorder.FloatVariablesFrame f: foreach (var v in f.variables) floats[v.Key] = v.Value; break;
-                case Recorder.String8VariablesFrame f: foreach (var v in f.variables) strings[v.Key] = v.Value; break;
-            }
+            var (i, f, t) = frame.ByKind();
+            foreach (var v in i ?? []) integers[v.Key] = v.Value;
+            foreach (var v in f ?? []) floats[v.Key] = v.Value;
+            foreach (var v in t ?? []) strings[v.Key] = v.Value;
         }
         return (integers, floats, strings);
     }
@@ -369,7 +377,7 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         // one record for the first call and one for the third; the call with the same values wrote nothing
         Assert.Equal(2, capture.VariableRecordCount);
 
-        var aircraft = OnlyAircraft(Jfs2Loader.Load(Open(PathOf("a.jfs2"))));
+        var aircraft = OnlyAircraft(Load(Open(PathOf("a.jfs2"))));
         var after = Merged(aircraft, 0.15);
         Assert.Equal(new Dictionary<uint, int> { [10] = 1, [11] = 2, [12] = 3 }, after.Integers);
         Assert.Equal("N123", after.Strings[30]);
@@ -379,9 +387,10 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         Assert.Equal(new Dictionary<uint, int> { [10] = 1, [11] = 20, [12] = 3 }, last.Integers);
         Assert.Equal(0.75f, last.Floats[20]);
         // the second sample stored one integer and one float, not the whole set
-        var changed = aircraft.frames.OfType<Recorder.IntegerVariablesFrame>().Last();
-        Assert.Equal(new Dictionary<uint, int> { [11] = 20 }, changed.variables);
-        Assert.Equal(0.3, changed.time, 5);
+        var changed = aircraft.Frames.OfType<SceneVariablesFrame>().Last();
+        Assert.Equal(new Dictionary<uint, int> { [11] = 20 }, changed.ByKind().Integers);
+        Assert.Equal(new Dictionary<uint, float> { [20] = 0.75f }, changed.ByKind().Floats);
+        Assert.Equal(0.3, changed.Time, 5);
     }
 
     [Fact]
@@ -398,7 +407,7 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
 
         Assert.False(capture.Failed, string.Join(" ", logged));
         Assert.Equal(4, capture.VariableRecordCount); // 855 entries: 255 + 255 + 255 + 90
-        var merged = Merged(OnlyAircraft(Jfs2Loader.Load(Open(PathOf("a.jfs2")))));
+        var merged = Merged(OnlyAircraft(Load(Open(PathOf("a.jfs2")))));
         Assert.Equal(integers, merged.Integers);
         Assert.Equal(255, merged.Strings.Count);
         Assert.Equal(new string('é', 128), merged.Strings[5000]);
@@ -418,11 +427,11 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         capture.Finish();
 
         Assert.Equal(2, capture.EventCount);
-        var aircraft = OnlyAircraft(Jfs2Loader.Load(Open(PathOf("a.jfs2"))));
-        var events = aircraft.frames.OfType<Recorder.SimEventFrame>().ToArray();
-        Assert.Equal([(66000u, 1u), (66001u, 0xFFFFFFFFu)], events.Select(e => (e.eventId, e.data)).ToArray());
-        Assert.Equal([Recorder.FrameType.AircraftPosition, Recorder.FrameType.SimEvent, Recorder.FrameType.IntegerVariables, Recorder.FrameType.SimEvent],
-            aircraft.frames.Select(f => f.type).ToArray());
+        var aircraft = OnlyAircraft(Load(Open(PathOf("a.jfs2"))));
+        var events = aircraft.Frames.OfType<SceneEventFrame>().ToArray();
+        Assert.Equal([(66000u, 1u), (66001u, 0xFFFFFFFFu)], events.Select(e => (e.EventId, e.Data)).ToArray());
+        Assert.Equal([typeof(ScenePositionFrame), typeof(SceneEventFrame), typeof(SceneVariablesFrame), typeof(SceneEventFrame)],
+            aircraft.Frames.Select(f => f.GetType()).ToArray());
     }
 
     [Fact]
@@ -446,7 +455,7 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         capture.Event(1, 0.2, 1, 1);
         capture.Finish();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Jfs2Loader.Load(Open(PathOf("a.jfs2"))));
+        var ex = Assert.Throws<InvalidOperationException>(() => Load(Open(PathOf("a.jfs2"))));
 
         Assert.Contains("nothing that can be played", ex.Message);
     }
@@ -509,22 +518,23 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
 
         Assert.False(capture.Failed, string.Join(" ", logged));
         Assert.Equal(20, capture.ObjectPositionCount);
-        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
+        var result = Load(Open(PathOf("a.jfs2")));
 
         Assert.Empty(result.Notes);
-        Assert.Equal(2, result.Objects.Count);
-        Assert.IsType<Recorder.Aircraft>(result.Objects[0]);
-        var boat = result.Objects[1];
-        Assert.IsNotType<Recorder.Aircraft>(boat);
-        Assert.Equal(("Ferry", Sim.Obj.Owner.Network), (boat.model, boat.owner));
-        var frames = boat.frames.OfType<Recorder.ObjectPositionFrame>().ToArray();
+        Assert.Equal(2, result.Tracks.Count);
+        Assert.True(result.Tracks[0].Identity.IsAircraft);
+        var boat = result.Tracks[1];
+        Assert.False(boat.Identity.IsAircraft);
+        Assert.Equal(("Ferry", TrackOwner.Network), (boat.Identity.Model, boat.Owner));
+        var frames = boat.Frames.OfType<SceneObjectPositionFrame>().ToArray();
         Assert.Equal(20, frames.Length);
-        Assert.Equal(51.005, frames[5].data.latitude, 9);
-        Assert.Equal(0.5, frames[5].time, 5);
-        Assert.Equal(1, frames[5].data.ground);
-        Assert.Equal(2.5f, frames[5].data.height);
-        Assert.Equal(9f, frames[5].data.accelerationZ);
-        Assert.Single(boat.frames.OfType<Recorder.IntegerVariablesFrame>());
+        Sim.ObjectPositionVelocity data = SimMessageMapper.ToPositionVelocity(frames[5].Position);
+        Assert.Equal(51.005, data.latitude, 9);
+        Assert.Equal(0.5, frames[5].Time, 5);
+        Assert.Equal(1, data.ground);
+        Assert.Equal(2.5f, data.height);
+        Assert.Equal(9f, data.accelerationZ);
+        Assert.Single(boat.Frames.OfType<SceneVariablesFrame>());
     }
 
     // ---- stage 3c: keyframes ----
@@ -595,14 +605,14 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
     {
         RecordThirtySeconds();
 
-        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
+        var result = Load(Open(PathOf("a.jfs2")));
 
         Assert.Empty(result.Notes);
-        var aircraft = Assert.IsType<Recorder.Aircraft>(result.Objects[0]);
-        Assert.Equal(600, aircraft.frames.OfType<Recorder.AircraftPositionFrame>().Count());
-        Assert.Equal(2, aircraft.frames.OfType<Recorder.IntegerVariablesFrame>().Count());
-        Assert.Equal(500, result.Objects[1].frames.OfType<Recorder.ObjectPositionFrame>().Count());
-        Assert.Equal(aircraft.frames.Select(f => f.time).Order(), aircraft.frames.Select(f => f.time));
+        var aircraft = result.Tracks[0];
+        Assert.Equal(600, aircraft.Frames.OfType<ScenePositionFrame>().Count());
+        Assert.Equal(2, aircraft.Frames.OfType<SceneVariablesFrame>().Count());
+        Assert.Equal(500, result.Tracks[1].Frames.OfType<SceneObjectPositionFrame>().Count());
+        Assert.Equal(aircraft.Frames.Select(f => f.Time).Order(), aircraft.Frames.Select(f => f.Time));
     }
 
     /// <summary>Damages the middle of a chunk of the finished file so its CRC fails.</summary>
@@ -624,26 +634,26 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         RecordThirtySeconds();
         Corrupt(2); // 4 s to 6 s: holds the opening of track 2 and the change of variable 10
 
-        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
+        var result = Load(Open(PathOf("a.jfs2")));
 
         Assert.Contains(result.Notes, n => n.StartsWith("Damaged recording"));
         Assert.Contains(result.Warnings, n => n.StartsWith("Damaged recording")); // the user is told
-        Assert.Equal(2, result.Objects.Count); // track 2 opened in the lost chunk and came back with the keyframe
-        var aircraft = (Recorder.Aircraft)result.Objects[0];
-        var boat = result.Objects[1];
-        Assert.Equal("Ferry", boat.model);
+        Assert.Equal(2, result.Tracks.Count); // track 2 opened in the lost chunk and came back with the keyframe
+        var aircraft = result.Tracks[0];
+        var boat = result.Tracks[1];
+        Assert.Equal("Ferry", boat.Identity.Model);
 
         // nothing from the chunks after the lost one up to the keyframe at chunk 5 (about 10 s)
-        double[] times = [.. aircraft.frames.OfType<Recorder.AircraftPositionFrame>().Select(f => f.time)];
+        double[] times = [.. aircraft.Frames.OfType<ScenePositionFrame>().Select(f => f.Time)];
         Assert.DoesNotContain(times, t => t > 4.1 && t < 10.0);
         Assert.Contains(times, t => t > 12.0);
         // the state the lost chunk changed is back: variable 10 changed there, variable 11 never did
         var merged = Merged(aircraft);
         Assert.Equal(new Dictionary<uint, int> { [10] = 2, [11] = 7 }, merged.Integers);
         Assert.Equal(new Dictionary<uint, int> { [5] = 9 }, Merged(boat).Integers);
-        // frames stay in time order, so the old player interpolates correctly
-        Assert.Equal(aircraft.frames.Select(f => f.time).Order(), aircraft.frames.Select(f => f.time));
-        Assert.Equal(boat.frames.Select(f => f.time).Order(), boat.frames.Select(f => f.time));
+        // frames stay in time order, so the player interpolates correctly
+        Assert.Equal(aircraft.Frames.Select(f => f.Time).Order(), aircraft.Frames.Select(f => f.Time));
+        Assert.Equal(boat.Frames.Select(f => f.Time).Order(), boat.Frames.Select(f => f.Time));
         // a snapshot's position that is a copy of one already read is not added twice
         Assert.Equal(times.Length, times.Distinct().Count());
     }
@@ -654,10 +664,10 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         RecordThirtySeconds();
         Corrupt(5);
 
-        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
+        var result = Load(Open(PathOf("a.jfs2")));
 
-        var aircraft = (Recorder.Aircraft)result.Objects[0];
-        double[] times = [.. aircraft.frames.OfType<Recorder.AircraftPositionFrame>().Select(f => f.time)];
+        var aircraft = result.Tracks[0];
+        double[] times = [.. aircraft.Frames.OfType<ScenePositionFrame>().Select(f => f.Time)];
         Assert.Contains(times, t => t > 20.0);
         Assert.DoesNotContain(times, t => t > 10.5 && t < 19.0); // chunk 4 ends at about 10 s; the next keyframe is chunk 10, about 20 s
         Assert.Equal(new Dictionary<uint, int> { [10] = 2, [11] = 7 }, Merged(aircraft).Integers);
@@ -694,17 +704,17 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         // the first record of chunk 0, the track-open of track 1, names a kind no Schema binds, so chunk 0 yields nothing
         DamageInside(0, (bytes, at) => bytes[at + 5 + Jfs2.ChunkHeaderLength] = 0x7F);
 
-        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
+        var result = Load(Open(PathOf("a.jfs2")));
 
         Assert.Contains(result.Warnings, n => n.StartsWith("Damaged recording"));
-        Assert.Equal(2, result.Objects.Count); // both tracks come back with the keyframe at chunk 5 (about 10 s)
-        var aircraft = (Recorder.Aircraft)result.Objects[0];
-        Assert.Equal("A", aircraft.callsign);
-        double[] times = [.. aircraft.frames.OfType<Recorder.AircraftPositionFrame>().Select(f => f.time)];
+        Assert.Equal(2, result.Tracks.Count); // both tracks come back with the keyframe at chunk 5 (about 10 s)
+        var aircraft = result.Tracks[0];
+        Assert.Equal("A", aircraft.Identity.Callsign);
+        double[] times = [.. aircraft.Frames.OfType<ScenePositionFrame>().Select(f => f.Time)];
         Assert.DoesNotContain(times, t => t < 9.0);
         Assert.Contains(times, t => t > 29.0);
         Assert.Equal(new Dictionary<uint, int> { [10] = 2, [11] = 7 }, Merged(aircraft).Integers);
-        Assert.Equal(new Dictionary<uint, int> { [5] = 9 }, Merged(result.Objects[1]).Integers);
+        Assert.Equal(new Dictionary<uint, int> { [5] = 9 }, Merged(result.Tracks[1]).Integers);
     }
 
     [Fact]
@@ -721,14 +731,14 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
             bytes[at + body.Offset + 4] = 255;
         });
 
-        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
+        var result = Load(Open(PathOf("a.jfs2")));
 
         Assert.Contains(result.Warnings, n => n.Contains("could not be read"));
-        var aircraft = (Recorder.Aircraft)result.Objects[0];
+        var aircraft = result.Tracks[0];
         // only that record is lost: every position plays, and the keyframe at about 10 s sets the variables right again
-        Assert.Equal(600, aircraft.frames.OfType<Recorder.AircraftPositionFrame>().Count());
+        Assert.Equal(600, aircraft.Frames.OfType<ScenePositionFrame>().Count());
         Assert.Equal(new Dictionary<uint, int> { [10] = 2, [11] = 7 }, Merged(aircraft).Integers);
-        Assert.Equal(aircraft.frames.Select(f => f.time).Order(), aircraft.frames.Select(f => f.time));
+        Assert.Equal(aircraft.Frames.Select(f => f.Time).Order(), aircraft.Frames.Select(f => f.Time));
     }
 
     [Fact]
@@ -800,20 +810,53 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
     }
 
     [Fact]
-    public void ALoaderReadingAnIdentityChange_KeepsTheOpeningIdentityAndSaysSo()
+    public void AnIdentityChange_IsAFrameOfTheTrack_AfterTheIdentityItOpenedWith()
     {
         var capture = NewCapture();
         capture.OpenTrack(1, 0.0, TrackOwner.Local, "me", "JoinFS test", "MSFS2024", Identity("N1", "Cessna 172"));
         PositionUpdate p = Position(0);
         capture.Position(1, 0.5, ref p);
         capture.Identity(1, 1.0, Identity("DLH1", "Cessna 172"));
+        capture.Position(1, 1.5, ref p);
         capture.Finish();
 
-        var result = Jfs2Loader.Load(Open(PathOf("a.jfs2")));
+        var result = Load(Open(PathOf("a.jfs2")));
 
-        Assert.Equal("N1", OnlyAircraft(result).callsign);
-        Assert.Contains(result.Notes, n => n.Contains("1 identity changes were ignored"));
+        SceneTrack track = OnlyAircraft(result);
+        Assert.Equal("N1", track.Identity.Callsign);
+        var change = Assert.Single(track.Frames.OfType<SceneIdentityFrame>());
+        Assert.Equal((1.0, "DLH1"), (change.Time, change.Identity.Callsign));
+        Assert.Equal("N1", track.StateAt(1.0).Identity.Callsign);
+        Assert.Equal("DLH1", track.StateAt(1.01).Identity.Callsign);
+        Assert.Contains(result.Notes, n => n.StartsWith("1 identity changes"));
         Assert.Empty(result.Warnings); // for the log only
+    }
+
+    [Fact]
+    public void AnIdentityChangeInALostChunk_IsRestoredByTheNextKeyframe()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(1, 0.0, TrackOwner.Local, "me", "JoinFS test", "MSFS2024", Identity("N1", "Cessna 172"));
+        for (int i = 0; i < 300; i++)
+        {
+            if (i == 50)
+            {
+                capture.Identity(1, 5.0, Identity("DLH1", "Cessna 172"));
+            }
+            PositionUpdate p = Position(i);
+            capture.Position(1, i * 0.1, ref p);
+        }
+        capture.Finish();
+        Corrupt(2); // 4 s to 6 s: holds the change
+
+        SceneTrack track = OnlyAircraft(Load(Open(PathOf("a.jfs2"))));
+
+        // the keyframe's snapshot (about 10 s) says the identity is DLH1, with the time of the change
+        var change = Assert.Single(track.Frames.OfType<SceneIdentityFrame>());
+        Assert.Equal("DLH1", change.Identity.Callsign);
+        Assert.Equal(5.0, change.Time, 5);
+        Assert.Equal("N1", track.Identity.Callsign);
+        Assert.Equal(track.Frames.Select(f => f.Time).Order(), track.Frames.Select(f => f.Time));
     }
 
     [Fact]

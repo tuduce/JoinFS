@@ -34,319 +34,24 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Type of a frame
-        /// </summary>
-        public enum FrameType
-        {
-            ObjectPosition,
-            AircraftPosition,
-            PlaneState,
-            HelicopterState,
-            AircraftState,
-            PistonEngineState,
-            TurbineEngineState,
-            ObjectSmoke,
-            AircraftFuel,
-            AircraftPayload,
-            SimEvent,
-            IntegerVariables,
-            FloatVariables,
-            String8Variables,
-        }
-
-        /// <summary>
-        /// Recorded frame
-        /// </summary>
-        public class Frame
-        {
-            /// <summary>
-            /// Type of frame
-            /// </summary>
-            public FrameType type;
-            /// <summary>
-            /// Recording time
-            /// </summary>
-            public double time;
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            public Frame()
-            {
-            }
-
-
-        }
-
-        /// <summary>
-        /// A single object position frame for a recorded aircraft
-        /// </summary>
-        public class ObjectPositionFrame : Frame
-        {
-            /// <summary>
-            ///  Object position velocity
-            /// </summary>
-            public Sim.ObjectPositionVelocity data;
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            /// <param name="time">Record time</param>
-            /// <param name="netTime">Network time</param>
-            /// <param name="positionVelocity">Position and Velocity</param>
-            public ObjectPositionFrame(double time, ref Sim.ObjectPositionVelocity data)
-            {
-                // set data
-                base.type = FrameType.ObjectPosition;
-                base.time = time;
-                this.data = data;
-            }
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            public ObjectPositionFrame()
-            {
-            }
-
-        }
-
-        /// <summary>
-        /// A single aircraft position frame for a recorded aircraft
-        /// </summary>
-        public class AircraftPositionFrame : Frame
-        {
-            /// <summary>
-            ///  Aircraft position
-            /// </summary>
-            public Sim.AircraftPosition data;
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            /// <param name="time">Record time</param>
-            /// <param name="netTime">Network time</param>
-            /// <param name="positionVelocity">Position and Velocity</param>
-            public AircraftPositionFrame(double time, ref Sim.AircraftPosition data)
-            {
-                // set data
-                base.type = FrameType.AircraftPosition;
-                base.time = time;
-                this.data = data;
-            }
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            public AircraftPositionFrame()
-            {
-            }
-
-        }
-
-        /// <summary>
-        /// A single event frame for a recorded object
-        /// </summary>
-        public class SimEventFrame : Frame
-        {
-            /// <summary>
-            /// Aircraft data
-            /// </summary>
-            public uint eventId;
-            public uint data;
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            /// <param name="time">Record time</param>
-            /// <param name="eventId">Event ID</param>
-            /// <param name="data">Data</param>
-            public SimEventFrame(double time, uint eventId, uint data)
-            {
-                // set data
-                base.type = FrameType.SimEvent;
-                base.time = time;
-                this.eventId = eventId;
-                this.data = data;
-            }
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            public SimEventFrame()
-            {
-            }
-
-        }
-
-        /// <summary>
-        /// A single variable frame for a recorded object
-        /// </summary>
-        public class IntegerVariablesFrame : Frame
-        {
-            /// <summary>
-            /// Variables data
-            /// </summary>
-            public Dictionary<uint, int> variables;
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            public IntegerVariablesFrame(double time, Dictionary<uint, int> variables)
-            {
-                // set data
-                type = FrameType.IntegerVariables;
-                base.time = time;
-                // new variables
-                this.variables = [];
-                // for each variable
-                foreach (var variable in variables)
-                {
-                    // add variable
-                    this.variables.Add(variable.Key, variable.Value);
-                }
-            }
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            public IntegerVariablesFrame()
-            {
-                // new variables
-                variables = [];
-            }
-
-        }
-
-        /// <summary>
-        /// A single variable frame for a recorded object
-        /// </summary>
-        public class FloatVariablesFrame : Frame
-        {
-            /// <summary>
-            /// Variables data
-            /// </summary>
-            public Dictionary<uint, float> variables;
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            public FloatVariablesFrame(double time, Dictionary<uint, float> variables)
-            {
-                // set data
-                type = FrameType.FloatVariables;
-                base.time = time;
-                // new variables
-                this.variables = [];
-                // for each variable
-                foreach (var variable in variables)
-                {
-                    // add variable
-                    this.variables.Add(variable.Key, variable.Value);
-                }
-            }
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            public FloatVariablesFrame()
-            {
-                // new variables
-                variables = [];
-            }
-
-        }
-
-        /// <summary>
-        /// A single variable frame for a recorded object
-        /// </summary>
-        public class String8VariablesFrame : Frame
-        {
-            /// <summary>
-            /// Variables data
-            /// </summary>
-            public Dictionary<uint, string> variables;
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            public String8VariablesFrame(double time, Dictionary<uint, string> variables)
-            {
-                // set data
-                type = FrameType.String8Variables;
-                base.time = time;
-                // new variables
-                this.variables = [];
-                // for each variable
-                foreach (var variable in variables)
-                {
-                    // add variable
-                    this.variables.Add(variable.Key, variable.Value);
-                }
-            }
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            public String8VariablesFrame()
-            {
-                // new variables
-                variables = [];
-            }
-
-        }
-
-        /// <summary>
-        /// Recorded object
+        /// A recorded object: its track of canonical messages (<see cref="SceneTrack"/>, what a JFS2 file holds) and the state of
+        /// playing or recording it. The recording is the tracks of all objects; the id is the object's in the simulator while it is
+        /// played or recorded.
         /// </summary>
         public class Obj
         {
             /// <summary>
             /// ID for the recorded object
             /// </summary>
-            public uint id = 0;
+            public readonly uint id;
             /// <summary>
-            /// Aircraft model
+            /// What was recorded, in time order
             /// </summary>
-            public string model = "";
+            public readonly SceneTrack track;
             /// <summary>
-            /// Aircraft variation
+            /// The next frame to play
             /// </summary>
-            public string livery = "";
-            /// <summary>
-            /// ICAO type designator (e.g. A20N)
-            /// </summary>
-            public string icaoType = "";
-            /// <summary>
-            /// ICAO airline code (e.g. DLH)
-            /// </summary>
-            public string icaoAirline = "";
-            /// <summary>
-            /// Aircraft type role
-            /// </summary>
-            public int typerole = Substitution.TypeRole_SingleProp;
-            /// <summary>
-            /// List of frames
-            /// </summary>
-            public List<Frame> frames = [];
-
-            /// <summary>Copy with its own frame list (the frames themselves are shared)</summary>
-            public Obj CopyForSave()
-            {
-                Obj copy = (Obj)MemberwiseClone();
-                copy.frames = new(frames);
-                return copy;
-            }
             public int frameIndex = 0;
-            /// <summary>
-            /// Object owner
-            /// </summary>
-            public Sim.Obj.Owner owner = Sim.Obj.Owner.Me;
-            /// <summary>
-            /// The application that recorded the object and the simulator it was seen in (a JFS2 track-open); empty when unknown
-            /// </summary>
-            public string sourceApp = "";
-            public string simulator = "";
             /// <summary>
             /// Object is currently being played
             /// </summary>
@@ -356,6 +61,10 @@ namespace JoinFS
             /// A recording that is loaded again has no skipped objects.
             /// </summary>
             public bool skipped = false;
+            /// <summary>
+            /// The identity it plays with (the track's, then each change played), or the latest one recorded
+            /// </summary>
+            public IdentityUpdate identity;
             /// <summary>
             /// The recording times of the object's records while it is recorded: positions at their sample time, the rest with them
             /// </summary>
@@ -368,33 +77,19 @@ namespace JoinFS
             /// </summary>
             static uint nextId = 10000;
 
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            /// <param name="model">Object model</param>
-            public Obj(string model, string livery, string icaoType, string icaoAirline, int typerole, Sim.Obj.Owner owner)
+            public Obj(SceneTrack track)
             {
-                // ID
-                this.id = nextId++;
-                this.model = model;
-                this.icaoType = icaoType;
-                this.icaoAirline = icaoAirline;
-                this.typerole = typerole;
-                this.owner = owner;
-                this.livery = livery;
-
+                id = nextId++;
+                this.track = track;
+                identity = track.Identity;
             }
 
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            public Obj()
-            {
-                // ID
-                this.id = nextId++;
-                this.owner = Sim.Obj.Owner.Recorder;
+            public bool IsAircraft => track.Identity.IsAircraft;
 
-            }
+            /// <summary>
+            /// Time of the last frame
+            /// </summary>
+            public double EndTime => track.Frames.Count == 0 ? 0.0 : track.Frames[^1].Time;
 
             /// <summary>
             /// Start playing this object
@@ -409,6 +104,7 @@ namespace JoinFS
 
                 // start at beginning
                 frameIndex = 0;
+                identity = track.Identity;
                 playbackAnglesValid = false;
                 // start playing
                 playing = true;
@@ -422,53 +118,7 @@ namespace JoinFS
                 // stop playing
                 playing = false;
                 playbackAnglesValid = false;
-                // sort frames
-                frames.Sort(delegate(Frame f1, Frame f2) { return f1.time.CompareTo(f2.time); });
             }
-
-
-        }
-
-        /// <summary>
-        /// Recorded aircraft
-        /// </summary>
-        public class Aircraft : Obj
-        {
-            /// <summary>
-            /// Is this object a plane
-            /// </summary>
-            public bool plane = true;
-            /// <summary>
-            /// Aircraft callsign
-            /// </summary>
-            public string callsign = "";
-            /// <summary>
-            /// Aircraft nickname
-            /// </summary>
-            public string nickname = "";
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            /// <param name="plane">Aircraft is a plane</param>
-            /// <param name="callsign">Aircraft callsign</param>
-            /// <param name="model">Aircraft model</param>
-            public Aircraft(bool plane, string callsign, string nickname, string model, string livery, string icaoType, string icaoAirline, int typerole, Sim.Obj.Owner owner) : base(model, livery, icaoType, icaoAirline, typerole, owner)
-            {
-                this.plane = plane;
-                this.callsign = callsign;
-                this.nickname = nickname;
-                this.livery = livery;
-
-            }
-
-            /// <summary>
-            /// Constructor
-            /// </summary>
-            public Aircraft()
-            {
-            }
-
         }
 
         /// <summary>
@@ -522,9 +172,9 @@ namespace JoinFS
             List<AircraftView> aircraft = [];
             foreach (var obj in objList)
             {
-                if (obj is Aircraft recorded)
+                if (obj.IsAircraft)
                 {
-                    aircraft.Add(new AircraftView(recorded.id, recorded.callsign, recorded.model, recorded.skipped));
+                    aircraft.Add(new AircraftView(obj.id, obj.track.Identity.Callsign, obj.track.Identity.Model, obj.skipped));
                 }
             }
             aircraftView = aircraft.ToArray();
@@ -584,13 +234,13 @@ namespace JoinFS
         /// <summary>
         /// Callsign of the first aircraft in a recording, empty if there is none
         /// </summary>
-        public static string FirstCallsign(List<Obj> objects)
+        public static string FirstCallsign(IReadOnlyList<SceneTrack> tracks)
         {
-            foreach (var obj in objects)
+            foreach (var track in tracks)
             {
-                if (obj is Aircraft aircraft)
+                if (track.Identity.IsAircraft)
                 {
-                    return aircraft.callsign ?? "";
+                    return track.Identity.Callsign ?? "";
                 }
             }
             return "";
@@ -616,10 +266,10 @@ namespace JoinFS
         /// automatic name, never overwriting a file. Returns the path; throws if it can't be written
         /// (nothing is left behind) - any thread
         /// </summary>
-        public string AutoSave(string folder, List<Obj> objects, DateTime now)
+        public string AutoSave(string folder, IReadOnlyList<SceneTrack> tracks, DateTime now)
         {
-            string path = UniquePath(folder, BuildAutoSaveFileName(now, FirstCallsign(objects)));
-            SaveJfs2(path, objects, now, false);
+            string path = UniquePath(folder, BuildAutoSaveFileName(now, FirstCallsign(tracks)));
+            SaveJfs2(path, tracks, now, false);
             return path;
         }
 
@@ -629,13 +279,13 @@ namespace JoinFS
         /// </summary>
         /// <param name="now">When the recording ended (local time); the file's start time is that minus the recording's length</param>
         /// <param name="overwrite">Replace an existing file (the user confirmed it in the dialog) instead of failing</param>
-        public void SaveJfs2(string path, List<Obj> objects, DateTime now, bool overwrite)
+        public void SaveJfs2(string path, IReadOnlyList<SceneTrack> tracks, DateTime now, bool overwrite)
         {
-            double length = objects.Count == 0 ? 0 : objects.Max(obj => obj.frames.Count == 0 ? 0 : obj.frames[^1].time);
+            double length = tracks.Count == 0 ? 0 : tracks.Max(track => track.Frames.Count == 0 ? 0 : track.Frames[^1].Time);
             string temp = path + ".tmp";
             try
             {
-                Jfs2Exporter.Write(temp, objects, AppLabel, now.ToUniversalTime().AddSeconds(-length), _ => { });
+                Jfs2SceneWriter.Write(temp, tracks, AppLabel, now.ToUniversalTime().AddSeconds(-length), _ => { });
                 File.Move(temp, path, overwrite);
             }
             catch
@@ -665,13 +315,26 @@ namespace JoinFS
         double startTime;
 
         /// <summary>
-        /// Frame type counts recorded during current recording session
+        /// What is counted of a recording session, for the log
         /// </summary>
-        readonly Dictionary<FrameType, int> recordFrameCounts = [];
+        enum Captured
+        {
+            ObjectPosition,
+            AircraftPosition,
+            SimEvent,
+            IntegerVariables,
+            FloatVariables,
+            String8Variables,
+        }
+
+        /// <summary>
+        /// Frame counts recorded during current recording session
+        /// </summary>
+        readonly Dictionary<Captured, int> recordFrameCounts = [];
         int recordSimErrorCount = 0;
         string recordFirstSimError = "";
 
-        void IncrementRecordFrameCount(FrameType type)
+        void IncrementRecordFrameCount(Captured type)
         {
             if (recordFrameCounts.ContainsKey(type))
             {
@@ -735,16 +398,7 @@ namespace JoinFS
                 // for each object
                 foreach (var obj in objList)
                 {
-                    // check for data
-                    if (obj.frames.Count > 0)
-                    {
-                        // check if last frame time is later than latest
-                        if (obj.frames[obj.frames.Count - 1].time > latest)
-                        {
-                            // update latest
-                            latest = obj.frames[obj.frames.Count - 1].time;
-                        }
-                    }
+                    latest = Math.Max(latest, obj.EndTime);
                 }
 
                 // return latest time
@@ -762,17 +416,12 @@ namespace JoinFS
             // check object
             if (obj != null && obj.playing == false)
             {
-                // add position velocity frame
+                // flags: only on-ground, as the old format kept
                 double frameTime = obj.timeBase.Position(Time, objTime);
-                obj.frames.Add(new ObjectPositionFrame(frameTime, ref positionVelocity));
-                IncrementRecordFrameCount(FrameType.ObjectPosition);
-
-                // and to the JFS2 file (flags: the old format keeps only on-ground)
-                if (jfs2 != null)
-                {
-                    ObjectPositionUpdate update = SimMessageMapper.ToObjectPositionUpdate(obj.id, frameTime, ref positionVelocity, positionVelocity.ground != 0 ? PositionStateFlags.OnGround : PositionStateFlags.None);
-                    jfs2.ObjectPosition(obj.id, frameTime, ref update);
-                }
+                ObjectPositionUpdate update = SimMessageMapper.ToObjectPositionUpdate(obj.id, frameTime, ref positionVelocity, positionVelocity.ground != 0 ? PositionStateFlags.OnGround : PositionStateFlags.None);
+                obj.track.Frames.Add(new SceneObjectPositionFrame(frameTime, update));
+                IncrementRecordFrameCount(Captured.ObjectPosition);
+                jfs2?.ObjectPosition(obj.id, frameTime, ref update);
             }
         }
 
@@ -786,17 +435,12 @@ namespace JoinFS
             // check object
             if (obj != null && obj.playing == false)
             {
-                // add position velocity frame
+                // flags: only on-ground, as the old format kept
                 double frameTime = obj.timeBase.Position(Time, objTime);
-                obj.frames.Add(new AircraftPositionFrame(frameTime, ref aircraftPosition));
-                IncrementRecordFrameCount(FrameType.AircraftPosition);
-
-                // and to the JFS2 file (flags: the old format keeps only on-ground)
-                if (jfs2 != null)
-                {
-                    PositionUpdate update = SimMessageMapper.ToPositionUpdate(obj.id, frameTime, ref aircraftPosition, aircraftPosition.ground != 0 ? PositionStateFlags.OnGround : PositionStateFlags.None);
-                    jfs2.Position(obj.id, frameTime, ref update);
-                }
+                PositionUpdate update = SimMessageMapper.ToPositionUpdate(obj.id, frameTime, ref aircraftPosition, aircraftPosition.ground != 0 ? PositionStateFlags.OnGround : PositionStateFlags.None);
+                obj.track.Frames.Add(new ScenePositionFrame(frameTime, update));
+                IncrementRecordFrameCount(Captured.AircraftPosition);
+                jfs2?.Position(obj.id, frameTime, ref update);
             }
         }
 
@@ -810,8 +454,8 @@ namespace JoinFS
             {
                 // add event, on the time base of the object's positions
                 double time = obj.timeBase.Other(Time);
-                obj.frames.Add(new SimEventFrame(time, eventId, data));
-                IncrementRecordFrameCount(FrameType.SimEvent);
+                obj.track.Frames.Add(new SceneEventFrame(time, eventId, data));
+                IncrementRecordFrameCount(Captured.SimEvent);
                 jfs2?.Event(obj.id, time, eventId, data);
             }
         }
@@ -819,48 +463,28 @@ namespace JoinFS
         /// <summary>
         /// Record integer variables
         /// </summary>
-        public void Record(Obj obj, Dictionary<uint, int> variables)
-        {
-            // check object
-            if (obj != null && obj.playing == false)
-            {
-                // add variables, on the time base of the object's positions
-                double time = obj.timeBase.Other(Time);
-                obj.frames.Add(new IntegerVariablesFrame(time, variables));
-                IncrementRecordFrameCount(FrameType.IntegerVariables);
-                jfs2?.Variables(obj.id, time, variables, null, null);
-            }
-        }
+        public void Record(Obj obj, Dictionary<uint, int> variables) => RecordVariables(obj, variables, null, null, Captured.IntegerVariables);
 
         /// <summary>
         /// Record float variables
         /// </summary>
-        public void Record(Obj obj, Dictionary<uint, float> variables)
-        {
-            // check object
-            if (obj != null && obj.playing == false)
-            {
-                // add variables, on the time base of the object's positions
-                double time = obj.timeBase.Other(Time);
-                obj.frames.Add(new FloatVariablesFrame(time, variables));
-                IncrementRecordFrameCount(FrameType.FloatVariables);
-                jfs2?.Variables(obj.id, time, null, variables, null);
-            }
-        }
+        public void Record(Obj obj, Dictionary<uint, float> variables) => RecordVariables(obj, null, variables, null, Captured.FloatVariables);
 
         /// <summary>
         /// Record string8 variables
         /// </summary>
-        public void Record(Obj obj, Dictionary<uint, string> variables)
+        public void Record(Obj obj, Dictionary<uint, string> variables) => RecordVariables(obj, null, null, variables, Captured.String8Variables);
+
+        void RecordVariables(Obj obj, Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> strings, Captured type)
         {
             // check object
             if (obj != null && obj.playing == false)
             {
-                // add variables, on the time base of the object's positions
+                // add variables (copied: the dictionaries are the object's live set), on the time base of the object's positions
                 double time = obj.timeBase.Other(Time);
-                obj.frames.Add(new String8VariablesFrame(time, variables));
-                IncrementRecordFrameCount(FrameType.String8Variables);
-                jfs2?.Variables(obj.id, time, null, null, variables);
+                obj.track.Frames.Add(new SceneVariablesFrame(time, new VariableSyncUpdate { Entries = SimMessageMapper.ToVariableEntries(integers, floats, strings) }));
+                IncrementRecordFrameCount(type);
+                jfs2?.Variables(obj.id, time, integers, floats, strings);
             }
         }
 
@@ -869,27 +493,37 @@ namespace JoinFS
         /// </summary>
         void AddRecordedObject(Sim.Obj simObject)
         {
-            // check for aircraft
-            if (simObject is Sim.Aircraft simAircraft)
+            string nickname = main.network.Peers.GetNodeName(simObject.ownerNuid);
+            var track = new SceneTrack
             {
-                // create recorded aircraft
-                simObject.recorderObj = new Aircraft(simAircraft is Sim.Plane, simAircraft.flightPlan.callsign, main.network.Peers.GetNodeName(simAircraft.ownerNuid), simAircraft.ownerModel, simAircraft.ownerLivery, simAircraft.ownerIcaoType, simAircraft.ownerIcaoAirline, simAircraft.typerole, simAircraft.owner);
-            }
-            else
-            {
-                // create recorded object
-                simObject.recorderObj = new Obj(simObject.ownerModel, simObject.ownerLivery, simObject.ownerIcaoType, simObject.ownerIcaoAirline, simObject.typerole, simObject.owner);
-            }
-            simObject.recorderObj.sourceApp = AppLabel;
-            simObject.recorderObj.simulator = SimulatorLabel();
-            OpenJfs2Track(simObject.recorderObj, main.network.Peers.GetNodeName(simObject.ownerNuid), SimMessageMapper.BuildIdentity(simObject, simObject.recorderObj.id));
+                Nickname = nickname,
+                Owner = ToTrackOwner(simObject.owner),
+                SourceApp = AppLabel,
+                Simulator = SimulatorLabel(),
+                Identity = RecordedIdentity(simObject),
+            };
+            simObject.recorderObj = new Obj(track);
+            jfs2?.OpenTrack(simObject.recorderObj.id, Time, track.Owner, nickname, track.SourceApp, track.Simulator, track.Identity);
             // add to list
             objList.Add(simObject.recorderObj);
         }
 
         /// <summary>
+        /// What a recorded object is: what its owner says (its model, not the one it is shown with here), as the network sends it. The
+        /// track stands for the object, so the identity's own id is left 0.
+        /// </summary>
+        static IdentityUpdate RecordedIdentity(Sim.Obj simObject)
+        {
+            IdentityUpdate identity = SimMessageMapper.BuildIdentity(simObject, 0);
+            identity.Model = simObject.ownerModel ?? "";
+            identity.IcaoType = simObject.ownerIcaoType ?? "";
+            identity.IcaoAirline = simObject.ownerIcaoAirline ?? "";
+            return identity;
+        }
+
+        /// <summary>
         /// The live capture into the working file (docs/jfs2), or null: a journal of the recording that survives a crash and is offered
-        /// for recovery. The in-memory objects stay the recording that is played, edited and saved (Save exports them).
+        /// for recovery. The in-memory tracks stay the recording that is played, edited and saved (Save writes them with Jfs2SceneWriter).
         /// </summary>
         Jfs2Capture jfs2;
 
@@ -1005,31 +639,20 @@ namespace JoinFS
         };
 
         /// <summary>
-        /// The owner of a recorded object read from a JFS2 track-open, so saving it again states the same owner
-        /// </summary>
-        public static Sim.Obj.Owner FromTrackOwner(TrackOwner owner) => owner switch
-        {
-            TrackOwner.Network => Sim.Obj.Owner.Network,
-            TrackOwner.Local => Sim.Obj.Owner.Me,
-            _ => Sim.Obj.Owner.Recorder,
-        };
-
-        /// <summary>
-        /// Open the JFS2 track of a recorded object
-        /// </summary>
-        void OpenJfs2Track(Obj obj, string nickname, IdentityUpdate identity)
-        {
-            jfs2?.OpenTrack(obj.id, Time, ToTrackOwner(obj.owner), nickname, obj.sourceApp, obj.simulator, identity);
-        }
-
-        /// <summary>
-        /// Write the identity of a recorded object again when it has changed (callsign, model) since the last one written
+        /// Record the identity of a recorded object again when it has changed (callsign, model) since the last one recorded
         /// </summary>
         public void RecordIdentity(Sim.Obj simObject)
         {
-            if (jfs2 != null && simObject.recorderObj is Obj recorded && recorded.playing == false)
+            if (simObject.recorderObj is Obj recorded && recorded.playing == false)
             {
-                jfs2.Identity(recorded.id, recorded.timeBase.Other(Time), SimMessageMapper.BuildIdentity(simObject, recorded.id));
+                IdentityUpdate identity = RecordedIdentity(simObject);
+                if (!identity.SameAs(in recorded.identity))
+                {
+                    double time = recorded.timeBase.Other(Time);
+                    recorded.track.Frames.Add(new SceneIdentityFrame(time, identity));
+                    recorded.identity = identity;
+                    jfs2?.Identity(recorded.id, time, identity);
+                }
             }
         }
 
@@ -1099,7 +722,7 @@ namespace JoinFS
                 int aircraftCount = 0;
                 foreach (var obj in objList)
                 {
-                    if (obj is Aircraft)
+                    if (obj.IsAircraft)
                     {
                         aircraftCount++;
                     }
@@ -1153,8 +776,14 @@ namespace JoinFS
                 FinishJfs2Capture();
                 LogRecordFrameCounts();
 
-                int positionCount = recordFrameCounts.GetValueOrDefault(FrameType.ObjectPosition) + recordFrameCounts.GetValueOrDefault(FrameType.AircraftPosition);
-                int variableCount = recordFrameCounts.GetValueOrDefault(FrameType.IntegerVariables) + recordFrameCounts.GetValueOrDefault(FrameType.FloatVariables) + recordFrameCounts.GetValueOrDefault(FrameType.String8Variables);
+                // a clock that stepped back (limit 6 in docs/jfs2/README.md) leaves frames out of order; the player wants them in order
+                foreach (var obj in objList)
+                {
+                    SortByTime(obj.track.Frames);
+                }
+
+                int positionCount = recordFrameCounts.GetValueOrDefault(Captured.ObjectPosition) + recordFrameCounts.GetValueOrDefault(Captured.AircraftPosition);
+                int variableCount = recordFrameCounts.GetValueOrDefault(Captured.IntegerVariables) + recordFrameCounts.GetValueOrDefault(Captured.FloatVariables) + recordFrameCounts.GetValueOrDefault(Captured.String8Variables);
                 if (positionCount == 0 && variableCount > 0)
                 {
                     main.MonitorEvent("Recorder: warning - captured variable frames but no position frames. SimConnected=" + main.sim.Connected + ", NetworkConnected=" + main.network.Connected + ".");
@@ -1302,7 +931,8 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Jump to a point in the recording
+        /// Jump to a point in the recording. Each object is put in the state the frames up to that time leave it in (design 5.4): its
+        /// latest position and identity, and its variables merged.
         /// </summary>
         /// <param name="time">Time to jump to</param>
         public void Jump(double time)
@@ -1325,42 +955,18 @@ namespace JoinFS
                 // check if object is playing
                 if (obj.playing)
                 {
-                    // recent position frame
-                    Frame recentFrame = null;
-                    // reset frame index
-                    obj.frameIndex = 0;
-                    // while not at right frame
-                    while (obj.frameIndex < obj.frames.Count && time > obj.frames[obj.frameIndex].time)
-                    {
-                        // check for position frame
-                        if (obj.frames[obj.frameIndex].type == FrameType.ObjectPosition || obj.frames[obj.frameIndex].type == FrameType.AircraftPosition)
-                        {
-                            // update recent frame
-                            recentFrame = obj.frames[obj.frameIndex];
-                        }
-                        // next frame
-                        obj.frameIndex++;
-                    }
+                    // fold the frames before the time
+                    SceneState state = obj.track.StateAt(time);
+                    obj.frameIndex = state.Next;
+                    obj.identity = state.Identity;
 
                     // check for recent position frame
-                    if (recentFrame != null)
+                    if (state.Position != null)
                     {
-                        // check for aircraft
-                        if (obj is Aircraft)
-                        {
-                            // aircraft
-                            Aircraft aircraft = obj as Aircraft;
-                            // update position
-                            // recordings don't currently capture classCode/wtc (a Phase 3 network-only
-                            // addition) - pass empty/unconfirmed so replay falls back to local re-derivation
-                            // from icaoType, same as before this feature existed
-                            main.sim ?. UpdateAircraft(new NodeId(), obj.id, false, aircraft.plane, aircraft.callsign, "", aircraft.nickname, aircraft.model, aircraft.livery, aircraft.icaoType, aircraft.icaoAirline, "", "", "", false, aircraft.typerole, recentFrame.time, ref (recentFrame as AircraftPositionFrame).data);
-                        }
-                        else
-                        {
-                            // update position
-                            main.sim?.UpdateObject(new NodeId(), obj.id, obj.model, obj.livery, obj.icaoType, obj.icaoAirline, "", "", false, obj.typerole, recentFrame.time, ref (recentFrame as ObjectPositionFrame).data);
-                        }
+                        // the position creates the object, then its state goes to it
+                        obj.playbackAnglesValid = false;
+                        UpdatePosition(obj, state.Position, state.Position, state.Position.Time);
+                        ApplyVariables(obj, state.Integers, state.Floats, state.Strings);
                         // reset object
                         main.sim ?. ResetObject(new NodeId(), obj.id);
                     }
@@ -1368,14 +974,31 @@ namespace JoinFS
             }
         }
 
-        static bool IsPositionFrame(Frame frame) => frame.type == FrameType.ObjectPosition || frame.type == FrameType.AircraftPosition;
+        /// <summary>
+        /// Put frames recorded out of time order in order, keeping the order of frames at the same time
+        /// </summary>
+        static void SortByTime(List<SceneFrame> frames)
+        {
+            for (int i = 1; i < frames.Count; i++)
+            {
+                if (frames[i].Time < frames[i - 1].Time)
+                {
+                    List<SceneFrame> sorted = [.. frames.OrderBy(frame => frame.Time)];
+                    frames.Clear();
+                    frames.AddRange(sorted);
+                    return;
+                }
+            }
+        }
+
+        static bool IsPositionFrame(SceneFrame frame) => frame is ScenePositionFrame or SceneObjectPositionFrame;
 
         static float Lerp(float a, float b, double t) => (float)(a + (b - a) * t);
         static double Lerp(double a, double b, double t) => a + (b - a) * t;
-        static double Blend(Frame from, Frame to, double time)
+        static double Blend(SceneFrame from, SceneFrame to, double time)
         {
-            double dt = to.time - from.time;
-            return dt > 0.000001 ? Math.Clamp((time - from.time) / dt, 0.0, 1.0) : 0.0;
+            double dt = to.Time - from.Time;
+            return dt > 0.000001 ? Math.Clamp((time - from.Time) / dt, 0.0, 1.0) : 0.0;
         }
 
         static Vector SlerpEuler(float pitch0, float heading0, float bank0, float pitch1, float heading1, float bank1, double t)
@@ -1414,11 +1037,8 @@ namespace JoinFS
             return angles;
         }
 
-        static Sim.ObjectPositionVelocity Interpolate(ObjectPositionFrame from, ObjectPositionFrame to, double t, Vector angles)
+        static Sim.ObjectPositionVelocity Interpolate(in Sim.ObjectPositionVelocity a, in Sim.ObjectPositionVelocity b, double t, Vector angles)
         {
-            Sim.ObjectPositionVelocity a = from.data;
-            Sim.ObjectPositionVelocity b = to.data;
-
             return new Sim.ObjectPositionVelocity
             {
                 latitude = Lerp(a.latitude, b.latitude, t),
@@ -1441,11 +1061,8 @@ namespace JoinFS
             };
         }
 
-        static Sim.AircraftPosition Interpolate(AircraftPositionFrame from, AircraftPositionFrame to, double t, Vector angles)
+        static Sim.AircraftPosition Interpolate(in Sim.AircraftPosition a, in Sim.AircraftPosition b, double t, Vector angles)
         {
-            Sim.AircraftPosition a = from.data;
-            Sim.AircraftPosition b = to.data;
-
             return new Sim.AircraftPosition
             {
                 latitude = Lerp(a.latitude, b.latitude, t),
@@ -1484,23 +1101,24 @@ namespace JoinFS
 
         void UpdateInterpolatedPosition(Obj obj, double time)
         {
-            Frame previous = null;
-            Frame next = null;
+            List<SceneFrame> frames = obj.track.Frames;
+            SceneFrame previous = null;
+            SceneFrame next = null;
 
-            for (int i = Math.Min(obj.frameIndex - 1, obj.frames.Count - 1); i >= 0; i--)
+            for (int i = Math.Min(obj.frameIndex - 1, frames.Count - 1); i >= 0; i--)
             {
-                if (IsPositionFrame(obj.frames[i]))
+                if (IsPositionFrame(frames[i]))
                 {
-                    previous = obj.frames[i];
+                    previous = frames[i];
                     break;
                 }
             }
 
-            for (int i = Math.Max(obj.frameIndex, 0); i < obj.frames.Count; i++)
+            for (int i = Math.Max(obj.frameIndex, 0); i < frames.Count; i++)
             {
-                if (IsPositionFrame(obj.frames[i]))
+                if (IsPositionFrame(frames[i]))
                 {
-                    next = obj.frames[i];
+                    next = frames[i];
                     break;
                 }
             }
@@ -1510,33 +1128,47 @@ namespace JoinFS
                 return;
             }
 
-            previous ??= next;
-            next ??= previous;
+            UpdatePosition(obj, previous ?? next, next ?? previous, time);
+        }
 
-            if (obj is Aircraft aircraft)
+        /// <summary>
+        /// Show the object between two positions (the same one twice to show it there), as it is at that time
+        /// </summary>
+        void UpdatePosition(Obj obj, SceneFrame previous, SceneFrame next, double time)
+        {
+            IdentityUpdate id = obj.identity;
+            double t = Blend(previous, next, time);
+            switch ((previous, next))
             {
-                AircraftPositionFrame from = previous as AircraftPositionFrame;
-                AircraftPositionFrame to = next as AircraftPositionFrame;
-                if (from != null && to != null)
+                case (ScenePositionFrame from, ScenePositionFrame to):
                 {
-                    double t = Blend(from, to, time);
-                    Vector angles = InterpolateAngles(obj, from.data.pitch, from.data.heading, from.data.bank, to.data.pitch, to.data.heading, to.data.bank, t);
-                    Sim.AircraftPosition data = Interpolate(from, to, t, angles);
-                    main.sim?.UpdateAircraft(new NodeId(), obj.id, false, aircraft.plane, aircraft.callsign, "", aircraft.nickname, aircraft.model, aircraft.livery, aircraft.icaoType, aircraft.icaoAirline, "", "", "", false, aircraft.typerole, time, ref data);
+                    Sim.AircraftPosition a = SimMessageMapper.ToAircraftPosition(from.Position);
+                    Sim.AircraftPosition b = SimMessageMapper.ToAircraftPosition(to.Position);
+                    Vector angles = InterpolateAngles(obj, a.pitch, a.heading, a.bank, b.pitch, b.heading, b.bank, t);
+                    Sim.AircraftPosition data = Interpolate(a, b, t, angles);
+                    main.sim?.UpdateAircraft(new NodeId(), obj.id, false, id.IsPlane, id.Callsign ?? "", id.Registration ?? "", obj.track.Nickname, id.Model ?? "", id.Livery ?? "", id.IcaoType ?? "", id.IcaoAirline ?? "", id.FlightNumber ?? "", id.ClassCode ?? "", id.Wtc ?? "", id.ClassCodeConfirmed, id.TypeRole, time, ref data);
+                    break;
+                }
+                case (SceneObjectPositionFrame from, SceneObjectPositionFrame to):
+                {
+                    Sim.ObjectPositionVelocity a = SimMessageMapper.ToPositionVelocity(from.Position);
+                    Sim.ObjectPositionVelocity b = SimMessageMapper.ToPositionVelocity(to.Position);
+                    Vector angles = InterpolateAngles(obj, a.pitch, a.heading, a.bank, b.pitch, b.heading, b.bank, t);
+                    Sim.ObjectPositionVelocity data = Interpolate(a, b, t, angles);
+                    main.sim?.UpdateObject(new NodeId(), obj.id, id.Model ?? "", id.Livery ?? "", id.IcaoType ?? "", id.IcaoAirline ?? "", id.ClassCode ?? "", id.Wtc ?? "", id.ClassCodeConfirmed, id.TypeRole, time, ref data);
+                    break;
                 }
             }
-            else
-            {
-                ObjectPositionFrame from = previous as ObjectPositionFrame;
-                ObjectPositionFrame to = next as ObjectPositionFrame;
-                if (from != null && to != null)
-                {
-                    double t = Blend(from, to, time);
-                    Vector angles = InterpolateAngles(obj, from.data.pitch, from.data.heading, from.data.bank, to.data.pitch, to.data.heading, to.data.bank, t);
-                    Sim.ObjectPositionVelocity data = Interpolate(from, to, t, angles);
-                    main.sim?.UpdateObject(new NodeId(), obj.id, obj.model, obj.livery, obj.icaoType, obj.icaoAirline, "", "", false, obj.typerole, time, ref data);
-                }
-            }
+        }
+
+        /// <summary>
+        /// Send variables to the object (null where there are none of a kind)
+        /// </summary>
+        void ApplyVariables(Obj obj, Dictionary<uint, int> integers, Dictionary<uint, float> floats, Dictionary<uint, string> strings)
+        {
+            if (integers != null) main.sim?.UpdateAircraft(new NodeId(), obj.id, integers);
+            if (floats != null) main.sim?.UpdateAircraft(new NodeId(), obj.id, floats);
+            if (strings != null) main.sim?.UpdateAircraft(new NodeId(), obj.id, strings);
         }
 
         /// <summary>
@@ -1575,33 +1207,32 @@ namespace JoinFS
                         else
                         {
                             // process all due frames at current playback time
-                            while (obj.frameIndex < obj.frames.Count)
+                            List<SceneFrame> frames = obj.track.Frames;
+                            while (obj.frameIndex < frames.Count)
                             {
                                 // get frame
-                                Frame frame = obj.frames[obj.frameIndex];
+                                SceneFrame frame = frames[obj.frameIndex];
                                 // wait for frame time
-                                if (Time <= frame.time)
+                                if (Time <= frame.Time)
                                 {
                                     break;
                                 }
 
-                                // check frame type
-                                switch (frame.type)
+                                // check frame type (positions are interpolated below)
+                                switch (frame)
                                 {
-                                    case FrameType.ObjectPosition:
-                                    case FrameType.AircraftPosition:
+                                    case SceneEventFrame sim:
+                                        main.sim ?. UpdateAircraft(new NodeId(), obj.id, sim.EventId, sim.Data, true);
                                         break;
-                                    case FrameType.SimEvent:
-                                        main.sim ?. UpdateAircraft(new NodeId(), obj.id, (frame as SimEventFrame).eventId, (frame as SimEventFrame).data, true);
+                                    case SceneVariablesFrame variables:
+                                    {
+                                        var (integers, floats, strings) = variables.ByKind();
+                                        ApplyVariables(obj, integers, floats, strings);
                                         break;
-                                    case FrameType.IntegerVariables:
-                                        main.sim ?. UpdateAircraft(new NodeId(), obj.id, (frame as IntegerVariablesFrame).variables);
-                                        break;
-                                    case FrameType.FloatVariables:
-                                        main.sim ?. UpdateAircraft(new NodeId(), obj.id, (frame as FloatVariablesFrame).variables);
-                                        break;
-                                    case FrameType.String8Variables:
-                                        main.sim ?. UpdateAircraft(new NodeId(), obj.id, (frame as String8VariablesFrame).variables);
+                                    }
+                                    case SceneIdentityFrame change:
+                                        // the next position shows it as this
+                                        obj.identity = change.Identity;
                                         break;
                                 }
                                 // next frame
@@ -1612,7 +1243,7 @@ namespace JoinFS
                             UpdateInterpolatedPosition(obj, Time);
 
                             // end object playback when all frames are consumed
-                            if (obj.frameIndex >= obj.frames.Count)
+                            if (obj.frameIndex >= frames.Count)
                             {
                                 // stop aircraft
                                 obj.StopPlaying();
@@ -1658,22 +1289,22 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Copies of the objects with their own frame lists, so a recording can be written on
+        /// Copies of the tracks with their own frame lists, so a recording can be written on
         /// another thread while this one goes on (sim thread)
         /// </summary>
-        public List<Obj> CopyForSave()
+        public List<SceneTrack> CopyForSave()
         {
-            return objList.ConvertAll(o => o.CopyForSave());
+            return objList.ConvertAll(o => o.track.Copy());
         }
 
 #region Reader
 
         /// <summary>
-        /// Parse a recording into objects without touching the recorder, so a file can be read on
+        /// Parse a recording into tracks without touching the recorder, so a file can be read on
         /// any thread and then applied on the sim thread with <see cref="Load"/>. Null when the
         /// recording can't be used. Throws with a message for the user when the file is damaged.
         /// </summary>
-        public List<Obj> Parse(BinaryReader reader, List<string> warnings = null)
+        public List<SceneTrack> Parse(BinaryReader reader, List<string> warnings = null)
         {
             // get version
             short version = reader.ReadInt16();
@@ -1700,7 +1331,7 @@ namespace JoinFS
         /// <summary>
         /// Read an old .jfs recording whose version has just been read from the stream
         /// </summary>
-        List<Obj> ParseLegacy(short version, Stream rest, List<string> warnings)
+        List<SceneTrack> ParseLegacy(short version, Stream rest, List<string> warnings)
         {
             // the importer wants the whole file, version included
             var whole = new MemoryStream();
@@ -1709,38 +1340,40 @@ namespace JoinFS
             whole.Position = 0;
 
             LegacyJfsImporter.Result imported = LegacyJfsImporter.Read(whole);
-            foreach (string note in imported.Scene.Notes)
-            {
-                main?.MonitorEvent("Recorder: " + note);
-            }
-            warnings?.AddRange(imported.Scene.Warnings);
-
-            List<Obj> objects = Jfs2Loader.Objects(imported.Scene);
-            main?.MonitorEvent("Recorder: loaded " + objects.Count(o => o is Aircraft) + " aircraft, " + objects.Count(o => o is not Aircraft) + " objects, " + objects.Sum(o => o.frames.Count) + " frames (trailing strings: " + imported.Layout + ").");
-            return objects;
+            List<SceneTrack> tracks = Loaded(imported.Scene, warnings);
+            main?.MonitorEvent("Recorder: loaded " + tracks.Count(t => t.Identity.IsAircraft) + " aircraft, " + tracks.Count(t => !t.Identity.IsAircraft) + " objects, " + tracks.Sum(t => t.Frames.Count) + " frames (trailing strings: " + imported.Layout + ").");
+            return tracks;
         }
 
         /// <summary>
-        /// Read a JFS2 recording into objects, logging what was skipped. Throws, with a message for the user, if it can't be played.
+        /// Read a JFS2 recording into tracks, logging what was skipped. Throws, with a message for the user, if it can't be played.
         /// </summary>
-        List<Obj> ParseJfs2(Stream stream, List<string> warnings)
+        List<SceneTrack> ParseJfs2(Stream stream, List<string> warnings)
         {
-            Jfs2Loader.Result result = Jfs2Loader.Load(stream);
-            foreach (string note in result.Notes)
-            {
-                main?.MonitorEvent("Recorder: " + note);
-            }
-            warnings?.AddRange(result.Warnings);
-            main?.MonitorEvent("Recorder: read a JFS2 recording with " + result.Objects.Count + " aircraft.");
-            return result.Objects;
+            List<SceneTrack> tracks = Loaded(Jfs2Scene.Load(stream), warnings);
+            main?.MonitorEvent("Recorder: read a JFS2 recording with " + tracks.Count + " objects.");
+            return tracks;
         }
 
         /// <summary>
-        /// Replace the recording with parsed objects, or append them after its end (sim thread)
+        /// The tracks of a scene, its notes logged and its warnings passed on
         /// </summary>
-        public void Load(List<Obj> objects, bool append, string recoveredFrom = null)
+        List<SceneTrack> Loaded(Jfs2Scene scene, List<string> warnings)
         {
-            if (objects == null)
+            foreach (string note in scene.Notes)
+            {
+                main?.MonitorEvent("Recorder: " + note);
+            }
+            warnings?.AddRange(scene.Warnings);
+            return scene.Tracks;
+        }
+
+        /// <summary>
+        /// Replace the recording with parsed tracks, or append them after its end (sim thread)
+        /// </summary>
+        public void Load(List<SceneTrack> tracks, bool append, string recoveredFrom = null)
+        {
+            if (tracks == null)
             {
                 return;
             }
@@ -1748,14 +1381,9 @@ namespace JoinFS
             {
                 double appendTime = EndTime;
                 main.MonitorEvent("Recorder: appending recording from " + appendTime.ToString("0.00") + "s.");
-                // for each frame
-                foreach (var obj in objects)
+                foreach (var track in tracks)
                 {
-                    foreach (var frame in obj.frames)
-                    {
-                        // adjust time
-                        frame.time += appendTime;
-                    }
+                    Shift(track.Frames, appendTime);
                 }
             }
             else
@@ -1764,13 +1392,24 @@ namespace JoinFS
                 objList.Clear();
                 DiscardWorkingFile();
             }
-            objList.AddRange(objects);
+            objList.AddRange(tracks.Select(track => new Obj(track)));
             // a recording recovered from its working file stays unsaved until it is saved, which then removes that file
             if (!append && recoveredFrom != null)
             {
                 workingFile = recoveredFrom;
             }
             PublishStatus();
+        }
+
+        /// <summary>
+        /// Move frames by some seconds
+        /// </summary>
+        static void Shift(List<SceneFrame> frames, double seconds)
+        {
+            for (int i = 0; i < frames.Count; i++)
+            {
+                frames[i] = frames[i] with { Time = frames[i].Time + seconds };
+            }
         }
 
 #endregion
@@ -1787,30 +1426,12 @@ namespace JoinFS
             // for each object
             foreach (var obj in objList)
             {
-                // find new first frame
-                int firstIndex = 0;
-                for (int index = 0; index < obj.frames.Count; index++)
-                {
-                    // check if reached current time
-                    if (obj.frames[index].time >= now)
-                    {
-                        // adjust time
-                        obj.frames[index].time -= now;
-                        // check if first index is set
-                        if (firstIndex == 0)
-                        {
-                            // save first index
-                            firstIndex = index;
-                        }
-                    }
-                }
-
-                // check for frames to be removed
-                if (firstIndex > 0)
-                {
-                    // remove frames up to current time
-                    obj.frames.RemoveRange(0, firstIndex);
-                }
+                // remove the frames before the current time and start the rest there
+                List<SceneFrame> frames = obj.track.Frames;
+                int first = frames.FindIndex(frame => frame.Time >= now);
+                frames.RemoveRange(0, first < 0 ? frames.Count : first);
+                Shift(frames, -now);
+                obj.frameIndex = 0;
             }
 
             // reset time
@@ -1824,25 +1445,18 @@ namespace JoinFS
         /// </summary>
         public void TrimToEnd()
         {
+            // get current time
+            double now = Time;
             // for each object
             foreach (var obj in objList)
             {
-                // find new first frame
-                int firstIndex = 0;
-                for (; firstIndex < obj.frames.Count; firstIndex++)
+                // remove the frames from the current time on
+                List<SceneFrame> frames = obj.track.Frames;
+                int first = frames.FindIndex(frame => frame.Time >= now);
+                if (first >= 0)
                 {
-                    // check if reached current time
-                    if (obj.frames[firstIndex].time >= Time)
-                    {
-                        break;
-                    }
-                }
-
-                // check for frames to be removed
-                if (firstIndex < obj.frames.Count)
-                {
-                    // remove frames up to the end
-                    obj.frames.RemoveRange(firstIndex, obj.frames.Count - firstIndex);
+                    frames.RemoveRange(first, frames.Count - first);
+                    obj.frameIndex = Math.Min(obj.frameIndex, frames.Count);
                 }
             }
         }

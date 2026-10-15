@@ -1,77 +1,90 @@
 using System.Text;
+using JoinFS.Recording;
 
 namespace JoinFS.Tests.Recording;
 
 /// <summary>
-/// Writes recorded objects in the old <c>.jfs</c> format, the way an FS2024 build did (livery, ICAO type and airline after the frames of
+/// Writes recorded tracks in the old <c>.jfs</c> format, the way an FS2024 build did (livery, ICAO type and airline after the frames of
 /// each object). The application no longer writes this format; the importer tests need files to read, and this is the one place that
 /// still knows how they were made. It is a test-side copy of the writer that used to be in Recorder.cs, which is why it calls
-/// <see cref="JfsFrames"/> for the frame bodies as that did.
+/// <see cref="JfsFrames"/> for the frame bodies as that did. A variables frame becomes one old frame per value kind, as the old recorder kept them.
 /// </summary>
 internal static class LegacyJfsWriter
 {
     /// <summary>The newest version of the old format.</summary>
     public const short Version = 21008;
 
-    public static byte[] Write(List<Recorder.Obj> objects, short version = Version)
+    /// <summary>The old format's frame types (the old <c>Recorder.FrameType</c>) that the writer used.</summary>
+    const byte ObjectPosition = 0, AircraftPosition = 1, SimEvent = 10, IntegerVariables = 11, FloatVariables = 12, String8Variables = 13;
+
+    public static byte[] Write(List<SceneTrack> tracks, short version = Version)
     {
         var stream = new MemoryStream();
         using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
         {
             writer.Write(version);
-            writer.Write(objects.Count(o => o is Recorder.Aircraft));
-            foreach (Recorder.Obj obj in objects.Where(o => o is Recorder.Aircraft))
+            writer.Write(tracks.Count(t => t.Identity.IsAircraft));
+            foreach (SceneTrack track in tracks.Where(t => t.Identity.IsAircraft))
             {
-                var aircraft = (Recorder.Aircraft)obj;
-                writer.Write(aircraft.plane);
-                writer.Write(aircraft.callsign);
-                writer.Write(aircraft.nickname);
-                WriteObject(writer, obj);
+                writer.Write(track.Identity.IsPlane);
+                writer.Write(track.Identity.Callsign ?? "");
+                writer.Write(track.Nickname ?? "");
+                WriteObject(writer, track);
             }
-            writer.Write(objects.Count(o => o is not Recorder.Aircraft));
-            foreach (Recorder.Obj obj in objects.Where(o => o is not Recorder.Aircraft))
+            writer.Write(tracks.Count(t => !t.Identity.IsAircraft));
+            foreach (SceneTrack track in tracks.Where(t => !t.Identity.IsAircraft))
             {
-                WriteObject(writer, obj);
+                WriteObject(writer, track);
             }
         }
         return stream.ToArray();
     }
 
-    static void WriteObject(BinaryWriter writer, Recorder.Obj obj)
+    static void WriteObject(BinaryWriter writer, SceneTrack track)
     {
-        writer.Write(obj.model);
-        writer.Write((byte)obj.typerole);
-        writer.Write(obj.frames.Count);
-        foreach (Recorder.Frame frame in obj.frames)
+        List<(byte Type, double Time, Action<BinaryWriter> Body)> frames = [];
+        foreach (SceneFrame frame in track.Frames)
         {
-            writer.Write((byte)frame.type);
-            writer.Write(frame.time);
             switch (frame)
             {
-                case Recorder.ObjectPositionFrame position:
-                    WriteObjectPosition(writer, position.data);
+                case SceneObjectPositionFrame position:
+                {
+                    Sim.ObjectPositionVelocity data = SimMessageMapper.ToPositionVelocity(position.Position);
+                    frames.Add((ObjectPosition, frame.Time, w => WriteObjectPosition(w, data)));
                     break;
-                case Recorder.AircraftPositionFrame position:
-                    JfsFrames.Write(writer, ref position.data);
+                }
+                case ScenePositionFrame position:
+                {
+                    Sim.AircraftPosition data = SimMessageMapper.ToAircraftPosition(position.Position);
+                    frames.Add((AircraftPosition, frame.Time, w => JfsFrames.Write(w, ref data)));
                     break;
-                case Recorder.SimEventFrame sim:
-                    writer.Write(sim.eventId);
-                    writer.Write(sim.data);
+                }
+                case SceneEventFrame sim:
+                    frames.Add((SimEvent, frame.Time, w => { w.Write(sim.EventId); w.Write(sim.Data); }));
                     break;
-                case Recorder.IntegerVariablesFrame integers:
-                    WriteVariables(writer, integers.variables, (w, value) => w.Write(value));
+                case SceneVariablesFrame variables:
+                {
+                    var (integers, floats, strings) = variables.ByKind();
+                    if (integers != null) frames.Add((IntegerVariables, frame.Time, w => WriteVariables(w, integers, (x, value) => x.Write(value))));
+                    if (floats != null) frames.Add((FloatVariables, frame.Time, w => WriteVariables(w, floats, (x, value) => x.Write(value))));
+                    if (strings != null) frames.Add((String8Variables, frame.Time, w => WriteVariables(w, strings, (x, value) => x.Write(value))));
                     break;
-                case Recorder.FloatVariablesFrame floats:
-                    WriteVariables(writer, floats.variables, (w, value) => w.Write(value));
-                    break;
-                case Recorder.String8VariablesFrame strings:
-                    WriteVariables(writer, strings.variables, (w, value) => w.Write(value));
-                    break;
+                }
             }
         }
-        writer.Write(obj.livery);
-        writer.Write(obj.icaoType);
-        writer.Write(obj.icaoAirline);
+
+        writer.Write(track.Identity.Model ?? "");
+        writer.Write(track.Identity.TypeRole);
+        writer.Write(frames.Count);
+        foreach (var (type, time, body) in frames)
+        {
+            writer.Write(type);
+            writer.Write(time);
+            body(writer);
+        }
+        writer.Write(track.Identity.Livery ?? "");
+        writer.Write(track.Identity.IcaoType ?? "");
+        writer.Write(track.Identity.IcaoAirline ?? "");
     }
 
     static void WriteObjectPosition(BinaryWriter writer, Sim.ObjectPositionVelocity p)
