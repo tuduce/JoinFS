@@ -8,6 +8,7 @@ public enum FrameKind
     Float,
     String8,
     SimEvent,
+    Identity,
     Other,
 }
 
@@ -20,6 +21,7 @@ public static class FrameKinds
         FrameType.FloatVariables => FrameKind.Float,
         FrameType.String8Variables => FrameKind.String8,
         FrameType.SimEvent => FrameKind.SimEvent,
+        FrameType.Identity => FrameKind.Identity,
         _ => FrameKind.Other,
     };
 
@@ -31,12 +33,13 @@ public static class FrameKinds
         FrameKind.Float => "Float",
         FrameKind.String8 => "String8",
         FrameKind.SimEvent => "Events",
+        FrameKind.Identity => "Identity",
         _ => "Other",
     };
 
     /// <summary>Display order for chips.</summary>
     public static readonly FrameKind[] All =
     [
-        FrameKind.Position, FrameKind.Integer, FrameKind.Float, FrameKind.String8, FrameKind.SimEvent, FrameKind.Other,
+        FrameKind.Position, FrameKind.Integer, FrameKind.Float, FrameKind.String8, FrameKind.SimEvent, FrameKind.Identity, FrameKind.Other,
     ];
 }

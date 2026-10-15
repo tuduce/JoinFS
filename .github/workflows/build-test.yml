@@ -37,6 +37,7 @@ jobs:
       Test_Project: JoinFS.Tests\JoinFS.Tests.csproj
       XRay_Test_Project: RecordingXRay.Tests\RecordingXRay.Tests.csproj
       UI_Test_Project: JoinFS.UI.Tests\JoinFS.UI.Tests.csproj
+      Format_Test_Project: JoinFS.Recording.Format.Tests\JoinFS.Recording.Format.Tests.csproj
       App_Project: JoinFS\JoinFS.csproj
 
     steps:
@@ -74,6 +75,9 @@ jobs:
 
       - name: Execute JoinFS.UI unit tests
         run: dotnet test ${env:UI_Test_Project}
+
+      - name: Execute JFS2 format library tests
+        run: dotnet test ${env:Format_Test_Project}
 
       - name: Restore NuGet packages
         run: dotnet restore ${env:Solution_Name} /p:Configuration=${{ matrix.configuration }}

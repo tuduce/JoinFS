@@ -67,6 +67,18 @@ public static class FrameFormatter
                 sb.AppendLine(Line("Ground", ap.Ground));
                 sb.AppendLine(Line("ElevationCorrection", ap.ElevationCorrection));
                 break;
+            case IdentityFrame identity:
+                sb.AppendLine(Line("Aircraft", identity.Aircraft));
+                sb.AppendLine(Line("Plane", identity.Plane));
+                sb.AppendLine(Line("Callsign", identity.Callsign));
+                sb.AppendLine(Line("Model", identity.Model));
+                sb.AppendLine(Line("TypeRole", $"{identity.TypeRole} ({TypeRoleToText(identity.TypeRole)})"));
+                AppendIfSet(sb, "Registration", identity.Registration);
+                AppendIfSet(sb, "FlightNumber", identity.FlightNumber);
+                AppendIfSet(sb, "Livery", identity.Livery);
+                AppendIfSet(sb, "IcaoType", identity.IcaoType);
+                AppendIfSet(sb, "IcaoAirline", identity.IcaoAirline);
+                break;
             case SimEventFrame simEvent:
                 sb.AppendLine(Line("EventId", simEvent.EventId));
                 sb.AppendLine(Line("Data", simEvent.Data));

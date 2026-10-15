@@ -99,13 +99,14 @@ namespace JoinFS.Live
         public string AutoSave()
         {
             // copy on the sim thread, which owns the recording; the file is written here
-            List<Recorder.Obj> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
+            Recorder.SaveCopy objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
             if (objects == null)
             {
                 throw new InvalidOperationException(Loc.T("the simulator thread did not respond"));
             }
 
             string path = main.recorder.AutoSave(main.documentsPath, objects, DateTime.Now);
+            OnSim(recorder => recorder.Saved(path));
             main.MonitorEvent("Recorder: auto-saved the previous recording to '" + path + "'.");
             return Path.GetFileName(path);
         }
@@ -132,15 +133,54 @@ namespace JoinFS.Live
             }
         }
 
-        public async Task OpenAsync(string path, bool append)
+        public Task<string> OpenAsync(string path, bool append) => OpenAsync(path, append, false);
+
+        public IReadOnlyList<UnsavedRecording> FindUnsavedRecordings()
         {
-            main.MonitorEvent("Recorder: " + (append ? "appending" : "opening") + " recording file '" + path + "'.");
+            List<UnsavedRecording> found = [];
+            foreach (string path in main.recorder.FindUnsavedWorkingFiles(main.documentsPath))
+            {
+                try
+                {
+                    var info = new FileInfo(path);
+                    found.Add(new UnsavedRecording(path, info.LastWriteTime, info.Length));
+                }
+                catch (IOException)
+                {
+                    // gone or locked meanwhile
+                }
+            }
+            found.Reverse();
+            return found;
+        }
+
+        public Task<string> RecoverAsync(string path) => OpenAsync(path, false, true);
+
+        public void DeleteUnsaved(string path)
+        {
+            try
+            {
+                File.Delete(path);
+                main.MonitorEvent("Recorder: deleted the unsaved recording '" + path + "'.");
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                main.MonitorEvent("Recorder: cannot delete '" + path + "' (" + ex.Message + ").");
+            }
+        }
+
+        public void DiscardUnsaved() => OnSim(recorder => recorder.DiscardWorkingFile());
+
+        async Task<string> OpenAsync(string path, bool append, bool recovered)
+        {
+            main.MonitorEvent("Recorder: " + (recovered ? "recovering" : append ? "appending" : "opening") + " recording file '" + path + "'.");
 
             // parse off the sim thread, then apply and play on it
-            List<Recorder.Obj> objects = await Task.Run(() =>
+            List<string> warnings = [];
+            List<JoinFS.Recording.SceneTrack> objects = await Task.Run(() =>
             {
                 using FileStream stream = File.OpenRead(path);
-                return main.recorder.Parse(new BinaryReader(stream));
+                return main.recorder.Parse(new BinaryReader(stream), warnings);
             });
             if (objects == null)
             {
@@ -150,34 +190,36 @@ namespace JoinFS.Live
 
             OnSim(recorder =>
             {
-                recorder.Load(objects, append);
+                recorder.Load(objects, append, recovered ? path : null, recovered ? null : path);
                 recorder.StartPlay();
             });
 
-            // save folder
-            Settings.Default.RecordingFolder = Path.GetDirectoryName(path);
+            // save folder; a recovered recording lives in the working folder, which is not where the user keeps theirs
+            if (!recovered)
+            {
+                Settings.Default.RecordingFolder = Path.GetDirectoryName(path);
+            }
             if (!append)
             {
-                loadedName = Path.GetFileName(path);
+                loadedName = recovered ? "" : Path.GetFileName(path);
             }
+            return string.Join(" ", warnings);
         }
 
         public async Task SaveAsync(string path)
         {
             // copy on the sim thread (which owns the recording) before opening the file, which truncates it:
             // a failed copy must not leave an empty file marked as saved
-            List<Recorder.Obj> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
+            Recorder.SaveCopy objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
             if (objects == null)
             {
                 main.MonitorEvent("ERROR - Recording not saved: the simulator thread did not respond. Please try again.");
                 throw new InvalidOperationException(Loc.T("Recording not saved: the simulator thread did not respond. Please try again."));
             }
 
-            await Task.Run(() =>
-            {
-                using FileStream stream = File.Create(path);
-                main.recorder.Write(new BinaryWriter(stream), objects);
-            });
+            // the file picker has already asked about replacing a file
+            await Task.Run(() => main.recorder.SaveJfs2(path, objects, DateTime.Now, true));
+            OnSim(recorder => recorder.Saved(path));
 
             // save folder
             Settings.Default.RecordingFolder = Path.GetDirectoryName(path);

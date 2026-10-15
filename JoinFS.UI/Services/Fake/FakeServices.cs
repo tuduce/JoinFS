@@ -529,7 +529,7 @@ public sealed class FakeRecorderSource : IRecorderSource
         Calls.Add("autosave");
         if (AutoSaveFails)
             throw new InvalidOperationException("disk full");
-        return "2026-10-10_120000_Me.jfs";
+        return "2026-10-10_120000_Me.jfs2";
     }
 
     /// <summary>Makes <see cref="AutoSave"/> fail, to test what is done then.</summary>
@@ -567,7 +567,7 @@ public sealed class FakeRecorderSource : IRecorderSource
         _aircraft = [.. _aircraft.Select(a => a.Id == aircraftId ? a with { Skipped = true } : a)];
     }
 
-    public Task OpenAsync(string path, bool append)
+    public Task<string> OpenAsync(string path, bool append)
     {
         Calls.Add((append ? "add " : "open ") + path);
         if (path.Contains("bad", StringComparison.OrdinalIgnoreCase))
@@ -583,8 +583,37 @@ public sealed class FakeRecorderSource : IRecorderSource
         _playing = true;
         _paused = false;
         _time = 0;
-        return Task.CompletedTask;
+        return Task.FromResult(path.Contains("damaged", StringComparison.OrdinalIgnoreCase) ? "Damaged recording: A chunk could not be read. (at byte 180561)." : "");
     }
+
+    /// <summary>What <see cref="FindUnsavedRecordings"/> finds; a test puts recordings here.</summary>
+    public List<UnsavedRecording> Unsaved { get; } = [];
+
+    public IReadOnlyList<UnsavedRecording> FindUnsavedRecordings() => [.. Unsaved];
+
+    public Task<string> RecoverAsync(string path)
+    {
+        Calls.Add("recover " + path);
+        if (path.Contains("bad", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("This recording holds nothing that can be played.");
+        Unsaved.RemoveAll(u => u.Path == path);
+        _aircraft = [.. SampleData.LoadedRecordList.Select((a, i) => a with { Id = "r" + i })];
+        _end = 92;
+        LoadedRecordingName = "";
+        _recording = false;
+        _playing = true;
+        _paused = false;
+        _time = 0;
+        return Task.FromResult("");
+    }
+
+    public void DeleteUnsaved(string path)
+    {
+        Calls.Add("delete " + path);
+        Unsaved.RemoveAll(u => u.Path == path);
+    }
+
+    public void DiscardUnsaved() => Calls.Add("discard");
 
     public Task SaveAsync(string path)
     {

@@ -16,4 +16,9 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- reads .jfs2 files; standalone libraries, no reference to JoinFS itself -->
+    <ProjectReference Include="..\JoinFS.Recording\JoinFS.Recording.csproj" />
+  </ItemGroup>
+
 </Project>

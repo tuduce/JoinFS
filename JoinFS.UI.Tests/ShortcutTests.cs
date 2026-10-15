@@ -231,7 +231,7 @@ public class ShortcutTests
         await Press(rig, ShortcutAction.Record);
         Assert.True(rig.Main.Recorder.IsRecording);
         Assert.Equal(["record", "stop", "autosave", "record"], Recorder(rig).Calls);
-        Assert.Equal("Recording saved: 2026-10-10_120000_Me.jfs", rig.Main.Recorder.Status);
+        Assert.Equal("Recording saved: 2026-10-10_120000_Me.jfs2", rig.Main.Recorder.Status);
         Assert.Null(rig.Main.Overlay);
     }
 

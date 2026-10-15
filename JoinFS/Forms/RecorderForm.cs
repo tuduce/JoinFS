@@ -392,7 +392,7 @@ namespace JoinFS
                 OpenFileDialog dialog = new()
                 {
                     InitialDirectory = Settings.Default.RecordingFolder,
-                    Filter = "JoinFS files (*.jfs)|*.jfs",
+                    Filter = "JoinFS recordings (*.jfs;*.jfs2)|*.jfs;*.jfs2|JoinFS files (*.jfs)|*.jfs|JoinFS 2 files (*.jfs2)|*.jfs2",
                     FilterIndex = 1,
                     RestoreDirectory = true
                 };
@@ -409,10 +409,10 @@ namespace JoinFS
                             using (stream)
                             {
                                 // parse here, then apply and play on the sim thread
-                                List<Recorder.Obj> objects = main.recorder.Parse(new BinaryReader(stream));
+                                List<JoinFS.Recording.SceneTrack> objects = main.recorder.Parse(new BinaryReader(stream));
                                 main.InvokeOnSim(sim =>
                                 {
-                                    main.recorder.Load(objects, false);
+                                    main.recorder.Load(objects, false, openedFrom: dialog.FileName);
                                     main.recorder.StartPlay();
                                     return true;
                                 });
@@ -459,7 +459,7 @@ namespace JoinFS
                 OpenFileDialog dialog = new()
                 {
                     InitialDirectory = Settings.Default.RecordingFolder,
-                    Filter = "JoinFS files (*.jfs)|*.jfs",
+                    Filter = "JoinFS recordings (*.jfs;*.jfs2)|*.jfs;*.jfs2|JoinFS files (*.jfs)|*.jfs|JoinFS 2 files (*.jfs2)|*.jfs2",
                     FilterIndex = 1,
                     RestoreDirectory = true
                 };
@@ -476,7 +476,7 @@ namespace JoinFS
                             using (stream)
                             {
                                 // parse here, then apply and play on the sim thread
-                                List<Recorder.Obj> objects = main.recorder.Parse(new BinaryReader(stream));
+                                List<JoinFS.Recording.SceneTrack> objects = main.recorder.Parse(new BinaryReader(stream));
                                 main.InvokeOnSim(sim =>
                                 {
                                     main.recorder.Load(objects, true);

@@ -56,7 +56,7 @@ public partial class MainWindow : Window
             AllowMultiple = false,
             FileTypeFilter =
             [
-                new FilePickerFileType("JoinFS recordings") { Patterns = ["*.jfs"] },
+                new FilePickerFileType("JoinFS recordings") { Patterns = ["*.jfs", "*.jfs2"] },
                 FilePickerFileTypes.All,
             ],
         });

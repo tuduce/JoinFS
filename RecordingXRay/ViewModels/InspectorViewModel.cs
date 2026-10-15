@@ -173,6 +173,23 @@ public sealed partial class InspectorViewModel : ObservableObject
                     op.AccelerationX, op.AccelerationY, op.AccelerationZ,
                     new FieldRow("Height", string.Empty, NumberFormat.Raw(op.Height)));
                 break;
+            case IdentityFrame identity:
+                Cards =
+                [
+                    new FieldCard("Identity",
+                    [
+                        new FieldRow("Callsign", string.Empty, identity.Callsign),
+                        new FieldRow("Model", string.Empty, identity.Model),
+                        new FieldRow("Livery", string.Empty, identity.Livery),
+                        new FieldRow("Registration", string.Empty, identity.Registration),
+                        new FieldRow("Flight number", string.Empty, identity.FlightNumber),
+                        new FieldRow("ICAO type", string.Empty, identity.IcaoType),
+                        new FieldRow("ICAO airline", string.Empty, identity.IcaoAirline),
+                        new FieldRow("Type role", string.Empty, FrameFormatter.TypeRoleToText(identity.TypeRole)),
+                        new FieldRow("Aircraft", string.Empty, identity.Aircraft ? (identity.Plane ? "plane" : "helicopter") : "no"),
+                    ]),
+                ];
+                break;
             case SimEventFrame simEvent:
                 Cards =
                 [

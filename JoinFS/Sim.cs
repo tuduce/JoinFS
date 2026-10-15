@@ -109,6 +109,8 @@ namespace JoinFS
         /// </summary>
         void RemoveFromListAndIndex(Obj obj)
         {
+            // a recorded object that leaves ends its track
+            main.recorder?.ObjectLeft(obj);
             objectList.Remove(obj);
             if (objectsByOwnerNetId.TryGetValue((obj.ownerNuid, obj.netId), out Obj indexed) && indexed == obj)
             {

@@ -29,8 +29,9 @@ public sealed class AvaloniaPlatform(Func<TopLevel?> topLevel) : IPlatform
             await top.Launcher.LaunchFileAsync(file);
     }
 
+    /// <summary>The extension without the dot ("jfs"), or several separated by ';' ("jfs;jfs2") that are offered as one kind.</summary>
     private static FilePickerFileType[]? KindOf(string? extension) =>
-        extension is null ? null : [new FilePickerFileType("JoinFS files") { Patterns = ["*." + extension] }];
+        extension is null ? null : [new FilePickerFileType("JoinFS files") { Patterns = [.. extension.Split(';').Select(e => "*." + e)] }];
 
     public async Task<string?> PickOpenFileAsync(string title, string? startFolder = null, string? extension = null)
     {

@@ -498,7 +498,8 @@ namespace JoinFS
             // check if recording
             if (sendDue && main.recorder.recording && obj.record && obj.Injected == false)
             {
-                // record position and velocity
+                // record a changed identity, then position and velocity
+                main.recorder.RecordIdentity(obj);
                 main.recorder.Record(obj.recorderObj, main.ElapsedTime, ref positionVelocity);
             }
     }

@@ -99,7 +99,7 @@ JFP2 works, but it is woven into the legacy code rather than encapsulated.
    - `NetworkIngest` drains the inbound queue at the start of `DoWork`, under `conch`. It is the **only** place that calls `sim.UpdateAircraft/UpdateObject/RemoveObject/...`.
    - It also calls `recorder.Record` (moved out of `Network`), and applies ignore / share-cockpit / multi-object filtering from `Log`.
 
-### 2.2 Canonical message model (`Net/Messages`)
+### 2.2 Canonical message model (`JoinFS.Messages/Messages`)
 
 - **Reuse the JFP2 DTOs.** They are already protocol-neutral, value-type structs, and legacy decode already builds some of them (`Network.cs:4950, 4976, 5466`). Move `PositionUpdate`, `IdentityUpdate`, `VariableSyncUpdate`, `EventUpdate`, `FlightPlanUpdate`, `NoteUpdate`, `WeatherReport`, `StatusUpdate` and `StatusRequestUpdate` from `Jfp2/Codecs/*` into `Net/Messages`.
 - **Add canonical types for legacy-only kinds:**
@@ -397,7 +397,7 @@ Pre-existing bugs fixed along the way (most have a regression test in `JoinFS.Te
        to legacy for the rest of the session.
      - **Baseline:** the fixtures pin the *current* branch's writers. Their wire is a byte superset of v26.5: class code, WTC and `staticCgToGround` were appended as trailing fields that older peers ignore.
 2. `Net/Core` types and `Net/Messages` (moving the JFP2 DTOs), `IDatagramTransport` plus `InMemoryTransport` for tests.
-   - **Status: done.** Canonical types live in `JoinFS/Net/Messages` (namespace `JoinFS.Net`). The JFP2 codecs and the old `Network.cs` now use them. `WeatherReport` became `WeatherReply` and `WeatherUpdate`. Transport: `IDatagramTransport`, `UdpTransport` (receive thread), `InMemoryNetwork`.
+   - **Status: done.** Canonical types live in `JoinFS.Messages/Messages` (namespace `JoinFS.Net`; since 2026-10-12 a standalone library, with the JFP2 codecs, `NodeId` and `MessageClasses`). The JFP2 codecs and the old `Network.cs` now use them. `WeatherReport` became `WeatherReply` and `WeatherUpdate`. Transport: `IDatagramTransport`, `UdpTransport` (receive thread), `InMemoryNetwork`.
 3. `UdpTransport`, `NetworkService` thread, queues, snapshot, `PeerDirectory`, `Router`, `SendPolicy`, `ObjectStateCache`.
    - **Status: done.**
      - `NetworkCore`: demux, a router with a per-peer route cache, generic translation, and session gating.

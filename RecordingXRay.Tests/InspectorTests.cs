@@ -90,6 +90,21 @@ public class InspectorViewModelTests
     }
 
     [Fact]
+    public void Identity_change_shows_one_card_with_the_new_identity()
+    {
+        InspectorViewModel inspector = Shown(TestFrames.Identity(5, "DLH1", "Bonanza"));
+
+        FieldCard card = Assert.Single(inspector.Cards);
+        Assert.Equal("Identity", card.Title);
+        Assert.Equal(("Callsign", "DLH1"), (card.Rows[0].Key, card.Rows[0].Value));
+        Assert.Equal(("Model", "Bonanza"), (card.Rows[1].Key, card.Rows[1].Value));
+        Assert.Contains(card.Rows, row => row.Key == "Type role" && row.Value == "SingleProp");
+        Assert.Contains("Callsign: DLH1", inspector.RawText);
+        Assert.Equal(FrameKind.Identity, FrameKinds.Of(FrameType.Identity));
+        Assert.Equal("Identity", FrameKinds.Label(FrameKind.Identity));
+    }
+
+    [Fact]
     public void Variables_frame_shows_a_named_table_instead_of_cards()
     {
         InspectorViewModel inspector = Shown(TestFrames.Integers(0.154, (2, 7), (1, -3), (99, 0)));

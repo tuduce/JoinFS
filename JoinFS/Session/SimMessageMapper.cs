@@ -39,6 +39,12 @@ namespace JoinFS
             if (elevationCorrection) flags |= PositionStateFlags.ElevationCorrection;
             if (aircraft.user) flags |= PositionStateFlags.UserControlled;
             if (aircraft.paused) flags |= PositionStateFlags.Paused;
+            return ToPositionUpdate(objectId, netTime, ref position, flags);
+        }
+
+        /// <summary>The same for a caller that has no <see cref="Sim.Aircraft"/> to read the flags from (the recorder).</summary>
+        public static PositionUpdate ToPositionUpdate(uint objectId, double netTime, ref Sim.AircraftPosition position, PositionStateFlags flags)
+        {
             return new PositionUpdate
             {
                 ObjectId = objectId,
@@ -103,29 +109,32 @@ namespace JoinFS
             if (pv.ground != 0) flags |= PositionStateFlags.OnGround;
             if (elevationCorrection) flags |= PositionStateFlags.ElevationCorrection;
             if (obj.paused) flags |= PositionStateFlags.Paused;
-            return new ObjectPositionUpdate
-            {
-                ObjectId = obj.netId,
-                NetTime = obj.simTime,
-                Latitude = pv.latitude,
-                Longitude = pv.longitude,
-                Altitude = pv.altitude,
-                Pitch = pv.pitch,
-                Bank = pv.bank,
-                Heading = pv.heading,
-                VelocityX = pv.velocityX,
-                VelocityY = pv.velocityY,
-                VelocityZ = pv.velocityZ,
-                AngularVelocityX = pv.angularVelocityX,
-                AngularVelocityY = pv.angularVelocityY,
-                AngularVelocityZ = pv.angularVelocityZ,
-                AccelerationX = pv.accelerationX,
-                AccelerationY = pv.accelerationY,
-                AccelerationZ = pv.accelerationZ,
-                Height = pv.height,
-                StateFlags = flags,
-            };
+            return ToObjectPositionUpdate(obj.netId, obj.simTime, ref pv, flags);
         }
+
+        /// <summary>The same with the object id, time and flags given (the recorder has no <see cref="Sim.Obj"/> to read them from).</summary>
+        public static ObjectPositionUpdate ToObjectPositionUpdate(uint objectId, double netTime, ref Sim.ObjectPositionVelocity pv, PositionStateFlags flags) => new()
+        {
+            ObjectId = objectId,
+            NetTime = netTime,
+            Latitude = pv.latitude,
+            Longitude = pv.longitude,
+            Altitude = pv.altitude,
+            Pitch = pv.pitch,
+            Bank = pv.bank,
+            Heading = pv.heading,
+            VelocityX = pv.velocityX,
+            VelocityY = pv.velocityY,
+            VelocityZ = pv.velocityZ,
+            AngularVelocityX = pv.angularVelocityX,
+            AngularVelocityY = pv.angularVelocityY,
+            AngularVelocityZ = pv.angularVelocityZ,
+            AccelerationX = pv.accelerationX,
+            AccelerationY = pv.accelerationY,
+            AccelerationZ = pv.accelerationZ,
+            Height = pv.height,
+            StateFlags = flags,
+        };
 
         public static Sim.ObjectPositionVelocity ToPositionVelocity(in ObjectPositionUpdate update) => new()
         {

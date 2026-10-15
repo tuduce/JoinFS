@@ -8,7 +8,7 @@ random key comes from. Both follow the release. They are approved designs, not y
 
 ### 1.1 Today
 
-`NodeId` (`Net/Core/NodeId.cs`) is public IPv4, **bound** port and LAN octet. It occurs about 415
+`NodeId` (`JoinFS.Messages/NodeId.cs`) is public IPv4, **bound** port and LAN octet. It occurs about 415
 times on 378 lines in 51 files:
 
 | Use | Where |

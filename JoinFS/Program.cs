@@ -132,6 +132,11 @@ namespace JoinFS
         public string settingsLanguage = "";
         public bool settingsNoSim = false;
         public bool settingsLoop = false;
+
+        /// <summary>
+        /// Journal each new recording to a working file (docs/jfs2), so it can be recovered after a crash; -no-jfs2 switches it off
+        /// </summary>
+        public bool settingsJfs2Capture = true;
         public bool settingsXplane = false;
         public bool settingsTcas = false;
         public bool settingsScan = false;
@@ -348,6 +353,11 @@ namespace JoinFS
                             case "-loop":
                                 // enable looping
                                 settingsLoop = true;
+                                break;
+
+                            case "-no-jfs2":
+                                // no working file, so no recovery after a crash
+                                settingsJfs2Capture = false;
                                 break;
 
                             case "-create":
@@ -1098,7 +1108,7 @@ namespace JoinFS
                             if (reader != null)
                             {
                                 // read recording
-                                recorder.Read(reader);
+                                recorder.Load(recorder.Parse(reader), false);
                                 // start playing
                                 recorder.StartPlay();
                             }
@@ -2361,12 +2371,27 @@ namespace JoinFS
         //    }
         //}
 
+#if !CONSOLE
+        [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+        static extern bool AttachConsole(int processId);
+#endif
+
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
         [STAThread]
         static void Main()
         {
+            // a conversion of old recordings needs neither the application nor a simulator (docs/jfs2/recorder-v2-design.md section 8)
+            if (JoinFS.Recording.Jfs2Convert.FilesOf(Environment.GetCommandLineArgs()[1..]) is { } convertFiles)
+            {
+#if !CONSOLE
+                // a windowed program has no console of its own: write to the one that started it
+                AttachConsole(-1);
+#endif
+                Environment.Exit(JoinFS.Recording.Jfs2Convert.Run(convertFiles, Console.Out));
+            }
+
             Main main = new();
 
             // log any unhandled exception before the process dies, instead of silently vanishing with

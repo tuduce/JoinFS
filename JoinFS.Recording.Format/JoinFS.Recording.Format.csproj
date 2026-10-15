@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The JFS2 container (docs/jfs2/format-spec.md): blocks, chunks, CRC, index, repair.
+       No reference to JoinFS, Sim, UI or any build symbol, so a conditional compilation symbol can
+       never change a byte of the file (spec 10.8). Records are opaque (kind, track, time, bytes). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>JoinFS.Recording.Format</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="JoinFS.Recording.Format.Tests" />
+  </ItemGroup>
+
+</Project>

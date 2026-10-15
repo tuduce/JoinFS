@@ -36,9 +36,9 @@ its simulator. There is no central server: instances form a peer-to-peer mesh.
 | **`NodeId`** | A node's network identity: public IPv4 address, UDP port, and the last octet of its LAN address (7 bytes). `JoinFS/Net/Core/NodeId.cs`. |
 | **uuid** | A 32-bit *user* id derived from the installation's GUID, independent of network address. Used for "join by user id" and the address book. |
 | **Object** | Anything shown in a simulator: an aircraft (plane, helicopter) or another object (boat, vehicle). `Sim.Obj` and subclasses. |
-| **Owner** | Who an object belongs to: *Me* (our own aircraft), *Network* (a remote node's), or *Recorder* (being played back from a `.jfs` file). |
+| **Owner** | Who an object belongs to: *Me* (our own aircraft), *Network* (a remote node's), or *Recorder* (being played back from a recording). |
 | **Protocol plugin** | An implementation of one wire protocol: legacy or JFP2. |
-| **Canonical message** | The protocol-independent, in-memory form of a message (`JoinFS/Net/Messages`). |
+| **Canonical message** | The protocol-independent, in-memory form of a message (`JoinFS.Messages/Messages`). |
 
 ## 2. Process structure and threads
 
@@ -124,7 +124,7 @@ read it freely; writers publish new collections.
 | `Sim` | `Sim.cs` | Simulator abstraction: SimConnect lifecycle, the object list, and per-frame reconciliation that moves each remote or recorded object toward its latest known position (`UpdateSimObjectVelocity` in `Sim.Steering.cs`, which uses the swappable clock model, estimator and steering law in `JoinFS/Estimation/`; see `docs/position-estimation-plan.md`). Decides *which peers* get *which updates* and how often (per-peer rate masks), then hands one canonical message per tick to `Network`. |
 | `VariableMgr` | `Variables.cs`, `VariableMgr.*.cs` | Declares every simulator variable JoinFS syncs, each identified on the network by a 32-bit `vuid` hash of its name. |
 | `Substitution` | `Substitution.cs` | Matches remote aircraft types to locally installed models. |
-| `Recorder` | `Recorder.cs` | Records to and plays back `.jfs` files. Played-back objects feed the same `Sim.Obj` path as network ones (owner *Recorder*). File version `Recorder.FileVersion`, independent of any wire version. |
+| `Recorder` | `Recorder.cs` | Records, plays back and edits recordings, saved as `.jfs2` (`docs/jfs2/`; old `.jfs` files are read through `LegacyJfsImporter`). Played-back objects feed the same `Sim.Obj` path as network ones (owner *Recorder*). A new recording is also journalled to a working file for crash recovery. The format is versioned per record kind, independent of any wire version. |
 | **`Network`** + session parts | `Network.cs`, `Session/*` | **The network session** (§7): hubs, users, address book, per-peer info. Turns sim state into canonical messages and incoming messages into sim, recorder and notes updates. Contains no wire-protocol code. |
 | **Network stack** | `Net/**` | Transport, protocol plugins, mesh, routing, translation (§5). |
 | `Notes` | `Notes.cs` | Text comms (channels, history). |

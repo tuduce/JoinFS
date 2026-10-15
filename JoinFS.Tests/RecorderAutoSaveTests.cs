@@ -1,3 +1,5 @@
+using JoinFS.Recording;
+
 namespace JoinFS.Tests;
 
 /// <summary>
@@ -20,7 +22,7 @@ public class RecorderAutoSaveTests : IDisposable
     [Fact]
     public void FileName_UsesDateTimeAndCallsign()
     {
-        Assert.Equal("2026-10-04_070509_DLH123.jfs", Recorder.BuildAutoSaveFileName(Moment, "DLH123"));
+        Assert.Equal("2026-10-04_070509_DLH123.jfs2", Recorder.BuildAutoSaveFileName(Moment, "DLH123"));
     }
 
     [Theory]
@@ -29,7 +31,7 @@ public class RecorderAutoSaveTests : IDisposable
     [InlineData("   ")]
     public void FileName_FallsBackToRecording_WithoutCallsign(string? callsign)
     {
-        Assert.Equal("2026-10-04_070509_recording.jfs", Recorder.BuildAutoSaveFileName(Moment, callsign));
+        Assert.Equal("2026-10-04_070509_recording.jfs2", Recorder.BuildAutoSaveFileName(Moment, callsign));
     }
 
     [Fact]
@@ -39,20 +41,20 @@ public class RecorderAutoSaveTests : IDisposable
 
         Assert.Equal(-1, name.IndexOfAny(Path.GetInvalidFileNameChars()));
         Assert.StartsWith("2026-10-04_070509_", name);
-        Assert.EndsWith(".jfs", name);
+        Assert.EndsWith(".jfs2", name);
     }
 
     [Fact]
     public void FirstCallsign_IsTakenFromTheFirstAircraft()
     {
-        var objects = new List<Recorder.Obj>
-        {
-            new Recorder.Obj("", "", "", "", 0, default(Sim.Obj.Owner)),
-            new Recorder.Aircraft(true, "DLH1", "a", "", "", "", "", 0, default(Sim.Obj.Owner)),
-            new Recorder.Aircraft(true, "DLH2", "b", "", "", "", "", 0, default(Sim.Obj.Owner)),
-        };
+        List<SceneTrack> tracks =
+        [
+            Recording.Jfs2ImportTests.Track(false, "", "", ""),
+            Recording.Jfs2ImportTests.Track(true, "DLH1", "a", ""),
+            Recording.Jfs2ImportTests.Track(true, "DLH2", "b", ""),
+        ];
 
-        Assert.Equal("DLH1", Recorder.FirstCallsign(objects));
+        Assert.Equal("DLH1", Recorder.FirstCallsign(tracks));
     }
 
     [Fact]
@@ -66,35 +68,54 @@ public class RecorderAutoSaveTests : IDisposable
     [Fact]
     public void UniquePath_ReturnsTheNameWhenFree()
     {
-        Assert.Equal(Path.Combine(folder, "a.jfs"), Recorder.UniquePath(folder, "a.jfs"));
+        Assert.Equal(Path.Combine(folder, "a.jfs2"), Recorder.UniquePath(folder, "a.jfs2"));
     }
 
     [Fact]
     public void UniquePath_AppendsCounter_AndNeverOverwrites()
     {
-        File.WriteAllText(Path.Combine(folder, "a.jfs"), "x");
-        File.WriteAllText(Path.Combine(folder, "a-2.jfs"), "x");
+        File.WriteAllText(Path.Combine(folder, "a.jfs2"), "x");
+        File.WriteAllText(Path.Combine(folder, "a-2.jfs2"), "x");
 
-        Assert.Equal(Path.Combine(folder, "a-3.jfs"), Recorder.UniquePath(folder, "a.jfs"));
+        Assert.Equal(Path.Combine(folder, "a-3.jfs2"), Recorder.UniquePath(folder, "a.jfs2"));
     }
 
     // ---- writing ----
 
     [Fact]
-    public void AutoSave_WritesARecordingFileWithVersionHeader()
+    public void AutoSave_WritesAJfs2FileThatPlaysBack()
     {
         var recorder = new Recorder(null!);
-        var objects = new List<Recorder.Obj>
-        {
-            new Recorder.Aircraft(true, "DLH1", "a", "", "", "", "", 0, default(Sim.Obj.Owner)),
-        };
+        SceneTrack aircraft = Recording.Jfs2ImportTests.Track(true, "DLH1", "a", "");
+        aircraft.Frames.Add(Recording.Jfs2ImportTests.Position(1.0, Position));
+        aircraft.Frames.Add(Recording.Jfs2ImportTests.Position(2.0, Position));
 
-        string path = recorder.AutoSave(folder, objects, Moment);
+        string path = recorder.AutoSave(folder, [aircraft], Moment);
 
-        Assert.Equal(Path.Combine(folder, "2026-10-04_070509_DLH1.jfs"), path);
-        using var reader = new BinaryReader(File.OpenRead(path));
-        Assert.Equal(Recorder.FileVersion, reader.ReadInt16());
-        Assert.Equal(1, reader.ReadInt32());
+        Assert.Equal(Path.Combine(folder, "2026-10-04_070509_DLH1.jfs2"), path);
+        Assert.Equal([path], Directory.GetFiles(folder));
+        var loaded = Jfs2Scene.Load(new MemoryStream(File.ReadAllBytes(path)));
+        var back = Assert.Single(loaded.Tracks);
+        Assert.Equal("DLH1", back.Identity.Callsign);
+        Assert.Equal(2, back.Frames.OfType<ScenePositionFrame>().Count());
+    }
+
+    static Sim.AircraftPosition Position = new() { latitude = 47, longitude = 8, altitude = 500 };
+
+    [Fact]
+    public void SaveJfs2_ReplacesAnExistingFileOnlyWhenAsked()
+    {
+        var recorder = new Recorder(null!);
+        string path = Path.Combine(folder, "x.jfs2");
+        File.WriteAllText(path, "old");
+
+        Assert.ThrowsAny<IOException>(() => recorder.SaveJfs2(path, [], Moment, false));
+        Assert.Equal("old", File.ReadAllText(path));
+        Assert.Equal([path], Directory.GetFiles(folder));
+
+        recorder.SaveJfs2(path, [], Moment, true);
+        Assert.NotEqual("old", File.ReadAllText(path));
+        Assert.Equal([path], Directory.GetFiles(folder));
     }
 
     [Fact]
@@ -106,14 +127,16 @@ public class RecorderAutoSaveTests : IDisposable
     }
 
     [Fact]
-    public void AutoSave_DeletesTheTruncatedFile_WhenWritingFails()
+    public void SaveJfs2_LeavesNothingBehind_WhenWritingFails()
     {
         var recorder = new Recorder(null!);
-        var unwritable = new Recorder.Obj("", "", "", "", 0, default(Sim.Obj.Owner)) { model = null! };
+        string path = Path.Combine(folder, "y.jfs2");
+        File.WriteAllText(path, "old");
 
-        Assert.ThrowsAny<Exception>(() => recorder.AutoSave(folder, [unwritable], Moment));
+        Assert.ThrowsAny<Exception>(() => recorder.SaveJfs2(path, [null!], Moment, true));
 
-        Assert.Empty(Directory.GetFiles(folder));
+        Assert.Equal("old", File.ReadAllText(path)); // the file being replaced survives
+        Assert.Equal([path], Directory.GetFiles(folder));
     }
 
     // ---- what each action is allowed to do ----

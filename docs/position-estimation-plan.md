@@ -69,7 +69,7 @@ Written 2026-10-01. Status:
 - **Wire.** `SimMessageMapper.ToPositionUpdate` carries all the fields above
   ([SimMessageMapper.cs:35-70](../JoinFS/Session/SimMessageMapper.cs#L35-L70)).
   - `NetTime` is f64 seconds on the sender's own clock, in both legacy and JFP2 PositionV1
-    ([PositionCodec.cs:21-92](../JoinFS/Net/Protocols/Jfp2/Codecs/PositionCodec.cs#L21-L92)).
+    ([PositionCodec.cs:21-92](../JoinFS.Messages/Codecs/PositionCodec.cs#L21-L92)).
   - Lat/lon/alt are f64. Angles, velocities and accelerations are f32. There is no lossy
     quantisation; quantised PositionV2 is specified but not implemented.
   - Relays (legacy and JFP2, max one hop) forward `NetTime` unchanged and add no per-hop timing.

@@ -47,7 +47,7 @@ There is no length field in the header: UDP already delivers a message as one di
 
 ## 3. Node identity — the `Nuid`
 
-Nodes do not have an application-assigned ID; a node's identity *is* its network address, packed into a 7-byte structure (historically `LocalNode.Nuid`; `NodeId` in current code, `JoinFS/Net/Core/NodeId.cs`, same layout):
+Nodes do not have an application-assigned ID; a node's identity *is* its network address, packed into a 7-byte structure (historically `LocalNode.Nuid`; `NodeId` in current code, `JoinFS.Messages/NodeId.cs`, same layout):
 
 | Size | Field | Description |
 |---|---|---|
@@ -341,6 +341,6 @@ Supporting IPv6 peers is the one change on this list that can't be done as a pur
 | Framing, `FLAG_FORWARD` relay, every message's encoder and decoder | `JoinFS/Net/Protocols/Legacy/LegacyPlugin.cs` |
 | Guaranteed delivery (segmentation, acks, retransmission, reassembly) | `JoinFS/Net/Protocols/Legacy/LegacyReliability.cs` |
 | Join / Login / AddNode / Leave / Pulse / Pathfinder logic (protocol-neutral) | `JoinFS/Net/Core/MeshManager.cs` |
-| `Nuid` (`NodeId`), password/string hash | `JoinFS/Net/Core/NodeId.cs`, `NetHash.cs` |
+| `Nuid` (`NodeId`), password/string hash | `JoinFS.Messages/NodeId.cs`, `NetHash.cs` |
 | Byte-for-byte fixtures of every message | `JoinFS.Tests/Legacy/Fixtures/*.hex`, checked by `LegacyPluginGoldenTests` |
 | Hub / session / discovery logic (what to send, and what to do with what arrives) | `JoinFS/Network.cs` and `JoinFS/Session/` (`HubDirectory`, `HubHost`, `UserDirectory`, `PeerTable`, `SimIngest`) |

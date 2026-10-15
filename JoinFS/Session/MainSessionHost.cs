@@ -167,6 +167,8 @@ namespace JoinFS
                     aircraft.paused = (update.StateFlags & PositionStateFlags.Paused) != 0;
                     if (Recording(aircraft))
                     {
+                        // a changed identity (callsign, model), then the position
+                        main.recorder.RecordIdentity(aircraft);
                         main.recorder.Record(aircraft.recorderObj, update.NetTime, ref aircraftPosition);
                     }
                 }
@@ -197,6 +199,8 @@ namespace JoinFS
                     simObject.paused = (update.StateFlags & PositionStateFlags.Paused) != 0;
                     if (Recording(simObject))
                     {
+                        // a changed identity (model), then the position
+                        main.recorder.RecordIdentity(simObject);
                         main.recorder.Record(simObject.recorderObj, update.NetTime, ref positionVelocity);
                     }
                 }

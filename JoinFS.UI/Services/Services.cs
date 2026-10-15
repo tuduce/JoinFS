@@ -287,6 +287,9 @@ public interface IChatSource
     void MarkRead();
 }
 
+/// <summary>A recording that was never saved, as found on disk.</summary>
+public sealed record UnsavedRecording(string Path, DateTime Written, long Bytes);
+
 /// <summary>
 /// The recorder: a take of the aircraft that were ticked to record, which can be played back, laid over, trimmed, saved and loaded.
 /// </summary>
@@ -339,9 +342,28 @@ public interface IRecorderSource
 
     /// <summary>
     /// Loads a recording file, or with <paramref name="append"/> adds it after the end of the one in the recorder, and plays it.
-    /// Throws with what to tell the user when the file cannot be used.
+    /// Throws with what to tell the user when the file cannot be used. Returns what to warn the user about when the file was
+    /// opened but part of it was lost or is not played (a damaged file), and an empty string otherwise.
     /// </summary>
-    Task OpenAsync(string path, bool append);
+    Task<string> OpenAsync(string path, bool append);
+
+    /// <summary>
+    /// Recordings that were never saved and are still on disk, newest first: JoinFS closed or crashed while one was recording, or
+    /// its window was closed without saving. Empty when there are none.
+    /// </summary>
+    IReadOnlyList<UnsavedRecording> FindUnsavedRecordings();
+
+    /// <summary>
+    /// Loads an unsaved recording found by <see cref="FindUnsavedRecordings"/> in place of the one in the recorder, and plays it. Saving it
+    /// afterwards removes the leftover file. Throws with what to tell the user when it cannot be used.
+    /// </summary>
+    Task<string> RecoverAsync(string path);
+
+    /// <summary>Deletes an unsaved recording the user does not want.</summary>
+    void DeleteUnsaved(string path);
+
+    /// <summary>The user gave the recording in the recorder up without saving it: what is kept on disk for it goes.</summary>
+    void DiscardUnsaved();
 
     Task SaveAsync(string path);
 }
