@@ -9,14 +9,16 @@ next. The design is `recorder-v2-design.md`, the bytes are `format-spec.md`; thi
 | `format-spec.md` | Byte-exact specification of the `.jfs2` format, edition 1, approved 2026-10-12. Appendix C lists the decisions it makes. |
 | `tools/jfsstat.py` | Read-only statistics of legacy `.jfs` files (frame types, sizes, how much of each variable frame changes). |
 | `tools/jfs2ref.py`, `tools/example.jfs2` | Reference writer for the spec's Appendix A example (221 bytes). The format library's golden test pins these bytes. |
+| `tools/jfs2bench/` | Stage 6 measurements (not in `JoinFS.sln`): convert old files, build a synthetic long recording with `Jfs2Capture`, time and size `Jfs2Scene.Load`, copy a file with and without Deflate per chunk. Usage at the top of `Program.cs`. |
 
-## Status (2026-10-15, after player slice 4)
+## Status (2026-10-15, stage 6: load and Deflate measured)
 
 The app records, saves, opens, plays and recovers `.jfs2` files, and opens old `.jfs` files through the importer. It no longer writes
 `.jfs`. The recording in memory is the scene: one `SceneTrack` of canonical messages per object, which the recorder records into, plays,
 edits and saves. The working file is the recording: when recording stops the recorder reads it back as the scene, and Save of an unedited
 recording moves it into place; an edited one is written by `Jfs2SceneWriter`. An overdub is captured into a working file of its own. The
-player work ("Next", slices 1 to 4) is done; stage 6 is next.
+player work (stage 5, slices 1 to 4) is done. Stage 6 has measured load time, memory and Deflate ("Measurements" below); its
+proposals wait for the owner's decision ("Open decisions"), and no code changed for them yet.
 
 Checked in a simulator: stage 2 playback (2026-10-12); gear and lights record and play (2026-10-14). Everything after that is checked by
 unit tests only: keyframes, identity changes, boats and vehicles, Save as `.jfs2`, the working file and recovery, the importer in the app,
@@ -106,10 +108,11 @@ From the design or the spec, all known, none silent:
 1. Done in slice 4: Save of an unedited recording moves its working file; only an edited one is written again.
 2. Done in slice 2: identity changes are frames of the scene, captured for network objects too, played and saved.
 3. Done in slice 2: Jump restores position, identity and variables (design 5.4).
-4. **Everything is loaded whole.** A one-hour recording with ten aircraft is about 80 MB of file. Design 5.5's chunk-by-chunk player is a
-   stage 6 measurement.
-5. **Chunks are written on the sim thread** (about 8 KB every 2 s) and flushed to the operating system, not to disk, until the file is
-   finished. Spec 9.1 asks for a flush to disk every few seconds (SHOULD); design 5.5 wants a writer thread.
+4. **Everything is loaded whole.** Measured in stage 6: a one-hour recording with ten aircraft is about 90 to 115 MB of file, loads in
+   0.75 s and holds about 285 MB in memory ("Measurements"). Proposed: keep loading whole, no chunk-by-chunk player (design 5.5).
+5. **Chunks are written on the sim thread** (about 5 KB per aircraft every 2 s: 25 KB with five, 62 KB with ten, 0.15 ms to write) and
+   flushed to the operating system, not to disk, until the file is finished. Spec 9.1 asks for a flush to disk every few seconds
+   (SHOULD); design 5.5 wants a writer thread.
 6. **A clock that steps back still holds records.** Since slice 1 an object's records share one time base, so jitter holds nothing. A
    track's time may not go back (spec 5), so when a sender's network clock is corrected backwards (or positions arrive out of order), the
    capture writes the late records at the track's last time; it counts them ("records held back" in the log). Saved files are not affected
@@ -132,14 +135,22 @@ From the design or the spec, all known, none silent:
     overdub made after a trim at the start is laid over the untrimmed recording when recovered, offset by the trim; recovering the
     recording alone leaves its overdub's file a leftover, which recovered later finds its base gone (if it was saved meanwhile, under another
     name) and plays alone; the `base` key is not in `format-spec.md` (it is private to working files and never in a saved file).
-15. **The read-back at Stop runs on the sim thread**: reading a long recording holds the sim thread up (about the load time of the same file
-    opened). Stage 6 measures load time with the chunk-by-chunk player (limit 4); reading it on another thread is the fix if it matters.
+15. **The read-back at Stop runs on the sim thread**: reading a long recording holds the sim thread up for its load time, 45 ms for twelve
+    minutes of five aircraft (130 ms the first time, JIT), 0.75 s for an hour of ten; meanwhile the tracks recorded in memory and the
+    ones read back are both alive (about 570 MB for the hour, and the read allocates 715 MB). Proposed: read on another thread, swap the
+    tracks in on the sim thread.
 
 ## Open decisions
 
-- None. Design questions 1 to 4 are decided (design 11).
+Design questions 1 to 4 are decided (design 11). Stage 6 proposes, from the measurements below:
 
-## Next: a player on the scene (stage 5, remaining)
+- **No chunk-by-chunk player** (limit 4). The worst case measured, an hour of ten aircraft, loads in under a second and holds 285 MB;
+  the scene in memory is what makes Jump, the trims, overdub and Save simple. Revisit only if much longer recordings turn up.
+- **Read back at Stop off the sim thread** (limit 15): 0.75 s with the sim thread held is a visible stall of every remote aircraft.
+- **Deflate per chunk, on in the capture and the scene writer**: files shrink to 55 to 62%, for 0.4 to 0.9 ms per chunk (every 2 s)
+  and 16 to 33% more load time. It must be in the capture, since Save of an unedited recording moves the working file.
+
+## Stage 5: a player on the scene (done)
 
 Replace the old frame model of playback and editing with a player that works on `Jfs2Scene` tracks of canonical messages, so the file the capture
 writes is the recording. Suggested slices, each leaving a working recorder, one fresh session each:
@@ -156,8 +167,13 @@ writes is the recording. Suggested slices, each leaving a working recorder, one 
    recording moves it into place, an edited one is written by the scene writer; an overdub has its own working file whose `base` names
    the file under it (limit 14); `track-close` when an object leaves (limit 7); `variable-names.txt` (limit 8).
 
-Stage 6 then measures load time and memory of long recordings to decide on the chunk-by-chunk player (limit 4), and the other measured
-options (compression, recording rate, `PositionV2`).
+## Next: stage 6, the measured options
+
+1. **Load time, memory, Deflate**, measured (no code change; "Measurements"). Proposals in "Open decisions".
+2. **What the owner decides of step 1**: likely the read-back at Stop on another thread (limit 15), and Deflate on in the capture and
+   the scene writer (a writer option; the reader already inflates).
+3. **Recording rate and `PositionV2`**: positions are recorded at about 19 Hz and variables change about as often (the busiest tiger
+   track); measure what a lower rate or a smaller position record saves against playback quality.
 
 ## History
 
@@ -177,6 +193,32 @@ Stages as planned in design section 9; dates are 2026-10.
 | 5 player, slice 2 | `38f7d81` | The recorder records into, plays and saves `SceneTrack`s; identity frames (network objects captured too); Jump restores state; loader and exporter removed. |
 | 5 player, slice 3 | `37f052a` | Editing on the scene: trims on `SceneTrack` with the state at the cut first; objects left empty by a trim removed. |
 | 5 player, slice 4 | `375b29f`, `f1226e8` | Design questions 1 to 4 decided. The working file is the recording (read back at Stop, moved on Save unless edited); overdub working files with `base`, recovered over their base; `track-close`; `variable-names.txt`. |
+| 6 measurements, step 1 | the commit adding `tools/jfs2bench` | Load time and memory of long recordings, Deflate per chunk; `tools/jfs2bench`. Proposals: no chunk-by-chunk player, read-back off the sim thread, Deflate on. |
+
+## Measurements (stage 6, 2026-10-15)
+
+`tools/jfs2bench`, Release build, on the owner's PC. Load is `Jfs2Scene.Load` of a finished file: best of three after a first run (in
+brackets when it differs; only the first file of a run pays the JIT); retained is what the scene holds after a full GC, allocated is
+everything the load allocated.
+
+| File | Size | Tracks, length | Load (first) | Retained | Allocated |
+|---|---|---|---|---|---|
+| tigers taxi, converted | 3.6 MB | 5, 4.8 min | 15 ms | 8 MB | 21 MB |
+| tigers 3rd, converted (largest) | 9.0 MB | 5, 11.9 min | 46 ms (131) | 21 MB | 52 MB |
+| tigers 3rd, Deflate | 5.6 MB | | 61 ms (72) | 21 MB | 64 MB |
+| synthetic, 10 aircraft, 1 h | 114.3 MB | 10, 60 min | 733 ms (787) | 285 MB | 715 MB |
+| synthetic, Deflate | 63.0 MB | | 852 ms (964) | 285 MB | 841 MB |
+
+- Converting: the five largest tiger recordings (12 to 29 MB) become 3.6 to 9.0 MB, in under 0.3 s to import and 0.4 s to write each.
+  Real data is about 0.15 MB per aircraft-minute, so an hour of ten aircraft is about 90 MB.
+- The synthetic file is ten copies of tigers 3rd's busiest track (positions about 19 Hz, variable records about 20 Hz), each started at
+  another point and looped to an hour, written by `Jfs2Capture` in 0.7 s: 684k positions, 708k variable records, 359 keyframes,
+  1797 chunks (62 KB each). It is an upper end: the tiger tracks average fewer variable records.
+- In memory a frame costs about 205 bytes (1.39 M frames, 285 MB), about 2.5 times its bytes in the file.
+- Deflate per chunk (`CompressionLevel.Optimal`, kept only when smaller): tigers 3rd to 62%, the synthetic file to 55%. Writing a chunk
+  takes 0.38 ms median (p99 0.63) with five aircraft and 0.87 ms (p99 1.20, max 3.05) with ten, against 0.15 ms without.
+- The scene writer's frame count is of frames handed to the capture: an imported old file's unchanged variable frames count but write
+  nothing (tigers 3rd: 144,753 counted, 104,854 read back).
 
 ## Findings that still hold
 
