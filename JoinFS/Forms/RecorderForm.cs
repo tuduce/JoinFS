@@ -412,7 +412,7 @@ namespace JoinFS
                                 List<JoinFS.Recording.SceneTrack> objects = main.recorder.Parse(new BinaryReader(stream));
                                 main.InvokeOnSim(sim =>
                                 {
-                                    main.recorder.Load(objects, false);
+                                    main.recorder.Load(objects, false, openedFrom: dialog.FileName);
                                     main.recorder.StartPlay();
                                     return true;
                                 });

@@ -139,6 +139,11 @@ namespace JoinFS
         public volatile bool playing;
 
         /// <summary>
+        /// The recording in progress is an overdub
+        /// </summary>
+        bool overdubbing;
+
+        /// <summary>
         /// End time and object ids as of the last pass, for other threads
         /// </summary>
         double endTimeView;
@@ -266,26 +271,53 @@ namespace JoinFS
         /// automatic name, never overwriting a file. Returns the path; throws if it can't be written
         /// (nothing is left behind) - any thread
         /// </summary>
-        public string AutoSave(string folder, IReadOnlyList<SceneTrack> tracks, DateTime now)
+        public string AutoSave(string folder, IReadOnlyList<SceneTrack> tracks, DateTime now) => AutoSave(folder, new SaveCopy(tracks, null), now);
+
+        /// <inheritdoc cref="AutoSave(string, IReadOnlyList{SceneTrack}, DateTime)"/>
+        public string AutoSave(string folder, SaveCopy copy, DateTime now)
         {
-            string path = UniquePath(folder, BuildAutoSaveFileName(now, FirstCallsign(tracks)));
-            SaveJfs2(path, tracks, now, false);
+            string path = UniquePath(folder, BuildAutoSaveFileName(now, FirstCallsign(copy.Tracks)));
+            SaveJfs2(path, copy, now, false);
             return path;
         }
 
         /// <summary>
-        /// Save a recording (from <see cref="CopyForSave"/>) as a JFS2 file. It is written beside the target and moved into place,
-        /// so a failure leaves nothing behind and does not destroy a file that is being replaced. Throws if it can't be written - any thread
+        /// What Save writes, taken on the sim thread (<see cref="CopyForSave"/>): copies of the tracks, and the finished working file when
+        /// it holds exactly the recording (it was not edited since it was recorded), so Save moves that file instead of writing the tracks
         /// </summary>
-        /// <param name="now">When the recording ended (local time); the file's start time is that minus the recording's length</param>
+        public sealed record SaveCopy(IReadOnlyList<SceneTrack> Tracks, string File);
+
+        public void SaveJfs2(string path, IReadOnlyList<SceneTrack> tracks, DateTime now, bool overwrite) => SaveJfs2(path, new SaveCopy(tracks, null), now, overwrite);
+
+        /// <summary>
+        /// Save a recording (from <see cref="CopyForSave"/>) as a JFS2 file. A recording that was not edited is its working file, which is
+        /// moved into place (design 7); one that was is written by the scene writer. Either way the file is put beside the target first
+        /// (a move on the same drive is a rename), so a failure leaves nothing behind and does not destroy a file that is being replaced.
+        /// Throws if it can't be written - any thread
+        /// </summary>
+        /// <param name="now">When the recording ended (local time); a written file's start time is that minus the recording's length</param>
         /// <param name="overwrite">Replace an existing file (the user confirmed it in the dialog) instead of failing</param>
-        public void SaveJfs2(string path, IReadOnlyList<SceneTrack> tracks, DateTime now, bool overwrite)
+        public void SaveJfs2(string path, SaveCopy copy, DateTime now, bool overwrite)
         {
-            double length = tracks.Count == 0 ? 0 : tracks.Max(track => track.Frames.Count == 0 ? 0 : track.Frames[^1].Time);
+            if (copy.File != null && SameDrive(copy.File, path))
+            {
+                File.Move(copy.File, path, overwrite);
+                return;
+            }
             string temp = path + ".tmp";
             try
             {
-                Jfs2SceneWriter.Write(temp, tracks, AppLabel, now.ToUniversalTime().AddSeconds(-length), _ => { });
+                if (copy.File != null)
+                {
+                    // the working file stays until the recording is known to be saved
+                    File.Copy(copy.File, temp, true);
+                }
+                else
+                {
+                    IReadOnlyList<SceneTrack> tracks = copy.Tracks;
+                    double length = tracks.Count == 0 ? 0 : tracks.Max(track => track.Frames.Count == 0 ? 0 : track.Frames[^1].Time);
+                    Jfs2SceneWriter.Write(temp, tracks, AppLabel, now.ToUniversalTime().AddSeconds(-length), _ => { }, VariableNamer());
+                }
                 File.Move(temp, path, overwrite);
             }
             catch
@@ -293,6 +325,34 @@ namespace JoinFS
                 TryDeleteQuietly(temp);
                 throw;
             }
+        }
+
+        static bool SameDrive(string a, string b) =>
+            string.Equals(Path.GetPathRoot(Path.GetFullPath(a)), Path.GetPathRoot(Path.GetFullPath(b)), StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// The name of a variable for <c>variable-names.txt</c> (spec 3.5): the text its vuid was made from (the SimConnect name, with its
+        /// mask if it has one, or the X-Plane dataref), or null when the variable is not known here. Null without variables - any thread
+        /// </summary>
+        Func<uint, string> VariableNamer()
+        {
+            Dictionary<uint, VariableMgr.Definition> definitions = main?.variableMgr?.definitions;
+            if (definitions == null)
+            {
+                return null;
+            }
+            return vuid =>
+            {
+                if (!definitions.TryGetValue(vuid, out VariableMgr.Definition definition))
+                {
+                    return null;
+                }
+                if (!string.IsNullOrEmpty(definition.scName))
+                {
+                    return definition.mask == 0 ? definition.scName : definition.scName + definition.mask.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+                return definition.drName;
+            };
         }
 
         /// <summary>
@@ -522,18 +582,28 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// The live capture into the working file (docs/jfs2), or null: a journal of the recording that survives a crash and is offered
-        /// for recovery. The in-memory tracks stay the recording that is played, edited and saved (Save writes them with Jfs2SceneWriter).
+        /// The live capture into a working file (docs/jfs2), or null. A new recording is captured into its working file, which becomes
+        /// the recording when it stops (<see cref="ReloadWorkingFile"/>); an overdub into a working file of its own on the recording's
+        /// time line, whose <see cref="BaseKey"/> names the file it adds to, so a recovery lays it over that file.
         /// </summary>
         Jfs2Capture jfs2;
 
         /// <summary>
-        /// Start the JFS2 file for a new recording. A failure is logged and leaves the recording as it was.
+        /// The header key of an overdub's working file that names the file it adds to (design 11, open question 3)
         /// </summary>
-        void StartJfs2Capture()
+        public const string BaseKey = "base";
+
+        /// <summary>
+        /// Start the JFS2 file for a new recording, or for an overdub of the recording held. A failure is logged and leaves the
+        /// recording as it was.
+        /// </summary>
+        void StartJfs2Capture(bool overdub)
         {
             jfs2 = null;
-            DiscardWorkingFile();
+            if (!overdub)
+            {
+                DiscardWorkingFile();
+            }
             if (!main.settingsJfs2Capture)
             {
                 return;
@@ -542,10 +612,15 @@ namespace JoinFS
             {
                 string folder = WorkingFolder(main.documentsPath);
                 Directory.CreateDirectory(folder);
-                string path = UniquePath(folder, BuildAutoSaveFileName(DateTime.Now, ""));
-                jfs2 = Jfs2Capture.Create(path, AppLabel, SimulatorLabel(), DateTime.UtcNow, main.MonitorEvent);
-                workingFile = path;
-                main.MonitorEvent("Recorder: writing the working file '" + path + "'.");
+                string name = BuildAutoSaveFileName(DateTime.Now, overdub ? "overdub" : "");
+                string path = UniquePath(folder, name);
+                // an overdub adds to the latest file of the recording: its own working file, the overdub before, or the file it was opened from
+                string baseFile = overdub ? (workingFiles.Count > 0 ? workingFiles[^1] : recordingPath) : null;
+                List<KeyValuePair<string, string>> more = baseFile == null ? [] : [new(BaseKey, baseFile)];
+                jfs2 = Jfs2Capture.Create(path, AppLabel, SimulatorLabel(), DateTime.UtcNow.AddSeconds(-Time), main.MonitorEvent, more);
+                // replaced, not changed: other threads read the list (FindUnsavedWorkingFiles)
+                workingFiles = [.. workingFiles, path];
+                main.MonitorEvent("Recorder: writing the working file '" + path + "'" + (baseFile == null ? "" : ", an overdub of '" + baseFile + "'") + ".");
             }
             catch (Exception ex)
             {
@@ -563,18 +638,45 @@ namespace JoinFS
         public static string WorkingFolder(string documentsPath) => Path.Combine(documentsPath, WorkingFolderName);
 
         /// <summary>
-        /// The working file of the recording the recorder holds, or null (the recording was opened from a file, or has been saved)
+        /// The working files of the recording the recorder holds, oldest first: its own and those of its overdubs. Empty when the
+        /// recording was opened from a file or has been saved, and has not been overdubbed since.
         /// </summary>
-        string workingFile;
+        List<string> workingFiles = [];
 
         /// <summary>
-        /// The recording has been saved (or its owner let it go), so its working file is not needed any more - sim thread
+        /// The finished working file that holds exactly the recording, or null once the recording is edited (trimmed, an object
+        /// removed, a recording added, overdubbed) or was not recorded here. Save moves it into place instead of writing the tracks.
+        /// </summary>
+        string unedited;
+
+        /// <summary>
+        /// The file the recording was opened from or last saved to, which an overdub names as its base when there is no working file
+        /// </summary>
+        string recordingPath;
+
+        /// <summary>
+        /// The recording is being changed from what its working file holds, so Save must write the tracks
+        /// </summary>
+        void Edited() => unedited = null;
+
+        /// <summary>
+        /// The recording has been saved to the path, so its working files are not needed any more - sim thread
+        /// </summary>
+        public void Saved(string path)
+        {
+            DiscardWorkingFile();
+            recordingPath = path;
+        }
+
+        /// <summary>
+        /// The recording has been saved or its owner let it go, so its working files are not needed any more - sim thread
         /// </summary>
         public void DiscardWorkingFile()
         {
-            string path = workingFile;
-            workingFile = null;
-            if (path != null)
+            List<string> paths = workingFiles;
+            workingFiles = [];
+            unedited = null;
+            foreach (string path in paths)
             {
                 TryDeleteQuietly(path);
             }
@@ -591,9 +693,9 @@ namespace JoinFS
             {
                 return [];
             }
-            string current = workingFile;
+            List<string> current = workingFiles;
             return Directory.EnumerateFiles(folder, "*" + Jfs2.Extension)
-                .Where(path => !string.Equals(path, current, StringComparison.OrdinalIgnoreCase) && !InUse(path))
+                .Where(path => !current.Contains(path, StringComparer.OrdinalIgnoreCase) && !InUse(path))
                 .OrderBy(path => File.GetLastWriteTimeUtc(path))
                 .ToList();
         }
@@ -657,24 +759,65 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Finish the JFS2 file: close the open tracks and write its index
+        /// Finish the JFS2 file: close the open tracks and write its index and the names of its variables. Returns the file when it
+        /// was written whole, else null; a file with nothing to play is deleted.
         /// </summary>
-        void FinishJfs2Capture()
+        string FinishJfs2Capture()
         {
-            if (jfs2 != null)
+            if (jfs2 == null)
             {
-                Jfs2Capture finished = jfs2;
-                jfs2 = null;
-                finished.Finish();
-                if (finished.PositionCount + finished.ObjectPositionCount == 0)
+                return null;
+            }
+            Jfs2Capture finished = jfs2;
+            jfs2 = null;
+            finished.Finish(VariableNamer());
+            if (finished.PositionCount + finished.ObjectPositionCount == 0)
+            {
+                // nothing to play, nothing to recover
+                workingFiles = workingFiles.Where(path => path != finished.Path).ToList();
+                TryDeleteQuietly(finished.Path);
+                return null;
+            }
+            if (finished.Failed)
+            {
+                return null;
+            }
+            main.MonitorEvent("Recorder: wrote the JFS2 recording '" + finished.Path + "' (" + finished.TrackCount + " objects, " + finished.ClosedCount + " left before the end, " + finished.PositionCount + " aircraft positions, " + finished.ObjectPositionCount + " object positions, " + finished.VariableRecordCount + " variable records, " + finished.EventCount + " events, " + finished.IdentityChangeCount + " identity changes, " + finished.HeldCount + " records held back).");
+            return finished.Path;
+        }
+
+        /// <summary>
+        /// Make the working file of a recording that has just stopped the recording: its tracks replace the ones recorded in memory,
+        /// so what plays, is edited and is saved is what the file holds, and Save of an unedited recording moves the file. If the file
+        /// cannot be read the tracks in memory stay, and Save writes them.
+        /// </summary>
+        void ReloadWorkingFile(string path)
+        {
+            try
+            {
+                List<SceneTrack> tracks;
+                using (FileStream stream = File.OpenRead(path))
                 {
-                    // nothing to play, nothing to recover
-                    DiscardWorkingFile();
+                    tracks = ParseJfs2(stream, null);
                 }
-                else if (!finished.Failed)
-                {
-                    main.MonitorEvent("Recorder: wrote the JFS2 recording '" + finished.Path + "' (" + finished.TrackCount + " objects, " + finished.PositionCount + " aircraft positions, " + finished.ObjectPositionCount + " object positions, " + finished.VariableRecordCount + " variable records, " + finished.EventCount + " events, " + finished.IdentityChangeCount + " identity changes, " + finished.HeldCount + " records held back).");
-                }
+                objList = tracks.ConvertAll(track => new Obj(track));
+                unedited = path;
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is InvalidOperationException)
+            {
+                main.MonitorEvent("Recorder: cannot read back the working file '" + path + "' (" + ex.Message + "); the recording in memory is kept.");
+            }
+        }
+
+        /// <summary>
+        /// A sim object has gone: a recorded one's track is closed (spec 7.1), so it is in no later keyframe - sim thread
+        /// </summary>
+        public void ObjectLeft(Sim.Obj simObject)
+        {
+            if (recording && simObject.recorderObj is Obj recorded && recorded.playing == false)
+            {
+                jfs2?.CloseTrack(recorded.id, recorded.timeBase.Other(Time));
+                simObject.recorderObj = null;
             }
         }
 
@@ -704,9 +847,16 @@ namespace JoinFS
                 {
                     // set start time
                     startTime = main.ElapsedTime;
-                    // the working file journals a new recording; an overdub adds to a recording that is not in it
-                    StartJfs2Capture();
+                    recordingPath = null;
                 }
+                else
+                {
+                    // the overdub is merged into the recording when it is saved
+                    Edited();
+                }
+                // a new recording is captured into its working file, an overdub into one of its own
+                overdubbing = overdub;
+                StartJfs2Capture(overdub);
 
                 // for each object in the sim
                 foreach (var simObject in main.sim.objectList)
@@ -773,7 +923,7 @@ namespace JoinFS
             // check state
             if (main.sim != null && recording)
             {
-                FinishJfs2Capture();
+                string captured = FinishJfs2Capture();
                 LogRecordFrameCounts();
 
                 // a clock that stepped back (limit 6 in docs/jfs2/README.md) leaves frames out of order; the player wants them in order
@@ -799,6 +949,12 @@ namespace JoinFS
                 {
                     // object is no longer being recorded
                     simObject.recorderObj = null;
+                }
+
+                // a new recording is what its working file holds; an overdub stays merged in memory until Save
+                if (captured != null && !overdubbing)
+                {
+                    ReloadWorkingFile(captured);
                 }
             }
 
@@ -855,6 +1011,7 @@ namespace JoinFS
 
                 // remove from list
                 objList.Remove(obj);
+                Edited();
             }
         }
 
@@ -1292,9 +1449,9 @@ namespace JoinFS
         /// Copies of the tracks with their own frame lists, so a recording can be written on
         /// another thread while this one goes on (sim thread)
         /// </summary>
-        public List<SceneTrack> CopyForSave()
+        public SaveCopy CopyForSave()
         {
-            return objList.ConvertAll(o => o.track.Copy());
+            return new SaveCopy(objList.ConvertAll(o => o.track.Copy()), recording ? null : unedited);
         }
 
 #region Reader
@@ -1304,7 +1461,14 @@ namespace JoinFS
         /// any thread and then applied on the sim thread with <see cref="Load"/>. Null when the
         /// recording can't be used. Throws with a message for the user when the file is damaged.
         /// </summary>
-        public List<SceneTrack> Parse(BinaryReader reader, List<string> warnings = null)
+        public List<SceneTrack> Parse(BinaryReader reader, List<string> warnings = null) => Parse(reader, warnings, 0);
+
+        /// <summary>
+        /// The most overdubs read under one another (<see cref="BaseKey"/>), against a chain that loops
+        /// </summary>
+        const int MaxOverdubDepth = 32;
+
+        List<SceneTrack> Parse(BinaryReader reader, List<string> warnings, int depth)
         {
             // get version
             short version = reader.ReadInt16();
@@ -1314,7 +1478,7 @@ namespace JoinFS
             if (version == Jfs2.LegacyVersionSignature && reader.BaseStream.CanSeek)
             {
                 reader.BaseStream.Position -= sizeof(short);
-                return ParseJfs2(reader.BaseStream, warnings);
+                return ParseJfs2(reader.BaseStream, warnings, depth);
             }
             // check version
             if (version < 10022)
@@ -1348,11 +1512,73 @@ namespace JoinFS
         /// <summary>
         /// Read a JFS2 recording into tracks, logging what was skipped. Throws, with a message for the user, if it can't be played.
         /// </summary>
-        List<SceneTrack> ParseJfs2(Stream stream, List<string> warnings)
+        List<SceneTrack> ParseJfs2(Stream stream, List<string> warnings, int depth = 0)
         {
-            List<SceneTrack> tracks = Loaded(Jfs2Scene.Load(stream), warnings);
+            Jfs2Scene scene = Jfs2Scene.Load(stream);
+            List<SceneTrack> tracks = Loaded(scene, warnings);
             main?.MonitorEvent("Recorder: read a JFS2 recording with " + tracks.Count + " objects.");
-            return tracks;
+            string baseFile = BaseOf(scene.Metadata);
+            if (baseFile == null)
+            {
+                return tracks;
+            }
+            // an overdub's working file: the recording it adds to first, then the overdub's tracks at their own times
+            List<SceneTrack> under = null;
+            string problem = "it is gone";
+            if (depth < MaxOverdubDepth && File.Exists(baseFile))
+            {
+                try
+                {
+                    using FileStream baseStream = File.OpenRead(baseFile);
+                    under = Parse(new BinaryReader(baseStream), warnings, depth + 1);
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is InvalidOperationException)
+                {
+                    problem = ex.Message;
+                }
+            }
+            if (under == null)
+            {
+                string warning = "The recording this overdub adds to, '" + baseFile + "', cannot be read (" + problem + "); only the overdub is played.";
+                main?.MonitorEvent("Recorder: " + warning);
+                warnings?.Add(warning);
+                return tracks;
+            }
+            under.AddRange(tracks);
+            return under;
+        }
+
+        static string BaseOf(IReadOnlyList<KeyValuePair<string, string>> metadata) =>
+            metadata.FirstOrDefault(pair => pair.Key == BaseKey).Value is { Length: > 0 } value ? value : null;
+
+        /// <summary>
+        /// A working file and, for an overdub's, the files under it (<see cref="BaseKey"/>) that are in the same folder, oldest first:
+        /// the working files a recovery of it takes over. A file that cannot be read ends the chain - any thread
+        /// </summary>
+        public static List<string> WorkingFileChain(string path)
+        {
+            List<string> chain = [];
+            string folder = Path.GetDirectoryName(Path.GetFullPath(path));
+            for (string file = path; file != null && chain.Count < MaxOverdubDepth; )
+            {
+                if (!string.Equals(Path.GetDirectoryName(Path.GetFullPath(file)), folder, StringComparison.OrdinalIgnoreCase)
+                    || chain.Contains(file, StringComparer.OrdinalIgnoreCase) || !File.Exists(file))
+                {
+                    break;
+                }
+                chain.Add(file);
+                try
+                {
+                    using RecordingReader reader = RecordingReader.Open(file);
+                    file = BaseOf(reader.Header.Metadata);
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is Jfs2FormatException)
+                {
+                    break;
+                }
+            }
+            chain.Reverse();
+            return chain;
         }
 
         /// <summary>
@@ -1371,7 +1597,10 @@ namespace JoinFS
         /// <summary>
         /// Replace the recording with parsed tracks, or append them after its end (sim thread)
         /// </summary>
-        public void Load(List<SceneTrack> tracks, bool append, string recoveredFrom = null)
+        /// <param name="recoveredFrom">The working file the recording is recovered from; it and the files under it (an overdub's) stay
+        /// the recording's working files until it is saved</param>
+        /// <param name="openedFrom">The file the recording was opened from, which an overdub of it names as its base</param>
+        public void Load(List<SceneTrack> tracks, bool append, string recoveredFrom = null, string openedFrom = null)
         {
             if (tracks == null)
             {
@@ -1391,12 +1620,16 @@ namespace JoinFS
                 // clear all aircraft; the recording that is replaced is saved or given up, so its working file goes
                 objList.Clear();
                 DiscardWorkingFile();
+                recordingPath = openedFrom;
             }
+            // what is loaded is written by the scene writer on Save: an opened file has been read (and maybe repaired), a recovered
+            // one may be unfinished
+            Edited();
             objList.AddRange(tracks.Select(track => new Obj(track)));
-            // a recording recovered from its working file stays unsaved until it is saved, which then removes that file
+            // a recording recovered from its working files stays unsaved until it is saved, which then removes them
             if (!append && recoveredFrom != null)
             {
-                workingFile = recoveredFrom;
+                workingFiles = WorkingFileChain(recoveredFrom);
             }
             PublishStatus();
         }
@@ -1411,6 +1644,7 @@ namespace JoinFS
         /// </summary>
         public void TrimFromStart()
         {
+            Edited();
             // get current time
             double now = Time;
             // for each object; one gone by now is taken out of the list
@@ -1438,6 +1672,7 @@ namespace JoinFS
         /// </summary>
         public void TrimToEnd()
         {
+            Edited();
             // get current time
             double now = Time;
             // for each object; one with nothing left to show is taken out of the list

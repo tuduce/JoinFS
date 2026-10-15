@@ -23,14 +23,15 @@ namespace JoinFS.Recording
         /// <param name="app">For the header's <c>app</c> metadata, and the source application of a track that does not name one, for example
         /// "JoinFS 26.10 (converted)". The header's <c>sim</c> is the simulator all tracks name, and left out when they differ.</param>
         /// <param name="startUtc">When recording time 0 happened, if known.</param>
-        public static Result Write(string path, IReadOnlyList<SceneTrack> tracks, string app, DateTime startUtc, Action<string> log)
+        /// <param name="variableName">Names variables for the <c>variable-names.txt</c> attachment; none is written without it.</param>
+        public static Result Write(string path, IReadOnlyList<SceneTrack> tracks, string app, DateTime startUtc, Action<string> log, Func<uint, string> variableName = null)
         {
             List<string> simulators = [.. tracks.Select(track => track.Simulator ?? "").Distinct()];
             Jfs2Capture capture = Jfs2Capture.Create(path, app, simulators.Count == 1 ? simulators[0] : "", startUtc, log);
             try
             {
                 Result result = Write(capture, tracks, app);
-                capture.Finish();
+                capture.Finish(variableName);
                 if (capture.Failed)
                 {
                     throw new InvalidOperationException("The JFS2 file could not be written; see the log.");

@@ -99,14 +99,14 @@ namespace JoinFS.Live
         public string AutoSave()
         {
             // copy on the sim thread, which owns the recording; the file is written here
-            List<JoinFS.Recording.SceneTrack> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
+            Recorder.SaveCopy objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
             if (objects == null)
             {
                 throw new InvalidOperationException(Loc.T("the simulator thread did not respond"));
             }
 
             string path = main.recorder.AutoSave(main.documentsPath, objects, DateTime.Now);
-            OnSim(recorder => recorder.DiscardWorkingFile());
+            OnSim(recorder => recorder.Saved(path));
             main.MonitorEvent("Recorder: auto-saved the previous recording to '" + path + "'.");
             return Path.GetFileName(path);
         }
@@ -190,7 +190,7 @@ namespace JoinFS.Live
 
             OnSim(recorder =>
             {
-                recorder.Load(objects, append, recovered ? path : null);
+                recorder.Load(objects, append, recovered ? path : null, recovered ? null : path);
                 recorder.StartPlay();
             });
 
@@ -210,7 +210,7 @@ namespace JoinFS.Live
         {
             // copy on the sim thread (which owns the recording) before opening the file, which truncates it:
             // a failed copy must not leave an empty file marked as saved
-            List<JoinFS.Recording.SceneTrack> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
+            Recorder.SaveCopy objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
             if (objects == null)
             {
                 main.MonitorEvent("ERROR - Recording not saved: the simulator thread did not respond. Please try again.");
@@ -219,7 +219,7 @@ namespace JoinFS.Live
 
             // the file picker has already asked about replacing a file
             await Task.Run(() => main.recorder.SaveJfs2(path, objects, DateTime.Now, true));
-            OnSim(recorder => recorder.DiscardWorkingFile());
+            OnSim(recorder => recorder.Saved(path));
 
             // save folder
             Settings.Default.RecordingFolder = Path.GetDirectoryName(path);

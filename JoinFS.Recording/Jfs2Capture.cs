@@ -66,6 +66,8 @@ namespace JoinFS.Recording
         readonly Dictionary<uint, TrackState> states = [];
         /// <summary>The tracks in the order they opened, which is the order of a snapshot.</summary>
         readonly List<uint> trackOrder = [];
+        /// <summary>Every variable written, for the <c>variable-names.txt</c> attachment (spec 3.5).</summary>
+        readonly SortedSet<uint> vuids = [];
 
         /// <summary>No record may be earlier than the TMin of the chunk before (spec 5).</summary>
         long floor;
@@ -86,6 +88,8 @@ namespace JoinFS.Recording
         public bool Failed { get; private set; }
 
         public int TrackCount { get; private set; }
+        /// <summary>Tracks closed before the end, because their object left.</summary>
+        public int ClosedCount { get; private set; }
         public int PositionCount { get; private set; }
         public int ObjectPositionCount { get; private set; }
         public int IdentityChangeCount { get; private set; }
@@ -104,12 +108,17 @@ namespace JoinFS.Recording
         /// <param name="simulator">For the header's <c>sim</c> metadata; empty when unknown.</param>
         /// <param name="startUtc">When recording time 0 happened.</param>
         /// <param name="log">Told once if the capture fails.</param>
-        public static Jfs2Capture Create(string path, string app, string simulator, DateTime startUtc, Action<string> log)
+        /// <param name="more">More header metadata, for example an overdub's <c>base</c>.</param>
+        public static Jfs2Capture Create(string path, string app, string simulator, DateTime startUtc, Action<string> log, IEnumerable<KeyValuePair<string, string>> more = null)
         {
             List<KeyValuePair<string, string>> metadata = [new("app", app)];
             if (simulator.Length > 0)
             {
                 metadata.Add(new("sim", simulator));
+            }
+            if (more != null)
+            {
+                metadata.AddRange(more);
             }
             var header = new RecordingHeader
             {
@@ -299,6 +308,10 @@ namespace JoinFS.Recording
                 {
                     return;
                 }
+                foreach (VariableEntry change in changes)
+                {
+                    vuids.Add(change.Vuid);
+                }
 
                 long time = TimeOf(track, seconds);
                 WriteVariableRecords(track, time, changes, snapshot: false);
@@ -334,8 +347,36 @@ namespace JoinFS.Recording
             }
         }
 
-        /// <summary>Ends the file: closes the open tracks, writes the Index and Footer. Safe to call twice or after a failure.</summary>
-        public void Finish()
+        /// <summary>
+        /// Ends a track: the object has left (spec 7.1). It is in no later snapshot, and records for it are not written any more.
+        /// </summary>
+        public void CloseTrack(uint track, double seconds)
+        {
+            if (Failed || finished || !states.Remove(track))
+            {
+                return;
+            }
+            try
+            {
+                trackOrder.Remove(track);
+                long time = TimeOf(track, seconds);
+                writer.Add(kinds.TrackClose, track, time, []);
+                lastTime[track] = time;
+                ClosedCount++;
+                EndChunkIfDue();
+            }
+            catch (Exception ex)
+            {
+                Fail(ex);
+            }
+        }
+
+        /// <summary>
+        /// Ends the file: closes the open tracks, writes the Index and Footer. Safe to call twice or after a failure.
+        /// </summary>
+        /// <param name="variableName">The name of a variable, or null when it has none; with it the file gets the <c>variable-names.txt</c>
+        /// attachment (spec 3.5) for the variables it holds.</param>
+        public void Finish(Func<uint, string> variableName = null)
         {
             if (finished)
             {
@@ -346,6 +387,10 @@ namespace JoinFS.Recording
             {
                 try
                 {
+                    if (variableName != null)
+                    {
+                        WriteVariableNames(variableName);
+                    }
                     writer.Finish();
                 }
                 catch (Exception ex)
@@ -357,6 +402,29 @@ namespace JoinFS.Recording
         }
 
         public void Dispose() => Finish();
+
+        /// <summary>The attachment that names the variables (spec 3.5).</summary>
+        public const string VariableNamesAttachment = "variable-names.txt";
+
+        /// <summary>
+        /// Writes <c>variable-names.txt</c>: a line per variable that has a name, its vuid as eight lower-case hex digits, a tab, the name.
+        /// </summary>
+        void WriteVariableNames(Func<uint, string> variableName)
+        {
+            var text = new System.Text.StringBuilder();
+            foreach (uint vuid in vuids)
+            {
+                string name = variableName(vuid);
+                if (!string.IsNullOrEmpty(name))
+                {
+                    text.Append(vuid.ToString("x8")).Append('\t').Append(name.Replace('\t', ' ').Replace('\n', ' ').Replace('\r', ' ')).Append('\n');
+                }
+            }
+            if (text.Length > 0)
+            {
+                writer.AddAttachment(VariableNamesAttachment, "text/plain; charset=utf-8", System.Text.Encoding.UTF8.GetBytes(text.ToString()));
+            }
+        }
 
         /// <summary>Recording seconds as the format's microseconds, never before the track's last record or the previous chunk.</summary>
         long TimeOf(uint track, double seconds)

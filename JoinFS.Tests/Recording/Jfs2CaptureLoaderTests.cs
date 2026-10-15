@@ -883,4 +883,78 @@ public sealed class Jfs2CaptureLoaderTests : IDisposable
         Assert.Equal(new DateTime(2026, 10, 12, 18, 0, 0, DateTimeKind.Utc), scene.StartUtc);
         Assert.Contains(scene.Metadata, m => m.Key == "app" && m.Value == "JoinFS test");
     }
+
+    [Fact]
+    public void ATrackClosedWhenItsObjectLeaves_IsInNoLaterKeyframe_AndTakesNoMoreRecords()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(1, 0.0, TrackOwner.Local, "me", "x", "", Identity("A", "Cessna"));
+        capture.OpenTrack(2, 0.0, TrackOwner.Network, "you", "x", "", Identity("B", "Piper"));
+        for (int i = 0; i < 400; i++)
+        {
+            double t = i * 0.05;
+            PositionUpdate a = Position(i);
+            capture.Position(1, t, ref a);
+            if (i < 100)
+            {
+                PositionUpdate b = Position(i);
+                capture.Position(2, t, ref b);
+            }
+            else if (i == 100)
+            {
+                capture.CloseTrack(2, t);
+            }
+            else
+            {
+                // late records of a track that has closed are dropped, not an error
+                PositionUpdate b = Position(i);
+                capture.Position(2, t, ref b);
+            }
+        }
+        capture.Finish();
+        Assert.False(capture.Failed, string.Join(" ", logged));
+        Assert.Equal(1, capture.ClosedCount);
+
+        using var reader = RecordingReader.Open(PathOf("a.jfs2"));
+        RecordEntry close = reader.Chunks.Select((_, i) => { reader.TryReadChunk(i, out RecordChunk? c); return c!; })
+            .SelectMany(c => c.Records).Single(r => reader.GetKind(r.Kind)!.Name == "track-close" && r.Track == 2);
+        Assert.Equal(5_000_000, close.Time);
+        int keyframe = Enumerable.Range(0, reader.Chunks.Count).Last(i => reader.Chunks[i].IsKeyframe);
+        Assert.True(reader.Chunks[keyframe].TMin > close.Time);
+        Assert.True(reader.TryReadChunk(keyframe, out RecordChunk? last));
+        Assert.All(last!.Records, r => Assert.Equal(1u, r.Track));
+
+        Jfs2Scene scene = Load(Open(PathOf("a.jfs2")));
+        Assert.Equal(100, scene.Tracks.Single(t => t.Identity.Callsign == "B").Frames.OfType<ScenePositionFrame>().Count());
+    }
+
+    [Fact]
+    public void Finish_NamesTheVariablesTheFileHolds()
+    {
+        var capture = NewCapture();
+        capture.OpenTrack(1, 0.0, TrackOwner.Local, "me", "x", "", Identity("A", "Cessna"));
+        capture.Variables(1, 0.0, new Dictionary<uint, int> { [0x2a] = 1, [7] = 2 }, new Dictionary<uint, float> { [0xdeadbeef] = 1f }, null);
+        PositionUpdate a = Position(0);
+        capture.Position(1, 0.0, ref a);
+        capture.Finish(vuid => vuid switch { 0x2a => "GEAR\tPOSITION", 0xdeadbeef => "FLAPS", _ => null });
+
+        using var reader = RecordingReader.Open(PathOf("a.jfs2"));
+        Attachment names = reader.GetAttachment(Jfs2Capture.VariableNamesAttachment)!;
+        Assert.Equal("text/plain; charset=utf-8", names.MediaType);
+        // sorted by vuid; a variable without a name has no line, and a tab in a name would break the line
+        Assert.Equal("0000002a\tGEAR POSITION\ndeadbeef\tFLAPS\n", System.Text.Encoding.UTF8.GetString(names.Bytes));
+    }
+
+    [Fact]
+    public void WithoutNames_NoAttachmentIsWritten_AndMoreMetadataIsKept()
+    {
+        var capture = Jfs2Capture.Create(PathOf("a.jfs2"), "JoinFS test", "", DateTime.UtcNow, logged.Add, [new("base", "b.jfs2")]);
+        capture.OpenTrack(1, 0.0, TrackOwner.Local, "me", "x", "", Identity("A", "Cessna"));
+        capture.Variables(1, 0.0, new Dictionary<uint, int> { [1] = 1 }, null, null);
+        capture.Finish();
+
+        using var reader = RecordingReader.Open(PathOf("a.jfs2"));
+        Assert.Empty(reader.Attachments);
+        Assert.Contains(reader.Header.Metadata, m => m.Key == "base" && m.Value == "b.jfs2");
+    }
 }

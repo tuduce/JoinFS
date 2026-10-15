@@ -964,7 +964,7 @@ namespace JoinFS
             {
                 // copy on the sim thread (which owns the recording) before opening the file, which
                 // truncates it - a failed copy must not leave an empty file marked as saved
-                List<JoinFS.Recording.SceneTrack> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
+                Recorder.SaveCopy objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
                 if (objects == null)
                 {
                     string message = "ERROR - Recording not saved: the simulator thread did not respond. Please try again.";
@@ -984,7 +984,7 @@ namespace JoinFS
                     main.MonitorEvent(message);
                     return;
                 }
-                main.InvokeOnSim(sim => { main.recorder.DiscardWorkingFile(); return true; });
+                main.InvokeOnSim(sim => { main.recorder.Saved(dialog.FileName); return true; });
                 // save folder
                 Settings.Default.RecordingFolder = Path.GetDirectoryName(dialog.FileName);
                 // now saved
@@ -1005,7 +1005,7 @@ namespace JoinFS
             }
 
             // copy on the sim thread, which owns the recording
-            List<JoinFS.Recording.SceneTrack> objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
+            Recorder.SaveCopy objects = main.InvokeOnSim(sim => main.recorder.CopyForSave());
             if (objects == null)
             {
                 return ReportAutoSaveFailure("the simulator thread did not respond");
@@ -1014,7 +1014,7 @@ namespace JoinFS
             try
             {
                 string path = main.recorder.AutoSave(main.documentsPath, objects, DateTime.Now);
-                main.InvokeOnSim(sim => { main.recorder.DiscardWorkingFile(); return true; });
+                main.InvokeOnSim(sim => { main.recorder.Saved(path); return true; });
                 main.MonitorEvent("Recorder: auto-saved the previous recording to '" + path + "'.");
                 ShowRecordingSaved(path);
                 unsaved = false;
