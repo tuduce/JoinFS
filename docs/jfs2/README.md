@@ -27,13 +27,14 @@ gives the variables again every 0.2 s (limit 17). Not merged into `main` yet (ow
 
 Checked in a simulator: stage 2 playback (2026-10-12); gear and lights record and play (2026-10-14); a recording with a change of aircraft, saved right after Stop, trimmed at the start with the gear up (2026-10-15: variables and events good, but every track was shown from the start, fixed since, and the flight's loading phase was recorded at 0/0, ignored since: limit 16); a third one
 (2026-10-15: timing and positions good, no 0/0 track; a Bonanza taxied with its gear up, fixed: limit 17, and
-confirmed in a fourth). Everything after that is checked by
+confirmed in a fourth, with a Jump back past a lights change
+(the state at that time) and an aircraft unflagged during a recording (removed when played back, limit 7). Everything after that is checked by
 unit tests only: keyframes, identity changes, boats and vehicles, Save as `.jfs2`, the working file and recovery, the importer in the app,
 the time base, the player on the scene (play, Jump with its state, identity changes, tracks that start later or end), the writer thread,
 unflagging, the trims, the working file as the recording (the
 swap of the read-back, not the Stop that starts it), Deflate chunks, overdub working files and their recovery, track-close, variable names. The Stop that starts the read-back is not unit-tested (it needs a simulator). In a field test the log line "Recorder: wrote the
-JFS2 recording" should end in "0 records held back"; worth checking in a simulator: a change of aircraft during a recording (no track at 0/0; each aircraft appears only while its track lasts,
-also after a Jump back), unflagging an aircraft during a recording, a Jump back past a gear or lights change, a callsign
+JFS2 recording" should end in "0 records held back"; worth checking in a simulator: a Jump back with a change of aircraft in the recording (each aircraft appears only while its track
+lasts), a callsign
 or model change during a recording, a trim at the start after the gear went up (the aircraft should start with it up), Save right after
 a recording (the saved file is the working file, moved, once the read-back is done; Save before that writes the tracks in memory), and an overdub that is recovered
 after closing JoinFS without saving.
