@@ -51,6 +51,21 @@ namespace JoinFS
             /// </summary>
             public bool online = false;
             public double offlineTime = 0.0;
+
+            /// <summary>
+            /// The entry leads to the same place as <paramref name="otherAddress"/>: the same end point, or, when
+            /// either has none (an IPv6 address or a name that did not resolve has (0,0)), the same text.
+            /// </summary>
+            public bool IsSameDestination(string otherAddress, IPEndPoint otherEndPoint)
+            {
+                if (HasEndPoint(endPoint) && HasEndPoint(otherEndPoint))
+                {
+                    return endPoint.Equals(otherEndPoint);
+                }
+                return string.Equals(address, otherAddress, StringComparison.OrdinalIgnoreCase);
+            }
+
+            static bool HasEndPoint(IPEndPoint endPoint) => endPoint != null && !endPoint.Address.Equals(IPAddress.Any);
         }
 
         /// <summary>

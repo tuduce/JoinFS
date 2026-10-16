@@ -332,7 +332,7 @@ namespace JoinFS.Net
         // ------------------------------------------------------------------ PeerCandidates: the member's side
 
         /// <summary>
-        /// The hub says where members can be reached. Counted only from the node this one joined through; an entry
+        /// The hub says where members can be reached. Counted only from the node this one joined through, directly (not forwarded); an entry
         /// replaces the peer's candidates (an empty one clears them), as if the peer had reported them itself; an entry
         /// for this node is ignored, one for a member not registered yet is held for <see cref="HeldCandidatesTime"/>.
         /// </summary>
@@ -342,9 +342,9 @@ namespace JoinFS.Net
             {
                 return;
             }
-            if (!joinedThrough.Valid() || meta.Sender != joinedThrough)
+            if (meta.Forwarded || !joinedThrough.Valid() || meta.Sender != joinedThrough)
             {
-                core.Log(NetLogLevel.Network, "NETWORK: PeerCandidates from " + meta.Sender + " ignored (not the node this one joined through)");
+                core.Log(NetLogLevel.Network, "NETWORK: PeerCandidates from " + meta.Sender + " ignored (not directly from the node this one joined through)");
                 return;
             }
             if (!Ipv6Available)

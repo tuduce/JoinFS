@@ -191,6 +191,19 @@ namespace JoinFS.Tests.Net
             mesh.Run(5);
 
             Assert.DoesNotContain(mesh.Network.Log, d => d.To.Address.Equals(IPAddress.Parse("2001:db8::bad")));
+
+            // the control: the same tag in a Hello from the hub's own endpoint is taken, and probed
+            var genuine = new HandshakeMessage
+            {
+                ProtoMajorMin = 2, ProtoMajorMax = 2, SelfAssignedId = 9,
+                Names = [NodeName.FromLegacy(hub.Id)],
+                Candidates = [new IPEndPoint(IPAddress.Parse("2001:db8::600d"), 6112)],
+            };
+            a.Core.OnDatagram(hub.EndPoint, Handshake(MessageClasses.Hello, 9, 0, genuine));
+
+            mesh.Run(5);
+
+            Assert.Contains(mesh.Network.Log, d => a.OwnsAddress(d.From) && d.To.Address.Equals(IPAddress.Parse("2001:db8::600d")));
         }
 
         static byte[] FirstPulse(TestMesh mesh, TestNode from, TestNode to) =>
@@ -269,7 +282,7 @@ namespace JoinFS.Tests.Net
             mesh.CutIpv6(a, hub);
             mesh.Run(45);
             int sent = mesh.Network.Log.Count(d => a.OwnsAddress(d.From) && d.To.Equals(hub.EndPoint6));
-            Assert.InRange(sent, 10, 40);       // a Pulse a second for at most 30 s, never a flood
+            Assert.InRange(sent, 28, 31);       // a Pulse a second (PulseInterval) for the 30 s of MeshManager.ProbeWindow, never a flood
 
             mesh.Run(30);
             Assert.Equal(sent, mesh.Network.Log.Count(d => a.OwnsAddress(d.From) && d.To.Equals(hub.EndPoint6)));

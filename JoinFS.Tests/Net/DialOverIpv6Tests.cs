@@ -64,6 +64,26 @@ namespace JoinFS.Tests.Net
             Assert.False(Between(mesh, a, hub, AddressFamily.InterNetwork));
         }
 
+        /// <summary>A peer first heard over IPv6 is registered on that path, but its id's IPv4 endpoint stays as the fallback.</summary>
+        [Fact]
+        public void PeerFirstHeardOverIPv6_FallsBackToIPv4_WhenIPv6StopsAnswering_InsteadOfExpiring()
+        {
+            var mesh = new TestMesh();
+            TestNode hub = Dual(mesh, "203.0.113.1", "2001:db8::1");
+            TestNode a = Dual(mesh, "198.51.100.2", "2001:db8::2");
+            hub.Core.Mesh.Create(false, 0, false, "");
+            a.Core.Mesh.Join(hub.EndPoint6!, 0);
+            mesh.Run(3);
+            Assert.Equal(a.EndPoint6, EndPointOf(hub, a));
+            mesh.CutIpv6(a, hub);
+
+            mesh.Run(25);
+
+            Assert.True(hub.Knows(a) && a.Knows(hub));
+            Assert.Equal(a.EndPoint, EndPointOf(hub, a));
+            Assert.Equal(hub.EndPoint, EndPointOf(a, hub));
+        }
+
         [Fact]
         public void IPv4OnlyNode_InTheSameSession_ExchangesPositionsWithBothOverIPv4()
         {
@@ -244,6 +264,27 @@ namespace JoinFS.Tests.Net
             Assert.False(hub.Core.Peers.Contains(a.Id));
             Assert.False(a.Core.Mesh.Connected);
             Assert.True(hub.Knows(b));
+        }
+
+        [Fact]
+        public void Jfp2Datagrams_FromANodeWhoseLegacyIdAddressIsBanned_AreDropped_WhateverTheSourceFamily()
+        {
+            var mesh = new TestMesh();
+            TestNode hub = Dual(mesh, "203.0.113.1", "2001:db8::1");
+            TestNode a = Dual(mesh, "198.51.100.2", "2001:db8::2");
+            hub.Core.Mesh.Create(false, 0, false, "");
+            a.Core.Mesh.Join(hub.EndPoint6!, 0);
+            mesh.Run(3);
+            Assert.Equal("JFP2", a.Core.Route(hub.Id, MessageKind.Position)!.Name);
+            SendPosition(a, hub, 3, 12.5);
+            mesh.Run(0.5);
+            Assert.Single(hub.Messages<PositionUpdate>());      // the control: it flows before the ban
+
+            hub.Core.BanIP("198.51.100.2");                      // banned while connected, over IPv6 (its /64 is not banned)
+            SendPosition(a, hub, 3, 13.5);
+            mesh.Run(0.5);
+
+            Assert.Single(hub.Messages<PositionUpdate>());
         }
 
         [Fact]

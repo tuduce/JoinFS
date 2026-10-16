@@ -419,12 +419,25 @@ namespace JoinFS.Net
                 IPEndPoint endPoint = core.Identity.MakeEndPoint(id, port);
                 // MakeEndPoint guesses a LAN address for any peer behind our public IP; a datagram that
                 // reached us directly tells the real one (strangers behind one CGNAT address)
+                IPEndPoint fallback = null;
                 if (receive && direct && heardFrom != null)
                 {
+                    // a first datagram over IPv6 (a Join dialled over it, a probe) puts the peer on that path, and the
+                    // endpoint of its id stays as the fallback, as for an upgraded path
+                    if (Ipv6Available && (source?.AddressFamily ?? heardFrom.AddressFamily) == AddressFamily.InterNetworkV6)
+                    {
+                        fallback = new IPEndPoint(endPoint.Address, endPoint.Port);
+                    }
                     endPoint.Address = heardFrom;
                     endPoint.Port = port;
                 }
                 peer = core.Peers.Add(id, endPoint, receive);
+                if (fallback != null)
+                {
+                    peer.Ipv4EndPoint = fallback;
+                    peer.Ipv6AnsweredAt = Now;
+                    peer.Ipv4Unproven = true;
+                }
                 peer.ExpireTime = Now + ExpireTime;
                 ApplyHeldCandidates(peer);
                 core.Log(NetLogLevel.Network, "NETWORK: RegisterNode new " + id + " " + port + " " + receive + " " + direct);

@@ -111,15 +111,16 @@ local Euroscope, websocket and web services stay IPv4.
     keyed by the peer's endpoint, moves too. Resends of both protocols go to the peer's current
     route, so they follow the move.
   - *Answering a probe.* A Pulse that arrives directly over the other address family than the
-    sender's route is answered to its actual source (a probe must be answered where it came from);
-    any other Pulse is answered to the route as before.
+    sender's route, or from an IPv6 address other than the route's, is answered to its actual source
+    (a probe must be answered where it came from: a pair relayed through an IPv6 hub has the hub's
+    address as its route, in the probe's own family); any other Pulse is answered to the route as before.
   - *AddNode and JoinReply* advertise the port of the peer's IPv4 endpoint, which behind an IPv4 NAT
     can differ from the port it is reached on over IPv6.
 - **Fallback.** A peer on an upgraded path that has not answered a Pulse over IPv6 for 10 s goes back
   to its IPv4 endpoint, and is not probed over IPv6 again for 5 minutes (the probe window of its
   candidates restarts when the hold-off ends). The peer does not expire meanwhile: the Pulses to
-  the IPv4 endpoint refresh it. A peer that was dialled over IPv6 has no IPv4 endpoint and expires
-  after 30 s as today.
+  the IPv4 endpoint refresh it. A peer first heard over IPv6 (a Join dialled over it, a probe) keeps the
+  endpoint of its legacy id as its fallback, on a node that has IPv6 itself.
 
 **Endpoint candidates.** Only IPv6 candidates are used in stage 1; IPv4 is still the legacy id.
 - *Observed:* a node records the IPv6 source of a peer's direct Pulses (the datagrams a peer sends
@@ -165,7 +166,7 @@ guess of `LocalIdentity.MakeEndPoint`. The NAT class of `ObservedEndPoints` is c
 observations only. The legacy encoder is never handed an IPv6 node, because in stage 1 every node
 has a legacy id.
 
-**Visibility.** A peer on an IPv6 path is marked "IPv6" next to the routed/direct and protocol
+**Visibility.** A peer on an IPv6 path (for a relayed peer: the first hop, the path to its relay) is marked "IPv6" next to the routed/direct and protocol
 labels (WinForms `SessionForm`, Avalonia `SessionView`); IPv4 is unmarked. Every dial choice, path
 upgrade and fallback is a `NETWORK:` log line.
 

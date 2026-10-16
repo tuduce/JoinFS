@@ -318,6 +318,27 @@ namespace JoinFS.Tests.Net
             Assert.Equal(4.5, Assert.Single(a.Messages<PositionUpdate>()).Latitude);
         }
 
+        /// <summary>The class is what decides, not the box: a dual-stack member whose JFP2 does not offer PeerCandidates is not told.</summary>
+        [Fact]
+        public void ADualStackMemberThatDoesNotOfferTheClass_IsNeverToldAnyCandidates()
+        {
+            var mesh = new TestMesh();
+            TestNode hub = Dual(mesh, "203.0.113.1", "2001:db8::1");
+            TestNode a = Dual(mesh, "198.51.100.2", "2001:db8::2");
+            TestNode r = mesh.AddDualStack("192.0.2.3", "2001:db8::3", 6112, new LegacyPlugin(),
+                new Jfp2Plugin(profile: Jfp2Profile.Default.WithoutInternal(MessageClasses.PeerCandidates)));
+            mesh.Partition(a, r);
+            hub.Core.Mesh.Create(false, 0, false, "");
+            a.Core.Mesh.Join(hub.EndPoint, 0);
+            r.Core.Mesh.Join(hub.EndPoint, 0);
+
+            mesh.Run(20);
+
+            Assert.DoesNotContain(PeerCandidatesSent(mesh), m => r.OwnsAddress(m.To));
+            Assert.Contains(PeerCandidatesSent(mesh), m => a.OwnsAddress(m.To));      // the control: a member with the class is told
+            Assert.True(a.Knows(r) && r.Knows(a));
+        }
+
         [Fact]
         public void AHubWithoutIPv6_NeverAnnouncesCandidates_SoMembersThatCannotReachEachOtherOverIPv4StayRelayed()
         {
@@ -381,6 +402,28 @@ namespace JoinFS.Tests.Net
         {
             var (mesh, hub, a, p, c) = Members();
             p.Core.SendTo(a.Id, Entry(c.Id, Planted), true);
+
+            mesh.Run(15);
+
+            Assert.Empty(PeerOf(a, c).Candidates);
+            Assert.False(SentTo(mesh, a, Planted.Address));
+            Assert.Contains(PeerCandidatesSent(mesh), m => p.OwnsAddress(m.From) && a.OwnsAddress(m.To));   // it did arrive
+        }
+
+        /// <summary>A member sharing a JFP2 session with the receiver relays an internal envelope naming the hub as its origin.</summary>
+        [Fact]
+        public void PeerCandidates_ForwardedWithTheHubAsOrigin_AreIgnored()
+        {
+            var (mesh, hub, a, p, c) = Members();
+            byte[] payload = new byte[PeerCandidatesV1Codec.MaxSize];
+            int n = new PeerCandidatesV1Codec().Encode(Entry(c.Id, Planted), payload);
+            Assert.True(Jfp2Of(p).TryGetHopIds(a.Id, out ushort local, out ushort remote));
+            var envelope = new Envelope(EnvelopeFlags.Internal | EnvelopeFlags.Forwarded, local, remote, MessageClasses.PeerCandidates, 0, 0, 0,
+                NodeName.FromLegacy(hub.Id), NodeName.FromLegacy(a.Id));
+            byte[] datagram = new byte[envelope.WireSize + n];
+            int header = envelope.WriteTo(datagram);
+            payload.AsSpan(0, n).CopyTo(datagram.AsSpan(header));
+            p.Core.Transport.Send(a.EndPoint, datagram);
 
             mesh.Run(15);
 

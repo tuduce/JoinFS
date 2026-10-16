@@ -254,6 +254,10 @@ namespace JoinFS.Net.Jfp2
                 host.Log(NetLogLevel.Network, "JFP2: datagram from " + from + " names its origin " + envelope.Origin + ", which this build cannot resolve - dropped");
                 return;
             }
+            if (host.IsBanned(sender))
+            {
+                return; // the address in its legacy id is banned, whichever address this datagram came from (as in LegacyPlugin)
+            }
             if (envelope.IsInternal && envelope.RawMessageClass == MessageClasses.GuaranteedDone)
             {
                 if (TryReadGuaranteedDone(payload, out ushort id, out byte index))
