@@ -328,3 +328,4 @@ minion journal):
 ## Progress
 
 - 2026-10-16: design approved, docs and this spec written. No code yet.
+- 2026-10-16: slice 1 (socket and test harness) done, branch `ipv6-01-socket-harness`, commit 5e8d8bb.
