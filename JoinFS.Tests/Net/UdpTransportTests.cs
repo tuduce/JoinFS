@@ -136,6 +136,22 @@ namespace JoinFS.Tests.Net
             }
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void SendToAnUnsetEndPoint_IsDroppedSilently(bool ipv6)
+        {
+            using UdpTransport transport = Start(ipv6, new Inbox());
+            var failures = new List<string>();
+            transport.SendFailed += (to, why) => failures.Add(to + ": " + why);
+
+            transport.Send(new IPEndPoint(0, 0), new byte[] { 1 });
+            transport.Send(new IPEndPoint(IPAddress.Loopback, 0), new byte[] { 1 });
+            transport.Send(new IPEndPoint(IPAddress.IPv6Any, 0), new byte[] { 1 });
+
+            Assert.Empty(failures);
+        }
+
         [Fact]
         public void LocalIpv6Candidate_IsTheFoundAddressWithTheSocketsPort_AndIsAskedForOnlyEvery30Seconds()
         {

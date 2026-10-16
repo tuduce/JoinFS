@@ -193,6 +193,11 @@ namespace JoinFS.Net
             {
                 return;
             }
+            // an endpoint that was never filled in (no address or no port) has nowhere to go
+            if (to.Port == 0 || to.Address.Equals(IPAddress.Any) || to.Address.Equals(IPAddress.IPv6Any))
+            {
+                return;
+            }
             try
             {
                 // a dual-mode socket addresses IPv4 peers by their IPv4-mapped IPv6 address
