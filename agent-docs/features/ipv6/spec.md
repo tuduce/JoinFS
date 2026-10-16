@@ -333,3 +333,4 @@ minion journal):
 - 2026-10-16: slice 3 (hub path upgrade and fallback) done, branch `ipv6-03-hub-upgrade`.
 - 2026-10-16: slice 4 (paths between members) done, branch `ipv6-04-members`.
 - 2026-10-16: slice 5 (visibility and docs) done, branch `ipv6-05-visibility`.
+- 2026-10-16: review fixes, group A (behaviour) done, branch `ipv6-06-review-fixes`: PeerCandidates only direct (not forwarded), peer first heard over IPv6 keeps its id endpoint as fallback, JFP2 ban by legacy id, address-book entries without endpoint compared by text, sharper tests; ReplyEndPoint kept and documented, PeerSnapshot.Family left as first hop (documented). Stopped at the 80% quota. Resume: group B (single MaxCandidates, PathFamily helper for the DualStack label, localization of OptionsForm/SettingsForm strings, immutable ScheduleJoin pair, NetworkService cleanup), then JoinFS.UI.Tests and CONSOLE and FS2020 builds.
