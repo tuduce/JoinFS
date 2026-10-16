@@ -39,12 +39,15 @@ public sealed partial class PeerRowViewModel : ObservableObject
     public string Version => Peer.Version;
     public string Protocol => Peer.Protocol == "Pending" ? Loc.T("Pending") : Peer.Protocol;
 
+    /// <summary>"IPv6" or "IPv4", the family of the path to the user. Empty when this node cannot use IPv6.</summary>
+    public string Family => Peer.Family;
+
     /// <summary>Released builds only speak the legacy wire, so the badge calls it out.</summary>
     public bool IsLegacy => Peer.IsLegacy;
 
     /// <summary>What a screen reader says for the row: the cells with their column names, which only the header shows on screen.</summary>
     public string AutomationName =>
-        $"{Nick}, {Callsign}, {Loc.T("Connected")} {Connected}, {Loc.T("Latency")} {Latency} ms, {Simulator}, {Loc.T("Version")} {Version}, {Loc.T("Protocol")} {Protocol}";
+        $"{Nick}, {Callsign}, {Loc.T("Connected")} {Connected}, {Loc.T("Latency")} {Latency} ms, {Simulator}, {Loc.T("Version")} {Version}, {Loc.T("Protocol")} {Protocol}{(Family.Length > 0 ? ", " + Family : "")}";
 
     public int Aircraft => Peer.Aircraft;
     public int ObjectsExported => Peer.Objects;

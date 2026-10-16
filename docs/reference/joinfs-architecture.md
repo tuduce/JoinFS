@@ -234,7 +234,8 @@ graph TB
   - session state, session id, global/creator/login flags, and the last join and login results;
   - local id, addresses and port;
   - per peer (`PeerSnapshot`): endpoint, route, direct, established both ways, low-bandwidth, RTT,
-    the protocol that currently carries its positions, and a link-state description;
+    the protocol that currently carries its positions, a link-state description, and the address
+    family of its path (`Family`, §5.8);
   - relay and guaranteed-delivery counters.
 - **`Stop()`** runs any work still queued (such as a final Leave) before closing the socket.
 
@@ -399,6 +400,45 @@ public interface IProtocolPlugin
   target's current next hop for up to 180 s, never handed to legacy; 30 s duplicate window.
 - **Relay:** Forwarded envelopes for a direct neighbour are forwarded (hop ids rewritten) when that
   neighbour agreed the same schema version, and decoded and translated otherwise (§6).
+
+### 5.8 IPv6 for dual-stack nodes
+
+Stage 1 of IPv6 (roadmap I1; mechanism in `docs/jfp2/design-future.md` §4.1, wire in
+`docs/jfp2/protocol.md` §5.4 and §9.8). Every node keeps its IPv4-shaped legacy id, so membership
+stays on legacy; only the path to a peer can be IPv6. Released builds never see IPv6.
+
+- **Socket.** `UdpTransport` opens one dual-mode socket on the port. IPv4-mapped sources are turned
+  back into plain IPv4 before anything else sees them. With the IPv6 setting off (`-noipv6`, or the
+  Settings entry, read at start) or no dual-mode socket from the OS, it opens an IPv4 socket and logs
+  one `NETWORK:` line. `NetworkSnapshot.DualStack` says which. The X-Plane link and the local
+  Euroscope, websocket and web services stay IPv4.
+- **Dialling.** `MeshManager.Join` takes an ordered list of addresses and moves to the next after
+  `DialTimeout` (5 s) without an answer. The session layer builds the list in `DialAddresses.Parse`
+  (IPv6 and IPv4 literals, hostnames resolved to all their addresses, IPv6 first when the socket is
+  dual-mode).
+- **One path per peer.** `Peer.EndPoint` and `Peer.RouteEndPoint` are the path every plugin sends
+  to, legacy included. A direct datagram over the other family never replaces it (it still counts as
+  heard). A **path upgrade** to IPv6 happens in `MeshManager.Paths.cs` on a PulseResponse from one
+  of the peer's IPv6 candidates; the IPv4 endpoint is kept (`Peer.Ipv4EndPoint`) for a **fallback**
+  after 10 s without an IPv6 answer, which starts a 5 min hold-off. Plugins follow a move through
+  `IProtocolPlugin.OnPathChanged`.
+- **Candidates.** A peer's IPv6 candidates come from the `Candidates` tag of Hello/HelloAck, from the
+  hub (`PeerCandidates`, internal class 10, accepted only from the node this one joined through)
+  and from observed Pulse sources. Members probe each other at once, which opens both home-router
+  firewalls. A relayed pair becomes direct over IPv6 the same way.
+- **Bans** match the datagram's source address and the address inside the sender's legacy id; an
+  IPv6 entry bans its /64.
+- **What the user sees.** `PeerSnapshot.Family` (`PathFamily.Label`, "IPv6" or "IPv4", the family of
+  the route's first hop) is shown in an "IP" column of both session views, only on a dual-stack
+  node. The `NETWORK:` log has a line for the dial order (`Dial order`, `Dial <ep> (n of m)`,
+  `Dial <ep> answered over <family>`, `Dial <ep> got no answer`), the candidates of a peer
+  (`Candidates of`, `Candidate of`, `PeerCandidates`), every `Path upgrade` and `Path fallback`.
+- **Tests.** `DialOverIpv6Tests`, `HubPathUpgradeTests`, `MemberPathsTests` on `TestMesh` (with the
+  dual-stack node, the stateful IPv6 firewall and `CutIpv6`), `UdpTransportTests` and
+  `NetworkServiceTests` on real sockets, `DialAddressesTests`, `PathFamilyTests`.
+- **Not yet.** IPv6-only nodes (after B3), IPv6 in the global hub list (B5), IPv6 inside Docker (the
+  container needs IPv6 enabled in the Docker daemon; see the README). Protocol edition 2, which
+  carries the `Candidates` tag and `PeerCandidates`, is not released yet.
 
 ## 6. Relaying and protocol translation
 

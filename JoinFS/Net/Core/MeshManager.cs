@@ -139,6 +139,10 @@ namespace JoinFS.Net
             }
             dialList = endPoints;
             dialIndex = 0;
+            if (endPoints.Count > 1)
+            {
+                core.Log(NetLogLevel.Network, "NETWORK: Dial order " + string.Join(", ", endPoints));
+            }
             Dial(password);
             passwordHash = password;
             ActiveJoinResult = JoinResult.Accepted;
@@ -490,6 +494,11 @@ namespace JoinFS.Net
             if (!active)
             {
                 return;
+            }
+            if (dialList != null)
+            {
+                // the dial choice that worked, with the family it used
+                core.Log(NetLogLevel.Network, "NETWORK: Dial " + dialList[dialIndex] + " answered over " + PathFamily.Label(meta.EndPoint) + " (" + (dialIndex + 1) + " of " + dialList.Count + ")");
             }
             dialList = null;
             if (!Connected)

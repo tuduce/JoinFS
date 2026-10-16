@@ -779,6 +779,7 @@ namespace JoinFS
                                 Console.WriteLine("  --nickname <name>      " + Resources.Strings.Options_Nickname);
                                 Console.WriteLine("  --port                 " + Resources.Strings.Options_Port);
                                 Console.WriteLine("  --localaddress <ip>    Override local network address (use host LAN IP when running in Docker)");
+                                Console.WriteLine("  --noipv6               Use IPv4 only for this run (IPv6 is on by default; the IPv6 setting is ignored)");
                                 Console.WriteLine("  --hub                  " + Resources.Strings.Tip_HubMode);
                                 Console.WriteLine("  --hubdomain <domain>   " + Resources.Strings.Tip_HubDomain);
                                 Console.WriteLine("  --hubname <name>       " + Resources.Strings.Tip_HubName);

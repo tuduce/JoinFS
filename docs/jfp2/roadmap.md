@@ -32,7 +32,7 @@ needs neither B2, B3 nor stages 10 and 11, and what it builds is what B3 needs a
 
 | Item | Task | Design | Depends on |
 |---|---|---|---|
-| I1 | **Dual-stack socket and IPv6 paths.** One dual-mode socket; one path per peer, legacy included; path upgrade to IPv6 and fallback; the `Candidates` tag and `PeerCandidates`; D3; bans by legacy-id address and IPv6 /64; the IPv6 setting; the "IPv6" label. Includes the IPv6 part of 12 (IPv6 endpoints in `InMemoryNetwork`). | `design-future.md` §4.1; `agent-docs/features/ipv6/spec.md` | — |
+| I1 | **Built, awaiting the field test (slice 6) and the edition 2 release.** **Dual-stack socket and IPv6 paths.** One dual-mode socket; one path per peer, legacy included; path upgrade to IPv6 and fallback; the `Candidates` tag and `PeerCandidates`; D3; bans by legacy-id address and IPv6 /64; the IPv6 setting; the "IPv6" label. Includes the IPv6 part of 12 (IPv6 endpoints in `InMemoryNetwork`). | `design-future.md` §4.1; `agent-docs/features/ipv6/spec.md` | — |
 
 ### 2.3 Towards a stand-alone JFP2
 
@@ -54,7 +54,7 @@ Each needs its own design, approved by the owner, before it is built.
 
 | Item | Task | Status |
 |---|---|---|
-| D3 | **DNS lookup** keeps only the first address returned, so a hostname that also has an IPv6 address can fail to join. | Open; part of I1. |
+| D3 | **DNS lookup** keeps only the first address returned, so a hostname that also has an IPv6 address can fail to join. | Fixed in I1 (a hostname is dialled at all its addresses); closes with the field test. |
 | C3 | Split `Jfp2Plugin.cs` further, into separate classes (the partial-class split is done). | Optional; the partial split covers the need. |
 | C5 | Separate `MeshManager`'s wire-visible rules from local policy. The relay budget is a setting (stage 9); the Pulse and Pathfinder timings are not. | Partly done. |
 | — | **Position v2, coalescing, selective acknowledgement.** Each is designed when a measurement says it pays. The recorder will use Position v2 too (decided 2026-10-15): a quantised 52-byte candidate halves a `.jfs2` file (`docs/jfs2/README.md`, Measurements, step 3). | `design-future.md` §7 |

@@ -705,6 +705,9 @@
   <data name="Please specify the root folder for the simulator:" xml:space="preserve">
     <value>Veuillez spécifier le dossier racine du simulateur :</value>
   </data>
+  <data name="Use IPv6 (restart to apply)" xml:space="preserve">
+    <value>Utiliser IPv6 (redémarrage requis)</value>
+  </data>
   <data name="Protocol" xml:space="preserve">
     <value>Protocole</value>
   </data>

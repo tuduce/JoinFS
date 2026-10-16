@@ -332,3 +332,4 @@ minion journal):
 - 2026-10-16: slice 2 (dial over IPv6) done, branch `ipv6-02-dial`.
 - 2026-10-16: slice 3 (hub path upgrade and fallback) done, branch `ipv6-03-hub-upgrade`.
 - 2026-10-16: slice 4 (paths between members) done, branch `ipv6-04-members`.
+- 2026-10-16: slice 5 (visibility and docs) done, branch `ipv6-05-visibility`.

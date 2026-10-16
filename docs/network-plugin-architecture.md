@@ -446,6 +446,14 @@ Pre-existing bugs fixed along the way (most have a regression test in `JoinFS.Te
      - `Network.cs` remains as the protocol-free session layer rather than being deleted (§2.10 item 1).
 9. Update `docs/jfp2/history/protocol-v2-architecture.md`, `.claude/CLAUDE.md` (the architecture section, the threading model, the "legacy files untouched" rule) and the implementation plan.
    - **Status: done** for this document and `CLAUDE.md`. `protocol-v2-architecture.md` has a banner pointing here.
+10. **IPv6 for dual-stack nodes** (roadmap I1, 2026-10-16; design `docs/jfp2/design-future.md` §4.1, spec `agent-docs/features/ipv6/spec.md`). Stage 1 of 2: every node keeps its IPv4 legacy id, so none of B2, B3 or stages 10 and 11 is needed.
+    - **Status: built on the `ipv6` branch, five of six slices.**
+      - Slice 1: dual-mode socket, the IPv6 setting and `-noipv6`, the dual-stack test node, the stateful IPv6 firewall and `CutIpv6` in `TestMesh`.
+      - Slice 2: dial over an ordered address list, D3 (a hostname resolves to all its addresses), the no-flipping rule, bans by legacy-id address and IPv6 /64.
+      - Slice 3: the `Candidates` handshake tag, Pulse probing, path upgrade, fallback and hold-off.
+      - Slice 4: `PeerCandidates` (internal class 10), probing between members, relayed pairs upgrading to IPv6.
+      - Slice 5: the family in the peer snapshot and both session views, the `NETWORK:` log lines, the Settings entry, the docs (`docs/reference/joinfs-architecture.md` §5.8).
+    - **Open:** the field test (slice 6: this PC, minion and an IPv4-only second instance), and releasing protocol edition 2 (carries `Candidates` and `PeerCandidates`; not marked released). Golden Hello/HelloAck of IPv4-only nodes are unchanged.
 
 **Still open after the rewrite:**
 - **Live interop.** Test against an unmodified v26.5 build and a real simulator:
