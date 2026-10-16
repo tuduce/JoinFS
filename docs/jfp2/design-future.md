@@ -1,8 +1,8 @@
 # JFP2: sketches of later work
 
 Current thinking for the roadmap items after release 1 (B2 to B7 and IPv6), recorded so that the
-release-1 wire could be checked against it. **Nothing here is binding or built.** Each item gets its
-own design, approved by the owner, when its stage comes. The task list and order are in
+release-1 wire could be checked against it. **Nothing here is binding or built**, except §4.1, which
+the owner approved. Each item gets its own design, approved by the owner, when its stage comes. The task list and order are in
 `roadmap.md`; the designs that come first (core identity, the node key) are in
 `design-node-identity.md`.
 
@@ -51,19 +51,88 @@ Today a node cannot start a JFP2 conversation with a node it has not met through
 ## 4. IPv6 and dual-stack
 
 IPv6 is possible with legacy frozen, because the freeze covers legacy's bytes, not the socket or JFP2.
+It comes in two stages. §4.1, dual-stack nodes, is **approved by the owner (2026-10-16)** and comes
+before B3. §4.2, IPv6-only nodes, needs B3 and stays a sketch. The work and its acceptance criteria
+are in `agent-docs/features/ipv6/spec.md`; the terms (path, path upgrade, fallback, endpoint
+candidate) are in `agent-docs/GLOSSARY.md`.
 
 | Pair | IPv6 possible? | How |
 |---|---|---|
-| New build ↔ new build | Yes | JFP2 carries the mesh and directory kinds with `WireEndPoint` addresses |
-| Dual-stack new build ↔ released build | Yes | Legacy over IPv4 as today; JFP2 over IPv6 to new peers |
-| IPv6-only new build ↔ released build, direct | No | Released builds have an IPv4-only socket |
-| IPv6-only new build ↔ released build, via a dual-stack hub | Only with an alias | The hub gives the IPv6 node a synthetic 7-byte id and translates (open question K) |
+| Dual-stack new build ↔ dual-stack new build | Yes, stage 1 | The whole path, legacy included, over IPv6 (§4.1) |
+| Any new build ↔ released build | No | Released builds have an IPv4-only socket: legacy and JFP2 over IPv4 as today |
+| IPv6-only new build ↔ new build | Stage 2 | JFP2 carries the mesh and directory kinds with `WireEndPoint` addresses (B3) |
+| IPv6-only new build ↔ released build, via a dual-stack hub | Stage 2, only with an alias | The hub gives the IPv6 node a synthetic 7-byte id and translates (open question K) |
 
-To keep legacy frozen:
-- the legacy encoder is never handed an IPv6 node (it leaves them out of AddNode, JoinReply,
+### 4.1 Stage 1: dual-stack nodes
+
+**Why before B3.** Every node keeps its IPv4-shaped legacy id, so membership stays on legacy and
+nothing in B2 or B3 is needed. The core already keeps each peer's endpoint apart from its id
+(`MeshManager.RegisterNode` takes it from where a direct datagram came from), so legacy's frozen
+bytes can travel an IPv6 path unchanged. What stage 1 builds (the dual-mode socket, endpoint
+candidates per peer, IPv6 in `InMemoryNetwork`, the DNS fix D3) is what B3 needs anyway; the
+candidate message of this stage is the one piece B3's membership entries may later replace.
+
+**The socket.** One dual-mode socket, with IPv4-mapped sources converted back to IPv4 on receive. A
+setting turns IPv6 off (on by default; `--noipv6` for the CONSOLE hub). If the OS cannot create a
+dual-mode socket, the node uses an IPv4 socket and logs it once. The X-Plane plugin link and the
+local Euroscope, websocket and web services stay IPv4.
+
+**One path per peer.** All traffic to a peer, legacy and JFP2, goes over that peer's one path:
+- **Dial.** A node dialling an address (a typed hostname or literal, an address-book entry) prefers
+  IPv6: a hostname is resolved to all its addresses (D3) and the AAAA is used first if this node has
+  IPv6. If the Join over IPv6 gets no answer in 5 s, the A record is tried. The core's Join takes the
+  ordered address list and does this itself; the app only turns text into the list. A literal is
+  `[2001:db8::1]:6112`, or a bare address with the default port. Entries of the global hub list are
+  IPv4 and are dialled over IPv4; a path upgrade then moves them to IPv6.
+- **No flipping.** A datagram from the peer over the other family never replaces the peer's
+  endpoint. Today every direct datagram does (`RegisterNode`), which would make a peer that sends
+  over both families flip between them.
+- **Path upgrade.** A peer on an IPv4 path that has IPv6 endpoint candidates is probed: a Pulse to
+  each candidate at the Pulse interval, for up to 30 s. The first PulseResponse that comes from one
+  of its IPv6 candidates moves the peer's endpoint there. The IPv4 endpoint is kept for fallback.
+  The two directions are independent: if only one side's probe gets through a firewall, only that
+  side sends over IPv6.
+- **Fallback.** A peer on an upgraded path that has not answered a Pulse over IPv6 for 10 s goes back
+  to its IPv4 endpoint, and is not probed over IPv6 again for 5 minutes. A peer that was dialled
+  over IPv6 has no IPv4 endpoint and expires after 30 s as today.
+
+**Endpoint candidates.** Only IPv6 candidates are used in stage 1; IPv4 is still the legacy id.
+- *Observed:* a node records the IPv6 source of a peer's direct datagrams. This is preferred.
+- *Self-reported:* a node lists its own IPv6 candidate in its Hello and HelloAck (the `Candidates`
+  tag, `protocol.md` §5.4): the address the OS would send from (on Windows a temporary address,
+  which is what peers will see) with the socket's port. A hub reports its own the same way, so a
+  node that joined it over IPv4 upgrades the hub path too. The tag is sent only when the node has
+  an IPv6 candidate, so the handshakes of IPv4-only nodes, and the release-1 golden fixtures, stay
+  byte for byte.
+- *Spread by the hub only.* When a hub announces a member (at JoinReply and AddNode time, and when a
+  member's candidates change), it sends `PeerCandidates` (`protocol.md` §9.8) with that member's
+  candidates to the other members, and the others' candidates to the new member. Both sides of a
+  pair then probe each other at about the same time, which is what gets the first datagram through
+  stateful IPv6 firewalls; it is the same trick Pathfinder relies on for IPv4. A node accepts
+  `PeerCandidates` only from the node it joined through, and only for names it resolves to a
+  member; candidates for a member not yet registered are held for 10 s. A released or IPv4-only hub
+  sends none, so its members never use IPv6 between each other.
+
+**Bans.** `NetworkCore` drops a datagram whose source address **or** whose sender's legacy-id address
+is banned, so a banned dual-stack user cannot return over IPv6. The ban list also takes IPv6
+entries, each banning its /64.
+
+**Unchanged.** Relaying, Pathfinder (its targets are legacy ids), `MaxNodesPerDevice`, the LAN
+guess of `LocalIdentity.MakeEndPoint`. The NAT class of `ObservedEndPoints` is computed from IPv4
+observations only. The legacy encoder is never handed an IPv6 node, because in stage 1 every node
+has a legacy id.
+
+**Visibility.** A peer on an IPv6 path is marked "IPv6" next to the routed/direct and protocol
+labels (WinForms `SessionForm`, Avalonia `SessionView`); IPv4 is unmarked. Every dial choice, path
+upgrade and fallback is a `NETWORK:` log line.
+
+### 4.2 Stage 2: IPv6-only nodes (sketch)
+
+Needs B3, and stages 10 and 11. To keep legacy frozen:
+- the legacy encoder is never handed an IPv6-only node (it leaves them out of AddNode, JoinReply,
   Pathfinder, HubList and UserNuid);
-- `LegacyPlugin.CanCarry` answers false for IPv6 peers;
-- one dual-mode socket, with IPv4-mapped sources converted back to IPv4 on receive.
+- `LegacyPlugin.CanCarry` answers false for peers without a legacy id;
+- membership entries carry endpoint candidates (§2), which may replace `PeerCandidates`.
 
 ## 5. Relaying as a first-class feature (B4)
 
