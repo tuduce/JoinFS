@@ -221,6 +221,10 @@ namespace JoinFS.Net.Legacy
             outgoing.RemoveAll(m => m.Recipient == peer.Id || (!m.Recipient.Valid() && m.EndPoint.Equals(peer.EndPoint)));
         }
 
+        /// <summary>Stop resending what was queued for a raw endpoint no known node is behind (a dial that moved on).</summary>
+        public void RemoveEndPoint(IPEndPoint endPoint) =>
+            outgoing.RemoveAll(m => !m.Recipient.Valid() && m.EndPoint.Equals(endPoint));
+
         public void Clear()
         {
             outgoing.Clear();

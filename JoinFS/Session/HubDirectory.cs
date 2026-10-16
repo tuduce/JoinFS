@@ -343,7 +343,8 @@ namespace JoinFS
                     }
 
                     hub.nuid = nuid;
-                    hub.endPoint = endPoint;
+                    // the hub list is IPv4 (its id says where), also when this hub was reached over IPv6
+                    hub.endPoint = endPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? endPoint : endPoints.MakeEndPoint(nuid, (ushort)endPoint.Port);
                     hub.port = (ushort)endPoint.Port;
                     hub.dateTime = DateTime.Now;
                     hub.guid = status.Guid;

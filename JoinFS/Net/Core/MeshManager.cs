@@ -34,6 +34,8 @@ namespace JoinFS.Net
         const double PulseInterval = 1;
         const double PathfinderInterval = 5;
         const double RelayHoldTime = 5;
+        /// <summary>How long a Join waits for an answer before it tries the next address of its list (design-future.md §4.1).</summary>
+        public const double DialTimeout = 5;
 
         readonly NetworkCore core;
         readonly Func<string, CredentialStore> credentialStoreFactory;
@@ -43,6 +45,11 @@ namespace JoinFS.Net
         uint passwordHash;
         bool allowJoin = true;
         CredentialStore credentials;
+
+        // the addresses of the Join in progress, the one being tried and when to give up on it
+        IReadOnlyList<IPEndPoint> dialList;
+        int dialIndex;
+        double dialDeadline;
 
         double nextPulse;
         double nextPathfinder;
@@ -113,13 +120,22 @@ namespace JoinFS.Net
             active = true;
         }
 
-        public void Join(IPEndPoint endPoint, uint password)
+        public void Join(IPEndPoint endPoint, uint password) => Join([endPoint], password);
+
+        /// <summary>
+        /// Join through the first of <paramref name="endPoints"/>; if it gets no answer within
+        /// <see cref="DialTimeout"/>, through the next one, and so on (the caller orders them, IPv6 first
+        /// for a node that has it). Any answer from the hub, accepting or refusing, ends the dial.
+        /// </summary>
+        public void Join(IReadOnlyList<IPEndPoint> endPoints, uint password)
         {
-            if (!core.IsOpen || !core.Identity.Ready)
+            if (!core.IsOpen || !core.Identity.Ready || endPoints.Count == 0)
             {
                 return;
             }
-            core.SendToEndPoint(endPoint, new JoinRequest { PasswordHash = password }, guaranteed: true);
+            dialList = endPoints;
+            dialIndex = 0;
+            Dial(password);
             passwordHash = password;
             ActiveJoinResult = JoinResult.Accepted;
             ActiveLoginResult = LoginResult.Accepted;
@@ -128,12 +144,41 @@ namespace JoinFS.Net
             active = true;
         }
 
+        /// <summary>Send the Join to the address being tried and start its timeout.</summary>
+        void Dial(uint password)
+        {
+            IPEndPoint endPoint = dialList[dialIndex];
+            dialDeadline = Now + DialTimeout;
+            core.Log(NetLogLevel.Network, "NETWORK: Dial " + endPoint + " (" + (dialIndex + 1) + " of " + dialList.Count + ")");
+            core.SendToEndPoint(endPoint, new JoinRequest { PasswordHash = password }, guaranteed: true);
+        }
+
+        /// <summary>The Join got no answer in time: give up on its address and try the next one, if there is one.</summary>
+        void NextDial()
+        {
+            if (dialList == null || Connected || Now < dialDeadline)
+            {
+                return;
+            }
+            if (dialIndex + 1 >= dialList.Count)
+            {
+                // the last address keeps its guaranteed resends, as a single address always did
+                dialList = null;
+                return;
+            }
+            core.Log(NetLogLevel.Network, "NETWORK: Dial " + dialList[dialIndex] + " got no answer in " + DialTimeout + " s");
+            core.AbandonEndPoint(dialList[dialIndex]);
+            dialIndex++;
+            Dial(passwordHash);
+        }
+
         public void Login(IPEndPoint endPoint, string email, uint hash, bool verify)
         {
             if (!core.IsOpen || !core.Identity.Ready)
             {
                 return;
             }
+            dialList = null;
             core.SendToEndPoint(endPoint, new LoginRequest { Email = email, PasswordHash = hash, Verify = verify }, guaranteed: true);
             passwordHash = 0;
             ActiveJoinResult = JoinResult.Accepted;
@@ -164,6 +209,7 @@ namespace JoinFS.Net
             nextRefusalLog = 0;
             removeList.Clear();
             removeRelayList.Clear();
+            dialList = null;
             suid = 0;
             active = false;
             passwordHash = 0;
@@ -192,6 +238,7 @@ namespace JoinFS.Net
             {
                 return;
             }
+            NextDial();
             ExpireNodes();
             DoPulse();
             DoRouting();
@@ -326,9 +373,15 @@ namespace JoinFS.Net
             {
                 if (receive)
                 {
-                    if (!peer.ReceiveEstablished) firstContact = true;
+                    bool heardBefore = peer.ReceiveEstablished;
+                    if (!heardBefore) firstContact = true;
                     peer.ReceiveEstablished = true;
-                    if (direct)
+                    // a peer has one path: once we have heard it, a datagram over the other address family
+                    // (IPv4 or IPv6) counts as heard from it but never moves its endpoint, so a peer that
+                    // sends over both does not flip between them. Before that the endpoint is only a guess
+                    // from its id, and the first datagram that reaches us says where it really is.
+                    bool otherFamily = heardBefore && heardFrom != null && heardFrom.AddressFamily != peer.EndPoint.Address.AddressFamily;
+                    if (direct && !otherFamily)
                     {
                         // mutates the shared IPEndPoint instance, exactly like LocalNode (the route
                         // endpoint is the same object until a relay is chosen)
@@ -418,6 +471,7 @@ namespace JoinFS.Net
             {
                 return;
             }
+            dialList = null;
             if (!Connected)
             {
                 suid = message.Suid;
@@ -437,7 +491,11 @@ namespace JoinFS.Net
             core.Log(NetLogLevel.Network, "NETWORK: JoinReply " + meta.Sender + " " + message.Suid);
         }
 
-        public void Handle(in MessageMeta meta, in JoinFail message) => ActiveJoinResult = message.Result;
+        public void Handle(in MessageMeta meta, in JoinFail message)
+        {
+            ActiveJoinResult = message.Result;
+            dialList = null;
+        }
 
         public void Handle(in MessageMeta meta, in LoginFail message) => ActiveLoginResult = message.Result;
 

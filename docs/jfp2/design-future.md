@@ -81,12 +81,17 @@ local Euroscope, websocket and web services stay IPv4.
 - **Dial.** A node dialling an address (a typed hostname or literal, an address-book entry) prefers
   IPv6: a hostname is resolved to all its addresses (D3) and the AAAA is used first if this node has
   IPv6. If the Join over IPv6 gets no answer in 5 s, the A record is tried. The core's Join takes the
-  ordered address list and does this itself; the app only turns text into the list. A literal is
+  ordered address list and does this itself (it abandons the guaranteed Join resends to an address it
+  moves on from; any JoinReply or JoinFail ends the dial); the app only turns text into the list
+  (`DialAddresses`). An address-book entry is dialled from its saved text, not from the endpoint it
+  had when loaded. A literal is
   `[2001:db8::1]:6112`, or a bare address with the default port. Entries of the global hub list are
   IPv4 and are dialled over IPv4; a path upgrade then moves them to IPv6.
 - **No flipping.** A datagram from the peer over the other family never replaces the peer's
   endpoint. Today every direct datagram does (`RegisterNode`), which would make a peer that sends
-  over both families flip between them.
+  over both families flip between them. The rule applies once the peer has been heard: until then
+  its endpoint is only a guess from its legacy id, and the first direct datagram that reaches us
+  (either family) says where it really is. The datagram of the other family still counts as heard.
 - **Path upgrade.** A peer on an IPv4 path that has IPv6 endpoint candidates is probed: a Pulse to
   each candidate at the Pulse interval, for up to 30 s. The first PulseResponse that comes from one
   of its IPv6 candidates moves the peer's endpoint there. The IPv4 endpoint is kept for fallback.

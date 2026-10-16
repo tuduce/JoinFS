@@ -74,7 +74,7 @@ namespace JoinFS
 
             // what one part learns that another acts on
             Peers.HubAnnounced += Hubs.SubmitHub;
-            Hubs.GlobalHubFound += endPoint => Join(endPoint, 0);
+            Hubs.GlobalHubFound += endPoint => Join([endPoint], 0);
 
 #if !NO_HUBS
             Hubs.Load();
@@ -188,8 +188,18 @@ namespace JoinFS
         //
         // Scheduled from any thread (UI), run on the next tick.
 
-        /// <summary>The endpoint last joined.</summary>
+        /// <summary>The endpoint last joined (the first address of <see cref="joinEndPoints"/>); what the UI keys passwords and hubs by.</summary>
         public IPEndPoint joinEndPoint = new(0, 0);
+
+        /// <summary>Every address the last Join dials, in order; a retry or a reconnect dials them all again.</summary>
+        volatile IReadOnlyList<IPEndPoint> joinEndPoints = [];
+
+        /// <summary>
+        /// What the user typed, as the addresses to dial: IPv6 first when this node has IPv6 (the socket
+        /// is dual-mode). Resolves a hostname, so call it on the app thread, as before.
+        /// </summary>
+        public DialAddresses.Result ResolveDial(string text) =>
+            DialAddresses.Parse(text, DEFAULT_PORT, Snapshot.DualStack, Bootstrap.ResolveHost);
 
         /// <summary>
         /// Which method established the current session - decides what CheckForOrphanedSession
@@ -258,7 +268,7 @@ namespace JoinFS
             host.Event("Reconnecting to '" + AddressCodec.EncodeIP(joinEndPoint.ToString())
                 + "' after losing every peer while still connected");
 
-            IPEndPoint target = joinEndPoint;
+            IReadOnlyList<IPEndPoint> target = joinEndPoints;
 
             // Must reset the mesh before rejoining: our own Connected is still true (suid != 0, from
             // before every peer expired - that's the whole premise of a lost session), and
@@ -275,7 +285,7 @@ namespace JoinFS
                     Join(target, lastPasswordHash);
                     break;
                 case SessionOrigin.Login:
-                    Login(target, lastLoginEmail, lastLoginHash, lastLoginVerify);
+                    Login(target[0], lastLoginEmail, lastLoginHash, lastLoginVerify);
                     break;
                 case SessionOrigin.Global:
                     StartGlobalSession();
@@ -292,7 +302,7 @@ namespace JoinFS
             host.SessionChanged(1);
         }
 
-        volatile IPEndPoint scheduleJoin = null;
+        volatile IReadOnlyList<IPEndPoint> scheduleJoin = null;
         volatile uint schedulePasswordHash = 0;
         volatile bool scheduleJoinGlobal = false;
         volatile IPEndPoint scheduleLogin = null;
@@ -309,11 +319,16 @@ namespace JoinFS
         public string ScheduleLoginEmail => scheduleLoginEmail;
         public uint ScheduleLoginHash => scheduleLoginHash;
 
-        public void ScheduleJoin(IPEndPoint endPoint, uint passwordHash)
+        /// <summary>Join through one address; the address the session already dials stands for all of its list.</summary>
+        public void ScheduleJoin(IPEndPoint endPoint, uint passwordHash) =>
+            ScheduleJoin(endPoint.Equals(joinEndPoint) && joinEndPoints.Count > 0 ? joinEndPoints : [endPoint], passwordHash);
+
+        /// <summary>Join through the first of these addresses, then the next while it gets no answer.</summary>
+        public void ScheduleJoin(IReadOnlyList<IPEndPoint> endPoints, uint passwordHash)
         {
-            if (scheduleJoin == null)
+            if (scheduleJoin == null && endPoints.Count > 0)
             {
-                scheduleJoin = endPoint;
+                scheduleJoin = endPoints;
                 schedulePasswordHash = passwordHash;
             }
         }
@@ -368,7 +383,7 @@ namespace JoinFS
 
             if (scheduleJoinUser && Users.TryGetEndPoint(scheduleJoinUuid, out IPEndPoint userEndPoint))
             {
-                Join(userEndPoint, 0);
+                Join([userEndPoint], 0);
                 scheduleJoinUser = false;
             }
 
@@ -406,7 +421,7 @@ namespace JoinFS
             {
                 if (hub.globalSession)
                 {
-                    Join(hub.endPoint, 0);
+                    Join([hub.endPoint], 0);
                 }
             }
             // after the joins, which each record themselves as the origin
@@ -414,9 +429,11 @@ namespace JoinFS
         }
 
         /// <summary>What joining and logging in have in common: remember where, and start the session.</summary>
-        void StartSession(IPEndPoint endPoint, Action<NetworkCore> start)
+        void StartSession(IReadOnlyList<IPEndPoint> endPoints, Action<NetworkCore> start)
         {
+            IPEndPoint endPoint = endPoints[0];
             joinEndPoint = endPoint;
+            joinEndPoints = endPoints;
             LowBandwidth = host.LowBandwidth;
             RelayBudget = host.HubRelays;
             Comms.OnJoining();
@@ -434,11 +451,11 @@ namespace JoinFS
             }
         }
 
-        void Join(IPEndPoint endPoint, uint passwordHash)
+        void Join(IReadOnlyList<IPEndPoint> endPoints, uint passwordHash)
         {
             sessionOrigin = SessionOrigin.Join;
             lastPasswordHash = passwordHash;
-            StartSession(endPoint, core => core.Mesh.Join(endPoint, passwordHash));
+            StartSession(endPoints, core => core.Mesh.Join(endPoints, passwordHash));
         }
 
         void Login(IPEndPoint endPoint, string email, uint hash, bool verify)
@@ -447,7 +464,7 @@ namespace JoinFS
             lastLoginEmail = email;
             lastLoginHash = hash;
             lastLoginVerify = verify;
-            StartSession(endPoint, core => core.Mesh.Login(endPoint, email, hash, verify));
+            StartSession([endPoint], core => core.Mesh.Login(endPoint, email, hash, verify));
         }
 
         /// <summary>
@@ -482,6 +499,7 @@ namespace JoinFS
         {
             // a session of our own has no hub to go back to
             joinEndPoint = new IPEndPoint(0, 0);
+            joinEndPoints = [];
             sessionOrigin = SessionOrigin.None;
             try
             {

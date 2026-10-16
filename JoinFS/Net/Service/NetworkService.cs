@@ -70,12 +70,6 @@ namespace JoinFS.Net
             // stamped on the receive thread, as soon as the datagram arrives (MessageMeta.ReceivedAt)
             transport.Received += (from, buffer, length) =>
             {
-                if (from.AddressFamily != AddressFamily.InterNetwork)
-                {
-                    // nothing above the transport speaks IPv6 yet (the core's peers are IPv4 legacy ids)
-                    ArrayPool<byte>.Shared.Return(buffer);
-                    return;
-                }
                 mailbox.Add(DatagramWork.Rent(from, buffer, length, this.clock.Now));
             };
             transport.SendFailed += (to, error) => Core.Log(NetLogLevel.Event, error + ", " + to);

@@ -67,6 +67,8 @@ namespace JoinFS.Net.Legacy
 
         public void OnSessionReset() => reliability.Clear();
 
+        public void OnEndPointAbandoned(IPEndPoint endPoint) => reliability.RemoveEndPoint(endPoint);
+
         // ================================================================== send
 
         public void Send<T>(in MessageMeta meta, in T message, ReadOnlySpan<NodeId> recipients) where T : struct, IMessage
@@ -739,6 +741,10 @@ namespace JoinFS.Net.Legacy
             IPEndPoint endPoint = senderPeer != null && senderPeer.SendEstablished ? senderPeer.RouteEndPoint : from;
 
             if (local.Valid() && sender == local)
+            {
+                return;
+            }
+            if (host.IsBanned(sender))
             {
                 return;
             }

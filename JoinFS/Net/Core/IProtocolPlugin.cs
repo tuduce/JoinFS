@@ -50,6 +50,14 @@ namespace JoinFS.Net
 
         /// <summary>The local node left the session: drop all session state.</summary>
         void OnSessionReset();
+
+        /// <summary>
+        /// The node stopped trying to reach <paramref name="endPoint"/> (a dial moved on to the next
+        /// address): drop whatever the plugin still resends to it for no known node.
+        /// </summary>
+        void OnEndPointAbandoned(IPEndPoint endPoint)
+        {
+        }
     }
 
     /// <summary>Optional: a plugin that can describe its per-peer link state for the UI.</summary>
@@ -109,6 +117,12 @@ namespace JoinFS.Net
 
         /// <summary>The local node is in a session (has a session id).</summary>
         bool Connected { get; }
+
+        /// <summary>
+        /// The node with this legacy id is banned: its datagrams are dropped whatever address they come
+        /// from, so a banned user cannot return over IPv6. Plugins ask once they know a datagram's sender.
+        /// </summary>
+        bool IsBanned(NodeId sender);
 
         /// <summary>The local node asked for reduced traffic (it then also refuses to relay).</summary>
         bool LowBandwidth { get; }

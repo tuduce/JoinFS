@@ -50,7 +50,7 @@ namespace JoinFS
         /// <summary>Where neighbors see this node (JFP2's observed endpoint), and the NAT class that follows.</summary>
         readonly ObservedEndPoints observed = new();
 
-        readonly Dictionary<string, IPAddress> dnsLookups = [];
+        readonly Dictionary<string, IReadOnlyList<IPAddress>> dnsLookups = [];
         DateTime dnsResetTime = DateTime.Now.AddDays(1);
 
         /// <param name="localAddressOverride">A LAN address to use instead of the detected one (Docker, NAT), or empty.</param>
@@ -279,47 +279,38 @@ namespace JoinFS
 
         public IPEndPoint MakeEndPoint(NodeId node, ushort port) => identity.MakeEndPoint(node, port);
 
+        /// <summary>
+        /// The IPv4 endpoint of "host", "host:port", "a.b.c.d" or "a.b.c.d:port": the address book, the
+        /// hub list and the seed hubs are IPv4 (a hub on IPv6 is reached by a path upgrade, or typed in
+        /// and dialled through <see cref="DialAddresses"/>). A hostname with several addresses gives its
+        /// first IPv4 one, so an AAAA record listed first cannot make it fail.
+        /// </summary>
         public bool MakeEndPoint(string addressText, ushort port, out IPEndPoint endPoint)
         {
-            endPoint = new IPEndPoint(0, 0);
-            string[] parts = addressText.Split(':');
-            if (parts.Length <= 0)
-            {
-                return false;
-            }
-            int remotePort = port;
-            if (parts.Length > 1 && Int32.TryParse(parts[1], NumberStyles.Number, CultureInfo.InvariantCulture, out remotePort) == false)
-            {
-                return false;
-            }
-            if (IsIPv4(parts[0], out IPAddress address)
-                || DnsLookup(parts[0], out address) && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-            {
-                endPoint = new IPEndPoint(address, remotePort);
-                return true;
-            }
-            return false;
+            DialAddresses.Result result = DialAddresses.Parse(addressText, port, false, ResolveHost);
+            endPoint = result.Failure == DialAddresses.Failure.None ? result.EndPoints[0] : new IPEndPoint(0, 0);
+            return result.Failure == DialAddresses.Failure.None;
         }
 
-        /// <summary>Look up a host name (cached for a day, failures included).</summary>
-        public bool DnsLookup(string addressText, out IPAddress address)
+        /// <summary>Look up a host name: all its addresses (cached for a day, failures included).</summary>
+        public IReadOnlyList<IPAddress> ResolveHost(string host)
         {
-            if (dnsLookups.TryGetValue(addressText, out address))
+            if (dnsLookups.TryGetValue(host, out IReadOnlyList<IPAddress> cached))
             {
-                return !address.Equals(IPAddress.None);
+                return cached;
             }
+            IReadOnlyList<IPAddress> addresses;
             try
             {
-                IPAddress[] list = Dns.GetHostAddresses(addressText);
-                address = list.Length > 0 ? list[0] : IPAddress.None;
+                addresses = Dns.GetHostAddresses(host);
             }
             catch (Exception ex)
             {
                 log.Event(ex.Message);
-                address = IPAddress.None;
+                addresses = [];
             }
-            dnsLookups[addressText] = address;
-            return !address.Equals(IPAddress.None);
+            dnsLookups[host] = addresses;
+            return addresses;
         }
     }
 }

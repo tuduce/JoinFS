@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Net;
 using System.Runtime.CompilerServices;
@@ -16,7 +17,10 @@ namespace JoinFS.Net
     public sealed class NetworkCore : IProtocolHost
     {
         readonly List<IProtocolPlugin> plugins = [];
-        readonly List<IPAddress> banList = [];
+        // banned IPv4 addresses, and the /64 prefixes of banned IPv6 addresses (a ban holds when the
+        // user's address rotates inside its /64)
+        readonly HashSet<uint> banned4 = [];
+        readonly HashSet<ulong> banned64 = [];
         readonly INetworkSink sink;
 
         public IDatagramTransport Transport { get; }
@@ -54,13 +58,52 @@ namespace JoinFS.Net
             foreach (Peer peer in Peers.All) peer.InvalidateRoutes();
         }
 
+        /// <summary>Ban an IPv4 address, or the whole /64 an IPv6 address belongs to. Anything else is ignored.</summary>
         public void BanIP(string ip)
         {
-            if (IPAddress.TryParse(ip, out IPAddress address) && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+            if (!IPAddress.TryParse(ip, out IPAddress address))
             {
-                banList.Add(address);
+                return;
+            }
+            if (address.IsIPv4MappedToIPv6)
+            {
+                address = address.MapToIPv4();
+            }
+            Span<byte> bytes = stackalloc byte[16];
+            if (address.TryWriteBytes(bytes, out int written))
+            {
+                if (written == 4)
+                {
+                    banned4.Add(BinaryPrimitives.ReadUInt32BigEndian(bytes));
+                }
+                else
+                {
+                    banned64.Add(BinaryPrimitives.ReadUInt64BigEndian(bytes));
+                }
             }
         }
+
+        /// <summary>The address is banned: an IPv4 address on the list, or any IPv6 address inside a banned /64.</summary>
+        public bool IsBanned(IPAddress address)
+        {
+            if (banned4.Count == 0 && banned64.Count == 0)
+            {
+                return false;
+            }
+            if (address.IsIPv4MappedToIPv6)
+            {
+                address = address.MapToIPv4();
+            }
+            Span<byte> bytes = stackalloc byte[16];
+            if (!address.TryWriteBytes(bytes, out int written))
+            {
+                return false;
+            }
+            return written == 4 ? banned4.Contains(BinaryPrimitives.ReadUInt32BigEndian(bytes)) : banned64.Contains(BinaryPrimitives.ReadUInt64BigEndian(bytes));
+        }
+
+        /// <summary>The address in a node's legacy id is banned (its datagram came over IPv6, say, but the id still says where the user is).</summary>
+        public bool IsBanned(NodeId id) => banned4.Contains(id.ip);
 
         // ------------------------------------------------------------------ receive
 
@@ -70,7 +113,7 @@ namespace JoinFS.Net
         /// <param name="receivedAt">When the datagram arrived (<see cref="IClock.Now"/>); 0 means now.</param>
         public void OnDatagram(IPEndPoint from, ReadOnlySpan<byte> datagram, double receivedAt = 0)
         {
-            if (datagram.IsEmpty || banList.Contains(from.Address))
+            if (datagram.IsEmpty || IsBanned(from.Address))
             {
                 return;
             }
@@ -344,6 +387,15 @@ namespace JoinFS.Net
             Peers.Remove(peer.Id);
             Objects.RemoveOwner(peer.Id);
             RaisePeerLeft(peer.Id);
+        }
+
+        /// <summary>Stop resending to an endpoint no known node is behind: a dial gave up on that address.</summary>
+        internal void AbandonEndPoint(IPEndPoint endPoint)
+        {
+            foreach (IProtocolPlugin plugin in plugins)
+            {
+                plugin.OnEndPointAbandoned(endPoint);
+            }
         }
 
         internal void ResetSession()

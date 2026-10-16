@@ -57,6 +57,9 @@ namespace JoinFS.Tests.Net
 
         public NodeId Id => Core.Identity.Id;
 
+        /// <summary>The endpoint is one of this node's own (IPv4 or IPv6).</summary>
+        public bool OwnsAddress(IPEndPoint endPoint) => endPoint.Equals(EndPoint) || endPoint.Equals(EndPoint6);
+
         public void Deliver<T>(in MessageMeta meta, in T message) where T : struct, IMessage => Received.Add((meta, message));
 
         public void OnEvent(in NetworkEvent e)
