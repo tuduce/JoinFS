@@ -37,6 +37,8 @@ namespace JoinFS.Net.Jfp2
         sealed class Pending
         {
             public byte MessageClass;
+            /// <summary>The class number is an internal class's (EnvelopeFlags.Internal), not an application class's.</summary>
+            public bool Internal;
             /// <summary>The schema version the payload is encoded in; only a hop that agreed it can carry it.</summary>
             public byte Version;
             public byte[] Payload;
@@ -49,7 +51,7 @@ namespace JoinFS.Net.Jfp2
         /// Send one guaranteed segment toward <paramref name="target"/> through its current next hop.
         /// False when JFP2 has no hop to it right now that agreed <paramref name="version"/>.
         /// </summary>
-        public delegate bool Transmit(NodeId target, NodeId origin, byte messageClass, byte version, ReadOnlySpan<byte> payload,
+        public delegate bool Transmit(NodeId target, NodeId origin, bool isInternal, byte messageClass, byte version, ReadOnlySpan<byte> payload,
             ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount);
 
         readonly IProtocolHost host;
@@ -92,7 +94,7 @@ namespace JoinFS.Net.Jfp2
         /// the target deduplicates by the origin's ids, so one from this node's counter could collide
         /// with one of the origin's own. 0: this node's next id.
         /// </summary>
-        public void Send(NodeId target, NodeId origin, byte messageClass, byte version, ReadOnlySpan<byte> payload, ushort originId = 0)
+        public void Send(NodeId target, NodeId origin, bool isInternal, byte messageClass, byte version, ReadOnlySpan<byte> payload, ushort originId = 0)
         {
             if (payload.Length > GuaranteedSegmentSize)
             {
@@ -104,6 +106,7 @@ namespace JoinFS.Net.Jfp2
             var message = new Pending
             {
                 MessageClass = messageClass,
+                Internal = isInternal,
                 Version = version,
                 Payload = payload.ToArray(),
                 Count = 1,
@@ -115,7 +118,7 @@ namespace JoinFS.Net.Jfp2
         }
 
         void TransmitNow((NodeId Origin, NodeId Target, ushort Id, byte Index) key, Pending p) =>
-            transmit(key.Target, key.Origin, p.MessageClass, p.Version, p.Payload, key.Id, key.Index, p.Count);
+            transmit(key.Target, key.Origin, p.Internal, p.MessageClass, p.Version, p.Payload, key.Id, key.Index, p.Count);
 
         public void Tick()
         {

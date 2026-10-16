@@ -73,12 +73,13 @@ namespace JoinFS.Tests.Jfp2
         [Fact]
         public void DefaultProfile_LooksUpByClassAndByKind()
         {
-            Assert.Equal(10, Jfp2Profile.Default.Classes.Count);
+            // ten application classes and PeerCandidates, an internal class
+            Assert.Equal(11, Jfp2Profile.Default.Classes.Count);
             foreach (ClassDescriptor c in Jfp2Profile.Default.Classes)
             {
-                Assert.Same(c, Jfp2Profile.Default.ForClass(c.MessageClass));
+                Assert.Same(c, Jfp2Profile.Default.ForClass(c.Internal, c.MessageClass));
                 Assert.Same(c, Jfp2Profile.Default.ForKind(c.Kind));
-                Assert.False(c.Internal);
+                Assert.Equal(c.Kind == MessageKind.PeerCandidates, c.Internal);
             }
             Assert.Null(Jfp2Profile.Default.ForKind(MessageKind.RemoveObject));
             Assert.Null(Jfp2Profile.Default.ForKind<EventUpdate>(MessageKind.Position)); // another codec type

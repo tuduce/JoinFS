@@ -52,5 +52,6 @@ namespace JoinFS.Net
         void Handle(in MessageMeta meta, in PulseResponse message) { }
         void Handle(in MessageMeta meta, in Pathfinder message) { }
         void Handle(in MessageMeta meta, in PathfinderResponse message) { }
+        void Handle(in MessageMeta meta, in PeerCandidates message) { }
     }
 }

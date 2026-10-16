@@ -60,6 +60,30 @@ namespace JoinFS.Net
 
         internal List<IPEndPoint> candidates = [];
 
+        /// <summary>
+        /// Identifies the current <see cref="Candidates"/> among all changes this node has seen (a node-wide counter,
+        /// so a peer that left and came back never repeats one): what a hub has told a member is remembered by it.
+        /// </summary>
+        internal int CandidatesRevision;
+
+        /// <summary>This node answered the peer's Join, so it is the peer's hub: it tells the peer where the other members are (PeerCandidates).</summary>
+        internal bool JoinedThroughMe;
+
+        /// <summary>For a peer this node is the hub of: the <see cref="CandidatesRevision"/> of each peer whose candidates it has sent the peer.</summary>
+        internal Dictionary<NodeId, int> Announced;
+
+        /// <summary>
+        /// The relay a peer was reached through when its path was upgraded to a direct IPv6 one: a fallback goes
+        /// back to it. Invalid when the peer was direct on IPv4 before.
+        /// </summary>
+        internal NodeId RelayBeforeUpgrade;
+
+        /// <summary>
+        /// The peer had never answered over its IPv4 endpoint when its path was upgraded (the endpoint was only
+        /// a guess from its id, and may be unreachable): a fallback leaves it to be searched for (Pathfinder).
+        /// </summary>
+        internal bool Ipv4Unproven;
+
         /// <summary><see cref="IClock.Now"/> until which the candidates are probed (30 s from when they became known).</summary>
         internal double ProbeUntil;
 

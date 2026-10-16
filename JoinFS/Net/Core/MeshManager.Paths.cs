@@ -11,6 +11,8 @@ namespace JoinFS.Net
     /// or observed as the source of its Pulses; they are probed with Pulses for 30 s, the first PulseResponse
     /// from one moves the path to IPv6 (the path upgrade), the IPv4 endpoint is kept aside, and a path that
     /// answers no Pulse for 10 s goes back to it (the fallback), after which IPv6 is left alone for 5 minutes.
+    /// A hub tells the members it admitted where the other members are (PeerCandidates), so that two members
+    /// that cannot reach each other over IPv4 still open an IPv6 path, both probing at once.
     /// Network thread only.
     /// </summary>
     public sealed partial class MeshManager
@@ -27,6 +29,17 @@ namespace JoinFS.Net
         /// <summary>The most candidates kept for a peer.</summary>
         public const int MaxCandidates = 4;
 
+        /// <summary>How long announced candidates of a member that is not registered yet wait for it, in seconds.</summary>
+        public const double HeldCandidatesTime = 10;
+
+        /// <summary>The most members whose announced candidates are held at once.</summary>
+        const int MaxHeldCandidates = 64;
+
+        readonly Dictionary<NodeId, (List<IPEndPoint> Candidates, double Expire)> heldCandidates = [];
+
+        /// <summary>The last <see cref="Peer.CandidatesRevision"/> given out.</summary>
+        int candidatesRevision;
+
         // ------------------------------------------------------------------ candidates
 
         /// <summary>This node can send IPv6 (its socket is dual-mode and the OS has a global IPv6 address).</summary>
@@ -42,6 +55,16 @@ namespace JoinFS.Net
             {
                 return;
             }
+            List<IPEndPoint> list = UsableCandidates(offered);
+            if (list.Count > 0)
+            {
+                SetCandidates(peer, list, "reported");
+            }
+        }
+
+        /// <summary>The usable ones of <paramref name="offered"/> (global IPv6 with a port), without repeats, at most <see cref="MaxCandidates"/>, as new objects.</summary>
+        static List<IPEndPoint> UsableCandidates(IReadOnlyList<IPEndPoint> offered)
+        {
             List<IPEndPoint> list = [];
             foreach (IPEndPoint endPoint in offered)
             {
@@ -50,13 +73,26 @@ namespace JoinFS.Net
                     list.Add(new IPEndPoint(endPoint.Address, endPoint.Port));
                 }
             }
-            if (list.Count == 0 || list.SequenceEqual(peer.candidates))
+            return list;
+        }
+
+        /// <summary>
+        /// Make <paramref name="list"/> the peer's candidates, if they changed: probing starts for a non-empty list,
+        /// and a hub tells its members (<see cref="AnnounceCandidates"/>).
+        /// </summary>
+        void SetCandidates(Peer peer, List<IPEndPoint> list, string how)
+        {
+            if (list.SequenceEqual(peer.candidates))
             {
                 return;
             }
             peer.candidates = list;
-            StartProbing(peer);
-            core.Log(NetLogLevel.Network, "NETWORK: Candidates of " + id + " " + string.Join(" ", list));
+            peer.CandidatesRevision = ++candidatesRevision;
+            if (list.Count > 0)
+            {
+                StartProbing(peer);
+            }
+            core.Log(NetLogLevel.Network, "NETWORK: Candidates of " + peer.Id + " " + how + " " + (list.Count == 0 ? "none" : string.Join(" ", list)));
         }
 
         /// <summary>
@@ -87,6 +123,7 @@ namespace JoinFS.Net
             {
                 peer.candidates.RemoveAt(MaxCandidates);
             }
+            peer.CandidatesRevision = ++candidatesRevision;
             StartProbing(peer);
             core.Log(NetLogLevel.Network, "NETWORK: Candidate of " + peer.Id + " observed " + source);
         }
@@ -102,7 +139,7 @@ namespace JoinFS.Net
             double now = Now;
             foreach (Peer peer in core.Peers.All)
             {
-                if (peer.candidates.Count == 0 || peer.OnIpv6 || peer.Relayed || now < peer.HoldOffUntil || now >= peer.ProbeUntil)
+                if (peer.candidates.Count == 0 || peer.OnIpv6 || now < peer.HoldOffUntil || now >= peer.ProbeUntil)
                 {
                     continue;
                 }
@@ -113,9 +150,19 @@ namespace JoinFS.Net
             }
         }
 
-        /// <summary>Where the answer to a Pulse goes: to its actual source when that is the other address family than the sender's route (a probe), else to the route as before.</summary>
-        static IPEndPoint ReplyEndPoint(in MessageMeta meta) =>
-            !meta.Forwarded && meta.Source != null && meta.Source.AddressFamily != meta.EndPoint.AddressFamily ? meta.Source : meta.EndPoint;
+        /// <summary>
+        /// Where the answer to a Pulse goes: to its actual source when that is the other address family than the
+        /// sender's route, or an IPv6 address other than the route's (a probe; the route can be a relay's, in the
+        /// same family), else to the route as before.
+        /// </summary>
+        static IPEndPoint ReplyEndPoint(in MessageMeta meta)
+        {
+            IPEndPoint source = meta.Source;
+            bool probe = !meta.Forwarded && source != null
+                && (source.AddressFamily != meta.EndPoint.AddressFamily
+                    || (source.AddressFamily == AddressFamily.InterNetworkV6 && !source.Address.Equals(meta.EndPoint.Address)));
+            return probe ? source : meta.EndPoint;
+        }
 
         /// <summary>A Pulse arrived directly from <paramref name="peer"/> over IPv6 while its path is IPv4: its source is a candidate.</summary>
         void PulseSource(Peer peer, in MessageMeta meta)
@@ -130,7 +177,7 @@ namespace JoinFS.Net
         /// A PulseResponse arrived directly from <paramref name="peer"/> over IPv6. On an IPv6 path it shows
         /// the path alive; on an IPv4 path, from one of the peer's candidates, it upgrades the path.
         /// </summary>
-        void PulseAnswered(Peer peer, in MessageMeta meta)
+        void PulseAnswered(Peer peer, in MessageMeta meta, bool wasEstablished)
         {
             IPEndPoint source = meta.Source;
             if (meta.Forwarded || source == null || source.AddressFamily != AddressFamily.InterNetworkV6)
@@ -145,14 +192,22 @@ namespace JoinFS.Net
                 }
                 return;
             }
-            if (peer.Relayed || Now < peer.HoldOffUntil || !peer.candidates.Exists(c => c.Address.Equals(source.Address)))
+            if (Now < peer.HoldOffUntil || !peer.candidates.Exists(c => c.Address.Equals(source.Address)))
             {
                 return;
             }
             var ipv6 = new IPEndPoint(source.Address, source.Port);
             peer.Ipv4EndPoint = peer.EndPoint;
             peer.Ipv6AnsweredAt = Now;
-            core.Log(NetLogLevel.Network, "NETWORK: Path upgrade " + peer.Id + " " + peer.EndPoint + " -> " + ipv6);
+            peer.Ipv4Unproven = !wasEstablished;
+            if (peer.Relayed)
+            {
+                // a pair with no IPv4 path between them (the hub relays it): the candidate answered, so the peer is
+                // direct now, over IPv6; a fallback goes back to the relay
+                peer.RelayBeforeUpgrade = peer.RouteVia;
+                peer.RouteVia = default;
+            }
+            core.Log(NetLogLevel.Network, "NETWORK: Path upgrade " + peer.Id + " " + peer.EndPoint + " -> " + ipv6 + (peer.RelayBeforeUpgrade.Valid() ? " (was relayed through " + peer.RelayBeforeUpgrade + ")" : ""));
             SetPath(peer, ipv6);
         }
 
@@ -170,6 +225,22 @@ namespace JoinFS.Net
                     peer.HoldOffUntil = now + HoldOff;
                     StartProbing(peer);
                     core.Log(NetLogLevel.Network, "NETWORK: Path fallback " + peer.Id + " " + peer.EndPoint + " -> " + ipv4 + " (no answer over IPv6 for " + FallbackAfter + " s, IPv6 off for " + HoldOff + " s)");
+                    NodeId relay = peer.RelayBeforeUpgrade;
+                    peer.RelayBeforeUpgrade = default;
+                    if (relay.Valid() || peer.Ipv4Unproven)
+                    {
+                        // the peer never answered over IPv4: it is reached through its relay again, or searched for again
+                        if (relay.Valid() && core.Peers.TryGet(relay, out Peer via) && via != peer && via.SendEstablished)
+                        {
+                            peer.RouteVia = relay;
+                            peer.RouteEndPoint = via.RouteEndPoint;
+                        }
+                        else
+                        {
+                            peer.SendEstablished = false;
+                        }
+                    }
+                    peer.Ipv4Unproven = false;
                     SetPath(peer, ipv4);
                 }
             }
@@ -201,6 +272,123 @@ namespace JoinFS.Net
                 }
             }
             core.PathChanged(peer, previous);
+        }
+
+        // ------------------------------------------------------------------ PeerCandidates: the hub's side
+
+        /// <summary>A peer joined through this node (this node answered its Join): this node is its hub.</summary>
+        void MarkJoinedThroughMe(NodeId id)
+        {
+            if (core.Peers.TryGet(id, out Peer peer))
+            {
+                peer.JoinedThroughMe = true;
+            }
+        }
+
+        /// <summary>
+        /// Tell each member this node is the hub of what it has not been told: the candidates of every other
+        /// peer, as they are now (new members, and members whose candidates changed since). Sent once the member
+        /// has agreed the class (a member that is still negotiating gets it right after), to members reached
+        /// directly only, in messages the plugin cuts to fit a datagram. Runs with the Pulse, once a second.
+        /// </summary>
+        void AnnounceCandidates()
+        {
+            List<PeerCandidateEntry> entries = null;
+            List<(NodeId Node, int Revision)> told = null;
+            foreach (Peer member in core.Peers.All)
+            {
+                if (!member.JoinedThroughMe || member.Relayed)
+                {
+                    continue;
+                }
+                entries?.Clear();
+                told?.Clear();
+                foreach (Peer subject in core.Peers.All)
+                {
+                    if (subject == member || subject.candidates.Count == 0
+                        || (member.Announced != null && member.Announced.TryGetValue(subject.Id, out int revision) && revision == subject.CandidatesRevision))
+                    {
+                        continue;
+                    }
+                    entries ??= [];
+                    told ??= [];
+                    entries.Add(new PeerCandidateEntry { Node = subject.Id, Candidates = [.. subject.candidates] });
+                    told.Add((subject.Id, subject.CandidatesRevision));
+                }
+                if (entries == null || entries.Count == 0 || core.Route(member.Id, MessageKind.PeerCandidates) == null)
+                {
+                    continue;
+                }
+                core.SendTo(member.Id, new PeerCandidates { Entries = entries }, guaranteed: true);
+                member.Announced ??= [];
+                foreach ((NodeId node, int revision) in told)
+                {
+                    member.Announced[node] = revision;
+                }
+                core.Log(NetLogLevel.Network, "NETWORK: PeerCandidates to " + member.Id + " about " + entries.Count + " peer(s)");
+            }
+        }
+
+        // ------------------------------------------------------------------ PeerCandidates: the member's side
+
+        /// <summary>
+        /// The hub says where members can be reached. Counted only from the node this one joined through; an entry
+        /// replaces the peer's candidates (an empty one clears them), as if the peer had reported them itself; an entry
+        /// for this node is ignored, one for a member not registered yet is held for <see cref="HeldCandidatesTime"/>.
+        /// </summary>
+        public void Handle(in MessageMeta meta, in PeerCandidates message)
+        {
+            if (!Connected || message.Entries == null)
+            {
+                return;
+            }
+            if (!joinedThrough.Valid() || meta.Sender != joinedThrough)
+            {
+                core.Log(NetLogLevel.Network, "NETWORK: PeerCandidates from " + meta.Sender + " ignored (not the node this one joined through)");
+                return;
+            }
+            if (!Ipv6Available)
+            {
+                return;
+            }
+            foreach (PeerCandidateEntry entry in message.Entries)
+            {
+                if (!entry.Node.Valid() || entry.Node == LocalId)
+                {
+                    continue;
+                }
+                List<IPEndPoint> list = UsableCandidates(entry.Candidates ?? []);
+                if (core.Peers.TryGet(entry.Node, out Peer peer))
+                {
+                    SetCandidates(peer, list, "announced by " + meta.Sender);
+                }
+                else if (heldCandidates.ContainsKey(entry.Node) || heldCandidates.Count < MaxHeldCandidates)
+                {
+                    heldCandidates[entry.Node] = (list, Now + HeldCandidatesTime);
+                }
+            }
+        }
+
+        /// <summary>A member that was announced before it was registered is here now: its held candidates apply.</summary>
+        void ApplyHeldCandidates(Peer peer)
+        {
+            if (heldCandidates.Remove(peer.Id, out var held) && Now < held.Expire && Ipv6Available)
+            {
+                SetCandidates(peer, held.Candidates, "announced");
+            }
+        }
+
+        void ExpireHeldCandidates()
+        {
+            if (heldCandidates.Count == 0)
+            {
+                return;
+            }
+            double now = Now;
+            foreach (NodeId id in heldCandidates.Where(h => now >= h.Value.Expire).Select(h => h.Key).ToList())
+            {
+                heldCandidates.Remove(id);
+            }
         }
     }
 }

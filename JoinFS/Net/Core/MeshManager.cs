@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Mail;
+using System.Net.Sockets;
 
 namespace JoinFS.Net
 {
@@ -50,6 +51,9 @@ namespace JoinFS.Net
         IReadOnlyList<IPEndPoint> dialList;
         int dialIndex;
         double dialDeadline;
+
+        // the node this one joined through (it answered the JoinReply): the only one whose PeerCandidates count
+        NodeId joinedThrough;
 
         double nextPulse;
         double nextPathfinder;
@@ -210,6 +214,8 @@ namespace JoinFS.Net
             removeList.Clear();
             removeRelayList.Clear();
             dialList = null;
+            joinedThrough = default;
+            heldCandidates.Clear();
             suid = 0;
             active = false;
             passwordHash = 0;
@@ -240,6 +246,7 @@ namespace JoinFS.Net
             }
             NextDial();
             CheckPaths();
+            ExpireHeldCandidates();
             ExpireNodes();
             DoPulse();
             DoRouting();
@@ -288,6 +295,7 @@ namespace JoinFS.Net
             var pulse = new Pulse { Suid = suid, Time = core.Clock.Timestamp, LowBandwidth = core.LowBandwidth };
             core.Broadcast(pulse, guaranteed: false);
             ProbeCandidates(pulse);
+            AnnounceCandidates();
             nextPulse = Now + PulseInterval;
         }
 
@@ -365,7 +373,7 @@ namespace JoinFS.Net
         /// just sent us something on <paramref name="port"/>). On first contact, tell the app and
         /// introduce the node to everyone else.
         /// </summary>
-        void RegisterNode(NodeId id, ushort port, bool receive, bool direct, IPAddress heardFrom = null)
+        void RegisterNode(NodeId id, ushort port, bool receive, bool direct, IPAddress heardFrom = null, IPEndPoint source = null)
         {
             if (!id.Valid() || id == LocalId || NodeCountDevice(id) >= MaxNodesPerDevice)
             {
@@ -382,8 +390,15 @@ namespace JoinFS.Net
                     // a peer has one path: once we have heard it, a datagram over the other address family
                     // (IPv4 or IPv6) counts as heard from it but never moves its endpoint, so a peer that
                     // sends over both does not flip between them. Before that the endpoint is only a guess
-                    // from its id, and the first datagram that reaches us says where it really is.
-                    bool otherFamily = heardBefore && heardFrom != null && heardFrom.AddressFamily != peer.EndPoint.Address.AddressFamily;
+                    // from its id, and the first datagram that reaches us says where it really is - but not
+                    // when it comes over IPv6 and this node has IPv6 itself: a peer's IPv6 path is opened by the
+                    // path upgrade (a probe it answered), which keeps the IPv4 endpoint for a fallback; its
+                    // probes are often the first thing a member hears from another member.
+                    // (the datagram's own source tells the family: a peer reached through a relay has the relay's
+                    // endpoint as its route, which is not where this datagram came from)
+                    AddressFamily family = source?.AddressFamily ?? heardFrom?.AddressFamily ?? AddressFamily.InterNetwork;
+                    bool otherFamily = heardFrom != null && family != peer.EndPoint.Address.AddressFamily
+                        && (heardBefore || (family == AddressFamily.InterNetworkV6 && Ipv6Available));
                     if (direct && !otherFamily)
                     {
                         // mutates the shared IPEndPoint instance, exactly like LocalNode (the route
@@ -407,6 +422,7 @@ namespace JoinFS.Net
                 }
                 peer = core.Peers.Add(id, endPoint, receive);
                 peer.ExpireTime = Now + ExpireTime;
+                ApplyHeldCandidates(peer);
                 core.Log(NetLogLevel.Network, "NETWORK: RegisterNode new " + id + " " + port + " " + receive + " " + direct);
             }
             if (firstContact)
@@ -418,7 +434,7 @@ namespace JoinFS.Net
 
         /// <summary>The sender of <paramref name="meta"/> just sent us something: record it, and where it came from if directly.</summary>
         void RegisterSender(in MessageMeta meta) =>
-            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded, meta.EndPoint.Address);
+            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded, meta.EndPoint.Address, meta.Source);
 
         static void Responded(Peer peer, double now)
         {
@@ -465,6 +481,7 @@ namespace JoinFS.Net
             {
                 core.SendToEndPoint(meta.EndPoint, new JoinReply { Suid = suid, Nodes = KnownNodes() }, guaranteed: true);
                 RegisterSender(meta);
+                MarkJoinedThroughMe(meta.Sender);
             }
         }
 
@@ -490,6 +507,7 @@ namespace JoinFS.Net
                     }
                 }
                 RegisterSender(meta);
+                joinedThrough = meta.Sender;
             }
             core.Log(NetLogLevel.Network, "NETWORK: JoinReply " + meta.Sender + " " + message.Suid);
         }
@@ -533,6 +551,7 @@ namespace JoinFS.Net
             }
             core.SendToEndPoint(meta.EndPoint, new JoinReply { Suid = suid, Nodes = KnownNodes() }, guaranteed: true);
             RegisterSender(meta);
+            MarkJoinedThroughMe(meta.Sender);
         }
 
         public void Handle(in MessageMeta meta, in Leave message)
@@ -578,12 +597,13 @@ namespace JoinFS.Net
             }
             peer.Rtt = (core.Clock.Timestamp - message.Time) / (float)core.Clock.Frequency;
             RegisterSender(meta);
-            if (!peer.SendEstablished)
+            bool wasEstablished = peer.SendEstablished;
+            if (!wasEstablished)
             {
                 core.RaisePeerEstablished(meta.Sender);
             }
             Responded(peer, Now);
-            PulseAnswered(peer, meta);
+            PulseAnswered(peer, meta, wasEstablished);
             core.Log(NetLogLevel.Network, "NETWORK: PulseResponse " + meta.Sender + " " + meta.EndPoint);
         }
 

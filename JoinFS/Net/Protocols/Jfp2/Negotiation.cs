@@ -369,6 +369,12 @@ namespace JoinFS.Net.Jfp2
         public readonly byte[] AgreedAppVersion = new byte[256];
         public readonly byte[] AgreedInternalVersion = new byte[256];
 
+        /// <summary>The version agreed for a class of this partition, 0 when none.</summary>
+        public byte AgreedVersion(bool isInternal, byte messageClass) => isInternal ? AgreedInternalVersion[messageClass] : AgreedAppVersion[messageClass];
+
+        /// <summary>The version agreed for the class a descriptor describes, 0 when none.</summary>
+        public byte AgreedVersion(ClassDescriptor messageClass) => AgreedVersion(messageClass.Internal, messageClass.MessageClass);
+
         /// <summary>
         /// We know the peer's id and schema offers (its Hello arrived, or it answered ours), so we can
         /// decode what it sends. Says nothing about whether OUR datagrams reach it - that is

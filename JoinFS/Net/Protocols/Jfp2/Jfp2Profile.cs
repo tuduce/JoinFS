@@ -14,9 +14,10 @@ namespace JoinFS.Net.Jfp2
     public sealed class Jfp2Profile
     {
         readonly ClassDescriptor[] classes;
-        /// <summary>Keyed by application class number only, since every class is an application one; it
-        /// must take the partition too once internal classes become descriptors (the mesh over JFP2).</summary>
+        /// <summary>The application classes, by class number.</summary>
         readonly ClassDescriptor[] byClass = new ClassDescriptor[256];
+        /// <summary>The internal classes the profile has descriptors for (PeerCandidates), by class number.</summary>
+        readonly ClassDescriptor[] byInternalClass = new ClassDescriptor[256];
         readonly ClassDescriptor[] byKind = new ClassDescriptor[(int)MessageKind.Count];
 
         /// <summary>The classes, each with its own class number and kind; they are offered in this order. No capabilities.</summary>
@@ -32,11 +33,12 @@ namespace JoinFS.Net.Jfp2
             for (int i = 0; i < classes.Length; i++)
             {
                 ClassDescriptor c = classes[i];
-                if (byClass[c.MessageClass] != null || byKind[(int)c.Kind] != null)
+                ClassDescriptor[] partition = c.Internal ? byInternalClass : byClass;
+                if (partition[c.MessageClass] != null || byKind[(int)c.Kind] != null)
                 {
                     throw new ArgumentException("JFP2 profile: class " + c.MessageClass + " (" + c.Kind + ") repeats a class number or a kind");
                 }
-                byClass[c.MessageClass] = c;
+                partition[c.MessageClass] = c;
                 byKind[(int)c.Kind] = c;
                 offers[i] = c.Offer;
             }
@@ -58,7 +60,8 @@ namespace JoinFS.Net.Jfp2
             ClassDescriptor.Plain(MessageClasses.FlightPlan, guaranteed: false, DeliverFlightPlan, new FlightPlanV1Codec()),
             ClassDescriptor.SentByPlugin(MessageKind.Notes, MessageClasses.Notes, guaranteed: true, DeliverNote, new NotesV1Codec()),
             ClassDescriptor.Plain(MessageClasses.Weather, guaranteed: false, new WeatherUpdateV1Codec()),
-            ClassDescriptor.Plain(MessageClasses.WeatherReply, guaranteed: true, new WeatherReplyV1Codec()));
+            ClassDescriptor.Plain(MessageClasses.WeatherReply, guaranteed: true, new WeatherReplyV1Codec()),
+            ClassDescriptor.SentByPlugin(MessageClasses.PeerCandidates, guaranteed: true, new PeerCandidatesV1Codec()).InInternalPartition(requiresIpv6: true));
 
         /// <summary>The wire carries no owner: the aircraft is the sender's (or the relayed origin's).</summary>
         static void DeliverFlightPlan(IProtocolHost host, in MessageMeta meta, in FlightPlanUpdate plan)
@@ -97,6 +100,12 @@ namespace JoinFS.Net.Jfp2
         /// <summary>The application class with this number, or null (see <see cref="byClass"/>).</summary>
         public ClassDescriptor ForClass(byte messageClass) => byClass[messageClass];
 
+        /// <summary>The internal class with this number that the profile has a descriptor for, or null (see <see cref="byInternalClass"/>).</summary>
+        public ClassDescriptor ForInternalClass(byte messageClass) => byInternalClass[messageClass];
+
+        /// <summary>The class of this partition with this number, or null.</summary>
+        public ClassDescriptor ForClass(bool isInternal, byte messageClass) => isInternal ? byInternalClass[messageClass] : byClass[messageClass];
+
         /// <summary>The class that carries this kind, or null when JFP2 does not.</summary>
         public ClassDescriptor ForKind(MessageKind kind) => byKind[(int)kind];
 
@@ -107,13 +116,16 @@ namespace JoinFS.Net.Jfp2
         public Jfp2Profile With(ClassDescriptor replacement)
         {
             var list = new List<ClassDescriptor>(classes);
-            int index = list.FindIndex(c => c.MessageClass == replacement.MessageClass);
+            int index = list.FindIndex(c => c.MessageClass == replacement.MessageClass && c.Internal == replacement.Internal);
             if (index >= 0) list[index] = replacement; else list.Add(replacement);
             return new Jfp2Profile(Capabilities, list.ToArray());
         }
 
-        /// <summary>This profile without a class, as a build that does not know it.</summary>
-        public Jfp2Profile Without(byte messageClass) => new(Capabilities, Array.FindAll(classes, c => c.MessageClass != messageClass));
+        /// <summary>This profile without an application class, as a build that does not know it.</summary>
+        public Jfp2Profile Without(byte messageClass) => new(Capabilities, Array.FindAll(classes, c => c.Internal || c.MessageClass != messageClass));
+
+        /// <summary>This profile without an internal class (PeerCandidates), as a release-1 build.</summary>
+        public Jfp2Profile WithoutInternal(byte messageClass) => new(Capabilities, Array.FindAll(classes, c => !c.Internal || c.MessageClass != messageClass));
 
         /// <summary>This profile advertising <paramref name="capabilities"/> instead, as a build that has them.</summary>
         public Jfp2Profile WithCapabilities(ulong capabilities) => new(capabilities, classes);

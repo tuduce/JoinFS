@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Net;
 
 // Canonical mesh messages: session membership (join/login/leave), liveness (pulse) and route
 // discovery (pathfinder). Handled by the core's MeshManager, never by the application. Only the
@@ -128,5 +129,27 @@ namespace JoinFS.Net
 
         public uint Suid;
         public List<NodeId> Nodes;
+    }
+
+    /// <summary>One member and the IPv6 endpoints it can be reached at (<see cref="PeerCandidates"/>).</summary>
+    public struct PeerCandidateEntry
+    {
+        public NodeId Node;
+        /// <summary>Empty clears what the receiver knew of the member's candidates.</summary>
+        public List<IPEndPoint> Candidates;
+    }
+
+    /// <summary>
+    /// A hub tells a member where other members may be reached (docs/jfp2/design-future.md §4.1), so that both
+    /// sides of a pair probe each other at once. Each entry replaces what the receiver knew of that member's
+    /// candidates. A receiver accepts it only from the node it joined through. Handled by the core's
+    /// MeshManager; only the JFP2 plugin carries it (an internal class).
+    /// </summary>
+    public struct PeerCandidates : IMessage
+    {
+        public static MessageKind Kind => MessageKind.PeerCandidates;
+        public void Dispatch(IMessageHandler h, in MessageMeta meta) => h.Handle(in meta, in this);
+
+        public List<PeerCandidateEntry> Entries;
     }
 }

@@ -55,7 +55,7 @@ namespace JoinFS.Net.Jfp2
                 return 0;
             }
             hop = NextHop(target, out peer);
-            return hop == null ? (byte)0 : hop.AgreedAppVersion[messageClass.MessageClass];
+            return hop == null ? (byte)0 : hop.AgreedVersion(messageClass);
         }
 
         public bool CanCarry(NodeId peer, MessageKind kind) => peer.Valid() && AgreedVersion(peer, profile.ForKind(kind), out _, out _) > 0;
@@ -158,7 +158,7 @@ namespace JoinFS.Net.Jfp2
                 Sender = origin, Recipient = target, Guaranteed = envelope.IsGuaranteed, Forwarded = true,
                 OriginGuaranteedId = envelope.IsGuaranteed ? envelope.GuaranteedId : (ushort)0,
             };
-            Decode(meta, messageClass, version, message);
+            Decode(meta, false, messageClass, version, message);
         }
     }
 }

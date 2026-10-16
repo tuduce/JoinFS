@@ -172,6 +172,25 @@ namespace JoinFS.Net.Jfp2
             return occupant.Node != peer.Id;
         }
 
+        /// <summary>
+        /// The profile's offers, less the classes that need IPv6 when this node has none (PeerCandidates): the
+        /// Hello of a node without IPv6 stays byte for byte what release 1 sent, and a hub never sends such a
+        /// node a message it cannot use. The same set is offered and agreed against.
+        /// </summary>
+        List<SchemaOffer> LocalOffers()
+        {
+            bool ipv6 = host.Transport.LocalIpv6Candidate != null;
+            var offers = new List<SchemaOffer>(profile.Offers.Count);
+            foreach (ClassDescriptor c in profile.Classes)
+            {
+                if (ipv6 || !c.RequiresIpv6)
+                {
+                    offers.Add(c.Offer);
+                }
+            }
+            return offers;
+        }
+
         HandshakeMessage MakeHandshake(PeerSession session, byte result) => new()
         {
             ProtoMajorMin = Envelope.ProtoMajor,
@@ -181,7 +200,7 @@ namespace JoinFS.Net.Jfp2
             Result = result,
             Names = [NameOf(Local)],
             Build = build,
-            Offers = new List<SchemaOffer>(profile.Offers),
+            Offers = LocalOffers(),
             Candidates = host.Transport.LocalIpv6Candidate is { } candidate ? [candidate] : [],
         };
 
@@ -194,6 +213,16 @@ namespace JoinFS.Net.Jfp2
         {
             if (!sessions.TryGetValue(peer.Id, out PeerSession session))
             {
+                return;
+            }
+            if (peer.Relayed)
+            {
+                // back behind a relay (a fallback of a pair that had no IPv4 path): the relay's session carries
+                // its traffic now, and this one would answer to the relay's endpoint
+                if (session.Verified)
+                {
+                    Demote(session, "its path moved behind a relay");
+                }
                 return;
             }
             IPEndPoint before = Copy(previous);
@@ -334,7 +363,7 @@ namespace JoinFS.Net.Jfp2
                 SendHelloAck(from, session, HandshakeMessage.ResultNoCompatibleProtoMajor);
                 return;
             }
-            if (Negotiator.Resolve(session, profile.Capabilities, profile.Offers, hello.Capabilities, hello.Offers) && session.HandshakeComplete)
+            if (Negotiator.Resolve(session, profile.Capabilities, LocalOffers(), hello.Capabilities, hello.Offers) && session.HandshakeComplete)
             {
                 host.LinkChanged(sender); // it restarted with different offers: cached routes are stale
             }
@@ -421,7 +450,7 @@ namespace JoinFS.Net.Jfp2
                 OfferCandidates(session.Peer, from, ack.Candidates);
             }
             LearnBuild(session, ack.Build);
-            bool agreementChanged = Negotiator.Resolve(session, profile.Capabilities, profile.Offers, ack.Capabilities, ack.Offers);
+            bool agreementChanged = Negotiator.Resolve(session, profile.Capabilities, LocalOffers(), ack.Capabilities, ack.Offers);
             bool wasVerified = session.Verified;
             session.HandshakeComplete = true;
             session.Endpoint = probe;

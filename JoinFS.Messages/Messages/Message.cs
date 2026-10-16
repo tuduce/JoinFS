@@ -58,6 +58,9 @@ namespace JoinFS.Net
         Pathfinder,
         PathfinderResponse,
 
+        /// <summary>A hub tells a member where other members can be reached over IPv6 (docs/jfp2/protocol.md §9.8). Carried by JFP2 only.</summary>
+        PeerCandidates,
+
         Count,
     }
 

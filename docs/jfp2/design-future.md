@@ -99,7 +99,11 @@ local Euroscope, websocket and web services stay IPv4.
   fallback. The two directions are independent: if only one side's probe gets through a firewall,
   only that side sends over IPv6. Details that make the move safe:
   - *One move, whole.* The core replaces the peer's own endpoint and its route together, by a new
-    object. A peer reached through a relay is not probed or moved; a peer routed through the moved
+    object. A peer reached through a relay is probed only with candidates the hub announced
+    (`PeerCandidates`, below), because a pair with no direct IPv4 path never exchanges a Hello that
+    would carry them; its first PulseResponse from a candidate makes it a direct peer on IPv6, the relay
+    it was reached through is remembered, and a fallback goes back to that relay (to its IPv4 endpoint,
+    with a new search for a route, when the relay is gone). A peer routed through the moved
     peer (a relay) follows it to its new endpoint, so the relay-loss test (by relay id, and by
     endpoint) keeps meaning the same thing. The plugins are told (`OnPathChanged`): a verified JFP2
     session moves to the new endpoint with a fresh time to answer, instead of being demoted as
@@ -133,14 +137,24 @@ local Euroscope, websocket and web services stay IPv4.
   elsewhere cannot plant an address. A node that has no usable IPv6 itself ignores the candidates
   it is told. Candidates are usable when they are global IPv6 addresses with a port
   (not loopback, link-local, multicast, unspecified or IPv4-mapped); at most 4 are kept.
-- *Spread by the hub only.* When a hub announces a member (at JoinReply and AddNode time, and when a
-  member's candidates change), it sends `PeerCandidates` (`protocol.md` §9.8) with that member's
-  candidates to the other members, and the others' candidates to the new member. Both sides of a
-  pair then probe each other at about the same time, which is what gets the first datagram through
-  stateful IPv6 firewalls; it is the same trick Pathfinder relies on for IPv4. A node accepts
-  `PeerCandidates` only from the node it joined through, and only for names it resolves to a
-  member; candidates for a member not yet registered are held for 10 s. A released or IPv4-only hub
-  sends none, so its members never use IPv6 between each other.
+- *Spread by the hub only.* The node a member joined through is its hub (it answered the member's
+  Join with the JoinReply). It sends `PeerCandidates` (`protocol.md` §9.8) with a member's candidates
+  to the other members, and the others' candidates to the member, when it announces the member (at
+  JoinReply and AddNode time) and whenever a member's candidates change. It tracks, per member, what
+  it has told it (a revision of each peer's candidates), and sends what is missing once the member
+  has agreed the class (so a member that is still negotiating gets it right after), only to direct
+  members, and in messages of at most 12 entries. Both sides of a pair then probe each other at about
+  the same time, which is what gets the first datagram through stateful IPv6 firewalls; it is the
+  same trick Pathfinder relies on for IPv4. The announced list of a peer replaces the candidates this
+  node holds for it, as if the peer had reported them itself: the usable ones, at most 4, and an
+  observed source is taken afterwards only inside the /64 of one of them. A node accepts
+  `PeerCandidates` only from the node it joined through (the sender of the JoinReply), ignores
+  entries for itself, ignores them all when it has no IPv6 of its own, and only for names it resolves
+  to a member; entries for a member not yet registered are held for 10 s (at most 64 members). A
+  node offers the class `PeerCandidates` in its Hello only when it has an IPv6 candidate, as it sends
+  the `Candidates` tag, so the handshake of an IPv4-only node is unchanged and a hub never sends it to
+  one. A released or IPv4-only hub sends none, so a pair of its members that cannot reach each other
+  over IPv4 never gets an IPv6 path.
 
 **Bans.** `NetworkCore` drops a datagram whose source address **or** whose sender's legacy-id address
 is banned, so a banned dual-stack user cannot return over IPv6. The ban list also takes IPv6

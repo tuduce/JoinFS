@@ -187,11 +187,12 @@ new classes take the next unused number.
 | 1 | HelloAck | §5.1 |
 | 2–8 | — | Unassigned. |
 | 9 | GuaranteedDone | The acknowledgement of §7.3. |
-| 10 | PeerCandidates | §9.8. Edition 2 (the IPv6 stage), not built yet. Guaranteed. |
+| 10 | PeerCandidates | §9.8. Edition 2 (the IPv6 stage). Guaranteed. |
 
 Hello, HelloAck and GuaranteedDone are never offered (§5.3): every node speaks them, always at
 version 1. Internal classes from 10 on are offered like application classes, in the internal
-partition.
+partition. A node offers PeerCandidates only when it has an IPv6 endpoint
+candidate (§5.4, tag 4), so the Hello of a node without IPv6 is byte for byte that of release 1.
 
 **Application partition**
 
@@ -742,8 +743,9 @@ since legacy has no such limits.
 
 ### 9.8 PeerCandidates (internal class 10, version 1)
 
-Edition 2 (the IPv6 stage), not built yet. A hub tells members where other members may be reached,
-so that both sides of a pair can probe each other (`design-future.md` §4.1). Guaranteed.
+Edition 2 (the IPv6 stage). A hub tells members where other members may be reached,
+so that both sides of a pair can probe each other (`design-future.md` §4.1). Guaranteed. Offered in the
+internal partition, version 1, by a node that has an IPv6 candidate (§3.3).
 
 | Field | Size | Notes |
 |---|---|---|
@@ -756,7 +758,11 @@ The largest entry is 89 bytes and the largest payload 1,069. A longer list is se
 messages. Each entry replaces what the receiver knew of that member's candidates; an entry with no
 candidates clears them. A receiver MUST accept the message only from the node it joined through,
 MUST skip entries whose name it cannot resolve to a member (or hold them briefly, as
-`design-future.md` §4.1 says), and MUST ignore its own name.
+`design-future.md` §4.1 says), and MUST ignore its own name. A reader skips an entry whose name is of a
+kind it cannot resolve, skips a candidate by its length byte when its family is unassigned or it is
+too short, reads at most 4 candidates per entry and 12 entries, and ends the list at an entry or a
+candidate that runs past the payload. A sender never sends it to a neighbour that did not agree the
+class.
 
 ---
 

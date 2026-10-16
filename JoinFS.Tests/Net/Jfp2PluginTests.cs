@@ -547,7 +547,7 @@ namespace JoinFS.Tests.Net
                 [MessageClasses.StatusRequest] = StatusRequestV1Codec.Size,
                 [MessageClasses.WeatherReply] = WeatherReplyV1Codec.MaxSize,
             };
-            foreach (ClassDescriptor c in Jfp2Profile.Default.Classes)
+            foreach (ClassDescriptor c in Jfp2Profile.Default.Classes.Where(c => !c.Internal))
             {
                 byte[] datagram = relayed.First(d => d.Data[7] == c.MessageClass).Data;
                 int header = Envelope.FixedSize + Envelope.ForwardedExtraSize + (c.Guaranteed ? Envelope.GuaranteedExtraSize : 0);

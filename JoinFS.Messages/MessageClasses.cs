@@ -17,6 +17,8 @@ namespace JoinFS.Net.Jfp2
         public const byte Hello = 0;
         public const byte HelloAck = 1;
         public const byte GuaranteedDone = 9;
+        /// <summary>Edition 2 (the IPv6 stage): a hub tells members where other members can be reached (docs/jfp2/protocol.md §9.8).</summary>
+        public const byte PeerCandidates = 10;
 
         // -- Application partition (EnvelopeFlags.Internal clear) --
         public const byte Position = 0;
