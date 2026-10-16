@@ -32,7 +32,7 @@ needs neither B2, B3 nor stages 10 and 11, and what it builds is what B3 needs a
 
 | Item | Task | Design | Depends on |
 |---|---|---|---|
-| I1 | **Built, awaiting the field test (slice 6) and the edition 2 release.** **Dual-stack socket and IPv6 paths.** One dual-mode socket; one path per peer, legacy included; path upgrade to IPv6 and fallback; the `Candidates` tag and `PeerCandidates`; D3; bans by legacy-id address and IPv6 /64; the IPv6 setting; the "IPv6" label. Includes the IPv6 part of 12 (IPv6 endpoints in `InMemoryNetwork`). | `design-future.md` §4.1; `agent-docs/features/ipv6/spec.md` | — |
+| I1 | **Built and field-tested on one LAN (2026-10-16); awaiting the test across a router firewall or NAT, the hub-list, ban and released-build checks, and the edition 2 release.** **Dual-stack socket and IPv6 paths.** One dual-mode socket; one path per peer, legacy included; path upgrade to IPv6 and fallback; the `Candidates` tag and `PeerCandidates`; D3; bans by legacy-id address and IPv6 /64; the IPv6 setting; the "IPv6" label. Includes the IPv6 part of 12 (IPv6 endpoints in `InMemoryNetwork`). | `design-future.md` §4.1; `agent-docs/features/ipv6/spec.md` | — |
 
 ### 2.3 Towards a stand-alone JFP2
 
