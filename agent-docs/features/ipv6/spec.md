@@ -330,3 +330,4 @@ minion journal):
 - 2026-10-16: design approved, docs and this spec written. No code yet.
 - 2026-10-16: slice 1 (socket and test harness) done, branch `ipv6-01-socket-harness`, commit 5e8d8bb.
 - 2026-10-16: slice 2 (dial over IPv6) done, branch `ipv6-02-dial`.
+- 2026-10-16: slice 3 (hub path upgrade and fallback) done, branch `ipv6-03-hub-upgrade`.

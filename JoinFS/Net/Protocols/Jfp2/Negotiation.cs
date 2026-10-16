@@ -2,6 +2,7 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 
 // Ported from ProtocolV2Reference/Negotiation.cs (docs/jfp2/protocol.md §5) as part of
@@ -129,6 +130,12 @@ namespace JoinFS.Net.Jfp2
         /// <summary>Extension tag carrying, in a HelloAck, where the Hello it answers came from (<see cref="ObservedEndPoint"/>).</summary>
         public const ushort ObservedEndPointTag = 3;
 
+        /// <summary>Extension tag carrying the sender's own IPv6 endpoint candidates (<see cref="Candidates"/>; edition 2, docs/jfp2/protocol.md §5.4).</summary>
+        public const ushort CandidatesTag = 4;
+
+        /// <summary>The most <see cref="Candidates"/> written or read.</summary>
+        public const int MaxCandidates = 4;
+
         /// <summary>The longest <see cref="Build"/> sent or kept, in UTF-8 bytes.</summary>
         public const int BuildMaxBytes = 64;
 
@@ -167,6 +174,16 @@ namespace JoinFS.Net.Jfp2
         /// unassigned or the value is too short. Null when not sent (a Hello, an older build).
         /// </summary>
         public IPEndPoint ObservedEndPoint;
+
+        /// <summary>
+        /// The sender's own endpoint candidates (docs/jfp2/protocol.md §5.4, edition 2): the IPv6 address it
+        /// would send from, with its socket's port. Written only when there is one (so the handshake of a
+        /// node without IPv6 stays byte for byte as in 26.6), IPv6 only, at most <see cref="MaxCandidates"/>.
+        /// Travels as a u8 length before each <see cref="WireEndPoint"/>; a reader skips an entry by its
+        /// length when its family is unassigned or it is too short, and reads at most
+        /// <see cref="MaxCandidates"/>. A reader uses them only as endpoints to probe, never as the sender's identity.
+        /// </summary>
+        public List<IPEndPoint> Candidates = new();
 
         /// <summary>
         /// The build text as it may travel: printable ASCII only (0x20-0x7E; it comes from
@@ -226,9 +243,14 @@ namespace JoinFS.Net.Jfp2
             {
                 Tlv.Write(bytes, ObservedEndPointTag, WireEndPoint.ToBytes(ObservedEndPoint));
             }
+            byte[] candidates = WriteCandidates(Candidates);
+            if (candidates.Length > 0)
+            {
+                Tlv.Write(bytes, CandidatesTag, candidates);
+            }
             foreach (var kv in Extensions)
             {
-                if (kv.Key != NamesTag && kv.Key != BuildTag && kv.Key != ObservedEndPointTag) Tlv.Write(bytes, kv.Key, kv.Value);
+                if (kv.Key != NamesTag && kv.Key != BuildTag && kv.Key != ObservedEndPointTag && kv.Key != CandidatesTag) Tlv.Write(bytes, kv.Key, kv.Value);
             }
             return bytes.ToArray();
         }
@@ -272,7 +294,52 @@ namespace JoinFS.Net.Jfp2
             {
                 WireEndPoint.TryReadFrom(observed, out msg.ObservedEndPoint);
             }
+            if (msg.Extensions.Remove(CandidatesTag, out byte[] candidates))
+            {
+                msg.Candidates = ReadCandidates(candidates);
+            }
             return msg;
+        }
+
+        /// <summary>The Candidates value: IPv6 endpoints only (an IPv4-mapped one is IPv4), the first <see cref="MaxCandidates"/>.</summary>
+        static byte[] WriteCandidates(List<IPEndPoint> candidates)
+        {
+            var value = new List<byte>();
+            int count = 0;
+            foreach (IPEndPoint endPoint in candidates)
+            {
+                if (endPoint.AddressFamily != AddressFamily.InterNetworkV6 || endPoint.Address.IsIPv4MappedToIPv6)
+                {
+                    continue;
+                }
+                if (count++ == MaxCandidates)
+                {
+                    break;
+                }
+                value.Add(WireEndPoint.IPv6Size);
+                value.AddRange(WireEndPoint.ToBytes(endPoint));
+            }
+            return value.ToArray();
+        }
+
+        static List<IPEndPoint> ReadCandidates(ReadOnlySpan<byte> value)
+        {
+            var list = new List<IPEndPoint>();
+            int i = 0;
+            while (i < value.Length && list.Count < MaxCandidates)
+            {
+                int length = value[i++];
+                if (i + length > value.Length)
+                {
+                    break; // an entry that runs past the value ends the list
+                }
+                if (WireEndPoint.TryReadFrom(value.Slice(i, length), out IPEndPoint endPoint))
+                {
+                    list.Add(endPoint);
+                }
+                i += length;
+            }
+            return list;
         }
     }
 

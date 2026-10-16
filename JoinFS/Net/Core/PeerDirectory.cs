@@ -40,6 +40,35 @@ namespace JoinFS.Net
         /// </summary>
         public bool RouteIsOwnEndPoint => !Relayed && RouteEndPoint.Equals(EndPoint);
 
+        /// <summary>The node's own path is IPv6 (a dial over IPv6 or a path upgrade).</summary>
+        public bool OnIpv6 => EndPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6;
+
+        /// <summary>
+        /// The IPv4 endpoint kept for a fallback while the node is on an upgraded IPv6 path
+        /// (docs/jfp2/design-future.md §4.1); null on an IPv4 path and for a node dialled over IPv6.
+        /// </summary>
+        public IPEndPoint Ipv4EndPoint;
+
+        /// <summary>
+        /// The port the node is known by to other nodes (AddNode, JoinReply): its IPv4 endpoint's. For a node
+        /// behind an IPv4 NAT that can differ from the port it is reached on over IPv6.
+        /// </summary>
+        public int AdvertisedPort => (Ipv4EndPoint ?? EndPoint).Port;
+
+        /// <summary>The node's IPv6 endpoint candidates (self-reported or observed), probed for a path upgrade; at most <see cref="MeshManager.MaxCandidates"/>.</summary>
+        public IReadOnlyList<IPEndPoint> Candidates => candidates;
+
+        internal List<IPEndPoint> candidates = [];
+
+        /// <summary><see cref="IClock.Now"/> until which the candidates are probed (30 s from when they became known).</summary>
+        internal double ProbeUntil;
+
+        /// <summary>No probing and no upgrade before this time: the hold-off after a fallback.</summary>
+        internal double HoldOffUntil;
+
+        /// <summary>When the node last answered a Pulse over the IPv6 path (see the fallback).</summary>
+        internal double Ipv6AnsweredAt;
+
         /// <summary>We have heard from the node.</summary>
         public bool ReceiveEstablished;
 

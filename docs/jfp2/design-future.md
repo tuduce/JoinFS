@@ -93,22 +93,46 @@ local Euroscope, websocket and web services stay IPv4.
   its endpoint is only a guess from its legacy id, and the first direct datagram that reaches us
   (either family) says where it really is. The datagram of the other family still counts as heard.
 - **Path upgrade.** A peer on an IPv4 path that has IPv6 endpoint candidates is probed: a Pulse to
-  each candidate at the Pulse interval, for up to 30 s. The first PulseResponse that comes from one
-  of its IPv6 candidates moves the peer's endpoint there. The IPv4 endpoint is kept for fallback.
-  The two directions are independent: if only one side's probe gets through a firewall, only that
-  side sends over IPv6.
+  each candidate at the Pulse interval, for up to 30 s from when the candidates became known (a
+  repeated, unchanged announcement does not restart the window). The first PulseResponse that comes
+  from one of its IPv6 candidates moves the peer's endpoint there. The IPv4 endpoint is kept for
+  fallback. The two directions are independent: if only one side's probe gets through a firewall,
+  only that side sends over IPv6. Details that make the move safe:
+  - *One move, whole.* The core replaces the peer's own endpoint and its route together, by a new
+    object. A peer reached through a relay is not probed or moved; a peer routed through the moved
+    peer (a relay) follows it to its new endpoint, so the relay-loss test (by relay id, and by
+    endpoint) keeps meaning the same thing. The plugins are told (`OnPathChanged`): a verified JFP2
+    session moves to the new endpoint with a fresh time to answer, instead of being demoted as
+    "route moved" and negotiated again; the legacy de-duplication of guaranteed messages, which is
+    keyed by the peer's endpoint, moves too. Resends of both protocols go to the peer's current
+    route, so they follow the move.
+  - *Answering a probe.* A Pulse that arrives directly over the other address family than the
+    sender's route is answered to its actual source (a probe must be answered where it came from);
+    any other Pulse is answered to the route as before.
+  - *AddNode and JoinReply* advertise the port of the peer's IPv4 endpoint, which behind an IPv4 NAT
+    can differ from the port it is reached on over IPv6.
 - **Fallback.** A peer on an upgraded path that has not answered a Pulse over IPv6 for 10 s goes back
-  to its IPv4 endpoint, and is not probed over IPv6 again for 5 minutes. A peer that was dialled
-  over IPv6 has no IPv4 endpoint and expires after 30 s as today.
+  to its IPv4 endpoint, and is not probed over IPv6 again for 5 minutes (the probe window of its
+  candidates restarts when the hold-off ends). The peer does not expire meanwhile: the Pulses to
+  the IPv4 endpoint refresh it. A peer that was dialled over IPv6 has no IPv4 endpoint and expires
+  after 30 s as today.
 
 **Endpoint candidates.** Only IPv6 candidates are used in stage 1; IPv4 is still the legacy id.
-- *Observed:* a node records the IPv6 source of a peer's direct datagrams. This is preferred.
+- *Observed:* a node records the IPv6 source of a peer's direct Pulses (the datagrams a peer sends
+  when it probes). This is preferred, and tried first. A forged Pulse could otherwise make this node
+  probe any address, so an observed source is taken only when the peer has reported no candidate of
+  its own, or when the source is in the /64 of one it reported (a temporary address rotating).
+  Only a peer on an IPv4 path, not reached through a relay, takes an observed candidate.
 - *Self-reported:* a node lists its own IPv6 candidate in its Hello and HelloAck (the `Candidates`
   tag, `protocol.md` §5.4): the address the OS would send from (on Windows a temporary address,
   which is what peers will see) with the socket's port. A hub reports its own the same way, so a
   node that joined it over IPv4 upgrades the hub path too. The tag is sent only when the node has
   an IPv6 candidate, so the handshakes of IPv4-only nodes, and the release-1 golden fixtures, stay
-  byte for byte.
+  byte for byte. A reader takes the tag only from a Hello or HelloAck that comes from the endpoint
+  the speaker is known at (a HelloAck: the endpoint the Hello went to), so a forged Hello from
+  elsewhere cannot plant an address. A node that has no usable IPv6 itself ignores the candidates
+  it is told. Candidates are usable when they are global IPv6 addresses with a port
+  (not loopback, link-local, multicast, unspecified or IPv4-mapped); at most 4 are kept.
 - *Spread by the hub only.* When a hub announces a member (at JoinReply and AddNode time, and when a
   member's candidates change), it sends `PeerCandidates` (`protocol.md` §9.8) with that member's
   candidates to the other members, and the others' candidates to the new member. Both sides of a

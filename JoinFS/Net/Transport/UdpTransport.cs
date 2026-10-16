@@ -39,6 +39,54 @@ namespace JoinFS.Net
         /// <summary>Test seam: creates the dual-mode socket; a throw stands for an OS that cannot.</summary>
         internal Func<Socket> DualModeFactory { get; set; }
 
+        /// <summary>How long the found IPv6 address is trusted before the OS is asked again (a temporary address rotates).</summary>
+        const long CandidateRefreshMs = 30_000;
+
+        /// <summary>Test seam: stands in for the OS lookup of the address it would send IPv6 from.</summary>
+        internal Func<IPAddress> LocalIpv6Finder { get; set; }
+
+        IPAddress candidateAddress;
+        long candidateChecked = -CandidateRefreshMs;
+
+        /// <summary>
+        /// The global IPv6 address the OS would send from, with the socket's port; null on an IPv4-only socket
+        /// or without a global IPv6 route. Found by connecting a UDP socket to a public IPv6 address, which
+        /// sends nothing and only makes the OS choose its source address (on Windows, the temporary one peers
+        /// will see). Looked up at most every 30 s.
+        /// </summary>
+        public IPEndPoint LocalIpv6Candidate
+        {
+            get
+            {
+                if (!IsDualStack || LocalPort == 0)
+                {
+                    return null;
+                }
+                long now = Environment.TickCount64;
+                if (now - candidateChecked >= CandidateRefreshMs)
+                {
+                    candidateChecked = now;
+                    candidateAddress = (LocalIpv6Finder ?? FindLocalIpv6)();
+                }
+                return candidateAddress == null ? null : new IPEndPoint(candidateAddress, LocalPort);
+            }
+        }
+
+        static IPAddress FindLocalIpv6()
+        {
+            try
+            {
+                using var probe = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
+                probe.Connect(new IPEndPoint(IPAddress.Parse("2001:4860:4860::8888"), 53));
+                IPAddress address = ((IPEndPoint)probe.LocalEndPoint).Address;
+                return Ipv6Address.IsGlobal(address) ? address : null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
         public event Action<IPEndPoint, string> SendFailed;
 
         /// <summary>
@@ -76,6 +124,7 @@ namespace JoinFS.Net
                 socket = s;
                 LocalPort = ((IPEndPoint)s.LocalEndPoint).Port;
                 closing = false;
+                candidateChecked = -CandidateRefreshMs;
                 receiveThread = new Thread(ReceiveLoop) { IsBackground = true, Name = "JoinFS-UdpReceive" };
                 receiveThread.Start(s);
                 return true;

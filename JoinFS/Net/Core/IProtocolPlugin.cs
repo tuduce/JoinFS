@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 
 namespace JoinFS.Net
@@ -56,6 +57,16 @@ namespace JoinFS.Net
         /// address): drop whatever the plugin still resends to it for no known node.
         /// </summary>
         void OnEndPointAbandoned(IPEndPoint endPoint)
+        {
+        }
+
+        /// <summary>
+        /// The core moved <paramref name="peer"/> to another path (a path upgrade to IPv6 or a fallback to
+        /// IPv4): its <see cref="Peer.EndPoint"/> was <paramref name="previous"/> and is now another endpoint
+        /// of the same node. A plugin whose state is tied to the endpoint moves it along, so what it holds
+        /// for the peer (a verified session, resends, de-duplication) survives the change.
+        /// </summary>
+        void OnPathChanged(Peer peer, IPEndPoint previous)
         {
         }
     }
@@ -150,6 +161,13 @@ namespace JoinFS.Net
         /// <see cref="NetworkEventKind.EndPointObserved"/>; nothing in the network stack acts on it.
         /// </summary>
         void EndPointObserved(NodeId reporter, IPEndPoint endPoint);
+
+        /// <summary>
+        /// <paramref name="peer"/>, a node in the session, says it can be reached at these IPv6 endpoints
+        /// (its own list in a handshake). The core keeps the usable ones as the peer's candidates and probes
+        /// them for a path upgrade. The plugin has already checked that the claim came from the peer.
+        /// </summary>
+        void OfferCandidates(NodeId peer, IReadOnlyList<IPEndPoint> candidates);
 
         void Log(NetLogLevel level, string text);
     }

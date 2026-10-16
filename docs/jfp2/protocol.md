@@ -404,7 +404,7 @@ lets the handshake grow without a new envelope version.
 | 1 | Names | Hello, HelloAck | The speaker's names (§4.3), 8 bytes each, preferred first. A reader takes whole names and skips a trailing remainder under 8 bytes. In a HelloAck, the names of the node that answered. REQUIRED: a handshake from which the receiver can resolve no name to a node it knows is ignored (§5.7). |
 | 2 | Build | Hello, HelloAck | Text naming the speaker's build, for diagnostics and for counting which builds speak JFP2; `<version> <assembly name>`, for example `26.6.0 JoinFS-FS2024`. Printable ASCII (`0x20`–`0x7E`), at most 64 bytes: a sender cleans it to that, and a receiver cuts it to 64 bytes and drops every other character before using it. OPTIONAL. Nothing in the protocol depends on it. |
 | 3 | ObservedEndPoint | HelloAck | A `WireEndPoint` (§4.4): the UDP source of the Hello being answered, as the responder received it (an IPv4-mapped address normalized). Every HelloAck carries it, refusals included. OPTIONAL for a reader. |
-| 4 | Candidates | Hello, HelloAck | Edition 2 (the IPv6 stage), not built yet. The speaker's own endpoint candidates: a u8 length before each `WireEndPoint` (§4.4), at most 4. Edition 2 sends IPv6 candidates only: the address the speaker would send from, with its socket's port, and sends the tag only when it has one. OPTIONAL; a reader uses it only as a candidate to probe (`design-future.md` §4.1), never as the speaker's identity. |
+| 4 | Candidates | Hello, HelloAck | Edition 2 (the IPv6 stage). The speaker's own endpoint candidates: a u8 length before each `WireEndPoint` (§4.4), at most 4. Edition 2 sends IPv6 candidates only: the address the speaker would send from, with its socket's port, and sends the tag only when it has one, so a handshake without it is byte for byte that of release 1. A reader skips an entry by its length byte when its family is unassigned or it is too short, reads an entry longer than its family up to the family's size, takes at most 4 entries, and ends the list at an entry that runs past the value. Written after `Names`, `Build` and `ObservedEndPoint`. OPTIONAL; a reader uses it only as a candidate to probe (`design-future.md` §4.1), never as the speaker's identity, and only when the Hello or HelloAck comes from the endpoint the speaker is known at (for a HelloAck, the endpoint the asker's Hello went to). |
 
 An asker MUST count an `ObservedEndPoint` only from a HelloAck that answers its own Hello, from the
 endpoint the Hello went to (§5.7), so that a datagram from elsewhere cannot plant an address.
@@ -877,7 +877,7 @@ release-1 peer:
 ## Appendix A. Example datagrams
 
 These are the exact bytes pinned by the golden tests (`JoinFS.Tests/Jfp2/HandshakeGoldenTests.cs`).
-They are a frozen part of this specification.
+A.1 and A.2 are a frozen part of this specification; A.3 and A.4 are the additions of edition 2.
 
 **A.1 Hello** from 203.0.113.1:6112 (local 20), id `0x1234`, to a peer whose id it does not know yet;
 offers Position and Status at [1, 1]; build "26.6.0 JoinFS-FS2024".
@@ -910,6 +910,26 @@ FA 02 08 78 56 34 12 01                   magic, ProtoMajor 2, Internal, sender 
 01 00 08 00  00 02 64 33 C6 E0 17 02      TLV Names: kind 0, legacy id 198.51.100.2, port 6112, local 2
 02 00 15 00  32 36 2E 36 2E 30 20 ...     TLV Build: "26.6.0 JoinFS-CONSOLE" (21 bytes)
 03 00 07 00  04 CB 00 71 01 E0 17         TLV ObservedEndPoint: family 4, 203.0.113.1, port 6112
+```
+
+**A.3 Hello with Candidates** (edition 2): A.1 from a node that also has the IPv6 candidate
+`[2001:db8::2]:6112`. The node adds one record and nothing else changes; a node without an IPv6 candidate
+sends A.1. Pinned by `JoinFS.Tests/Jfp2/HandshakeCandidatesTests.cs`, which sits beside the frozen goldens.
+
+```
+... (A.1 up to and including the Build record)
+04 00 14 00  13  06 20 01 0D B8 00 00 00 00 00 00 00 00 00 00 00 02 E0 17
+                                          TLV Candidates (20 bytes): entry length 19, family 6, 2001:db8::2, port 6112
+```
+
+**A.4 HelloAck with Candidates** (edition 2): A.2 from a node that has `[2001:db8::3]:6112` and
+`[2001:db8:1::3]:6113`. The record follows ObservedEndPoint:
+
+```
+... (A.2 up to and including the ObservedEndPoint record)
+04 00 28 00                               TLV Candidates (40 bytes)
+13  06 20 01 0D B8 00 00 00 00 00 00 00 00 00 00 00 03 E0 17     entry: 2001:db8::3, port 6112
+13  06 20 01 0D B8 00 01 00 00 00 00 00 00 00 00 00 03 E1 17     entry: 2001:db8:1::3, port 6113
 ```
 
 ---

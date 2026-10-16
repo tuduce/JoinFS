@@ -132,6 +132,7 @@ namespace JoinFS.Tests.Net
             a.Core.Mesh.Join([hub.EndPoint6!, hub.EndPoint], 0);
             mesh.Run(7);
             Assert.True(a.Core.Mesh.Connected);
+            mesh.Run(40);   // the hub's IPv6 candidate is probed for its 30 s window (HubPathUpgradeTests); the Join must not be resent
 
             int before = Sent(mesh, a, hub.EndPoint6!);
             mesh.Run(10);

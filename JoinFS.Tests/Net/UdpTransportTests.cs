@@ -135,5 +135,53 @@ namespace JoinFS.Tests.Net
                 Assert.NotNull(inbox.WaitForOne());
             }
         }
+
+        [Fact]
+        public void LocalIpv6Candidate_IsTheFoundAddressWithTheSocketsPort_AndIsAskedForOnlyEvery30Seconds()
+        {
+            int lookups = 0;
+            var transport = new UdpTransport { Ipv6Enabled = true, LocalIpv6Finder = () => { lookups++; return IPAddress.Parse("2001:db8::2"); } };
+            using (transport)
+            {
+                Assert.True(transport.Open(0, out _));
+                if (!transport.IsDualStack)
+                {
+                    return; // no IPv6 stack here
+                }
+                Assert.Equal(new IPEndPoint(IPAddress.Parse("2001:db8::2"), transport.LocalPort), transport.LocalIpv6Candidate);
+                Assert.Equal(new IPEndPoint(IPAddress.Parse("2001:db8::2"), transport.LocalPort), transport.LocalIpv6Candidate);
+                Assert.Equal(1, lookups);
+            }
+        }
+
+        [Fact]
+        public void LocalIpv6Candidate_IsNull_WithoutAGlobalIpv6Address_AndOnAnIPv4OnlySocket()
+        {
+            var noRoute = new UdpTransport { Ipv6Enabled = true, LocalIpv6Finder = () => null };
+            using (noRoute)
+            {
+                Assert.True(noRoute.Open(0, out _));
+                Assert.Null(noRoute.LocalIpv6Candidate);
+            }
+            var ipv4Only = new UdpTransport { Ipv6Enabled = false, LocalIpv6Finder = () => IPAddress.Parse("2001:db8::2") };
+            using (ipv4Only)
+            {
+                Assert.True(ipv4Only.Open(0, out _));
+                Assert.Null(ipv4Only.LocalIpv6Candidate);
+            }
+        }
+
+        [Theory]
+        [InlineData("2001:db8::1", true)]
+        [InlineData("2a02:1234::5", true)]
+        [InlineData("fd00::1", true)]
+        [InlineData("fe80::1", false)]
+        [InlineData("::1", false)]
+        [InlineData("::", false)]
+        [InlineData("ff02::1", false)]
+        [InlineData("::ffff:203.0.113.9", false)]
+        [InlineData("203.0.113.9", false)]
+        public void Ipv6Address_IsGlobal_OnlyForARoutableIPv6Address(string address, bool expected) =>
+            Assert.Equal(expected, Ipv6Address.IsGlobal(IPAddress.Parse(address)));
     }
 }

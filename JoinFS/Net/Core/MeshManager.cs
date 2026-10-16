@@ -24,7 +24,7 @@ namespace JoinFS.Net
     ///
     /// Network thread only.
     /// </summary>
-    public sealed class MeshManager : IMessageHandler
+    public sealed partial class MeshManager : IMessageHandler
     {
         public const int ExpireTime = 30;
         public const int MaxNodesPerDevice = 32;
@@ -239,6 +239,7 @@ namespace JoinFS.Net
                 return;
             }
             NextDial();
+            CheckPaths();
             ExpireNodes();
             DoPulse();
             DoRouting();
@@ -284,7 +285,9 @@ namespace JoinFS.Net
             {
                 return;
             }
-            core.Broadcast(new Pulse { Suid = suid, Time = core.Clock.Timestamp, LowBandwidth = core.LowBandwidth }, guaranteed: false);
+            var pulse = new Pulse { Suid = suid, Time = core.Clock.Timestamp, LowBandwidth = core.LowBandwidth };
+            core.Broadcast(pulse, guaranteed: false);
+            ProbeCandidates(pulse);
             nextPulse = Now + PulseInterval;
         }
 
@@ -409,7 +412,7 @@ namespace JoinFS.Net
             if (firstContact)
             {
                 core.RaisePeerJoined(id, peer.EndPoint);
-                core.Broadcast(new AddNode { Suid = suid, Node = new KnownNode { Node = id, Port = (ushort)peer.EndPoint.Port } }, guaranteed: true);
+                core.Broadcast(new AddNode { Suid = suid, Node = new KnownNode { Node = id, Port = (ushort)peer.AdvertisedPort } }, guaranteed: true);
             }
         }
 
@@ -430,7 +433,7 @@ namespace JoinFS.Net
             {
                 if (other.ReceiveEstablished)
                 {
-                    nodes.Add(new KnownNode { Node = other.Id, Port = (ushort)other.EndPoint.Port });
+                    nodes.Add(new KnownNode { Node = other.Id, Port = (ushort)other.AdvertisedPort });
                 }
             }
             return nodes;
@@ -560,9 +563,10 @@ namespace JoinFS.Net
             if (core.Peers.TryGet(meta.Sender, out Peer sender))
             {
                 sender.LowBandwidth = message.LowBandwidth;
+                PulseSource(sender, meta);
             }
             RegisterSender(meta);
-            core.SendToEndPoint(meta.EndPoint, new PulseResponse { Time = message.Time }, guaranteed: false, recipient: meta.Sender);
+            core.SendToEndPoint(ReplyEndPoint(meta), new PulseResponse { Time = message.Time }, guaranteed: false, recipient: meta.Sender);
             core.Log(NetLogLevel.Network, "NETWORK: Pulse " + meta.Sender + " " + meta.EndPoint);
         }
 
@@ -579,6 +583,7 @@ namespace JoinFS.Net
                 core.RaisePeerEstablished(meta.Sender);
             }
             Responded(peer, Now);
+            PulseAnswered(peer, meta);
             core.Log(NetLogLevel.Network, "NETWORK: PulseResponse " + meta.Sender + " " + meta.EndPoint);
         }
 

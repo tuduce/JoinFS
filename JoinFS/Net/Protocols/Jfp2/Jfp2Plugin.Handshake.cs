@@ -182,7 +182,55 @@ namespace JoinFS.Net.Jfp2
             Names = [NameOf(Local)],
             Build = build,
             Offers = new List<SchemaOffer>(profile.Offers),
+            Candidates = host.Transport.LocalIpv6Candidate is { } candidate ? [candidate] : [],
         };
+
+        /// <summary>
+        /// The core moved the peer to another path: the verified session moves with it, instead of being
+        /// demoted as "route moved" and negotiated again. It is given the usual time to answer on the new
+        /// path (a Hello goes there at once), and if it does not, the keepalive demotes it as for any silent endpoint.
+        /// </summary>
+        public void OnPathChanged(Peer peer, IPEndPoint previous)
+        {
+            if (!sessions.TryGetValue(peer.Id, out PeerSession session))
+            {
+                return;
+            }
+            IPEndPoint before = Copy(previous);
+            IPEndPoint after = Copy(peer.RouteEndPoint);
+            if (session.ProbeEndPoint != null && session.ProbeEndPoint.Equals(before))
+            {
+                session.ProbeEndPoint = after;
+            }
+            if (occupants.Remove(before, out Occupant occupant) && occupant.Node == peer.Id)
+            {
+                occupants[after] = occupant;
+            }
+            if (session.Endpoint != null && session.Endpoint.Equals(before))
+            {
+                session.Endpoint = after;
+                session.LastAck = Now;
+                session.NextKeepAlive = 0;
+                host.Log(NetLogLevel.Network, "JFP2: session with " + peer.Id + " moved from " + before + " to " + after);
+            }
+        }
+
+        /// <summary>
+        /// The IPv6 endpoints a Hello or HelloAck lists are offered to the core as candidates of the peer,
+        /// but only from the endpoint the peer is known at: a Hello is not authenticated, and one from elsewhere
+        /// must not make this node probe addresses of its choosing.
+        /// </summary>
+        void OfferCandidates(NodeId peer, IPEndPoint from, List<IPEndPoint> candidates)
+        {
+            if (candidates.Count == 0 || !host.Peers.TryGet(peer, out Peer known))
+            {
+                return;
+            }
+            if (from.Address.Equals(known.EndPoint.Address) || (known.Ipv4EndPoint != null && from.Address.Equals(known.Ipv4EndPoint.Address)))
+            {
+                host.OfferCandidates(peer, candidates);
+            }
+        }
 
         // Internal and nothing else: no flag a peer could need a capability to read
         // (docs/jfp2/protocol.md §3.2); the envelope goes out as Envelope.HandshakeProtoMajor
@@ -296,6 +344,7 @@ namespace JoinFS.Net.Jfp2
             {
                 session.RetryAt = 0; // it speaks JFP2 after all: try it now
             }
+            OfferCandidates(sender, from, hello.Candidates);
             SendHelloAck(from, session, HandshakeMessage.ResultAccepted);
             host.Log(NetLogLevel.Network, "JFP2: Hello from " + sender + " at " + from + " - answered");
         }
@@ -367,6 +416,10 @@ namespace JoinFS.Net.Jfp2
                 return;
             }
             session.RemoteAssignedId = ack.SelfAssignedId;
+            if (from.Equals(probe))
+            {
+                OfferCandidates(session.Peer, from, ack.Candidates);
+            }
             LearnBuild(session, ack.Build);
             bool agreementChanged = Negotiator.Resolve(session, profile.Capabilities, profile.Offers, ack.Capabilities, ack.Offers);
             bool wasVerified = session.Verified;

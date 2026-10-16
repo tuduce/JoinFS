@@ -398,6 +398,18 @@ namespace JoinFS.Net
             }
         }
 
+        /// <summary>A peer's path moved (<see cref="Peer.EndPoint"/> was <paramref name="previous"/>): the plugins move their per-endpoint state along.</summary>
+        internal void PathChanged(Peer peer, IPEndPoint previous)
+        {
+            foreach (IProtocolPlugin plugin in plugins)
+            {
+                plugin.OnPathChanged(peer, previous);
+            }
+            LinkChanged(peer.Id);
+        }
+
+        public void OfferCandidates(NodeId peer, IReadOnlyList<IPEndPoint> candidates) => Mesh.OfferCandidates(peer, candidates);
+
         internal void ResetSession()
         {
             foreach (IProtocolPlugin plugin in plugins)

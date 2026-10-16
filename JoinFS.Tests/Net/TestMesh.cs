@@ -121,12 +121,15 @@ namespace JoinFS.Tests.Net
         public void Firewall(TestNode node) => Network.FirewallIpv6(node.EndPoint6!.Address);
 
         /// <summary>Drop IPv6 traffic between two dual-stack nodes (both directions); IPv4 between them is untouched.</summary>
-        public void CutIpv6(TestNode a, TestNode b)
+        /// <returns>An action that restores the traffic.</returns>
+        public Action CutIpv6(TestNode a, TestNode b)
         {
+            bool cut = true;
             var previous = Network.Filter;
             Network.Filter = (from, to, data) =>
-                !((from.Equals(a.EndPoint6) && to.Equals(b.EndPoint6)) || (from.Equals(b.EndPoint6) && to.Equals(a.EndPoint6)))
+                !(cut && ((from.Equals(a.EndPoint6) && to.Equals(b.EndPoint6)) || (from.Equals(b.EndPoint6) && to.Equals(a.EndPoint6))))
                 && (previous == null || previous(from, to, data));
+            return () => cut = false;
         }
 
         /// <summary>Drop all traffic between two nodes (both directions).</summary>

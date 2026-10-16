@@ -122,6 +122,9 @@ namespace JoinFS.Net
         public IPEndPoint EndPointV6 { get; }
         public int LocalPort => EndPoint.Port;
 
+        /// <summary>The IPv6 endpoint of a dual-stack node is its candidate (the address the OS would send from).</summary>
+        public IPEndPoint LocalIpv6Candidate => EndPointV6;
+
         public event Action<IPEndPoint, string> SendFailed { add { } remove { } }
 
         internal InMemoryTransport(InMemoryNetwork network, IPEndPoint endPoint, IPEndPoint endPointV6, Action<IPEndPoint, byte[]> receive)

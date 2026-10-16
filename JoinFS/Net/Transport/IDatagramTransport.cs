@@ -20,6 +20,13 @@ namespace JoinFS.Net
         /// <summary>The local port the transport is bound to (0 when closed).</summary>
         int LocalPort { get; }
 
+        /// <summary>
+        /// This node's own IPv6 endpoint candidate: the global address the OS would send from, with the
+        /// socket's port (docs/jfp2/design-future.md §4.1). Null when the node has no usable IPv6 (an
+        /// IPv4-only socket, no IPv6 route), which also means it can send no IPv6.
+        /// </summary>
+        IPEndPoint LocalIpv6Candidate => null;
+
         event Action<IPEndPoint, string> SendFailed;
     }
 }

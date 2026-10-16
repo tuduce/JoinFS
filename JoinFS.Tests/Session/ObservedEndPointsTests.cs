@@ -172,5 +172,28 @@ namespace JoinFS.Tests.Session
             Assert.Contains("HTTP address 198.51.100.9", line);
             Assert.Contains("bound port 6112", line);
         }
+
+        /// <summary>The NAT class rests on IPv4 observations only (design-future.md §4.1): a neighbor that sees us over IPv6 says nothing about the IPv4 NAT.</summary>
+        [Fact]
+        public void AnIPv6Observation_IsIgnored()
+        {
+            ObservedEndPoints observed = Seen(Local, At("198.51.100.9", 6112), At("2001:db8::2", 6112));
+            Assert.Equal(NatClass.PortPreserving, observed.Class);
+            Assert.Equal([At("198.51.100.9", 6112)], observed.EndPoints);
+            Assert.Equal(1, observed.Reporters);
+        }
+
+        [Fact]
+        public void AReporterThatMovedToIPv6_NoLongerCountsWithItsOldIPv4Observation()
+        {
+            var observed = new ObservedEndPoints();
+            observed.Observe(Reporter(1), At("198.51.100.9", 40001), Local, Bound);
+            Assert.Equal(NatClass.Translated, observed.Class);
+
+            observed.Observe(Reporter(1), At("2001:db8::2", 6112), Local, Bound);
+
+            Assert.Equal(NatClass.Unknown, observed.Class);
+            Assert.Empty(observed.EndPoints);
+        }
     }
 }
