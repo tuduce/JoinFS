@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Mail;
+using System.Net.Sockets;
 
 namespace JoinFS.Net
 {
@@ -24,7 +25,7 @@ namespace JoinFS.Net
     ///
     /// Network thread only.
     /// </summary>
-    public sealed class MeshManager : IMessageHandler
+    public sealed partial class MeshManager : IMessageHandler
     {
         public const int ExpireTime = 30;
         public const int MaxNodesPerDevice = 32;
@@ -34,6 +35,8 @@ namespace JoinFS.Net
         const double PulseInterval = 1;
         const double PathfinderInterval = 5;
         const double RelayHoldTime = 5;
+        /// <summary>How long a Join waits for an answer before it tries the next address of its list (design-future.md §4.1).</summary>
+        public const double DialTimeout = 5;
 
         readonly NetworkCore core;
         readonly Func<string, CredentialStore> credentialStoreFactory;
@@ -43,6 +46,14 @@ namespace JoinFS.Net
         uint passwordHash;
         bool allowJoin = true;
         CredentialStore credentials;
+
+        // the addresses of the Join in progress, the one being tried and when to give up on it
+        IReadOnlyList<IPEndPoint> dialList;
+        int dialIndex;
+        double dialDeadline;
+
+        // the node this one joined through (it answered the JoinReply): the only one whose PeerCandidates count
+        NodeId joinedThrough;
 
         double nextPulse;
         double nextPathfinder;
@@ -113,13 +124,26 @@ namespace JoinFS.Net
             active = true;
         }
 
-        public void Join(IPEndPoint endPoint, uint password)
+        public void Join(IPEndPoint endPoint, uint password) => Join([endPoint], password);
+
+        /// <summary>
+        /// Join through the first of <paramref name="endPoints"/>; if it gets no answer within
+        /// <see cref="DialTimeout"/>, through the next one, and so on (the caller orders them, IPv6 first
+        /// for a node that has it). Any answer from the hub, accepting or refusing, ends the dial.
+        /// </summary>
+        public void Join(IReadOnlyList<IPEndPoint> endPoints, uint password)
         {
-            if (!core.IsOpen || !core.Identity.Ready)
+            if (!core.IsOpen || !core.Identity.Ready || endPoints.Count == 0)
             {
                 return;
             }
-            core.SendToEndPoint(endPoint, new JoinRequest { PasswordHash = password }, guaranteed: true);
+            dialList = endPoints;
+            dialIndex = 0;
+            if (endPoints.Count > 1)
+            {
+                core.Log(NetLogLevel.Network, "NETWORK: Dial order " + string.Join(", ", endPoints));
+            }
+            Dial(password);
             passwordHash = password;
             ActiveJoinResult = JoinResult.Accepted;
             ActiveLoginResult = LoginResult.Accepted;
@@ -128,12 +152,41 @@ namespace JoinFS.Net
             active = true;
         }
 
+        /// <summary>Send the Join to the address being tried and start its timeout.</summary>
+        void Dial(uint password)
+        {
+            IPEndPoint endPoint = dialList[dialIndex];
+            dialDeadline = Now + DialTimeout;
+            core.Log(NetLogLevel.Network, "NETWORK: Dial " + endPoint + " (" + (dialIndex + 1) + " of " + dialList.Count + ")");
+            core.SendToEndPoint(endPoint, new JoinRequest { PasswordHash = password }, guaranteed: true);
+        }
+
+        /// <summary>The Join got no answer in time: give up on its address and try the next one, if there is one.</summary>
+        void NextDial()
+        {
+            if (dialList == null || Connected || Now < dialDeadline)
+            {
+                return;
+            }
+            if (dialIndex + 1 >= dialList.Count)
+            {
+                // the last address keeps its guaranteed resends, as a single address always did
+                dialList = null;
+                return;
+            }
+            core.Log(NetLogLevel.Network, "NETWORK: Dial " + dialList[dialIndex] + " got no answer in " + DialTimeout + " s");
+            core.AbandonEndPoint(dialList[dialIndex]);
+            dialIndex++;
+            Dial(passwordHash);
+        }
+
         public void Login(IPEndPoint endPoint, string email, uint hash, bool verify)
         {
             if (!core.IsOpen || !core.Identity.Ready)
             {
                 return;
             }
+            dialList = null;
             core.SendToEndPoint(endPoint, new LoginRequest { Email = email, PasswordHash = hash, Verify = verify }, guaranteed: true);
             passwordHash = 0;
             ActiveJoinResult = JoinResult.Accepted;
@@ -164,6 +217,9 @@ namespace JoinFS.Net
             nextRefusalLog = 0;
             removeList.Clear();
             removeRelayList.Clear();
+            dialList = null;
+            joinedThrough = default;
+            heldCandidates.Clear();
             suid = 0;
             active = false;
             passwordHash = 0;
@@ -192,6 +248,9 @@ namespace JoinFS.Net
             {
                 return;
             }
+            NextDial();
+            CheckPaths();
+            ExpireHeldCandidates();
             ExpireNodes();
             DoPulse();
             DoRouting();
@@ -237,7 +296,10 @@ namespace JoinFS.Net
             {
                 return;
             }
-            core.Broadcast(new Pulse { Suid = suid, Time = core.Clock.Timestamp, LowBandwidth = core.LowBandwidth }, guaranteed: false);
+            var pulse = new Pulse { Suid = suid, Time = core.Clock.Timestamp, LowBandwidth = core.LowBandwidth };
+            core.Broadcast(pulse, guaranteed: false);
+            ProbeCandidates(pulse);
+            AnnounceCandidates();
             nextPulse = Now + PulseInterval;
         }
 
@@ -315,7 +377,7 @@ namespace JoinFS.Net
         /// just sent us something on <paramref name="port"/>). On first contact, tell the app and
         /// introduce the node to everyone else.
         /// </summary>
-        void RegisterNode(NodeId id, ushort port, bool receive, bool direct, IPAddress heardFrom = null)
+        void RegisterNode(NodeId id, ushort port, bool receive, bool direct, IPAddress heardFrom = null, IPEndPoint source = null)
         {
             if (!id.Valid() || id == LocalId || NodeCountDevice(id) >= MaxNodesPerDevice)
             {
@@ -326,9 +388,22 @@ namespace JoinFS.Net
             {
                 if (receive)
                 {
-                    if (!peer.ReceiveEstablished) firstContact = true;
+                    bool heardBefore = peer.ReceiveEstablished;
+                    if (!heardBefore) firstContact = true;
                     peer.ReceiveEstablished = true;
-                    if (direct)
+                    // a peer has one path: once we have heard it, a datagram over the other address family
+                    // (IPv4 or IPv6) counts as heard from it but never moves its endpoint, so a peer that
+                    // sends over both does not flip between them. Before that the endpoint is only a guess
+                    // from its id, and the first datagram that reaches us says where it really is - but not
+                    // when it comes over IPv6 and this node has IPv6 itself: a peer's IPv6 path is opened by the
+                    // path upgrade (a probe it answered), which keeps the IPv4 endpoint for a fallback; its
+                    // probes are often the first thing a member hears from another member.
+                    // (the datagram's own source tells the family: a peer reached through a relay has the relay's
+                    // endpoint as its route, which is not where this datagram came from)
+                    AddressFamily family = source?.AddressFamily ?? heardFrom?.AddressFamily ?? AddressFamily.InterNetwork;
+                    bool otherFamily = heardFrom != null && family != peer.EndPoint.Address.AddressFamily
+                        && (heardBefore || (family == AddressFamily.InterNetworkV6 && Ipv6Available));
+                    if (direct && !otherFamily)
                     {
                         // mutates the shared IPEndPoint instance, exactly like LocalNode (the route
                         // endpoint is the same object until a relay is chosen)
@@ -344,25 +419,39 @@ namespace JoinFS.Net
                 IPEndPoint endPoint = core.Identity.MakeEndPoint(id, port);
                 // MakeEndPoint guesses a LAN address for any peer behind our public IP; a datagram that
                 // reached us directly tells the real one (strangers behind one CGNAT address)
+                IPEndPoint fallback = null;
                 if (receive && direct && heardFrom != null)
                 {
+                    // a first datagram over IPv6 (a Join dialled over it, a probe) puts the peer on that path, and the
+                    // endpoint of its id stays as the fallback, as for an upgraded path
+                    if (Ipv6Available && (source?.AddressFamily ?? heardFrom.AddressFamily) == AddressFamily.InterNetworkV6)
+                    {
+                        fallback = new IPEndPoint(endPoint.Address, endPoint.Port);
+                    }
                     endPoint.Address = heardFrom;
                     endPoint.Port = port;
                 }
                 peer = core.Peers.Add(id, endPoint, receive);
+                if (fallback != null)
+                {
+                    peer.Ipv4EndPoint = fallback;
+                    peer.Ipv6AnsweredAt = Now;
+                    peer.Ipv4Unproven = true;
+                }
                 peer.ExpireTime = Now + ExpireTime;
+                ApplyHeldCandidates(peer);
                 core.Log(NetLogLevel.Network, "NETWORK: RegisterNode new " + id + " " + port + " " + receive + " " + direct);
             }
             if (firstContact)
             {
                 core.RaisePeerJoined(id, peer.EndPoint);
-                core.Broadcast(new AddNode { Suid = suid, Node = new KnownNode { Node = id, Port = (ushort)peer.EndPoint.Port } }, guaranteed: true);
+                core.Broadcast(new AddNode { Suid = suid, Node = new KnownNode { Node = id, Port = (ushort)peer.AdvertisedPort } }, guaranteed: true);
             }
         }
 
         /// <summary>The sender of <paramref name="meta"/> just sent us something: record it, and where it came from if directly.</summary>
         void RegisterSender(in MessageMeta meta) =>
-            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded, meta.EndPoint.Address);
+            RegisterNode(meta.Sender, (ushort)meta.EndPoint.Port, true, !meta.Forwarded, meta.EndPoint.Address, meta.Source);
 
         static void Responded(Peer peer, double now)
         {
@@ -377,7 +466,7 @@ namespace JoinFS.Net
             {
                 if (other.ReceiveEstablished)
                 {
-                    nodes.Add(new KnownNode { Node = other.Id, Port = (ushort)other.EndPoint.Port });
+                    nodes.Add(new KnownNode { Node = other.Id, Port = (ushort)other.AdvertisedPort });
                 }
             }
             return nodes;
@@ -409,6 +498,7 @@ namespace JoinFS.Net
             {
                 core.SendToEndPoint(meta.EndPoint, new JoinReply { Suid = suid, Nodes = KnownNodes() }, guaranteed: true);
                 RegisterSender(meta);
+                MarkJoinedThroughMe(meta.Sender);
             }
         }
 
@@ -418,6 +508,12 @@ namespace JoinFS.Net
             {
                 return;
             }
+            if (dialList != null)
+            {
+                // the dial choice that worked, with the family it used
+                core.Log(NetLogLevel.Network, "NETWORK: Dial " + dialList[dialIndex] + " answered over " + PathFamily.Label(meta.EndPoint) + " (" + (dialIndex + 1) + " of " + dialList.Count + ")");
+            }
+            dialList = null;
             if (!Connected)
             {
                 suid = message.Suid;
@@ -433,11 +529,16 @@ namespace JoinFS.Net
                     }
                 }
                 RegisterSender(meta);
+                joinedThrough = meta.Sender;
             }
             core.Log(NetLogLevel.Network, "NETWORK: JoinReply " + meta.Sender + " " + message.Suid);
         }
 
-        public void Handle(in MessageMeta meta, in JoinFail message) => ActiveJoinResult = message.Result;
+        public void Handle(in MessageMeta meta, in JoinFail message)
+        {
+            ActiveJoinResult = message.Result;
+            dialList = null;
+        }
 
         public void Handle(in MessageMeta meta, in LoginFail message) => ActiveLoginResult = message.Result;
 
@@ -472,6 +573,7 @@ namespace JoinFS.Net
             }
             core.SendToEndPoint(meta.EndPoint, new JoinReply { Suid = suid, Nodes = KnownNodes() }, guaranteed: true);
             RegisterSender(meta);
+            MarkJoinedThroughMe(meta.Sender);
         }
 
         public void Handle(in MessageMeta meta, in Leave message)
@@ -502,9 +604,10 @@ namespace JoinFS.Net
             if (core.Peers.TryGet(meta.Sender, out Peer sender))
             {
                 sender.LowBandwidth = message.LowBandwidth;
+                PulseSource(sender, meta);
             }
             RegisterSender(meta);
-            core.SendToEndPoint(meta.EndPoint, new PulseResponse { Time = message.Time }, guaranteed: false, recipient: meta.Sender);
+            core.SendToEndPoint(ReplyEndPoint(meta), new PulseResponse { Time = message.Time }, guaranteed: false, recipient: meta.Sender);
             core.Log(NetLogLevel.Network, "NETWORK: Pulse " + meta.Sender + " " + meta.EndPoint);
         }
 
@@ -516,11 +619,13 @@ namespace JoinFS.Net
             }
             peer.Rtt = (core.Clock.Timestamp - message.Time) / (float)core.Clock.Frequency;
             RegisterSender(meta);
-            if (!peer.SendEstablished)
+            bool wasEstablished = peer.SendEstablished;
+            if (!wasEstablished)
             {
                 core.RaisePeerEstablished(meta.Sender);
             }
             Responded(peer, Now);
+            PulseAnswered(peer, meta, wasEstablished);
             core.Log(NetLogLevel.Network, "NETWORK: PulseResponse " + meta.Sender + " " + meta.EndPoint);
         }
 

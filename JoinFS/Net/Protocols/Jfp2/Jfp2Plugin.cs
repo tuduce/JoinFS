@@ -113,6 +113,7 @@ namespace JoinFS.Net.Jfp2
             MessageKind.Position => typeof(ClassDescriptor<PositionUpdate>),
             MessageKind.VariableSync => typeof(ClassDescriptor<VariableSyncUpdate>),
             MessageKind.Notes => typeof(ClassDescriptor<NoteUpdate>),
+            MessageKind.PeerCandidates => typeof(ClassDescriptor<PeerCandidates>),
             _ => null,
         };
 
@@ -215,24 +216,24 @@ namespace JoinFS.Net.Jfp2
             byte number = messageClass.MessageClass;
             if (messageClass.Guaranteed)
             {
-                reliability.Send(target.Id, sendOrigin, number, hop.AgreedAppVersion[number], payload, sendOriginId);
+                reliability.Send(target.Id, sendOrigin, messageClass.Internal, number, hop.AgreedVersion(messageClass), payload, sendOriginId);
             }
             else
             {
-                SendVia(hop, target.Id, sendOrigin, EnvelopeFlags.None, number, payload, 0, 0, 0);
+                SendVia(hop, target.Id, sendOrigin, messageClass.Internal ? EnvelopeFlags.Internal : EnvelopeFlags.None, number, payload, 0, 0, 0);
             }
         }
 
         /// <summary>One attempt at a guaranteed segment, through the target's next hop as it is now.</summary>
-        bool TransmitGuaranteed(NodeId target, NodeId origin, byte messageClass, byte version, ReadOnlySpan<byte> payload,
+        bool TransmitGuaranteed(NodeId target, NodeId origin, bool isInternal, byte messageClass, byte version, ReadOnlySpan<byte> payload,
             ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount)
         {
             PeerSession session = NextHop(target, out _);
-            if (session == null || session.AgreedAppVersion[messageClass] != version)
+            if (session == null || session.AgreedVersion(isInternal, messageClass) != version)
             {
                 return false;
             }
-            SendVia(session, target, origin, EnvelopeFlags.Guaranteed, messageClass, payload, guaranteedId, guaranteedIndex, guaranteedCount);
+            SendVia(session, target, origin, isInternal ? EnvelopeFlags.Guaranteed | EnvelopeFlags.Internal : EnvelopeFlags.Guaranteed, messageClass, payload, guaranteedId, guaranteedIndex, guaranteedCount);
             return true;
         }
 

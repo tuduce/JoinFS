@@ -26,6 +26,8 @@ OR
 ### If you want to run it as unattended Hub on Docker
 the docker image is worth a look: https://hub.docker.com/r/joinfs/joinfs-console
 
+JoinFS uses IPv6 as well as IPv4 when the machine has IPv6 (`--noipv6` turns it off). Inside Docker, IPv6 needs configuration of the Docker daemon (IPv6 enabled in `daemon.json`, with a prefix for the default bridge, or host networking on Linux); until then the container runs on IPv4 only.
+
 ## Building from source
 To build JoinFS from source, please follow these steps:
 * Clone this repository

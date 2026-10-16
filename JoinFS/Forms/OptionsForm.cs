@@ -107,6 +107,7 @@ namespace JoinFS
             DataGrid_Options.Rows.Add(@"--atc", Resources.Strings.Options_Atc);
             DataGrid_Options.Rows.Add(@"--airport <code>", Resources.Strings.Options_Airport);
             DataGrid_Options.Rows.Add(@"--lowbandwidth", Resources.Strings.Tip_LowBandwidth);
+            DataGrid_Options.Rows.Add(@"--noipv6", Resources.Strings.Options_NoIpv6);
             DataGrid_Options.Rows.Add(@"--whazzup", Resources.Strings.Tip_Whazzup);
             DataGrid_Options.Rows.Add(@"--whazzup-public", Resources.Strings.Tip_WhazzupGlobal);
             DataGrid_Options.Rows.Add(@"--minimize", Resources.Strings.Options_Minimize);

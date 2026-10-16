@@ -62,7 +62,9 @@ namespace JoinFS
             if (observed != null)
             {
                 observed = Normalize(observed);
-                if (!IsLan(observed.Address, localAddress))
+                // the class is computed from IPv4 observations only (design-future.md §4.1): what a neighbor
+                // sees over IPv6 says nothing about the IPv4 NAT. A reporter that moved to IPv6 loses its old one.
+                if (observed.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && !IsLan(observed.Address, localAddress))
                 {
                     latest.Add((reporter, observed));
                 }

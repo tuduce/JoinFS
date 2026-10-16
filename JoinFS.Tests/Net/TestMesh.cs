@@ -9,6 +9,12 @@ namespace JoinFS.Tests.Net
     {
         public readonly NetworkCore Core;
         public readonly IPEndPoint EndPoint;
+
+        /// <summary>The IPv6 endpoint of a dual-stack node (null for an IPv4-only node).</summary>
+        public readonly IPEndPoint? EndPoint6;
+
+        /// <summary>The node's one transport (to send datagrams without going through the core).</summary>
+        public readonly InMemoryTransport Transport;
         public readonly List<(MessageMeta Meta, object Message)> Received = [];
         public readonly List<NetworkEvent> Events = [];
         public readonly List<string> Logs = [];
@@ -20,9 +26,25 @@ namespace JoinFS.Tests.Net
         public Func<double>? ReceiveTime;
 
         public TestNode(TestMesh mesh, string ip, ushort port, string publicIp, params IProtocolPlugin[] plugins)
+            : this(mesh, ip, null, port, publicIp, plugins)
+        {
+        }
+
+        /// <param name="ip6">The node's IPv6 address, for a dual-stack node (one transport, two endpoints on the same port).</param>
+        public TestNode(TestMesh mesh, string ip, string? ip6, ushort port, string publicIp, params IProtocolPlugin[] plugins)
         {
             EndPoint = new IPEndPoint(IPAddress.Parse(ip), port);
-            InMemoryTransport transport = mesh.Network.Attach(EndPoint, (from, data) => Core!.OnDatagram(from, data, ReceiveTime?.Invoke() ?? 0));
+            Action<IPEndPoint, byte[]> receive = (from, data) => Core!.OnDatagram(from, data, ReceiveTime?.Invoke() ?? 0);
+            if (ip6 != null)
+            {
+                EndPoint6 = new IPEndPoint(IPAddress.Parse(ip6), port);
+                Transport = mesh.Network.Attach(EndPoint, EndPoint6, receive);
+            }
+            else
+            {
+                Transport = mesh.Network.Attach(EndPoint, receive);
+            }
+            InMemoryTransport transport = Transport;
             Core = new NetworkCore(transport, mesh.Clock, this) { IsOpen = true };
             Core.Identity.LocalAddress = EndPoint.Address;
             Core.Identity.InternetAddress = publicIp == null ? EndPoint.Address : IPAddress.Parse(publicIp);
@@ -34,6 +56,9 @@ namespace JoinFS.Tests.Net
         }
 
         public NodeId Id => Core.Identity.Id;
+
+        /// <summary>The endpoint is one of this node's own (IPv4 or IPv6).</summary>
+        public bool OwnsAddress(IPEndPoint endPoint) => endPoint.Equals(EndPoint) || endPoint.Equals(EndPoint6);
 
         public void Deliver<T>(in MessageMeta meta, in T message) where T : struct, IMessage => Received.Add((meta, message));
 
@@ -65,6 +90,14 @@ namespace JoinFS.Tests.Net
             return node;
         }
 
+        /// <summary>A dual-stack node: an IPv4 address (its legacy id) and an IPv6 address, one socket port.</summary>
+        public TestNode AddDualStack(string ip, string ip6, ushort port = 6112, params IProtocolPlugin[] plugins)
+        {
+            var node = new TestNode(this, ip, ip6, port, null, plugins);
+            Nodes.Add(node);
+            return node;
+        }
+
         /// <summary>A node on a LAN address whose public address (what its id says) is <paramref name="publicIp"/>.</summary>
         public TestNode AddBehindNat(string lanIp, string publicIp, ushort port = 6112, params IProtocolPlugin[] plugins)
         {
@@ -82,6 +115,21 @@ namespace JoinFS.Tests.Net
                 foreach (TestNode node in Nodes) node.Core.Tick();
                 Network.Pump();
             }
+        }
+
+        /// <summary>Put a dual-stack node behind the stateful IPv6 firewall of a home router (see <see cref="InMemoryNetwork.FirewallIpv6"/>).</summary>
+        public void Firewall(TestNode node) => Network.FirewallIpv6(node.EndPoint6!.Address);
+
+        /// <summary>Drop IPv6 traffic between two dual-stack nodes (both directions); IPv4 between them is untouched.</summary>
+        /// <returns>An action that restores the traffic.</returns>
+        public Action CutIpv6(TestNode a, TestNode b)
+        {
+            bool cut = true;
+            var previous = Network.Filter;
+            Network.Filter = (from, to, data) =>
+                !(cut && ((from.Equals(a.EndPoint6) && to.Equals(b.EndPoint6)) || (from.Equals(b.EndPoint6) && to.Equals(a.EndPoint6))))
+                && (previous == null || previous(from, to, data));
+            return () => cut = false;
         }
 
         /// <summary>Drop all traffic between two nodes (both directions).</summary>

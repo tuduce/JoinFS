@@ -10,6 +10,9 @@ namespace JoinFS
     {
         readonly Main main;
 
+        /// <summary>Use IPv6 as well as IPv4 (the IPv6 setting; applied at the next start).</summary>
+        CheckBox Check_Ipv6;
+
         void RefreshWindow()
         {
             // check local port
@@ -148,6 +151,18 @@ namespace JoinFS
 #if SERVER
             Check_LowBandwidth.Visible = false;
 #endif
+
+            // the IPv6 box sits right of "Low bandwidth", made here rather than in the designer for the same reason as
+            // the SimBrief box below: its position follows the translated text of its neighbour. It is read when JoinFS starts.
+            Check_Ipv6 = new CheckBox
+            {
+                AutoSize = true,
+                Name = "Check_Ipv6",
+                Text = PathFamily.Ipv6,
+                UseVisualStyleBackColor = true,
+                Location = new System.Drawing.Point(Check_LowBandwidth.Right + 12, Check_LowBandwidth.Top),
+            };
+            Check_LowBandwidth.Parent.Controls.Add(Check_Ipv6);
 
             // position the SimBrief auto-import checkbox relative to the username row's actual resolved
             // position rather than via the Designer .resx - each locale's SettingsForm.*.resx snapshots its
@@ -294,6 +309,8 @@ namespace JoinFS
             Settings.Default.Global = Check_GlobalJoin.CheckState == CheckState.Checked;
             // update low bandwidth enabled
             Settings.Default.LowBandwidth = Check_LowBandwidth.CheckState == CheckState.Checked;
+            // update IPv6 (read when JoinFS starts; main.settingsIpv6 is this run's value)
+            Settings.Default.Ipv6 = Check_Ipv6.Checked;
 
             // update broadcast tacpack
             Settings.Default.BroadcastTacpack = Check_Tacpack.CheckState == CheckState.Checked;
@@ -549,6 +566,8 @@ namespace JoinFS
             Check_GlobalJoin.CheckState = Settings.Default.Global ? CheckState.Checked : CheckState.Unchecked;
             // get low bandwidth
             Check_LowBandwidth.CheckState = Settings.Default.LowBandwidth ? CheckState.Checked : CheckState.Unchecked;
+            // get IPv6
+            Check_Ipv6.Checked = Settings.Default.Ipv6;
             // get auto broadcast Tacpack
             Check_Tacpack.CheckState = Settings.Default.BroadcastTacpack ? CheckState.Checked : CheckState.Unchecked;
             // get trimmed password
@@ -645,6 +664,7 @@ namespace JoinFS
                 tip.SetToolTip(Text_LocalPort, Resources.Strings.Tip_LocalPort);
                 tip.SetToolTip(Check_GlobalJoin, Resources.Strings.Tip_GlobalJoin);
                 tip.SetToolTip(Check_LowBandwidth, Resources.Strings.Tip_LowBandwidth);
+                tip.SetToolTip(Check_Ipv6, Resources.Strings.Tip_Ipv6);
                 tip.SetToolTip(Check_Tacpack, Resources.Strings.Tip_VRS);
                 tip.SetToolTip(Label_Password, Resources.Strings.Tip_Password);
                 tip.SetToolTip(Check_Whazzup, Resources.Strings.Tip_Whazzup);

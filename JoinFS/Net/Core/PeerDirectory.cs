@@ -40,6 +40,59 @@ namespace JoinFS.Net
         /// </summary>
         public bool RouteIsOwnEndPoint => !Relayed && RouteEndPoint.Equals(EndPoint);
 
+        /// <summary>The node's own path is IPv6 (a dial over IPv6 or a path upgrade).</summary>
+        public bool OnIpv6 => EndPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6;
+
+        /// <summary>
+        /// The IPv4 endpoint kept for a fallback while the node is on an upgraded IPv6 path
+        /// (docs/jfp2/design-future.md §4.1); null on an IPv4 path and for a node dialled over IPv6.
+        /// </summary>
+        public IPEndPoint Ipv4EndPoint;
+
+        /// <summary>
+        /// The port the node is known by to other nodes (AddNode, JoinReply): its IPv4 endpoint's. For a node
+        /// behind an IPv4 NAT that can differ from the port it is reached on over IPv6.
+        /// </summary>
+        public int AdvertisedPort => (Ipv4EndPoint ?? EndPoint).Port;
+
+        /// <summary>The node's IPv6 endpoint candidates (self-reported or observed), probed for a path upgrade; at most <see cref="Jfp2.Codecs.PeerCandidatesV1Codec.MaxCandidates"/>.</summary>
+        public IReadOnlyList<IPEndPoint> Candidates => candidates;
+
+        internal List<IPEndPoint> candidates = [];
+
+        /// <summary>
+        /// Identifies the current <see cref="Candidates"/> among all changes this node has seen (a node-wide counter,
+        /// so a peer that left and came back never repeats one): what a hub has told a member is remembered by it.
+        /// </summary>
+        internal int CandidatesRevision;
+
+        /// <summary>This node answered the peer's Join, so it is the peer's hub: it tells the peer where the other members are (PeerCandidates).</summary>
+        internal bool JoinedThroughMe;
+
+        /// <summary>For a peer this node is the hub of: the <see cref="CandidatesRevision"/> of each peer whose candidates it has sent the peer.</summary>
+        internal Dictionary<NodeId, int> Announced;
+
+        /// <summary>
+        /// The relay a peer was reached through when its path was upgraded to a direct IPv6 one: a fallback goes
+        /// back to it. Invalid when the peer was direct on IPv4 before.
+        /// </summary>
+        internal NodeId RelayBeforeUpgrade;
+
+        /// <summary>
+        /// The peer had never answered over its IPv4 endpoint when its path was upgraded (the endpoint was only
+        /// a guess from its id, and may be unreachable): a fallback leaves it to be searched for (Pathfinder).
+        /// </summary>
+        internal bool Ipv4Unproven;
+
+        /// <summary><see cref="IClock.Now"/> until which the candidates are probed (30 s from when they became known).</summary>
+        internal double ProbeUntil;
+
+        /// <summary>No probing and no upgrade before this time: the hold-off after a fallback.</summary>
+        internal double HoldOffUntil;
+
+        /// <summary>When the node last answered a Pulse over the IPv6 path (see the fallback).</summary>
+        internal double Ipv6AnsweredAt;
+
         /// <summary>We have heard from the node.</summary>
         public bool ReceiveEstablished;
 

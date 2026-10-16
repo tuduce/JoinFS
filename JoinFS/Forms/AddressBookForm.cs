@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
 using JoinFS.Net;
 using System.ComponentModel;
 using System.Drawing;
@@ -409,7 +410,7 @@ namespace JoinFS
                         // attempt to make end point
                         main.network.Bootstrap.MakeEndPoint(AddressCodec.DecodeIP(entry.address), Network.DEFAULT_PORT, out entry.endPoint);
                         // make sure that entry is not already present
-                        if (main.addressBook.entries.Find(f => f.endPoint.Equals(entry.endPoint)) != null)
+                        if (main.addressBook.entries.Find(f => f.IsSameDestination(entry.address, entry.endPoint)) != null)
                         {
                             // already exists
                             failed = true;
@@ -488,7 +489,7 @@ namespace JoinFS
                             // attempt to make end point
                             main.network.Bootstrap.MakeEndPoint(AddressCodec.DecodeIP(addressForm.address), Network.DEFAULT_PORT, out IPEndPoint endPoint);
                             // make sure that entry is not already present
-                            if (main.addressBook.entries.Find(f => f.endPoint.Equals(endPoint)) != null)
+                            if (main.addressBook.entries.Find(f => f.IsSameDestination(addressForm.address, endPoint)) != null)
                             {
                                 // already exists
                                 failed = true;

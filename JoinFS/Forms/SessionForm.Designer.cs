@@ -41,6 +41,7 @@
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle9 = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle10 = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle11 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle12 = new System.Windows.Forms.DataGridViewCellStyle();
             this.DataGrid_UserList = new System.Windows.Forms.DataGridView();
             this.ColNickname = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.ColCallsign = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -55,6 +56,7 @@
             this.ColVersion = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.ColSimulator = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.ColProtocol = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.ColFamily = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Context_User = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.Context_User_Permissions = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
@@ -98,7 +100,8 @@
             this.ColPort,
             this.ColVersion,
             this.ColSimulator,
-            this.ColProtocol});
+            this.ColProtocol,
+            this.ColFamily});
             this.DataGrid_UserList.ContextMenuStrip = this.Context_User;
             this.DataGrid_UserList.MultiSelect = false;
             this.DataGrid_UserList.Name = "DataGrid_UserList";
@@ -242,6 +245,17 @@
             this.ColProtocol.ReadOnly = true;
             this.ColProtocol.Resizable = System.Windows.Forms.DataGridViewTriState.False;
             this.ColProtocol.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
+            // ColFamily
+            //
+            dataGridViewCellStyle12.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.ColFamily.DefaultCellStyle = dataGridViewCellStyle12;
+            resources.ApplyResources(this.ColFamily, "ColFamily");
+            this.ColFamily.MaxInputLength = 8;
+            this.ColFamily.Name = "ColFamily";
+            this.ColFamily.ReadOnly = true;
+            this.ColFamily.Resizable = System.Windows.Forms.DataGridViewTriState.False;
+            this.ColFamily.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             //
             // Context_User
             // 
@@ -412,5 +426,6 @@
         private System.Windows.Forms.DataGridViewTextBoxColumn ColVersion;
         private System.Windows.Forms.DataGridViewTextBoxColumn ColSimulator;
         private System.Windows.Forms.DataGridViewTextBoxColumn ColProtocol;
+        private System.Windows.Forms.DataGridViewTextBoxColumn ColFamily;
     }
 }

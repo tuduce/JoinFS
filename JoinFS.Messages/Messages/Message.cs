@@ -58,6 +58,9 @@ namespace JoinFS.Net
         Pathfinder,
         PathfinderResponse,
 
+        /// <summary>A hub tells a member where other members can be reached over IPv6 (docs/jfp2/protocol.md §9.8). Carried by JFP2 only.</summary>
+        PeerCandidates,
+
         Count,
     }
 
@@ -97,6 +100,14 @@ namespace JoinFS.Net
         /// destination; null means "route to <see cref="Recipient"/>".
         /// </summary>
         public IPEndPoint EndPoint;
+
+        /// <summary>
+        /// Inbound, on a message that arrived directly from its sender (not <see cref="Forwarded"/>): the
+        /// datagram's actual source, unlike <see cref="EndPoint"/>, which is the sender's route once it is
+        /// established. The path upgrade needs it to tell which address a Pulse or its answer came from.
+        /// Null otherwise. In-process only.
+        /// </summary>
+        public IPEndPoint Source;
 
         /// <summary>Delivery must be acknowledged and retried.</summary>
         public bool Guaranteed;

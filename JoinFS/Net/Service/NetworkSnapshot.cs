@@ -3,6 +3,25 @@ using System.Net;
 
 namespace JoinFS.Net
 {
+    /// <summary>The one place that names the address family of a path, so both session views and the log say the same thing.</summary>
+    public static class PathFamily
+    {
+        public const string Ipv6 = "IPv6";
+        public const string Ipv4 = "IPv4";
+
+        /// <summary>The label for <paramref name="endPoint"/>'s family, or empty when there is no address yet.</summary>
+        public static string Label(IPEndPoint endPoint)
+        {
+            if (endPoint == null) return "";
+            IPAddress address = endPoint.Address;
+            if (address.Equals(IPAddress.Any) || address.Equals(IPAddress.IPv6Any) || address.Equals(IPAddress.None)) return "";
+            return address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? Ipv6 : Ipv4;
+        }
+
+        /// <summary>What a session view shows for <paramref name="peer"/>'s path: the family when this node can use both (<paramref name="dualStack"/>), else empty.</summary>
+        public static string Shown(bool dualStack, PeerSnapshot peer) => dualStack ? peer?.Family ?? "" : "";
+    }
+
     /// <summary>Transport-level state of one peer, as of the snapshot.</summary>
     public sealed class PeerSnapshot
     {
@@ -16,6 +35,8 @@ namespace JoinFS.Net
         public bool ReceiveEstablished { get; init; }
         public bool SendEstablished { get; init; }
         public bool LowBandwidth { get; init; }
+        /// <summary>"IPv6" or "IPv4": the family of the path datagrams to this peer take (the route's first hop); empty when there is none.</summary>
+        public string Family => PathFamily.Label(RouteEndPoint);
         public float Rtt { get; init; }
         /// <summary>Name of the plugin that carries positions to this peer (e.g. "Legacy", "JFP2").</summary>
         public string PositionProtocol { get; init; }
@@ -33,6 +54,9 @@ namespace JoinFS.Net
         public static readonly NetworkSnapshot Empty = new() { Peers = new Dictionary<NodeId, PeerSnapshot>(), PeerList = [] };
 
         public bool Open { get; init; }
+
+        /// <summary>The socket serves IPv6 as well as IPv4.</summary>
+        public bool DualStack { get; init; }
         public int Port { get; init; }
         public NodeId LocalId { get; init; }
         public bool Ready => LocalId.Valid();

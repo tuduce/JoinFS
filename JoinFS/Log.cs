@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Text;
 using System.Net;
@@ -695,10 +696,12 @@ namespace JoinFS
             /// <param name="writer">Writer</param>
             public void Write(BinaryWriter writer)
             {
+                // the file holds IPv4 addresses: a password for a hub joined over IPv6 lasts until JoinFS closes
+                var saved = passwordList.Where(p => p.Key.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork).ToList();
                 // write list length
-                writer.Write((ushort)passwordList.Count);
+                writer.Write((ushort)saved.Count);
                 // for each password
-                foreach (var password in passwordList)
+                foreach (var password in saved)
                 {
                     // write address
                     writer.Write(password.Key.Address.GetAddressBytes(), 0, 4);

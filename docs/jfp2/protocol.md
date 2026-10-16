@@ -187,9 +187,12 @@ new classes take the next unused number.
 | 1 | HelloAck | §5.1 |
 | 2–8 | — | Unassigned. |
 | 9 | GuaranteedDone | The acknowledgement of §7.3. |
+| 10 | PeerCandidates | §9.8. Edition 2 (the IPv6 stage). Guaranteed. |
 
 Hello, HelloAck and GuaranteedDone are never offered (§5.3): every node speaks them, always at
-version 1.
+version 1. Internal classes from 10 on are offered like application classes, in the internal
+partition. A node offers PeerCandidates only when it has an IPv6 endpoint
+candidate (§5.4, tag 4), so the Hello of a node without IPv6 is byte for byte that of release 1.
 
 **Application partition**
 
@@ -402,6 +405,7 @@ lets the handshake grow without a new envelope version.
 | 1 | Names | Hello, HelloAck | The speaker's names (§4.3), 8 bytes each, preferred first. A reader takes whole names and skips a trailing remainder under 8 bytes. In a HelloAck, the names of the node that answered. REQUIRED: a handshake from which the receiver can resolve no name to a node it knows is ignored (§5.7). |
 | 2 | Build | Hello, HelloAck | Text naming the speaker's build, for diagnostics and for counting which builds speak JFP2; `<version> <assembly name>`, for example `26.6.0 JoinFS-FS2024`. Printable ASCII (`0x20`–`0x7E`), at most 64 bytes: a sender cleans it to that, and a receiver cuts it to 64 bytes and drops every other character before using it. OPTIONAL. Nothing in the protocol depends on it. |
 | 3 | ObservedEndPoint | HelloAck | A `WireEndPoint` (§4.4): the UDP source of the Hello being answered, as the responder received it (an IPv4-mapped address normalized). Every HelloAck carries it, refusals included. OPTIONAL for a reader. |
+| 4 | Candidates | Hello, HelloAck | Edition 2 (the IPv6 stage). The speaker's own endpoint candidates: a u8 length before each `WireEndPoint` (§4.4), at most 4. Edition 2 sends IPv6 candidates only: the address the speaker would send from, with its socket's port, and sends the tag only when it has one, so a handshake without it is byte for byte that of release 1. A reader skips an entry by its length byte when its family is unassigned or it is too short, reads an entry longer than its family up to the family's size, takes at most 4 entries, and ends the list at an entry that runs past the value. Written after `Names`, `Build` and `ObservedEndPoint`. OPTIONAL; a reader uses it only as a candidate to probe (`design-future.md` §4.1), never as the speaker's identity, and only when the Hello or HelloAck comes from the endpoint the speaker is known at (for a HelloAck, the endpoint the asker's Hello went to). |
 
 An asker MUST count an `ObservedEndPoint` only from a HelloAck that answers its own Hello, from the
 endpoint the Hello went to (§5.7), so that a datagram from elsewhere cannot plant an address.
@@ -737,6 +741,29 @@ schema version of a class MAY raise its limits once multi-segment delivery exist
 limit (a hub's About, a long note) can differ from what legacy peers receive for the same message,
 since legacy has no such limits.
 
+### 9.8 PeerCandidates (internal class 10, version 1)
+
+Edition 2 (the IPv6 stage). A hub tells members where other members may be reached,
+so that both sides of a pair can probe each other (`design-future.md` §4.1). Guaranteed. Offered in the
+internal partition, version 1, by a node that has an IPv6 candidate (§3.3).
+
+| Field | Size | Notes |
+|---|---|---|
+| Count | u8 | Entries that follow, at most 12 |
+| Count × entry: Name | 8 | The member's name (§4.3) |
+| CandidateCount | u8 | At most 4 |
+| CandidateCount × (Length u8, `WireEndPoint`) | 1 + 7 or 19 each | §4.4 |
+
+The largest entry is 89 bytes and the largest payload 1,069. A longer list is sent as several
+messages. Each entry replaces what the receiver knew of that member's candidates; an entry with no
+candidates clears them. A receiver MUST accept the message only from the node it joined through,
+MUST skip entries whose name it cannot resolve to a member (or hold them briefly, as
+`design-future.md` §4.1 says), and MUST ignore its own name. A reader skips an entry whose name is of a
+kind it cannot resolve, skips a candidate by its length byte when its family is unassigned or it is
+too short, reads at most 4 candidates per entry and 12 entries, and ends the list at an entry or a
+candidate that runs past the payload. A sender never sends it to a neighbour that did not agree the
+class.
+
 ---
 
 ## 10. Extending the protocol
@@ -764,11 +791,11 @@ cited rule says.
 | Space | Size | Assigned | Unknown values |
 |---|---|---|---|
 | Flag bits (§3.2) | 8 bits | 0 Guaranteed, 1 Forwarded, 3 Internal; 2 Coalesced reserved | Drop the datagram |
-| Internal classes (§3.3) | u8 | 0 Hello, 1 HelloAck, 9 GuaranteedDone | Not agreed: drop, do not acknowledge |
+| Internal classes (§3.3) | u8 | 0 Hello, 1 HelloAck, 9 GuaranteedDone; 10 PeerCandidates (edition 2) | Not agreed: drop, do not acknowledge |
 | Application classes (§3.3) | u8 | 0–9; 255 reserved as Extended | Not agreed: drop, do not acknowledge |
 | Offer partitions (§5.3) | u8 | 0 application, 1 internal | Skip the offer |
 | Handshake `Result` (§5.2) | u8 | 0, 1, 2 | Read as "no session now" |
-| Handshake TLV tags (§5.4) | u16 | 1 Names, 2 Build, 3 ObservedEndPoint | Skip |
+| Handshake TLV tags (§5.4) | u16 | 1 Names, 2 Build, 3 ObservedEndPoint; 4 Candidates (edition 2) | Skip |
 | Name kinds (§4.3) | u8 | 0 assigned; 1, 2, 255 reserved | Skip; unresolvable |
 | `WireEndPoint` families (§4.4) | u8 | 4 IPv4, 6 IPv6 | Ignore the value |
 | Capability bits (§5.6) | 64 | none | Not in the AND of both sides, so never agreed |
@@ -856,7 +883,7 @@ release-1 peer:
 ## Appendix A. Example datagrams
 
 These are the exact bytes pinned by the golden tests (`JoinFS.Tests/Jfp2/HandshakeGoldenTests.cs`).
-They are a frozen part of this specification.
+A.1 and A.2 are a frozen part of this specification; A.3 and A.4 are the additions of edition 2.
 
 **A.1 Hello** from 203.0.113.1:6112 (local 20), id `0x1234`, to a peer whose id it does not know yet;
 offers Position and Status at [1, 1]; build "26.6.0 JoinFS-FS2024".
@@ -891,6 +918,26 @@ FA 02 08 78 56 34 12 01                   magic, ProtoMajor 2, Internal, sender 
 03 00 07 00  04 CB 00 71 01 E0 17         TLV ObservedEndPoint: family 4, 203.0.113.1, port 6112
 ```
 
+**A.3 Hello with Candidates** (edition 2): A.1 from a node that also has the IPv6 candidate
+`[2001:db8::2]:6112`. The node adds one record and nothing else changes; a node without an IPv6 candidate
+sends A.1. Pinned by `JoinFS.Tests/Jfp2/HandshakeCandidatesTests.cs`, which sits beside the frozen goldens.
+
+```
+... (A.1 up to and including the Build record)
+04 00 14 00  13  06 20 01 0D B8 00 00 00 00 00 00 00 00 00 00 00 02 E0 17
+                                          TLV Candidates (20 bytes): entry length 19, family 6, 2001:db8::2, port 6112
+```
+
+**A.4 HelloAck with Candidates** (edition 2): A.2 from a node that has `[2001:db8::3]:6112` and
+`[2001:db8:1::3]:6113`. The record follows ObservedEndPoint:
+
+```
+... (A.2 up to and including the ObservedEndPoint record)
+04 00 28 00                               TLV Candidates (40 bytes)
+13  06 20 01 0D B8 00 00 00 00 00 00 00 00 00 00 00 03 E0 17     entry: 2001:db8::3, port 6112
+13  06 20 01 0D B8 00 01 00 00 00 00 00 00 00 00 00 03 E1 17     entry: 2001:db8:1::3, port 6113
+```
+
 ---
 
 ## Appendix B. Constants
@@ -917,6 +964,7 @@ FA 02 08 78 56 34 12 01                   magic, ProtoMajor 2, Internal, sender 
 | Edition | Date | Change |
 |---|---|---|
 | 1 | 2026-10 | The wire of JoinFS 26.6: 8-byte names, per-origin guaranteed ids, field limits and the 1,200-byte ceiling, the observed endpoint, and defined handling of unknown values. The development history before this edition is `history/`. |
+| 2 | planned | The IPv6 stage: the `Candidates` tag (§5.4) and the internal class PeerCandidates (§9.8). Both are additions a release-1 peer skips or never agrees, so §12.1 holds. |
 
 ---
 

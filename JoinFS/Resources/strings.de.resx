@@ -222,6 +222,9 @@
   <data name="Options_Nickname" xml:space="preserve">
     <value>Wähle einen Spitznamen. Andere können dies in den Flugzeug- und Benutzerlisten sehen.</value>
   </data>
+  <data name="Options_NoIpv6" xml:space="preserve">
+    <value>Nur IPv4 für diesen Start verwenden (IPv6 ist standardmäßig aktiv; die IPv6-Einstellung wird ignoriert)</value>
+  </data>
   <data name="Options_Play" xml:space="preserve">
     <value>Öffnen Sie eine JoinFS-Rekorderdatei und spielen Sie die Aufzeichnung in der aktuellen Sitzung ab. Andere Benutzer müssen "Mehrere Objekte zulassen" aktivieren. Siehe Handbuch.</value>
   </data>
@@ -344,6 +347,9 @@
   </data>
   <data name="Tip_GlobalJoin" xml:space="preserve">
     <value>Treten Sie automatisch der globalen öffentlichen Sitzung bei, wenn JoinFS gestartet wird</value>
+  </data>
+  <data name="Tip_Ipv6" xml:space="preserve">
+    <value>IPv6 verwenden (Neustart erforderlich)</value>
   </data>
   <data name="Tip_HubAbout" xml:space="preserve">
     <value>Eine kurze Beschreibung für diesen Hub, die in der Hub-Liste aller Benutzer angezeigt wird</value>

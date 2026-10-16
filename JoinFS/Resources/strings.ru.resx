@@ -231,6 +231,9 @@
   <data name="Options_Nickname" xml:space="preserve">
     <value>Выберите ник. Остальные смогут увидеть это в списках самолетов и пользователей.</value>
   </data>
+  <data name="Options_NoIpv6" xml:space="preserve">
+    <value>Использовать только IPv4 в этом запуске (IPv6 включён по умолчанию; настройка IPv6 игнорируется)</value>
+  </data>
   <data name="Options_NoSim" xml:space="preserve">
     <value>Не подключайтесь к симулятору при запуске.</value>
   </data>
@@ -356,6 +359,9 @@
   </data>
   <data name="Tip_GlobalJoin" xml:space="preserve">
     <value>Автоматически присоединяться к глобальному общедоступному сеансу при запуске JoinFS</value>
+  </data>
+  <data name="Tip_Ipv6" xml:space="preserve">
+    <value>Использовать IPv6 (для применения требуется перезапуск)</value>
   </data>
   <data name="Tip_HubAbout" xml:space="preserve">
     <value>Краткое описание этого хаба, которое будет отображаться в списке хабов каждого.</value>

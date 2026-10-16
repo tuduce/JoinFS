@@ -279,6 +279,9 @@
   <data name="Options_Nickname" xml:space="preserve">
     <value>별명을 고르세요. 다른 사람들은 항공기 및 사용자 목록에서 이를 볼 수 있습니다.</value>
   </data>
+  <data name="Options_NoIpv6" xml:space="preserve">
+    <value>이번 실행에서는 IPv4만 사용합니다(IPv6는 기본적으로 켜져 있으며, IPv6 설정은 무시됩니다)</value>
+  </data>
   <data name="Options_NoGui" xml:space="preserve">
     <value>창이나 UI 없이 JoinFS를 백그라운드 프로세스로 실행합니다.</value>
   </data>
@@ -422,6 +425,9 @@
   </data>
   <data name="Tip_GlobalJoin" xml:space="preserve">
     <value>자동으로 글로벌 공공 세션에 가입 할 때 JoinFS 시작</value>
+  </data>
+  <data name="Tip_Ipv6" xml:space="preserve">
+    <value>IPv6 사용(적용하려면 다시 시작)</value>
   </data>
   <data name="Tip_HubAbout" xml:space="preserve">
     <value>모든 사람의 허브 목록에 표시될 이 허브에 대한 간단한 설명</value>

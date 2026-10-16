@@ -228,6 +228,9 @@
   <data name="Options_Nickname" xml:space="preserve">
     <value>Choose a nickname. Others will be able to see this in the aircraft and user lists.</value>
   </data>
+  <data name="Options_NoIpv6" xml:space="preserve">
+    <value>Use IPv4 only for this run (IPv6 is on by default; the IPv6 setting is ignored)</value>
+  </data>
   <data name="Options_Play" xml:space="preserve">
     <value>Open a JoinFS recorder file and play back the recording in the current session. Other users will need to enable 'Allow Multiple Objects'. See Manual.</value>
   </data>
@@ -350,6 +353,9 @@
   </data>
   <data name="Tip_GlobalJoin" xml:space="preserve">
     <value>Automatically join the global public session when JoinFS starts</value>
+  </data>
+  <data name="Tip_Ipv6" xml:space="preserve">
+    <value>Use IPv6 (restart to apply)</value>
   </data>
   <data name="Tip_HubAbout" xml:space="preserve">
     <value>A short description for this hub that will appear in everyone's hub list</value>

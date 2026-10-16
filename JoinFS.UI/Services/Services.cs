@@ -565,6 +565,8 @@ public sealed class Preferences
     public int LocalPort { get; set; } = 40383;
     public bool JoinGlobalAtLaunch { get; set; } = true;
     public bool LowBandwidth { get; set; }
+    /// <summary>Use IPv6 as well as IPv4. Takes effect when JoinFS starts.</summary>
+    public bool UseIpv6 { get; set; } = true;
     public bool GenerateWhazzup { get; set; } = true;
     public bool WhazzupIncludeGlobalUsers { get; set; } = true;
     public bool WhazzupIncludeAi { get; set; }

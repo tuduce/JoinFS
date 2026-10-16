@@ -170,6 +170,9 @@ namespace JoinFS
 
         public string settingsLocalAddress = "";
 
+        /// <summary>Use IPv6 as well as IPv4 (the IPv6 setting; <c>-noipv6</c> turns it off for this run).</summary>
+        public bool settingsIpv6 = true;
+
 #if CONSOLE
         public bool settingsBackground = false;
         public int settingsBackgroundDelay = 100;
@@ -291,6 +294,7 @@ namespace JoinFS
                 settingsWhazzup = Settings.Default.Whazzup;
                 settingsWhazzupPublic = Settings.Default.WhazzupGlobal;
                 settingsMultiObjects = Settings.Default.MultipleObjectsEveryone;
+                settingsIpv6 = Settings.Default.Ipv6;
                 settingsLoop = Settings.Default.Loop;
                 settingsXplane = Settings.Default.XPlane;
                 settingsTcas = Settings.Default.TCAS;
@@ -399,6 +403,11 @@ namespace JoinFS
                             case "-hub":
                                 // enable hub mode
                                 settingsHub = true;
+                                break;
+
+                            case "-noipv6":
+                                // IPv4 only, whatever the IPv6 setting says
+                                settingsIpv6 = false;
                                 break;
 
                             case "-localaddress":
@@ -770,6 +779,7 @@ namespace JoinFS
                                 Console.WriteLine("  --nickname <name>      " + Resources.Strings.Options_Nickname);
                                 Console.WriteLine("  --port                 " + Resources.Strings.Options_Port);
                                 Console.WriteLine("  --localaddress <ip>    Override local network address (use host LAN IP when running in Docker)");
+                                Console.WriteLine("  --noipv6               Use IPv4 only for this run (IPv6 is on by default; the IPv6 setting is ignored)");
                                 Console.WriteLine("  --hub                  " + Resources.Strings.Tip_HubMode);
                                 Console.WriteLine("  --hubdomain <domain>   " + Resources.Strings.Tip_HubDomain);
                                 Console.WriteLine("  --hubname <name>       " + Resources.Strings.Tip_HubName);
@@ -1855,14 +1865,20 @@ namespace JoinFS
         /// Join by end point
         /// </summary>
         /// <param name="endPoint"></param>
-        public void Join(IPEndPoint endPoint)
+        public void Join(IPEndPoint endPoint) => Join([endPoint]);
+
+        /// <summary>
+        /// Join by a list of end points: the first, then the next while it gets no answer
+        /// </summary>
+        /// <param name="endPoints"></param>
+        public void Join(IReadOnlyList<IPEndPoint> endPoints)
         {
             // leave existing network
             network.ScheduleLeave();
             // reset attempted used password
             attempedUsedPassword = false;
             // join session
-            network.ScheduleJoin(endPoint, 0);
+            network.ScheduleJoin(endPoints, 0);
 #if !CONSOLE
             // update window
             mainForm ?. RefreshNetwork();
@@ -1960,48 +1976,40 @@ namespace JoinFS
                     return;
                 }
 
+                // dial the text again, so a hostname gets all its addresses (IPv6 first), not the one it had when loaded
+                DialAddresses.Result saved;
+                lock (conch)
+                {
+                    saved = network.ResolveDial(AddressCodec.DecodeIP(entry.address));
+                }
+                if (saved.Failure == DialAddresses.Failure.None)
+                {
+                    Join(saved.EndPoints);
+                    return;
+                }
                 // join endpoint
                 Join(entry.endPoint);
                 // done
                 return;
             }
 
-            // parse ip address
-            string[] parts = addressText.Split(':');
-
-            // check for ip address
-            if (parts.Length > 0)
+            // an address or host name, with or without a port: every address it has, IPv6 first
+            DialAddresses.Result dial;
+            lock (conch)
             {
-                // get remote port
-                int remotePort = Network.DEFAULT_PORT;
-                if (parts.Length > 1 && Int32.TryParse(parts[1], NumberStyles.Number, CultureInfo.InvariantCulture, out remotePort) == false)
-                {
-                    ShowMessage(Resources.Strings.InvalidPortPrefix + " '" + parts[1] + "'. " + Resources.Strings.InvalidPortSuffix);
-                }
-                else
-                {
-                    if (IPAddress.TryParse(parts[0], out IPAddress address) && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-                    {
-                        // join endpoint
-                        Join(new IPEndPoint(address, remotePort));
-                        // done
-                        return;
-                    }
-
-                    bool result = false;
-                    lock (conch)
-                    {
-                        result = network.Bootstrap.DnsLookup(parts[0], out address);
-                    }
-                    // try DNS lookup
-                    if (result)
-                    {
-                        // join endpoint
-                        Join(new IPEndPoint(address, remotePort));
-                        // done
-                        return;
-                    }
-                }
+                dial = network.ResolveDial(addressText);
+            }
+            if (dial.Failure == DialAddresses.Failure.None)
+            {
+                // join the end points
+                Join(dial.EndPoints);
+                // done
+                return;
+            }
+            if (dial.Failure == DialAddresses.Failure.InvalidPort)
+            {
+                ShowMessage(Resources.Strings.InvalidPortPrefix + " '" + dial.BadPort + "'. " + Resources.Strings.InvalidPortSuffix);
+                return;
             }
 
             // failed

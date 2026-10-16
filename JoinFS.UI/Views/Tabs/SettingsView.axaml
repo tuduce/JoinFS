@@ -137,6 +137,7 @@
 
                   <CheckBox IsChecked="{Binding JoinGlobalAtLaunch}" Content="{l:T 'Join global session at launch'}" />
                   <CheckBox IsChecked="{Binding LowBandwidth}" Content="{l:T 'Low bandwidth'}" />
+                  <CheckBox IsChecked="{Binding UseIpv6}" Content="{l:T 'Use IPv6 (restart to apply)'}" />
                   <StackPanel Orientation="Horizontal" Spacing="16">
                     <CheckBox IsChecked="{Binding GenerateWhazzup}" Content="{l:T 'Generate WhazzUp'}" />
                     <CheckBox Classes="small" IsChecked="{Binding WhazzupIncludeGlobalUsers}" IsEnabled="{Binding WhazzupOptionsEnabled}" Content="{l:T 'Include global users'}" />

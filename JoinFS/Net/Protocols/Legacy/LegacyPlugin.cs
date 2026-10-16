@@ -59,13 +59,17 @@ namespace JoinFS.Net.Legacy
         public bool Accepts(ReadOnlySpan<byte> datagram) => datagram[0] == LegacyWire.VersionLowByte;
 
         /// <summary>Everything, to everyone - except Identity, which legacy carries inline in positions.</summary>
-        public bool CanCarry(NodeId peer, MessageKind kind) => kind != MessageKind.Identity;
+        public bool CanCarry(NodeId peer, MessageKind kind) => kind != MessageKind.Identity && kind != MessageKind.PeerCandidates;
 
         public void Tick() => reliability.Tick();
 
         public void OnPeerRemoved(Peer peer) => reliability.RemovePeer(peer);
 
         public void OnSessionReset() => reliability.Clear();
+
+        public void OnEndPointAbandoned(IPEndPoint endPoint) => reliability.RemoveEndPoint(endPoint);
+
+        public void OnPathChanged(Peer peer, IPEndPoint previous) => reliability.MoveEndPoint(previous, peer.EndPoint);
 
         // ================================================================== send
 
@@ -742,6 +746,10 @@ namespace JoinFS.Net.Legacy
             {
                 return;
             }
+            if (host.IsBanned(sender))
+            {
+                return;
+            }
             if (recipient != local && recipient.Valid() && local.Valid())
             {
                 // an ack for a message this hub delivered on someone else's behalf (translation) ends here
@@ -777,6 +785,7 @@ namespace JoinFS.Net.Legacy
                 Sender = sender,
                 Recipient = recipient,
                 EndPoint = endPoint,
+                Source = direct ? from : null,
                 Guaranteed = guaranteed,
                 Forwarded = !direct,
             };

@@ -705,6 +705,9 @@
   <data name="Please specify the root folder for the simulator:" xml:space="preserve">
     <value>시뮬레이터의 루트 폴더를 지정하십시오:</value>
   </data>
+  <data name="Use IPv6 (restart to apply)" xml:space="preserve">
+    <value>IPv6 사용 (다시 시작해야 적용됨)</value>
+  </data>
   <data name="Protocol" xml:space="preserve">
     <value>프로토콜</value>
   </data>

@@ -222,6 +222,9 @@
   <data name="Options_Nickname" xml:space="preserve">
     <value>Kies een bijnaam. Anderen zullen dit kunnen zien in de vliegtuig- en gebruikerslijsten.</value>
   </data>
+  <data name="Options_NoIpv6" xml:space="preserve">
+    <value>Alleen IPv4 gebruiken voor deze keer (IPv6 staat standaard aan; de IPv6-instelling wordt genegeerd)</value>
+  </data>
   <data name="Options_Play" xml:space="preserve">
     <value>Open een JoinFS-recorderbestand en speel de opname in de huidige sessie af. Andere gebruikers moeten 'Meerdere objecten toestaan' inschakelen. Zie handleiding.</value>
   </data>
@@ -341,6 +344,9 @@
   </data>
   <data name="Tip_GlobalJoin" xml:space="preserve">
     <value>Neem automatisch deel aan de wereldwijde openbare sessie wanneer JoinFS start</value>
+  </data>
+  <data name="Tip_Ipv6" xml:space="preserve">
+    <value>IPv6 gebruiken (herstart om toe te passen)</value>
   </data>
   <data name="Tip_HubAbout" xml:space="preserve">
     <value>Een korte beschrijving voor deze hub die in ieders hublijst zal verschijnen</value>

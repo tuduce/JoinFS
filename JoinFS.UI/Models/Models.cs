@@ -24,9 +24,10 @@ public sealed record AddressBookEntry(string Name, string Address, bool BuiltIn 
 /// <param name="Id">Names the user to the service, for the settings and actions of the row. Opaque to the UI.</param>
 /// <param name="Connected">"Yes" (direct), "Route" (through another user) or "No".</param>
 /// <param name="Protocol">How the link is spoken: "JFP2", "Legacy" or "Pending". Empty for this node, which has no link.</param>
+/// <param name="Family">The address family of the path: "IPv6" or "IPv4". Empty for this node, and for every user when this node cannot use IPv6.</param>
 public sealed record PeerInfo(
     string Id, string Nick, string Callsign, string Connected, int LatencyMs, int Aircraft, int Objects,
-    string Simulator, string Version, string Protocol, int Port, bool IsMe = false)
+    string Simulator, string Version, string Protocol, int Port, bool IsMe = false, string Family = "")
 {
     public const string LegacyProtocol = "Legacy";
 

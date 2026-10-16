@@ -35,6 +35,7 @@ namespace JoinFS.Net
         Thread thread;
         volatile bool running;
         volatile NetworkSnapshot snapshot = NetworkSnapshot.Empty;
+        bool loggedIpv6Fallback;
         double nextTick;
         double nextSnapshot;
 
@@ -47,6 +48,16 @@ namespace JoinFS.Net
 
         /// <summary>The UDP port currently bound (0 when closed).</summary>
         public int Port => transport.LocalPort;
+
+        /// <summary>
+        /// Open the socket dual-mode (IPv6 and IPv4). On by default; off for an IPv4-only node
+        /// (the IPv6 setting, <c>--noipv6</c>). Takes effect at the next <see cref="Open"/>.
+        /// </summary>
+        public bool Ipv6Enabled
+        {
+            get => transport.Ipv6Enabled;
+            set => transport.Ipv6Enabled = value;
+        }
 
         public NetworkService(IClock clock = null, Func<string, CredentialStore> credentialStoreFactory = null)
         {
@@ -132,6 +143,11 @@ namespace JoinFS.Net
                 }
                 ok = transport.Open(port, out failure);
                 core.IsOpen = ok;
+                if (ok && transport.FallbackReason != null && !loggedIpv6Fallback)
+                {
+                    loggedIpv6Fallback = true;
+                    core.Log(NetLogLevel.Event, "NETWORK: IPv6 is not available (" + transport.FallbackReason + "), using IPv4 only");
+                }
                 if (ok) core.Identity.Port = (ushort)transport.LocalPort;
                 nextSnapshot = 0;
             }
@@ -267,6 +283,7 @@ namespace JoinFS.Net
             return new NetworkSnapshot
             {
                 Open = Core.IsOpen,
+                DualStack = transport.IsDualStack,
                 Port = Core.Identity.Port,
                 LocalId = Core.Identity.Id,
                 LocalAddress = Core.Identity.LocalAddress,

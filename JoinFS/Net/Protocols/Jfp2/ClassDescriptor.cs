@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using JoinFS.Net.Jfp2.Codecs;
 
 namespace JoinFS.Net.Jfp2
@@ -15,12 +16,14 @@ namespace JoinFS.Net.Jfp2
     /// </summary>
     public abstract class ClassDescriptor
     {
-        private protected ClassDescriptor(MessageKind kind, byte messageClass, bool guaranteed, bool sentAsIs, (byte Min, byte Max) versions)
+        private protected ClassDescriptor(MessageKind kind, byte messageClass, bool guaranteed, bool sentAsIs, bool isInternal, bool requiresIpv6, (byte Min, byte Max) versions)
         {
             Kind = kind;
             MessageClass = messageClass;
             Guaranteed = guaranteed;
             SentAsIs = sentAsIs;
+            Internal = isInternal;
+            RequiresIpv6 = requiresIpv6;
             MinVersion = versions.Min;
             MaxVersion = versions.Max;
         }
@@ -33,10 +36,18 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>
         /// The class is in the internal partition (EnvelopeFlags.Internal) rather than the application
-        /// one. None is yet: the plugin itself handles the internal classes it speaks (Hello, HelloAck,
-        /// GuaranteedDone), and the mesh classes come with the mesh over JFP2.
+        /// one. The plugin itself handles the internal classes it always speaks (Hello, HelloAck,
+        /// GuaranteedDone); the others are descriptors like application classes, numbered in their own
+        /// space (<see cref="MessageClasses"/>): PeerCandidates today.
         /// </summary>
-        public bool Internal => false;
+        public bool Internal { get; }
+
+        /// <summary>
+        /// The class is offered, and so agreed, only by a node that has an IPv6 endpoint candidate (as the
+        /// handshake's Candidates tag is sent), which keeps the handshake of a node without IPv6 byte for byte
+        /// what it was.
+        /// </summary>
+        public bool RequiresIpv6 { get; }
 
         /// <summary>Every message of the class is sent with guaranteed delivery.</summary>
         public bool Guaranteed { get; }
@@ -61,11 +72,11 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>A plain application class: its canonical message is what goes on the wire, sent and delivered as it is.</summary>
         public static ClassDescriptor<T> Plain<T>(byte messageClass, bool guaranteed, params ICodec<T>[] codecs) where T : struct, IMessage =>
-            new(T.Kind, messageClass, guaranteed, sentAsIs: true, DeliverAsIs<T>(), codecs);
+            new(T.Kind, messageClass, guaranteed, sentAsIs: true, false, false, DeliverAsIs<T>(), codecs);
 
         /// <summary>A plain application class whose decoded message is completed on delivery (FlightPlan: the owner is the sender).</summary>
         public static ClassDescriptor<T> Plain<T>(byte messageClass, bool guaranteed, Delivery<T> deliver, params ICodec<T>[] codecs) where T : struct, IMessage =>
-            new(T.Kind, messageClass, guaranteed, sentAsIs: true, deliver, codecs);
+            new(T.Kind, messageClass, guaranteed, sentAsIs: true, false, false, deliver, codecs);
 
         /// <summary>
         /// An application class the plugin sends its own way, delivered as it is: Identity ahead of an
@@ -73,14 +84,14 @@ namespace JoinFS.Net.Jfp2
         /// refuses a profile with such a class for a kind it has no sender for.
         /// </summary>
         public static ClassDescriptor<T> SentByPlugin<T>(byte messageClass, bool guaranteed, params ICodec<T>[] codecs) where T : struct, IMessage =>
-            new(T.Kind, messageClass, guaranteed, sentAsIs: false, DeliverAsIs<T>(), codecs);
+            new(T.Kind, messageClass, guaranteed, sentAsIs: false, false, false, DeliverAsIs<T>(), codecs);
 
         /// <summary>
         /// An application class the plugin sends its own way whose wire message is not the canonical
         /// one (Notes: one note per message, delivered as a bundle).
         /// </summary>
         public static ClassDescriptor<T> SentByPlugin<T>(MessageKind kind, byte messageClass, bool guaranteed, Delivery<T> deliver, params ICodec<T>[] codecs) =>
-            new(kind, messageClass, guaranteed, sentAsIs: false, deliver, codecs);
+            new(kind, messageClass, guaranteed, sentAsIs: false, false, false, deliver, codecs);
 
         /// <summary>Delivery of a decoded message that is already the canonical one.</summary>
         static Delivery<T> DeliverAsIs<T>() where T : struct, IMessage =>
@@ -95,8 +106,8 @@ namespace JoinFS.Net.Jfp2
         readonly Delivery<T> deliver;
 
         /// <summary>Made by the factories of <see cref="ClassDescriptor"/>. <paramref name="codecs"/> are its schema versions, one each, without gaps.</summary>
-        internal ClassDescriptor(MessageKind kind, byte messageClass, bool guaranteed, bool sentAsIs, Delivery<T> deliver, params ICodec<T>[] codecs)
-            : base(kind, messageClass, guaranteed, sentAsIs, Versions(messageClass, codecs))
+        internal ClassDescriptor(MessageKind kind, byte messageClass, bool guaranteed, bool sentAsIs, bool isInternal, bool requiresIpv6, Delivery<T> deliver, params ICodec<T>[] codecs)
+            : base(kind, messageClass, guaranteed, sentAsIs, isInternal, requiresIpv6, Versions(messageClass, codecs))
         {
             this.deliver = deliver ?? throw new ArgumentNullException(nameof(deliver));
             this.codecs = new ICodec<T>[MaxVersion + 1];
@@ -137,7 +148,17 @@ namespace JoinFS.Net.Jfp2
         public ICodec<T> Codec(byte version) => codecs[version];
 
         /// <summary>The same class speaking other schema versions, as an older or a newer build does.</summary>
-        public ClassDescriptor<T> WithCodecs(params ICodec<T>[] versions) => new(Kind, MessageClass, Guaranteed, SentAsIs, deliver, versions);
+        public ClassDescriptor<T> WithCodecs(params ICodec<T>[] versions) => new(Kind, MessageClass, Guaranteed, SentAsIs, Internal, RequiresIpv6, deliver, versions);
+
+        /// <summary>This class in the internal partition (its number is then an internal class number), offered only by a node with IPv6 when <paramref name="requiresIpv6"/>.</summary>
+        public ClassDescriptor<T> InInternalPartition(bool requiresIpv6 = false) => new(Kind, MessageClass, Guaranteed, SentAsIs, true, requiresIpv6, deliver, AllCodecs());
+
+        ICodec<T>[] AllCodecs()
+        {
+            var list = new List<ICodec<T>>();
+            for (int version = MinVersion; version <= MaxVersion; version++) list.Add(codecs[version]);
+            return list.ToArray();
+        }
 
         internal override void Deliver(IProtocolHost host, in MessageMeta meta, byte version, ReadOnlySpan<byte> payload)
         {

@@ -273,6 +273,7 @@ public sealed partial class NetworkSettingsViewModel : PersistedSettingsSectionV
         _localPort = p.LocalPort.ToString();
         _joinGlobalAtLaunch = p.JoinGlobalAtLaunch;
         _lowBandwidth = p.LowBandwidth;
+        _useIpv6 = p.UseIpv6;
         _generateWhazzup = p.GenerateWhazzup;
         _whazzupIncludeGlobalUsers = p.WhazzupIncludeGlobalUsers;
         _whazzupIncludeAi = p.WhazzupIncludeAi;
@@ -289,6 +290,7 @@ public sealed partial class NetworkSettingsViewModel : PersistedSettingsSectionV
 
     [ObservableProperty] private bool _joinGlobalAtLaunch;
     [ObservableProperty] private bool _lowBandwidth;
+    [ObservableProperty] private bool _useIpv6;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(WhazzupOptionsEnabled))]
@@ -312,13 +314,14 @@ public sealed partial class NetworkSettingsViewModel : PersistedSettingsSectionV
     [ObservableProperty] private string _password;
 
     private protected override bool Persists(string? property) =>
-        property is nameof(ChooseOwnPort) or nameof(LocalPort) or nameof(JoinGlobalAtLaunch) or nameof(LowBandwidth) or nameof(GenerateWhazzup)
+        property is nameof(ChooseOwnPort) or nameof(LocalPort) or nameof(JoinGlobalAtLaunch) or nameof(LowBandwidth) or nameof(UseIpv6) or nameof(GenerateWhazzup)
             or nameof(WhazzupIncludeGlobalUsers) or nameof(WhazzupIncludeAi) or nameof(Password);
 
     private protected override bool Write(Preferences p)
     {
         p.JoinGlobalAtLaunch = JoinGlobalAtLaunch;
         p.LowBandwidth = LowBandwidth;
+        p.UseIpv6 = UseIpv6;
         p.GenerateWhazzup = GenerateWhazzup;
         p.WhazzupIncludeGlobalUsers = WhazzupIncludeGlobalUsers;
         p.WhazzupIncludeAi = WhazzupIncludeAi;

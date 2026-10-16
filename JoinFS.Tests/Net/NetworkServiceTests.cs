@@ -85,5 +85,51 @@ namespace JoinFS.Tests.Net
             Assert.Equal("TEST1", hubApp.Identities.Single().Callsign);
             Assert.True(hub.Snapshot.PeerList[0].Rtt < 1.0f);
         }
+
+        [Fact]
+        public void Ipv6Setting_ChoosesDualStackOrIPv4OnlySocket()
+        {
+            if (!System.Net.Sockets.Socket.OSSupportsIPv6) return;
+            using var on = new NetworkService();
+            Assert.True(on.Open(0, out string error), error);
+            Assert.True(on.Snapshot.DualStack);
+
+            using var off = new NetworkService { Ipv6Enabled = false };
+            Assert.True(off.Open(0, out error), error);
+            Assert.False(off.Snapshot.DualStack);
+        }
+
+        [Fact]
+        public void DualStackClient_JoinsDualStackHubOverIPv6Loopback()
+        {
+            if (!System.Net.Sockets.Socket.OSSupportsIPv6) return;
+            using NetworkService hub = StartNode(out int hubPort);
+            using NetworkService client = StartNode(out _);
+            if (!hub.Snapshot.DualStack || !client.Snapshot.DualStack) return;
+            var hubApp = new Collector();
+            var clientApp = new Collector();
+            void Pump() { hub.Drain(hubApp, hubApp); client.Drain(clientApp, clientApp); }
+            hub.Post(core => core.Mesh.Create(false, 0, false, ""));
+            client.Post(core => core.Mesh.Join([new IPEndPoint(IPAddress.IPv6Loopback, hubPort)], 0));
+
+            Assert.True(WaitFor(() => client.Snapshot.Connected && client.Snapshot.PeerList.Count == 1 && client.Snapshot.PeerList[0].SendEstablished
+                && hub.Snapshot.PeerList.Count == 1 && hub.Snapshot.PeerList[0].SendEstablished, Pump), "session did not establish over IPv6");
+            Assert.Equal(IPAddress.IPv6Loopback, hub.Snapshot.PeerList[0].EndPoint.Address);
+            Assert.Equal(IPAddress.IPv6Loopback, client.Snapshot.PeerList[0].EndPoint.Address);
+        }
+
+        [Fact]
+        public void DualStackHub_AcceptsIPv4Client_ReportedAsIPv4()
+        {
+            using NetworkService hub = StartNode(out int hubPort);
+            using NetworkService client = StartNode(out _);
+            var hubApp = new Collector();
+            var clientApp = new Collector();
+            void Pump() { hub.Drain(hubApp, hubApp); client.Drain(clientApp, clientApp); }
+            hub.Post(core => core.Mesh.Create(false, 0, false, ""));
+            client.Post(core => core.Mesh.Join(new IPEndPoint(IPAddress.Loopback, hubPort), 0));
+            Assert.True(WaitFor(() => hub.Snapshot.PeerList.Count == 1 && hub.Snapshot.PeerList[0].SendEstablished, Pump), "session did not establish");
+            Assert.Equal(System.Net.Sockets.AddressFamily.InterNetwork, hub.Snapshot.PeerList[0].EndPoint.AddressFamily);
+        }
     }
 }

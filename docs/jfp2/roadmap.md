@@ -25,7 +25,16 @@ are kept so older commits and notes still make sense.
 | 11 | **Node key.** `NodeKeyStore`, `LocalIdentity.Key`, the kind-1 name in `Names`, alias binding only from a matching HelloAck, detection logs, a `VOLUME` line in the `Dockerfile` and the README's Docker section. | `design-node-identity.md` §2 | After 10, so the key is an identity from the day it exists. |
 | 12 | **JFP2-only `TestMesh`** (review item C6). A test whose nodes register only `Jfp2Plugin`: it must create, join, exchange positions and leave. Committed skipped, with the reason; B3's stages un-skip it. Add IPv6 endpoints and a per-destination NAT to `InMemoryNetwork` too. | | The tracer bullet for B3. |
 
-### 2.2 Towards a stand-alone JFP2
+### 2.2 IPv6 for dual-stack nodes (next)
+
+Approved by the owner on 2026-10-16, ahead of the order below: every node keeps its legacy id, so it
+needs neither B2, B3 nor stages 10 and 11, and what it builds is what B3 needs anyway.
+
+| Item | Task | Design | Depends on |
+|---|---|---|---|
+| I1 | **Built and field-tested on one LAN (2026-10-16); awaiting the test across a router firewall or NAT, the hub-list, ban and released-build checks, and the edition 2 release.** **Dual-stack socket and IPv6 paths.** One dual-mode socket; one path per peer, legacy included; path upgrade to IPv6 and fallback; the `Candidates` tag and `PeerCandidates`; D3; bans by legacy-id address and IPv6 /64; the IPv6 setting; the "IPv6" label. Includes the IPv6 part of 12 (IPv6 endpoints in `InMemoryNetwork`). | `design-future.md` §4.1; `agent-docs/features/ipv6/spec.md` | — |
+
+### 2.3 Towards a stand-alone JFP2
 
 Each needs its own design, approved by the owner, before it is built.
 
@@ -35,24 +44,24 @@ Each needs its own design, approved by the owner, before it is built.
 | B2 | **Bootstrap without legacy.** Admission by a stateless cookie; accept a Hello from a non-member; the observed endpoint replaces the my-IP lookup where the lookup fails. | `design-future.md` §3 | B1 |
 | B3 | **The mesh over JFP2.** Join, AddNode, Pathfinder and the rest as internal classes, with endpoint lists split across messages; `Jfp2Profile` looks classes up by partition; endpoint candidates per peer. | `design-future.md` §2 | B2, 12 |
 | B6 | **Large messages.** Split at message level where handlers are idempotent; multi-segment guaranteed delivery only for bulk notes and hub lists. | `design-future.md` §8 | B3 |
-| — | **Dual-stack socket and IPv6 endpoint candidates.** One dual-mode socket; IPv4-mapped sources converted back; the legacy encoder never handed an IPv6 node. | `design-future.md` §4 | B3 |
+| — | **IPv6-only nodes.** The legacy encoder never handed an IPv6-only node; membership entries carry endpoint candidates; open question K. | `design-future.md` §4.2 | B3, I1 |
 | B4 | **Relaying as a first-class feature.** Hubs advertise their relay budget in `Status`; fan-out to "all members"; amplification limits. | `design-future.md` §5 | B3 |
 | B5 | **Remaining kinds.** In-session: ObjectPosition (the recorder's `ObjectPositionV1Codec` moved into `JoinFS.Messages`, `docs/jfs2/recorder-v2-design.md` §11), RemoveObject, PeerInfo. Directory kinds after B2. Do not port WeatherRequest and ShowOnRadar. Redesign the bulk notes catch-up. | `design-future.md` §8 | B2 |
 | B7 | **Security.** Challenge-response Join, node names bound to a key pair (kind 2), per-hop protection of every datagram. | `design-future.md` §6, `rationale.md` §7 | B3 |
 | — | **Retire legacy.** Delete the legacy plugin when the `Build` counts hubs log show enough users run the build with the JFP2 mesh. The X-Plane link keeps the framing constants it shares. | `goals.md` §5 | B3 and field data |
 
-### 2.3 Smaller items
+### 2.4 Smaller items
 
 | Item | Task | Status |
 |---|---|---|
-| D3 | **DNS lookup** keeps only the first address returned, so a hostname that also has an IPv6 address can fail to join. | Open. |
+| D3 | **DNS lookup** keeps only the first address returned, so a hostname that also has an IPv6 address can fail to join. | Fixed in I1 (a hostname is dialled at all its addresses); closes with the field test. |
 | C3 | Split `Jfp2Plugin.cs` further, into separate classes (the partial-class split is done). | Optional; the partial split covers the need. |
 | C5 | Separate `MeshManager`'s wire-visible rules from local policy. The relay budget is a setting (stage 9); the Pulse and Pathfinder timings are not. | Partly done. |
 | — | **Position v2, coalescing, selective acknowledgement.** Each is designed when a measurement says it pays. The recorder will use Position v2 too (decided 2026-10-15): a quantised 52-byte candidate halves a `.jfs2` file (`docs/jfs2/README.md`, Measurements, step 3). | `design-future.md` §7 |
 | — | **Recording codecs.** Adopt the `ICodec` pattern in `Recorder.cs`, replacing the `#if FS2024` compile-time gate that causes the bug in `../recording-protocol.md` §7.1. Separate piece of work; do not block JFP2 on it. | Open. |
 | — | **Variable-name (vuid) table sync at scale.** | Open. |
 
-### 2.4 Verification still owed
+### 2.5 Verification still owed
 
 The audit of 2026-09-14/16 (`history/protocol-v2-implementation-review.md` §6) listed these as not
 attempted. Field testing since may have covered some; check the logs before calling one untested.
@@ -69,13 +78,13 @@ attempted. Field testing since may have covered some; check the logs before call
 
 ## 3. Suggested order
 
-1. Ship 26.6.
-2. Stages 10, 11, 12.
-3. B2, then B3 with B6, until the JFP2-only mesh test (12) passes. Dual-stack socket and IPv6
-   candidates.
-4. B4 and B5.
-5. B7, designed with B3 but built when there is a key to sign with.
-6. Retire legacy when the `Build` counts say it is time.
+1. Ship 26.6. Done.
+2. I1, IPv6 for dual-stack nodes (§2.2).
+3. Stages 10, 11, 12.
+4. B2, then B3 with B6, until the JFP2-only mesh test (12) passes. IPv6-only nodes.
+5. B4 and B5.
+6. B7, designed with B3 but built when there is a key to sign with.
+7. Retire legacy when the `Build` counts say it is time.
 
 D3 and the verification items can go in at any point.
 
@@ -83,7 +92,7 @@ D3 and the verification items can go in at any point.
 
 | # | Question | Notes |
 |---|---|---|
-| K | IPv6-only nodes and legacy peers: hub-assigned synthetic legacy ids, or no visibility? | Decide in the IPv6 stage, from how many legacy users remain. |
+| K | IPv6-only nodes and legacy peers: hub-assigned synthetic legacy ids, or no visibility? | Decide with IPv6-only nodes (after B3), from how many legacy users remain. |
 | L | A "new identity" action that replaces key and `Guid` together? | Later, if users ask. |
 | M | Relay fan-out: what budgets and amplification limits? | With B4. |
 | N | Coalescing policy: batch window, eligible classes. | With a measurement. |

@@ -44,8 +44,10 @@ namespace JoinFS
             public PeerLinkState? jfp2State;
             public string protocol;
             public int protocolValue;
+            /// <summary>"IPv6" or "IPv4" for the path to this node; empty for the local row and when this node is not dual-stack.</summary>
+            public string family;
 
-            public Item(Guid guid, NodeId nuid, IPEndPoint endPoint, string nickname, string version, string simulator, string callsign, int aircraftCount, int objectCount, string share, bool save, bool ignore, int port, bool receiveEstablished, bool sendEstablished, bool direct, float latency, PeerLinkState? jfp2State)
+            public Item(Guid guid, NodeId nuid, IPEndPoint endPoint, string nickname, string version, string simulator, string callsign, int aircraftCount, int objectCount, string share, bool save, bool ignore, int port, bool receiveEstablished, bool sendEstablished, bool direct, float latency, PeerLinkState? jfp2State, string family = "")
             {
                 this.guid = guid;
                 this.nuid = nuid;
@@ -83,6 +85,7 @@ namespace JoinFS
                 // network (transport) protocol indicator - distinct from the application `version`
                 // above.
                 this.jfp2State = jfp2State;
+                this.family = family;
                 protocol = jfp2State?.ToDisplay() ?? "";
                 // own row sorts first; then negotiated, legacy, negotiating - matching the old
                 // (unused) enum's relative order, not the new enum's declaration order
@@ -386,7 +389,10 @@ namespace JoinFS
             PeerLinkState? jfp2State = peer?.LinkState ?? PeerLinkState.Negotiating;
 
             // add item
-            Item item = new(guid, nuid, endPoint, nickname, version, simulator, callsign, aircraftCount, objectCount, share, save, ignore, port, receiveEstablished, sendEstablished, direct, latency, jfp2State);
+            // address family of the path (IPv6 or IPv4), shown only when this node can use both
+            string family = PathFamily.Shown(main.network.Snapshot.DualStack, peer);
+
+            Item item = new(guid, nuid, endPoint, nickname, version, simulator, callsign, aircraftCount, objectCount, share, save, ignore, port, receiveEstablished, sendEstablished, direct, latency, jfp2State, family);
             // add to list
             itemList.Add(item);
         }
@@ -485,10 +491,17 @@ namespace JoinFS
                 case 12:
                     itemList.Sort(delegate (Item i1, Item i2) { return i1.protocolValue.Equals(i2.protocolValue) ? i1.nickname.CompareTo(i2.nickname) : -i1.protocolValue.CompareTo(i2.protocolValue); });
                     break;
+                case 13:
+                    // IPv6 first
+                    itemList.Sort(delegate (Item i1, Item i2) { return i1.family.Equals(i2.family) ? i1.nickname.CompareTo(i2.nickname) : -i1.family.CompareTo(i2.family); });
+                    break;
             }
 
             // update window title
             Text = title + " (" + itemList.Count + ")";
+
+            // the address family column is for nodes that can use IPv6
+            ColFamily.Visible = main.network.Snapshot.DualStack;
 
             // rows
             DataGridViewRow[] rows = new DataGridViewRow[itemList.Count];
@@ -512,6 +525,7 @@ namespace JoinFS
                 rows[index].Cells[10].Value = itemList[index].version;
                 rows[index].Cells[11].Value = itemList[index].simulator;
                 rows[index].Cells[12].Value = itemList[index].protocol;
+                rows[index].Cells[13].Value = itemList[index].family;
             }
 
             // clear existing cells

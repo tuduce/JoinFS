@@ -148,6 +148,25 @@ namespace JoinFS.Net.Jfp2
                 return chunks;
             }
 
+            /// <summary>PeerCandidates goes out in messages of at most <see cref="PeerCandidatesV1Codec.MaxEntries"/> entries.</summary>
+            public void Handle(in MessageMeta meta, in PeerCandidates m)
+            {
+                if (p.profile.ForKind<PeerCandidates>(MessageKind.PeerCandidates) is not { } messageClass) return;
+                List<PeerCandidates> parts = null;
+                foreach (NodeId target in p.targets)
+                {
+                    byte version = p.AgreedVersion(target, messageClass, out Peer peer, out PeerSession session);
+                    if (version == 0) continue;
+                    parts ??= PeerCandidatesV1Codec.Split(m);
+                    ICodec<PeerCandidates> codec = messageClass.Codec(version);
+                    foreach (PeerCandidates part in parts)
+                    {
+                        int length = codec.Encode(part, p.payloadBuffer);
+                        p.SendApplication(peer, session, messageClass, p.payloadBuffer.AsSpan(0, length));
+                    }
+                }
+            }
+
             public void Handle(in MessageMeta meta, in NotesBundle m)
             {
                 // JFP2 carries one note per message: a bundle goes out as its notes
@@ -235,9 +254,13 @@ namespace JoinFS.Net.Jfp2
                 host.Log(NetLogLevel.Network, "JFP2: datagram from " + from + " names its origin " + envelope.Origin + ", which this build cannot resolve - dropped");
                 return;
             }
-            if (envelope.IsInternal)
+            if (host.IsBanned(sender))
             {
-                if (envelope.RawMessageClass == MessageClasses.GuaranteedDone && TryReadGuaranteedDone(payload, out ushort id, out byte index))
+                return; // the address in its legacy id is banned, whichever address this datagram came from (as in LegacyPlugin)
+            }
+            if (envelope.IsInternal && envelope.RawMessageClass == MessageClasses.GuaranteedDone)
+            {
+                if (TryReadGuaranteedDone(payload, out ushort id, out byte index))
                 {
                     // from the final target (the neighbor, or the Forwarded ack's origin) for our message
                     reliability.Acknowledge(sender, Local, id, index);
@@ -245,11 +268,12 @@ namespace JoinFS.Net.Jfp2
                 return;
             }
 
-            // checked before acking: a sender must not take a message we cannot read as delivered
-            byte version = hop.AgreedAppVersion[envelope.RawMessageClass];
+            // checked before acking: a sender must not take a message we cannot read as delivered. An
+            // internal class other than the ones above (PeerCandidates) is agreed per session like an application class
+            byte version = hop.AgreedVersion(envelope.IsInternal, envelope.RawMessageClass);
             if (version == 0)
             {
-                host.Log(NetLogLevel.Network, "JFP2: class " + envelope.RawMessageClass + " from " + hop.Peer + " was never agreed on - ignored");
+                host.Log(NetLogLevel.Network, "JFP2: " + (envelope.IsInternal ? "internal " : "") + "class " + envelope.RawMessageClass + " from " + hop.Peer + " was never agreed on - ignored");
                 return;
             }
             // also before acking: a segment this build cannot reassemble is dropped, not acknowledged
@@ -274,7 +298,7 @@ namespace JoinFS.Net.Jfp2
                 Guaranteed = envelope.IsGuaranteed,
                 Forwarded = envelope.IsForwarded,
             };
-            Decode(meta, envelope.RawMessageClass, version, message);
+            Decode(meta, envelope.IsInternal, envelope.RawMessageClass, version, message);
         }
 
         /// <summary>
@@ -293,7 +317,7 @@ namespace JoinFS.Net.Jfp2
         }
 
         /// <summary>A class agreed on (a version above 0) is one of the profile's: decode it and hand it to the core.</summary>
-        void Decode(in MessageMeta meta, byte messageClass, byte version, ReadOnlySpan<byte> payload) =>
-            profile.ForClass(messageClass).Deliver(host, meta, version, payload);
+        void Decode(in MessageMeta meta, bool isInternal, byte messageClass, byte version, ReadOnlySpan<byte> payload) =>
+            profile.ForClass(isInternal, messageClass).Deliver(host, meta, version, payload);
     }
 }

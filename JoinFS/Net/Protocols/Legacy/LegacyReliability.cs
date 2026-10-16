@@ -221,6 +221,34 @@ namespace JoinFS.Net.Legacy
             outgoing.RemoveAll(m => m.Recipient == peer.Id || (!m.Recipient.Valid() && m.EndPoint.Equals(peer.EndPoint)));
         }
 
+        /// <summary>Stop resending what was queued for a raw endpoint no known node is behind (a dial that moved on).</summary>
+        public void RemoveEndPoint(IPEndPoint endPoint) =>
+            outgoing.RemoveAll(m => !m.Recipient.Valid() && m.EndPoint.Equals(endPoint));
+
+        /// <summary>
+        /// A node moved from <paramref name="previous"/> to <paramref name="current"/> (a path upgrade or a
+        /// fallback): what is keyed by its endpoint moves with it, so a resend that arrives over the new path is
+        /// still a duplicate and a raw-endpoint send to the node is still resent and removed with it. Sends to a
+        /// known node follow its route by themselves.
+        /// </summary>
+        public void MoveEndPoint(IPEndPoint previous, IPEndPoint current)
+        {
+            foreach (Incoming entry in incoming)
+            {
+                if (entry.NodeEndPoint.Equals(previous))
+                {
+                    entry.NodeEndPoint = current;
+                }
+            }
+            foreach (Outgoing message in outgoing)
+            {
+                if (!message.Recipient.Valid() && message.EndPoint.Equals(previous))
+                {
+                    message.EndPoint = current;
+                }
+            }
+        }
+
         public void Clear()
         {
             outgoing.Clear();

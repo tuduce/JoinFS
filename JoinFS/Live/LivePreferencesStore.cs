@@ -52,6 +52,7 @@ namespace JoinFS.Live
                 LocalPort = s.LocalPort,
                 JoinGlobalAtLaunch = s.Global,
                 LowBandwidth = s.LowBandwidth,
+                UseIpv6 = s.Ipv6,
                 GenerateWhazzup = s.Whazzup,
                 WhazzupIncludeGlobalUsers = s.WhazzupGlobal,
                 WhazzupIncludeAi = s.WhazzupAI,
@@ -91,6 +92,8 @@ namespace JoinFS.Live
             s.LocalPort = (ushort)Math.Clamp(next.LocalPort, 1, ushort.MaxValue);
             s.Global = next.JoinGlobalAtLaunch;
             s.LowBandwidth = next.LowBandwidth;
+            // read when the network is created: it takes effect at the next start, so main.settingsIpv6 (this run's value) stays
+            s.Ipv6 = next.UseIpv6;
             s.Whazzup = next.GenerateWhazzup;
             s.WhazzupGlobal = next.WhazzupIncludeGlobalUsers;
             s.WhazzupAI = next.WhazzupIncludeAi;
