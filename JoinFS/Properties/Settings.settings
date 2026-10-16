@@ -422,6 +422,9 @@
     <Setting Name="GenerateLiveries" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
+    <Setting Name="Ipv6" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
     <Setting Name="UnlinkedCslSources" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>

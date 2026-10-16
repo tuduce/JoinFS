@@ -24,6 +24,21 @@ namespace JoinFS.Net
         public int LocalPort { get; private set; }
         public bool IsOpen => socket != null;
 
+        /// <summary>
+        /// Open a dual-mode socket (IPv6 and IPv4 on one port) rather than an IPv4 one. Set before
+        /// <see cref="Open"/>; moving to another port re-evaluates it.
+        /// </summary>
+        public bool Ipv6Enabled { get; set; } = true;
+
+        /// <summary>The open socket serves IPv6 as well as IPv4.</summary>
+        public bool IsDualStack { get; private set; }
+
+        /// <summary>Why <see cref="Ipv6Enabled"/> is set but the socket is IPv4-only (null when it is not that case).</summary>
+        public string FallbackReason { get; private set; }
+
+        /// <summary>Test seam: creates the dual-mode socket; a throw stands for an OS that cannot.</summary>
+        internal Func<Socket> DualModeFactory { get; set; }
+
         public event Action<IPEndPoint, string> SendFailed;
 
         /// <summary>
@@ -47,7 +62,7 @@ namespace JoinFS.Net
             Close();
             try
             {
-                var s = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                Socket s = CreateSocket(out bool dual);
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
                     // don't let an ICMP port-unreachable from one peer kill ReceiveFrom for everyone
@@ -56,7 +71,8 @@ namespace JoinFS.Net
                     const uint SIO_UDP_CONNRESET = IOC_IN | IOC_VENDOR | 12;
                     s.IOControl(unchecked((int)SIO_UDP_CONNRESET), [0], null);
                 }
-                s.Bind(new IPEndPoint(IPAddress.Any, port));
+                s.Bind(new IPEndPoint(dual ? IPAddress.IPv6Any : IPAddress.Any, port));
+                IsDualStack = dual;
                 socket = s;
                 LocalPort = ((IPEndPoint)s.LocalEndPoint).Port;
                 closing = false;
@@ -69,8 +85,40 @@ namespace JoinFS.Net
                 error = ex.Message + ": port=" + port;
                 socket = null;
                 LocalPort = 0;
+                IsDualStack = false;
                 return false;
             }
+        }
+
+        /// <summary>A dual-mode socket when IPv6 is on and the OS can make one, else an IPv4 socket (the reason is kept in <see cref="FallbackReason"/>).</summary>
+        Socket CreateSocket(out bool dual)
+        {
+            FallbackReason = null;
+            dual = false;
+            if (Ipv6Enabled)
+            {
+                try
+                {
+                    Socket d = DualModeFactory != null ? DualModeFactory()
+                        : new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
+                    try
+                    {
+                        d.DualMode = true;
+                    }
+                    catch
+                    {
+                        d.Dispose();
+                        throw;
+                    }
+                    dual = true;
+                    return d;
+                }
+                catch (Exception ex)
+                {
+                    FallbackReason = ex.Message;
+                }
+            }
+            return new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         }
 
         public void Close()
@@ -83,6 +131,7 @@ namespace JoinFS.Net
             closing = true;
             socket = null;
             LocalPort = 0;
+            IsDualStack = false;
             try { s.Close(); } catch { }
             receiveThread?.Join(1000);
             receiveThread = null;
@@ -97,7 +146,11 @@ namespace JoinFS.Net
             }
             try
             {
-                s.SendTo(datagram, SocketFlags.None, to);
+                // a dual-mode socket addresses IPv4 peers by their IPv4-mapped IPv6 address
+                IPEndPoint target = IsDualStack && to.AddressFamily == AddressFamily.InterNetwork
+                    ? new IPEndPoint(to.Address.MapToIPv6(), to.Port)
+                    : to;
+                s.SendTo(datagram, SocketFlags.None, target);
             }
             catch (Exception ex)
             {
@@ -108,7 +161,8 @@ namespace JoinFS.Net
         void ReceiveLoop(object state)
         {
             var s = (Socket)state;
-            EndPoint any = new IPEndPoint(IPAddress.Any, 0);
+            bool dual = s.AddressFamily == AddressFamily.InterNetworkV6;
+            EndPoint any = new IPEndPoint(dual ? IPAddress.IPv6Any : IPAddress.Any, 0);
             while (!closing)
             {
                 byte[] buffer = ArrayPool<byte>.Shared.Rent(MaxDatagram);
@@ -119,7 +173,13 @@ namespace JoinFS.Net
                     Action<IPEndPoint, byte[], int> received = Received;
                     if (received != null)
                     {
-                        received((IPEndPoint)from, buffer, length);
+                        var source = (IPEndPoint)from;
+                        if (source.Address.IsIPv4MappedToIPv6)
+                        {
+                            // nothing above the transport ever sees a mapped address
+                            source = new IPEndPoint(source.Address.MapToIPv4(), source.Port);
+                        }
+                        received(source, buffer, length);
                         buffer = null; // ownership transferred
                     }
                 }

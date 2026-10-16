@@ -170,6 +170,9 @@ namespace JoinFS
 
         public string settingsLocalAddress = "";
 
+        /// <summary>Use IPv6 as well as IPv4 (the IPv6 setting; <c>-noipv6</c> turns it off for this run).</summary>
+        public bool settingsIpv6 = true;
+
 #if CONSOLE
         public bool settingsBackground = false;
         public int settingsBackgroundDelay = 100;
@@ -291,6 +294,7 @@ namespace JoinFS
                 settingsWhazzup = Settings.Default.Whazzup;
                 settingsWhazzupPublic = Settings.Default.WhazzupGlobal;
                 settingsMultiObjects = Settings.Default.MultipleObjectsEveryone;
+                settingsIpv6 = Settings.Default.Ipv6;
                 settingsLoop = Settings.Default.Loop;
                 settingsXplane = Settings.Default.XPlane;
                 settingsTcas = Settings.Default.TCAS;
@@ -399,6 +403,11 @@ namespace JoinFS
                             case "-hub":
                                 // enable hub mode
                                 settingsHub = true;
+                                break;
+
+                            case "-noipv6":
+                                // IPv4 only, whatever the IPv6 setting says
+                                settingsIpv6 = false;
                                 break;
 
                             case "-localaddress":
