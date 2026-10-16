@@ -158,7 +158,7 @@ namespace JoinFS
             {
                 AutoSize = true,
                 Name = "Check_Ipv6",
-                Text = "IPv6",
+                Text = PathFamily.Ipv6,
                 UseVisualStyleBackColor = true,
                 Location = new System.Drawing.Point(Check_LowBandwidth.Right + 12, Check_LowBandwidth.Top),
             };
@@ -664,7 +664,7 @@ namespace JoinFS
                 tip.SetToolTip(Text_LocalPort, Resources.Strings.Tip_LocalPort);
                 tip.SetToolTip(Check_GlobalJoin, Resources.Strings.Tip_GlobalJoin);
                 tip.SetToolTip(Check_LowBandwidth, Resources.Strings.Tip_LowBandwidth);
-                tip.SetToolTip(Check_Ipv6, JoinFS.UI.Localization.Loc.T("Use IPv6 (restart to apply)"));
+                tip.SetToolTip(Check_Ipv6, Resources.Strings.Tip_Ipv6);
                 tip.SetToolTip(Check_Tacpack, Resources.Strings.Tip_VRS);
                 tip.SetToolTip(Label_Password, Resources.Strings.Tip_Password);
                 tip.SetToolTip(Check_Whazzup, Resources.Strings.Tip_Whazzup);

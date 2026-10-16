@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using JoinFS.Net.Jfp2.Codecs;
 
 namespace JoinFS.Net
 {
@@ -25,9 +26,6 @@ namespace JoinFS.Net
 
         /// <summary>After a fallback, IPv6 is neither probed nor used for this long, in seconds.</summary>
         public const double HoldOff = 300;
-
-        /// <summary>The most candidates kept for a peer.</summary>
-        public const int MaxCandidates = 4;
 
         /// <summary>How long announced candidates of a member that is not registered yet wait for it, in seconds.</summary>
         public const double HeldCandidatesTime = 10;
@@ -62,13 +60,13 @@ namespace JoinFS.Net
             }
         }
 
-        /// <summary>The usable ones of <paramref name="offered"/> (global IPv6 with a port), without repeats, at most <see cref="MaxCandidates"/>, as new objects.</summary>
+        /// <summary>The usable ones of <paramref name="offered"/> (global IPv6 with a port), without repeats, at most <see cref="PeerCandidatesV1Codec.MaxCandidates"/>, as new objects.</summary>
         static List<IPEndPoint> UsableCandidates(IReadOnlyList<IPEndPoint> offered)
         {
             List<IPEndPoint> list = [];
             foreach (IPEndPoint endPoint in offered)
             {
-                if (Ipv6Address.IsUsableCandidate(endPoint) && !list.Contains(endPoint) && list.Count < MaxCandidates)
+                if (Ipv6Address.IsUsableCandidate(endPoint) && !list.Contains(endPoint) && list.Count < PeerCandidatesV1Codec.MaxCandidates)
                 {
                     list.Add(new IPEndPoint(endPoint.Address, endPoint.Port));
                 }
@@ -119,9 +117,9 @@ namespace JoinFS.Net
                 return;
             }
             peer.candidates.Insert(0, new IPEndPoint(source.Address, source.Port));
-            if (peer.candidates.Count > MaxCandidates)
+            if (peer.candidates.Count > PeerCandidatesV1Codec.MaxCandidates)
             {
-                peer.candidates.RemoveAt(MaxCandidates);
+                peer.candidates.RemoveAt(PeerCandidatesV1Codec.MaxCandidates);
             }
             peer.CandidatesRevision = ++candidatesRevision;
             StartProbing(peer);

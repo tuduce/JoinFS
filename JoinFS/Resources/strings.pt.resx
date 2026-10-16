@@ -264,6 +264,9 @@
   <data name="Options_Nickname" xml:space="preserve">
     <value>Escolha um apelido. Outros poderão ver isso nas listas de aeronaves e usuários.</value>
   </data>
+  <data name="Options_NoIpv6" xml:space="preserve">
+    <value>Usar apenas IPv4 nesta execução (o IPv6 vem ativado por padrão; a configuração de IPv6 é ignorada)</value>
+  </data>
   <data name="Options_NoSim" xml:space="preserve">
     <value>Não conecte ao simulador no lançamento.</value>
   </data>
@@ -395,6 +398,9 @@
   </data>
   <data name="Tip_GlobalJoin" xml:space="preserve">
     <value>Junte-se automaticamente à sessão pública global quando o JoinFS iniciar</value>
+  </data>
+  <data name="Tip_Ipv6" xml:space="preserve">
+    <value>Usar IPv6 (reiniciar para aplicar)</value>
   </data>
   <data name="Tip_HubAbout" xml:space="preserve">
     <value>Uma breve descrição deste hub que aparecerá na lista de todos os hubs</value>

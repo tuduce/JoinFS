@@ -390,7 +390,7 @@ namespace JoinFS
 
             // add item
             // address family of the path (IPv6 or IPv4), shown only when this node can use both
-            string family = main.network.Snapshot.DualStack ? peer?.Family ?? "" : "";
+            string family = PathFamily.Shown(main.network.Snapshot.DualStack, peer);
 
             Item item = new(guid, nuid, endPoint, nickname, version, simulator, callsign, aircraftCount, objectCount, share, save, ignore, port, receiveEstablished, sendEstablished, direct, latency, jfp2State, family);
             // add to list

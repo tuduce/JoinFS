@@ -92,7 +92,7 @@ namespace JoinFS.Live
                 (int)Math.Round(main.network.GetNodeRTT(nuid) * 1000.0f), aircraft, objects,
                 main.network.Peers.GetNodeSimulator(nuid), main.network.Peers.GetNodeVersion(nuid),
                 link.ToDisplay(), peer?.EndPoint?.Port ?? 0,
-                Family: main.network.Snapshot.DualStack ? peer?.Family ?? "" : "");
+                Family: PathFamily.Shown(main.network.Snapshot.DualStack, peer));
         }
 
         public PeerSettings GetSettings(string peerId)

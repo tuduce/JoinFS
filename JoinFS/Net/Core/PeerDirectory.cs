@@ -55,7 +55,7 @@ namespace JoinFS.Net
         /// </summary>
         public int AdvertisedPort => (Ipv4EndPoint ?? EndPoint).Port;
 
-        /// <summary>The node's IPv6 endpoint candidates (self-reported or observed), probed for a path upgrade; at most <see cref="MeshManager.MaxCandidates"/>.</summary>
+        /// <summary>The node's IPv6 endpoint candidates (self-reported or observed), probed for a path upgrade; at most <see cref="Jfp2.Codecs.PeerCandidatesV1Codec.MaxCandidates"/>.</summary>
         public IReadOnlyList<IPEndPoint> Candidates => candidates;
 
         internal List<IPEndPoint> candidates = [];

@@ -772,6 +772,15 @@ namespace JoinFS.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Use IPv4 only for this run (IPv6 is on by default; the IPv6 setting is ignored).
+        /// </summary>
+        internal static string Options_NoIpv6 {
+            get {
+                return ResourceManager.GetString("Options_NoIpv6", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Run JoinFS as a background process without any windows or UI..
         /// </summary>
         internal static string Options_NoGui {
@@ -1245,6 +1254,15 @@ namespace JoinFS.Resources {
         internal static string Tip_GlobalJoin {
             get {
                 return ResourceManager.GetString("Tip_GlobalJoin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Use IPv6 (restart to apply).
+        /// </summary>
+        internal static string Tip_Ipv6 {
+            get {
+                return ResourceManager.GetString("Tip_Ipv6", resourceCulture);
             }
         }
         

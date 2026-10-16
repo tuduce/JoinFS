@@ -231,6 +231,9 @@
   <data name="Options_Nickname" xml:space="preserve">
     <value>Elegir un apodo. Otros podrán ver esto en las listas de aviones y usuarios.</value>
   </data>
+  <data name="Options_NoIpv6" xml:space="preserve">
+    <value>Usar solo IPv4 en esta ejecución (IPv6 está activado por defecto; se ignora el ajuste de IPv6)</value>
+  </data>
   <data name="Options_NoSim" xml:space="preserve">
     <value>No se conecte al simulador en el lanzamiento.</value>
   </data>
@@ -356,6 +359,9 @@
   </data>
   <data name="Tip_GlobalJoin" xml:space="preserve">
     <value>Únase automáticamente a la sesión pública global cuando se inicie JoinFS</value>
+  </data>
+  <data name="Tip_Ipv6" xml:space="preserve">
+    <value>Usar IPv6 (reiniciar para aplicar)</value>
   </data>
   <data name="Tip_HubAbout" xml:space="preserve">
     <value>Una breve descripción de este centro que aparecerá en la lista de centros de todos.</value>

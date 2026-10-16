@@ -30,6 +30,16 @@ namespace JoinFS.Tests.Net
         }
 
         [Fact]
+        public void Shown_IsTheFamilyOnlyOnADualStackNode()
+        {
+            PeerSnapshot v6 = new() { EndPoint = Ipv6, RouteEndPoint = Ipv6 };
+            Assert.Equal("IPv6", PathFamily.Shown(true, v6));
+            Assert.Equal("", PathFamily.Shown(false, v6));
+            Assert.Equal("", PathFamily.Shown(true, null));
+            Assert.Equal("", PathFamily.Shown(true, new PeerSnapshot()));
+        }
+
+        [Fact]
         public void PeerSnapshot_ReportsTheFamilyOfTheRoute()
         {
             Assert.Equal("IPv6", new PeerSnapshot { EndPoint = Ipv6, RouteEndPoint = Ipv6 }.Family);

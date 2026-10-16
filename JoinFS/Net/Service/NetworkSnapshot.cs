@@ -17,6 +17,9 @@ namespace JoinFS.Net
             if (address.Equals(IPAddress.Any) || address.Equals(IPAddress.IPv6Any) || address.Equals(IPAddress.None)) return "";
             return address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? Ipv6 : Ipv4;
         }
+
+        /// <summary>What a session view shows for <paramref name="peer"/>'s path: the family when this node can use both (<paramref name="dualStack"/>), else empty.</summary>
+        public static string Shown(bool dualStack, PeerSnapshot peer) => dualStack ? peer?.Family ?? "" : "";
     }
 
     /// <summary>Transport-level state of one peer, as of the snapshot.</summary>

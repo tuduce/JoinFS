@@ -1,10 +1,8 @@
 using System;
-using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
-using System.Net.Sockets;
 using System.Threading;
 using JoinFS.Net.Legacy;
 
@@ -68,10 +66,7 @@ namespace JoinFS.Net
             Legacy = new LegacyPlugin((ushort)Stopwatch.GetTimestamp());
             Core.AddPlugin(Legacy);
             // stamped on the receive thread, as soon as the datagram arrives (MessageMeta.ReceivedAt)
-            transport.Received += (from, buffer, length) =>
-            {
-                mailbox.Add(DatagramWork.Rent(from, buffer, length, this.clock.Now));
-            };
+            transport.Received += (from, buffer, length) => mailbox.Add(DatagramWork.Rent(from, buffer, length, this.clock.Now));
             transport.SendFailed += (to, error) => Core.Log(NetLogLevel.Event, error + ", " + to);
             Core.Identity.LocalAddress = LocalIdentity.DetectLocalAddress();
         }

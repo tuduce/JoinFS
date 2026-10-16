@@ -188,11 +188,14 @@ namespace JoinFS
         //
         // Scheduled from any thread (UI), run on the next tick.
 
-        /// <summary>The endpoint last joined (the first address of <see cref="joinEndPoints"/>); what the UI keys passwords and hubs by.</summary>
-        public IPEndPoint joinEndPoint = new(0, 0);
+        /// <summary>The endpoint last joined (the first address of <see cref="JoinTarget"/>); what the UI keys passwords and hubs by.</summary>
+        public IPEndPoint joinEndPoint => joinTarget.First;
 
-        /// <summary>Every address the last Join dials, in order; a retry or a reconnect dials them all again.</summary>
-        volatile IReadOnlyList<IPEndPoint> joinEndPoints = [];
+        /// <summary>Where the last Join dials: the first address and every address in order (a retry or a reconnect dials them all again).
+        /// One immutable object, so the UI thread never reads one half of an older and one half of a newer join.</summary>
+        sealed record JoinTarget(IPEndPoint First, IReadOnlyList<IPEndPoint> All);
+
+        volatile JoinTarget joinTarget = new(new IPEndPoint(0, 0), []);
 
         /// <summary>
         /// What the user typed, as the addresses to dial: IPv6 first when this node has IPv6 (the socket
@@ -268,7 +271,7 @@ namespace JoinFS
             host.Event("Reconnecting to '" + AddressCodec.EncodeIP(joinEndPoint.ToString())
                 + "' after losing every peer while still connected");
 
-            IReadOnlyList<IPEndPoint> target = joinEndPoints;
+            IReadOnlyList<IPEndPoint> target = joinTarget.All;
 
             // Must reset the mesh before rejoining: our own Connected is still true (suid != 0, from
             // before every peer expired - that's the whole premise of a lost session), and
@@ -321,7 +324,13 @@ namespace JoinFS
 
         /// <summary>Join through one address; the address the session already dials stands for all of its list.</summary>
         public void ScheduleJoin(IPEndPoint endPoint, uint passwordHash) =>
-            ScheduleJoin(endPoint.Equals(joinEndPoint) && joinEndPoints.Count > 0 ? joinEndPoints : [endPoint], passwordHash);
+            ScheduleJoin(JoinAddressesFor(endPoint), passwordHash);
+
+        IReadOnlyList<IPEndPoint> JoinAddressesFor(IPEndPoint endPoint)
+        {
+            JoinTarget current = joinTarget;
+            return endPoint.Equals(current.First) && current.All.Count > 0 ? current.All : [endPoint];
+        }
 
         /// <summary>Join through the first of these addresses, then the next while it gets no answer.</summary>
         public void ScheduleJoin(IReadOnlyList<IPEndPoint> endPoints, uint passwordHash)
@@ -432,8 +441,7 @@ namespace JoinFS
         void StartSession(IReadOnlyList<IPEndPoint> endPoints, Action<NetworkCore> start)
         {
             IPEndPoint endPoint = endPoints[0];
-            joinEndPoint = endPoint;
-            joinEndPoints = endPoints;
+            joinTarget = new JoinTarget(endPoint, endPoints);
             LowBandwidth = host.LowBandwidth;
             RelayBudget = host.HubRelays;
             Comms.OnJoining();
@@ -498,8 +506,7 @@ namespace JoinFS
         public void Create(bool globalSession)
         {
             // a session of our own has no hub to go back to
-            joinEndPoint = new IPEndPoint(0, 0);
-            joinEndPoints = [];
+            joinTarget = new JoinTarget(new IPEndPoint(0, 0), []);
             sessionOrigin = SessionOrigin.None;
             try
             {

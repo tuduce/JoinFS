@@ -133,9 +133,6 @@ namespace JoinFS.Net.Jfp2
         /// <summary>Extension tag carrying the sender's own IPv6 endpoint candidates (<see cref="Candidates"/>; edition 2, docs/jfp2/protocol.md §5.4).</summary>
         public const ushort CandidatesTag = 4;
 
-        /// <summary>The most <see cref="Candidates"/> written or read.</summary>
-        public const int MaxCandidates = 4;
-
         /// <summary>The longest <see cref="Build"/> sent or kept, in UTF-8 bytes.</summary>
         public const int BuildMaxBytes = 64;
 
@@ -178,10 +175,10 @@ namespace JoinFS.Net.Jfp2
         /// <summary>
         /// The sender's own endpoint candidates (docs/jfp2/protocol.md §5.4, edition 2): the IPv6 address it
         /// would send from, with its socket's port. Written only when there is one (so the handshake of a
-        /// node without IPv6 stays byte for byte as in 26.6), IPv6 only, at most <see cref="MaxCandidates"/>.
+        /// node without IPv6 stays byte for byte as in 26.6), IPv6 only, at most <see cref="Codecs.PeerCandidatesV1Codec.MaxCandidates"/>.
         /// Travels as a u8 length before each <see cref="WireEndPoint"/>; a reader skips an entry by its
         /// length when its family is unassigned or it is too short, and reads at most
-        /// <see cref="MaxCandidates"/>. A reader uses them only as endpoints to probe, never as the sender's identity.
+        /// <see cref="Codecs.PeerCandidatesV1Codec.MaxCandidates"/>. A reader uses them only as endpoints to probe, never as the sender's identity.
         /// </summary>
         public List<IPEndPoint> Candidates = new();
 
@@ -301,7 +298,7 @@ namespace JoinFS.Net.Jfp2
             return msg;
         }
 
-        /// <summary>The Candidates value: IPv6 endpoints only (an IPv4-mapped one is IPv4), the first <see cref="MaxCandidates"/>.</summary>
+        /// <summary>The Candidates value: IPv6 endpoints only (an IPv4-mapped one is IPv4), the first <see cref="Codecs.PeerCandidatesV1Codec.MaxCandidates"/>.</summary>
         static byte[] WriteCandidates(List<IPEndPoint> candidates)
         {
             var value = new List<byte>();
@@ -312,7 +309,7 @@ namespace JoinFS.Net.Jfp2
                 {
                     continue;
                 }
-                if (count++ == MaxCandidates)
+                if (count++ == Codecs.PeerCandidatesV1Codec.MaxCandidates)
                 {
                     break;
                 }
@@ -326,7 +323,7 @@ namespace JoinFS.Net.Jfp2
         {
             var list = new List<IPEndPoint>();
             int i = 0;
-            while (i < value.Length && list.Count < MaxCandidates)
+            while (i < value.Length && list.Count < Codecs.PeerCandidatesV1Codec.MaxCandidates)
             {
                 int length = value[i++];
                 if (i + length > value.Length)
