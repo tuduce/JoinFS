@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 
 namespace JoinFS
 {
@@ -16,6 +17,9 @@ namespace JoinFS
         public string registration, icaoAirline, flightNumber;
         public double altitude, speed, latitude, longitude;
         public int heading;
+        // degrees, nose up and right wing down are positive, sent unrounded; null when unknown (hub users carry
+        // no attitude) - then the fields are left out of the JSON altogether
+        public double? pitch, bank;
         public string com1, com2, squawk;
         public string icaoType, from, to, rules, route, remarks, livery;
         public int gear;
@@ -24,6 +28,19 @@ namespace JoinFS
         public bool eng1, eng2, eng3, eng4;
         public double rotorRpm;
         public bool onGround;
+
+        /// <summary>
+        /// Converts a simulator attitude angle (radians; pitch positive nose down, bank positive left) to the
+        /// degrees the feed sends (pitch positive nose up, bank positive right - what an attitude indicator expects).
+        /// </summary>
+        public static double AttitudeWireDegrees(double simRadians) => -simRadians * (180.0 / Math.PI);
+
+        /// <summary>Adds pitch and bank to the aircraft's JSON, or nothing when the attitude is unknown.</summary>
+        public readonly void AddAttitudeTo(JObject json)
+        {
+            if (pitch.HasValue) json["pitch"] = pitch.Value;
+            if (bank.HasValue) json["bank"] = bank.Value;
+        }
 
         /// <summary>
         /// This snapshot with every number at the precision the feed sends. The single source of the wire
@@ -45,7 +62,7 @@ namespace JoinFS
         static bool SamePosition(in AircraftSnapshot a, in AircraftSnapshot b) =>
             a.altitude == b.altitude && a.speed == b.speed &&
             a.latitude == b.latitude && a.longitude == b.longitude &&
-            a.heading == b.heading && a.onGround == b.onGround;
+            a.heading == b.heading && a.pitch == b.pitch && a.bank == b.bank && a.onGround == b.onGround;
 
         static bool SameDetails(in AircraftSnapshot a, in AircraftSnapshot b) =>
             a.callsign == b.callsign && a.nickname == b.nickname && a.trafficType == b.trafficType &&

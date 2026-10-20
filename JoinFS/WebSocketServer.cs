@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace JoinFS
 {
@@ -207,6 +208,9 @@ namespace JoinFS
                 snap.altitude  = pos.geo.y * Sim.FEET_PER_METRE;
                 // compass 0-359: playback's running heading is unwrapped (361, 722, ...) and would fail Vector.IsPlausibleHeading
                 snap.heading   = Vector.HeadingDegrees(pos.angles.y);
+                // attitude is part of the position every peer already exchanges, so the UDP protocol is untouched
+                snap.pitch     = AircraftSnapshot.AttitudeWireDegrees(pos.angles.x);
+                snap.bank      = AircraftSnapshot.AttitudeWireDegrees(pos.angles.z);
                 snap.onGround  = pos.ground != 0;
             }
 
@@ -275,11 +279,11 @@ namespace JoinFS
             return snap;
         }
 
-        static object ToJson(in AircraftSnapshot snapshot)
+        static JObject ToJson(in AircraftSnapshot snapshot)
         {
             // rounded here and nowhere else, so the wire values and the change detection cannot drift apart
             AircraftSnapshot s = snapshot.Rounded();
-            return new
+            var json = JObject.FromObject(new
             {
                 callsign = s.callsign,
                 registration = s.registration,
@@ -313,7 +317,9 @@ namespace JoinFS
                 engines  = new { eng1Running = s.eng1, eng2Running = s.eng2, eng3Running = s.eng3, eng4Running = s.eng4 },
                 rotorRpm = s.rotorRpm,
                 onGround = s.onGround
-            };
+            });
+            s.AddAttitudeTo(json);
+            return json;
         }
 
         // Newtonsoft throws on NaN/Infinity by default; a single stray non-finite value in one
@@ -451,7 +457,7 @@ namespace JoinFS
         static string BuildMessage(List<AircraftSnapshot> snapshots)
         {
             // serialize outside the lock, broadcast off the work thread
-            var jsonObjs = new List<object>(snapshots.Count);
+            var jsonObjs = new List<JObject>(snapshots.Count);
             foreach (var s in snapshots) jsonObjs.Add(ToJson(s));
             return JsonConvert.SerializeObject(new { type = "aircraft_update", aircraft = jsonObjs }, _jsonSettings);
         }

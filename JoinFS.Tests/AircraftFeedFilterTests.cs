@@ -209,4 +209,82 @@ public class AircraftFeedFilterTests
         Assert.Equal(0.123, r.flaps);
         Assert.Equal(100.0, r.rotorRpm);
     }
+
+    [Fact]
+    public void Rounded_LeavesPitchAndBankUnrounded()
+    {
+        var s = Parked();
+        s.pitch = 2.123456789;
+        s.bank = -17.987654321;
+
+        var r = s.Rounded();
+
+        Assert.Equal(2.123456789, r.pitch);
+        Assert.Equal(-17.987654321, r.bank);
+    }
+
+    [Fact]
+    public void ChangeOfPitchOrBank_IsASend()
+    {
+        var s = Parked();
+        s.pitch = 1.0;
+        s.bank = 2.0;
+        filter.ShouldSend(key, s);
+
+        now += 1.0;
+        Assert.False(filter.ShouldSend(key, s));
+
+        now += 1.0;
+        s.pitch = 1.001;
+        Assert.True(filter.ShouldSend(key, s));
+
+        now += 1.0;
+        s.bank = 2.001;
+        Assert.True(filter.ShouldSend(key, s));
+    }
+
+    [Fact]
+    public void AttitudeAppearingAfterBeingUnknown_IsASend()
+    {
+        var s = Parked();
+        filter.ShouldSend(key, s);
+
+        now += 1.0;
+        s.pitch = 0.0;
+        s.bank = 0.0;
+        Assert.True(filter.ShouldSend(key, s));
+    }
+
+    [Fact]
+    public void AttitudeWireDegrees_FlipsSimSigns_NoseUpAndRightWingDownArePositive()
+    {
+        // the simulator reports pitch positive nose down and bank positive left
+        Assert.Equal(-90.0, AircraftSnapshot.AttitudeWireDegrees(Math.PI / 2), 9);
+        Assert.Equal(30.0, AircraftSnapshot.AttitudeWireDegrees(-Math.PI / 6), 9);
+    }
+
+    [Fact]
+    public void AddAttitudeTo_WritesRawPitchAndBank()
+    {
+        var s = Parked();
+        s.pitch = 2.123456789;
+        s.bank = -17.987654321;
+        var json = new Newtonsoft.Json.Linq.JObject();
+
+        s.AddAttitudeTo(json);
+
+        Assert.Equal(2.123456789, (double)json["pitch"]);
+        Assert.Equal(-17.987654321, (double)json["bank"]);
+    }
+
+    [Fact]
+    public void AddAttitudeTo_OmitsTheFieldsWhenUnknown()
+    {
+        var json = new Newtonsoft.Json.Linq.JObject();
+
+        Parked().AddAttitudeTo(json);
+
+        Assert.False(json.ContainsKey("pitch"));
+        Assert.False(json.ContainsKey("bank"));
+    }
 }
