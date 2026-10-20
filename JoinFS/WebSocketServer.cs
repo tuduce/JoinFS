@@ -208,7 +208,8 @@ namespace JoinFS
                 snap.altitude  = pos.geo.y * Sim.FEET_PER_METRE;
                 // compass 0-359: playback's running heading is unwrapped (361, 722, ...) and would fail Vector.IsPlausibleHeading
                 snap.heading   = Vector.HeadingDegrees(pos.angles.y);
-                // attitude is part of the position every peer already exchanges, so the UDP protocol is untouched
+                // attitude is part of the position every peer already exchanges, so the UDP protocol is untouched;
+                // signs are the simulator's own (PLANE PITCH / BANK DEGREES)
                 snap.pitch     = AircraftSnapshot.AttitudeWireDegrees(pos.angles.x);
                 snap.bank      = AircraftSnapshot.AttitudeWireDegrees(pos.angles.z);
                 snap.onGround  = pos.ground != 0;

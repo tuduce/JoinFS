@@ -256,11 +256,10 @@ public class AircraftFeedFilterTests
     }
 
     [Fact]
-    public void AttitudeWireDegrees_FlipsSimSigns_NoseUpAndRightWingDownArePositive()
+    public void AttitudeWireDegrees_ConvertsRadiansAndKeepsTheSimulatorSign()
     {
-        // the simulator reports pitch positive nose down and bank positive left
-        Assert.Equal(-90.0, AircraftSnapshot.AttitudeWireDegrees(Math.PI / 2), 9);
-        Assert.Equal(30.0, AircraftSnapshot.AttitudeWireDegrees(-Math.PI / 6), 9);
+        Assert.Equal(90.0, AircraftSnapshot.AttitudeWireDegrees(Math.PI / 2), 9);
+        Assert.Equal(-30.0, AircraftSnapshot.AttitudeWireDegrees(-Math.PI / 6), 9);
     }
 
     [Fact]
