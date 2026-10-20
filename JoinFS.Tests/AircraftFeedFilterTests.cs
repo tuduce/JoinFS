@@ -256,10 +256,17 @@ public class AircraftFeedFilterTests
     }
 
     [Fact]
-    public void AttitudeWireDegrees_ConvertsRadiansAndKeepsTheSimulatorSign()
+    public void BankWireDegrees_ConvertsRadiansAndKeepsTheSimulatorSign()
     {
-        Assert.Equal(90.0, AircraftSnapshot.AttitudeWireDegrees(Math.PI / 2), 9);
-        Assert.Equal(-30.0, AircraftSnapshot.AttitudeWireDegrees(-Math.PI / 6), 9);
+        Assert.Equal(90.0, AircraftSnapshot.BankWireDegrees(Math.PI / 2), 9);
+        Assert.Equal(-30.0, AircraftSnapshot.BankWireDegrees(-Math.PI / 6), 9);
+    }
+
+    [Fact]
+    public void PitchWireDegrees_ConvertsRadiansAndFlipsTheSign_NoseUpIsPositive()
+    {
+        Assert.Equal(-90.0, AircraftSnapshot.PitchWireDegrees(Math.PI / 2), 9);
+        Assert.Equal(30.0, AircraftSnapshot.PitchWireDegrees(-Math.PI / 6), 9);
     }
 
     [Fact]

@@ -17,8 +17,8 @@ namespace JoinFS
         public string registration, icaoAirline, flightNumber;
         public double altitude, speed, latitude, longitude;
         public int heading;
-        // degrees, signed like the simulator's PLANE PITCH / PLANE BANK DEGREES (what panels such as the Garmin G5
-        // already expect), sent unrounded; null when unknown (hub users carry no attitude) - then the fields are
+        // degrees, pitch positive nose up, bank signed like the simulator's PLANE BANK DEGREES (what panels such as
+        // the Garmin G5 expect), sent unrounded; null when unknown (hub users carry no attitude) - then the fields are
         // left out of the JSON altogether
         public double? pitch, bank;
         public string com1, com2, squawk;
@@ -30,8 +30,11 @@ namespace JoinFS
         public double rotorRpm;
         public bool onGround;
 
-        /// <summary>Converts a simulator attitude angle from radians to the degrees the feed sends; the sign is kept.</summary>
-        public static double AttitudeWireDegrees(double simRadians) => simRadians * (180.0 / Math.PI);
+        /// <summary>Simulator pitch (radians, positive nose down in JoinFS) as feed degrees, positive nose up.</summary>
+        public static double PitchWireDegrees(double simRadians) => -simRadians * (180.0 / Math.PI);
+
+        /// <summary>Simulator bank (radians) as feed degrees; the sign is kept.</summary>
+        public static double BankWireDegrees(double simRadians) => simRadians * (180.0 / Math.PI);
 
         /// <summary>Adds pitch and bank to the aircraft's JSON, or nothing when the attitude is unknown.</summary>
         public readonly void AddAttitudeTo(JObject json)
