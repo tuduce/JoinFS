@@ -622,7 +622,7 @@
     <value>오프라인</value>
   </data>
   <data name="Unreachable" xml:space="preserve">
-    <value>여기서 접속 불가</value>
+    <value>접속 불가</value>
   </data>
   <data name="OK" xml:space="preserve">
     <value>확인</value>

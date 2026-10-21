@@ -281,7 +281,7 @@ namespace JoinFS
                                 bool ignore = main.log.IgnoreNode(ref hub.guid) || main.log.IgnoreNode(hub.endPoint.Address);
 
                                 // add row
-                                Item item = new(hub.name, hub.guid, hub.nuid, status, hub.online, hub.addressText, hub.endPoint, hub.users, hub.planes + hub.helicopters, hub.atcAirport, hub.nextEvent, hub.voip, hub.about, entry, ignore, hub.appVersion);
+                                Item item = new(hub.name.Length > 0 ? hub.name : hub.addressText, hub.guid, hub.nuid, status, hub.online, hub.addressText, hub.endPoint, hub.users, hub.planes + hub.helicopters, hub.atcAirport, hub.nextEvent, hub.voip, hub.about, entry, ignore, hub.appVersion);
                                 itemList.Add(item);
                             }
                         }

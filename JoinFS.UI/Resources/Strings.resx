@@ -622,7 +622,7 @@
     <value>Offline</value>
   </data>
   <data name="Unreachable" xml:space="preserve">
-    <value>Unreachable from here</value>
+    <value>Unreachable</value>
   </data>
   <data name="OK" xml:space="preserve">
     <value>OK</value>
