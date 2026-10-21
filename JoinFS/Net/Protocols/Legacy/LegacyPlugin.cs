@@ -741,6 +741,10 @@ namespace JoinFS.Net.Legacy
 
         public void OnDatagram(IPEndPoint from, ReadOnlySpan<byte> datagram)
         {
+            if (from.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+            {
+                return; // the legacy wire names nodes by IPv4 address; it is never spoken over IPv6
+            }
             Stats.Total.Record(datagram.Length);
             if (datagram.Length < LegacyWire.DataOffset)
             {

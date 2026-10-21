@@ -1,8 +1,10 @@
 using System;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 using JoinFS.Net.Legacy;
 
@@ -35,6 +37,7 @@ namespace JoinFS.Net
         Thread thread;
         volatile bool running;
         volatile NetworkSnapshot snapshot = NetworkSnapshot.Empty;
+        string loggedSocketMode;
         double nextTick;
         double nextSnapshot;
 
@@ -48,6 +51,26 @@ namespace JoinFS.Net
         /// <summary>The UDP port currently bound (0 when closed).</summary>
         public int Port => transport.LocalPort;
 
+        /// <summary>
+        /// Open the socket dual-mode (IPv6 and IPv4). On by default; off for an IPv4-only node
+        /// (the IPv6 setting, <c>-noipv6</c>). Takes effect at the next <see cref="Open"/>.
+        /// </summary>
+        public bool Ipv6Enabled
+        {
+            get => transport.Ipv6Enabled;
+            set => transport.Ipv6Enabled = value;
+        }
+
+        /// <summary>
+        /// Serve IPv4. Off only for a test instance that behaves as an IPv6-only node (<c>-noipv4</c>).
+        /// Takes effect at the next <see cref="Open"/>.
+        /// </summary>
+        public bool Ipv4Enabled
+        {
+            get => transport.Ipv4Enabled;
+            set => transport.Ipv4Enabled = value;
+        }
+
         public NetworkService(IClock clock = null, Func<string, CredentialStore> credentialStoreFactory = null)
         {
             this.clock = clock ?? SystemClock.Instance;
@@ -55,7 +78,16 @@ namespace JoinFS.Net
             Legacy = new LegacyPlugin((ushort)Stopwatch.GetTimestamp());
             Core.AddPlugin(Legacy);
             // stamped on the receive thread, as soon as the datagram arrives (MessageMeta.ReceivedAt)
-            transport.Received += (from, buffer, length) => mailbox.Add(DatagramWork.Rent(from, buffer, length, this.clock.Now));
+            transport.Received += (from, buffer, length) =>
+            {
+                if (from.AddressFamily != AddressFamily.InterNetwork)
+                {
+                    // nothing above the transport speaks IPv6 yet (the core's peers are IPv4 legacy ids)
+                    ArrayPool<byte>.Shared.Return(buffer);
+                    return;
+                }
+                mailbox.Add(DatagramWork.Rent(from, buffer, length, this.clock.Now));
+            };
             transport.SendFailed += (to, error) => Core.Log(NetLogLevel.Event, error + ", " + to);
             Core.Identity.LocalAddress = LocalIdentity.DetectLocalAddress();
         }
@@ -120,6 +152,13 @@ namespace JoinFS.Net
         /// Open (or move to) a UDP port. Moving leaves any current session first, on the old port,
         /// like LocalNode.Open did. Runs on the network thread; the caller waits for the result.
         /// </summary>
+        string SocketModeText() =>
+            transport.IsDualStack ? "IPv4 and IPv6 (dual-mode)"
+            : transport.IsIPv6Only ? "IPv6 only (IPv4 is turned off)"
+            : transport.FallbackReason != null ? "IPv4 only (IPv6 is not available: " + transport.FallbackReason + ")"
+            : !transport.Ipv6Enabled ? "IPv4 only (IPv6 is turned off)"
+            : "IPv4 only";
+
         public bool Open(int port, out string error)
         {
             bool ok = false;
@@ -132,6 +171,15 @@ namespace JoinFS.Net
                 }
                 ok = transport.Open(port, out failure);
                 core.IsOpen = ok;
+                if (ok)
+                {
+                    string mode = SocketModeText();
+                    if (mode != loggedSocketMode)
+                    {
+                        loggedSocketMode = mode;
+                        core.Log(NetLogLevel.Event, "NETWORK: socket on port " + transport.LocalPort + ": " + mode);
+                    }
+                }
                 if (ok) core.Identity.Port = (ushort)transport.LocalPort;
                 nextSnapshot = 0;
             }
@@ -267,6 +315,8 @@ namespace JoinFS.Net
             return new NetworkSnapshot
             {
                 Open = Core.IsOpen,
+                DualStack = transport.IsDualStack,
+                Ipv6Only = transport.IsIPv6Only,
                 Port = Core.Identity.Port,
                 LocalId = Core.Identity.Id,
                 LocalAddress = Core.Identity.LocalAddress,

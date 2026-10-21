@@ -22,6 +22,12 @@ namespace JoinFS.Tests.Net
             public void OnNetworkEvent(in NetworkEvent e) { if (e.Kind != NetworkEventKind.Log) Events.Add(e); }
         }
 
+        sealed class LogCollector : IMessageHandler, INetworkEventHandler
+        {
+            public readonly List<string> Lines = [];
+            public void OnNetworkEvent(in NetworkEvent e) { if (e.Kind == NetworkEventKind.Log) Lines.Add(e.Text); }
+        }
+
         static NetworkService StartNode(out int port)
         {
             var service = new NetworkService();
@@ -84,6 +90,52 @@ namespace JoinFS.Tests.Net
             Assert.Equal(47.5, hubApp.Positions[0].Latitude);
             Assert.Equal("TEST1", hubApp.Identities.Single().Callsign);
             Assert.True(hub.Snapshot.PeerList[0].Rtt < 1.0f);
+        }
+
+        [Fact]
+        public void Ipv6Setting_ChoosesDualStackOrIPv4OnlySocket()
+        {
+            if (!System.Net.Sockets.Socket.OSSupportsIPv6) return;
+            using var on = new NetworkService();
+            Assert.True(on.Open(0, out string error), error);
+            Assert.True(on.Snapshot.DualStack);
+
+            using var off = new NetworkService { Ipv6Enabled = false };
+            Assert.True(off.Open(0, out error), error);
+            Assert.False(off.Snapshot.DualStack);
+        }
+
+        [Fact]
+        public void DualStackHub_AcceptsIPv4Client_ReportedAsIPv4()
+        {
+            using NetworkService hub = StartNode(out int hubPort);
+            using NetworkService client = StartNode(out _);
+            var hubApp = new Collector();
+            var clientApp = new Collector();
+            void Pump() { hub.Drain(hubApp, hubApp); client.Drain(clientApp, clientApp); }
+            hub.Post(core => core.Mesh.Create(false, 0, false, ""));
+            client.Post(core => core.Mesh.Join(new IPEndPoint(IPAddress.Loopback, hubPort), 0));
+            Assert.True(WaitFor(() => hub.Snapshot.PeerList.Count == 1 && hub.Snapshot.PeerList[0].SendEstablished, Pump), "session did not establish");
+            Assert.Equal(System.Net.Sockets.AddressFamily.InterNetwork, hub.Snapshot.PeerList[0].EndPoint.AddressFamily);
+        }
+
+        [Fact]
+        public void SocketMode_IsLoggedOnOpen_ForEachMode()
+        {
+            if (!System.Net.Sockets.Socket.OSSupportsIPv6) return;
+            foreach (var (v4, v6, expected) in new[]
+            {
+                (true, true, "IPv4 and IPv6"),
+                (true, false, "IPv4 only (IPv6 is turned off)"),
+                (false, true, "IPv6 only"),
+            })
+            {
+                using var service = new NetworkService { Ipv4Enabled = v4, Ipv6Enabled = v6 };
+                Assert.True(service.Open(0, out string error), error);
+                var logs = new LogCollector();
+                service.Drain(logs, logs);
+                Assert.Contains(logs.Lines, l => l.StartsWith("NETWORK: socket on port ") && l.Contains(expected));
+            }
         }
     }
 }

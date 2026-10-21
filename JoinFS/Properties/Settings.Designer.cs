@@ -1705,6 +1705,18 @@ namespace JoinFS.Properties {
 
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool Ipv6 {
+            get {
+                return ((bool)(this["Ipv6"]));
+            }
+            set {
+                this["Ipv6"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]
         public string UnlinkedCslSources {
             get {

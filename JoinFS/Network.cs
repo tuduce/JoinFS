@@ -56,7 +56,11 @@ namespace JoinFS
             nodeKeys = new NodeKeyStore(main.storagePath, host);
             host.Event("Unique address is " + UserDirectory.UuidToString(main.uuid));
 
-            service = new NetworkService(credentialStoreFactory: folder => new CredentialStore(main.documentsPath, main.MonitorEvent));
+            service = new NetworkService(credentialStoreFactory: folder => new CredentialStore(main.documentsPath, main.MonitorEvent))
+            {
+                Ipv6Enabled = main.settingsIpv6,
+                Ipv4Enabled = main.settingsIpv4,
+            };
             // the protocols this build speaks (legacy is built in; newer ones win per peer and
             // message kind where both sides negotiated them). JFP2 tells each neighbor which build
             // this is, e.g. "26.6.0 JoinFS-FS2024".

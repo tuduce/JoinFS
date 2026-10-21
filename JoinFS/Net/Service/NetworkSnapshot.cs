@@ -33,6 +33,12 @@ namespace JoinFS.Net
         public static readonly NetworkSnapshot Empty = new() { Peers = new Dictionary<NodeId, PeerSnapshot>(), PeerList = [] };
 
         public bool Open { get; init; }
+
+        /// <summary>The socket serves IPv6 as well as IPv4.</summary>
+        public bool DualStack { get; init; }
+
+        /// <summary>The socket serves IPv6 only (a <c>-noipv4</c> test instance).</summary>
+        public bool Ipv6Only { get; init; }
         public int Port { get; init; }
         public NodeId LocalId { get; init; }
         public bool Ready => LocalId.Valid();

@@ -171,6 +171,12 @@ namespace JoinFS
 
         public string settingsLocalAddress = "";
 
+        /// <summary>Use IPv6 as well as IPv4 (the IPv6 setting; <c>-noipv6</c> turns it off for this run).</summary>
+        public bool settingsIpv6 = true;
+
+        /// <summary>Use IPv4 (<c>-noipv4</c> turns it off for this run, to test as an IPv6-only node; never stored).</summary>
+        public bool settingsIpv4 = true;
+
 #if CONSOLE
         public bool settingsBackground = false;
         public int settingsBackgroundDelay = 100;
@@ -292,6 +298,7 @@ namespace JoinFS
                 settingsWhazzup = Settings.Default.Whazzup;
                 settingsWhazzupPublic = Settings.Default.WhazzupGlobal;
                 settingsMultiObjects = Settings.Default.MultipleObjectsEveryone;
+                settingsIpv6 = Settings.Default.Ipv6;
                 settingsLoop = Settings.Default.Loop;
                 settingsXplane = Settings.Default.XPlane;
                 settingsTcas = Settings.Default.TCAS;
@@ -400,6 +407,16 @@ namespace JoinFS
                             case "-hub":
                                 // enable hub mode
                                 settingsHub = true;
+                                break;
+
+                            case "-noipv4":
+                                // IPv6 only: this instance behaves as a node with no IPv4 route (test switch)
+                                settingsIpv4 = false;
+                                break;
+
+                            case "-noipv6":
+                                // IPv4 only, whatever the IPv6 setting says
+                                settingsIpv6 = false;
                                 break;
 
                             case "-localaddress":
