@@ -20,6 +20,8 @@ namespace JoinFS.Net.Jfp2
         /// must take the partition too once internal classes become descriptors (the mesh over JFP2).</summary>
         readonly ClassDescriptor[] byClass = new ClassDescriptor[256];
         readonly ClassDescriptor[] byKind = new ClassDescriptor[(int)MessageKind.Count];
+        /// <summary>The segmented class of a kind (<see cref="ClassDescriptor.Segmented"/>), beside the class <see cref="byKind"/> holds.</summary>
+        readonly ClassDescriptor[] segmentedByKind = new ClassDescriptor[(int)MessageKind.Count];
 
         /// <summary>The classes, each with its own class number and kind; they are offered in this order. No capabilities.</summary>
         public Jfp2Profile(params ClassDescriptor[] classes) : this(0, classes, [])
@@ -35,12 +37,13 @@ namespace JoinFS.Net.Jfp2
             for (int i = 0; i < classes.Length; i++)
             {
                 ClassDescriptor c = classes[i];
-                if (byClass[c.MessageClass] != null || byKind[(int)c.Kind] != null)
+                ClassDescriptor[] kinds = c.Segmented ? segmentedByKind : byKind;
+                if (byClass[c.MessageClass] != null || kinds[(int)c.Kind] != null)
                 {
                     throw new ArgumentException("JFP2 profile: class " + c.MessageClass + " (" + c.Kind + ") repeats a class number or a kind");
                 }
                 byClass[c.MessageClass] = c;
-                byKind[(int)c.Kind] = c;
+                kinds[(int)c.Kind] = c;
                 offers[i] = c.Offer;
             }
             internalOffers.CopyTo(offers, classes.Length);
@@ -82,8 +85,14 @@ namespace JoinFS.Net.Jfp2
             ClassDescriptor.Plain(MessageClasses.UserPositions, guaranteed: false, new UserPositionsV1Codec()),
             ClassDescriptor.Plain(MessageClasses.Online, guaranteed: false, new OnlineV1Codec()),
             ClassDescriptor.Plain(MessageClasses.UserLookup, guaranteed: false, new UserLookupV1Codec()),
-            ClassDescriptor.Plain(MessageClasses.UserLookupAnswer, guaranteed: false, new UserLookupAnswerV1Codec()))
-            .WithInternalOffers(MembershipClasses);
+            ClassDescriptor.Plain(MessageClasses.UserLookupAnswer, guaranteed: false, new UserLookupAnswerV1Codec()),
+            ClassDescriptor.SentByPlugin(MessageClasses.ObjectPosition, guaranteed: false, new ObjectPositionUpdateV1Codec()),
+            ClassDescriptor.Plain(MessageClasses.RemoveObject, guaranteed: true, new RemoveObjectV1Codec()),
+            ClassDescriptor.Plain(MessageClasses.PeerInfo, guaranteed: false, new PeerInfoV1Codec()),
+            ClassDescriptor.Plain(MessageClasses.CommsRequest, guaranteed: true, new CommsRequestV1Codec()),
+            ClassDescriptor.Large(MessageClasses.NotesHistory, new NotesHistoryV1Codec()))
+            .WithInternalOffers(MembershipClasses)
+            .WithCapabilities(Jfp2Capabilities.Segments);
 
         /// <summary>The wire carries no owner: the aircraft is the sender's (or the relayed origin's).</summary>
         static void DeliverFlightPlan(IProtocolHost host, in MessageMeta meta, in FlightPlanUpdate plan)
@@ -113,8 +122,8 @@ namespace JoinFS.Net.Jfp2
         public IReadOnlyList<SchemaOffer> Offers { get; }
 
         /// <summary>
-        /// The capability bits advertised in Hello/HelloAck (docs/network/jfp2/protocol.md §5.6). None
-        /// is assigned yet, so this build advertises none; a capability comes with the design that
+        /// The capability bits advertised in Hello/HelloAck (docs/network/jfp2/protocol.md §5.6).
+        /// <see cref="Jfp2Capabilities"/> names the assigned ones; a capability comes with the design that
         /// needs it, and tests set bits to run builds that differ in them.
         /// </summary>
         public ulong Capabilities { get; }
@@ -124,6 +133,9 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>The class that carries this kind, or null when JFP2 does not.</summary>
         public ClassDescriptor ForKind(MessageKind kind) => byKind[(int)kind];
+
+        /// <summary>The segmented class that carries this kind in larger messages (the notes history), or null.</summary>
+        public ClassDescriptor<T> ForSegmentedKind<T>(MessageKind kind) => segmentedByKind[(int)kind] as ClassDescriptor<T>;
 
         /// <summary>The class that carries this kind with codecs of <typeparamref name="T"/>, or null.</summary>
         public ClassDescriptor<T> ForKind<T>(MessageKind kind) => byKind[(int)kind] as ClassDescriptor<T>;

@@ -171,10 +171,13 @@ local JFP2_APP_CLASS = {
     -- the directory (edition 2, §5.16)
     [10] = "HubList", [11] = "UserListRequest", [12] = "HubUser", [13] = "UserPositionsRequest",
     [14] = "UserPositions", [15] = "Online", [16] = "UserLookup", [17] = "UserLookupAnswer",
+    -- the kinds legacy alone carried, and the notes history in segments (edition 2, §9.4, §9.8)
+    [18] = "ObjectPosition", [19] = "RemoveObject", [20] = "PeerInfo", [21] = "CommsRequest", [22] = "NotesHistory",
 }
 
--- Capability bits (docs/network/jfp2/protocol.md §5.6): none assigned yet
+-- Capability bits (docs/network/jfp2/protocol.md §5.6)
 local JFP2_CAPABILITY_BITS = {
+    [0] = "Segments",
 }
 
 -- HelloAck Result values (docs/network/jfp2/protocol.md §5.2); any other
@@ -1083,6 +1086,11 @@ local function decode_jfp2_application(tree, buffer, offset, class)
         decode_jfp2_user_lookup_answer(tree, buffer, offset)
     elseif name == "UserListRequest" or name == "UserPositionsRequest" then
         if offset < len then tree:add(buffer(offset, 1), "Reserved: " .. buffer(offset, 1):uint()) end
+    elseif name == "RemoveObject" and len >= offset + 4 then
+        tree:add(buffer(offset, 4), "ObjectId: " .. buffer(offset, 4):le_uint())
+    elseif name == "CommsRequest" and len >= offset + 1 then
+        local scope = buffer(offset, 1):uint()
+        tree:add(buffer(offset, 1), "Scope: " .. scope .. " (" .. (({ [0] = "Session", [1] = "Global", [2] = "All" })[scope] or "unknown") .. ")")
     elseif offset < len then
         tree:add(buffer(offset, len - offset), (name or ("Unknown(" .. class .. ")")) ..
             " payload (undecoded, " .. (len - offset) .. " bytes)")

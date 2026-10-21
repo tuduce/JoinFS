@@ -220,7 +220,12 @@ internal partition, like any other class: a node sends them only on a session wh
 | 15 | Online | no | Edition 2, 5.16 |
 | 16 | UserLookup | no | Edition 2, 5.16 |
 | 17 | UserLookupAnswer | no | Edition 2, 5.16 |
-| 18–254 | — | | Unassigned. |
+| 18 | ObjectPosition | no | Edition 2, 9.4 |
+| 19 | RemoveObject | yes | Edition 2, 9.4 |
+| 20 | PeerInfo | no | Edition 2, 9.4 |
+| 21 | CommsRequest | yes | Edition 2, 9.4 |
+| 22 | NotesHistory | yes | Edition 2, 9.8 (may need segments, 7.5) |
+| 23–254 | — | | Unassigned. |
 | 255 | Extended | | Reserved, never assigned. |
 
 A sender MUST send only classes the receiver offered and the session agreed (§5.5). A message of
@@ -237,7 +242,8 @@ Present when the Guaranteed flag is set, after the fixed header.
 | 2 | 1 | GuaranteedIndex |
 | 3 | 1 | GuaranteedCount |
 
-Release 1 sends index `0` and count `1`: a guaranteed message is one datagram. Behaviour is in §7.
+Release 1 sends index `0` and count `1`: a guaranteed message is one datagram. Edition 2 sends a count above `1` for the one
+class that needs it (§7.5). Behaviour is in §7.
 
 ### 3.5 Forwarded extension (16 bytes)
 
@@ -449,6 +455,10 @@ The capability field is a u64 bitset for behaviour not tied to one class's schem
 the bitwise AND of both sides' sets. **No bit is assigned in release 1**, and a node advertises
 none. A bit is assigned together with the design that needs it, and with any flag it defines
 (§3.2).
+
+| Bit | Name | Edition | Meaning |
+|---|---|---|---|
+| 0 | Segments | 2 | A guaranteed message of a class that allows it MAY be sent to this neighbour in several segments (§7.5). |
 
 ### 5.7 Handshake procedure
 
@@ -976,9 +986,25 @@ A relay that translates (§8.4) also:
 
 ### 7.5 Segments
 
-The fields allow a message of up to 255 segments of 1,100 payload bytes. Release 1 sends none. A
-receiver that gets a datagram with count above 1 MUST drop it and MUST NOT acknowledge it, so that
-its sender does not take a message that was never delivered as delivered.
+The fields allow a message of up to 255 segments of 1,100 payload bytes. Release 1 sends none.
+Edition 2 sends them for the one class that is larger than a datagram, NotesHistory (§9.8), and only to
+a neighbour that agreed the Segments capability (§5.6).
+
+- **Sending.** The payload is cut into segments of 1,100 bytes, the last one shorter. Every segment has the
+  same GuaranteedId and GuaranteedCount (2 to 255) and its own GuaranteedIndex (0 to count − 1), and is
+  pending, resent every 2 s, acknowledged and given up (§7.1) on its own. A message is sent in segments only
+  to a *direct* neighbour that agreed the capability; to any other target, relayed or of a build that did not
+  agree it, the sender sends the notes of a history one by one (§9.8). A relay therefore never meets a segment
+  it must translate: one it meets for another node is passed on like any other Forwarded datagram (§8.3), and one
+  it would have to translate is dropped and not acknowledged.
+- **Receiving.** A segment is acknowledged when it is kept (§7.3 applies to its index), a duplicate again. The
+  receiver holds the segments of a message until the last one arrives, then delivers the message once. Duplicates
+  are suppressed on the completed message by (origin, id), never per segment. It keeps at most 8 messages in
+  pieces for 180 s, and drops without acknowledging a segment beyond that, one whose count differs from the
+  count of the first segment of its message, and one whose index is not below its count.
+- **Not agreed.** A receiver that gets a datagram with count above 1 for a class that does not allow segments, or from
+  a neighbour that did not agree the capability, MUST drop it and MUST NOT acknowledge it, so that its sender does
+  not take a message that was never delivered as delivered.
 
 ---
 
@@ -1104,6 +1130,10 @@ entry always fits. The owner of the object is the origin of the datagram; there 
 | Notes (5) | One comms note: Guid 16, strings Nickname, Callsign, then NoteId u32, Age f32, Channel u16, string Text. A bulk "all notes" reply is one Notes message per note. |
 | Weather (6), WeatherReply (9) | String Metar |
 | StatusRequest (8) | Flags u8 (HubEnabled 1, HubListRequested 2), Uuid u32: 5 bytes |
+| ObjectPosition (18) | ObjectId u32, NetTime f64, Latitude, Longitude, Altitude f64 × 3, Pitch, Bank, Heading, VelocityX, VelocityY, VelocityZ, AngularVelocityX, AngularVelocityY, AngularVelocityZ, AccelerationX, AccelerationY, AccelerationZ, Height f32 × 13, StateFlags u8 (OnGround 1, ElevationCorrection 2, Paused 8): 89 bytes. A position of a non-aircraft object (boat, vehicle); its Identity (§9.2) goes first, as for a Position. The owner is the origin. |
+| RemoveObject (19) | ObjectId u32: 4 bytes. The owner is the origin. Guaranteed. |
+| PeerInfo (20) | Share u8 (Cockpit 1, FlightControls 2, AncillaryControls 4, NavControls 8: what the sender shares with the recipient), Flags u8 (Hub 1, Atc 2, SimulatorConnected 4), Guid 16, AtcLevel u8, AtcFrequency i16, ActivityCircle u8, strings Nickname, AtcAirport, Version, Simulator |
+| CommsRequest (21) | Scope u8 (Session 0, Global 1, All 2): 1 byte. Asks for the recipient notes; the answer is Notes messages (5) or a NotesHistory (22). Guaranteed. |
 | Status (7) | Guid 16, string AppVersion, Users u16, AtcCount u16, string AtcAirport, AtcLevel u8, Planes, Helicopters, Boats, Vehicles u16 × 4, HubFlags u8 (HubEnabled 1, GlobalSession 2, PasswordRequired 4), strings Address, Name, About, Voip, NextEvent, Airport, ActivityCircle i32 |
 
 Status always carries every field; no part is conditional.
@@ -1117,7 +1147,9 @@ name, so no negotiation is needed.
 ### 9.6 Not carried by JFP2
 
 Always legacy in release 1: object positions of non-aircraft objects, RemoveObject, ShowOnRadar,
-PeerInfo, WeatherRequest, hub directory messages, comms requests and all mesh messages.
+PeerInfo, WeatherRequest, hub directory messages, comms requests and all mesh messages. Edition 2
+carries all of these over JFP2 except ShowOnRadar and WeatherRequest, which nothing acts on or sends
+and which stay legacy.
 
 ### 9.7 Field limits
 
@@ -1134,13 +1166,28 @@ fits the 1,100-byte payload ceiling (§3.6) by construction. A sender cuts per �
 | Notes | 26 + 3 prefixes = 32 | Nickname 32, Callsign 32, Text 768 | 864 |
 | Weather, WeatherReply | 2 | Metar 1,024 | 1,026 |
 | StatusRequest | 5 | — | 5 |
+| ObjectPosition | 89 | — | 89 |
+| RemoveObject | 4 | — | 4 |
+| CommsRequest | 1 | — | 1 |
+| PeerInfo | 22 + 4 prefixes = 30 | Nickname 32, AtcAirport 8, Version 32, Simulator 32 | 134 |
+| NotesHistory | 3 | per user 18 + 2 prefixes, Nickname 32, Callsign 32; per note 10 + 1 prefix, Text 768 | 255 × 1,100 = 280,500 (segments, §7.5) |
 | Status | 34 + 8 prefixes = 50 | AppVersion 32, AtcAirport 8, Address 128, Name 64, About 512, Voip 128, NextEvent 128, Airport 8 | 1,058 |
 
 The largest, Status at 1,058 bytes, makes a 1,086-byte datagram with every header, 1,110 with the
 room kept for per-hop protection. Handshakes are about 100 bytes (`Build` is at most 64). A later
-schema version of a class MAY raise its limits once multi-segment delivery exists. A text cut to a
+schema version of a class MAY raise its limits now that multi-segment delivery exists (§7.5). A text cut to a
 limit (a hub's About, a long note) can differ from what legacy peers receive for the same message,
 since legacy has no such limits.
+
+### 9.8 NotesHistory (class 22, version 1)
+
+The notes a node holds for several users, as one guaranteed message: the answer to a CommsRequest (§9.4), and for a
+late joiner the chat that was written before it came. Scope u8 (the CommsRequest scope), `UserCount` u16, then per user
+`Guid` 16, strings `Nickname` and `Callsign` (the limits of Notes, §9.7), `NoteCount` u16, then per note `NoteId` u32,
+`Age` f32, `Channel` u16 and the string `Text` (768). A user may have no notes, so that a bulk reply announces every
+user. The message is cut at 280,500 bytes, whole notes and then whole users from the end. It is the only class that
+needs segments (§7.5); a sender that cannot use them sends the same notes as Notes messages (5), one each, to
+the same effect except that a user without notes is not announced. Both reach the application as a bundle of notes.
 
 ---
 
@@ -1170,14 +1217,14 @@ cited rule says.
 |---|---|---|---|
 | Flag bits (§3.2) | 8 bits | 0 Guaranteed, 1 Forwarded, 3 Internal; 2 Coalesced reserved | Drop the datagram |
 | Internal classes (§3.3) | u8 | 0 Hello, 1 HelloAck, 2 Join, 3 JoinResult, 4 MemberList, 5 MemberAnnounce, 6 MemberLeave, 7 RouteQuery, 8 RouteAnswer, 9 GuaranteedDone | Not agreed: drop, do not acknowledge |
-| Application classes (§3.3) | u8 | 0–17; 255 reserved as Extended | Not agreed: drop, do not acknowledge |
+| Application classes (§3.3) | u8 | 0–22; 255 reserved as Extended | Not agreed: drop, do not acknowledge |
 | Offer partitions (§5.3) | u8 | 0 application, 1 internal | Skip the offer |
 | Handshake `Result` (§5.2) | u8 | 0, 1, 2 | Read as "no session now" |
 | Handshake TLV tags (§5.4) | u16 | 1 Names, 2 Build, 3 ObservedEndPoint, 4 Admission, 5 Candidates | Skip |
 | Schema versions of internal classes (§5.5) | u8 | 1 for each, and 2 for MemberList and MemberAnnounce (§5.14) and JoinResult (§5.15) | Not agreed: the lower common version, or none |
 | Name kinds (§4.3) | u8 | 0 and 2 assigned (2 since edition 2); 1, 255 reserved | Skip; unresolvable |
 | `WireEndPoint` families (§4.4) | u8 | 4 IPv4, 6 IPv6 | Ignore the value |
-| Capability bits (§5.6) | 64 | none | Not in the AND of both sides, so never agreed |
+| Capability bits (§5.6) | 64 | 0 Segments | Not in the AND of both sides, so never agreed |
 | ProtoMajor (§3.1) | u8 | 2 | Drop the datagram |
 
 ### 10.3 Adding a class or a schema version
@@ -1475,6 +1522,7 @@ The bodies of A.16 and A.17 are pinned by `JoinFS.Tests/Jfp2/DirectoryCodecTests
 | Keepalive Hello | 5 s | 6.2 |
 | Session expiry without an answer | 15 s | 6.2 |
 | Guaranteed retransmit / give up | 2 s / 180 s | 7.1 |
+| Segments of a message / payload per segment / messages in pieces at a receiver | 255 / 1,100 bytes / 8 | 7.5 |
 | Duplicate window | 30 s | 7.2 |
 | Identity heartbeat | 4 s | 9.2 |
 | VariableSync message size | 1,000 bytes, 255 entries | 9.3 |

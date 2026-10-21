@@ -78,6 +78,18 @@ namespace JoinFS.Net.Jfp2
         /// <summary>Where the user is: a name, a port and the endpoints the hub saw it at (§5.16).</summary>
         public const byte UserLookupAnswer = 17;
 
+        // The kinds legacy alone carried until the stand-alone work (§9.4), and the notes history (§9.8).
+        /// <summary>The motion state of a non-aircraft object (boat, vehicle) for one tick (§9.4).</summary>
+        public const byte ObjectPosition = 18;
+        /// <summary>The sender stopped showing one of its objects (§9.4).</summary>
+        public const byte RemoveObject = 19;
+        /// <summary>A node's description of itself: nickname, ATC state, cockpit sharing towards the recipient (§9.4).</summary>
+        public const byte PeerInfo = 20;
+        /// <summary>Ask the recipient for its notes (§9.4).</summary>
+        public const byte CommsRequest = 21;
+        /// <summary>The notes of several users as one guaranteed message, in as many segments as it takes (§7.5, §9.8).</summary>
+        public const byte NotesHistory = 22;
+
         /// <summary>
         /// A class byte of 255 in either partition means "the real class id is a two-byte little-
         /// endian value immediately following this byte" - headroom past 255 classes per partition

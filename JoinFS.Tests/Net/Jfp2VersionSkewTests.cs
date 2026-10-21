@@ -162,8 +162,8 @@ namespace JoinFS.Tests.Net
         [Fact]
         public void BuildsWithOtherCapabilities_AgreeTheBitsBothAdvertise()
         {
-            const ulong x = 1UL << 0, y = 1UL << 1;
-            Assert.Equal(0UL, Jfp2Profile.Default.Capabilities);
+            const ulong x = 1UL << 1, y = 1UL << 2; // bit 0 is Segments, which this build advertises
+            Assert.Equal(Jfp2Capabilities.Segments, Jfp2Profile.Default.Capabilities);
             Assert.Equal(x | y, NoNotes.WithCapabilities(x | y).Without(MessageClasses.Event).Capabilities); // kept by With/Without
             var mesh = new TestMesh();
             TestNode hub = Node(mesh, "203.0.113.1", Jfp2Profile.Default.WithCapabilities(x | y));

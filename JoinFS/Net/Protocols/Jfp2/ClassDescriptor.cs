@@ -15,8 +15,9 @@ namespace JoinFS.Net.Jfp2
     /// </summary>
     public abstract class ClassDescriptor
     {
-        private protected ClassDescriptor(MessageKind kind, byte messageClass, bool guaranteed, bool sentAsIs, (byte Min, byte Max) versions)
+        private protected ClassDescriptor(MessageKind kind, byte messageClass, bool guaranteed, bool sentAsIs, bool segmented, (byte Min, byte Max) versions)
         {
+            Segmented = segmented;
             Kind = kind;
             MessageClass = messageClass;
             Guaranteed = guaranteed;
@@ -48,6 +49,13 @@ namespace JoinFS.Net.Jfp2
         /// </summary>
         public bool SentAsIs { get; }
 
+        /// <summary>
+        /// Its messages may be larger than one datagram: the plugin sends one as guaranteed segments
+        /// (<see cref="Jfp2Capabilities.Segments"/>), to a direct neighbour that agreed that capability only. It carries
+        /// the kind of another class (the notes history carries Notes), which stays the kind's class for <see cref="Jfp2Profile.ForKind"/>.
+        /// </summary>
+        public bool Segmented { get; }
+
         /// <summary>The lowest schema version this class speaks; it has a codec for each up to <see cref="MaxVersion"/>.</summary>
         public byte MinVersion { get; }
 
@@ -61,11 +69,11 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>A plain application class: its canonical message is what goes on the wire, sent and delivered as it is.</summary>
         public static ClassDescriptor<T> Plain<T>(byte messageClass, bool guaranteed, params ICodec<T>[] codecs) where T : struct, IMessage =>
-            new(T.Kind, messageClass, guaranteed, sentAsIs: true, DeliverAsIs<T>(), codecs);
+            new(T.Kind, messageClass, guaranteed, sentAsIs: true, segmented: false, DeliverAsIs<T>(), codecs);
 
         /// <summary>A plain application class whose decoded message is completed on delivery (FlightPlan: the owner is the sender).</summary>
         public static ClassDescriptor<T> Plain<T>(byte messageClass, bool guaranteed, Delivery<T> deliver, params ICodec<T>[] codecs) where T : struct, IMessage =>
-            new(T.Kind, messageClass, guaranteed, sentAsIs: true, deliver, codecs);
+            new(T.Kind, messageClass, guaranteed, sentAsIs: true, segmented: false, deliver, codecs);
 
         /// <summary>
         /// An application class the plugin sends its own way, delivered as it is: Identity ahead of an
@@ -73,14 +81,21 @@ namespace JoinFS.Net.Jfp2
         /// refuses a profile with such a class for a kind it has no sender for.
         /// </summary>
         public static ClassDescriptor<T> SentByPlugin<T>(byte messageClass, bool guaranteed, params ICodec<T>[] codecs) where T : struct, IMessage =>
-            new(T.Kind, messageClass, guaranteed, sentAsIs: false, DeliverAsIs<T>(), codecs);
+            new(T.Kind, messageClass, guaranteed, sentAsIs: false, segmented: false, DeliverAsIs<T>(), codecs);
 
         /// <summary>
         /// An application class the plugin sends its own way whose wire message is not the canonical
         /// one (Notes: one note per message, delivered as a bundle).
         /// </summary>
         public static ClassDescriptor<T> SentByPlugin<T>(MessageKind kind, byte messageClass, bool guaranteed, Delivery<T> deliver, params ICodec<T>[] codecs) =>
-            new(kind, messageClass, guaranteed, sentAsIs: false, deliver, codecs);
+            new(kind, messageClass, guaranteed, sentAsIs: false, segmented: false, deliver, codecs);
+
+        /// <summary>
+        /// A guaranteed class whose messages may need segments (<see cref="Segmented"/>), delivered as it is: the notes
+        /// history. The plugin sends it its own way, when the neighbour agreed the capability and the message is not one note.
+        /// </summary>
+        public static ClassDescriptor<T> Large<T>(byte messageClass, params ICodec<T>[] codecs) where T : struct, IMessage =>
+            new(T.Kind, messageClass, guaranteed: true, sentAsIs: false, segmented: true, DeliverAsIs<T>(), codecs);
 
         /// <summary>Delivery of a decoded message that is already the canonical one.</summary>
         static Delivery<T> DeliverAsIs<T>() where T : struct, IMessage =>
@@ -95,8 +110,8 @@ namespace JoinFS.Net.Jfp2
         readonly Delivery<T> deliver;
 
         /// <summary>Made by the factories of <see cref="ClassDescriptor"/>. <paramref name="codecs"/> are its schema versions, one each, without gaps.</summary>
-        internal ClassDescriptor(MessageKind kind, byte messageClass, bool guaranteed, bool sentAsIs, Delivery<T> deliver, params ICodec<T>[] codecs)
-            : base(kind, messageClass, guaranteed, sentAsIs, Versions(messageClass, codecs))
+        internal ClassDescriptor(MessageKind kind, byte messageClass, bool guaranteed, bool sentAsIs, bool segmented, Delivery<T> deliver, params ICodec<T>[] codecs)
+            : base(kind, messageClass, guaranteed, sentAsIs, segmented, Versions(messageClass, codecs))
         {
             this.deliver = deliver ?? throw new ArgumentNullException(nameof(deliver));
             this.codecs = new ICodec<T>[MaxVersion + 1];
@@ -137,7 +152,7 @@ namespace JoinFS.Net.Jfp2
         public ICodec<T> Codec(byte version) => codecs[version];
 
         /// <summary>The same class speaking other schema versions, as an older or a newer build does.</summary>
-        public ClassDescriptor<T> WithCodecs(params ICodec<T>[] versions) => new(Kind, MessageClass, Guaranteed, SentAsIs, deliver, versions);
+        public ClassDescriptor<T> WithCodecs(params ICodec<T>[] versions) => new(Kind, MessageClass, Guaranteed, SentAsIs, Segmented, deliver, versions);
 
         internal override void Deliver(IProtocolHost host, in MessageMeta meta, byte version, ReadOnlySpan<byte> payload)
         {

@@ -47,7 +47,7 @@ namespace JoinFS.Tests.Net
 
             Assert.True(Jfp2Of(a).IsNegotiated(hub.Id));
             Assert.Equal("JFP2", a.Core.Route(hub.Id, MessageKind.Position)!.Name);
-            Assert.Equal("Legacy", a.Core.Route(hub.Id, MessageKind.RemoveObject)!.Name);
+            Assert.Equal("Legacy", a.Core.Route(hub.Id, MessageKind.WeatherRequest)!.Name);
 
             mesh.Network.Log.Clear();
             SendPosition(a, hub, 3, "JF1", 12.5);
@@ -455,6 +455,15 @@ namespace JoinFS.Tests.Net
                 Wtc = Text(IdentityV1Codec.WtcLimit),
             });
             from.Core.SendTo(to.Id, new PositionUpdate { ObjectId = 3, NetTime = 1, Latitude = 1 }, false);
+            from.Core.Objects.SetIdentity(from.Id, new IdentityUpdate { ObjectId = 4, IsAircraft = false, Model = "Boat", TypeRole = 0 });
+            from.Core.SendTo(to.Id, new ObjectPositionUpdate { ObjectId = 4, NetTime = 1, Latitude = 1 }, false);
+            from.Core.SendTo(to.Id, new RemoveObject { ObjectId = 4 }, true);
+            from.Core.SendTo(to.Id, new CommsRequest { Scope = CommsScope.All }, true);
+            from.Core.SendTo(to.Id, new PeerInfo
+            {
+                Nickname = Text(PeerInfoV1Codec.NicknameLimit), AtcAirport = Text(PeerInfoV1Codec.AtcAirportLimit),
+                Version = Text(PeerInfoV1Codec.VersionLimit), Simulator = Text(PeerInfoV1Codec.SimulatorLimit),
+            }, false);
             var entries = new List<VariableEntry>();
             for (uint vuid = 1; vuid <= 10; vuid++)
             {
@@ -567,9 +576,14 @@ namespace JoinFS.Tests.Net
                 [MessageClasses.Status] = StatusV1Codec.MaxSize,
                 [MessageClasses.StatusRequest] = StatusRequestV1Codec.Size,
                 [MessageClasses.WeatherReply] = WeatherReplyV1Codec.MaxSize,
+                [MessageClasses.ObjectPosition] = ObjectPositionUpdateV1Codec.Size,
+                [MessageClasses.RemoveObject] = RemoveObjectV1Codec.Size,
+                [MessageClasses.CommsRequest] = CommsRequestV1Codec.Size,
+                [MessageClasses.PeerInfo] = PeerInfoV1Codec.MaxSize,
             };
             foreach (ClassDescriptor c in Jfp2Profile.Default.Classes)
             {
+                if (c.Segmented) continue; // the notes history never goes through a relay (§7.5): its notes do, one by one
                 byte[] datagram = relayed.First(d => d.Data[7] == c.MessageClass).Data;
                 int header = Envelope.FixedSize + Envelope.ForwardedExtraSize + (c.Guaranteed ? Envelope.GuaranteedExtraSize : 0);
                 Assert.Equal(c.Guaranteed, (datagram[2] & (byte)EnvelopeFlags.Guaranteed) != 0);
@@ -1066,7 +1080,7 @@ namespace JoinFS.Tests.Net
         /// was never delivered as delivered (§4.4). Count 1 is the control.
         /// </summary>
         [Fact]
-        public void GuaranteedSegmentOfSeveral_IsDroppedWithoutAck()
+        public void GuaranteedSegmentOfSeveral_OfAClassThatIsNotSegmented_IsDroppedWithoutAck()
         {
             var (mesh, hub, a) = TwoNegotiated();
             Assert.True(Jfp2Of(a).TryGetHopIds(hub.Id, out ushort local, out ushort remote));
@@ -1086,7 +1100,7 @@ namespace JoinFS.Tests.Net
             mesh.Run(1);
             Assert.Empty(hub.Messages<EventUpdate>());
             Assert.DoesNotContain(mesh.Network.Log, d => d.From.Equals(hub.EndPoint) && IsGuaranteedDone(d.Data));
-            Assert.Contains(hub.Logs, l => l.Contains("dropped segment 0/2"));
+            Assert.Contains(hub.Logs, l => l.Contains("segment 0/2") && l.Contains("never agreed"));
 
             Send(62, 1);
             mesh.Run(1);

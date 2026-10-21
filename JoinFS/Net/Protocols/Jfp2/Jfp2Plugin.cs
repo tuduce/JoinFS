@@ -88,6 +88,8 @@ namespace JoinFS.Net.Jfp2
         readonly Dictionary<(NodeId Owner, uint ObjectId, NodeId Peer), IdentitySent> identitySent = [];
         readonly List<NodeId> targets = [];
         readonly byte[] payloadBuffer = new byte[16384];
+        /// <summary>Room for the largest notes history; made when the first one is sent.</summary>
+        byte[] historyBuffer;
         readonly byte[] datagramBuffer = new byte[16384 + 64];
         /// <summary>Who a send is on behalf of: this node, or (translation at a relay) the message's author.</summary>
         NodeId sendOrigin;
@@ -107,6 +109,14 @@ namespace JoinFS.Net.Jfp2
             this.profile = profile ?? Jfp2Profile.Default;
             foreach (ClassDescriptor c in this.profile.Classes)
             {
+                if (c.Segmented)
+                {
+                    if (c is not ClassDescriptor<NotesBundle> || !c.Guaranteed)
+                    {
+                        throw new ArgumentException("JFP2 profile: class " + c.MessageClass + " (" + c.Kind + ") is segmented, which only the guaranteed notes history is");
+                    }
+                    continue;
+                }
                 Type sender = OwnSender(c.Kind);
                 if (!c.SentAsIs && c.GetType() != sender)
                 {
@@ -127,6 +137,7 @@ namespace JoinFS.Net.Jfp2
         {
             MessageKind.Identity => typeof(ClassDescriptor<IdentityUpdate>),
             MessageKind.Position => typeof(ClassDescriptor<PositionUpdate>),
+            MessageKind.ObjectPosition => typeof(ClassDescriptor<ObjectPositionUpdate>),
             MessageKind.VariableSync => typeof(ClassDescriptor<VariableSyncUpdate>),
             MessageKind.Notes => typeof(ClassDescriptor<NoteUpdate>),
             _ => null,
@@ -263,7 +274,7 @@ namespace JoinFS.Net.Jfp2
             byte number = messageClass.MessageClass;
             if (messageClass.Guaranteed)
             {
-                reliability.Send(target.Id, sendOrigin, number, hop.AgreedAppVersion[number], payload, sendOriginId);
+                reliability.Send(target.Id, sendOrigin, number, hop.AgreedAppVersion[number], payload, sendOriginId, messageClass.Segmented);
             }
             else
             {
