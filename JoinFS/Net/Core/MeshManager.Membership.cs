@@ -281,6 +281,41 @@ namespace JoinFS.Net
             return reachable;
         }
 
+        void IMembership.RouteDirect(NodeId member)
+        {
+            if (!Connected || !core.Peers.TryGet(member, out Peer peer))
+            {
+                return;
+            }
+            bool established = peer.SendEstablished;
+            NodeId was = peer.RouteVia;
+            peer.RouteEndPoint = peer.EndPoint;
+            peer.RouteVia = default;
+            peer.SendEstablished = true;
+            peer.ExpireTime = Now + ExpireTime;
+            peer.InvalidateRoutes();
+            core.LinkChanged(peer.Id);
+            if (!established)
+            {
+                core.RaisePeerEstablished(peer.Id);
+            }
+            core.Log(NetLogLevel.Event, "NETWORK: " + peer.Id + " is reached directly at " + peer.EndPoint + (was.Valid() ? ", no longer through " + was : ""));
+        }
+
+        void IMembership.RouteLost(NodeId member)
+        {
+            if (!Connected || !core.Peers.TryGet(member, out Peer peer) || peer.LegacyLink)
+            {
+                return;
+            }
+            peer.SendEstablished = false;
+            peer.RouteEndPoint = peer.EndPoint;
+            peer.RouteVia = default;
+            peer.InvalidateRoutes();
+            core.LinkChanged(peer.Id);
+            core.Log(NetLogLevel.Event, "NETWORK: " + peer.Id + " no longer answers at " + peer.EndPoint + " - asking the neighbours for a route");
+        }
+
         void IMembership.RouteThrough(NodeId via, NodeId member)
         {
             if (!Connected || !core.Peers.TryGet(via, out Peer relay) || !relay.RouteIsOwnEndPoint

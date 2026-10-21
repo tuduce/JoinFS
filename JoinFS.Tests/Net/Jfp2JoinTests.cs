@@ -233,6 +233,7 @@ namespace JoinFS.Tests.Net
             TestNode h = Hub(mesh);
             TestNode b = Node(mesh, "198.51.100.3");
             TestNode c = Node(mesh, "198.51.100.4");
+            mesh.Partition(b, c); // no direct link: the list is what tells c of b
             Join(mesh, b, h);
 
             Join(mesh, c, h);
@@ -386,6 +387,7 @@ namespace JoinFS.Tests.Net
             TestNode h = Hub(mesh);
             TestNode b = Node(mesh, "198.51.100.3");
             TestNode c = Node(mesh, "198.51.100.4");
+            mesh.Partition(b, c); // no direct link: the announcement is what tells b of c
             Join(mesh, b, h);
 
             Join(mesh, c, h);
@@ -435,6 +437,7 @@ namespace JoinFS.Tests.Net
             Join(mesh, c, h);
 
             mesh.Partition(c, h);
+            mesh.Partition(c, b);
             mesh.Run(45);
 
             // before MemberLeave, b kept c for as long as the hub answered

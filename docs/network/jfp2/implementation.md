@@ -93,6 +93,9 @@ member to its JFP2 neighbours (`IMembershipExpression.AnnounceJoined`). `LegacyP
 for another node raw only when that node has a legacy link; otherwise it decodes it (the core translates) and
 acknowledges a guaranteed message in the target's name. `Jfp2Plugin.Routing.cs` holds RouteQuery and RouteAnswer;
 `IMembership.Reaches` and `RouteThrough` are the mesh's side of them.
+A member reached through a relay is probed at its own endpoint (`ProbeDirect` in `Jfp2Plugin.Handshake.cs`); a session
+verified there makes it a direct neighbour (`PromoteDirect`, `IMembership.RouteDirect`), and `Demote` of such a
+session hands it back to the neighbours (`RouteLost`, then RouteQuery).
 
 ### 3.2 The observed endpoint
 

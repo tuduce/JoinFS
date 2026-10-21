@@ -249,6 +249,147 @@ namespace JoinFS.Tests.Net
             AssertNoLegacyAtA(s);
         }
 
+        // ------------------------------------------------------------------ direct links between members
+
+        static bool IsPosition(byte[] data) => data[0] == Envelope.Magic && (data[2] & 0x0A) == 0 && data[7] == MessageClasses.Position;
+
+        [Fact]
+        public void TwoMembersThatJoinedOverJfp2_GoDirect_AndTheHubCarriesNothingForThem()
+        {
+            var mesh = new TestMesh();
+            TestNode h = Hub(mesh);
+            TestNode a = N(mesh, "198.51.100.2");
+            TestNode b = N(mesh, "198.51.100.3");
+            JoinOverJfp2(mesh, a, h);
+            JoinOverJfp2(mesh, b, h);
+            mesh.Run(10);
+
+            Assert.True(a.Core.Peers.TryGet(b.Id, out Peer? bAtA));
+            Assert.True(b.Core.Peers.TryGet(a.Id, out Peer? aAtB));
+            Assert.True(bAtA!.SendEstablished && !bAtA.Relayed && bAtA.RouteIsOwnEndPoint);
+            Assert.True(aAtB!.SendEstablished && !aAtB.Relayed && aAtB.RouteIsOwnEndPoint);
+            Assert.Contains(a.EventLogs, l => l.Contains(b.Id + " is reached directly at " + b.EndPoint));
+            mesh.Network.Log.Clear();
+            SendPosition(a, b, 1, 11);
+            SendPosition(b, a, 2, 22);
+            mesh.Run(1);
+
+            Assert.Equal(11, b.Messages<PositionUpdate>().Single(p => p.ObjectId == 1).Latitude);
+            Assert.Equal(22, a.Messages<PositionUpdate>().Single(p => p.ObjectId == 2).Latitude);
+            Assert.Contains(Datagrams(mesh, a, b), d => IsPosition(d.Data));
+            Assert.DoesNotContain(Datagrams(mesh, a, h), d => IsPosition(d.Data));
+            Assert.DoesNotContain(Datagrams(mesh, h, b), d => IsPosition(d.Data));
+            Assert.Empty(h.Messages<PositionUpdate>());
+        }
+
+        [Fact]
+        public void TwoMembersThatCannotReachEachOther_StayRelayedThroughTheHub_AndAskOnlyOnceAMinute()
+        {
+            var mesh = new TestMesh();
+            TestNode h = Hub(mesh);
+            TestNode a = N(mesh, "198.51.100.2");
+            TestNode b = N(mesh, "198.51.100.3");
+            mesh.Partition(a, b);
+            JoinOverJfp2(mesh, a, h);
+            JoinOverJfp2(mesh, b, h);
+
+            mesh.Run(65);
+
+            Assert.True(a.Core.Peers.TryGet(b.Id, out Peer? bAtA));
+            Assert.True(bAtA!.Relayed && bAtA.RouteVia == h.Id && bAtA.SendEstablished);
+            SendPosition(a, b, 3, 33);
+            mesh.Run(1);
+            Assert.Equal(33, b.Messages<PositionUpdate>().Single(p => p.ObjectId == 3).Latitude);
+            // three Hellos, then a minute's silence, then three again
+            int hellos = Datagrams(mesh, a, b).Count(d => d.Data[0] == Envelope.Magic && (d.Data[2] & 0x08) != 0 && d.Data[7] == MessageClasses.Hello);
+            Assert.InRange(hellos, 3, 6);
+            Assert.DoesNotContain(a.Logs, l => l.Contains("assuming legacy-only"));
+            Assert.False(Left(a, b));
+        }
+
+        [Fact]
+        public void ADirectLinkThatBreaks_GoesBackThroughTheHub_WithoutLosingTheMember()
+        {
+            var mesh = new TestMesh();
+            TestNode h = Hub(mesh);
+            TestNode a = N(mesh, "198.51.100.2");
+            TestNode b = N(mesh, "198.51.100.3");
+            JoinOverJfp2(mesh, a, h);
+            JoinOverJfp2(mesh, b, h);
+            mesh.Run(10);
+            Assert.True(a.Core.Peers.TryGet(b.Id, out Peer? bAtA));
+            Assert.False(bAtA!.Relayed);
+
+            mesh.Partition(a, b);
+            mesh.Run(40);
+
+            Assert.True(a.Core.Peers.Contains(b.Id));
+            Assert.True(b.Core.Peers.Contains(a.Id));
+            Assert.True(bAtA.Relayed && bAtA.RouteVia == h.Id && bAtA.SendEstablished);
+            Assert.False(Left(a, b));
+            Assert.Contains(a.EventLogs, l => l.Contains(b.Id + " no longer answers at"));
+            SendPosition(a, b, 4, 44);
+            mesh.Run(1);
+            Assert.Equal(44, b.Messages<PositionUpdate>().Single(p => p.ObjectId == 4).Latitude);
+        }
+
+        [Fact]
+        public void ADirectLink_SurvivesTheHubAnswering_AndALegacyMemberLeaving()
+        {
+            // the field test of 2026-10-21: A and B were direct for 3 ms, until the hub's RouteAnswer put them back behind it
+            var s = new Session(r1: false);
+            TestNode b = N(s.Mesh, "198.51.100.3");
+            JoinOverJfp2(s.Mesh, b, s.H);
+            s.Mesh.Run(10);
+            Assert.True(s.A.Core.Peers.TryGet(b.Id, out Peer? bAtA));
+            Assert.False(bAtA!.Relayed);
+
+            s.W.Core.Mesh.Leave();
+            s.Mesh.Run(30);
+
+            Assert.False(bAtA.Relayed);
+            Assert.True(bAtA.SendEstablished && bAtA.RouteIsOwnEndPoint);
+            Assert.DoesNotContain(s.A.Logs, l => l.Contains(b.Id + " is reached through"));
+            Assert.DoesNotContain(s.A.Logs, l => l.Contains("is no longer verified"));
+        }
+
+        [Fact]
+        public void ARouteAnswer_NeverTakesAMemberOffAVerifiedDirectLink()
+        {
+            var c = new Chain();
+            // B and A can reach each other after all (the cut is lifted): their direct link must win over G's answer
+            c.Mesh.Network.Filter = null;
+            c.Mesh.Run(75); // A asks again a minute after its first try
+
+            Assert.True(c.A.Core.Peers.TryGet(c.B.Id, out Peer? bAtA));
+            Assert.False(bAtA!.Relayed);
+            Assert.True(bAtA.SendEstablished);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void AAndW_ThatCanReachEachOther_StillExchangePositions(bool r1)
+        {
+            var mesh = new TestMesh();
+            TestNode h = Hub(mesh);
+            TestNode a = N(mesh, "198.51.100.2");
+            TestNode w = W(mesh, "198.51.100.9", r1);
+            JoinOverLegacy(mesh, w, h);
+            JoinOverJfp2(mesh, a, h);
+            mesh.Run(20);
+
+            SendPosition(a, w, 1, 11);
+            SendPosition(w, a, 2, 22);
+            mesh.Run(1);
+
+            Assert.Equal(11, w.Messages<PositionUpdate>().Single(p => p.ObjectId == 1).Latitude);
+            Assert.Equal(22, a.Messages<PositionUpdate>().Single(p => p.ObjectId == 2).Latitude);
+            mesh.Run(60);
+            Assert.True(a.Core.Peers.Contains(w.Id));
+            Assert.True(w.Core.Peers.Contains(a.Id));
+        }
+
         // ------------------------------------------------------------------ the bridge's own work
 
         [Fact]
@@ -323,6 +464,10 @@ namespace JoinFS.Tests.Net
                 A = N(Mesh, "198.51.100.2");
                 G = N(Mesh, "198.51.100.7");
                 B = N(Mesh, "198.51.100.3");
+                // only A and G can reach each other's neighbours: every other pair is cut, so nothing goes direct
+                Mesh.Partition(A, B);
+                Mesh.Partition(H, G);
+                Mesh.Partition(H, B);
                 JoinOverJfp2(Mesh, A, H);
                 JoinOverJfp2(Mesh, G, A);
                 JoinOverJfp2(Mesh, B, G);

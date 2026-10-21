@@ -740,6 +740,17 @@ JFP2 datagrams for a peer go to the first of these that has a verified session:
 The datagram is unaddressed when the hop is the peer itself, and Forwarded (§3.5) otherwise. If none
 applies, legacy carries everything for the peer.
 
+**Direct links (edition 2).** A member with no legacy link that is reached through a relay (§5.10, §5.13) is not
+left there: its neighbour-to-be sends it a Hello at its own endpoint (the one its MemberList or MemberAnnounce entry
+gave), up to 3 times, 2 s apart, and again a minute after the last of them, for as long as it is reached through a relay.
+Each of the two does it when it learns of the other, which is what opens a home router to the other's datagrams.
+The Hello is an ordinary one (§5.7, no `Admission`), answered by a node that holds the sender as a member. A
+HelloAck that verifies the session at the member's own endpoint makes the member a direct neighbour: item 1
+above applies, and the member is no longer reached through the relay. A route a RouteAnswer (§5.13) gives never
+replaces a verified direct link. If the direct session stops being answered (§6.2) the member is reached through no
+one until a neighbour answers a RouteQuery for it, then through that neighbour; it is probed again as above. A
+member that has a legacy link keeps the route legacy gives it.
+
 ### 6.4 Peers without JFP2
 
 A peer that never answers a Hello, or answers without a resolvable name, is legacy-only. One that

@@ -78,7 +78,16 @@ namespace JoinFS.Net.Jfp2
                 }
                 // negotiation is with a neighbor: a peer behind a relay is served by the relay's session,
                 // and a peer sharing an endpoint with a node that answers there is behind that node
-                if (peer.Relayed || IsBehindOccupant(peer, now))
+                if (peer.Relayed)
+                {
+                    // a member reached through a relay is tried at its own endpoint, in case the network lets us through (§5.13)
+                    if (!peer.LegacyLink)
+                    {
+                        ProbeDirect(peer, session, now);
+                    }
+                    continue;
+                }
+                if (IsBehindOccupant(peer, now))
                 {
                     continue;
                 }
@@ -115,6 +124,58 @@ namespace JoinFS.Net.Jfp2
             }
         }
 
+        /// <summary>Hellos to a member's own endpoint before giving up for <see cref="DirectRetryInterval"/>.</summary>
+        const int DirectProbeAttempts = 3;
+        const double DirectRetryInterval = 60.0;
+
+        /// <summary>
+        /// A Hello to the endpoint of a member that is reached through a relay: both ends do it when they learn of each other, which
+        /// is what opens a home router to the other's datagrams. A HelloAck that verifies the session makes the route direct
+        /// (<see cref="PromoteDirect"/>); no answer leaves the member where it is and asks again after a minute.
+        /// </summary>
+        void ProbeDirect(Peer peer, PeerSession session, double now)
+        {
+            if (session != null && (now < session.NextHelloAttempt || now < session.RetryAt))
+            {
+                return;
+            }
+            IPEndPoint target = peer.EndPoint;
+            foreach (PeerSession other in sessions.Values)
+            {
+                // two members behind one endpoint: one Hello at a time, so the answer finds its session
+                if (other != session && !other.Verified && other.HelloAttempts > 0 && other.ProbeEndPoint != null && other.ProbeEndPoint.Equals(target))
+                {
+                    return;
+                }
+            }
+            session ??= CreateSession(peer.Id);
+            if (session.HelloAttempts >= DirectProbeAttempts)
+            {
+                session.HelloAttempts = 0;
+                session.RetryAt = now + DirectRetryInterval;
+                host.Log(NetLogLevel.Network, "JFP2: " + peer.Id + " did not answer at " + target + " - it stays reached through " + peer.RouteVia);
+                return;
+            }
+            session.HelloAttempts++;
+            session.NextHelloAttempt = now + HelloRetryInterval;
+            session.ProbeEndPoint = Copy(target);
+            SendHello(session.ProbeEndPoint, session);
+            host.Log(NetLogLevel.Network, "JFP2: Send Hello to " + peer.Id + " at " + target + ", to reach it directly (attempt " + session.HelloAttempts + ")");
+        }
+
+        /// <summary>
+        /// The session with a member verified at the member's own endpoint, while the mesh holds it as reached through a relay (or
+        /// not reached): it is a direct neighbour now. Not for a member with a legacy link, whose route legacy keeps.
+        /// </summary>
+        void PromoteDirect(PeerSession session)
+        {
+            if (host.Peers.TryGet(session.Peer, out Peer peer) && !peer.LegacyLink && session.Endpoint != null && session.Endpoint.Equals(peer.EndPoint)
+                && (peer.Relayed || !peer.SendEstablished))
+            {
+                host.Membership.RouteDirect(peer.Id);
+            }
+        }
+
         /// <summary>Another peer reached at the same endpoint has a Hello outstanding there.</summary>
         bool EndPointBusy(Peer peer)
         {
@@ -133,6 +194,7 @@ namespace JoinFS.Net.Jfp2
         /// <summary>A verified session must keep being answered, by the same node, at the same endpoint.</summary>
         void KeepAlive(Peer peer, PeerSession session, double now)
         {
+            PromoteDirect(session);
             if (!session.Endpoint.Equals(peer.RouteEndPoint))
             {
                 Demote(session, "its route moved to " + peer.RouteEndPoint);
@@ -157,11 +219,17 @@ namespace JoinFS.Net.Jfp2
             {
                 occupants.Remove(session.Endpoint);
             }
+            IPEndPoint lost = session.Endpoint;
             session.Endpoint = null;
             session.ProbeEndPoint = null;
             session.HelloAttempts = 0;
             session.NextHelloAttempt = 0;
             host.LinkChanged(session.Peer);
+            // a member that was reached directly at this endpoint is not any more: it is asked about of the neighbours, and goes on through one that answers
+            if (host.Peers.TryGet(session.Peer, out Peer peer) && !peer.LegacyLink && !peer.Relayed && lost != null && lost.Equals(peer.EndPoint))
+            {
+                host.Membership.RouteLost(peer.Id);
+            }
         }
 
         /// <summary>Another node answers at this peer's endpoint, so the peer is not there.</summary>
@@ -410,6 +478,7 @@ namespace JoinFS.Net.Jfp2
             {
                 host.LinkChanged(session.Peer);
             }
+            PromoteDirect(session);
         }
 
         /// <summary>

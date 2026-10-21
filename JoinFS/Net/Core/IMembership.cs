@@ -80,6 +80,15 @@ namespace JoinFS.Net
         /// member go through it from now on, and the member lives for another expiry time.
         /// </summary>
         void RouteThrough(NodeId via, NodeId member);
+
+        /// <summary>
+        /// A verified session with <paramref name="member"/> at its own endpoint: it is a direct neighbour now, whatever
+        /// reached it before, and it lives for another expiry time.
+        /// </summary>
+        void RouteDirect(NodeId member);
+
+        /// <summary>The member's direct link stopped answering: it is reached through no one until a neighbour says it reaches it.</summary>
+        void RouteLost(NodeId member);
     }
 
     /// <summary>A protocol that can carry the session's membership (docs/network/jfp2/standalone-ipv6-plan.md §5.3).</summary>
