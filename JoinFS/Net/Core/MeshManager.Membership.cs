@@ -45,7 +45,7 @@ namespace JoinFS.Net
                 return;
             }
             IPEndPoint legacy = usable.Find(e => e.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
-            if (legacy != null && legacyOnly.TryGetValue(legacy, out double until) && Now < until)
+            if (legacy != null && IsLegacyOnly(legacy))
             {
                 core.Log(NetLogLevel.Network, "NETWORK: " + legacy + " took no join over JFP2 before - joining it over legacy");
             }
@@ -174,7 +174,7 @@ namespace JoinFS.Net
             {
                 return;
             }
-            legacyOnly[new IPEndPoint(target.Address, target.Port)] = Now + LegacyOnlyMemory;
+            RememberLegacyOnly(target, LegacyOnlyMemory);
             core.Log(NetLogLevel.Event, "NETWORK: " + target + " takes no join over JFP2 - joining it over legacy, and remembering that for " + LegacyOnlyMemory / 3600 + " h");
             core.SendToEndPoint(target, new JoinRequest { PasswordHash = passwordHash }, guaranteed: true);
         }

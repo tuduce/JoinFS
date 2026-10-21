@@ -212,7 +212,15 @@ internal partition, like any other class: a node sends them only on a session wh
 | 7 | Status | no | 9.4 |
 | 8 | StatusRequest | no | 9.4 |
 | 9 | WeatherReply | yes | 9.4 |
-| 10–254 | — | | Unassigned. |
+| 10 | HubList | no | Edition 2, 5.16 |
+| 11 | UserListRequest | no | Edition 2, 5.16 |
+| 12 | HubUser | no | Edition 2, 5.16 |
+| 13 | UserPositionsRequest | no | Edition 2, 5.16 |
+| 14 | UserPositions | no | Edition 2, 5.16 |
+| 15 | Online | no | Edition 2, 5.16 |
+| 16 | UserLookup | no | Edition 2, 5.16 |
+| 17 | UserLookupAnswer | no | Edition 2, 5.16 |
+| 18–254 | — | | Unassigned. |
 | 255 | Extended | | Reserved, never assigned. |
 
 A sender MUST send only classes the receiver offered and the session agreed (§5.5). A message of
@@ -540,9 +548,9 @@ that restarted holds no session, so it can only ask as a stranger (§5.11, Rejoi
 **A non-member session** has the id space and the negotiation of any session, and these limits:
 - It is never a next hop, never carries a Forwarded datagram, and `CanCarry` is false for every
   message kind. The classes it carries are Join and JoinResult (§5.10), and MemberList to a node that
-  joined; every other datagram on it is dropped. (The directory classes of a hub are a later part of
-  edition 2.)
-- At most **32** are open at once; a Hello that would open a 33rd is ignored.
+  joined, and the ten classes of the directory (§5.16); every other datagram on it is dropped.
+- At most **256** are open at once; a Hello that would open a 257th is ignored (edition 2 first said 32; a hub that
+  is polled for its directory by every node that lists it needs more).
 - It ends **60 s** after it was opened, at both ends, unless a Join (§5.10) makes it the member
   session. A keepalive does not extend it.
 
@@ -794,6 +802,64 @@ node loses the member when its pulses go unanswered, unless another member that 
 **Reaching the others.** A node with no IPv4 address reaches a member that has IPv6 directly (§5.14) and any other member
 through a neighbour that has both families, found by RouteQuery (§5.13) like any member that is not reached directly. A
 member with IPv4 only is not tried at its IPv4 endpoints, and is found through a neighbour as above.
+
+---
+
+### 5.16 The directory over JFP2 (edition 2)
+
+The hub directory is what a node asks a hub: its status, the hubs it knows, its users and their positions, who is
+online, and where a user is. Until edition 2 it was legacy messages sent to a hub's endpoint, so a node with no IPv4
+address could not ask, and a hub with no kind-0 name could not be listed. The directory is now ten application classes,
+Status and StatusRequest (§9.4) and the eight below, between a node and a hub that need not be members of one session.
+
+| Class | Name | Body (version 1) |
+|---|---|---|
+| 10 | HubList | `Count` u8, then the entries: `Name` (8 bytes), `Port` u16, `CandidateCount` u8, and the candidates |
+| 11 | UserListRequest | one reserved byte, 0 |
+| 12 | HubUser | `Guid` 16, `Flags` u8 (Atc 1, Ifr 2), string `Nickname`, `Frequency` u16, `Latitude` f32, `Longitude` f32, `Altitude` u16, `Speed` u16, `Squawk` u16, `Level` u8, `Range` u8, `Heading` u16, then the strings `Callsign`, `IcaoType`, `Departure`, `Destination`, `Rules`, `Route`, `Remarks`, `Alternate`, `FlightSpeed`, `FlightAltitude`, `Registration`, `IcaoAirline`, `FlightNumber` |
+| 13 | UserPositionsRequest | one reserved byte, 0 |
+| 14 | UserPositions | `Count` u8, then per user `Guid` 16, `Latitude` f32, `Longitude` f32, `Altitude` u16, `Speed` u16, `Squawk` u16, `Heading` u16 (32 bytes) |
+| 15 | Online | `Uuid` u32 |
+| 16 | UserLookup | `Uuid` u32 |
+| 17 | UserLookupAnswer | `Uuid` u32, `Name` (8 bytes), `Port` u16, `CandidateCount` u8, and the candidates |
+
+All are version 1, unreliable and offered like any application class (§5.3); a lost request is asked again by the asker's
+own timers, so none needs guaranteed delivery. Integers are little-endian (§4.1). The strings of HubUser have the limits
+of §9.7. A **candidate** is a length byte and a `WireEndPoint` (§4.4), as in a member entry (§5.14): a reader skips one of a
+family it does not know by its length, and keeps at most 8. A HubList message holds at most 1,000 bytes of entries (a sender puts
+8 in one, at most 5 endpoints each) and a UserPositions message at most 34 users; a longer list is sent as several messages, and a
+reader treats each as the whole of what it says.
+
+**The link.** The directory is carried on a non-member session (§5.9), and on the member session of two nodes that are
+members of one session. A non-member session carries these ten classes and, besides the handshake and the join of §5.10, nothing
+else: any other class on it is dropped. Their datagrams are never Forwarded. A node answers on the session that carries the
+request, to the endpoint the request came from; the sender of the message is the name the asker stated first (§5.9).
+
+**Asking.** A node asks a hub that is not a member of the same session by opening a non-member session with it (§5.9) and
+sending the request over it. It holds a request, the newest of each class, for as long as the session takes to open. A node
+that holds the session already sends at once; a session lives 60 s (§5.9), so a hub polled every minute or less is asked
+over the one session. A node that is a member of the hub's session asks over the member session. An address that does not
+open a session within **2 s** (a released hub ignores the Hello of a stranger, §5.7) is asked over legacy and remembered for 1 hour,
+as a join to it is (§5.12): the request waits in the node at most 2 s, once. Legacy cannot reach an IPv6 endpoint, so a request to
+one is held for 7 s and then dropped, and the address is not remembered.
+
+**Hub lists.** A HubList entry names a hub by its first name (its kind-0 name when it has an IPv4 address, else its key name) and
+the endpoints it was reached at, global IPv6 first. A node that reads one asks each hub it does not know for its status at the first
+endpoint it can use (an IPv6 one needs an IPv6 address of its own, a node with no IPv4 address uses no IPv4 one) and keeps all of
+them as the hub's endpoints. A hub it can use none of is kept and shown as unreachable from this node, never left out, so that the
+pilot is told why a hub is not there. The legacy HubList names only the hubs that have a kind-0 name, by it and the port, and no
+candidates: a hub known by its key name alone is not in it, and a hub with an IPv4 address appears in it as before (S9).
+
+**Choosing the endpoint.** A hub is asked at the endpoint it answered at, and joined at all of them, IPv6 first (§5.14). An online hub
+is asked now and then (every fourth time) at its preferred endpoint if that is another, and moves to it when it answers there; an
+offline hub is asked at its endpoints in turn.
+
+**Lookups.** A hub that receives an Online or a StatusRequest from a node records the user id with the node's first name, the port
+and the endpoint it came from. It answers a UserLookup with them: the name, the port and the endpoint as the single candidate, so that
+a node with no IPv4 address, which has no kind-0 name to be found by, is found by its endpoint (S9).
+
+**Bans.** A node drops every datagram of any protocol from a banned address before its protocol sees it. An IPv6 entry bans its
+/64, because a host has the whole network of its router to use.
 
 ---
 
@@ -1104,7 +1170,7 @@ cited rule says.
 |---|---|---|---|
 | Flag bits (§3.2) | 8 bits | 0 Guaranteed, 1 Forwarded, 3 Internal; 2 Coalesced reserved | Drop the datagram |
 | Internal classes (§3.3) | u8 | 0 Hello, 1 HelloAck, 2 Join, 3 JoinResult, 4 MemberList, 5 MemberAnnounce, 6 MemberLeave, 7 RouteQuery, 8 RouteAnswer, 9 GuaranteedDone | Not agreed: drop, do not acknowledge |
-| Application classes (§3.3) | u8 | 0–9; 255 reserved as Extended | Not agreed: drop, do not acknowledge |
+| Application classes (§3.3) | u8 | 0–17; 255 reserved as Extended | Not agreed: drop, do not acknowledge |
 | Offer partitions (§5.3) | u8 | 0 application, 1 internal | Skip the offer |
 | Handshake `Result` (§5.2) | u8 | 0, 1, 2 | Read as "no session now" |
 | Handshake TLV tags (§5.4) | u16 | 1 Names, 2 Build, 3 ObservedEndPoint, 4 Admission, 5 Candidates | Skip |
@@ -1359,6 +1425,30 @@ FA 02 08 78 56 34 12 03                   magic, ProtoMajor 2, Internal, sender 
 
 Version 1 of A.7 is unchanged. The bodies of A.15 are pinned by `JoinFS.Tests/Net/Jfp2IPv6OnlyTests.cs`.
 
+**A.16 HubList** (edition 2) from the hub of A.2 on a non-member session, one hub, 203.0.113.10:6112 local 1, with the one IPv4 endpoint it was reached at:
+
+```
+FA 02 00 78 56 34 12 0A                   magic, ProtoMajor 2, no flags, sender 0x5678, recipient 0x1234, class HubList
+01                                        Count
+00 0A 71 00 CB E0 17 01                   Name: kind 0, legacy id 203.0.113.10, port 6112, local 1
+E0 17                                     Port 6112
+01                                        CandidateCount
+07  04 CB 00 71 0A E0 17                  length 7, WireEndPoint: family 4, 203.0.113.10, port 6112
+```
+
+**A.17 UserLookupAnswer** (edition 2) from the same hub: user id 7 is a node known by a key name, at an IPv6 endpoint:
+
+```
+FA 02 00 78 56 34 12 11                   magic, ProtoMajor 2, no flags, sender 0x5678, recipient 0x1234, class UserLookupAnswer
+07 00 00 00                               Uuid 7
+02 11 22 33 44 55 66 77                   Name: kind 2 (a key name)
+E0 17                                     Port 6112
+01                                        CandidateCount
+13  06 20 01 0D B8 00 03 00 00 00 00 00 00 00 00 00 03 E0 17    length 19, WireEndPoint: family 6, 2001:db8:3::3, port 6112
+```
+
+The bodies of A.16 and A.17 are pinned by `JoinFS.Tests/Jfp2/DirectoryCodecTests.cs`.
+
 ---
 
 ## Appendix B. Constants
@@ -1373,7 +1463,10 @@ Version 1 of A.7 is unchanged. The bodies of A.15 are pinned by `JoinFS.Tests/Ne
 | Admission: Hellos of a stranger | 3 in all, every 2 s | 5.9 |
 | Admission: cookie secret | rotated every 60 s, the previous one accepted | 5.9 |
 | Admission: challenges answered | 10 per second, burst 20 | 5.9 |
-| Non-member sessions | 32 at once, 60 s each | 5.9 |
+| Non-member sessions | 256 at once, 60 s each | 5.9 |
+| Directory request: silence before legacy / IPv6 request given up / memory of a legacy-only address | 2 s / 7 s / 1 hour | 5.16 |
+| HubList entries per message / endpoints kept for a hub / candidates a reader keeps | 8 (1,000 bytes) / 5 / 8 | 5.16 |
+| UserPositions users per message | 34 (30 sent by a hub) | 5.16 |
 | Join: repeat / give up | 2 s, 5 attempts / 15 s | 5.10 |
 | Join over JFP2 before legacy: silence / memory of a legacy-only address | 2 s / 1 hour | 5.12 |
 | MemberList entries per datagram | 1,000 bytes | 5.10 |

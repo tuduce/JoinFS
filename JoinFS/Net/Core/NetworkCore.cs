@@ -17,6 +17,9 @@ namespace JoinFS.Net
     {
         readonly List<IProtocolPlugin> plugins = [];
         readonly List<IPAddress> banList = [];
+
+        /// <summary>The IPv6 networks banned, one /64 per entry: a host has the whole /64 of its router to use, so one address of it stands for all.</summary>
+        readonly List<byte[]> banList6 = [];
         readonly INetworkSink sink;
 
         public IDatagramTransport Transport { get; }
@@ -57,10 +60,38 @@ namespace JoinFS.Net
 
         public void BanIP(string ip)
         {
-            if (IPAddress.TryParse(ip, out IPAddress address) && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+            // an IPv6 entry may say "/64" (it is a /64 whatever it says)
+            int slash = ip.IndexOf('/');
+            if (IPAddress.TryParse(slash >= 0 ? ip[..slash].Trim() : ip.Trim(), out IPAddress address))
             {
-                banList.Add(address);
+                if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                {
+                    banList.Add(address);
+                }
+                else if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 && !address.IsIPv4MappedToIPv6)
+                {
+                    banList6.Add(address.GetAddressBytes()[..8]);
+                }
             }
+        }
+
+        bool IsBanned(IPAddress address)
+        {
+            if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+            {
+                return banList.Contains(address);
+            }
+            if (banList6.Count == 0)
+            {
+                return false;
+            }
+            Span<byte> bytes = stackalloc byte[16];
+            address.TryWriteBytes(bytes, out _);
+            foreach (byte[] network in banList6)
+            {
+                if (bytes[..8].SequenceEqual(network)) return true;
+            }
+            return false;
         }
 
         // ------------------------------------------------------------------ receive
@@ -71,7 +102,7 @@ namespace JoinFS.Net
         /// <param name="receivedAt">When the datagram arrived (<see cref="IClock.Now"/>); 0 means now.</param>
         public void OnDatagram(IPEndPoint from, ReadOnlySpan<byte> datagram, double receivedAt = 0)
         {
-            if (datagram.IsEmpty || banList.Contains(from.Address))
+            if (datagram.IsEmpty || IsBanned(from.Address))
             {
                 return;
             }
@@ -262,6 +293,17 @@ namespace JoinFS.Net
             {
                 known = Peers.FindByEndPoint(meta.EndPoint)?.Id ?? default;
             }
+            if (!known.Valid())
+            {
+                // no node behind the endpoint: an open directory link to it (a node that asked us over JFP2 is answered there), else the baseline protocol
+                foreach (IProtocolPlugin candidate in plugins)
+                {
+                    if (candidate is IDirectoryLink link && link.TrySend(meta.EndPoint, message))
+                    {
+                        return;
+                    }
+                }
+            }
             IProtocolPlugin plugin = known.Valid() ? Route(known, T.Kind) : RouteUnknown(default, T.Kind);
             plugin?.Send(meta, message, ReadOnlySpan<NodeId>.Empty);
         }
@@ -336,6 +378,7 @@ namespace JoinFS.Net
             {
                 plugin.Tick();
             }
+            Mesh.DoAsks();
         }
 
         public bool TryAcquireRelay(NodeId sender) => Mesh.TryAcquireRelay(sender);
@@ -366,6 +409,9 @@ namespace JoinFS.Net
 
         public void EndPointObserved(NodeId reporter, IPEndPoint endPoint) =>
             sink.OnEvent(new NetworkEvent { Kind = NetworkEventKind.EndPointObserved, Node = reporter, EndPoint = endPoint });
+
+        /// <summary>Tell the app of something it keeps (<see cref="NetworkEventKind.LegacyOnly"/>).</summary>
+        internal void Raise(in NetworkEvent e) => sink.OnEvent(e);
 
         public void Log(NetLogLevel level, string text) => sink.OnEvent(new NetworkEvent { Kind = NetworkEventKind.Log, Level = level, Text = text });
     }

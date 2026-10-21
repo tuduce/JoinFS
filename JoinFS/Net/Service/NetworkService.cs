@@ -140,6 +140,12 @@ namespace JoinFS.Net
         public void SendToEndPoint<T>(IPEndPoint endPoint, in T message, bool guaranteed = false) where T : struct, IMessage =>
             Send(MessageMeta.ToEndPoint(endPoint, guaranteed), message, ReadOnlySpan<NodeId>.Empty);
 
+        public void Ask<T>(IPEndPoint endPoint, in T message, bool guaranteed = false) where T : struct, IMessage
+        {
+            T copy = message;
+            Post(core => core.Mesh.Ask(endPoint, copy, guaranteed));
+        }
+
         public void Broadcast<T>(in T message, bool guaranteed = false) where T : struct, IMessage =>
             mailbox.Add(new BroadcastWork<T>(message, guaranteed));
 

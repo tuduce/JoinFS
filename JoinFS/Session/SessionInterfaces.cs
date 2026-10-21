@@ -42,6 +42,9 @@ namespace JoinFS
 
         /// <summary>"address[:port]" (IP or DNS name) to an endpoint.</summary>
         bool MakeEndPoint(string addressText, ushort port, out IPEndPoint endPoint);
+
+        /// <summary>The endpoints a node can be reached at, <paramref name="primary"/> among them: a join to <paramref name="primary"/> dials all of them.</summary>
+        void NoteCandidates(IPEndPoint primary, IReadOnlyList<IPEndPoint> candidates);
     }
 
     /// <summary>Who the local user is, and the settings the session uses.</summary>

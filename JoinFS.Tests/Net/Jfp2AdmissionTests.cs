@@ -283,15 +283,17 @@ namespace JoinFS.Tests.Net
         {
             var mesh = new TestMesh();
             TestNode hub = SessionHub(mesh);
-            var strangers = Enumerable.Range(10, 40).Select(n => Node(mesh, "198.51.100." + n)).ToList();
+            var strangers = Enumerable.Range(0, 300).Select(n => Node(mesh, "10.1." + (n / 250) + "." + (1 + n % 250))).ToList();
 
+            // five strangers a second, inside the challenge rate: the table fills up (they last 60 s) and no more are admitted
             foreach (TestNode stranger in strangers)
             {
                 Jfp2Of(stranger).Introduce(hub.EndPoint);
+                mesh.Run(0.2);
             }
-            mesh.Run(4);
+            mesh.Run(2);
 
-            Assert.Equal(32, Jfp2Of(hub).NonMemberCount);
+            Assert.Equal(256, Jfp2Of(hub).NonMemberCount);
         }
 
         [Fact]

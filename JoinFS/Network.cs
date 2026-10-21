@@ -50,6 +50,9 @@ namespace JoinFS
         readonly MainSessionHost host;
         readonly NodeKeyStore nodeKeys;
 
+        /// <summary>The addresses that took no conversation over JFP2, across runs.</summary>
+        readonly LegacyOnlyStore legacyOnly;
+
         /// <summary>Join over legacy alone (the <c>-legacyjoin</c> test switch); by default a join asks over JFP2 first.</summary>
         readonly bool joinOverLegacy;
 
@@ -58,6 +61,7 @@ namespace JoinFS
             joinOverLegacy = main.settingsLegacyJoin;
             host = new MainSessionHost(main);
             nodeKeys = new NodeKeyStore(main.storagePath, host);
+            legacyOnly = new LegacyOnlyStore(main.storagePath, host);
             host.Event("Unique address is " + UserDirectory.UuidToString(main.uuid));
 
             service = new NetworkService(credentialStoreFactory: folder => new CredentialStore(main.documentsPath, main.MonitorEvent))
@@ -78,6 +82,12 @@ namespace JoinFS
             Users = new UserDirectory(service, this, host, Hubs, Bootstrap, host, host, host);
             HubHost = new HubHost(service, this, host, host, Peers, Hubs, Users, host, host);
             Comms = new SessionComms(service, () => main.notes, host, host);
+
+            // what the last run learned about the addresses that took no conversation over JFP2 (the network thread starts below, and runs these first)
+            foreach (var (endPoint, seconds) in legacyOnly.Load())
+            {
+                service.Post(core => core.Mesh.RestoreLegacyOnly(endPoint, seconds));
+            }
 
             // what one part learns that another acts on
             Peers.HubAnnounced += Hubs.SubmitHub;
@@ -181,7 +191,7 @@ namespace JoinFS
             Bootstrap.DoWork(host.Now, host.Hub);
             foreach (IPEndPoint seed in Bootstrap.TakeSeedHubs())
             {
-                Hubs.SubmitHub(seed);
+                Hubs.SubmitSeed(seed, Bootstrap.DialList(seed));
             }
             Peers.DoWork();
             Users.DoAddressBook();
@@ -315,6 +325,14 @@ namespace JoinFS
         public bool scheduleJoinUser = false;
         uint scheduleJoinUuid = 0;
 
+        /// <summary>
+        /// A lookup over JFP2 is not guaranteed, as the legacy one was: while the user's node is not found the question is asked again, a few times.
+        /// </summary>
+        const double JOIN_USER_RETRY_S = 3.0;
+        const int JOIN_USER_RETRIES = 5;
+        double nextJoinUserRequest = 0;
+        int joinUserRetries = 0;
+
         public string ScheduleLoginEmail => scheduleLoginEmail;
         public uint ScheduleLoginHash => scheduleLoginHash;
 
@@ -350,6 +368,8 @@ namespace JoinFS
         {
             scheduleJoinUser = true;
             scheduleJoinUuid = uuid;
+            nextJoinUserRequest = host.Now + JOIN_USER_RETRY_S;
+            joinUserRetries = 0;
             Users.RequestNuid(uuid);
         }
 
@@ -379,6 +399,12 @@ namespace JoinFS
             {
                 Join(userEndPoint, 0);
                 scheduleJoinUser = false;
+            }
+            else if (scheduleJoinUser && joinUserRetries < JOIN_USER_RETRIES && host.Now >= nextJoinUserRequest)
+            {
+                joinUserRetries++;
+                nextJoinUserRequest = host.Now + JOIN_USER_RETRY_S;
+                Users.RequestNuid(scheduleJoinUuid);
             }
 
             if (scheduleCreate)
@@ -543,6 +569,9 @@ namespace JoinFS
                     break;
                 case NetworkEventKind.EndPointObserved:
                     Bootstrap.OnEndPointObserved(e.Node, e.EndPoint);
+                    break;
+                case NetworkEventKind.LegacyOnly:
+                    legacyOnly.Remember(e.EndPoint, e.Seconds);
                     break;
                 case NetworkEventKind.Log:
                     if (e.Level == NetLogLevel.Event) host.Event(e.Text);

@@ -2,6 +2,7 @@ using JoinFS.Net;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Net;
 
 namespace JoinFS
@@ -56,6 +57,8 @@ namespace JoinFS
         {
             public NodeId nuid;
             public ushort port;
+            /// <summary>The endpoints the hub saw the user at, or told of (a user with no IPv4 address has no legacy id to say where it is).</summary>
+            public List<IPEndPoint> candidates = [];
             public double expireTime;
         }
 
@@ -98,16 +101,29 @@ namespace JoinFS
         /// <summary>Where to reach a user, if we know.</summary>
         public bool TryGetEndPoint(uint uuid, out IPEndPoint endPoint)
         {
-            if (onlineUsers.TryGetValue(uuid, out OnlineUser user) && user.nuid.TryGetLegacy(out LegacyNodeId legacy))
-            {
-                endPoint = endPoints.MakeEndPoint(legacy, user.port);
-                return true;
-            }
             endPoint = null;
-            return false;
+            if (!onlineUsers.TryGetValue(uuid, out OnlineUser user))
+            {
+                return false;
+            }
+            // where the user is: its legacy id says (our LAN address when it shares our NAT), and the endpoints the hub saw it at add to that
+            var all = new List<IPEndPoint>();
+            if (user.nuid.TryGetLegacy(out LegacyNodeId legacy))
+            {
+                all.Add(endPoints.MakeEndPoint(legacy, user.port));
+            }
+            all.AddRange(user.candidates);
+            all = HubDirectory.InFamilyOrder(all.Distinct());
+            endPoint = all.Find(hubs.CanUse);
+            if (endPoint == null)
+            {
+                return false;
+            }
+            endPoints.NoteCandidates(endPoint, all);
+            return true;
         }
 
-        public void RegisterOnlineUser(uint uuid, NodeId nuid, ushort port)
+        public void RegisterOnlineUser(uint uuid, NodeId nuid, ushort port, IReadOnlyList<IPEndPoint> candidates = null)
         {
             if (!onlineUsers.TryGetValue(uuid, out OnlineUser user))
             {
@@ -117,6 +133,10 @@ namespace JoinFS
             }
             user.nuid = nuid;
             user.port = port;
+            if (candidates != null)
+            {
+                user.candidates = candidates.Where(Peer.IsUsableCandidate).Take(4).ToList();
+            }
             user.expireTime = clock.Now + HubDirectory.OFFLINE_TIME;
         }
 
@@ -130,10 +150,10 @@ namespace JoinFS
             for (int i = 0; i < list.Count && requestCount < REQUEST_NUID_NUM_SAMPLES; i++)
             {
                 HubDirectory.Hub hub = list[(startIndex + i) % list.Count];
-                if (hub.online)
+                if (hub.online && hubs.PollEndPoint(hub) is { } endPoint)
                 {
-                    // one guaranteed request per hub
-                    outbox.SendToEndPoint(hub.endPoint, new UserNuidRequest { Uuid = uuid }, guaranteed: true);
+                    // one guaranteed request per hub (over JFP2 it is repeated by the address book's next check, as a JFP2 request is not guaranteed)
+                    outbox.Ask(endPoint, new UserNuidRequest { Uuid = uuid }, guaranteed: true);
                     requestCount++;
                 }
             }
@@ -148,9 +168,9 @@ namespace JoinFS
             }
             foreach (var hub in hubs.List)
             {
-                if (hub.online)
+                if (hub.online && hubs.PollEndPoint(hub) is { } endPoint)
                 {
-                    outbox.SendToEndPoint(hub.endPoint, new OnlineAnnouncement { Uuid = profile.Uuid });
+                    outbox.Ask(endPoint, new OnlineAnnouncement { Uuid = profile.Uuid });
                 }
             }
             double now = clock.Now;
@@ -167,13 +187,13 @@ namespace JoinFS
         }
 
         public void Handle(in MessageMeta meta, in OnlineAnnouncement online) =>
-            RegisterOnlineUser(online.Uuid, meta.Sender, (ushort)meta.EndPoint.Port);
+            RegisterOnlineUser(online.Uuid, meta.Sender, (ushort)meta.EndPoint.Port, [meta.EndPoint]);
 
         public void Handle(in MessageMeta meta, in UserNuidRequest request)
         {
             if (onlineUsers.TryGetValue(request.Uuid, out OnlineUser value))
             {
-                outbox.SendToEndPoint(meta.EndPoint, new UserNuidReply { Uuid = request.Uuid, Node = value.nuid, Port = value.port }, guaranteed: true);
+                outbox.SendToEndPoint(meta.EndPoint, new UserNuidReply { Uuid = request.Uuid, Node = value.nuid, Port = value.port, Candidates = value.candidates }, guaranteed: true);
                 log.Network("UserNuidRequest '" + meta.EndPoint + "' - '" + UuidToString(request.Uuid) + "' - '" + value.nuid + ":" + value.port + "'");
             }
             else
@@ -184,7 +204,7 @@ namespace JoinFS
 
         public void Handle(in MessageMeta meta, in UserNuidReply reply)
         {
-            RegisterOnlineUser(reply.Uuid, reply.Node, reply.Port);
+            RegisterOnlineUser(reply.Uuid, reply.Node, reply.Port, reply.Candidates);
             log.Network("UserNuid '" + meta.EndPoint + "' - '" + UuidToString(reply.Uuid) + "' - '" + reply.Node + ":" + reply.Port + "'");
         }
 

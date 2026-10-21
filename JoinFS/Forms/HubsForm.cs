@@ -258,14 +258,21 @@ namespace JoinFS
                         // check for show ignored hubs
                         if (Settings.Default.ListIgnoredHubs || main.log.IgnoreNode(hub.endPoint.Address) == false && main.log.IgnoreNode(ref hub.guid) == false)
                         {
+                            // a hub this node has no address to reach is listed whatever the setting, so that it is known why it is not there
+                            bool unreachable = !main.network.Hubs.Reachable(hub);
+
                             // check for showing empty hubs
-                            if (Settings.Default.ListOfflineHubs || hub.online)
+                            if (Settings.Default.ListOfflineHubs || hub.online || unreachable)
                             {
                                 // status
                                 string status = "-";
                                 if (hub.online)
                                 {
                                     status = hub.password ? Resources.Strings.Password : hub.globalSession ? "Global" : "Online";
+                                }
+                                else if (unreachable)
+                                {
+                                    status = Resources.Strings.HubUnreachable;
                                 }
 
                                 // get address book state

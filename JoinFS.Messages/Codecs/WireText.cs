@@ -21,7 +21,7 @@ namespace JoinFS.Net.Jfp2.Codecs
     /// the u16 length prefix cannot wrap. Reading checks no limit: a message is valid at any size that
     /// fits its datagram.
     /// </summary>
-    static class WireText
+    public static class WireText
     {
         /// <summary>Bytes of the length prefix (u16 LE) before every string.</summary>
         public const int PrefixSize = 2;

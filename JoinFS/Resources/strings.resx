@@ -786,6 +786,9 @@
   <data name="Tip_NetworkReconnecting" xml:space="preserve">
     <value>Connection lost - trying to reconnect automatically.</value>
   </data>
+  <data name="HubUnreachable" xml:space="preserve">
+    <value>Unreachable from here</value>
+  </data>
   <data name="ReconnectGaveUp" xml:space="preserve">
     <value>Connection lost. Automatic reconnect could not re-establish it within the last {0} minutes. Try reconnecting manually when you are ready.</value>
   </data>

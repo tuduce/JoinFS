@@ -8,8 +8,12 @@ namespace JoinFS.Net
 {
     public struct HubAddress
     {
+        /// <summary>The hub's legacy id when it has one, else the name of its key.</summary>
         public NodeId Node;
         public ushort Port;
+
+        /// <summary>JFP2 only: where the hub can be reached, best first (global IPv6 first); null or empty for a legacy entry, which says it through <see cref="Node"/> and <see cref="Port"/>.</summary>
+        public List<System.Net.IPEndPoint> Candidates;
     }
 
     /// <summary>Hubs the sender knows about.</summary>
@@ -115,5 +119,8 @@ namespace JoinFS.Net
         public uint Uuid;
         public NodeId Node;
         public ushort Port;
+
+        /// <summary>JFP2 only: where the hub saw the user, or null (a legacy reply says it through <see cref="Node"/> and <see cref="Port"/>).</summary>
+        public List<System.Net.IPEndPoint> Candidates;
     }
 }

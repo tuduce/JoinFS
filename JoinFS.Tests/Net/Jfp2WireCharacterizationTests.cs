@@ -55,9 +55,11 @@ namespace JoinFS.Tests.Net
             Assert.Equal(
                 "08 00 " +                                         // Internal, class Hello
                 "0202" + "0000000000000000" + "0000" + "00" +      // ProtoMajor 2..2, no capabilities, SelfAssignedId (zeroed), Result
-                "1100" +                                           // seventeen offers, application classes at [1, 1], in this order:
+                "1900" +                                           // twenty-five offers, application classes at [1, 1], in this order:
                 "00070101" + "00080101" + "00010101" + "00020101" + "00000101" + // Status, StatusRequest, Identity, VariableSync, Position
                 "00030101" + "00040101" + "00050101" + "00060101" + "00090101" + // Event, FlightPlan, Notes, Weather, WeatherReply
+                "000A0101" + "000B0101" + "000C0101" + "000D0101" +              // the directory of stage 9: HubList, UserListRequest, HubUser, UserPositionsRequest,
+                "000E0101" + "000F0101" + "00100101" + "00110101" +              // UserPositions, Online, UserLookup, UserLookupAnswer
                 "01020101" + "01030102" + "01040102" +             // internal classes (partition 1) of stage 4: Join, JoinResult (versions 1 and 2 since stage 8), MemberList (versions 1 and 2 since stage 7)
                 "01050102" + "01060101" +                          // and of stage 5: MemberAnnounce (versions 1 and 2), MemberLeave
                 "01070101" + "01080101" +                          // and of stage 6: RouteQuery, RouteAnswer

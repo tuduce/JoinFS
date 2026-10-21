@@ -49,7 +49,7 @@ namespace JoinFS.Net.Jfp2
         const double IdentityForgetAfter = 30.0;
         const int GuaranteedDoneSize = 3;
         /// <summary>Non-member sessions at once, and how long one lasts unless a Join makes it a member (protocol.md §5.9).</summary>
-        const int MaxNonMembers = 32;
+        const int MaxNonMembers = 256;
         const double NonMemberLifetime = 60.0;
         /// <summary>Cookie challenges answered per second, with a burst of <see cref="AdmissionBurst"/> (protocol.md §5.9).</summary>
         const double AdmissionRate = 10.0;

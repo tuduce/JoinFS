@@ -24,6 +24,15 @@ namespace JoinFS.Tests.Session
         public void SendToEndPoint<T>(IPEndPoint endPoint, in T message, bool guaranteed = false) where T : struct, IMessage =>
             Sent.Add(new Sent(message, default, endPoint, guaranteed, false, []));
 
+        /// <summary>The requests to a node that may not be a member: also in <see cref="Sent"/>, like any send to an endpoint.</summary>
+        public readonly List<(IPEndPoint EndPoint, object Message)> Asked = [];
+
+        public void Ask<T>(IPEndPoint endPoint, in T message, bool guaranteed = false) where T : struct, IMessage
+        {
+            Asked.Add((endPoint, message));
+            SendToEndPoint(endPoint, message, guaranteed);
+        }
+
         public void Broadcast<T>(in T message, bool guaranteed = false) where T : struct, IMessage =>
             Sent.Add(new Sent(message, default, null, guaranteed, true, []));
 
@@ -227,5 +236,9 @@ namespace JoinFS.Tests.Session
             endPoint = ok ? new IPEndPoint(address, port) : new IPEndPoint(0, 0);
             return ok;
         }
+
+        public readonly Dictionary<IPEndPoint, IReadOnlyList<IPEndPoint>> Candidates = [];
+
+        public void NoteCandidates(IPEndPoint primary, IReadOnlyList<IPEndPoint> candidates) => Candidates[primary] = candidates;
     }
 }

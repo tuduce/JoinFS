@@ -60,6 +60,24 @@ namespace JoinFS.Net.Jfp2
         /// </summary>
         public const byte WeatherReply = 9;
 
+        // The directory (§5.16): what a node asks a hub, and what a hub answers, over a non-member session or a member one.
+        /// <summary>The hubs the sender knows, each with where it can be reached (§5.16).</summary>
+        public const byte HubList = 10;
+        /// <summary>Ask a hub for its users (§5.16).</summary>
+        public const byte UserListRequest = 11;
+        /// <summary>One user connected to the sending hub, with their flight plan (§5.16).</summary>
+        public const byte HubUser = 12;
+        /// <summary>Ask a hub for its users' positions (§5.16).</summary>
+        public const byte UserPositionsRequest = 13;
+        /// <summary>The positions of the sending hub's users (§5.16).</summary>
+        public const byte UserPositions = 14;
+        /// <summary>Tell a hub the sender is online under a user id (§5.16).</summary>
+        public const byte Online = 15;
+        /// <summary>Ask a hub where the user with a user id is (§5.16).</summary>
+        public const byte UserLookup = 16;
+        /// <summary>Where the user is: a name, a port and the endpoints the hub saw it at (§5.16).</summary>
+        public const byte UserLookupAnswer = 17;
+
         /// <summary>
         /// A class byte of 255 in either partition means "the real class id is a two-byte little-
         /// endian value immediately following this byte" - headroom past 255 classes per partition

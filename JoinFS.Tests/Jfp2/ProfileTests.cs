@@ -73,7 +73,7 @@ namespace JoinFS.Tests.Jfp2
         [Fact]
         public void DefaultProfile_LooksUpByClassAndByKind()
         {
-            Assert.Equal(10, Jfp2Profile.Default.Classes.Count);
+            Assert.Equal(18, Jfp2Profile.Default.Classes.Count);
             foreach (ClassDescriptor c in Jfp2Profile.Default.Classes)
             {
                 Assert.Same(c, Jfp2Profile.Default.ForClass(c.MessageClass));

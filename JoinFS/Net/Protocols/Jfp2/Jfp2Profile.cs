@@ -74,7 +74,15 @@ namespace JoinFS.Net.Jfp2
             ClassDescriptor.Plain(MessageClasses.FlightPlan, guaranteed: false, DeliverFlightPlan, new FlightPlanV1Codec()),
             ClassDescriptor.SentByPlugin(MessageKind.Notes, MessageClasses.Notes, guaranteed: true, DeliverNote, new NotesV1Codec()),
             ClassDescriptor.Plain(MessageClasses.Weather, guaranteed: false, new WeatherUpdateV1Codec()),
-            ClassDescriptor.Plain(MessageClasses.WeatherReply, guaranteed: true, new WeatherReplyV1Codec()))
+            ClassDescriptor.Plain(MessageClasses.WeatherReply, guaranteed: true, new WeatherReplyV1Codec()),
+            ClassDescriptor.Plain(MessageClasses.HubList, guaranteed: false, new HubListV1Codec()),
+            ClassDescriptor.Plain(MessageClasses.UserListRequest, guaranteed: false, new UserListRequestV1Codec()),
+            ClassDescriptor.Plain(MessageClasses.HubUser, guaranteed: false, new HubUserV1Codec()),
+            ClassDescriptor.Plain(MessageClasses.UserPositionsRequest, guaranteed: false, new UserPositionsRequestV1Codec()),
+            ClassDescriptor.Plain(MessageClasses.UserPositions, guaranteed: false, new UserPositionsV1Codec()),
+            ClassDescriptor.Plain(MessageClasses.Online, guaranteed: false, new OnlineV1Codec()),
+            ClassDescriptor.Plain(MessageClasses.UserLookup, guaranteed: false, new UserLookupV1Codec()),
+            ClassDescriptor.Plain(MessageClasses.UserLookupAnswer, guaranteed: false, new UserLookupAnswerV1Codec()))
             .WithInternalOffers(MembershipClasses);
 
         /// <summary>The wire carries no owner: the aircraft is the sender's (or the relayed origin's).</summary>

@@ -76,7 +76,7 @@ namespace JoinFS
                 }
                 try
                 {
-                    users.RegisterOnlineUser(request.Uuid, meta.Sender, (ushort)endPoint.Port);
+                    users.RegisterOnlineUser(request.Uuid, meta.Sender, (ushort)endPoint.Port, [endPoint]);
                 }
                 catch { }
             }
@@ -226,6 +226,9 @@ namespace JoinFS
             }
         }
 
+        /// <summary>Users in one UserPositions message (32 bytes each; the JFP2 body holds 34).</summary>
+        const int PositionsChunk = 30;
+
         /// <summary>Another node wants this hub's users' positions.</summary>
         public void Handle(in MessageMeta meta, in UserPositionsRequest request)
         {
@@ -247,7 +250,11 @@ namespace JoinFS
                     Heading = user.heading,
                 });
             }
-            if (positions.Users.Count > 0) outbox.SendToEndPoint(meta.EndPoint, positions);
+            // a few to a message: the datagram of any protocol is limited
+            for (int start = 0; start < positions.Users.Count; start += PositionsChunk)
+            {
+                outbox.SendToEndPoint(meta.EndPoint, new UserPositions { Users = positions.Users.GetRange(start, Math.Min(PositionsChunk, positions.Users.Count - start)) });
+            }
         }
     }
 }

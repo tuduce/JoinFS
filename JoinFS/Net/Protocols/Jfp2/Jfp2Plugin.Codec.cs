@@ -228,8 +228,7 @@ namespace JoinFS.Net.Jfp2
 
             if (hop.NonMember)
             {
-                // a stranger that echoed its cookie carries nothing but the handshake and the join (protocol.md §5.9, §5.10)
-                host.Log(NetLogLevel.Network, "JFP2: class " + envelope.RawMessageClass + " from " + from + " on a non-member session - dropped");
+                ReceiveDirectory(from, hop, envelope, payload);
                 return;
             }
 

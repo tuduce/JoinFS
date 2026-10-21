@@ -18,6 +18,11 @@ namespace JoinFS.Net
         /// </summary>
         EndPointObserved,
         Log,
+        /// <summary>
+        /// The address <see cref="NetworkEvent.EndPoint"/> took no conversation over JFP2 (a join or a request got no answer): it is joined and asked
+        /// over legacy for <see cref="NetworkEvent.Seconds"/>. The app keeps the memory, so the next run does not ask again at once.
+        /// </summary>
+        LegacyOnly,
     }
 
     public struct NetworkEvent
@@ -27,6 +32,8 @@ namespace JoinFS.Net
         public IPEndPoint EndPoint;
         public NetLogLevel Level;
         public string Text;
+        /// <summary>LegacyOnly: how long the memory lasts.</summary>
+        public double Seconds;
     }
 
     /// <summary>

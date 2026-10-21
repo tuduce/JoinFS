@@ -52,6 +52,25 @@ namespace JoinFS.Net
         void OnSessionReset();
     }
 
+    /// <summary>
+    /// Optional: a plugin that can talk to a node that is not a member of the session, over a short-lived link of its own (JFP2's non-member
+    /// session, docs/network/jfp2/protocol.md §5.9): the directory conversations (status, hub list, users, lookups) of §5.16.
+    /// </summary>
+    public interface IDirectoryLink
+    {
+        /// <summary>Start a conversation with the node at <paramref name="endPoint"/>, unless one is under way or open. False when it cannot be started.</summary>
+        bool Introduce(IPEndPoint endPoint);
+
+        /// <summary>A verified link to the node at <paramref name="endPoint"/> is open.</summary>
+        bool HasLink(IPEndPoint endPoint);
+
+        /// <summary>
+        /// Send <paramref name="message"/> over the open link to the node at <paramref name="endPoint"/>. False when there is no such link, the
+        /// message is not a directory one, or the node did not agree its class: nothing was sent.
+        /// </summary>
+        bool TrySend<T>(IPEndPoint endPoint, in T message) where T : struct, IMessage;
+    }
+
     /// <summary>Optional: a plugin that can describe its per-peer link state for the UI.</summary>
     public interface IDescribesLinks
     {

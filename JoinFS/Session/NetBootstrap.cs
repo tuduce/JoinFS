@@ -320,6 +320,14 @@ namespace JoinFS
             return true;
         }
 
+        public void NoteCandidates(IPEndPoint primary, IReadOnlyList<IPEndPoint> candidates)
+        {
+            if (candidates.Count > 1)
+            {
+                dialLists[primary] = candidates;
+            }
+        }
+
         /// <summary>The addresses to dial for an endpoint <see cref="MakeEndPoint(string, ushort, out IPEndPoint)"/> gave: all those its text resolved to, else just it.</summary>
         public IReadOnlyList<IPEndPoint> DialList(IPEndPoint endPoint) => dialLists.TryGetValue(endPoint, out IReadOnlyList<IPEndPoint> list) ? list : [endPoint];
 

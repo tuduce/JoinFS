@@ -499,6 +499,27 @@ namespace JoinFS.Tests.Net
             }, false);
             from.Core.SendTo(to.Id, new StatusRequestUpdate { HubEnabled = true, HubListRequested = true, Uuid = 1 }, false);
             from.Core.SendTo(to.Id, new WeatherReply { Metar = Text(WeatherReplyV1Codec.MetarLimit) }, true);
+            // the directory (stage 9): a full hub list and a user at the limits of every field
+            var hubs = new List<HubAddress>();
+            for (int n = 0; n < 8; n++)
+            {
+                hubs.Add(new HubAddress { Node = NodeId.FromLegacy(0xCB000000u + (uint)n, 6112, 1), Port = 6112, Candidates = [new IPEndPoint(IPAddress.Parse("2001:db8::1"), 6112), new IPEndPoint(IPAddress.Parse("2001:db8::2"), 6112), new IPEndPoint(IPAddress.Parse("2001:db8::3"), 6112), new IPEndPoint(IPAddress.Parse("2001:db8::4"), 6112)] });
+            }
+            from.Core.SendTo(to.Id, new HubList { Hubs = hubs }, false);
+            from.Core.SendTo(to.Id, new UserListRequest(), false);
+            from.Core.SendTo(to.Id, new HubUserUpdate
+            {
+                Guid = Guid.NewGuid(), Nickname = Text(HubUserV1Codec.NicknameLimit), Callsign = Text(HubUserV1Codec.CallsignLimit), IcaoType = Text(HubUserV1Codec.IcaoTypeLimit),
+                Departure = Text(HubUserV1Codec.DepartureLimit), Destination = Text(HubUserV1Codec.DestinationLimit), Rules = Text(HubUserV1Codec.RulesLimit),
+                Route = Text(HubUserV1Codec.RouteLimit), Remarks = Text(HubUserV1Codec.RemarksLimit), Alternate = Text(HubUserV1Codec.AlternateLimit),
+                FlightSpeed = Text(HubUserV1Codec.SpeedLimit), FlightAltitude = Text(HubUserV1Codec.AltitudeLimit), Registration = Text(HubUserV1Codec.RegistrationLimit),
+                IcaoAirline = Text(HubUserV1Codec.IcaoAirlineLimit), FlightNumber = Text(HubUserV1Codec.FlightNumberLimit),
+            }, false);
+            from.Core.SendTo(to.Id, new UserPositionsRequest(), false);
+            from.Core.SendTo(to.Id, new UserPositions { Users = Enumerable.Range(0, UserPositionsV1Codec.MaxUsers).Select(_ => new UserPosition { Guid = Guid.NewGuid() }).ToList() }, false);
+            from.Core.SendTo(to.Id, new OnlineAnnouncement { Uuid = 1 }, false);
+            from.Core.SendTo(to.Id, new UserNuidRequest { Uuid = 1 }, false);
+            from.Core.SendTo(to.Id, new UserNuidReply { Uuid = 1, Node = to.Id, Port = 6112, Candidates = [new IPEndPoint(IPAddress.Parse("2001:db8::1"), 6112), new IPEndPoint(IPAddress.Parse("2001:db8::2"), 6112), new IPEndPoint(IPAddress.Parse("2001:db8::3"), 6112), new IPEndPoint(IPAddress.Parse("2001:db8::4"), 6112)] }, false);
         }
 
         /// <summary>
@@ -557,7 +578,7 @@ namespace JoinFS.Tests.Net
                     Assert.Equal(header + payload, datagram.Length);
                 }
             }
-            Assert.Equal(Envelope.FixedSize + Envelope.ForwardedExtraSize + 1058, relayed.Max(d => d.Data.Length)); // Status
+            Assert.Equal(Envelope.FixedSize + Envelope.ForwardedExtraSize + 1 + UserPositionsV1Codec.MaxUsers * UserPositionsV1Codec.EntrySize, relayed.Max(d => d.Data.Length)); // UserPositions (the largest since stage 9; Status was)
             Assert.True(relayed.Count(d => d.Data[7] == MessageClasses.VariableSync) > 1);
 
             // and what was cut still arrived

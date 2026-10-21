@@ -168,6 +168,9 @@ local JFP2_APP_CLASS = {
     [0] = "Position", [1] = "Identity", [2] = "VariableSync", [3] = "Event",
     [4] = "FlightPlan", [5] = "Notes", [6] = "Weather", [7] = "Status",
     [8] = "StatusRequest", [9] = "WeatherReply",
+    -- the directory (edition 2, §5.16)
+    [10] = "HubList", [11] = "UserListRequest", [12] = "HubUser", [13] = "UserPositionsRequest",
+    [14] = "UserPositions", [15] = "Online", [16] = "UserLookup", [17] = "UserLookupAnswer",
 }
 
 -- Capability bits (docs/network/jfp2/protocol.md §5.6): none assigned yet
@@ -949,6 +952,104 @@ local function decode_jfp2_route_names(tree, buffer, offset, label)
     end
 end
 
+-- The candidates of a directory entry (§5.16): CandidateCount u8, then each a length u8 and a WireEndPoint.
+-- Returns the offset after them, or nil when they run past the datagram.
+local function add_jfp2_directory_candidates(tree, buffer, offset)
+    local len = buffer:len()
+    if offset >= len then return nil end
+    local count = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "CandidateCount: " .. count)
+    offset = offset + 1
+    for c = 1, count do
+        if offset >= len then return nil end
+        local l = buffer(offset, 1):uint()
+        if offset + 1 + l > len then return nil end
+        local candidate = jfp2_wire_endpoint_string(buffer, offset + 1, l)
+        tree:add(buffer(offset, 1 + l), "Candidate " .. c .. ": " .. (candidate or "unassigned family or too short (skipped)"))
+        offset = offset + 1 + l
+    end
+    return offset
+end
+
+-- HubList (application class 10): Count u8, then per hub Name (8), Port u16, the candidates
+local function decode_jfp2_hub_list(tree, buffer, offset)
+    local len = buffer:len()
+    if offset >= len then return end
+    local count = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Count: " .. count)
+    offset = offset + 1
+    for n = 1, count do
+        if offset + 11 > len then return end
+        local entry = tree:add(buffer(offset, 11), "Hub " .. n)
+        add_jfp2_name(entry, buffer, offset, "Name")
+        entry:add(buffer(offset + 8, 2), "Port: " .. buffer(offset + 8, 2):le_uint())
+        offset = add_jfp2_directory_candidates(entry, buffer, offset + 10)
+        if offset == nil then return end
+    end
+end
+
+-- HubUser (class 12): Guid, Flags, Nickname, Frequency, Latitude, Longitude, Altitude, Speed, Squawk, Level, Range, Heading, 13 strings
+local function decode_jfp2_hub_user(tree, buffer, offset)
+    if buffer:len() < offset + 17 then return end
+    tree:add(buffer(offset, 16), "Guid: " .. buffer(offset, 16):bytes():tohex()); offset = offset + 16
+    local flags = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Flags: 0x" .. string.format("%02x", flags) ..
+        (testbit(flags, 0) and " (Atc)" or "") .. (testbit(flags, 1) and " (Ifr)" or "")); offset = offset + 1
+    local s; s, offset = read_jfp2_string(buffer, offset); tree:add(buffer(), "Nickname: " .. s)
+    if buffer:len() < offset + 18 then return end
+    tree:add(buffer(offset, 2), "Frequency: " .. buffer(offset, 2):le_uint()); offset = offset + 2
+    tree:add(buffer(offset, 4), "Latitude: " .. buffer(offset, 4):le_float()); offset = offset + 4
+    tree:add(buffer(offset, 4), "Longitude: " .. buffer(offset, 4):le_float()); offset = offset + 4
+    tree:add(buffer(offset, 2), "Altitude: " .. buffer(offset, 2):le_uint()); offset = offset + 2
+    tree:add(buffer(offset, 2), "Speed: " .. buffer(offset, 2):le_uint()); offset = offset + 2
+    tree:add(buffer(offset, 2), "Squawk: " .. buffer(offset, 2):le_uint()); offset = offset + 2
+    tree:add(buffer(offset, 1), "Level: " .. buffer(offset, 1):uint()); offset = offset + 1
+    tree:add(buffer(offset, 1), "Range: " .. buffer(offset, 1):uint()); offset = offset + 1
+    tree:add(buffer(offset, 2), "Heading: " .. buffer(offset, 2):le_uint()); offset = offset + 2
+    local labels = { "Callsign", "IcaoType", "Departure", "Destination", "Rules", "Route", "Remarks",
+        "Alternate", "FlightSpeed", "FlightAltitude", "Registration", "IcaoAirline", "FlightNumber" }
+    for _, label in ipairs(labels) do
+        s, offset = read_jfp2_string(buffer, offset)
+        tree:add(buffer(), label .. ": " .. s)
+    end
+end
+
+-- UserPositions (class 14): Count u8, then per user 32 bytes
+local function decode_jfp2_user_positions(tree, buffer, offset)
+    local len = buffer:len()
+    if offset >= len then return end
+    local count = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Count: " .. count)
+    offset = offset + 1
+    for n = 1, count do
+        if offset + 32 > len then return end
+        local user = tree:add(buffer(offset, 32), "User " .. n)
+        user:add(buffer(offset, 16), "Guid: " .. buffer(offset, 16):bytes():tohex())
+        user:add(buffer(offset + 16, 4), "Latitude: " .. buffer(offset + 16, 4):le_float())
+        user:add(buffer(offset + 20, 4), "Longitude: " .. buffer(offset + 20, 4):le_float())
+        user:add(buffer(offset + 24, 2), "Altitude: " .. buffer(offset + 24, 2):le_uint())
+        user:add(buffer(offset + 26, 2), "Speed: " .. buffer(offset + 26, 2):le_uint())
+        user:add(buffer(offset + 28, 2), "Squawk: " .. buffer(offset + 28, 2):le_uint())
+        user:add(buffer(offset + 30, 2), "Heading: " .. buffer(offset + 30, 2):le_uint())
+        offset = offset + 32
+    end
+end
+
+-- Online (class 15) and UserLookup (class 16): Uuid u32
+local function decode_jfp2_uuid(tree, buffer, offset)
+    if buffer:len() < offset + 4 then return end
+    tree:add(buffer(offset, 4), "Uuid: " .. buffer(offset, 4):le_uint())
+end
+
+-- UserLookupAnswer (class 17): Uuid u32, Name (8), Port u16, the candidates
+local function decode_jfp2_user_lookup_answer(tree, buffer, offset)
+    if buffer:len() < offset + 15 then return end
+    tree:add(buffer(offset, 4), "Uuid: " .. buffer(offset, 4):le_uint()); offset = offset + 4
+    add_jfp2_name(tree, buffer, offset, "Name"); offset = offset + 8
+    tree:add(buffer(offset, 2), "Port: " .. buffer(offset, 2):le_uint()); offset = offset + 2
+    add_jfp2_directory_candidates(tree, buffer, offset)
+end
+
 local function decode_jfp2_application(tree, buffer, offset, class)
     local name = JFP2_APP_CLASS[class]
     local len = buffer:len()
@@ -970,6 +1071,18 @@ local function decode_jfp2_application(tree, buffer, offset, class)
         decode_jfp2_status_v1(tree, buffer, offset)
     elseif name == "StatusRequest" then
         decode_jfp2_status_request_v1(tree, buffer, offset)
+    elseif name == "HubList" then
+        decode_jfp2_hub_list(tree, buffer, offset)
+    elseif name == "HubUser" then
+        decode_jfp2_hub_user(tree, buffer, offset)
+    elseif name == "UserPositions" then
+        decode_jfp2_user_positions(tree, buffer, offset)
+    elseif name == "Online" or name == "UserLookup" then
+        decode_jfp2_uuid(tree, buffer, offset)
+    elseif name == "UserLookupAnswer" then
+        decode_jfp2_user_lookup_answer(tree, buffer, offset)
+    elseif name == "UserListRequest" or name == "UserPositionsRequest" then
+        if offset < len then tree:add(buffer(offset, 1), "Reserved: " .. buffer(offset, 1):uint()) end
     elseif offset < len then
         tree:add(buffer(offset, len - offset), (name or ("Unknown(" .. class .. ")")) ..
             " payload (undecoded, " .. (len - offset) .. " bytes)")
