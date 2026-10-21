@@ -1986,6 +1986,13 @@ namespace JoinFS
                     return;
                 }
 
+                // an entry whose address did not resolve (an IPv6 address or a name with one, until the IPv6 stages) has no endpoint
+                if (entry.endPoint.Port == 0 || entry.endPoint.Address.Equals(IPAddress.Any))
+                {
+                    MonitorEvent("Cannot join '" + addressText + "': its address is not an IPv4 address, nor a host name that resolves to one (IPv6 addresses are not accepted yet)");
+                    return;
+                }
+
                 // join endpoint
                 Join(entry.endPoint);
                 // done
