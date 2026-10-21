@@ -1133,7 +1133,7 @@ namespace JoinFS.Net.Legacy
             };
             (kind switch { VariableKind.Int32 => Stats.IntegerVariables, VariableKind.Float32 => Stats.FloatVariables, _ => Stats.String8Variables }).Record(length);
             NodeId wireOwner = NodeId.Read(reader);
-            // Insurance for docs/network-plugin-architecture.md §2.11 item 3's redundancy claim: no
+            // Insurance for docs/network/network-plugin-architecture.md §2.11 item 3's redundancy claim: no
             // known sender (this codebase's, or any released build's, as far as could be confirmed)
             // sets this to anything but its own id, which meta.Sender already carries - but if one
             // ever does, this is the only place that would notice, since the canonical

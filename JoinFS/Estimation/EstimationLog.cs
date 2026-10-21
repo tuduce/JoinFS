@@ -7,7 +7,7 @@ using System.Text;
 namespace JoinFS.Estimation
 {
     /// <summary>
-    /// CSV log for measuring how well remote objects are positioned (docs/position-estimation-plan.md
+    /// CSV log for measuring how well remote objects are positioned (docs/estimation/position-estimation-plan.md
     /// §6). Turned on with the -estimationlog command-line option. Used on the sim thread only.
     ///
     /// Rows, told apart by the first column:

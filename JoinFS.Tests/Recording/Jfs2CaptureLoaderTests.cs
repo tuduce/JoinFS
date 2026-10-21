@@ -6,7 +6,7 @@ using JoinFS.Recording.Format;
 namespace JoinFS.Tests.Recording;
 
 /// <summary>
-/// The stage 2 tracer bullet of the recorder v2 (docs/jfs2/README.md): what <see cref="Jfs2Capture"/> writes,
+/// The stage 2 tracer bullet of the recorder v2 (docs/recording/jfs2/README.md): what <see cref="Jfs2Capture"/> writes,
 /// <see cref="Jfs2Scene"/> reads back into the tracks the player plays.
 /// </summary>
 public sealed class Jfs2CaptureLoaderTests : IDisposable

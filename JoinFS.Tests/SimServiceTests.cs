@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 namespace JoinFS.Tests
 {
     /// <summary>
-    /// SimService, the sim thread (docs/sim-thread-architecture.md): posted work runs in order on
+    /// SimService, the sim thread (docs/sim/sim-thread-architecture.md): posted work runs in order on
     /// the sim thread, the thread survives failures, closes the simulator link on itself when
     /// stopped, and sleeps until the next due work.
     /// </summary>

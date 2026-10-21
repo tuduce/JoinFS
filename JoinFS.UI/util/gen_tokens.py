@@ -104,7 +104,7 @@ pat = re.compile(r'oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*(?:/\s*([\d.]+))?\
 out = []
 out.append('<ResourceDictionary xmlns="https://github.com/avaloniaui"')
 out.append('                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">')
-out.append('  <!-- GENERATED from the oklch() values in docs/design_handoff_avalonia_ui (see JoinFS.UI/util/gen_tokens.py).')
+out.append('  <!-- GENERATED from the oklch() values in docs/ui/design-handoff (see JoinFS.UI/util/gen_tokens.py).')
 out.append('       Avalonia cannot parse oklch(), so each token holds the sRGB hex and keeps the design value in its comment.')
 out.append('       Edit the oklch value in the table in gen_tokens.py and regenerate, so the two never drift apart. -->')
 for name, css in T:

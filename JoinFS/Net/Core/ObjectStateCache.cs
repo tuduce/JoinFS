@@ -7,7 +7,7 @@ namespace JoinFS.Net
     /// (owner, object id). This is the state that lets protocols with different message shapes
     /// interoperate: the legacy protocol inlines identity into every position, JFP2 sends it
     /// separately, so encoding a legacy position (our own, or one being translated from JFP2 at a
-    /// hub) reads the identity from here. See docs/network-plugin-architecture.md §2.6.
+    /// hub) reads the identity from here. See docs/network/network-plugin-architecture.md §2.6.
     ///
     /// Network thread only. Entries are dropped with their owner (peer leaves) or object
     /// (RemoveObject), so nothing leaks the way the old jfp2BridgeIdentityCache did.

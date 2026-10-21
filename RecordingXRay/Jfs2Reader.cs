@@ -5,7 +5,7 @@ using JoinFS.Recording;
 namespace RecordingXRay;
 
 /// <summary>
-/// Reads a .jfs2 file (docs/jfs2) into the same model the old .jfs reader fills. The file is read by <see cref="Jfs2Scene"/>;
+/// Reads a .jfs2 file (docs/recording/jfs2) into the same model the old .jfs reader fills. The file is read by <see cref="Jfs2Scene"/>;
 /// this maps its canonical messages onto the frames the viewer shows. Each record is one frame, so a <c>variables</c> record
 /// shows what it changed (an upsert, spec 7.6), as the file holds it, and not the merged set.
 /// </summary>

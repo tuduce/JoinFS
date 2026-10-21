@@ -26,14 +26,14 @@ namespace JoinFS
     }
 
     /// <summary>
-    /// Sim thread mailbox load (docs/sim-thread-architecture.md §2.8): items waiting when last
+    /// Sim thread mailbox load (docs/sim/sim-thread-architecture.md §2.8): items waiting when last
     /// drained, the most waiting at once since the previous publish, and the longest any item
     /// waited since then (seconds).
     /// </summary>
     public readonly record struct MailboxStats(int Depth, int Peak, double MaxAge);
 
     /// <summary>
-    /// The sim thread (docs/sim-thread-architecture.md). It runs Sim and the Recorder, woken by:
+    /// The sim thread (docs/sim/sim-thread-architecture.md). It runs Sim and the Recorder, woken by:
     /// - the simulator: SimConnect's message event (SimConnect builds), or a datagram from the
     ///   X-Plane plugin, which the link posts here (X-Plane builds);
     /// - work posted by other threads (<see cref="Post"/>);

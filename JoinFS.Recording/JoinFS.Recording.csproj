@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- The recorder's engine pieces that know the record kinds but not the simulator (docs/jfs2/README.md): the kind
+  <!-- The recorder's engine pieces that know the record kinds but not the simulator (docs/recording/jfs2/README.md): the kind
        bindings, the capture writer and the neutral scene reader. Built on the format library and the shared messages;
        no reference to JoinFS, Sim or UI and no build symbol, so the app, the tools and RecordingXRay read and write the
        same bytes. Namespaces are those the code had inside JoinFS (JoinFS.Recording). -->

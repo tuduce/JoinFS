@@ -620,7 +620,7 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// The live capture into a working file (docs/jfs2), or null. A new recording is captured into its working file, which becomes
+        /// The live capture into a working file (docs/recording/jfs2), or null. A new recording is captured into its working file, which becomes
         /// the recording when it stops (<see cref="ReadBackWorkingFile"/>); an overdub into a working file of its own on the recording's
         /// time line, whose <see cref="BaseKey"/> names the file it adds to, so a recovery lays it over that file.
         /// </summary>
@@ -1031,7 +1031,7 @@ namespace JoinFS
                 string captured = FinishJfs2Capture();
                 LogRecordFrameCounts();
 
-                // a clock that stepped back (limit 6 in docs/jfs2/README.md) leaves frames out of order; the player wants them in order
+                // a clock that stepped back (limit 6 in docs/recording/jfs2/README.md) leaves frames out of order; the player wants them in order
                 foreach (var obj in objList)
                 {
                     SortByTime(obj.track.Frames);
@@ -1610,7 +1610,7 @@ namespace JoinFS
             short version = reader.ReadInt16();
             // log version
             main?.MonitorEvent("Recorder: reading recording stream (version " + version + ").");
-            // a JFS2 file starts with FA 00, which reads as version 250 (docs/jfs2/format-spec.md section 2)
+            // a JFS2 file starts with FA 00, which reads as version 250 (docs/recording/jfs2/format-spec.md section 2)
             if (version == Jfs2.LegacyVersionSignature && reader.BaseStream.CanSeek)
             {
                 reader.BaseStream.Position -= sizeof(short);
@@ -1623,7 +1623,7 @@ namespace JoinFS
                 main?.ShowMessage(Resources.Strings.OldRecording);
                 return null;
             }
-            // an old recording is read by the importer (docs/jfs2/recorder-v2-design.md section 8), which parses the file both ways
+            // an old recording is read by the importer (docs/recording/jfs2/recorder-v2-design.md section 8), which parses the file both ways
             // the trailing strings were written and takes the one that fits, then plays like any other recording
             return ParseLegacy(version, reader.BaseStream, warnings);
         }

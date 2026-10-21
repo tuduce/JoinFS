@@ -8,7 +8,7 @@ namespace JoinFS.Net
     /// (peer, kind). Values index flat per-peer routing arrays, so keep them dense and below
     /// <see cref="Count"/>.
     ///
-    /// See docs/network-plugin-architecture.md §2.2 (canonical model) and §2.8 (how it evolves while
+    /// See docs/network/network-plugin-architecture.md §2.2 (canonical model) and §2.8 (how it evolves while
     /// the legacy protocol stays frozen): this model is in-process only, never a wire format.
     /// </summary>
     public enum MessageKind : byte
@@ -116,7 +116,7 @@ namespace JoinFS.Net
         /// Inbound, on a guaranteed message a JFP2 plugin decoded for another node (translation): the
         /// guaranteed id its origin gave it. A JFP2 plugin that re-sends it on the origin's behalf keeps
         /// that id, since the final target deduplicates by the origin's ids
-        /// (docs/jfp2/protocol.md §3.4); the core passes it through with the rest of the meta.
+        /// (docs/network/jfp2/protocol.md §3.4); the core passes it through with the rest of the meta.
         /// 0 when none. Legacy ignores it: its delivery past a translation is hop by hop, with its own
         /// ids. In-process only - never on the wire as such.
         /// </summary>

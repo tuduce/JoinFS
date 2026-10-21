@@ -1,4 +1,4 @@
-"""Reference writer for the example file in docs/jfs2/format-spec.md Appendix A.
+"""Reference writer for the example file in docs/recording/jfs2/format-spec.md Appendix A.
 
 Writes example.jfs2 (221 bytes) next to this script and prints each block as hex.
 Usage: python -I jfs2ref.py

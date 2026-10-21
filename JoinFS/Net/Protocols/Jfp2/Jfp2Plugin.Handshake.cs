@@ -5,7 +5,7 @@ using System.Net;
 namespace JoinFS.Net.Jfp2
 {
     // Sessions with neighbors: the Hello/HelloAck handshake, the keepalive, and the
-    // occupants seen answering at an endpoint (docs/jfp2/protocol.md §6, §9).
+    // occupants seen answering at an endpoint (docs/network/jfp2/protocol.md §6, §9).
     public sealed partial class Jfp2Plugin
     {
         // ================================================================== sessions
@@ -185,7 +185,7 @@ namespace JoinFS.Net.Jfp2
         };
 
         // Internal and nothing else: no flag a peer could need a capability to read
-        // (docs/jfp2/protocol.md §3.2); the envelope goes out as Envelope.HandshakeProtoMajor
+        // (docs/network/jfp2/protocol.md §3.2); the envelope goes out as Envelope.HandshakeProtoMajor
         void SendHello(IPEndPoint endPoint, PeerSession session) =>
             SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.Hello, session.LocalAssignedId, session.RemoteAssignedId, MakeHandshake(session, 0).Serialize());
 

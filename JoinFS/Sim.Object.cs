@@ -56,7 +56,7 @@ namespace JoinFS
             public int positionRequestId = -1;
 
             /// <summary>
-            /// SimConnect position feed (docs/sim-thread-architecture.md, Phase 3): the subscription made
+            /// SimConnect position feed (docs/sim/sim-thread-architecture.md, Phase 3): the subscription made
             /// on <see cref="positionRequestId"/> - which data, whether every frame (else every second),
             /// and for which sim ID. Null definition when there is none.
             /// </summary>
@@ -112,7 +112,7 @@ namespace JoinFS
 
             /// <summary>
             /// Following the sender's clock and predicting this object's state from network samples
-            /// (docs/position-estimation-plan.md §4). Sim thread only, so snapshot copies get their own.
+            /// (docs/estimation/position-estimation-plan.md §4). Sim thread only, so snapshot copies get their own.
             /// </summary>
             IClockModel clock;
             IStateEstimator estimator;

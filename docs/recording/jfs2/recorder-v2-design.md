@@ -2,8 +2,8 @@
 
 **Status: accepted, being implemented** on branch `jfs2-recording`. Written against `main` at `2f44e5c` (2026-10-02). How far
 the code has got, and where it differs from this design, is in `README.md` (one home for that); decisions taken since are in §11.
-Builds on `docs/recording-protocol.md` (the audit of today's `.jfs` format),
-`docs/jfp2/protocol.md` and `docs/reference/joinfs-architecture.md`.
+Builds on `docs/recording/jfs-format.md` (the audit of today's `.jfs` format),
+`docs/network/jfp2/protocol.md` and `docs/architecture.md`.
 
 ## 1. Summary
 
@@ -21,7 +21,7 @@ Builds on `docs/recording-protocol.md` (the audit of today's `.jfs` format),
 
 ## 2. What is wrong today
 
-`docs/recording-protocol.md` §7–§8 lists the format-level problems: no magic, no framing, no
+`docs/recording/jfs-format.md` §7–§8 lists the format-level problems: no magic, no framing, no
 checksum, EOF-sensing, a `#if FS2024` that changes the byte layout, duplicated readers that disagree.
 Reading `Recorder.cs` adds problems that are about the *shape* of the design, which patching the
 format (length prefixes, a magic number) would not fix:
@@ -59,7 +59,7 @@ The constraints taken from *The Pragmatic Programmer*, and what each one decides
 
 | Option | For | Against | Verdict |
 |---|---|---|---|
-| **A. Patch `.jfs`** (magic, length prefixes; recording-protocol.md §8.3) | Smallest change | Still object-major, in memory, no seek; old readers break anyway | No — pays the compatibility cost without the benefits |
+| **A. Patch `.jfs`** (magic, length prefixes; jfs-format.md §8.3) | Smallest change | Still object-major, in memory, no seek; old readers break anyway | No — pays the compatibility cost without the benefits |
 | **B. Own chunked log** (PNG/RIFF-like blocks, index at the end) | Streams, skips, seeks; ~500 lines; no dependency; exactly our vocabulary | We own the spec | **Recommended** |
 | **C. MCAP** (the robotics log container: channels, schemas, chunks, index, attachments) | Same shape as B, already specified; third-party viewers | I know of no first-party .NET library, so we would implement the spec ourselves; nanosecond clocks and pub/sub concepts we don't need | Best prior art: borrow its structure for B. Adopt only if a maintained .NET library exists |
 | **D. SQLite file** | Transactions, trivial editing and querying, tooling everywhere | Native dependency in every variant and in the Linux hub; payloads are still blobs needing codecs; heavier writes | Good second choice if editing becomes the main use |
@@ -288,7 +288,7 @@ Why this split rather than native backwards compatibility:
   builds can still read is, by definition, the old format with its limits.
 - The old format is ambiguous in a way only an offline pass can resolve. At the same version, an
   `FS2024` build writes three trailing strings per object and every other build writes two
-  (recording-protocol.md §7.1), and nothing in the file says which. An importer can parse both ways
+  (jfs-format.md §7.1), and nothing in the file says which. An importer can parse both ways
   and accept the one that passes validation (plausible frame types, counts and coordinates, and
   ending exactly at end of file), and report when neither or both do. A playback path should never
   contain that kind of guesswork; a one-time conversion can, and afterwards the ambiguity is gone.
@@ -312,7 +312,7 @@ Two points to confirm against real files:
 
 - **Frames on plain objects (§7.2).** The writer wrote those frames completely; only the in-app
   reader lacks the cases. An importer with the full switch should read files the current app
-  misreads, which is better than recording-protocol.md §7.2 concludes.
+  misreads, which is better than jfs-format.md §7.2 concludes.
 - **The eight reserved frame types** have no length and no known layout. If one ever appears, the
   importer has to stop with a clear error.
 

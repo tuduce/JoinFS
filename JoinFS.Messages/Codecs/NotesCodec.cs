@@ -2,8 +2,8 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 
-// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 5. The legacy Notes message (docs/network-
-// protocol.md §8.9) is a nested, length-prefixed, multi-type container - in the current codebase it
+// docs/network/jfp2/history/protocol-v2-implementation-plan.md Phase 5. The legacy Notes message (docs/network/
+// network-protocol.md §9.11) is a nested, length-prefixed, multi-type container - in the current codebase it
 // has 5 different producer methods with 2 different (and neither correct) Length-field formulas, and
 // 3 of those 5 have zero call sites anywhere in the repo, alongside two Notes-family request messages
 // (GlobalCommsRequest, CommsListenRequest) that are also fully unreferenced. Porting that whole
@@ -40,7 +40,7 @@ namespace JoinFS.Net.Jfp2.Codecs
         public byte MessageClass => MessageClasses.Notes;
         public byte SchemaVersion => 1;
 
-        // Byte limits of the string fields (UTF-8, without the length prefix; docs/jfp2/protocol.md §9.7)
+        // Byte limits of the string fields (UTF-8, without the length prefix; docs/network/jfp2/protocol.md §9.7)
         public const int NicknameLimit = 32;
         public const int CallsignLimit = 32;
         public const int TextLimit = 768;

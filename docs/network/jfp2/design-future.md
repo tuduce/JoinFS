@@ -111,7 +111,7 @@ The 14 kinds without a JFP2 codec fall into four groups:
 
 | Kinds | Why no JFP2 codec | What to do |
 |---|---|---|
-| ObjectPosition, CommsRequest | Scoped out as low value | ObjectPosition as its own class with the recorder's `ObjectPositionV1Codec` (decided 2026-10-15, `docs/jfs2/recorder-v2-design.md` §11); redesign the bulk notes catch-up rather than port it |
+| ObjectPosition, CommsRequest | Scoped out as low value | ObjectPosition as its own class with the recorder's `ObjectPositionV1Codec` (decided 2026-10-15, `docs/recording/jfs2/recorder-v2-design.md` §11); redesign the bulk notes catch-up rather than port it |
 | WeatherRequest, ShowOnRadar | Never used: no sender in the codebase | Do not port |
 | HubList, UserListRequest, HubUser, UserPositions(Request), Online, UserNuid(Request) | Sent to hub endpoints outside the session; JFP2 only talks to verified mesh neighbours | After admission (B2), with `WireEndPoint` lists in place of legacy ids, over admitted sessions |
 | RemoveObject, PeerInfo | In-session, never revisited | Add now |

@@ -11,7 +11,7 @@ namespace JoinFS.Estimation
     /// in metres. FS2020/FS2024 keep the aircraft glued to the ground, so they need it small.</param>
     /// <param name="catchUpRate">Catch-up rate, per second of error. The classic 1.5 leaves a steady
     /// offset where the simulator pushes the object off (the sag in a banked turn); a stiffer one
-    /// leaves less (docs/position-estimation-plan.md §6.6)</param>
+    /// leaves less (docs/estimation/position-estimation-plan.md §6.6)</param>
     public sealed class ClassicSteering(bool setAttitudeEveryFrame, double groundAltitudeLimit, double catchUpRate = ClassicSteering.CatchUpRate) : ISteeringLaw
     {
         /// <summary>Longest extrapolation of the measured position either way, in seconds</summary>

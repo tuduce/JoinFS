@@ -1,8 +1,8 @@
 # Networking re-architecture: pluggable protocol stacks
 
 > **What this document is:** the design and decision record of the 2026-09 networking rewrite — the problem, the options considered, the chosen design, how it evolved during implementation (§2.10), and the build log (§4).
-> - **For how the system works today, read `docs/reference/joinfs-architecture.md`.** Where this record and the code disagree, the code (and that reference) wins.
-> - The JFP2 wire protocol is specified in `docs/jfp2/protocol.md`.
+> - **For how the system works today, read `docs/architecture.md`.** Where this record and the code disagree, the code (and that reference) wins.
+> - The JFP2 wire protocol is specified in `docs/network/jfp2/protocol.md`.
 
 ## Context
 
@@ -172,7 +172,7 @@ With §2.4 in place, "JFP2 has its own mesh" no longer means a second mesh. It m
 
 **Is it worth it?**
 - **Not now.** While any legacy peer might be in the session (released v26.5 builds don't update themselves), the legacy mesh codecs must stay anyway.
-  - **Superseded by §2.13:** IPv6 for CGNAT users and retiring legacy are now requirements, and security is a goal, so the mesh moves to JFP2 (B3). The legacy mesh codecs stay until legacy retires. The "what it would take" list above (items 1, 2 and 4) is superseded too, by `docs/jfp2/design-future.md` §2: the internal classes 2–8 once reserved for the mesh are released, and the mesh over JFP2 designs and assigns its own set; a pre-membership bootstrap with admission (B2/B3); and membership lists split across messages.
+  - **Superseded by §2.13:** IPv6 for CGNAT users and retiring legacy are now requirements, and security is a goal, so the mesh moves to JFP2 (B3). The legacy mesh codecs stay until legacy retires. The "what it would take" list above (items 1, 2 and 4) is superseded too, by `docs/network/jfp2/design-future.md` §2: the internal classes 2–8 once reserved for the mesh are released, and the mesh over JFP2 designs and assigns its own set; a pre-membership bootstrap with admission (B2/B3); and membership lists split across messages.
 - **The gain is small:**
   - smaller headers: 8 bytes instead of 21, on 1 Hz pulses;
   - Findings 8/9 no longer apply. They are fixed on our side in the rewrite anyway.
@@ -309,7 +309,7 @@ The protocol boundary is intact — plugins never see the app, and the session l
    - The parts depend on narrow interfaces (`SessionInterfaces.cs`, plus `INetworkOutbox` on `NetworkService`). `MainSessionHost` is the one adapter over `Main`, the forms and `Settings`.
    - They are covered by `JoinFS.Tests/Session`, including end-to-end runs from the in-memory mesh into `SimIngest`.
    - Behaviour and tick order are unchanged. One latent bug was fixed along the way: a failed `hubs.dat` save left its hubs in the shared temporary list, so the next hubs tick would have removed them from the hub list.
-   - See `docs/reference/joinfs-architecture.md` §7.
+   - See `docs/architecture.md` §7.
 2. **Resolved (2026-09-23): some facts had two owners.**
    - The local addresses and `LocalId` now have one decider, `NetBootstrap`. It keeps an app-side `LocalIdentity` (the same class, so there's one `NodeId` rule and one shared-NAT endpoint rule) and hands every change to the network thread's copy. The two copies are the unavoidable cross-thread handoff, not two owners.
    - `DetectLocalAddress` exists once, on `LocalIdentity`.
@@ -350,7 +350,7 @@ This supersedes three earlier positions, each of which now points here: §2.4's 
 
 **Decision.** JFP2 replaces legacy. Some users cannot join the legacy mesh from behind CGNAT, and the frozen legacy wire cannot gain IPv6, NAT traversal or authentication; §2.4.1 named exactly these, and retiring legacy, as the requirements that would make a JFP2 mesh worth its cost. A node must become able to join, stay in and leave a session over JFP2 alone, after which legacy retires. Until then both plugins stay, and retiring legacy is deleting its plugin (§2.8, last row). Until the mesh runs over JFP2, legacy is the membership layer (Join, Pulse and Pathfinder go through `MeshManager` and only legacy carries them). Security is a goal. 26.6 waits until JFP2's first wire is right.
 
-The goals, the release plan, the retirement criterion and every decision are in `docs/jfp2/goals.md`; the wire is `docs/jfp2/protocol.md`; the work still to do is `docs/jfp2/roadmap.md`. They are not repeated here.
+The goals, the release plan, the retirement criterion and every decision are in `docs/network/jfp2/goals.md`; the wire is `docs/network/jfp2/protocol.md`; the work still to do is `docs/network/jfp2/roadmap.md`. They are not repeated here.
 
 
 ---
@@ -390,7 +390,7 @@ Pre-existing bugs fixed along the way (most have a regression test in `JoinFS.Te
      - **How they were captured:** a harness drove the pre-rewrite implementation. It called the application and request writers directly, and injected crafted datagrams into a real `LocalNode` to capture its replies: JoinReply/JoinFail/LoginFail, AddNode, GuaranteedDone, PulseResponse, PathfinderResponse, `FLAG_FORWARD` relay, and the UserNuid reply. Capture used a fixed loopback port (46112), with the Pulse timestamp zeroed.
      - **Now that the old code is deleted**, the capture tests are gone too. The fixtures are the frozen specification of the legacy wire, and `LegacyPluginGoldenTests` checks the new plugin against them.
      - **Not pinned on purpose:** the LoginFail sent for an unparsable email address. It writes into a stale send buffer (a known bug, fixed by the rewrite).
-     - **Done (2026-09-23):** v26.5 pcaps from a live session. See `docs/captures/README.md` — an
+     - **Done (2026-09-23):** v26.5 pcaps from a live session. See `docs/network/captures/README.md` — an
        unmodified v26.5 client's own `AircraftPosition` traffic (`DataVersion=21007`) is confirmed
        identical in shape whether it's talking to the live public hub network or to this branch's new
        hub, and the new hub's JFP2 Hello correctly gives up after 5 attempts against it and falls back
@@ -444,23 +444,23 @@ Pre-existing bugs fixed along the way (most have a regression test in `JoinFS.Te
    - **Status: done.**
      - `Node.cs` and `Jfp2Bridge.cs` are deleted, and `Jfp2/` was moved under `Net/Protocols/Jfp2/`.
      - `Network.cs` remains as the protocol-free session layer rather than being deleted (§2.10 item 1).
-9. Update `docs/jfp2/history/protocol-v2-architecture.md`, `.claude/CLAUDE.md` (the architecture section, the threading model, the "legacy files untouched" rule) and the implementation plan.
+9. Update `docs/network/jfp2/history/protocol-v2-architecture.md`, `.claude/CLAUDE.md` (the architecture section, the threading model, the "legacy files untouched" rule) and the implementation plan.
    - **Status: done** for this document and `CLAUDE.md`. `protocol-v2-architecture.md` has a banner pointing here.
 
 **Still open after the rewrite:**
 - **Live interop.** Test against an unmodified v26.5 build and a real simulator:
   - legacy direct
   - **through a new hub — done (2026-09-23).** Behavioral (following another aircraft, correct
-    protocol labels) and wire-level (`docs/captures/legacy-v26.5-client-vs-new-hub.pcapng`, see
-    `docs/captures/README.md`) confirmation.
-  - JFP2 pair — a new-build↔new-build capture exists (`docs/captures/
+    protocol labels) and wire-level (`docs/network/captures/legacy-v26.5-client-vs-new-hub.pcapng`, see
+    `docs/network/captures/README.md`) confirmation.
+  - JFP2 pair — a new-build↔new-build capture exists (`docs/network/captures/
     jfp2-new-client-vs-new-hub.pcapng`) but doesn't involve v26.5, so this specific item (v26.5
     coexisting with a JFP2 pair) is still open.
   - mixed hub
   - X-Plane plugin link
 
   This could not be run in the development sandbox: the built app fails to load its own assembly there, and yesterday's unmodified build fails the same way, so the cause is environmental.
-- **v26.5 pcaps as a second wire reference — done.** See `docs/captures/README.md`.
+- **v26.5 pcaps as a second wire reference — done.** See `docs/network/captures/README.md`.
 - **`SendPolicy`** out of `Sim` (§2.10 item 4).
 - **Performance measurements (§5) - the Position micro-benchmark is done, with real numbers.**
   `JoinFS.Benchmarks` (BenchmarkDotNet, `[MemoryDiagnoser]`, in-process toolchain) benchmarks

@@ -46,7 +46,7 @@ nodes that do not, through hop-by-hop translation.
 This document specifies the datagram format of JFP2, its handshake and version negotiation, the
 rules for sessions, routing, guaranteed delivery, relaying and translation, and the message formats
 of release 1. It does not specify the legacy protocol (`../network-protocol.md`), the recording
-file format (`../recording-protocol.md`), or anything above the wire (simulator access, model
+file format (`../../recording/jfs-format.md`), or anything above the wire (simulator access, model
 matching).
 
 JFP2 does not yet carry the session's membership: the mesh (Join, Pulse, Pathfinder, directory
@@ -648,7 +648,7 @@ a sender beyond the budget MUST NOT be relayed.
 
 Each class has one layout per schema version. Release 1 defines version 1 of each application
 class. Field names are the canonical ones of the application's message model
-(`../reference/joinfs-architecture.md` §4).
+(`../../architecture.md` §4).
 
 ### 9.1 Position (class 0, version 1)
 
@@ -923,6 +923,6 @@ FA 02 08 78 56 34 12 01                   magic, ProtoMajor 2, Internal, sender 
 ## References
 
 - `../network-protocol.md`: the legacy wire protocol.
-- `../reference/joinfs-architecture.md`: how the application uses the protocol.
+- `../../architecture.md`: how the application uses the protocol.
 - `goals.md`, `rationale.md`, `implementation.md`, `roadmap.md`: the other JFP2 documents.
 - RFC 2119 and RFC 8174: requirements language.

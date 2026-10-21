@@ -83,7 +83,7 @@ namespace JoinFS
         public Sim sim;
 
         /// <summary>
-        /// The sim thread: runs Sim and the Recorder (docs/sim-thread-architecture.md)
+        /// The sim thread: runs Sim and the Recorder (docs/sim/sim-thread-architecture.md)
         /// </summary>
         public SimService simService;
         public Network network;
@@ -134,7 +134,7 @@ namespace JoinFS
         public bool settingsLoop = false;
 
         /// <summary>
-        /// Journal each new recording to a working file (docs/jfs2), so it can be recovered after a crash; -no-jfs2 switches it off
+        /// Journal each new recording to a working file (docs/recording/jfs2), so it can be recovered after a crash; -no-jfs2 switches it off
         /// </summary>
         public bool settingsJfs2Capture = true;
         public bool settingsXplane = false;
@@ -2382,7 +2382,7 @@ namespace JoinFS
         [STAThread]
         static void Main()
         {
-            // a conversion of old recordings needs neither the application nor a simulator (docs/jfs2/recorder-v2-design.md section 8)
+            // a conversion of old recordings needs neither the application nor a simulator (docs/recording/jfs2/recorder-v2-design.md section 8)
             if (JoinFS.Recording.Jfs2Convert.FilesOf(Environment.GetCommandLineArgs()[1..]) is { } convertFiles)
             {
 #if !CONSOLE

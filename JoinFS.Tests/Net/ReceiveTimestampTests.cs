@@ -6,7 +6,7 @@ namespace JoinFS.Tests.Net
     /// <summary>
     /// Every inbound message carries the time its datagram arrived (MessageMeta.ReceivedAt), and
     /// SimIngest hands it to the simulator with each position, so time spent in queues before a
-    /// position is applied doesn't distort extrapolation (docs/sim-thread-architecture.md §2.7).
+    /// position is applied doesn't distort extrapolation (docs/sim/sim-thread-architecture.md §2.7).
     /// </summary>
     public class ReceiveTimestampTests
     {

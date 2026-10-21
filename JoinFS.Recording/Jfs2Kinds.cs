@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using JoinFS.Recording.Format;
 
-// The record kinds of docs/jfs2/format-spec.md section 7 that the engine writes and reads so far.
+// The record kinds of docs/recording/jfs2/format-spec.md section 7 that the engine writes and reads so far.
 // The container library sees records as opaque (kind, track, time, bytes); this is where a kind gets its meaning.
 // No build symbols here (spec 10.8): a conditional compilation symbol must never change a byte of the file.
 

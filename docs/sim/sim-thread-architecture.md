@@ -4,7 +4,7 @@
 > **implemented**, all phases, 2026-09-26). It covers the problem, the design chosen, the
 > alternatives rejected, the corner cases, and the phased migration. §9 records what was built in
 > each phase and where it differs from this design.
-> - For how the system works today, read `docs/reference/joinfs-architecture.md`.
+> - For how the system works today, read `docs/architecture.md`.
 > - This proposal copies the threading model of the network stack (`NetworkService`, §5.1 there):
 >   one owning thread, a mailbox for commands, and an immutable snapshot for reads.
 

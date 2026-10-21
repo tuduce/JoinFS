@@ -13,7 +13,7 @@ namespace JoinFS.Net.Jfp2
     {
         // -- Internal / session-management partition (EnvelopeFlags.Internal set) --
         // 2-8 are free: they were reserved for a mesh whose message set the mesh over JFP2 will design
-        // afresh, and are assigned by that design (docs/jfp2/protocol.md §3.3).
+        // afresh, and are assigned by that design (docs/network/jfp2/protocol.md §3.3).
         public const byte Hello = 0;
         public const byte HelloAck = 1;
         public const byte GuaranteedDone = 9;
@@ -28,17 +28,17 @@ namespace JoinFS.Net.Jfp2
         public const byte Weather = 6;
         public const byte Status = 7;
         /// <summary>
-        /// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 2's addition: the design doc's message
+        /// docs/network/jfp2/history/protocol-v2-implementation-plan.md Phase 2's addition: the design doc's message
         /// catalog (§4.3) only reserved one slot ("Status") for this whole exchange, but the legacy
         /// protocol has two distinct messages here (StatusRequest and Status - network-protocol.md
-        /// §8.6) with different shapes. Rather than overload one class with a discriminator field,
+        /// §9.8) with different shapes. Rather than overload one class with a discriminator field,
         /// this follows the catalog's own stated evolution rule ("always append a new class at the
         /// next unused number") and gives the request its own slot, mirroring Hello/HelloAck's split
         /// in the internal partition.
         /// </summary>
         public const byte StatusRequest = 8;
         /// <summary>
-        /// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 5's addition, same reasoning as
+        /// docs/network/jfp2/history/protocol-v2-implementation-plan.md Phase 5's addition, same reasoning as
         /// StatusRequest above: the design catalog reserved one slot ("Weather") for the legacy
         /// WeatherReply/WeatherUpdate pair, which share a wire shape ({ Metar: string }) but need
         /// independent negotiation (different reliability/receive semantics - see

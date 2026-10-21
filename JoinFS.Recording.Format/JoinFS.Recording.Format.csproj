@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- The JFS2 container (docs/jfs2/format-spec.md): blocks, chunks, CRC, index, repair.
+  <!-- The JFS2 container (docs/recording/jfs2/format-spec.md): blocks, chunks, CRC, index, repair.
        No reference to JoinFS, Sim, UI or any build symbol, so a conditional compilation symbol can
        never change a byte of the file (spec 10.8). Records are opaque (kind, track, time, bytes). -->
   <PropertyGroup>

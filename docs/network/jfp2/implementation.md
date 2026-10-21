@@ -2,7 +2,7 @@
 
 How `protocol.md` is realized in the code, what is built and what is not, how to extend and test it,
 and the record of how it got here. How JFP2 fits into the application as one protocol plugin is
-`../reference/joinfs-architecture.md` (§5 and §6); this document is about JFP2's own parts.
+`../../architecture.md` (§5 and §6); this document is about JFP2's own parts.
 
 ## 1. Code map
 

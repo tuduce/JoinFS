@@ -108,7 +108,7 @@ namespace JoinFS
 
         // ------------------------------------------------------------------ ISimSink
         // Queries read the snapshot; everything that changes the simulator or the recorder is
-        // posted to the sim thread, in arrival order (docs/sim-thread-architecture.md §2.5).
+        // posted to the sim thread, in arrival order (docs/sim/sim-thread-architecture.md §2.5).
 
         public bool TryGetOwnAircraft(out NodeId owner, out uint netId)
         {

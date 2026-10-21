@@ -2,7 +2,7 @@ namespace JoinFS.Net.Jfp2
 {
     /// <summary>
     /// The one size limit the message codecs share with the JFP2 envelope, kept here so the codecs need
-    /// not reference the envelope (docs/jfp2/protocol.md section 4.5).
+    /// not reference the envelope (docs/network/jfp2/protocol.md section 4.5).
     /// </summary>
     public static class Jfp2Limits
     {

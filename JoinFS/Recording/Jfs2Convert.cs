@@ -6,7 +6,7 @@ using System.Linq;
 namespace JoinFS.Recording
 {
     /// <summary>
-    /// The command-line door of the importer (docs/jfs2/recorder-v2-design.md section 8): <c>JoinFS -convert a.jfs b.jfs</c> writes
+    /// The command-line door of the importer (docs/recording/jfs2/recorder-v2-design.md section 8): <c>JoinFS -convert a.jfs b.jfs</c> writes
     /// <c>a.jfs2</c> and <c>b.jfs2</c> beside the originals, which are never modified, and never overwrites an existing file.
     /// Runs without starting the application, so it needs no simulator and no network.
     /// </summary>

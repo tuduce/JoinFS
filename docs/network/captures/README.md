@@ -1,14 +1,14 @@
 # Packet captures: wire-format verification evidence
 
-Raw Wireshark captures backing `docs/network-plugin-architecture.md` §4 step 1 ("record pcaps of a
+Raw Wireshark captures backing `docs/network/network-plugin-architecture.md` §4 step 1 ("record pcaps of a
 live v26.5 session ... as a second reference") and the "Live interop" item in that document's
-"Still open" list. **Not committed** — see `.gitignore` (`docs/captures/*.pcapng`); they're large
+"Still open" list. **Not committed** — see `.gitignore` (`docs/network/captures/*.pcapng`); they're large
 (the baseline is ~240 MB) and, per the privacy note below, contain other real people's IP addresses.
 This README is the only tracked thing here.
 
 Open with Wireshark using the dissector at `JoinFS/util/wireshark/joinfs.lua` (copy into Wireshark's
 Personal Lua Plugins folder, or `-X lua_script:joinfs.lua`); it decodes both the legacy wire
-(`docs/network-protocol.md`) and JFP2 (`docs/jfp2/protocol.md`) on the same capture.
+(`docs/network/network-protocol.md`) and JFP2 (`docs/network/jfp2/protocol.md`) on the same capture.
 Captured 2026-09-23. Machine's LAN addresses across all three: `192.168.1.115` (the test client) and
 `192.168.1.121` (the new hub, this branch, at `joinfs.famtuduce.com:6112`).
 
@@ -57,11 +57,11 @@ on the same capture).
   exactly 5 of them — matching `Jfp2Plugin.HelloMaxAttempts = 5` exactly. After the 5th, the hub falls
   back to legacy for the rest of the session (all 349 remaining messages in the pair are legacy). This
   is the concrete, on-the-wire confirmation of the "AssumedLegacy" fallback described in
-  `docs/reference/joinfs-architecture.md` §5.7 — a real released client that has never heard of JFP2
+  `docs/architecture.md` §5.7 — a real released client that has never heard of JFP2
   neither crashes nor gets stuck waiting on it.
 
 This is the "through a new hub" leg of the "Live interop" checklist in
-`docs/network-plugin-architecture.md`, now with wire-level evidence rather than only the earlier
+`docs/network/network-plugin-architecture.md`, now with wire-level evidence rather than only the earlier
 behavioral report (following another aircraft, seeing correct protocol labels).
 
 ### `jfp2-new-client-vs-new-hub.pcapng`
@@ -71,15 +71,15 @@ packets on UDP/6112; the `192.168.1.115:6112 ↔ 192.168.1.121:6112` conversatio
 JFP2 (magic byte `0xFA`).
 
 - **Consistent with the design, not a bug:** a JFP2-negotiated pair still carries legacy traffic,
-  because mesh kinds (Join/Pulse/Pathfinder) are legacy-only today (`docs/reference/
-  joinfs-architecture.md` §5.4/§5.7) — only Position/Identity/VariableSync/etc. move to JFP2.
+  because mesh kinds (Join/Pulse/Pathfinder) are legacy-only today (`docs/
+  architecture.md` §5.4/§5.7) — only Position/Identity/VariableSync/etc. move to JFP2.
 
 This isn't part of the v26.5-interop checklist (neither side is v26.5) but corroborates the JFP2
 plugin's negotiate-then-split-by-kind behavior on real traffic rather than only in unit tests.
 
 ## What's still not covered here
 
-Per `docs/network-plugin-architecture.md`'s "Still open" list: **legacy direct** (no hub in between),
+Per `docs/network/network-plugin-architecture.md`'s "Still open" list: **legacy direct** (no hub in between),
 a **mixed hub** capture (one legacy and one JFP2-capable peer through the new hub at the same time,
-to see the translation/relay path from `docs/reference/joinfs-architecture.md` §6 on the wire), and
+to see the translation/relay path from `docs/architecture.md` §6 on the wire), and
 the **X-Plane plugin link** leg.

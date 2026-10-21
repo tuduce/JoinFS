@@ -36,7 +36,7 @@ public static class NumberFormat
         HeadingDegrees(radians).ToString("F2", CultureInfo.InvariantCulture) + "°";
 
     /// <summary>
-    /// Recorded control values are fixed point, <c>raw / 16384</c> (docs/recording-protocol.md 4.2). Returns the
+    /// Recorded control values are fixed point, <c>raw / 16384</c> (docs/recording/jfs-format.md 4.2). Returns the
     /// fraction clamped to -1..1, or 0..1 for one-sided controls such as brakes.
     /// </summary>
     public static double ControlFraction(short raw, bool centered)

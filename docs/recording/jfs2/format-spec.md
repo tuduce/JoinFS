@@ -299,7 +299,7 @@ never reused for something else and a shipped version is never edited. A new fie
 |---|---|---|
 | `track-open` | 1 | §7.1 |
 | `track-close` | 1 | empty (`Length` 0) |
-| `identity` | 1 | `IdentityV1Codec`, `docs/jfp2/protocol.md` §9.2 |
+| `identity` | 1 | `IdentityV1Codec`, `docs/network/jfp2/protocol.md` §9.2 |
 | `position` | 1 | `PositionV1Codec`, §9.1 there |
 | `object-position` | 1 | §7.2 |
 | `variables` | 1 | `VariableSyncV1Codec`, §9.3 there, with the rules of §7.6 |

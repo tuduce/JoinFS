@@ -21,7 +21,7 @@ namespace JoinFS.Net
     /// - UI/Sim/CONSOLE code reads <see cref="Snapshot"/>: immutable, lock-free, at most
     ///   <see cref="SnapshotInterval"/> old.
     ///
-    /// See docs/network-plugin-architecture.md §2.7.
+    /// See docs/network/network-plugin-architecture.md §2.7.
     /// </summary>
     public sealed class NetworkService : INetworkSink, INetworkOutbox, IDisposable
     {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Analyse JoinFS estimation logs from one or more test PCs (docs/position-estimation-plan.md 6.1).
+"""Analyse JoinFS estimation logs from one or more test PCs (docs/estimation/position-estimation-plan.md 6.1).
 
 Input: the zips that "Collect test logs.bat" uploads (or folders they were extracted to). Each holds
 a PC's estimation-*.csv (one per JoinFS session), clock-*.txt (the PC's offset to time.windows.com

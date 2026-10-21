@@ -1,7 +1,7 @@
 namespace JoinFS.Net.Legacy
 {
     /// <summary>
-    /// The frozen legacy wire format (docs/network-protocol.md). Every datagram starts with a
+    /// The frozen legacy wire format (docs/network/network-protocol.md). Every datagram starts with a
     /// 21-byte header:
     /// <code>
     ///   0  int16  version (0x520B, so byte 0 is 0x0B - never JFP2's 0xFA magic)
@@ -49,7 +49,7 @@ namespace JoinFS.Net.Legacy
         /// The FlightPlan message's own version byte (distinct from <see cref="DataVersion"/>).
         /// Frozen at 1 since the field was introduced; no reader (this codebase's or, as far as
         /// known, any released build's) branches on it - see
-        /// docs/network-plugin-architecture.md §2.11 item 3. Kept only for byte-for-byte wire
+        /// docs/network/network-plugin-architecture.md §2.11 item 3. Kept only for byte-for-byte wire
         /// fidelity; the canonical FlightPlanUpdate no longer carries it.
         /// </summary>
         public const byte FlightPlanFormatVersion = 1;

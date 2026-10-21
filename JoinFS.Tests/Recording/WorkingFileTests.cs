@@ -4,7 +4,7 @@ using JoinFS.Recording;
 namespace JoinFS.Tests.Recording;
 
 /// <summary>
-/// The file the recorder keeps while a recording is unsaved (docs/jfs2/README.md, stage 5): it goes when the recording is saved or given up,
+/// The file the recorder keeps while a recording is unsaved (docs/recording/jfs2/README.md, stage 5): it goes when the recording is saved or given up,
 /// and what is left at the next start is offered back.
 /// </summary>
 public sealed class WorkingFileTests : IDisposable

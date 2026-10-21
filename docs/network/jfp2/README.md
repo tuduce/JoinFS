@@ -10,6 +10,7 @@ protocol. These documents describe it. Each kind of information lives in exactly
 | Why is the wire like that, and what was rejected? | [rationale.md](rationale.md) | Design rationale |
 | How does the code do it, what is built, how do I add a class or test skew? | [implementation.md](implementation.md) | Implementation guide and record of the work |
 | What is left to do, in what order, and what is still undecided? | [roadmap.md](roadmap.md) | **All** open tasks and open questions |
+| How does JFP2 become stand-alone and get IPv6, and what is built of that? | [standalone-ipv6-plan.md](standalone-ipv6-plan.md) | The current staged work: goals, scenarios, decisions, stages, status (§6.1) |
 | How will node identity and the node key work? | [design-node-identity.md](design-node-identity.md) | Approved designs of the next stages |
 | How might the mesh, admission, IPv6, relaying, security work? | [design-future.md](design-future.md) | Non-binding sketches of later work |
 | How was it first built and audited? | [history/](history/) | Frozen records; do not update |
@@ -38,8 +39,8 @@ New to the project: `goals.md` §1–§5, then `protocol.md` §1–§3 and §5�
 - `../network-protocol.md`: the legacy wire, which JFP2 coexists with and eventually replaces.
 - `../network-plugin-architecture.md`: the decision record of the plugin network stack JFP2 runs in
   (§2.12 and §2.13 concern JFP2).
-- `../reference/joinfs-architecture.md`: how the whole application works today.
+- `../../architecture.md`: how the whole application works today.
 - `../captures/`: Wireshark captures of live sessions. `JoinFS/util/wireshark/joinfs.lua` dissects
   both protocols.
-- `../../ProtocolV2Reference/`: the original stand-alone reference code, kept for history; it is not
+- `../../../ProtocolV2Reference/`: the original stand-alone reference code, kept for history; it is not
   part of the build.

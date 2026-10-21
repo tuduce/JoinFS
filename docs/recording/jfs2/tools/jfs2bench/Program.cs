@@ -1,5 +1,5 @@
-// Stage 6 measurements (docs/jfs2/README.md): load time and memory of long recordings, Deflate per chunk.
-// Not in JoinFS.sln; run with: dotnet run -c Release --project docs/jfs2/tools/jfs2bench -- <command> ...
+// Stage 6 measurements (docs/recording/jfs2/README.md): load time and memory of long recordings, Deflate per chunk.
+// Not in JoinFS.sln; run with: dotnet run -c Release --project docs/recording/jfs2/tools/jfs2bench -- <command> ...
 // convert <out-dir> <a.jfs>...      convert old files, report sizes
 // synth <template.jfs2> <out.jfs2> [aircraft] [seconds]   build a long recording with Jfs2Capture from a real one's frames
 // load <f.jfs2>...                  Jfs2Scene.Load: time (best of 3 after a cold run), retained and allocated memory

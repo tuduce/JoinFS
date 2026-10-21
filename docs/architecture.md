@@ -3,8 +3,8 @@
 **Reference document.** How JoinFS is structured: its subsystems and threads, and in depth, the
 network stack in which wire protocols are plugins. It describes the code as it is
 (`JoinFS/`, 2026-09). For the reasoning behind the network design and how it evolved, see
-`docs/network-plugin-architecture.md`. For the wire protocols themselves, see
-`docs/jfp2/protocol.md` (JFP2) and `docs/network-protocol.md` (legacy).
+`docs/network/network-plugin-architecture.md`. For the wire protocols themselves, see
+`docs/network/jfp2/protocol.md` (JFP2) and `docs/network/network-protocol.md` (legacy).
 
 Contents:
 1. [What JoinFS is, and the vocabulary](#1-what-joinfs-is-and-the-vocabulary)
@@ -82,7 +82,7 @@ graph TB
 - **UI code** reads application state under `conch` from WinForms timers. Other threads ask for work
   by setting a `volatile schedule*` flag or calling `EnqueueCommand`.
 - **`Sim` and the `Recorder` run on their own thread** inside `SimService` (`JoinFS/SimService.cs`;
-  design and history in `docs/sim-thread-architecture.md`):
+  design and history in `docs/sim/sim-thread-architecture.md`):
   - It sleeps until the simulator has something (SimConnect's message event, or a datagram from
     the X-Plane plugin), work is posted, or a timer is due, and it takes no lock.
   - Every SimConnect call happens on it. `SimConnectInterface` re-posts calls made from other
@@ -121,10 +121,10 @@ read it freely; writers publish new collections.
 | Subsystem | File(s) | Role |
 |---|---|---|
 | `Main` | `Program.cs` | Composition root, work loop, settings, command-line options, shutdown. |
-| `Sim` | `Sim.cs` | Simulator abstraction: SimConnect lifecycle, the object list, and per-frame reconciliation that moves each remote or recorded object toward its latest known position (`UpdateSimObjectVelocity` in `Sim.Steering.cs`, which uses the swappable clock model, estimator and steering law in `JoinFS/Estimation/`; see `docs/position-estimation-plan.md`). Decides *which peers* get *which updates* and how often (per-peer rate masks), then hands one canonical message per tick to `Network`. |
+| `Sim` | `Sim.cs` | Simulator abstraction: SimConnect lifecycle, the object list, and per-frame reconciliation that moves each remote or recorded object toward its latest known position (`UpdateSimObjectVelocity` in `Sim.Steering.cs`, which uses the swappable clock model, estimator and steering law in `JoinFS/Estimation/`; see `docs/estimation/position-estimation-plan.md`). Decides *which peers* get *which updates* and how often (per-peer rate masks), then hands one canonical message per tick to `Network`. |
 | `VariableMgr` | `Variables.cs`, `VariableMgr.*.cs` | Declares every simulator variable JoinFS syncs, each identified on the network by a 32-bit `vuid` hash of its name. |
 | `Substitution` | `Substitution.cs` | Matches remote aircraft types to locally installed models. |
-| `Recorder` | `Recorder.cs` | Records, plays back and edits recordings, saved as `.jfs2` (`docs/jfs2/`; old `.jfs` files are read through `LegacyJfsImporter`). Played-back objects feed the same `Sim.Obj` path as network ones (owner *Recorder*). A new recording is also journalled to a working file for crash recovery. The format is versioned per record kind, independent of any wire version. |
+| `Recorder` | `Recorder.cs` | Records, plays back and edits recordings, saved as `.jfs2` (`docs/recording/jfs2/`; old `.jfs` files are read through `LegacyJfsImporter`). Played-back objects feed the same `Sim.Obj` path as network ones (owner *Recorder*). A new recording is also journalled to a working file for crash recovery. The format is versioned per record kind, independent of any wire version. |
 | **`Network`** + session parts | `Network.cs`, `Session/*` | **The network session** (§7): hubs, users, address book, per-peer info. Turns sim state into canonical messages and incoming messages into sim, recorder and notes updates. Contains no wire-protocol code. |
 | **Network stack** | `Net/**` | Transport, protocol plugins, mesh, routing, translation (§5). |
 | `Notes` | `Notes.cs` | Text comms (channels, history). |
@@ -183,7 +183,7 @@ The result is statically typed handling with no casts, boxing or `switch` on kin
 **The canonical model is not a wire format.** It is compiled into the same binary as every plugin, so
 it can change freely between releases. Wire compatibility is each plugin's job. The model is the
 *superset* of what the app understands: a new field is added as optional, the legacy codec ignores
-it, and newer codecs carry it (`docs/network-plugin-architecture.md` §2.8).
+it, and newer codecs carry it (`docs/network/network-plugin-architecture.md` §2.8).
 
 ## 5. The network stack
 
@@ -363,7 +363,7 @@ public interface IProtocolPlugin
 - **Optional** `IDescribesLinks`: gives the UI a per-peer link-state string.
 
 **`LegacyPlugin`** (`Net/Protocols/Legacy/`) — the frozen protocol every released version speaks
-(`docs/network-protocol.md`):
+(`docs/network/network-protocol.md`):
 - **Framing:** a 21-byte header with sender and recipient `NodeId`. One encoding goes to many
   recipients by patching the recipient field per target.
 - **Encoder:** an `IMessageHandler` with one overload per message type. **Decoder:** one method per
@@ -379,7 +379,7 @@ public interface IProtocolPlugin
   the Forward flag, which is exactly what a legacy relay emits.
 - **Pinned** byte-for-byte by the golden fixtures in `JoinFS.Tests/Legacy`.
 
-**`Jfp2Plugin`** (`Net/Protocols/Jfp2/`) — the newer protocol (`docs/jfp2/protocol.md`):
+**`Jfp2Plugin`** (`Net/Protocols/Jfp2/`) — the newer protocol (`docs/network/jfp2/protocol.md`):
 - **Envelope:** an 8-byte header (magic `0xFA`), optional guaranteed and relay extensions.
 - **Sessions:** with a *neighbour*, bound to the node id it states in Hello/HelloAck, never to the
   endpoint it answers from; datagrams find their session by the ids in the envelope. Hello/HelloAck
@@ -563,7 +563,7 @@ functions in `SimMessageMapper`.
    The steering law is chosen with `-steering <name>` (default `Gain4`; `Classic` is the original rate; `alternate` cycles through
    the laws for a flight-test comparison). The X-Plane
    plugin still does its own estimation (`AdvancePosition` in `JoinFS-XP`). See
-   `docs/position-estimation-plan.md`.
+   `docs/estimation/position-estimation-plan.md`.
 
 The sender times its own samples with `SimClockStamper` (one per object, on the sim thread): on
 MSFS by the simulator's `SIMULATION TIME`, tied to `ElapsedTime`; elsewhere, or with
@@ -591,7 +591,7 @@ plugin.
 **A new field on an existing message** (for example on `PositionUpdate`):
 1. Add it to the canonical struct as optional, with a presence bit or a sentinel.
 2. Carry it in a new JFP2 schema version: write a `PositionV2Codec` and add it to Position's
-   descriptor in `Jfp2Profile.Default`; the offer follows (`docs/jfp2/implementation.md` §5).
+   descriptor in `Jfp2Profile.Default`; the offer follows (`docs/network/jfp2/implementation.md` §5).
 3. Leave the legacy codec alone; it ignores the field.
 4. Give it a default in the session part's handler for peers that don't send it.
 
@@ -600,7 +600,7 @@ plugin.
    overload. Handle it in the session part that owns that data, and forward it there from
    `Network`.
 2. Carry it in JFP2 with a new application class number, appended and never reused, and a
-   descriptor for it in `Jfp2Profile.Default` (`docs/jfp2/implementation.md` §5).
+   descriptor for it in `Jfp2Profile.Default` (`docs/network/jfp2/implementation.md` §5).
 3. Legacy doesn't get new messages. Either the feature doesn't reach legacy peers, or it is expressed
    through an existing kind (for example, a sim value as a `VariableSync` vuid).
 

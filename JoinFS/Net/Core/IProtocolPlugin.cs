@@ -10,7 +10,7 @@ namespace JoinFS.Net
     /// of the network stack comes through <see cref="IProtocolHost"/>.
     ///
     /// All methods are called on the network thread only.
-    /// See docs/network-plugin-architecture.md §2.3.
+    /// See docs/network/network-plugin-architecture.md §2.3.
     /// </summary>
     public interface IProtocolPlugin
     {
@@ -61,8 +61,8 @@ namespace JoinFS.Net
     }
 
     /// <summary>
-    /// Which protocol actually carries traffic to a peer, for display (docs/network-plugin-
-    /// architecture.md §2.11 item 4: this replaces matching literal strings such as "JFP2"/"Legacy"
+    /// Which protocol actually carries traffic to a peer, for display (docs/network/
+    /// network-plugin-architecture.md §2.11 item 4: this replaces matching literal strings such as "JFP2"/"Legacy"
     /// in the UI). Reported by whichever plugin implements <see cref="IDescribesLinks"/>;
     /// <see cref="NetworkSnapshot"/> defaults untracked peers to <see cref="Legacy"/>, since with no
     /// negotiating plugin registered at all, legacy is the only thing a peer could be talking.

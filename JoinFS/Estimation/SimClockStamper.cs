@@ -5,7 +5,7 @@ namespace JoinFS.Estimation
 {
     /// <summary>
     /// Times an own-aircraft sample by the simulator's clock instead of by when its message was
-    /// handled (finding F2 in docs/position-estimation-plan.md). The handling time carries the
+    /// handled (finding F2 in docs/estimation/position-estimation-plan.md). The handling time carries the
     /// jitter of SimConnect's queue and of the sim thread's wake-up, which goes straight into every
     /// receiver's extrapolation; the simulator's clock is the time the state was computed.
     ///

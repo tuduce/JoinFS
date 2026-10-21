@@ -8,12 +8,12 @@ using JoinFS.Net.Jfp2.Codecs;
 namespace JoinFS.Net.Jfp2
 {
     /// <summary>
-    /// The JFP2 protocol as a plugin (docs/jfp2/protocol.md): an 8-byte envelope starting with
+    /// The JFP2 protocol as a plugin (docs/network/jfp2/protocol.md): an 8-byte envelope starting with
     /// magic 0xFA, a Hello/HelloAck handshake that agrees a schema version per message class with
     /// each neighbor, versioned codecs, guaranteed delivery (<see cref="Jfp2Reliability"/>), and relay
     /// of Forwarded envelopes.
     ///
-    /// Today JFP2 is a per-hop "link upgrader" (docs/network-plugin-architecture.md §2.4): the legacy
+    /// Today JFP2 is a per-hop "link upgrader" (docs/network/network-plugin-architecture.md §2.4): the legacy
     /// mesh holds membership and JFP2 carries what it negotiated with each neighbor. It is to become
     /// the successor of legacy (§2.13 there). A session is with a NEIGHBOR: a node we exchange
     /// datagrams with directly, identified by the name it states in the handshake and never by the
@@ -138,7 +138,7 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>
         /// The name this node writes for a node: its kind-0 name, since every node has a legacy id
-        /// until the mesh runs over JFP2 (docs/jfp2/protocol.md §4.3).
+        /// until the mesh runs over JFP2 (docs/network/jfp2/protocol.md §4.3).
         /// </summary>
         static NodeName NameOf(NodeId node) => NodeName.FromLegacy(node);
 

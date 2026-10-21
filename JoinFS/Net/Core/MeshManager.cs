@@ -19,7 +19,7 @@ namespace JoinFS.Net
     ///
     /// Protocol-neutral: it sends and receives canonical mesh messages through the core's router,
     /// so which wire carries them is a plugin decision (today only the legacy plugin does; see
-    /// docs/network-plugin-architecture.md §2.4 for what a JFP2 mesh would add). The rules and
+    /// docs/network/network-plugin-architecture.md §2.4 for what a JFP2 mesh would add). The rules and
     /// timings are a faithful port of LocalNode's, because released v26.5 peers depend on them.
     ///
     /// Network thread only.

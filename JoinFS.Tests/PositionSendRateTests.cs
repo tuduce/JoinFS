@@ -3,7 +3,7 @@ using JoinFS.Net;
 namespace JoinFS.Tests
 {
     /// <summary>
-    /// With SimConnect feeds (docs/sim-thread-architecture.md, Phase 3) positions can arrive every
+    /// With SimConnect feeds (docs/sim/sim-thread-architecture.md, Phase 3) positions can arrive every
     /// frame, but the network and the recorder must keep getting them at Sim.PositionSendInterval.
     /// </summary>
     public class PositionSendRateTests

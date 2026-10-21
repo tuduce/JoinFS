@@ -7,7 +7,7 @@ namespace JoinFS
 {
     /// <summary>
     /// The legacy wire's binary codec for the aircraft position XPlane exchanges with the native
-    /// plugin (docs/network-plugin-architecture.md §6 calls this "Sim.Write/Read"; it used to live
+    /// plugin (docs/network/network-plugin-architecture.md §6 calls this "Sim.Write/Read"; it used to live
     /// on Sim itself). It also wrote the frames of old .jfs recordings, which the application no
     /// longer writes; LegacyJfsImporter reads them. This message format is frozen - the same
     /// rule as LegacyPlugin's codecs (see CLAUDE.md's networking rules): never add fields here, only

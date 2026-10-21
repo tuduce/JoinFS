@@ -2,7 +2,7 @@
 
 This document describes the on-disk format JoinFS uses for `.jfs` recording files — the "record a session, play it back later" feature exposed by the Recorder window. It is derived directly from `JoinFS/Recorder.cs`, the shared struct read/write code in `JoinFS/Sim.cs`, `JoinFS/Forms/RecorderForm.cs` and `JoinFS/Forms/MainForm.cs`, plus a from-scratch independent reader implementation in the companion `RecordingXRay` tool (`RecordingXRay/RecordingReader.cs`), which was useful cross-referencing and also exposes one of the compatibility problems documented below. Line numbers are approximate and will drift as the code evolves; they're accurate as of this writing (`Sim.VERSION = 21008`).
 
-This document assumes familiarity with `docs/network-protocol.md`, since the recording format deliberately reuses large parts of the network protocol's wire encoding (the same `BinaryWriter`/`BinaryReader` struct serializers are called from both). Where the two formats share code, this document says so instead of repeating the field tables.
+This document assumes familiarity with `docs/network/network-protocol.md`, since the recording format deliberately reuses large parts of the network protocol's wire encoding (the same `BinaryWriter`/`BinaryReader` struct serializers are called from both). Where the two formats share code, this document says so instead of repeating the field tables.
 
 ## 1. Overview
 
@@ -12,8 +12,8 @@ Key properties:
 
 - **Container:** a single file, conventionally named with the `.jfs` extension (`RecorderForm.cs`: `Filter = "JoinFS files (*.jfs)|*.jfs"`), written with a plain `BinaryWriter` directly over a `FileStream` — there is no wrapping container format (no ZIP, no JSON manifest, no separate header file).
 - **Encoding:** little-endian binary via `BinaryWriter`/`BinaryReader`, identical string encoding to the network protocol (7-bit length-prefixed UTF-8, i.e. `.Write(string)`/`.ReadString()`).
-- **Versioning:** a single 16-bit version number at the very start of the file, reusing the *same* monotonically increasing counter as the network protocol (`Sim.VERSION`, currently `21008`) — there is no separate "recording format version." Every version-gated read inside the file (frame fields, per-object trailing fields) is conditioned on this one number, using the same `if (version >= N) ... else <default>` idiom documented in network-protocol.md §5.
-- **No checksum, no length framing, no magic number.** Unlike the network protocol, where a corrupt/misread UDP datagram only costs one dropped message, a recording is one continuous stream: a single misaligned read anywhere in the file desyncs every byte read after it for the rest of the file. This makes the file format considerably less forgiving of the version-compatibility mistakes network-protocol.md warns about (§9.2), and two such mistakes already exist in the current code — see §7.
+- **Versioning:** a single 16-bit version number at the very start of the file, reusing the *same* monotonically increasing counter as the network protocol (`Sim.VERSION`, currently `21008`) — there is no separate "recording format version." Every version-gated read inside the file (frame fields, per-object trailing fields) is conditioned on this one number, using the same `if (version >= N) ... else <default>` idiom documented in network-protocol.md §11.2.
+- **No checksum, no length framing, no magic number.** Unlike the network protocol, where a corrupt/misread UDP datagram only costs one dropped message, a recording is one continuous stream: a single misaligned read anywhere in the file desyncs every byte read after it for the rest of the file. This makes the file format considerably less forgiving of the version-compatibility mistakes network-protocol.md §11.3 warns about, and two such mistakes already exist in the current code — see §7.
 - **Read/write symmetry lives entirely in one class.** All of it — writer, reader, in-memory model, playback interpolation — is `Recorder.cs`; there is no separate "recording protocol" module the way `Network.cs`/`Node.cs` are split out from the rest of the app.
 
 ## 2. File-level layout
@@ -22,13 +22,13 @@ Key properties:
 
 | Order | Field | Type | Description |
 |---|---|---|---|
-| 1 | `Version` | `short` | The writer's `Sim.VERSION` at save time. Read first, unconditionally, by `Recorder.Read()`. If `version < 10022`, the whole file is rejected outright (`Resources.Strings.OldRecording` is shown to the user and nothing further is read) — this is the recording format's equivalent of the network protocol's `dataVersion < 10014` floor (§5 of network-protocol.md), except here **the whole file** is the unit of rejection, not a single message. |
+| 1 | `Version` | `short` | The writer's `Sim.VERSION` at save time. Read first, unconditionally, by `Recorder.Read()`. If `version < 10022`, the whole file is rejected outright (`Resources.Strings.OldRecording` is shown to the user and nothing further is read) — this is the recording format's equivalent of the network protocol's `dataVersion < 10014` floor (§11.2 of network-protocol.md), except here **the whole file** is the unit of rejection, not a single message. |
 | 2 | `AircraftCount` | `int32` | Count of aircraft records that follow. |
 | 3 | `Aircraft[AircraftCount]` | `Aircraft` records | See §3.2. Written first, in `objList` order, for every recorded object that is an `Aircraft` (i.e. a user- or AI-controlled plane/helicopter/boat/vehicle with a callsign). |
 | 4 | `ObjectCount` | `int32`, **optional** | Count of non-aircraft object records that follow — **only present if there are any**. |
 | 5 | `Object[ObjectCount]` | `Obj` records, **optional** | See §3.1. Every recorded object that is *not* an `Aircraft` (a plain scenery/AI object with no callsign). |
 
-Fields 4–5 are gated by **EOF-sensing**, not a version check: `Recorder.Read1` reads the aircraft array, then does `if (reader.PeekChar() != -1) { read object count + objects }`. This is the same "if there are any bytes left, there's another field" idiom network-protocol.md §5 documents for trailing optional network-message fields — reused here for an entire top-level *section* rather than a single field. It works today because there is exactly one such optional trailing section. See §7.3 and §8.2 for why this is a trap if a second one is ever added.
+Fields 4–5 are gated by **EOF-sensing**, not a version check: `Recorder.Read1` reads the aircraft array, then does `if (reader.PeekChar() != -1) { read object count + objects }`. This is the same "if there are any bytes left, there's another field" idiom network-protocol.md §9.3 documents for trailing optional network-message fields — reused here for an entire top-level *section* rather than a single field. It works today because there is exactly one such optional trailing section. See §7.3 and §8.2 for why this is a trap if a second one is ever added.
 
 There is no overall file length, item count checksum, or footer — the file simply ends after the last object's data (or after the aircraft array, if there are no plain objects and the writer happened to omit the now-always-written object count — see the note in §3.1's `Write`, which currently writes the count unconditionally as `0` in that case, so in practice field 4 is *always* present as of the current code; only field 5 (the array itself) is truly empty).
 
@@ -81,7 +81,7 @@ PistonEngineState, TurbineEngineState, ObjectSmoke, AircraftFuel, AircraftPayloa
 SimEvent, IntegerVariables, FloatVariables, String8Variables
 ```
 
-Eight of these fourteen values — `PlaneState`, `HelicopterState`, `AircraftState`, `PistonEngineState`, `TurbineEngineState`, `ObjectSmoke`, `AircraftFuel`, `AircraftPayload` — are declared but have **no producer and no consumer** anywhere in `Recorder.cs`. They are the exact same reserved/unimplemented set as the network protocol's `MESSAGE_ID` placeholders (network-protocol.md §8.12), which makes sense: both enums describe the same eventual "granular systems state" feature that was scaffolded once and never finished on either side of the codebase.
+Eight of these fourteen values — `PlaneState`, `HelicopterState`, `AircraftState`, `PistonEngineState`, `TurbineEngineState`, `ObjectSmoke`, `AircraftFuel`, `AircraftPayload` — are declared but have **no producer and no consumer** anywhere in `Recorder.cs`. They are the exact same reserved/unimplemented set as the network protocol's `MESSAGE_ID` placeholders (network-protocol.md §9.12), which makes sense: both enums describe the same eventual "granular systems state" feature that was scaffolded once and never finished on either side of the codebase.
 
 Every frame starts with a fixed 9-byte generic header, written by `Frame.Write`/read by `Frame.Read1`:
 
@@ -95,7 +95,7 @@ The generic header is always read via a throwaway base `Frame` object first (`Fr
 
 ### 4.1 `ObjectPositionFrame`
 
-Payload is exactly `Sim.Write(BinaryWriter, ref Sim.ObjectPositionVelocity)` / `Sim.Read(short, BinaryReader, ref Sim.ObjectPositionVelocity)` — the *identical* method the network code calls to serialize the velocity portion of a network `ObjectPosition`/`AircraftPosition` message body (network-protocol.md §8.2 lists the same fields under `VelocityXYZ`/`AngularVelocityXYZ`/`AccelerationXYZ`/`Height`/`GroundFlags`). Recorded field order:
+Payload is exactly `Sim.Write(BinaryWriter, ref Sim.ObjectPositionVelocity)` / `Sim.Read(short, BinaryReader, ref Sim.ObjectPositionVelocity)` — the *identical* method the network code calls to serialize the velocity portion of a network `ObjectPosition`/`AircraftPosition` message body (network-protocol.md §9.3 lists the same fields under `VelocityXYZ`/`AngularVelocityXYZ`/`AccelerationXYZ`/`Height`/`GroundFlags`). Recorded field order:
 
 | Offset (from payload start) | Size | Field | Version gate |
 |---|---|---|---|
@@ -113,17 +113,17 @@ Not recorded here at all, unlike the network `ObjectPosition` message: `NetId`, 
 
 ### 4.2 `AircraftPositionFrame`
 
-Payload is `Sim.Write(BinaryWriter, ref Sim.AircraftPosition)` / the matching `Read` — again the exact struct serializer the network protocol uses for `AircraftPosition` messages (network-protocol.md §8.2):
+Payload is `Sim.Write(BinaryWriter, ref Sim.AircraftPosition)` / the matching `Read` — again the exact struct serializer the network protocol uses for `AircraftPosition` messages (network-protocol.md §9.3):
 
 | Offset | Size | Field | Version gate |
 |---|---|---|---|
 | 0 | 8×3 | `Latitude, Longitude, Altitude` | always |
 | 24 | 4×3 | `Pitch, Bank, Heading` | always |
 | 36 | 4×9 | `VelocityXYZ, AngularVelocityXYZ, AccelerationXYZ` | always |
-| 72 | 2×5 | `Rudder, Elevator, Aileron, BrakeLeft, BrakeRight` — `int16`, fixed-point: `stored = (short)(input * 16384.0)` (a truncating cast, not a rounding one, despite `network-protocol.md`'s "round" wording for the same field), decoded as `value = (float)(int)stored / 16384.0f` | always |
+| 72 | 2×5 | `Rudder, Elevator, Aileron, BrakeLeft, BrakeRight` — `int16`, fixed-point: `stored = (short)(input * 16384.0)` (a truncating cast, not a rounding one, despite `../network/network-protocol.md`'s "round" wording for the same field), decoded as `value = (float)(int)stored / 16384.0f` | always |
 | 82 | 4 | `Elevation` | `version >= 10023`; else `0.0f` |
 | 86 | 1 | `GroundFlags` (bit 0 = on ground, bit 1 = elevation correction enabled) | `version >= 10023`; else `0` |
-| 87 | 4 | `StaticCgToGround` | `version >= 21008`; else the reader gets `NaN`, deliberately distinguishable from a real 0.0 clearance (same convention as the network message, network-protocol.md §8.2 line for `StaticCgToGround`) |
+| 87 | 4 | `StaticCgToGround` | `version >= 21008`; else the reader gets `NaN`, deliberately distinguishable from a real 0.0 clearance (same convention as the network message, network-protocol.md §9.3 line for `StaticCgToGround`) |
 
 Total payload is 72 / 87 / 91 bytes depending on which of the two later version gates the file predates. **This field is always written** by `Sim.Write` regardless of the local build's own version floor (it was added unconditionally, "older readers simply don't read it," matching the pattern the network protocol already uses) — so every recording saved by a `21008`+ build includes it, whether or not that particular build variant's own feature work needed it.
 
@@ -140,7 +140,7 @@ No version gating; unchanged since the format's `10022` baseline.
 
 ### 4.4 `IntegerVariablesFrame` / `FloatVariablesFrame` / `String8VariablesFrame`
 
-All three call the same shared helper (`Sim.Write(BinaryWriter, Dictionary<uint, T>)` / matching `Read`) the network protocol uses for its `IntegerVariables`/`FloatVariables`/`String8Variables` messages (network-protocol.md §8.2):
+All three call the same shared helper (`Sim.Write(BinaryWriter, Dictionary<uint, T>)` / matching `Read`) the network protocol uses for its `IntegerVariables`/`FloatVariables`/`String8Variables` messages (network-protocol.md §9.4):
 
 | Offset | Size | Field |
 |---|---|---|
@@ -149,8 +149,8 @@ All three call the same shared helper (`Sim.Write(BinaryWriter, Dictionary<uint,
 
 Two differences from the network version of the same payload worth calling out:
 
-- The network sender automatically **splits** a variable set larger than `MAX_INTEGER_VARIABLES`/`MAX_FLOAT_VARIABLES` (100) or `MAX_STRING8_VARIABLES` (80) into multiple messages (network-protocol.md §8.2). The recorder does **not** — `Recorder.Record(Obj, Dictionary<uint,...>)` always writes exactly one frame per call, with no size cap, so a single `IntegerVariablesFrame` can in principle hold far more than 100 entries. This is consistent (a file has no per-datagram size limit to respect), but it does mean the `Count` field's `ushort` range (65,535) is the *only* ceiling, and it's enforced by a silent narrowing cast (`writer.Write((ushort)variables.Count)`) with no bounds check — see §8.2.
-- `VariableId` (a `uint`, elsewhere called a `vuid`) is a hash of a simulator variable's SimConnect/X-Plane name (`HashString`/`CreateVuid` — the same DJB2-style hash the network protocol's `HashPassword` reuses for an unrelated purpose, per network-protocol.md §7). **The recording file stores only the hash, never the human-readable variable name.** Reconstructing what a given `VariableId` means requires the same lookup table the running application builds from `Variables.cs`/the `Documents\JoinFS\Variables\*.txt` files (this is exactly what `RecordingXRay/VariableLookup.cs` reimplements independently, by parsing the same `Variables.cs` source or the exported `.txt` files, to make recordings human-readable outside the app). A recording made with one build's variable set can only be fully decoded by a build (or a copy of `VariableLookup`) that has the same name→hash mapping — nothing in the file itself is self-describing here.
+- The network sender automatically **splits** a variable set larger than `MAX_INTEGER_VARIABLES`/`MAX_FLOAT_VARIABLES` (100) or `MAX_STRING8_VARIABLES` (80) into multiple messages (network-protocol.md §9.4). The recorder does **not** — `Recorder.Record(Obj, Dictionary<uint,...>)` always writes exactly one frame per call, with no size cap, so a single `IntegerVariablesFrame` can in principle hold far more than 100 entries. This is consistent (a file has no per-datagram size limit to respect), but it does mean the `Count` field's `ushort` range (65,535) is the *only* ceiling, and it's enforced by a silent narrowing cast (`writer.Write((ushort)variables.Count)`) with no bounds check — see §8.2.
+- `VariableId` (a `uint`, elsewhere called a `vuid`) is a hash of a simulator variable's SimConnect/X-Plane name (`HashString`/`CreateVuid` — the same DJB2-style hash the network protocol's `HashPassword` reuses for an unrelated purpose, per network-protocol.md §4.1). **The recording file stores only the hash, never the human-readable variable name.** Reconstructing what a given `VariableId` means requires the same lookup table the running application builds from `Variables.cs`/the `Documents\JoinFS\Variables\*.txt` files (this is exactly what `RecordingXRay/VariableLookup.cs` reimplements independently, by parsing the same `Variables.cs` source or the exported `.txt` files, to make recordings human-readable outside the app). A recording made with one build's variable set can only be fully decoded by a build (or a copy of `VariableLookup`) that has the same name→hash mapping — nothing in the file itself is self-describing here.
 
 ## 5. Append semantics
 
@@ -208,7 +208,7 @@ Because `Sim.VERSION` (`21008`) is one number shared by every build variant (per
 
 This is not a paper risk: `RecordingXRay/RecordingReader.cs` (the standalone companion tool meant to inspect `.jfs` files outside the app) is written to *exactly* the `FS2024` branch's gating (`Livery` at `>= 21004`, then `IcaoType`/`IcaoAirline` at `>= 21005`), unconditionally, with no build-variant switch of its own. It will misparse and eventually desync on any recording produced by a non-`FS2024` build once that recording contains more than one aircraft/object past the point of divergence.
 
-**Fix direction:** make the tail's shape depend only on `version`, not on which simulator the recording was made with — e.g. write `Livery` unconditionally starting at a new version number (bump past `21008`), with `Read1` gated purely on `version >= <new number>` in every build. This is exactly the additive, version-only pattern network-protocol.md §9.1 already recommends for message fields; the mistake here was letting a `#if SIMULATOR` compile flag leak into a decision that the wire format needs to be build-invariant about.
+**Fix direction:** make the tail's shape depend only on `version`, not on which simulator the recording was made with — e.g. write `Livery` unconditionally starting at a new version number (bump past `21008`), with `Read1` gated purely on `version >= <new number>` in every build. This is exactly the additive, version-only pattern network-protocol.md §11.3 already recommends for message fields; the mistake here was letting a `#if SIMULATOR` compile flag leak into a decision that the wire format needs to be build-invariant about.
 
 ### 7.2 Non-aircraft objects can record frame types their reader doesn't reconstruct
 
@@ -231,21 +231,21 @@ For any other `FrameType` value on a plain object — `SimEvent`, `IntegerVariab
 
 ### 7.3 The optional object-array section can't be joined by a second one later
 
-As noted in §2, whether the file has *any* object section at all is decided by `PeekChar() != -1` right after the aircraft array — not by a version check or a length prefix. This works today because it's the only such decision point in the file. But it means the same trap network-protocol.md §9.2 flags for message-level EOF-sensing applies one level up, to the whole file: if a future change wants to append *another* optional top-level section after the object array (recording metadata — session id, creator `Guid`, free-text notes, a saved weather snapshot, etc. — would all be natural asks), "more bytes remain" can no longer tell an old reader *which* new section is present, or let it skip a section it doesn't recognize while still finding the next one. See §8.3 for the recommended fix (length-prefix the section, don't rely on EOF).
+As noted in §2, whether the file has *any* object section at all is decided by `PeekChar() != -1` right after the aircraft array — not by a version check or a length prefix. This works today because it's the only such decision point in the file. But it means the same trap network-protocol.md §9.3 describes for message-level EOF-sensing applies one level up, to the whole file: if a future change wants to append *another* optional top-level section after the object array (recording metadata — session id, creator `Guid`, free-text notes, a saved weather snapshot, etc. — would all be natural asks), "more bytes remain" can no longer tell an old reader *which* new section is present, or let it skip a section it doesn't recognize while still finding the next one. See §8.3 for the recommended fix (length-prefix the section, don't rely on EOF).
 
 ## 8. Other things worth knowing before extending the format
 
 ### 8.1 Fields the network protocol carries per-position that the recorder drops
 
-`ClassCode`, `Wtc` and `ClassCodeConfirmed` exist on the live `ObjectPosition`/`AircraftPosition` network messages (network-protocol.md §8.2, a "Phase 3 network-only addition" per the comment in `Recorder.Jump()`) but are **not** captured by either position frame type. `Recorder.Jump()` already has to work around this on playback — it passes empty/unconfirmed values and relies on the sim re-deriving class/WTC locally from `icaoType`, "same as before this feature existed" (see the comment above the `UpdateAircraft` call in `Jump()`). Any future recorder change should either keep this deliberate omission (it's a reasonable simplification, since class/WTC are derivable from `icaoType` at playback time) or, if it's ever recorded, do so as a new version-gated per-object field rather than per-frame, since it's static for the object's lifetime like `IcaoType` already is.
+`ClassCode`, `Wtc` and `ClassCodeConfirmed` exist on the live `ObjectPosition`/`AircraftPosition` network messages (network-protocol.md §9.3, a "Phase 3 network-only addition" per the comment in `Recorder.Jump()`) but are **not** captured by either position frame type. `Recorder.Jump()` already has to work around this on playback — it passes empty/unconfirmed values and relies on the sim re-deriving class/WTC locally from `icaoType`, "same as before this feature existed" (see the comment above the `UpdateAircraft` call in `Jump()`). Any future recorder change should either keep this deliberate omission (it's a reasonable simplification, since class/WTC are derivable from `icaoType` at playback time) or, if it's ever recorded, do so as a new version-gated per-object field rather than per-frame, since it's static for the object's lifetime like `IcaoType` already is.
 
 ### 8.2 Unbounded, unchecked variable count
 
-`Sim.Write(BinaryWriter, Dictionary<uint, int|float|string>)` writes `(ushort)variables.Count` with no check that `Count <= ushort.MaxValue`. In the network protocol this is a non-issue because the sender caps the dictionary size before calling it (`MAX_*_VARIABLES`, split across messages — network-protocol.md §8.2). The recorder calls the exact same method with **no such cap**. A variable set larger than 65,535 entries — implausible today, but not something the type system prevents — would silently wrap the written count, causing the reader to stop early and leave the remaining, un-declared variable entries in the stream to be misread as the start of the next frame. Given how unforgiving the file format is of any desync (§1), this is worth a defensive bounds check (or, more robustly, the length-prefixed framing recommended next) even though it's very unlikely to trigger in practice.
+`Sim.Write(BinaryWriter, Dictionary<uint, int|float|string>)` writes `(ushort)variables.Count` with no check that `Count <= ushort.MaxValue`. In the network protocol this is a non-issue because the sender caps the dictionary size before calling it (`MAX_*_VARIABLES`, split across messages — network-protocol.md §9.4). The recorder calls the exact same method with **no such cap**. A variable set larger than 65,535 entries — implausible today, but not something the type system prevents — would silently wrap the written count, causing the reader to stop early and leave the remaining, un-declared variable entries in the stream to be misread as the start of the next frame. Given how unforgiving the file format is of any desync (§1), this is worth a defensive bounds check (or, more robustly, the length-prefixed framing recommended next) even though it's very unlikely to trigger in practice.
 
 ### 8.3 Recommended direction: length-prefix records instead of relying on strict ordering
 
-Sections §7.2 and §7.3 are both instances of the same underlying gap: nothing in the file lets a reader skip a frame, an object, or a whole section it doesn't fully understand. The network protocol already has a working template for this — the `Notes` message's length-prefixed, type-tagged inner records (network-protocol.md §8.9 and §9.2), where an unrecognized `Type` is skipped with `reader.ReadBytes(length)` instead of being blindly parsed field-by-field. Applying the same idea here — a `uint`/`ushort` byte-length prefix in front of each `Frame`'s type-specific payload, and in front of each `Obj`/`Aircraft` record's trailing optional tail — would mean:
+Sections §7.2 and §7.3 are both instances of the same underlying gap: nothing in the file lets a reader skip a frame, an object, or a whole section it doesn't fully understand. The network protocol already has a working template for this — the `Notes` message's length-prefixed, type-tagged inner records (network-protocol.md §9.11), where an unrecognized `Type` is skipped with `reader.ReadBytes(length)` instead of being blindly parsed field-by-field. Applying the same idea here — a `uint`/`ushort` byte-length prefix in front of each `Frame`'s type-specific payload, and in front of each `Obj`/`Aircraft` record's trailing optional tail — would mean:
 
 - A frame type a given build doesn't recognize (one of the eight reserved-but-unused `FrameType` values, or a future addition) can be skipped by byte count instead of requiring every reader to have an up-to-date `switch` statement, which directly fixes the class of bug in §7.2 going forward.
 - A version mismatch in the trailing tail fields (§7.1's root cause) becomes recoverable — a reader that doesn't know about a new trailing field can skip past it via the length prefix instead of misreading subsequent fields as if they were the one it expected.
@@ -255,7 +255,7 @@ This does cost 2–4 bytes per record/frame, but frames are already tens of byte
 
 ### 8.4 Recording format version is not independent of the network protocol's version
 
-Because both share `Sim.VERSION`, a version bump made purely to change the network wire format (say, a new network-only message field) also raises the floor for what recording-format changes look "new" relative to it, and vice versa — a recording-only change consumes a slot in the same monotonic sequence the network protocol uses. This mirrors the capabilities/versioning critique network-protocol.md §9.3 already makes about `Join`/`SharedData` piggybacking on one global version number: two logically independent features (what a *file* looks like vs. what a *network message* looks like) are forced onto one shared timeline. Splitting a dedicated `Recorder.FORMAT_VERSION` (written as field 1 of the file, independent of `Sim.VERSION`) out from the network version would let recording-only changes ship without implying anything about network compatibility, and would also make the "reject anything below floor X" check in §2 independently tunable from the network protocol's own `dataVersion < 10014` floor.
+Because both share `Sim.VERSION`, a version bump made purely to change the network wire format (say, a new network-only message field) also raises the floor for what recording-format changes look "new" relative to it, and vice versa — a recording-only change consumes a slot in the same monotonic sequence the network protocol uses. This mirrors the capabilities/versioning critique network-protocol.md §11.1 supports for `Join`/`SharedData` piggybacking on one global version number: two logically independent features (what a *file* looks like vs. what a *network message* looks like) are forced onto one shared timeline. Splitting a dedicated `Recorder.FORMAT_VERSION` (written as field 1 of the file, independent of `Sim.VERSION`) out from the network version would let recording-only changes ship without implying anything about network compatibility, and would also make the "reject anything below floor X" check in §2 independently tunable from the network protocol's own `dataVersion < 10014` floor.
 
 ### 8.5 No magic number / self-identification
 
@@ -263,7 +263,7 @@ The file format's only self-identifying marker is that its first two bytes parse
 
 ## 9. Extending the format without breaking older clients
 
-Generalizing from network-protocol.md §9 and the findings above:
+Generalizing from network-protocol.md §11.3 and the findings above:
 
 1. **Keep using tail-only, version-gated additive fields** for anything that's per-object or per-frame and always applies going forward — this is already how `Height`/`GroundFlags` (10023), `IcaoType`/`IcaoAirline` (10024/21005), and `StaticCgToGround` (21008) were added, and it works cleanly as long as the gate is a runtime `version` check only (see the counter-example in §7.1).
 2. **Never let a build-target `#if` change a wire layout that a version number is also supposed to describe.** §7.1 is the concrete lesson: if a field is genuinely simulator-specific (e.g. only `FS2024` can source a "livery variation" value at all), still write a placeholder (empty string, or a per-field presence flag) in every build so the tail's *shape* is build-invariant, and let the *value* differ.

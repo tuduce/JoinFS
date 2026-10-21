@@ -136,7 +136,7 @@ From the design or the spec, all known, none silent:
 7. Done in slice 4: an object that leaves gets its `track-close`. Done after stage 6: one that is unflagged for recording during a
    recording gets its `track-close` too (design 5.3, `Recorder.RecordingStep`), and is a new track if it is flagged again.
 8. Done in slice 4: the capture and the scene writer write `variable-names.txt`. RecordingXRay still names variables from its own tables.
-9. **ICAO type and airline are cut to 8 bytes** by `IdentityV1Codec` (the JFP2 limit, `docs/jfp2/protocol.md` 9.7). Real designators fit.
+9. **ICAO type and airline are cut to 8 bytes** by `IdentityV1Codec` (the JFP2 limit, `docs/network/jfp2/protocol.md` 9.7). Real designators fit.
    Old FS2024 recordings keep SimConnect's raw `ATC MODEL` string there (for example `ATCCOM.AC_MODEL TIGER MOTH.0.tex`), which becomes
    `ATCCOM.A`. Whether model matching ever got a usable hint from the long string is unchecked; if it did, the importer should clean the
    string instead (`Sim.SimConnect.cs` `ResolveObjectInfoType` strips the same junk from live objects).
@@ -185,7 +185,7 @@ by the owner on 2026-10-15:
 - **`PositionV2` later, with JFP2, not for the recorder alone.** A quantised 52-byte record (no ObjectId or NetTime, lat/lon 1e-7 deg,
   int16 angles, Half velocities) halves the file (51% at full rate) with rounding under 1 cm and 0.003 deg, but it saves no memory (the
   scene holds decoded `PositionUpdate`s), JFP2 does not specify it yet, and a codec of the recorder's own would undo design decision 1
-  (one codec). It is done when JFP2 defines `PositionV2` (`docs/jfp2/roadmap.md` 2.3); the harness layout is a starting point.
+  (one codec). It is done when JFP2 defines `PositionV2` (`docs/network/jfp2/roadmap.md` 2.3); the harness layout is a starting point.
 
 Stage 6's earlier proposals, decided by the owner on 2026-10-15 and done in step 2:
 

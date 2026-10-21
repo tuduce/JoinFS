@@ -37,7 +37,7 @@ Written 2026-10-01. Status:
   removed in `73b203d`.
 - The `net-delay` branch has a `LatencyTracer` and analysis scripts for app-layer latency. It
   predates the thread reorganisation; its receive-stamping goal was achieved in
-  `sim-thread-architecture.md` §2.7.
+  `../sim/sim-thread-architecture.md` §2.7.
 
 ---
 
@@ -46,9 +46,9 @@ Written 2026-10-01. Status:
 ### 1.1 Sender (MSFS/FSX/P3D)
 
 - **Subscription.** The user aircraft is subscribed with `AIRCRAFT_POSITION` at
-  `SIMCONNECT_PERIOD.VISUAL_FRAME` ([Sim.Requests.cs:84-110](../JoinFS/Sim.Requests.cs#L84-L110),
-  [SimConnectInterface.cs:878](../JoinFS/SimConnectInterface.cs#L878)).
-- **Fields** ([SimConnectInterface.cs:217-243](../JoinFS/SimConnectInterface.cs#L217-L243)):
+  `SIMCONNECT_PERIOD.VISUAL_FRAME` ([Sim.Requests.cs:84-110](../../JoinFS/Sim.Requests.cs#L84-L110),
+  [SimConnectInterface.cs:878](../../JoinFS/SimConnectInterface.cs#L878)).
+- **Fields** ([SimConnectInterface.cs:217-243](../../JoinFS/SimConnectInterface.cs#L217-L243)):
   - lat/lon (rad, f64) and altitude (m, f64);
   - pitch/bank/true heading (rad, f32);
   - `Velocity World X/Y/Z` (m/s, f32);
@@ -58,18 +58,18 @@ Written 2026-10-01. Status:
   - ground altitude, `SIM ON GROUND`, static CG height.
 - **Timestamp.** `simTime = main.ElapsedTime` (the sender's own local stopwatch), taken **when the
   sim thread dispatches the SimConnect message**, not when the sim sampled it
-  ([Sim.SimConnect.cs:286](../JoinFS/Sim.SimConnect.cs#L286)). Nothing from the sim's own clock
+  ([Sim.SimConnect.cs:286](../../JoinFS/Sim.SimConnect.cs#L286)). Nothing from the sim's own clock
   (`SIMULATION TIME`, `ABSOLUTE TIME`, `SIMULATION RATE`) is used.
 - **Rate.** At most one send per `PositionSendInterval = 0.05` s (20 Hz,
-  [Sim.cs:45-64](../JoinFS/Sim.cs#L45-L64)).
+  [Sim.cs:45-64](../../JoinFS/Sim.cs#L45-L64)).
   - The distance-based thinning in `RebuildIntervalMasks` is **commented out**
-    ([Sim.cs:896-906](../JoinFS/Sim.cs#L896-L906)).
+    ([Sim.cs:896-906](../../JoinFS/Sim.cs#L896-L906)).
   - "Low bandwidth" halves the rate to 10 Hz.
   - A peer with no sim connected gets 1 in 32.
 - **Wire.** `SimMessageMapper.ToPositionUpdate` carries all the fields above
-  ([SimMessageMapper.cs:35-70](../JoinFS/Session/SimMessageMapper.cs#L35-L70)).
+  ([SimMessageMapper.cs:35-70](../../JoinFS/Session/SimMessageMapper.cs#L35-L70)).
   - `NetTime` is f64 seconds on the sender's own clock, in both legacy and JFP2 PositionV1
-    ([PositionCodec.cs:21-92](../JoinFS.Messages/Codecs/PositionCodec.cs#L21-L92)).
+    ([PositionCodec.cs:21-92](../../JoinFS.Messages/Codecs/PositionCodec.cs#L21-L92)).
   - Lat/lon/alt are f64. Angles, velocities and accelerations are f32. There is no lossy
     quantisation; quantised PositionV2 is specified but not implemented.
   - Relays (legacy and JFP2, max one hop) forward `NetTime` unchanged and add no per-hop timing.
@@ -80,7 +80,7 @@ Written 2026-10-01. Status:
 ### 1.2 Network delay measurement
 
 - **Source.** RTT comes only from the **legacy** Pulse
-  ([MeshManager.cs:226-234, 478, 488](../JoinFS/Net/Core/MeshManager.cs#L226-L234)).
+  ([MeshManager.cs:226-234, 478, 488](../../JoinFS/Net/Core/MeshManager.cs#L226-L234)).
   - Every 1 s the node sends its own `Stopwatch` ticks; the peer echoes them, and
     `RTT = now − echoed`.
   - One raw sample per second, f32 seconds, with **no filtering**. Lost pulses leave the old value,
@@ -91,12 +91,12 @@ Written 2026-10-01. Status:
 - **JFP2** has no RTT or timing exchange at all. Its Pulse classes are reserved but unused, and its
   keep-alive is a 5 s Hello.
 - **Arrival time.** `receivedAt` is stamped on the UDP receive thread right after `ReceiveFrom`
-  ([NetworkService.cs:57-58](../JoinFS/Net/Service/NetworkService.cs#L57-L58)). It is carried through
+  ([NetworkService.cs:57-58](../../JoinFS/Net/Service/NetworkService.cs#L57-L58)). It is carried through
   the network mailbox, the app thread (`SimIngest`, about 5 ms tick) and the sim mailbox
   (`PostToSim`), so the three queues downstream are already accounted for
-  (`docs/sim-thread-architecture.md` §2.7).
+  (`docs/sim/sim-thread-architecture.md` §2.7).
 
-### 1.3 Receiver: time base ([Sim.ObjectLifecycle.cs:475-500](../JoinFS/Sim.ObjectLifecycle.cs#L475-L500))
+### 1.3 Receiver: time base ([Sim.ObjectLifecycle.cs:475-500](../../JoinFS/Sim.ObjectLifecycle.cs#L475-L500))
 
 Each update gives `netTime` (sender clock) and `receivedAt` (local arrival time). Per object:
 
@@ -108,13 +108,13 @@ Each update gives `netTime` (sender clock) and `receivedAt` (local arrival time)
   `netTime + (constant part of transit)`: it smooths arrival **jitter** but by construction absorbs
   (cannot see) the constant one-way latency.
 
-### 1.4 Receiver: estimation and steering ([Sim.Steering.cs:33-147](../JoinFS/Sim.Steering.cs#L33-L147)), every SimConnect `Frame` event
+### 1.4 Receiver: estimation and steering ([Sim.Steering.cs:33-147](../../JoinFS/Sim.Steering.cs#L33-L147)), every SimConnect `Frame` event
 
 1. `delay = 0.75·RTT(owner) + 0.25·prevDelay`. The filter runs **per frame**, so it smooths almost
    nothing and depends on frame rate.
 2. `netDeltaTime = (netRealTime − netStateTime) + (now − netSimTime) + 0.52·delay`, clamped to ±2 s.
    That is: time since arrival, plus jitter correction, plus about one-way latency taken as RTT/2.
-3. Dead reckoning with `Pos.Extrapolate` ([Sim.Data.cs:381-389](../JoinFS/Sim.Data.cs#L381-L389)):
+3. Dead reckoning with `Pos.Extrapolate` ([Sim.Data.cs:381-389](../../JoinFS/Sim.Data.cs#L381-L389)):
    - `geo += (v·t + a·t²)` with a spherical-earth metres→radians scale;
    - `angles += ω_body · t`;
    - velocity `v += a·t`.
@@ -133,7 +133,7 @@ Each update gives `netTime` (sender clock) and `receivedAt` (local arrival time)
 
 ### 1.5 X-Plane and recorder paths
 
-**X-Plane sender** ([JoinFS-XP.cpp:1816-1888](../JoinFS-XP/JoinFS-XP.cpp#L1816-L1888)):
+**X-Plane sender** ([JoinFS-XP.cpp:1816-1888](../../JoinFS-XP/JoinFS-XP.cpp#L1816-L1888)):
 
 - `DoAircraftPosition` runs at **10 Hz**, half the MSFS rate.
 - Datarefs read:
@@ -143,12 +143,12 @@ Each update gives `netTime` (sender clock) and `receivedAt` (local arrival time)
   - body rates `Q/R/P`.
 - `netTime` is the plugin's own QPC/gettimeofday timer, taken from `now` set in `DoFrame`. The
   datarefs are read in `DoAircraftPosition`, about one frame later.
-- [XPlane.cs:656-689](../JoinFS/XPlane.cs#L656-L689) converts units and signs to match SimConnect.
+- [XPlane.cs:656-689](../../JoinFS/XPlane.cs#L656-L689) converts units and signs to match SimConnect.
   The receiver therefore sees a different clock domain per sender sim, which is fine for per-sender
   offset estimation.
 
 **X-Plane receiver: a separate C++ copy of the estimator** (`AdvancePosition`,
-[JoinFS-XP.cpp:2070-2190](../JoinFS-XP/JoinFS-XP.cpp#L2070-L2190)):
+[JoinFS-XP.cpp:2070-2190](../../JoinFS-XP/JoinFS-XP.cpp#L2070-L2190)):
 
 - C# forwards only `netTime`; `receivedAt` and RTT are not sent.
 - The plugin drains its link socket **only every 0.1 s** (`Link::DoWork` is called from
@@ -158,12 +158,12 @@ Each update gives `netTime` (sender clock) and `receivedAt` (local arrival time)
 - It has **no latency term at all**.
 - The snap test uses signed `dx/dy/dz` without `fabs`, so it only snaps on positive deltas.
 
-**Recorder playback** ([Recorder.cs:1427-1592](../JoinFS/Recorder.cs#L1427-L1592)):
+**Recorder playback** ([Recorder.cs:1427-1592](../../JoinFS/Recorder.cs#L1427-L1592)):
 
 - True **interpolation** between recorded frames: linear for position, quaternion SLERP for
   attitude, with an `AngleDelta` fallback.
 - It then feeds the same steering with `receivedAt = 0` and RTT 0.
-- [Quaternion.cs](../JoinFS/Quaternion.cs) `Slerp` has no shortest-path sign flip, so it can take the
+- [Quaternion.cs](../../JoinFS/Quaternion.cs) `Slerp` has no shortest-path sign flip, so it can take the
   long way round.
 
 **Tests.** Only `PositionSendRateTests` (`SendDue`), `ReceiveTimestampTests` and the codec
@@ -187,7 +187,7 @@ status as of 2026-10-05.
 | F6 | **The RTT low-pass runs per frame** (alpha 0.75 on the new value). | It filters almost nothing, depends on frame rate, and carries RTT spikes straight into the horizon. | **Done**: `MinOffsetClock` reads the smallest round trip over a minute (§7.3) |
 | F7 | **There is no clock offset model.** `netRealTime` hides the latency (see 1.3), which is why F1's RTT term is needed at all. | It couples the estimator to the transport's RTT. | **Done** for the passive clock, which follows the offset directly (§7.3) |
 | F8 | **The steering controller is P on position, with an ad hoc 0.3× on angular velocity.** There is no damping term on velocity error, the gain is fixed (1.5 s⁻¹, about 0.67 s time constant), and the reset thresholds are binary. | Visible lag and overshoot on manoeuvre onset, and snaps at resets. | Open (phase 6) |
-| F9 | **The `OBJECT_VELOCITY` definition declares `Acceleration Body X/Y/Z` with unit "radians per second"** ([SimConnectInterface.cs:207-209](../JoinFS/SimConnectInterface.cs#L207-L209)). | Needs verification: the acceleration we write may be mis-scaled or ignored. | Settled by the SDK documentation: `ACCELERATION BODY X/Y/Z` are not settable and are in ft/s², so the sim ignores what we write. The extrapolation reads `Acceleration World` in m/s², which is right. The wrong unit string is harmless; left as is. |
+| F9 | **The `OBJECT_VELOCITY` definition declares `Acceleration Body X/Y/Z` with unit "radians per second"** ([SimConnectInterface.cs:207-209](../../JoinFS/SimConnectInterface.cs#L207-L209)). | Needs verification: the acceleration we write may be mis-scaled or ignored. | Settled by the SDK documentation: `ACCELERATION BODY X/Y/Z` are not settable and are in ft/s², so the sim ignores what we write. The extrapolation reads `Acceleration World` in m/s², which is right. The wrong unit string is harmless; left as is. |
 | F10 | **Spherical earth (R = 6 371 009 m) is used for the m→rad scale**, while the sims use WGS-84. The meridional radius varies from 6 335 to 6 400 km. | Up to about 1% of the extrapolated distance, about 0.4 m over 45 m. Low priority. | Open; low priority |
 | F11 | **20 Hz fixed rate, no event-driven sends.** A sudden roll-in is only seen up to 50 ms later, plus latency. | Error spikes at manoeuvre onsets. | Open (phase 7) |
 | F12 | **Control inputs (aileron/elevator/rudder) are sent but only animate surfaces**, and are not used to predict rate onset. | A missed lead signal of about 50–150 ms. | Open (phase 8) |
@@ -222,7 +222,7 @@ just keep today's behaviour.
    computed age.
    - **Where to carry the exchange.** The legacy Pulse is frozen and only echoes the originator's
      own time, so it gives RTT but not offset. Put the exchange in JFP2's reserved Pulse classes
-     (5/6, [Envelope.cs](../JoinFS/Net/Protocols/Jfp2/Envelope.cs)): t1 is sent, the peer stamps t2/t3,
+     (5/6, [Envelope.cs](../../JoinFS/Net/Protocols/Jfp2/Envelope.cs)): t1 is sent, the peer stamps t2/t3,
      and the receiver stamps t4.
    - **Relays.** Today's pulse already travels relays end-to-end, so the same routing gives an
      end-to-end offset.
@@ -298,7 +298,7 @@ it.
 
 - **`KinematicState`** (immutable struct):
   - position as a geodetic double triple **plus** a local ENU helper;
-  - attitude as a quaternion (existing [Quaternion.cs](../JoinFS/Quaternion.cs));
+  - attitude as a quaternion (existing [Quaternion.cs](../../JoinFS/Quaternion.cs));
   - world velocity, body rates and world acceleration;
   - optional angular acceleration and control inputs;
   - flags: on ground, paused.
@@ -330,7 +330,7 @@ it.
 These are minimal edits to existing owners; the sim thread owns all of it.
 
 - `Sim.Obj` gains `IStateEstimator estimator`, created lazily in `Sim.UpdateObject(Obj, netTime, …)`
-  ([Sim.ObjectLifecycle.cs:475](../JoinFS/Sim.ObjectLifecycle.cs#L475)). That method then calls
+  ([Sim.ObjectLifecycle.cs:475](../../JoinFS/Sim.ObjectLifecycle.cs#L475)). That method then calls
   `estimator.AddSample(...)`. The `netRealTime/netSimTime` maths moves into `RttHalfClock`.
 - Per-peer `IClockModel` instances live in a small `ClockModels` map on the sim side.
   - Timing samples come in via the existing session → sim posting (`ISimSink`).
@@ -455,7 +455,7 @@ The monitor log shows the path (`Estimation log - …`). If a write fails, the l
 (`Estimation log stopped - …`); positioning is never affected. The file is flushed every second, and
 again when the simulator link closes.
 
-**Rows.** See [EstimationLog.cs](../JoinFS/Estimation/EstimationLog.cs) for the columns and units.
+**Rows.** See [EstimationLog.cs](../../JoinFS/Estimation/EstimationLog.cs) for the columns and units.
 
 - **`clock`**, once a second: `utc` (Unix seconds) against `local` (this process's `ElapsedTime`).
 - **`send`** (from 2026-10-03), for each of our own samples sent: `local` is when its message was
@@ -961,11 +961,11 @@ The difference is sub-microsecond.
 
 ### 7.2 Phases 3 and 4 as built (2026-10-03)
 
-**`ClassicFixed`** ([ClassicFixedEstimator.cs](../JoinFS/Estimation/ClassicFixedEstimator.cs)) is
+**`ClassicFixed`** ([ClassicFixedEstimator.cs](../../JoinFS/Estimation/ClassicFixedEstimator.cs)) is
 Classic with two fixes:
 
 - **F4.** The attitude follows the body rates through
-  [Attitude.cs](../JoinFS/Estimation/Attitude.cs). It integrates a quaternion, which is exact for
+  [Attitude.cs](../../JoinFS/Estimation/Attitude.cs). It integrates a quaternion, which is exact for
   constant body rates and has no singularity at ±90° pitch. Heading and bank stay continuous
   across the 0/360 line.
 - **F3.** The acceleration moves the position by ½·a·t².
@@ -976,7 +976,7 @@ and P3D, which share the code but not the per-frame attitude steering. On FS2020
 attitude every frame, so the fix shows directly in the drawn aircraft. The tester package starts
 `ClassicFixed`.
 
-**Sim-time stamps** ([SimClockStamper.cs](../JoinFS/Estimation/SimClockStamper.cs), F2):
+**Sim-time stamps** ([SimClockStamper.cs](../../JoinFS/Estimation/SimClockStamper.cs), F2):
 
 - **Reading the clock.** On FS2020/2024, `AIRCRAFT_POSITION` also reads `SIMULATION TIME`. It is
   registered as `AircraftPositionTimed`, so `AircraftPosition` itself does not change: the recorder
@@ -1003,7 +1003,7 @@ attitude every frame, so the fix shows directly in the drawn aircraft. The teste
 
 ### 7.3 Phase 5, the passive clock, as built (2026-10-05)
 
-[MinOffsetClock.cs](../JoinFS/Estimation/MinOffsetClock.cs), `-clock MinOffset`. It has been the
+[MinOffsetClock.cs](../../JoinFS/Estimation/MinOffsetClock.cs), `-clock MinOffset`. It has been the
 default since 2026-10-05, after the field session in §6.6; `-clock RttHalf` selects the original.
 
 - **Offset.** Arrival minus stamp of each sample goes into 10 buckets of 1 s; the smallest is the
@@ -1030,7 +1030,7 @@ The experiment started with `Classic` (1.5 s⁻¹) as the default; since 2026-10
   (1.5), `Gain4` (4), `Gain8` (8) and `Gain16` (16); `-steering <name>` selects one.
   `-steering alternate` cycles through `Classic`, `Gain8` and `Gain16` (since 2026-10-06; the first
   flight had `Gain4` instead of `Gain16`), 120 s each
-  ([SteeringSchedule.cs](../JoinFS/Estimation/SteeringSchedule.cs)). The laws keep no state, so a
+  ([SteeringSchedule.cs](../../JoinFS/Estimation/SteeringSchedule.cs)). The laws keep no state, so a
   switch is seamless. The tester package starts `alternate`.
 - **Log.** Sample rows have new last columns `steer`, the law in force when the prediction was
   made, and `simClock`, filled in the sample rows: the simulator's own clock at the sim's last
@@ -1048,22 +1048,22 @@ The experiment started with `Classic` (1.5 s⁻¹) as the default; since 2026-10
 
 ## 8. Critical files
 
-- [Sim.Steering.cs](../JoinFS/Sim.Steering.cs): becomes a thin caller.
-- [Sim.ObjectLifecycle.cs](../JoinFS/Sim.ObjectLifecycle.cs): `UpdateObject(netTime…)` feeds the
+- [Sim.Steering.cs](../../JoinFS/Sim.Steering.cs): becomes a thin caller.
+- [Sim.ObjectLifecycle.cs](../../JoinFS/Sim.ObjectLifecycle.cs): `UpdateObject(netTime…)` feeds the
   estimator.
-- [Sim.Data.cs](../JoinFS/Sim.Data.cs): `Pos.Extrapolate`/`Vel.Extrapolate` stay for `Classic` only.
-- [Sim.Object.cs](../JoinFS/Sim.Object.cs): estimator field; `prevDelay` moves into the clock model.
-- [SimConnectInterface.cs](../JoinFS/SimConnectInterface.cs): sim-time field; F9.
-- [SimMessageMapper.cs](../JoinFS/Session/SimMessageMapper.cs) and the JFP2 Position schema: new
+- [Sim.Data.cs](../../JoinFS/Sim.Data.cs): `Pos.Extrapolate`/`Vel.Extrapolate` stay for `Classic` only.
+- [Sim.Object.cs](../../JoinFS/Sim.Object.cs): estimator field; `prevDelay` moves into the clock model.
+- [SimConnectInterface.cs](../../JoinFS/SimConnectInterface.cs): sim-time field; F9.
+- [SimMessageMapper.cs](../../JoinFS/Session/SimMessageMapper.cs) and the JFP2 Position schema: new
   fields.
-- [Recorder.cs](../JoinFS/Recorder.cs): `RecorderClock`; optional dense recording.
-- [XPlane.cs](../JoinFS/XPlane.cs) and [JoinFS-XP.cpp](../JoinFS-XP/JoinFS-XP.cpp) / `Link.cpp`:
+- [Recorder.cs](../../JoinFS/Recorder.cs): `RecorderClock`; optional dense recording.
+- [XPlane.cs](../../JoinFS/XPlane.cs) and [JoinFS-XP.cpp](../../JoinFS-XP/JoinFS-XP.cpp) / `Link.cpp`:
   - 20 Hz sender, drain the link every frame;
   - later, C# sends the predicted target state and the plugin becomes an `IObjectSteering`.
   Both need a `DATA_VERSION` bump on both sides.
-- [MeshManager.cs](../JoinFS/Net/Core/MeshManager.cs) / [NetworkSnapshot.cs](../JoinFS/Net/Service/NetworkSnapshot.cs):
+- [MeshManager.cs](../../JoinFS/Net/Core/MeshManager.cs) / [NetworkSnapshot.cs](../../JoinFS/Net/Service/NetworkSnapshot.cs):
   publish filtered RTT and clock offset.
-- [Jfp2Plugin.cs](../JoinFS/Net/Protocols/Jfp2/Jfp2Plugin.cs) / [Envelope.cs](../JoinFS/Net/Protocols/Jfp2/Envelope.cs):
+- [Jfp2Plugin.cs](../../JoinFS/Net/Protocols/Jfp2/Jfp2Plugin.cs) / [Envelope.cs](../../JoinFS/Net/Protocols/Jfp2/Envelope.cs):
   the timing exchange (reserved Pulse classes 5/6).
 - New: `JoinFS/Estimation/*`, `JoinFS.Tests/Estimation/*`.
 

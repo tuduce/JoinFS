@@ -1,7 +1,7 @@
 namespace JoinFS.Estimation
 {
     /// <summary>
-    /// Predicts a remote object's state from its newest sample (docs/position-estimation-plan.md
+    /// Predicts a remote object's state from its newest sample (docs/estimation/position-estimation-plan.md
     /// §4). One instance per object, created through <see cref="EstimationRegistry"/>. Used on the
     /// sim thread only.
     /// </summary>

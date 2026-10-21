@@ -5,7 +5,7 @@ using JoinFS.Estimation;
 namespace JoinFS.Tests.Estimation.Replay
 {
     /// <summary>
-    /// The offline harness of docs/position-estimation-plan.md §6: replays a receiver's logged
+    /// The offline harness of docs/estimation/position-estimation-plan.md §6: replays a receiver's logged
     /// samples through estimators from <see cref="EstimationRegistry"/> and scores each prediction
     /// against the sender's own later samples, interpolated at the predicted moment (sender time).
     ///

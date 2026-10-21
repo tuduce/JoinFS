@@ -6,7 +6,7 @@ using JoinFS.Recording.Format;
 namespace JoinFS.Tests.Recording;
 
 /// <summary>
-/// One time base per recorded object (docs/jfs2/README.md, limit 6): variables and events go with the positions, so the capture
+/// One time base per recorded object (docs/recording/jfs2/README.md, limit 6): variables and events go with the positions, so the capture
 /// never holds a record back.
 /// </summary>
 public sealed class TrackTimeBaseTests : IDisposable

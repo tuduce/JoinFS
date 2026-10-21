@@ -5,7 +5,7 @@ using JoinFS.Net;
 namespace JoinFS
 {
     /// <summary>
-    /// What other threads may read of the simulator (docs/sim-thread-architecture.md §2.1): an
+    /// What other threads may read of the simulator (docs/sim/sim-thread-architecture.md §2.1): an
     /// immutable snapshot the sim thread publishes by swapping one reference, at most
     /// <see cref="Sim.ViewInterval"/> old and at once after structural changes.
     ///

@@ -11,7 +11,7 @@ namespace JoinFS.Net
     /// plugins, routes outgoing canonical messages to the right plugin per (peer, kind), runs the
     /// mesh, and relays/translates messages addressed to other nodes. Single-threaded by design (no
     /// locks): NetworkService drives it from its own thread; tests drive it directly with an
-    /// in-memory transport and a manual clock. See docs/network-plugin-architecture.md §2.
+    /// in-memory transport and a manual clock. See docs/network/network-plugin-architecture.md §2.
     /// </summary>
     public sealed class NetworkCore : IProtocolHost
     {

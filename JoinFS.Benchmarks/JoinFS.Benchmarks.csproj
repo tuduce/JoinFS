@@ -26,7 +26,7 @@
     <!--
       Release build of the CONSOLE configuration: no Windows Forms/SimConnect to drag in, and the
       Net/Session code these benchmarks exercise isn't gated by simulator #if symbols, so the
-      numbers are identical to any other release configuration. See docs/network-plugin-architecture.md
+      numbers are identical to any other release configuration. See docs/network/network-plugin-architecture.md
       §5 ("Performance targets") - this project is the "BenchmarkDotNet micro-benchmark" it asks for,
       for the send/receive path's encode, route and decode of Position.
 

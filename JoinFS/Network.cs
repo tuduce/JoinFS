@@ -21,7 +21,7 @@ namespace JoinFS
     /// </list>
     /// This class itself runs the session commands (join, login, create, leave), routes each
     /// incoming message to the part that owns it, and runs the parts each tick in a fixed order.
-    /// It knows nothing about wire protocols. See docs/reference/joinfs-architecture.md §7.
+    /// It knows nothing about wire protocols. See docs/architecture.md §7.
     /// </summary>
     public class Network : IMessageHandler, INetworkEventHandler, ISessionState
     {
@@ -449,7 +449,7 @@ namespace JoinFS
 
         /// <summary>
         /// Leave the session. Always posted - MeshManager.Leave() is a cheap no-op with nothing to
-        /// leave (docs/network-plugin-architecture.md §2.11 item 2), so there's no need for a local
+        /// leave (docs/network/network-plugin-architecture.md §2.11 item 2), so there's no need for a local
         /// "are we in a session" flag that could disagree with the network thread's own answer while
         /// the snapshot catches up. The event/refresh are still gated on the snapshot, since skipping
         /// them once in the rare race right after a Join is harmless; skipping the actual Leave

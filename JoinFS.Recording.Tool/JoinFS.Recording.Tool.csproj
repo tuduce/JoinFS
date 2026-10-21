@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Command-line tool for .jfs2 files (docs/jfs2): dump, verify and repair. Uses only the format
+  <!-- Command-line tool for .jfs2 files (docs/recording/jfs2): dump, verify and repair. Uses only the format
        library, so it knows nothing of positions or variables and needs no simulator. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>

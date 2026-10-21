@@ -7,7 +7,7 @@ namespace JoinFS
 {
     // The narrow views of the application that the network session's parts (JoinFS/Session) work
     // through. MainSessionHost implements the app-facing ones over Main; tests implement them with
-    // small fakes. See docs/reference/joinfs-architecture.md §7.
+    // small fakes. See docs/architecture.md §7.
 
     /// <summary>Monitor output (Main.MonitorEvent / Main.MonitorNetwork).</summary>
     public interface ISessionLog

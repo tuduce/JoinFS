@@ -1,6 +1,6 @@
 namespace RecordingXRay.Tests;
 
-/// <summary>Writes small, valid .jfs files (format: docs/recording-protocol.md) for tests.</summary>
+/// <summary>Writes small, valid .jfs files (format: docs/recording/jfs-format.md) for tests.</summary>
 internal static class RecordingFiles
 {
     public const short Version = 21005;

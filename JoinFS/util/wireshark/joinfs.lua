@@ -3,9 +3,9 @@
 -- Decodes both wire formats JoinFS speaks on one UDP socket:
 --   * Legacy protocol: every datagram starts with the 16-bit constant 0x520B
 --     (LocalNode.VERSION), written little-endian, so byte 0 on the wire is
---     0x0B. See docs/network-protocol.md.
+--     0x0B. See docs/network/network-protocol.md.
 --   * JFP2: every datagram starts with the magic byte 0xFA
---     (JoinFS.Jfp2.Envelope.Magic). See docs/jfp2/protocol.md.
+--     (JoinFS.Jfp2.Envelope.Magic). See docs/network/jfp2/protocol.md.
 --
 -- Install: copy this file into your Wireshark "Personal Lua Plugins" folder
 -- (Help > About Wireshark > Folders > Personal Lua Plugins), or run Wireshark/
@@ -17,7 +17,7 @@
 -- (P2P peers, or a hub configured on a different port).
 --
 -- CAVEAT: JFP2's per-(peer, message class) schema version is negotiated at
--- Hello/HelloAck time (docs/jfp2/protocol.md §5) and is NOT carried on
+-- Hello/HelloAck time (docs/network/jfp2/protocol.md §5) and is NOT carried on
 -- every application datagram - a dissector reading packets in isolation has
 -- no reliable way to know which schema version a given peer pair agreed on.
 -- As of this writing every JFP2 message class in the codebase
@@ -163,22 +163,22 @@ local JFP2_APP_CLASS = {
     [8] = "StatusRequest", [9] = "WeatherReply",
 }
 
--- Capability bits (docs/jfp2/protocol.md §5.6): none assigned yet
+-- Capability bits (docs/network/jfp2/protocol.md §5.6): none assigned yet
 local JFP2_CAPABILITY_BITS = {
 }
 
--- HelloAck Result values (docs/jfp2/protocol.md §5.2); any other
+-- HelloAck Result values (docs/network/jfp2/protocol.md §5.2); any other
 -- value is unassigned, and every value but 0 means "no session now"
 local JFP2_RESULT = {
     [0] = "Accepted", [1] = "NoCompatibleProtoMajor", [2] = "NotAdmitted",
 }
 
--- JoinFS.Jfp2.HandshakeMessage extension tags (docs/jfp2/protocol.md §5.4)
+-- JoinFS.Jfp2.HandshakeMessage extension tags (docs/network/jfp2/protocol.md §5.4)
 local JFP2_TLV_TAG = {
     [1] = "Names", [2] = "Build", [3] = "ObservedEndPoint",
 }
 
--- JoinFS.Net.Jfp2.WireEndPoint (docs/jfp2/protocol.md §4.4): family u8 (4 IPv4, 6 IPv6),
+-- JoinFS.Net.Jfp2.WireEndPoint (docs/network/jfp2/protocol.md §4.4): family u8 (4 IPv4, 6 IPv6),
 -- the address in network byte order, the port u16 little-endian; 7 or 19 bytes. Returns the text,
 -- or nil for an unassigned family or a value shorter than its family needs (a receiver ignores
 -- both). Bytes after the endpoint are not read (a later build may extend the value).
@@ -197,7 +197,7 @@ local function jfp2_wire_endpoint_string(buffer, offset, len)
     return nil
 end
 
--- JoinFS.Net.Jfp2.NodeName kinds (docs/jfp2/protocol.md §4.3)
+-- JoinFS.Net.Jfp2.NodeName kinds (docs/network/jfp2/protocol.md §4.3)
 local JFP2_NAME_KIND = {
     [0] = "legacy id", [1] = "random key", [2] = "key-pair id", [255] = "group name",
 }
@@ -223,7 +223,7 @@ local function add_jfp2_name(tree, buffer, offset, label)
 end
 
 ----------------------------------------------------------------------
--- Legacy payload decoders (docs/network-protocol.md §8)
+-- Legacy payload decoders (docs/network/network-protocol.md §9)
 ----------------------------------------------------------------------
 
 local function decode_legacy_internal(tree, buffer, offset, msgId)
@@ -332,7 +332,7 @@ local function decode_legacy_position(tree, buffer, offset, isAircraft)
         (testbit(groundFlags, 0) and " (OnGround)" or "") ..
         (testbit(groundFlags, 1) and " (ElevationCorrection)" or "")); offset = offset + 1
     -- Trailing fields added over time; legacy readers EOF-sense these (see
-    -- network-protocol.md §5). Order and presence per-field verified against
+    -- network-protocol.md §3.5). Order and presence per-field verified against
     -- Network.cs's WriteObjectPositionVelocityMessage/WriteAircraftPositionMessage
     -- (NOT the network-protocol.md table, whose row order doesn't match the
     -- actual wire order for StaticCgToGround - it's written LAST, after
@@ -488,7 +488,7 @@ local function decode_legacy_application(tree, buffer, offset, msgId)
 end
 
 ----------------------------------------------------------------------
--- Legacy dissector: 21-byte transport header (network-protocol.md §2),
+-- Legacy dissector: 21-byte transport header (network-protocol.md §3.1),
 -- then either an internal message (no DataVersion) or an application
 -- message (DataVersion + MessageId, §5) per FLAG_INTERNAL.
 ----------------------------------------------------------------------
@@ -541,7 +541,7 @@ local function dissect_legacy(buffer, pinfo, tree)
 end
 
 ----------------------------------------------------------------------
--- JFP2 payload decoders (docs/jfp2/protocol.md §9, JoinFS/Jfp2/*)
+-- JFP2 payload decoders (docs/network/jfp2/protocol.md §9, JoinFS/Jfp2/*)
 ----------------------------------------------------------------------
 
 local function decode_jfp2_handshake(tree, buffer, offset, isAck)
@@ -814,7 +814,7 @@ end
 
 ----------------------------------------------------------------------
 -- JFP2 dissector: 8-byte fixed envelope (+4-byte guaranteed extension,
--- +16-byte Forwarded extension), docs/jfp2/protocol.md §3.
+-- +16-byte Forwarded extension), docs/network/jfp2/protocol.md §3.
 ----------------------------------------------------------------------
 
 local function dissect_jfp2(buffer, pinfo, tree)
@@ -908,7 +908,7 @@ end
 ----------------------------------------------------------------------
 -- Top-level dissect: one magic-byte compare routes to the right decoder,
 -- exactly like LocalNode.ReceiveMessages does on the real socket
--- (docs/jfp2/protocol.md §2.2).
+-- (docs/network/jfp2/protocol.md §2.2).
 ----------------------------------------------------------------------
 
 function joinfs_proto.dissector(buffer, pinfo, tree)

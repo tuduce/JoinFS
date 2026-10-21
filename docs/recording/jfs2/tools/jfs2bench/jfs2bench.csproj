@@ -8,6 +8,6 @@
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\JoinFS.Recording\JoinFS.Recording.csproj" />
+    <ProjectReference Include="..\..\..\..\..\JoinFS.Recording\JoinFS.Recording.csproj" />
   </ItemGroup>
 </Project>

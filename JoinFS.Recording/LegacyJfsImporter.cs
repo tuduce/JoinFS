@@ -7,15 +7,15 @@ using JoinFS.Net;
 namespace JoinFS.Recording
 {
     /// <summary>
-    /// Reads a legacy <c>.jfs</c> recording into canonical messages (docs/jfs2/recorder-v2-design.md section 8). This is the old reader,
+    /// Reads a legacy <c>.jfs</c> recording into canonical messages (docs/recording/jfs2/recorder-v2-design.md section 8). This is the old reader,
     /// frozen and isolated: the only code that knows the old format. It has no reference to Sim or Main and no build symbol.
     /// </summary>
     /// <remarks>
-    /// The old format is ambiguous in a way only an offline pass can resolve (docs/recording-protocol.md 7.1): an FS2024 build wrote
+    /// The old format is ambiguous in a way only an offline pass can resolve (docs/recording/jfs-format.md 7.1): an FS2024 build wrote
     /// three trailing strings per object (livery, ICAO type, ICAO airline) and every other build two (type, airline), at the same version.
     /// The importer parses the file both ways and accepts the layout that passes validation (known frame types, plausible values, ending
     /// exactly at the end of the file). When both pass it takes the FS2024 layout and says so; when neither does it fails with the reason
-    /// for each. Unlike the in-app reader it reads every frame type on plain objects too (recording-protocol.md 7.2).
+    /// for each. Unlike the in-app reader it reads every frame type on plain objects too (jfs-format.md 7.2).
     /// </remarks>
     public static class LegacyJfsImporter
     {

@@ -20,7 +20,7 @@
 
   <!-- The golden file is the spec's Appendix A example; one copy, in docs. -->
   <ItemGroup>
-    <None Include="..\docs\jfs2\tools\example.jfs2" Link="Fixtures\example.jfs2" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\docs\recording\jfs2\tools\example.jfs2" Link="Fixtures\example.jfs2" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

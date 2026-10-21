@@ -600,7 +600,7 @@ namespace JoinFS
 
         /// <summary>
         /// Pull queued SimConnect messages (dispatched into Sim's callbacks on this thread - see
-        /// docs/sim-thread-architecture.md), then either close a connection a callback asked to
+        /// docs/sim/sim-thread-architecture.md), then either close a connection a callback asked to
         /// close, or steer objects once for the frames just received
         /// </summary>
         void PumpSimMessages()

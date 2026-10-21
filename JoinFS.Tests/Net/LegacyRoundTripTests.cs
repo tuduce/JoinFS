@@ -100,7 +100,7 @@ namespace JoinFS.Tests.Net
             Assert.Equal(-5, received[0].Message.Entries.Single().IntValue);
             Assert.Equal(2.5f, received[1].Message.Entries.Single().FloatValue);
             Assert.Equal("abc", received[2].Message.Entries.Single().StringValue);
-            // no payload-level Owner any more (docs/network-plugin-architecture.md §2.11 item 3) -
+            // no payload-level Owner any more (docs/network/network-plugin-architecture.md §2.11 item 3) -
             // the envelope's Sender is the owner
             Assert.All(received, r => Assert.Equal(a.Id, r.Meta.Sender));
         }

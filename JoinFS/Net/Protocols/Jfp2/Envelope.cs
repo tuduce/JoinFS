@@ -1,10 +1,10 @@
 using System;
 using System.Buffers.Binary;
 
-// Ported from ProtocolV2Reference/Wire.cs (docs/jfp2/protocol.md §3) as part of
-// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 1. This is the fixed 8-byte JFP2 envelope that
+// Ported from ProtocolV2Reference/Wire.cs (docs/network/jfp2/protocol.md §3) as part of
+// docs/network/jfp2/history/protocol-v2-implementation-plan.md Phase 1. This is the fixed 8-byte JFP2 envelope that
 // starts every JFP2 datagram, plus the message-class constants. Used by Jfp2Plugin
-// (docs/network-plugin-architecture.md).
+// (docs/network/network-plugin-architecture.md).
 
 namespace JoinFS.Net.Jfp2
 {
@@ -13,7 +13,7 @@ namespace JoinFS.Net.Jfp2
     /// the capability that defines it, one bit per header extension. A receiver drops a datagram
     /// with any bit outside <see cref="Envelope.SupportedFlags"/>, so a sender sets another bit only
     /// toward a neighbor that agreed the capability defining it, and never on Hello/HelloAck
-    /// (docs/jfp2/protocol.md §3.2).
+    /// (docs/network/jfp2/protocol.md §3.2).
     /// </summary>
     [Flags]
     public enum EnvelopeFlags : byte
@@ -43,7 +43,7 @@ namespace JoinFS.Net.Jfp2
         /// route to Target, which by construction it doesn't have if the original sender needed
         /// this hub's relay in the first place. The payload is forwarded byte for byte only when the
         /// target agreed the same schema version as the origin's hop used; otherwise the relay
-        /// decodes it and the core re-sends it in the target's own terms. See docs/jfp2/protocol.md §8.4.
+        /// decodes it and the core re-sends it in the target's own terms. See docs/network/jfp2/protocol.md §8.4.
         /// A name this build cannot resolve (any kind but 0) is dropped, and never acknowledged.
         ///
         /// A single name field whose meaning flips by direction was considered and rejected: it
@@ -67,7 +67,7 @@ namespace JoinFS.Net.Jfp2
     /// EnvelopeFlags.Guaranteed is set - unreliable traffic (Position, VariableSync, and everything
     /// else on the hot path) never allocates or transmits those bytes at all.
     ///
-    /// Compare to the legacy transport header (docs/network-protocol.md §2): 21 fixed bytes, always
+    /// Compare to the legacy transport header (docs/network/network-protocol.md §3.1): 21 fixed bytes, always
     /// present, including 14 bytes of Sender+Recipient Nuid and 4 bytes of guaranteed-delivery fields
     /// whether or not the message is guaranteed. JFP2's fixed cost for the common (unreliable,
     /// unicast-or-broadcast) case is 8 bytes - a 62% reduction before a single payload byte is sent.
@@ -82,14 +82,14 @@ namespace JoinFS.Net.Jfp2
         /// becomes. The handshake is the permanent entry point: its envelope and fixed fields never
         /// change, so every build ever released can start one with every later build, and a later
         /// major version is agreed inside it (HandshakeMessage.ProtoMajorMin/Max) rather than by
-        /// changing it (docs/jfp2/protocol.md §5.8).
+        /// changing it (docs/network/jfp2/protocol.md §5.8).
         /// </summary>
         public const byte HandshakeProtoMajor = 2;
 
         /// <summary>
         /// The flags this build can read. Any other bit may announce a header extension or a payload
         /// framing this build does not know, which would shift what follows, so a datagram carrying one
-        /// is dropped rather than misparsed (docs/jfp2/protocol.md §3.2). Coalesced is
+        /// is dropped rather than misparsed (docs/network/jfp2/protocol.md §3.2). Coalesced is
         /// specified but not implemented, so it is not here.
         /// </summary>
         public const EnvelopeFlags SupportedFlags = EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded | EnvelopeFlags.Internal;
@@ -101,7 +101,7 @@ namespace JoinFS.Net.Jfp2
         public const int ForwardedExtraSize = NodeName.WireSize * 2;
 
         /// <summary>
-        /// No JFP2 datagram is larger (docs/jfp2/protocol.md §3.6): IPv6's minimum MTU of
+        /// No JFP2 datagram is larger (docs/network/jfp2/protocol.md §3.6): IPv6's minimum MTU of
         /// 1,280 less its headers, with room for a tunnel. The codecs' field limits guarantee it by
         /// construction: with every header, every v1 message fits.
         /// </summary>
@@ -113,7 +113,7 @@ namespace JoinFS.Net.Jfp2
         /// <summary>
         /// The legacy header's version constant (LegacyWire.Version, 0x520B written little-endian,
         /// so byte 0 on the wire is 0x0B) - duplicated here so the two plugins stay independent
-        /// (docs/jfp2/protocol.md §2.2).
+        /// (docs/network/jfp2/protocol.md §2.2).
         /// </summary>
         public const ushort LegacyVersionConstant = 0x520B;
 

@@ -9,6 +9,10 @@ are kept so older commits and notes still make sense.
 
 ## 1. Where we are
 
+**Since 2026-10-21 the order and the stages are in `standalone-ipv6-plan.md` §6**, which takes over
+items 10, 11, 12, B1 to B7, the dual-stack socket, D3 and the retirement of legacy. This file keeps
+the open questions (§4) and the verification items (§2.4); §3 below is history.
+
 - **The first-release wire is complete.** Stages 1 to 9 are done, reviewed and merged to `main`
   (#200). 26.6 may ship: nothing in JFP2 blocks it. From that tag the evolution rules
   of `protocol.md` §5.8 and §10 bind.
@@ -37,7 +41,7 @@ Each needs its own design, approved by the owner, before it is built.
 | B6 | **Large messages.** Split at message level where handlers are idempotent; multi-segment guaranteed delivery only for bulk notes and hub lists. | `design-future.md` §8 | B3 |
 | — | **Dual-stack socket and IPv6 endpoint candidates.** One dual-mode socket; IPv4-mapped sources converted back; the legacy encoder never handed an IPv6 node. | `design-future.md` §4 | B3 |
 | B4 | **Relaying as a first-class feature.** Hubs advertise their relay budget in `Status`; fan-out to "all members"; amplification limits. | `design-future.md` §5 | B3 |
-| B5 | **Remaining kinds.** In-session: ObjectPosition (the recorder's `ObjectPositionV1Codec` moved into `JoinFS.Messages`, `docs/jfs2/recorder-v2-design.md` §11), RemoveObject, PeerInfo. Directory kinds after B2. Do not port WeatherRequest and ShowOnRadar. Redesign the bulk notes catch-up. | `design-future.md` §8 | B2 |
+| B5 | **Remaining kinds.** In-session: ObjectPosition (the recorder's `ObjectPositionV1Codec` moved into `JoinFS.Messages`, `docs/recording/jfs2/recorder-v2-design.md` §11), RemoveObject, PeerInfo. Directory kinds after B2. Do not port WeatherRequest and ShowOnRadar. Redesign the bulk notes catch-up. | `design-future.md` §8 | B2 |
 | B7 | **Security.** Challenge-response Join, node names bound to a key pair (kind 2), per-hop protection of every datagram. | `design-future.md` §6, `rationale.md` §7 | B3 |
 | — | **Retire legacy.** Delete the legacy plugin when the `Build` counts hubs log show enough users run the build with the JFP2 mesh. The X-Plane link keeps the framing constants it shares. | `goals.md` §5 | B3 and field data |
 
@@ -48,8 +52,8 @@ Each needs its own design, approved by the owner, before it is built.
 | D3 | **DNS lookup** keeps only the first address returned, so a hostname that also has an IPv6 address can fail to join. | Open. |
 | C3 | Split `Jfp2Plugin.cs` further, into separate classes (the partial-class split is done). | Optional; the partial split covers the need. |
 | C5 | Separate `MeshManager`'s wire-visible rules from local policy. The relay budget is a setting (stage 9); the Pulse and Pathfinder timings are not. | Partly done. |
-| — | **Position v2, coalescing, selective acknowledgement.** Each is designed when a measurement says it pays. The recorder will use Position v2 too (decided 2026-10-15): a quantised 52-byte candidate halves a `.jfs2` file (`docs/jfs2/README.md`, Measurements, step 3). | `design-future.md` §7 |
-| — | **Recording codecs.** Adopt the `ICodec` pattern in `Recorder.cs`, replacing the `#if FS2024` compile-time gate that causes the bug in `../recording-protocol.md` §7.1. Separate piece of work; do not block JFP2 on it. | Open. |
+| — | **Position v2, coalescing, selective acknowledgement.** Each is designed when a measurement says it pays. The recorder will use Position v2 too (decided 2026-10-15): a quantised 52-byte candidate halves a `.jfs2` file (`docs/recording/jfs2/README.md`, Measurements, step 3). | `design-future.md` §7 |
+| — | **Recording codecs.** Adopt the `ICodec` pattern in `Recorder.cs`, replacing the `#if FS2024` compile-time gate that causes the bug in `../../recording/jfs-format.md` §7.1. Separate piece of work; do not block JFP2 on it. | Open. |
 | — | **Variable-name (vuid) table sync at scale.** | Open. |
 
 ### 2.4 Verification still owed

@@ -4,7 +4,7 @@ namespace JoinFS.Estimation
 {
     /// <summary>
     /// A clock model that reads the sender's clock offset off the fastest recent samples, instead of
-    /// averaging it (docs/position-estimation-plan.md §3 item 2, the passive fallback, F1/F6/F7).
+    /// averaging it (docs/estimation/position-estimation-plan.md §3 item 2, the passive fallback, F1/F6/F7).
     /// </summary>
     /// <remarks>
     /// <para>

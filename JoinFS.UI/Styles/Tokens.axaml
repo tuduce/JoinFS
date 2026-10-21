@@ -1,6 +1,6 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <!-- GENERATED from the oklch() values in docs/design_handoff_avalonia_ui (see JoinFS.UI/util/gen_tokens.py).
+  <!-- GENERATED from the oklch() values in docs/ui/design-handoff (see JoinFS.UI/util/gen_tokens.py).
        Avalonia cannot parse oklch(), so each token holds the sRGB hex and keeps the design value in its comment.
        Edit the oklch value in the table in gen_tokens.py and regenerate, so the two never drift apart. -->
 
