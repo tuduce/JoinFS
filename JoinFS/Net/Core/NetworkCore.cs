@@ -25,6 +25,7 @@ namespace JoinFS.Net
         public PeerDirectory Peers { get; } = new();
         public ObjectStateCache Objects { get; } = new();
         public MeshManager Mesh { get; }
+        public IMembership Membership => Mesh;
 
         /// <summary>The transport is open (set by the owner, which opens and closes it).</summary>
         public bool IsOpen { get; set; }

@@ -177,6 +177,9 @@ namespace JoinFS
         /// <summary>Use IPv4 (<c>-noipv4</c> turns it off for this run, to test as an IPv6-only node; never stored).</summary>
         public bool settingsIpv4 = true;
 
+        /// <summary>Join over JFP2 only (<c>-jfp2join</c> test switch, never stored): no legacy Join is sent, and a hub that does not take a JFP2 join cannot be joined. Stage 5 of the stand-alone plan makes JFP2 first the default, with the legacy fallback.</summary>
+        public bool settingsJfp2Join = false;
+
 #if CONSOLE
         public bool settingsBackground = false;
         public int settingsBackgroundDelay = 100;
@@ -412,6 +415,11 @@ namespace JoinFS
                             case "-noipv4":
                                 // IPv6 only: this instance behaves as a node with no IPv4 route (test switch)
                                 settingsIpv4 = false;
+                                break;
+
+                            case "-jfp2join":
+                                // join over JFP2 alone, to show a join with no legacy datagram (test switch)
+                                settingsJfp2Join = true;
                                 break;
 
                             case "-noipv6":

@@ -331,6 +331,12 @@ namespace JoinFS.Net.Jfp2
         /// <summary>IClock.Now at which a non-member session ends.</summary>
         public double NonMemberUntil;
 
+        /// <summary>The names the neighbour stated, preferred first (a non-member session is named by the first).</summary>
+        public List<NodeId> Names;
+
+        /// <summary>The cookie a non-member session was admitted with (16 bytes), which a Join's password proof is bound to.</summary>
+        public byte[] AdmissionCookie;
+
         public readonly byte[] AgreedAppVersion = new byte[256];
         public readonly byte[] AgreedInternalVersion = new byte[256];
 

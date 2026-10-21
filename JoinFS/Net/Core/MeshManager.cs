@@ -24,7 +24,7 @@ namespace JoinFS.Net
     ///
     /// Network thread only.
     /// </summary>
-    public sealed class MeshManager : IMessageHandler
+    public sealed partial class MeshManager : IMessageHandler, IMembership
     {
         public const int ExpireTime = 30;
         public const int MaxNodesPerDevice = 32;

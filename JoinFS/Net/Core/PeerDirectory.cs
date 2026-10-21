@@ -55,6 +55,12 @@ namespace JoinFS.Net
         /// <summary>The node asked for reduced traffic.</summary>
         public bool LowBandwidth;
 
+        /// <summary>
+        /// Legacy datagrams are exchanged with the node. False for a node that joined over JFP2, which a legacy
+        /// plugin must not send to (the link is JFP2's, docs/network/jfp2/standalone-ipv6-plan.md §2.1).
+        /// </summary>
+        public bool LegacyLink = true;
+
         /// <summary>Round-trip time in seconds (from pulses).</summary>
         public float Rtt;
 

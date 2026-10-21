@@ -139,7 +139,7 @@ namespace JoinFS.Net.Jfp2
             var session = new PeerSession
             {
                 Peer = name, LocalAssignedId = introduction.Id, RemoteAssignedId = ack.SelfAssignedId,
-                NonMember = true, NonMemberUntil = now + NonMemberLifetime,
+                NonMember = true, NonMemberUntil = now + NonMemberLifetime, Names = ack.Names, AdmissionCookie = introduction.Cookie,
             };
             OpenNonMember(session, name, from, ack.Capabilities, ack.Offers, ack.Build, now);
             host.Log(NetLogLevel.Event, "JFP2: " + name + " at " + from + " admitted this node: non-member session");
@@ -213,7 +213,7 @@ namespace JoinFS.Net.Jfp2
                 session = new PeerSession
                 {
                     Peer = name, LocalAssignedId = NewId(), RemoteAssignedId = hello.SelfAssignedId,
-                    NonMember = true, NonMemberUntil = now + NonMemberLifetime,
+                    NonMember = true, NonMemberUntil = now + NonMemberLifetime, Names = hello.Names, AdmissionCookie = hello.Admission,
                 };
                 OpenNonMember(session, name, from, hello.Capabilities, hello.Offers, hello.Build, now);
                 host.Log(NetLogLevel.Event, "JFP2: admitted stranger " + name + " at " + from + ": non-member session for " + NonMemberLifetime + " s");
@@ -223,6 +223,7 @@ namespace JoinFS.Net.Jfp2
                 // a retransmission, or the same node from another endpoint (its cookie proved that one answers); the lifetime is not extended
                 session.RemoteAssignedId = hello.SelfAssignedId;
                 session.Endpoint = from;
+                session.AdmissionCookie = hello.Admission;
                 session.LastAck = now;
                 LearnBuild(session, hello.Build);
             }

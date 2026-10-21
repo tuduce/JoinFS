@@ -59,8 +59,9 @@ namespace JoinFS.Net.Legacy
 
         public bool Accepts(ReadOnlySpan<byte> datagram) => datagram[0] == LegacyWire.VersionLowByte;
 
-        /// <summary>Everything, to everyone - except Identity, which legacy carries inline in positions.</summary>
-        public bool CanCarry(NodeId peer, MessageKind kind) => kind != MessageKind.Identity;
+        /// <summary>Everything, to every node it has a legacy link with - except Identity, which legacy carries inline in positions.</summary>
+        public bool CanCarry(NodeId peer, MessageKind kind) =>
+            kind != MessageKind.Identity && !(host.Peers.TryGet(peer, out Peer known) && !known.LegacyLink);
 
         public void Tick() => reliability.Tick();
 

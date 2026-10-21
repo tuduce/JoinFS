@@ -37,7 +37,7 @@ namespace JoinFS.Net.Jfp2
     ///
     /// Ported from the JFP2 regions of Node.cs and Network.cs.
     /// </summary>
-    public sealed partial class Jfp2Plugin : IProtocolPlugin, IDescribesLinks
+    public sealed partial class Jfp2Plugin : IProtocolPlugin, IDescribesLinks, IMembershipExpression
     {
         const int HelloMaxAttempts = 5;
         const double HelloRetryInterval = 2.0;
@@ -169,6 +169,7 @@ namespace JoinFS.Net.Jfp2
         {
             DoHandshake();
             DoAdmission();
+            DoJoin();
             reliability.Tick();
             ForgetIdleIdentities();
         }
@@ -204,6 +205,7 @@ namespace JoinFS.Net.Jfp2
             sessionsById.Clear();
             nonMembers.Clear();
             introductions.Clear();
+            pendingJoin = null;
             occupants.Clear();
             observedBy.Clear();
             reliability.Clear();

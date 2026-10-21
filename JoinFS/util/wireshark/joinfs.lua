@@ -151,9 +151,15 @@ local LEGACY_APP_MSG = {
     [39] = "String8Variables", [40] = "ShowOnRadar",
 }
 
--- JoinFS.Jfp2.MessageClasses - Internal partition (2-8 unassigned)
+-- JoinFS.Jfp2.MessageClasses - Internal partition (5-8 unassigned)
 local JFP2_INTERNAL_CLASS = {
-    [0] = "Hello", [1] = "HelloAck", [9] = "GuaranteedDone",
+    [0] = "Hello", [1] = "HelloAck", [2] = "Join", [3] = "JoinResult", [4] = "MemberList",
+    [9] = "GuaranteedDone",
+}
+
+-- JoinResult.Result (docs/network/jfp2/protocol.md §5.10); any other value is a refusal
+local JFP2_JOIN_RESULT = {
+    [0] = "Accepted", [1] = "PasswordRequired", [2] = "LoginRequired",
 }
 
 -- JoinFS.Jfp2.MessageClasses - Application partition
@@ -781,6 +787,60 @@ local function decode_jfp2_guaranteed_done(tree, buffer, offset)
     tree:add(buffer(offset + 2, 1), "GuaranteedIndex: " .. buffer(offset + 2, 1):uint())
 end
 
+-- Join (internal class 2, protocol.md §5.10): Flags u8, Proof 32 bytes
+local function decode_jfp2_join(tree, buffer, offset)
+    if buffer:len() < offset + 33 then
+        tree:add(buffer(offset, buffer:len() - offset), "Short Join (" .. (buffer:len() - offset) .. " bytes): ignored")
+        return
+    end
+    local flags = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Flags: 0x" .. string.format("%02x", flags) .. (testbit(flags, 0) and " (proof present)" or " (no proof)"))
+    tree:add(buffer(offset + 1, 32), "Proof: " .. buffer(offset + 1, 32):bytes():tohex())
+end
+
+-- JoinResult (internal class 3): Result u8, Suid u32, ListSegments u8
+local function decode_jfp2_join_result(tree, buffer, offset)
+    if buffer:len() < offset + 6 then
+        tree:add(buffer(offset, buffer:len() - offset), "Short JoinResult (" .. (buffer:len() - offset) .. " bytes): ignored")
+        return
+    end
+    local result = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Result: " .. result .. " (" .. (JFP2_JOIN_RESULT[result] or "refused") .. ")")
+    tree:add(buffer(offset + 1, 4), "Suid: " .. buffer(offset + 1, 4):le_uint())
+    tree:add(buffer(offset + 5, 1), "ListSegments: " .. buffer(offset + 5, 1):uint())
+end
+
+-- MemberList (internal class 4): Index u8, EntryCount u8, entries of
+-- NameCount u8, names (8 bytes each), EndPointLength u8, WireEndPoint
+local function decode_jfp2_member_list(tree, buffer, offset)
+    local len = buffer:len()
+    if len < offset + 2 then
+        tree:add(buffer(offset, len - offset), "Short MemberList (" .. (len - offset) .. " bytes): ignored")
+        return
+    end
+    tree:add(buffer(offset, 1), "Index: " .. buffer(offset, 1):uint())
+    local count = buffer(offset + 1, 1):uint()
+    tree:add(buffer(offset + 1, 1), "EntryCount: " .. count)
+    offset = offset + 2
+    for e = 1, count do
+        if offset >= len then break end
+        local names = buffer(offset, 1):uint()
+        if offset + 1 + names * 8 + 1 > len then break end
+        local entry = tree:add(buffer(offset, 1), "Entry " .. e .. ": " .. names .. " name(s)")
+        offset = offset + 1
+        for n = 1, names do
+            add_jfp2_name(entry, buffer, offset, "Name " .. n)
+            offset = offset + 8
+        end
+        local epLen = buffer(offset, 1):uint()
+        offset = offset + 1
+        if offset + epLen > len then break end
+        local text = jfp2_wire_endpoint_string(buffer, offset, epLen)
+        entry:add(buffer(offset, epLen), "EndPoint: " .. (text or "(unreadable, entry skipped)"))
+        offset = offset + epLen
+    end
+end
+
 local function decode_jfp2_application(tree, buffer, offset, class)
     local name = JFP2_APP_CLASS[class]
     local len = buffer:len()
@@ -815,6 +875,12 @@ local function decode_jfp2_internal(tree, buffer, offset, class)
         decode_jfp2_handshake(tree, buffer, offset, false)
     elseif name == "HelloAck" then
         decode_jfp2_handshake(tree, buffer, offset, true)
+    elseif name == "Join" then
+        decode_jfp2_join(tree, buffer, offset)
+    elseif name == "JoinResult" then
+        decode_jfp2_join_result(tree, buffer, offset)
+    elseif name == "MemberList" then
+        decode_jfp2_member_list(tree, buffer, offset)
     elseif name == "GuaranteedDone" then
         decode_jfp2_guaranteed_done(tree, buffer, offset)
     elseif offset < len then

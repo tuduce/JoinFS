@@ -70,6 +70,13 @@ carries an `Admission` extension and the node is in a session: then it is a stra
 `Jfp2Plugin.Admission.cs` (`protocol.md` §5.9). Strangers are kept apart from `sessions`, in
 `nonMembers` (the same id space, `sessionsById`), so no routing code can pick one as a next hop.
 
+A stranger that sends Join (`protocol.md` §5.10) is handled by `Jfp2Plugin.Membership.cs`, and its
+bodies are in `MembershipCodecs.cs` (internal classes, so not `ClassDescriptor`s: they are not canonical
+messages; `Jfp2Profile` only offers them, `MembershipClasses`). The plugin reports what it learns
+through `IProtocolHost.Membership` (`IMembership`, implemented by `MeshManager.Membership.cs`), which adds the
+`Peer`, with `LegacyLink` false: `LegacyPlugin.CanCarry` is false for such a peer, so no legacy datagram
+is ever addressed to it. A node starts a join with `MeshManager.JoinOverJfp2` (the app: `-jfp2join`).
+
 ### 3.2 The observed endpoint
 
 1. **Plugin** (network thread): counts an observation only from a HelloAck that answers its own
@@ -144,6 +151,7 @@ dotnet test JoinFS.Tests/JoinFS.Tests.csproj -c FS2024-Debug -p:Platform=x64
 | Kind | Where | What it pins |
 |---|---|---|
 | Golden bytes | `Jfp2/HandshakeGoldenTests` | Hello, HelloAck, HelloAck with the observed endpoint (`protocol.md` Appendix A). Never regenerate to make a test pass. |
+| Join | `Net/Jfp2JoinTests` | The join on `TestMesh` with no legacy plugin (create, join, passwords, the list, loss, liveness), the bodies, and the bytes of `protocol.md` Appendix A.6 to A.8 |
 | Golden bytes, admission | `Jfp2/AdmissionGoldenTests` | The Hello that asks, the Hello that echoes the cookie, the `Result` 2 HelloAck (`protocol.md` Appendix A.3 to A.5). Beside the 26.6 goldens, which stay as they are. |
 | Envelope, names, endpoints, text | `Jfp2/EnvelopeTests`, `WireEndPointTests`, `WireTextTests` | §3, §4 |
 | Negotiation and TLV rules | `Jfp2/NegotiationTests` | §5 |

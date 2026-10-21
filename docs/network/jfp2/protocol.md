@@ -185,11 +185,15 @@ new classes take the next unused number.
 |---|---|---|
 | 0 | Hello | §5.1 |
 | 1 | HelloAck | §5.1 |
-| 2–8 | — | Unassigned. |
+| 2 | Join | Edition 2, §5.10. Offered. |
+| 3 | JoinResult | Edition 2, §5.10. Offered. |
+| 4 | MemberList | Edition 2, §5.10. Offered. |
+| 5–8 | — | Unassigned. |
 | 9 | GuaranteedDone | The acknowledgement of §7.3. |
 
 Hello, HelloAck and GuaranteedDone are never offered (§5.3): every node speaks them, always at
-version 1.
+version 1. Join, JoinResult and MemberList are offered, in the internal partition, like any other
+class: a node sends them only on a session whose neighbour offered them.
 
 **Application partition**
 
@@ -526,11 +530,80 @@ an ordinary Hello, whatever its `Admission` says.
 
 **A non-member session** has the id space and the negotiation of any session, and these limits:
 - It is never a next hop, never carries a Forwarded datagram, and `CanCarry` is false for every
-  message kind. The classes it will carry are named by the stage that adds them (the join, and the
-  directory classes of a hub); until then every other datagram on it is dropped.
+  message kind. The classes it carries are Join and JoinResult (§5.10), and MemberList to a node that
+  joined; every other datagram on it is dropped. (The directory classes of a hub are a later part of
+  edition 2.)
 - At most **32** are open at once; a Hello that would open a 33rd is ignored.
-- It ends **60 s** after it was opened, at both ends, unless a Join (a later part of edition 2)
-  makes it the member session. A keepalive does not extend it.
+- It ends **60 s** after it was opened, at both ends, unless a Join (§5.10) makes it the member
+  session. A keepalive does not extend it.
+
+### 5.10 Joining over JFP2 (edition 2)
+
+Until edition 2 only legacy made a node a member (§5.7). A node that holds a non-member session
+(§5.9) becomes a member with **Join**, and is answered with **JoinResult** and told of the members with
+**MemberList**. All three are internal classes (partition 1) at version 1, offered in Hello and used only
+on a session where the neighbour offered them. None is guaranteed: the joiner repeats Join, and the
+admitting node answers every copy in full. They travel on the session between the two nodes, never
+Forwarded.
+
+**Join** (class 2), joiner to admitting node, on the non-member session. Payload, 33 bytes:
+
+| Field | Size | Notes |
+|---|---|---|
+| Flags | 1 | Bit 0: `Proof` is present. Other bits are zero and ignored. |
+| Proof | 32 | `HMAC-SHA256(key, data)` when bit 0 is set, else zeros. `key` is the session's password hash as 4 bytes little-endian; `data` is the ASCII text `JFP2 Join`, then the 16-byte cookie the session was admitted with (§5.9), then the 8-byte name the joiner stated first in its Hello. |
+
+The password hash itself never travels. The proof is bound to the cookie and the name, so a captured Join
+proves nothing in another session.
+
+**Judging.** The admitting node honours a Join only from the endpoint its cookie proved, and only while it
+is in a session that takes joiners; a node in no session, or whose session takes no joiners, ignores it, as
+a legacy node ignores a legacy Join. Otherwise it answers JoinResult, in this order:
+1. the session has a password and `Proof` is absent or not the proof the node computes: `PasswordRequired`;
+2. the session requires a login (an email and password, which JFP2 does not carry): `LoginRequired`;
+3. otherwise `Accepted`. A node that already has the joiner as a member, whatever name it joined by, is
+   not added twice, and a device that holds as many nodes as the legacy limit (32) is ignored, as legacy
+   ignores it.
+
+**JoinResult** (class 3), admitting node to joiner. Payload, 6 bytes:
+
+| Field | Size | Notes |
+|---|---|---|
+| Result | 1 | 0 `Accepted`, 1 `PasswordRequired`, 2 `LoginRequired`. Any other value is a refusal. |
+| Suid | 4 | u32 little-endian: the session's id when accepted, else 0. |
+| ListSegments | 1 | How many MemberList datagrams follow when accepted. |
+
+**MemberList** (class 4), admitting node to a member that just joined: the members it knows other than the
+joiner and itself, split into datagrams of at most 1,000 bytes of entries. Payload:
+
+| Field | Size | Notes |
+|---|---|---|
+| Index | 1 | 0-based, below `ListSegments`. |
+| EntryCount | 1 | Entries in this datagram. |
+| Entries | | `EntryCount` of the entry below. |
+
+An entry is `NameCount` u8 (1 to 4, the member's names, preferred first), that many names of 8 bytes
+(§4.3), `EndPointLength` u8, and a `WireEndPoint` (§4.4) of that length: where the admitting node reaches
+the member. A reader skips an entry whose first name is not valid or whose endpoint it cannot read (the
+lengths tell where the next entry begins), and takes an entry cut short as the end of the list.
+
+**The member session.** When the node accepts, it turns the non-member session into the member session
+for the joiner: the same ids, the same endpoint, still verified, and the 60 s lifetime of §5.9 no longer
+applies. The joiner does the same on reading an `Accepted` JoinResult. Both then hold the other as a
+neighbour with a verified session (§6): the joiner is a **member**, and no legacy datagram is exchanged with it.
+From then on the keepalive of §6.2 keeps the neighbour, and the members reached through it, in the
+session: a Hello or HelloAck from it renews their expiry (30 s) as a Pulse does for a legacy member.
+
+**Repeating.** The joiner repeats Join every **2 s**, at most **5** times, until it holds a JoinResult and the
+`ListSegments` MemberList datagrams it announced; a refusal ends the attempt. A Join on a session that is
+already a member session is answered again in full (JoinResult, then every MemberList), so a lost answer costs
+one repeat. A joiner that hears nothing for **15 s** gives up. MemberList datagrams that arrive before the
+JoinResult are kept until it comes.
+
+**What the joiner learns.** Each listed member becomes a peer that is **reached through the admitting node**
+(§6.3, item 2) until a direct link exists: the datagrams for it go to the admitting node, Forwarded
+(§8). A member the joiner knows already, by any of its names, is left as it is. How the other members learn of
+the joiner (MemberAnnounce) and of a departure (MemberLeave) is a later part of edition 2.
 
 ---
 
@@ -822,7 +895,7 @@ cited rule says.
 | Space | Size | Assigned | Unknown values |
 |---|---|---|---|
 | Flag bits (§3.2) | 8 bits | 0 Guaranteed, 1 Forwarded, 3 Internal; 2 Coalesced reserved | Drop the datagram |
-| Internal classes (§3.3) | u8 | 0 Hello, 1 HelloAck, 9 GuaranteedDone | Not agreed: drop, do not acknowledge |
+| Internal classes (§3.3) | u8 | 0 Hello, 1 HelloAck, 2 Join, 3 JoinResult, 4 MemberList, 9 GuaranteedDone | Not agreed: drop, do not acknowledge |
 | Application classes (§3.3) | u8 | 0–9; 255 reserved as Extended | Not agreed: drop, do not acknowledge |
 | Offer partitions (§5.3) | u8 | 0 application, 1 internal | Skip the offer |
 | Handshake `Result` (§5.2) | u8 | 0, 1, 2 | Read as "no session now" |
@@ -984,6 +1057,35 @@ FA 02 08 00 00 34 12 01                   magic, ProtoMajor 2, Internal, sender 
 04 00 10 00  00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F   TLV Admission: the cookie
 ```
 
+The three datagrams of the join of §5.10 (edition 2) are pinned by `JoinFS.Tests/Net/Jfp2JoinTests.cs`.
+
+**A.6 Join** from the node of A.1 (id `0x1234`) to the node of A.2 (id `0x5678`), with no password:
+
+```
+FA 02 08 34 12 78 56 02                   magic, ProtoMajor 2, Internal, sender 0x1234, recipient 0x5678, class Join
+00                                        Flags: no proof
+00 00 00 00 00 00 00 00 ... (32 bytes)    Proof: zeros
+```
+
+**A.7 JoinResult** from the node of A.2 to the node of A.1: accepted, session `0x01020304`, one MemberList follows.
+
+```
+FA 02 08 78 56 34 12 03                   magic, ProtoMajor 2, Internal, sender 0x5678, recipient 0x1234, class JoinResult
+00                                        Result: accepted
+04 03 02 01                               Suid
+01                                        ListSegments
+```
+
+**A.8 MemberList** from the node of A.2, listing one member, 203.0.113.1:6112 (local 20):
+
+```
+FA 02 08 78 56 34 12 04                   magic, ProtoMajor 2, Internal, sender 0x5678, recipient 0x1234, class MemberList
+00 01                                     Index 0, one entry
+01                                        NameCount
+00 01 71 00 CB E0 17 14                   name: kind 0, legacy id 203.0.113.1, port 6112, local 20
+07  04 CB 00 71 01 E0 17                  EndPointLength 7, WireEndPoint: family 4, 203.0.113.1, port 6112
+```
+
 ---
 
 ## Appendix B. Constants
@@ -999,6 +1101,9 @@ FA 02 08 00 00 34 12 01                   magic, ProtoMajor 2, Internal, sender 
 | Admission: cookie secret | rotated every 60 s, the previous one accepted | 5.9 |
 | Admission: challenges answered | 10 per second, burst 20 | 5.9 |
 | Non-member sessions | 32 at once, 60 s each | 5.9 |
+| Join: repeat / give up | 2 s, 5 attempts / 15 s | 5.10 |
+| MemberList entries per datagram | 1,000 bytes | 5.10 |
+| Expiry of a member linked over JFP2 | 30 s, renewed by each Hello or HelloAck | 5.10 |
 | Keepalive Hello | 5 s | 6.2 |
 | Session expiry without an answer | 15 s | 6.2 |
 | Guaranteed retransmit / give up | 2 s / 180 s | 7.1 |

@@ -220,9 +220,15 @@ namespace JoinFS.Net.Jfp2
                 return;
             }
 
+            if (envelope.IsInternal && !envelope.IsForwarded && IsMembershipClass(envelope.RawMessageClass))
+            {
+                HandleMembership(from, hop, envelope.RawMessageClass, payload);
+                return;
+            }
+
             if (hop.NonMember)
             {
-                // a stranger that echoed its cookie carries nothing but the handshake (protocol.md §5.9)
+                // a stranger that echoed its cookie carries nothing but the handshake and the join (protocol.md §5.9, §5.10)
                 host.Log(NetLogLevel.Network, "JFP2: class " + envelope.RawMessageClass + " from " + from + " on a non-member session - dropped");
                 return;
             }

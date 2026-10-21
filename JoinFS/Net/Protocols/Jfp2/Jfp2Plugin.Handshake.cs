@@ -187,7 +187,7 @@ namespace JoinFS.Net.Jfp2
             Capabilities = profile.Capabilities,
             SelfAssignedId = session.LocalAssignedId,
             Result = result,
-            Names = names ?? [Local],
+            Names = names ?? (OwnNames() is { Count: > 0 } own ? own : [Local]),
             Build = build,
             Offers = new List<SchemaOffer>(profile.Offers),
         };
@@ -295,6 +295,7 @@ namespace JoinFS.Net.Jfp2
             }
             session.RemoteAssignedId = hello.SelfAssignedId;
             LearnBuild(session, hello.Build);
+            host.Membership.Alive(sender);
             // a range that includes ours (2..3 from a later build, say) is fine: we speak the common one
             if (hello.ProtoMajorMin > Envelope.ProtoMajor || hello.ProtoMajorMax < Envelope.ProtoMajor)
             {
@@ -389,6 +390,7 @@ namespace JoinFS.Net.Jfp2
             }
             session.RemoteAssignedId = ack.SelfAssignedId;
             LearnBuild(session, ack.Build);
+            host.Membership.Alive(session.Peer);
             bool agreementChanged = Negotiator.Resolve(session, profile.Capabilities, profile.Offers, ack.Capabilities, ack.Offers);
             bool wasVerified = session.Verified;
             session.HandshakeComplete = true;

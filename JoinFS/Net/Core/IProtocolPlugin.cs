@@ -107,6 +107,9 @@ namespace JoinFS.Net
         PeerDirectory Peers { get; }
         ObjectStateCache Objects { get; }
 
+        /// <summary>The session's membership: what a plugin reports to when its wire brings a member (<see cref="IMembership"/>).</summary>
+        IMembership Membership { get; }
+
         /// <summary>The local node is in a session (has a session id).</summary>
         bool Connected { get; }
 

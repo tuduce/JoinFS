@@ -50,8 +50,12 @@ namespace JoinFS
         readonly MainSessionHost host;
         readonly NodeKeyStore nodeKeys;
 
+        /// <summary>Join over JFP2 alone (the <c>-jfp2join</c> test switch).</summary>
+        readonly bool joinOverJfp2;
+
         public Network(Main main)
         {
+            joinOverJfp2 = main.settingsJfp2Join;
             host = new MainSessionHost(main);
             nodeKeys = new NodeKeyStore(main.storagePath, host);
             host.Event("Unique address is " + UserDirectory.UuidToString(main.uuid));
@@ -443,7 +447,13 @@ namespace JoinFS
         {
             sessionOrigin = SessionOrigin.Join;
             lastPasswordHash = passwordHash;
-            StartSession(endPoint, core => core.Mesh.Join(endPoint, passwordHash));
+            StartSession(endPoint, core =>
+            {
+                if (!joinOverJfp2 || !core.Mesh.JoinOverJfp2(endPoint, passwordHash))
+                {
+                    core.Mesh.Join(endPoint, passwordHash);
+                }
+            });
         }
 
         void Login(IPEndPoint endPoint, string email, uint hash, bool verify)
