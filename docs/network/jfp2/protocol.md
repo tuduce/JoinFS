@@ -734,6 +734,11 @@ of its own does not send to an IPv6 candidate, and an IPv4 candidate in a privat
 range is tried only by a node on the same /24, since it names a device of someone else's network. The endpoint a member
 was registered at is always tried.
 
+**A host with several IPv6 addresses** answers from its preferred one, not the one it was asked at (UDP has no
+connection, and an interface can have a SLAAC and a DHCPv6 address). The stranger of §5.9 therefore takes the answer
+to its first Hello from any address of the same /64 and the same port, goes on at that address (the echo, the Join and
+the session are there), and the other addresses of the join are given up for it.
+
 **Preference.** Between two nodes that both have IPv6, the link is verified on IPv6 whenever IPv6 answers, and IPv4 is
 the fallback:
 - A link on IPv4 sends a Hello to the member's IPv6 candidates every **60 s**, and moves to the first that answers.

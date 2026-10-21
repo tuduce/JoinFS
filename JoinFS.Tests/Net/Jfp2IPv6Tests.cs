@@ -208,6 +208,24 @@ namespace JoinFS.Tests.Net
             Assert.Contains(PeerOf(b, a).Candidates, c => c.Equals(a.EndPoint6)); // B knows A has IPv6, and has no use for it
         }
 
+        [Fact]
+        public void AHubThatAnswersFromAnotherAddressOfItsNetwork_IsStillJoinedOverIPv6()
+        {
+            // the AAAA record names 2001:db8::10, a second address of the hub's interface, and the hub answers from its preferred one
+            var mesh = new TestMesh();
+            TestNode h = Hub(mesh);
+            TestNode a = Node(mesh, "198.51.100.2", "2001:db8::2");
+            IPEndPoint named = IPEndPoint.Parse("[2001:db8::10]:6112");
+            // A's datagrams for the named address reach the hub; its answers come from 2001:db8::1, the address it prefers
+            mesh.Network.Nat = (from, to) => (from, to.Equals(named) ? h.EndPoint6! : to);
+            Assert.True(a.Core.Mesh.JoinOverJfp2([named, h.EndPoint], 0));
+            mesh.Run(4);
+
+            Assert.True(a.Core.Mesh.Connected);
+            Assert.True(DirectOverIPv6(a, h), "the join went on at the address that answered");
+            Assert.Contains(a.EventLogs, l => l.Contains("another address of its network"));
+        }
+
         // ------------------------------------------------------------------ S8: IPv6 breaks mid-flight
 
         [Fact]

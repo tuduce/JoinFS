@@ -90,6 +90,20 @@ namespace JoinFS.Net.Jfp2
             return true;
         }
 
+        /// <summary>Two IPv6 endpoints of one network: the same port and the same /64 (an interface can have several addresses in it).</summary>
+        static bool SameSubnet6(IPEndPoint a, IPEndPoint b)
+        {
+            if (!IsV6(a) || !IsV6(b) || a.Port != b.Port)
+            {
+                return false;
+            }
+            Span<byte> x = stackalloc byte[16];
+            Span<byte> y = stackalloc byte[16];
+            a.Address.TryWriteBytes(x, out _);
+            b.Address.TryWriteBytes(y, out _);
+            return x[..8].SequenceEqual(y[..8]);
+        }
+
         void SendIntroduction(Introduction introduction)
         {
             introduction.Attempts++;
@@ -103,11 +117,30 @@ namespace JoinFS.Net.Jfp2
         /// <summary>The answer to an introduction's Hello: a cookie, or the non-member session.</summary>
         void HandleIntroductionAnswer(IPEndPoint from, Introduction introduction, HandshakeMessage ack)
         {
-            // the id alone is 16 bits and guessable off the path: it counts from the endpoint asked only
+            // the id alone is 16 bits and guessable off the path: it counts from the endpoint asked, or from another address of the same
+            // IPv6 /64 and port (a host with several addresses answers from its preferred one, whichever was asked: protocol.md §5.14)
             if (!from.Equals(introduction.EndPoint))
             {
-                host.Log(NetLogLevel.Network, "JFP2: HelloAck from " + from + " is not from " + introduction.EndPoint + ", where the stranger Hello went - ignored");
-                return;
+                if (!SameSubnet6(from, introduction.EndPoint))
+                {
+                    host.Log(NetLogLevel.Network, "JFP2: HelloAck from " + from + " is not from " + introduction.EndPoint + ", where the stranger Hello went - ignored");
+                    return;
+                }
+                host.Log(NetLogLevel.Event, "JFP2: " + introduction.EndPoint + " answered from " + from + ", another address of its network - going on there");
+                IPEndPoint asked = introduction.EndPoint;
+                foreach (PendingJoin pending in pendingJoins)
+                {
+                    int at = pending.Targets.IndexOf(asked);
+                    if (at >= 0)
+                    {
+                        pending.Targets[at] = from;
+                    }
+                    if (asked.Equals(pending.Target))
+                    {
+                        pending.Target = from;
+                    }
+                }
+                introduction.EndPoint = from;
             }
             double now = Now;
             if (ack.Result == HandshakeMessage.ResultNotAdmitted)
