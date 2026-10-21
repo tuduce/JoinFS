@@ -190,12 +190,13 @@ new classes take the next unused number.
 | 4 | MemberList | Edition 2, §5.10. Offered. |
 | 5 | MemberAnnounce | Edition 2, §5.11. Offered. |
 | 6 | MemberLeave | Edition 2, §5.11. Offered. |
-| 7–8 | — | Unassigned. |
+| 7 | RouteQuery | Edition 2, §5.13. Offered. |
+| 8 | RouteAnswer | Edition 2, §5.13. Offered. |
 | 9 | GuaranteedDone | The acknowledgement of §7.3. |
 
 Hello, HelloAck and GuaranteedDone are never offered (§5.3): every node speaks them, always at
-version 1. Join, JoinResult, MemberList, MemberAnnounce and MemberLeave are offered, in the internal
-partition, like any other class: a node sends them only on a session whose neighbour offered them.
+version 1. Join, JoinResult, MemberList, MemberAnnounce, MemberLeave, RouteQuery and RouteAnswer are offered, in the
+internal partition, like any other class: a node sends them only on a session whose neighbour offered them.
 
 **Application partition**
 
@@ -651,6 +652,53 @@ joins it over legacy at once in that time. A node that speaks both protocols adm
 any other, as a member linked over legacy. A node released before edition 2 ignores the stranger's Hello (§5.9)
 and so costs the 2 s once.
 
+### 5.13 Members that speak another protocol, and finding a relay (edition 2)
+
+A session can hold members that speak JFP2 only (they joined over §5.10) and members that speak legacy
+only (a node released before edition 2, or one that fell back to legacy, §5.12). A node that has both
+kinds of neighbour keeps each kind informed in that neighbour's own words, and carries the traffic
+between them (§8.4). Nothing here puts a legacy message on a JFP2 link or the other way round.
+
+**Telling each side.** A node that adds a member with no legacy link (a joiner it admitted, or a
+member of a MemberList or MemberAnnounce) tells the neighbours it has a legacy link with by legacy's
+AddNode, so that a released node knows the member exists; its datagrams for the member then arrive at
+this node. A node that first hears directly of a member over legacy (a legacy joiner, which sends it
+a Join or a Pulse) tells its JFP2 neighbours by MemberAnnounce (§5.11), as it tells its legacy
+neighbours by AddNode. When a member with no legacy link leaves, expires or is told to be gone, the node
+tells the legacy neighbours with a legacy Leave sent in the member's name (the Forward flag set and the
+member's legacy id as sender), since the member cannot say it to them; a member with a legacy link that is
+gone is told to the JFP2 neighbours by MemberLeave (§5.11). A member with no legacy id is left out
+of every legacy message.
+
+**Liveness.** A legacy neighbour keeps a member by the pulses it sends it. A member with no legacy link
+cannot answer them, so a node that is a verified neighbour of the member (§6.2) answers a legacy
+Pulse addressed to it itself, with a PulseResponse in the member's name (the Forward flag set, the member's legacy
+id as sender), and does not carry the pulse on. The round trip it measures is the one to the relay.
+
+**RouteQuery** (class 7) and **RouteAnswer** (class 8) are the JFP2 counterpart of legacy's Pathfinder
+and PathfinderResponse. Both are internal, version 1, offered in Hello, unreliable, never Forwarded, and
+travel on the member session between two neighbours. The payload of both is the same:
+
+| Field | Size | Notes |
+|---|---|---|
+| Count | 1 | At most 100; a greater count is a datagram to ignore. |
+| Names | 8 × Count | A name that is not valid is skipped. |
+
+A node sends a RouteQuery to every neighbour that is a member, **every 5 s**, with the names of the members
+that have no legacy link and that it has no direct link to, except those a neighbour confirmed (below) within
+the last 10 s. A neighbour answers with a RouteAnswer naming those of them that it reaches directly itself
+(no relay is involved in reaching them, whatever the protocol) and for which its relay budget (§8.5) has
+room, using the names as they were asked; it answers nothing when there are none. A query never names the
+asker, and an answer never names its sender.
+
+A RouteAnswer from the neighbour a member is already reached through confirms that route. One from another
+neighbour replaces the route (datagrams for the member go through that neighbour, and the member lives for
+another 30 s, §5.10) when the member has no route that works: the neighbour it is reached through has not
+confirmed it for **15 s** (counted from the time the member was first asked about, when it never did), or
+the member was left without a route because the node it was reached through is gone. A node does not leave a
+route that works for another that answers, so a route never flips between two neighbours that both reach the
+member. One hop, as with Pathfinder: the member is reached through a neighbour of the asker or not at all.
+
 ---
 
 ## 6. Sessions and routing
@@ -810,8 +858,15 @@ translation path a per-hop version adapter as well as a protocol bridge.
     downstream with legacy's own ids and consumes the legacy acknowledgement itself. An upstream
     retransmission is acknowledged again but not sent downstream a second time: the relay remembers
     the (origin, target, id) triples it translated.
-- **Legacy to JFP2** needs no translation in release 1: every JFP2 node understands legacy, so the
-  legacy relay carries the message unchanged.
+- **Legacy to JFP2.** In release 1 every JFP2 node understood legacy, so a legacy relay carried a
+  message for any neighbour unchanged. A neighbour with no legacy link (§5.10, §5.13) is not sent a legacy
+  datagram: when a legacy datagram addressed to one arrives from a legacy neighbour (the relay budget
+  allowing it, and only when it was not itself relayed), the relay decodes the message into its canonical
+  form and sends it over JFP2 as a Forwarded datagram, keeping the true sender as Origin. Pulse is answered
+  by the relay itself (§5.13). A guaranteed message is acknowledged upstream by the relay in the neighbour's
+  name, with a legacy `GuaranteedDone` whose sender is the neighbour's legacy id; the relay keeps the legacy id
+  of the message as the id of the JFP2 message, and consumes the neighbour's Forwarded acknowledgement itself.
+  Any other legacy mesh message for such a neighbour (Leave, AddNode) is dropped.
 
 ### 8.5 Relay budget
 
@@ -941,7 +996,7 @@ cited rule says.
 | Space | Size | Assigned | Unknown values |
 |---|---|---|---|
 | Flag bits (§3.2) | 8 bits | 0 Guaranteed, 1 Forwarded, 3 Internal; 2 Coalesced reserved | Drop the datagram |
-| Internal classes (§3.3) | u8 | 0 Hello, 1 HelloAck, 2 Join, 3 JoinResult, 4 MemberList, 5 MemberAnnounce, 6 MemberLeave, 9 GuaranteedDone | Not agreed: drop, do not acknowledge |
+| Internal classes (§3.3) | u8 | 0 Hello, 1 HelloAck, 2 Join, 3 JoinResult, 4 MemberList, 5 MemberAnnounce, 6 MemberLeave, 7 RouteQuery, 8 RouteAnswer, 9 GuaranteedDone | Not agreed: drop, do not acknowledge |
 | Application classes (§3.3) | u8 | 0–9; 255 reserved as Extended | Not agreed: drop, do not acknowledge |
 | Offer partitions (§5.3) | u8 | 0 application, 1 internal | Skip the offer |
 | Handshake `Result` (§5.2) | u8 | 0, 1, 2 | Read as "no session now" |
@@ -1103,7 +1158,7 @@ FA 02 08 00 00 34 12 01                   magic, ProtoMajor 2, Internal, sender 
 04 00 10 00  00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F   TLV Admission: the cookie
 ```
 
-The five datagrams of the join of §5.10 and the members of §5.11 (edition 2), A.6 to A.10, are pinned by `JoinFS.Tests/Net/Jfp2JoinTests.cs`.
+The five datagrams of the join of §5.10 and the members of §5.11 (edition 2), A.6 to A.10, are pinned by `JoinFS.Tests/Net/Jfp2JoinTests.cs`; the two of §5.13, A.11 and A.12, by `JoinFS.Tests/Net/Jfp2MixedSessionTests.cs`.
 
 **A.6 Join** from the node of A.1 (id `0x1234`) to the node of A.2 (id `0x5678`), with no password:
 
@@ -1148,6 +1203,22 @@ FA 02 08 78 56 21 43 06                   magic, ProtoMajor 2, Internal, sender 
 00 01 71 00 CB E0 17 14                   name: kind 0, legacy id 203.0.113.1, port 6112, local 20
 ```
 
+**A.11 RouteQuery** from the node of A.1 (id `0x1234`) to the node of A.2 (id `0x5678`), asking for the member of A.8:
+
+```
+FA 02 08 34 12 78 56 07                   magic, ProtoMajor 2, Internal, sender 0x1234, recipient 0x5678, class RouteQuery
+01                                        Count
+00 01 71 00 CB E0 17 14                   name: kind 0, legacy id 203.0.113.1, port 6112, local 20
+```
+
+**A.12 RouteAnswer** from the node of A.2 to the node of A.1: it reaches that member directly.
+
+```
+FA 02 08 78 56 34 12 08                   magic, ProtoMajor 2, Internal, sender 0x5678, recipient 0x1234, class RouteAnswer
+01                                        Count
+00 01 71 00 CB E0 17 14                   name: kind 0, legacy id 203.0.113.1, port 6112, local 20
+```
+
 ---
 
 ## Appendix B. Constants
@@ -1167,6 +1238,7 @@ FA 02 08 78 56 21 43 06                   magic, ProtoMajor 2, Internal, sender 
 | Join over JFP2 before legacy: silence / memory of a legacy-only address | 2 s / 1 hour | 5.12 |
 | MemberList entries per datagram | 1,000 bytes | 5.10 |
 | Expiry of a member linked over JFP2 | 30 s, renewed by each Hello or HelloAck | 5.10 |
+| RouteQuery interval / member not asked again after a confirmation / route given up | 5 s / 10 s / 15 s | 5.13 |
 | Keepalive Hello | 5 s | 6.2 |
 | Session expiry without an answer | 15 s | 6.2 |
 | Guaranteed retransmit / give up | 2 s / 180 s | 7.1 |

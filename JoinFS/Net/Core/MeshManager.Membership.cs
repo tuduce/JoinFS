@@ -119,6 +119,7 @@ namespace JoinFS.Net
             Peer peer = AddJfp2Peer(joiner, endPoint, otherNames, default);
             isNew = true;
             core.Log(NetLogLevel.Event, "NETWORK: " + joiner + " at " + endPoint + " joined over JFP2");
+            AnnounceToLegacy(peer);
             return peer;
         }
 
@@ -200,7 +201,105 @@ namespace JoinFS.Net
                 Peer peer = AddJfp2Peer(id, member.EndPoint, member.Names[1..], via);
                 peer.RouteEndPoint = relay.RouteEndPoint;
                 core.Log(NetLogLevel.Network, "NETWORK: member " + id + " at " + member.EndPoint + " learned from " + via + ", reached through it");
+                AnnounceToLegacy(peer);
             }
+        }
+
+        /// <summary>
+        /// A member with no legacy link is introduced to the members that have one, in legacy's own words (AddNode), so
+        /// that a node released before this work knows it exists: its datagrams for the member go to this node, which
+        /// carries them on (protocol.md §8.4).
+        /// </summary>
+        void AnnounceToLegacy(Peer member)
+        {
+            foreach (Peer other in core.Peers.All)
+            {
+                if (other != member && other.LegacyLink)
+                {
+                    core.Broadcast(new AddNode { Suid = suid, Node = new KnownNode { Node = member.Id, Port = (ushort)member.EndPoint.Port } }, guaranteed: true);
+                    core.Log(NetLogLevel.Event, "NETWORK: " + member.Id + " announced to the legacy members");
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// A member with no legacy link has left: the members that have one are told with a legacy Leave in its name, since the
+        /// member cannot say it to them (they know it by AddNode only). Before the peer is removed, so the name is still known.
+        /// </summary>
+        void TellLegacyLeft(Peer gone)
+        {
+            List<NodeId> legacy = null;
+            foreach (Peer other in core.Peers.All)
+            {
+                if (other != gone && other.LegacyLink)
+                {
+                    (legacy ??= []).Add(other.Id);
+                }
+            }
+            if (legacy != null)
+            {
+                core.Send(new MessageMeta { Sender = gone.Id }, new Leave { Suid = suid }, legacy.ToArray());
+                core.Log(NetLogLevel.Network, "NETWORK: " + gone.Id + " is gone: told " + legacy.Count + " legacy member(s)");
+            }
+        }
+
+        /// <summary>
+        /// A legacy member's pulse for a member this node is the only way to: the member has no legacy link and cannot answer
+        /// it, so this node answers in its name (it is a verified neighbour of the member, which is why the member is alive). The
+        /// pulse is then not carried on. False when the pulse is not that.
+        /// </summary>
+        internal bool ProxyPulse(in MessageMeta meta, in Pulse pulse)
+        {
+            if (!Connected || pulse.Suid != suid || meta.Forwarded
+                || !core.Peers.TryGet(meta.Recipient, out Peer target) || target.LegacyLink || !target.SendEstablished || !target.RouteIsOwnEndPoint
+                || !core.Peers.TryGet(meta.Sender, out Peer asker) || !asker.LegacyLink)
+            {
+                return false;
+            }
+            core.Send(new MessageMeta { Sender = target.Id }, new PulseResponse { Time = pulse.Time }, new ReadOnlySpan<NodeId>(in asker.Id));
+            core.Log(NetLogLevel.Network, "NETWORK: Pulse of " + asker.Id + " answered for " + target.Id);
+            return true;
+        }
+
+        List<NodeId> IMembership.Reaches(NodeId asker, IReadOnlyList<NodeId> asked)
+        {
+            List<NodeId> reachable = [];
+            if (!Connected)
+            {
+                return reachable;
+            }
+            NodeId from = core.Peers.Resolve(asker);
+            foreach (NodeId name in asked)
+            {
+                if (core.Peers.TryGet(core.Peers.Resolve(name), out Peer peer) && peer.Id != from && peer.SendEstablished && peer.RouteIsOwnEndPoint
+                    && relayNodes.Count + reachable.Count < RelayBudget)
+                {
+                    reachable.Add(name);
+                }
+            }
+            return reachable;
+        }
+
+        void IMembership.RouteThrough(NodeId via, NodeId member)
+        {
+            if (!Connected || !core.Peers.TryGet(via, out Peer relay) || !relay.RouteIsOwnEndPoint
+                || !core.Peers.TryGet(member, out Peer peer) || peer == relay)
+            {
+                return;
+            }
+            bool established = peer.SendEstablished;
+            peer.RouteEndPoint = relay.RouteEndPoint;
+            peer.RouteVia = relay.Id;
+            peer.SendEstablished = true;
+            peer.ExpireTime = Now + ExpireTime;
+            peer.InvalidateRoutes();
+            core.LinkChanged(peer.Id);
+            if (!established)
+            {
+                core.RaisePeerEstablished(peer.Id);
+            }
+            core.Log(NetLogLevel.Event, "NETWORK: " + peer.Id + " is reached through " + relay.Id + " (told by it)");
         }
 
         void IMembership.Alive(NodeId neighbor)

@@ -230,6 +230,10 @@ namespace JoinFS.Net
                         peer.InvalidateRoutes();
                     }
                 }
+                if (!gone.LegacyLink)
+                {
+                    TellLegacyLeft(gone);
+                }
                 core.RemovePeer(gone);
             }
             removeList.Clear();
@@ -366,6 +370,10 @@ namespace JoinFS.Net
             {
                 core.RaisePeerJoined(id, peer.EndPoint);
                 core.Broadcast(new AddNode { Suid = suid, Node = new KnownNode { Node = id, Port = (ushort)peer.EndPoint.Port } }, guaranteed: true);
+                foreach (IProtocolPlugin plugin in core.Plugins)
+                {
+                    (plugin as IMembershipExpression)?.AnnounceJoined(peer);
+                }
             }
         }
 

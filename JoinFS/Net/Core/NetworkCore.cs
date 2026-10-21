@@ -103,6 +103,10 @@ namespace JoinFS.Net
                 // know its own id yet takes everything as its own, as the legacy receiver does)
                 if (meta.Recipient.Valid() && Identity.Id.Valid() && meta.Recipient != Identity.Id)
                 {
+                    if (kind == MessageKind.Pulse && Mesh.ProxyPulse(meta, Unsafe.As<T, Pulse>(ref Unsafe.AsRef(in message))))
+                    {
+                        return;
+                    }
                     Translate(meta, message);
                     return;
                 }

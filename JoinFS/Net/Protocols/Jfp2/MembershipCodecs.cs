@@ -265,4 +265,49 @@ namespace JoinFS.Net.Jfp2
             return body.Name.Valid();
         }
     }
+
+    /// <summary>
+    /// RouteQuery (internal class 7) and RouteAnswer (class 8), version 1: a count (u8, at most <see cref="MaxNames"/>)
+    /// and that many names of 8 bytes. In a query, the members the sender has no direct link to; in an answer, those of
+    /// them the answering neighbour reaches directly and will relay for.
+    /// </summary>
+    public struct RouteNamesBody
+    {
+        /// <summary>Most names in one query or answer (legacy's Pathfinder limit).</summary>
+        public const int MaxNames = 100;
+
+        public List<NodeId> Names;
+
+        public readonly byte[] Serialize()
+        {
+            int count = Math.Min(Names.Count, MaxNames);
+            byte[] bytes = new byte[1 + count * NodeId.WireSize];
+            bytes[0] = (byte)count;
+            for (int i = 0; i < count; i++)
+            {
+                Names[i].WriteTo(bytes.AsSpan(1 + i * NodeId.WireSize));
+            }
+            return bytes;
+        }
+
+        /// <summary>False for a count over the limit or a list cut short; a name that is not valid is left out.</summary>
+        public static bool TryRead(ReadOnlySpan<byte> src, out RouteNamesBody body)
+        {
+            body = default;
+            if (src.Length < 1 || src[0] > MaxNames || src.Length < 1 + src[0] * NodeId.WireSize)
+            {
+                return false;
+            }
+            body.Names = new List<NodeId>(src[0]);
+            for (int i = 0; i < src[0]; i++)
+            {
+                NodeId name = NodeId.ReadFrom(src.Slice(1 + i * NodeId.WireSize, NodeId.WireSize));
+                if (name.Valid())
+                {
+                    body.Names.Add(name);
+                }
+            }
+            return true;
+        }
+    }
 }

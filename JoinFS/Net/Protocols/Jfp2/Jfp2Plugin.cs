@@ -171,6 +171,7 @@ namespace JoinFS.Net.Jfp2
             // before the admission work: a join that gives up ends its introduction, which would otherwise ask once more
             DoJoin();
             DoAdmission();
+            DoRoute();
             reliability.Tick();
             ForgetIdleIdentities();
         }
@@ -198,6 +199,7 @@ namespace JoinFS.Net.Jfp2
             identitySent.RemoveWhere((k, _) => k.Peer == peer.Id || k.Owner == peer.Id);
             occupants.RemoveWhere((_, o) => o.Node == peer.Id);
             observedBy.Remove(peer.Id);
+            ForgetRoute(peer.Id);
             AnnounceGone(peer);
         }
 
@@ -208,6 +210,8 @@ namespace JoinFS.Net.Jfp2
             nonMembers.Clear();
             introductions.Clear();
             pendingJoins.Clear();
+            routeConfirmed.Clear();
+            routeAsked.Clear();
             occupants.Clear();
             observedBy.Clear();
             reliability.Clear();

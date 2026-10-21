@@ -85,6 +85,15 @@ the plugin sends the second from `OnPeerRemoved` (an expiry) and from `AnnounceL
 say it. A Hello that carries `Admission` is always a stranger's, so a node that restarted before its expiry
 rejoins (`IMembership.Admit` makes the existing `Peer` direct at the proven endpoint).
 
+A session whose members speak different protocols (`protocol.md` §5.13) is kept informed in each side's words by
+the mesh: `MeshManager.Membership.cs` sends AddNode to the legacy members for a member that has no legacy link
+(`AnnounceToLegacy`), a legacy Leave in its name when it goes (`TellLegacyLeft`), and answers a legacy Pulse for it
+(`ProxyPulse`, reached from `NetworkCore.Deliver` before the generic `Translate`); the plugin announces a legacy
+member to its JFP2 neighbours (`IMembershipExpression.AnnounceJoined`). `LegacyPlugin.Receive` forwards a datagram
+for another node raw only when that node has a legacy link; otherwise it decodes it (the core translates) and
+acknowledges a guaranteed message in the target's name. `Jfp2Plugin.Routing.cs` holds RouteQuery and RouteAnswer;
+`IMembership.Reaches` and `RouteThrough` are the mesh's side of them.
+
 ### 3.2 The observed endpoint
 
 1. **Plugin** (network thread): counts an observation only from a HelloAck that answers its own

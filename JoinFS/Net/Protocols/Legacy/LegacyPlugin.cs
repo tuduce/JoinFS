@@ -790,6 +790,7 @@ namespace JoinFS.Net.Legacy
             {
                 return;
             }
+            NodeId translatedFor = default;
             if (recipient != local && recipient.Valid() && local.Valid())
             {
                 // an ack for a message this hub delivered on someone else's behalf (translation) ends here
@@ -799,20 +800,31 @@ namespace JoinFS.Net.Legacy
                 {
                     return;
                 }
-                // for someone else: relay it unchanged (every node speaks legacy), once
-                if (direct && !host.LowBandwidth && host.Peers.TryGet(recipient, out Peer target) && target.Direct && host.TryAcquireRelay(sender))
+                // for someone else, once: relay it unchanged to a node that has a legacy link with us; for one that has none
+                // (it joined over JFP2) decode it below, and the core sends it on over JFP2 (protocol.md §8.4)
+                if (!(direct && !host.LowBandwidth && host.Peers.TryGet(recipient, out Peer target) && target.Direct && host.TryAcquireRelay(sender)))
+                {
+                    return;
+                }
+                if (target.LegacyLink)
                 {
                     data[LegacyWire.FlagsOffset] |= LegacyWire.FlagForward;
                     host.Transport.Send(target.EndPoint, data.AsSpan(0, length));
                     host.Log(NetLogLevel.Network, "NETWORK: Forwarded " + sender + " " + recipient);
+                    return;
                 }
-                return;
+                if (!target.RouteIsOwnEndPoint)
+                {
+                    return;
+                }
+                translatedFor = target.Id;
             }
 
             bool guaranteed = (flags & LegacyWire.FlagGuaranteed) != 0;
             if (guaranteed)
             {
-                SendGuaranteedDone(sender, endPoint, guaranteedId, guaranteedIndex);
+                // a message translated for a node that cannot answer in legacy is acknowledged here, in that node's name
+                SendGuaranteedDone(sender, endPoint, guaranteedId, guaranteedIndex, translatedFor);
                 IPEndPoint nodeEndPoint = senderPeer != null ? senderPeer.EndPoint : endPoint;
                 if (!reliability.Receive(nodeEndPoint, guaranteedId, guaranteedIndex, guaranteedCount, data, length, out data, out length))
                 {
@@ -827,6 +839,8 @@ namespace JoinFS.Net.Legacy
                 EndPoint = endPoint,
                 Guaranteed = guaranteed,
                 Forwarded = !direct,
+                // translated on to JFP2, the message keeps the id its origin gave it (protocol.md §7.2)
+                OriginGuaranteedId = guaranteed && translatedFor.Valid() ? guaranteedId : (ushort)0,
             };
             receiveStream.SetLength(0);
             receiveStream.Write(data, 0, length);
@@ -841,7 +855,8 @@ namespace JoinFS.Net.Legacy
             }
         }
 
-        void SendGuaranteedDone(NodeId sender, IPEndPoint endPoint, ushort id, byte index)
+        /// <summary>Acknowledge a guaranteed segment to <paramref name="sender"/>, as this node, or as <paramref name="ackAs"/> when it is the final target a relay translates for.</summary>
+        void SendGuaranteedDone(NodeId sender, IPEndPoint endPoint, ushort id, byte index, NodeId ackAs = default)
         {
             Span<byte> done = stackalloc byte[LegacyWire.DataOffset + 5];
             BitConverter.TryWriteBytes(done, LegacyWire.Version);
@@ -853,7 +868,18 @@ namespace JoinFS.Net.Legacy
             {
                 return;
             }
-            host.Identity.LegacyId.Write(done[LegacyWire.SenderOffset..]);
+            if (ackAs.Valid())
+            {
+                if (!host.Peers.TryGetLegacy(ackAs, out LegacyNodeId ackerId))
+                {
+                    return;
+                }
+                ackerId.Write(done[LegacyWire.SenderOffset..]);
+            }
+            else
+            {
+                host.Identity.LegacyId.Write(done[LegacyWire.SenderOffset..]);
+            }
             legacySender.Write(done[LegacyWire.RecipientOffset..]);
             BitConverter.TryWriteBytes(done[LegacyWire.DataOffset..], (short)LegacyWire.InternalId.GuaranteedDone);
             BitConverter.TryWriteBytes(done[(LegacyWire.DataOffset + 2)..], id);

@@ -68,6 +68,18 @@ namespace JoinFS.Net
         /// through it, live for another expiry time (legacy refreshes a peer with its pulses).
         /// </summary>
         void Alive(NodeId neighbor);
+
+        /// <summary>
+        /// Which of the <paramref name="asked"/> members this node reaches directly, by any protocol, and has relay
+        /// budget for (the answer to a neighbour's route query). <paramref name="asker"/> itself is never one of them.
+        /// </summary>
+        List<NodeId> Reaches(NodeId asker, IReadOnlyList<NodeId> asked);
+
+        /// <summary>
+        /// The neighbour <paramref name="via"/> said it reaches <paramref name="member"/> directly: datagrams for the
+        /// member go through it from now on, and the member lives for another expiry time.
+        /// </summary>
+        void RouteThrough(NodeId via, NodeId member);
     }
 
     /// <summary>A protocol that can carry the session's membership (docs/network/jfp2/standalone-ipv6-plan.md §5.3).</summary>
@@ -84,5 +96,11 @@ namespace JoinFS.Net
 
         /// <summary>This node leaves the session: tell the neighbours this protocol holds as members, before its state is reset.</summary>
         void AnnounceLeaving();
+
+        /// <summary>
+        /// The mesh learned of <paramref name="member"/> over another protocol (it joined a legacy neighbour): tell the
+        /// neighbours this protocol holds as members, as the node that admitted a joiner over this protocol does.
+        /// </summary>
+        void AnnounceJoined(Peer member);
     }
 }

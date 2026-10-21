@@ -151,10 +151,10 @@ local LEGACY_APP_MSG = {
     [39] = "String8Variables", [40] = "ShowOnRadar",
 }
 
--- JoinFS.Jfp2.MessageClasses - Internal partition (7-8 unassigned)
+-- JoinFS.Jfp2.MessageClasses - Internal partition
 local JFP2_INTERNAL_CLASS = {
     [0] = "Hello", [1] = "HelloAck", [2] = "Join", [3] = "JoinResult", [4] = "MemberList",
-    [5] = "MemberAnnounce", [6] = "MemberLeave",
+    [5] = "MemberAnnounce", [6] = "MemberLeave", [7] = "RouteQuery", [8] = "RouteAnswer",
     [9] = "GuaranteedDone",
 }
 
@@ -865,6 +865,26 @@ local function decode_jfp2_member_leave(tree, buffer, offset)
     add_jfp2_name(tree, buffer, offset, "Name")
 end
 
+-- RouteQuery (internal class 7) and RouteAnswer (class 8), §5.13: Count u8 (at most 100), then that many names
+local function decode_jfp2_route_names(tree, buffer, offset, label)
+    local len = buffer:len()
+    if len < offset + 1 then
+        tree:add(buffer(offset, len - offset), "Short " .. label .. " (" .. (len - offset) .. " bytes): ignored")
+        return
+    end
+    local count = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Count: " .. count)
+    if count > 100 or len < offset + 1 + count * 8 then
+        tree:add(buffer(offset, len - offset), label .. " not readable (count " .. count .. "): ignored")
+        return
+    end
+    offset = offset + 1
+    for n = 1, count do
+        add_jfp2_name(tree, buffer, offset, "Name " .. n)
+        offset = offset + 8
+    end
+end
+
 local function decode_jfp2_application(tree, buffer, offset, class)
     local name = JFP2_APP_CLASS[class]
     local len = buffer:len()
@@ -909,6 +929,8 @@ local function decode_jfp2_internal(tree, buffer, offset, class)
         decode_jfp2_member_announce(tree, buffer, offset)
     elseif name == "MemberLeave" then
         decode_jfp2_member_leave(tree, buffer, offset)
+    elseif name == "RouteQuery" or name == "RouteAnswer" then
+        decode_jfp2_route_names(tree, buffer, offset, name)
     elseif name == "GuaranteedDone" then
         decode_jfp2_guaranteed_done(tree, buffer, offset)
     elseif offset < len then

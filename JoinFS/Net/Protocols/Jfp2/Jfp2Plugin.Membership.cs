@@ -43,7 +43,8 @@ namespace JoinFS.Net.Jfp2
         public bool JoinPending => pendingJoins.Count > 0;
 
         static bool IsMembershipClass(byte messageClass) =>
-            messageClass is MessageClasses.Join or MessageClasses.JoinResult or MessageClasses.MemberList or MessageClasses.MemberAnnounce or MessageClasses.MemberLeave;
+            messageClass is MessageClasses.Join or MessageClasses.JoinResult or MessageClasses.MemberList or MessageClasses.MemberAnnounce or MessageClasses.MemberLeave
+                or MessageClasses.RouteQuery or MessageClasses.RouteAnswer;
 
         // ================================================================== asking (this node joins)
 
@@ -289,7 +290,7 @@ namespace JoinFS.Net.Jfp2
             host.LinkChanged(joiner);
             if (isNew)
             {
-                AnnounceMember(peer);
+                AnnounceJoined(peer);
             }
             else
             {
@@ -299,8 +300,8 @@ namespace JoinFS.Net.Jfp2
             AnswerJoin(hop, peer);
         }
 
-        /// <summary>A member just admitted: the other members that are neighbours of this node are told (§5.11).</summary>
-        void AnnounceMember(Peer member)
+        /// <summary>A member just admitted, or learned of over legacy: the other members that are neighbours of this node are told (§5.11, §5.13).</summary>
+        public void AnnounceJoined(Peer member)
         {
             var names = new List<NodeId> { member.Id };
             if (member.Aliases != null)
@@ -362,7 +363,7 @@ namespace JoinFS.Net.Jfp2
         /// <summary>A member this node held is gone (expired, or told to be): the neighbours it may have told of it are told (§5.11).</summary>
         void AnnounceGone(Peer peer)
         {
-            if (peer.LegacyLink || !host.Connected)
+            if (!host.Connected)
             {
                 return;
             }
@@ -447,6 +448,12 @@ namespace JoinFS.Net.Jfp2
                     break;
                 case MessageClasses.MemberLeave:
                     HandleMemberLeave(hop, payload);
+                    break;
+                case MessageClasses.RouteQuery:
+                    HandleRouteQuery(hop, payload);
+                    break;
+                case MessageClasses.RouteAnswer:
+                    HandleRouteAnswer(hop, payload);
                     break;
             }
         }
