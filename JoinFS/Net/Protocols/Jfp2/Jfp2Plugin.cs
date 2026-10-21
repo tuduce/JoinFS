@@ -2,6 +2,7 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Net;
+using JoinFS.Net.Crypto;
 using JoinFS.Net.Jfp2;
 using JoinFS.Net.Jfp2.Codecs;
 
@@ -47,6 +48,14 @@ namespace JoinFS.Net.Jfp2
         const double IdentityHeartbeatInterval = 4.0;
         const double IdentityForgetAfter = 30.0;
         const int GuaranteedDoneSize = 3;
+        /// <summary>Non-member sessions at once, and how long one lasts unless a Join makes it a member (protocol.md §5.9).</summary>
+        const int MaxNonMembers = 32;
+        const double NonMemberLifetime = 60.0;
+        /// <summary>Cookie challenges answered per second, with a burst of <see cref="AdmissionBurst"/> (protocol.md §5.9).</summary>
+        const double AdmissionRate = 10.0;
+        const double AdmissionBurst = 20.0;
+        /// <summary>Hellos a stranger is asked with (the ask, then the echo) before the attempt is given up.</summary>
+        const int IntroduceMaxAttempts = 3;
         /// <summary>VariableSync payload budget per datagram, to stay under a safe UDP MTU like legacy's variable messages (about 850 bytes).</summary>
         const int VariableSyncMaxPayload = 1000;
 
@@ -65,6 +74,13 @@ namespace JoinFS.Net.Jfp2
         readonly Encoder encoder;
         readonly Dictionary<NodeId, PeerSession> sessions = [];
         readonly Dictionary<ushort, PeerSession> sessionsById = [];
+        /// <summary>Sessions that are not members (<see cref="PeerSession.NonMember"/>), by the first name the stranger stated; their ids are in <see cref="sessionsById"/> too.</summary>
+        readonly Dictionary<NodeId, PeerSession> nonMembers = [];
+        /// <summary>Conversations this node started with a stranger (<see cref="Introduce"/>), by the id it gave in its Hello.</summary>
+        readonly Dictionary<ushort, Introduction> introductions = [];
+        readonly StatelessCookie cookies = new();
+        double admissionTokens = AdmissionBurst;
+        double admissionTokensAt;
         readonly Dictionary<IPEndPoint, Occupant> occupants = [];
         /// <summary>Where each neighbor last said our datagrams come from (its HelloAck's ObservedEndPoint), so only changes are reported.</summary>
         readonly Dictionary<NodeId, IPEndPoint> observedBy = [];
@@ -152,6 +168,7 @@ namespace JoinFS.Net.Jfp2
         public void Tick()
         {
             DoHandshake();
+            DoAdmission();
             reliability.Tick();
             ForgetIdleIdentities();
         }
@@ -185,6 +202,8 @@ namespace JoinFS.Net.Jfp2
         {
             sessions.Clear();
             sessionsById.Clear();
+            nonMembers.Clear();
+            introductions.Clear();
             occupants.Clear();
             observedBy.Clear();
             reliability.Clear();

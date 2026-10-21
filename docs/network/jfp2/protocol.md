@@ -359,11 +359,11 @@ forwarded extension.
 |---|---|
 | 0 | Accepted |
 | 1 | No compatible ProtoMajor |
-| 2 | Not admitted: no session was created |
+| 2 | Not admitted: no session was created. A node in a session answers a stranger's Hello with it and a cookie (§5.9) |
 | 3–255 | Unassigned |
 
 A responder answers `0` when the asker's ProtoMajor range includes 2, and `1` when it does not.
-Value `2` is reserved for a node that admits members only; release 1 never sends it.
+Value `2` is sent by a node that admits members only, to a stranger (§5.9); release 1 never sends it.
 
 A receiver MUST read any value other than `0` as **"no session now"**, whatever the reason: a later
 edition may refuse for a reason this one does not know (too many sessions, not admitted), and that
@@ -402,6 +402,7 @@ lets the handshake grow without a new envelope version.
 | 1 | Names | Hello, HelloAck | The speaker's names (§4.3), 8 bytes each, preferred first. A reader takes whole names and skips a trailing remainder under 8 bytes. In a HelloAck, the names of the node that answered. REQUIRED: a handshake from which the receiver can resolve no name to a node it knows is ignored (§5.7). |
 | 2 | Build | Hello, HelloAck | Text naming the speaker's build, for diagnostics and for counting which builds speak JFP2; `<version> <assembly name>`, for example `26.6.0 JoinFS-FS2024`. Printable ASCII (`0x20`–`0x7E`), at most 64 bytes: a sender cleans it to that, and a receiver cuts it to 64 bytes and drops every other character before using it. OPTIONAL. Nothing in the protocol depends on it. |
 | 3 | ObservedEndPoint | HelloAck | A `WireEndPoint` (§4.4): the UDP source of the Hello being answered, as the responder received it (an IPv4-mapped address normalized). Every HelloAck carries it, refusals included. OPTIONAL for a reader. |
+| 4 | Admission | Hello, HelloAck | Edition 2 (§5.9). In a Hello: empty, a stranger asking to be admitted; 16 bytes, the cookie it was given, echoed. In a HelloAck with `Result` 2: the 16-byte cookie. A value of 1 to 15 bytes is ignored; a longer one is read as its first 16 bytes. OPTIONAL. Release 1 skips the tag. |
 
 An asker MUST count an `ObservedEndPoint` only from a HelloAck that answers its own Hello, from the
 endpoint the Hello went to (§5.7), so that a datagram from elsewhere cannot plant an address.
@@ -458,7 +459,10 @@ none. A bit is assigned together with the design that needs it, and with any fla
 - A Hello refreshes the receiver's view of the sender's id. It lets the receiver *decode* what the
   sender sends, but does not make the session usable for *sending*: only the answer to the
   receiver's own Hello proves that its datagrams reach that node.
-- A responder MUST NOT answer a Hello from a node it does not know, not even statelessly.
+- A responder MUST NOT answer a Hello from a node it does not know, not even statelessly, with one
+  exception: a node in a session answers a Hello that carries an `Admission` extension, and only
+  as §5.9 says (edition 2). A Hello without `Admission` from an unknown node is still ignored, so a
+  release-1 node and a node outside a session stay silent to strangers.
 
 ### 5.8 Stability of the handshake
 
@@ -473,6 +477,60 @@ it inside a ProtoMajor-2 Hello: a node that speaks 2 and 3 offers ProtoMajorMin 
 A receiver of this edition accepts and answers in 2. The major version is agreed per session, like
 the capabilities, not per class: every later datagram of the session uses it, except Hello and
 HelloAck (keepalives included), which always travel in ProtoMajor 2.
+
+### 5.9 Admission of a stranger (edition 2)
+
+Until edition 2 a node could start a JFP2 conversation only with a node it already knew from
+legacy (§5.7). A node that has never met another (a joiner and the node it joins, a client and a hub
+from its list) needs a first exchange that works with no state at the answering end and cannot be
+used to attack a third party. It is the exchange below; the Hello and HelloAck keep the layout of
+§5.1 and the envelope of §5.8, and the new things are the extension `Admission` (§5.4) and the
+`Result` value 2 (§5.2).
+
+**Asking.** The **stranger** sends a Hello whose `Names` hold its own names (preferred first) and
+whose `Admission` is empty. It also sends its offers and build as for any Hello, which makes the
+Hello at least as large as the answer. Its `SelfAssignedId` is the id it will be addressed by if it
+is admitted; that id is not yet a session id, and a receiver of the answer finds the exchange by it.
+
+**Challenge.** A node that is in a session (a hub is one) and receives a Hello with an `Admission`
+extension from a name it does not know answers with a HelloAck that has:
+- `Result` 2, no offers, `SelfAssignedId` 0, the envelope's sender id 0 and its recipient id the
+  Hello's `SelfAssignedId`;
+- `Names`: the answering node's names; `ObservedEndPoint`: the UDP source of the Hello;
+- `Admission`: a **cookie** of 16 bytes, `HMAC-SHA256(secret, source address, source port, context)`
+  cut to 16 bytes. The address is 4 bytes for IPv4 (an IPv4-mapped IPv6 address counts as IPv4) or 16
+  for IPv6, the port is big-endian, and the context is the first four names of the Hello, 8 bytes
+  each, as sent. The secret is random, changes every **60 s**, and the previous one is still
+  accepted, so a cookie is valid for 60 to 120 s.
+
+The challenge keeps no state, is never larger than the Hello it answers (a Hello smaller than the
+answer is ignored, which removes any amplification), and is rate-limited by one token bucket for the
+node (10 per second, a burst of 20). A node outside a session answers nothing, and neither does a
+release-1 node, which does not know the tag and ignores the Hello (§5.7).
+
+**Echo.** The stranger takes the cookie only from a HelloAck with `Result` 2 that arrives from the
+endpoint its Hello went to, is addressed to its id, and carries both a 16-byte cookie and an
+`ObservedEndPoint`; any other such answer is ignored. It sends the same Hello again with `Admission`
+set to the cookie, and `SelfAssignedId` unchanged. The answer to an echo may be another challenge
+(the secret rotated twice, or the cookie was forged): the stranger takes its new cookie, at most
+three Hellos in all, and then gives up. An unanswered Hello is repeated every **2 s** within the same
+three.
+
+**Admission.** A Hello whose cookie validates for its source and its names creates a **non-member
+session** with the stranger, named by the first name it stated, and is answered with an ordinary
+HelloAck (`Result` 0, offers, `Names`, `ObservedEndPoint`). The cookie shows that the stranger
+receives at the endpoint it sends from, so the session is verified at once at both ends: the answering
+node from the cookie, the stranger from the answer. A retransmitted echo answers again and refreshes
+the stranger's id and endpoint. A Hello that carries a name the receiver already knows as a member is
+an ordinary Hello, whatever its `Admission` says.
+
+**A non-member session** has the id space and the negotiation of any session, and these limits:
+- It is never a next hop, never carries a Forwarded datagram, and `CanCarry` is false for every
+  message kind. The classes it will carry are named by the stage that adds them (the join, and the
+  directory classes of a hub); until then every other datagram on it is dropped.
+- At most **32** are open at once; a Hello that would open a 33rd is ignored.
+- It ends **60 s** after it was opened, at both ends, unless a Join (a later part of edition 2)
+  makes it the member session. A keepalive does not extend it.
 
 ---
 
@@ -768,7 +826,7 @@ cited rule says.
 | Application classes (§3.3) | u8 | 0–9; 255 reserved as Extended | Not agreed: drop, do not acknowledge |
 | Offer partitions (§5.3) | u8 | 0 application, 1 internal | Skip the offer |
 | Handshake `Result` (§5.2) | u8 | 0, 1, 2 | Read as "no session now" |
-| Handshake TLV tags (§5.4) | u16 | 1 Names, 2 Build, 3 ObservedEndPoint | Skip |
+| Handshake TLV tags (§5.4) | u16 | 1 Names, 2 Build, 3 ObservedEndPoint, 4 Admission | Skip |
 | Name kinds (§4.3) | u8 | 0 assigned; 1, 2, 255 reserved | Skip; unresolvable |
 | `WireEndPoint` families (§4.4) | u8 | 4 IPv4, 6 IPv6 | Ignore the value |
 | Capability bits (§5.6) | 64 | none | Not in the AND of both sides, so never agreed |
@@ -800,7 +858,10 @@ that exist limit the damage of off-path forgery, not of an on-path attacker:
   observed endpoint or a refusal counts only from the endpoint the Hello went to (§5.4, §5.7).
 - **Refusals are guarded** the same way, because a refusal takes a working link off JFP2 for 30 s.
 - **Names and sessions** are bound by the handshake, not by source endpoint (§6.1).
-- **Unknown nodes get no answer** (§5.7), so a scanner cannot enumerate nodes by sending Hellos.
+- **Unknown nodes get no answer** (§5.7), so a scanner cannot enumerate nodes by sending Hellos. The
+  one exception is the cookie challenge of a node in a session (§5.9): it is no larger than the
+  Hello, rate-limited, and keeps no state; a non-member session it leads to is limited in number and
+  lifetime and carries no application class.
 
 ### 11.2 Amplification and resource use
 
@@ -891,6 +952,38 @@ FA 02 08 78 56 34 12 01                   magic, ProtoMajor 2, Internal, sender 
 03 00 07 00  04 CB 00 71 01 E0 17         TLV ObservedEndPoint: family 4, 203.0.113.1, port 6112
 ```
 
+The three datagrams of the admission exchange of §5.9 (edition 2) are pinned by
+`JoinFS.Tests/Jfp2/AdmissionGoldenTests.cs`, which sits next to the golden tests above and never changes
+them. The cookie of the examples is `00 01 02 ... 0F`.
+
+**A.3 Hello asking for admission:** A.1 with one more extension at the end, `Admission` empty.
+
+```
+FA 02 08 34 12 00 00 00 ... 02 00 14 00 ...  (A.1 up to and including the Build extension)
+04 00 00 00                               TLV Admission: empty
+```
+
+**A.4 Hello echoing the cookie:** the same, with the cookie.
+
+```
+FA 02 08 34 12 00 00 00 ... 02 00 14 00 ...  (A.1 up to and including the Build extension)
+04 00 10 00  00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F   TLV Admission: the cookie
+```
+
+**A.5 The challenge:** from 198.51.100.2:6112 (local 2) to A.3's sender, which came from 203.0.113.1:6112.
+
+```
+FA 02 08 00 00 34 12 01                   magic, ProtoMajor 2, Internal, sender 0, recipient 0x1234, class HelloAck
+02 02                                     ProtoMajorMin, ProtoMajorMax
+00 00 00 00 00 00 00 00                   Capabilities
+00 00                                     SelfAssignedId
+02                                        Result: not admitted
+00 00                                     OfferCount
+01 00 08 00  00 02 64 33 C6 E0 17 02      TLV Names: kind 0, legacy id 198.51.100.2, port 6112, local 2
+03 00 07 00  04 CB 00 71 01 E0 17         TLV ObservedEndPoint: family 4, 203.0.113.1, port 6112
+04 00 10 00  00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F   TLV Admission: the cookie
+```
+
 ---
 
 ## Appendix B. Constants
@@ -902,6 +995,10 @@ FA 02 08 78 56 34 12 01                   magic, ProtoMajor 2, Internal, sender 
 | Datagram ceiling | 1,200 bytes | 3.6 |
 | Payload ceiling | 1,100 bytes | 3.6 |
 | Hello retry | 2 s, 5 attempts, then 30 s cooldown | 5.7 |
+| Admission: Hellos of a stranger | 3 in all, every 2 s | 5.9 |
+| Admission: cookie secret | rotated every 60 s, the previous one accepted | 5.9 |
+| Admission: challenges answered | 10 per second, burst 20 | 5.9 |
+| Non-member sessions | 32 at once, 60 s each | 5.9 |
 | Keepalive Hello | 5 s | 6.2 |
 | Session expiry without an answer | 15 s | 6.2 |
 | Guaranteed retransmit / give up | 2 s / 180 s | 7.1 |

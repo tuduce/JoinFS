@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using JoinFS.Net;
+using JoinFS.Net.Jfp2;
 
 namespace JoinFS.Tests.Net
 {
@@ -117,6 +118,31 @@ namespace JoinFS.Tests.Net
             client.Post(core => core.Mesh.Join(new IPEndPoint(IPAddress.Loopback, hubPort), 0));
             Assert.True(WaitFor(() => hub.Snapshot.PeerList.Count == 1 && hub.Snapshot.PeerList[0].SendEstablished, Pump), "session did not establish");
             Assert.Equal(System.Net.Sockets.AddressFamily.InterNetwork, hub.Snapshot.PeerList[0].EndPoint.AddressFamily);
+        }
+
+        [Fact]
+        public void AStranger_IsAdmittedOverIPv6Loopback_ByJfp2Alone()
+        {
+            if (!System.Net.Sockets.Socket.OSSupportsIPv6) return;
+            using NetworkService hub = StartNode(out int hubPort);
+            using NetworkService client = StartNode(out _);
+            var hubJfp2 = new Jfp2Plugin();
+            var clientJfp2 = new Jfp2Plugin();
+            hub.Post(core => { core.AddPlugin(hubJfp2); core.Mesh.Create(false, 0, false, ""); });
+            client.Post(core => { core.AddPlugin(clientJfp2); clientJfp2.Introduce(new IPEndPoint(IPAddress.IPv6Loopback, hubPort)); });
+            var hubApp = new Collector();
+            var clientApp = new Collector();
+
+            // the plugins are read on the network thread: ask it through the mailbox
+            bool admitted = false;
+            void Pump()
+            {
+                hub.Drain(hubApp, hubApp);
+                client.Drain(clientApp, clientApp);
+                client.Post(core => admitted = clientJfp2.NonMemberCount == 1 && hubJfp2.NonMemberCount == 1);
+            }
+
+            Assert.True(WaitFor(() => admitted, Pump), "the stranger was not admitted over IPv6");
         }
 
         [Fact]

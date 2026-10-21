@@ -10,7 +10,7 @@ namespace JoinFS.Net.Jfp2
     {
         // ================================================================== sessions
 
-        PeerSession CreateSession(NodeId peer)
+        ushort NewId()
         {
             ushort id;
             do
@@ -19,12 +19,20 @@ namespace JoinFS.Net.Jfp2
                 // node would otherwise match a session here by coincidence
                 id = (ushort)random.Next(1, 65536);
             }
-            while (sessionsById.ContainsKey(id));
-            var session = new PeerSession { Peer = peer, LocalAssignedId = id };
+            while (IdInUse(id));
+            return id;
+        }
+
+        PeerSession CreateSession(NodeId peer)
+        {
+            var session = new PeerSession { Peer = peer, LocalAssignedId = NewId() };
             sessions[peer] = session;
-            sessionsById[id] = session;
+            sessionsById[session.LocalAssignedId] = session;
             return session;
         }
+
+        /// <summary>A session or an introduction holds this id (they share one id space, so an answer finds one only).</summary>
+        bool IdInUse(ushort id) => sessionsById.ContainsKey(id) || introductions.ContainsKey(id);
 
         void RemoveSession(NodeId peer)
         {
@@ -36,10 +44,10 @@ namespace JoinFS.Net.Jfp2
 
         static IPEndPoint Copy(IPEndPoint endPoint) => WireEndPoint.Normalize(new IPEndPoint(endPoint.Address, endPoint.Port));
 
-        /// <summary>For tests and diagnostics: the ids of the session with a neighbor.</summary>
+        /// <summary>For tests and diagnostics: the ids of the session with a neighbor (a member's, else a non-member's).</summary>
         public bool TryGetHopIds(NodeId neighbor, out ushort local, out ushort remote)
         {
-            if (sessions.TryGetValue(neighbor, out PeerSession session))
+            if (sessions.TryGetValue(neighbor, out PeerSession session) || nonMembers.TryGetValue(neighbor, out session))
             {
                 local = session.LocalAssignedId;
                 remote = session.RemoteAssignedId;
@@ -172,14 +180,14 @@ namespace JoinFS.Net.Jfp2
             return occupant.Node != peer.Id;
         }
 
-        HandshakeMessage MakeHandshake(PeerSession session, byte result) => new()
+        HandshakeMessage MakeHandshake(PeerSession session, byte result, List<NodeId> names = null) => new()
         {
             ProtoMajorMin = Envelope.ProtoMajor,
             ProtoMajorMax = Envelope.ProtoMajor,
             Capabilities = profile.Capabilities,
             SelfAssignedId = session.LocalAssignedId,
             Result = result,
-            Names = [Local],
+            Names = names ?? [Local],
             Build = build,
             Offers = new List<SchemaOffer>(profile.Offers),
         };
@@ -190,9 +198,9 @@ namespace JoinFS.Net.Jfp2
             SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.Hello, session.LocalAssignedId, session.RemoteAssignedId, MakeHandshake(session, 0).Serialize());
 
         /// <summary>The answer to a Hello from <paramref name="endPoint"/>, its source as we received it, which every HelloAck tells the asker (§5.5).</summary>
-        void SendHelloAck(IPEndPoint endPoint, PeerSession session, byte result)
+        void SendHelloAck(IPEndPoint endPoint, PeerSession session, byte result, List<NodeId> names = null)
         {
-            HandshakeMessage ack = MakeHandshake(session, result);
+            HandshakeMessage ack = MakeHandshake(session, result, names);
             ack.ObservedEndPoint = endPoint;
             SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.HelloAck, session.LocalAssignedId, session.RemoteAssignedId, ack.Serialize());
         }
@@ -260,9 +268,16 @@ namespace JoinFS.Net.Jfp2
             return found;
         }
 
-        void HandleHello(IPEndPoint from, ReadOnlySpan<byte> payload)
+        void HandleHello(IPEndPoint from, ReadOnlySpan<byte> payload, int datagramLength)
         {
             HandshakeMessage hello = HandshakeMessage.Deserialize(payload);
+            // a stranger asking to be admitted (or echoing its cookie) is answered statelessly; a member's
+            // Hello carries no Admission, and one that does is read as an ordinary Hello
+            if (hello.Admission != null && !(TryGetSpeaker(hello.Names, out NodeId known) && host.Peers.Contains(known)))
+            {
+                HandleAdmission(from, hello, datagramLength);
+                return;
+            }
             if (!TryGetSpeaker(hello.Names, out NodeId sender))
             {
                 host.Log(NetLogLevel.Network, "JFP2: Hello from " + from + " does not say who it is - ignored (legacy-only peer)");
@@ -303,6 +318,12 @@ namespace JoinFS.Net.Jfp2
         void HandleHelloAck(IPEndPoint from, in Envelope envelope, ReadOnlySpan<byte> payload)
         {
             HandshakeMessage ack = HandshakeMessage.Deserialize(payload);
+            // the answer to a stranger we introduced ourselves to (a different id space from sessions)
+            if (introductions.TryGetValue(envelope.RecipientPeerId, out Introduction introduction))
+            {
+                HandleIntroductionAnswer(from, introduction, ack);
+                return;
+            }
             // addressed to the id we gave the peer the Hello was aimed at
             if (!sessionsById.TryGetValue(envelope.RecipientPeerId, out PeerSession session) || session.ProbeEndPoint == null)
             {

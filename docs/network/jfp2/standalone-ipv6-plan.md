@@ -434,7 +434,7 @@ ends (resume note or done). Nothing else in this document changes with progress.
 | 0 | done 2026-10-21 | the first commit of `jfp2-standalone` | — |
 | 1 | done 2026-10-21 | the commit `Stage 1 of jfp2-standalone` | — |
 | 2 | done 2026-10-21 | the commit `Stage 2 of jfp2-standalone` | — |
-| 3 | not started | | |
+| 3 | done 2026-10-21 | the commit `Stage 3 of jfp2-standalone` | — |
 | 4 | not started | | |
 | 5 | not started | | |
 | 6 | not started | | |

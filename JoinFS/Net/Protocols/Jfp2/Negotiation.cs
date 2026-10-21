@@ -111,7 +111,7 @@ namespace JoinFS.Net.Jfp2
         /// <summary><see cref="Result"/>: no ProtoMajor in common.</summary>
         public const byte ResultNoCompatibleProtoMajor = 1;
 
-        /// <summary><see cref="Result"/>: not admitted, no session was created (reserved for the mesh over JFP2; this build never sends it).</summary>
+        /// <summary><see cref="Result"/>: not admitted, no session was created (a node in a session answers a stranger's Hello with it and a cookie, <see cref="Admission"/>).</summary>
         public const byte ResultNotAdmitted = 2;
 
         /// <summary>An offer's partition byte: an application class.</summary>
@@ -128,6 +128,12 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>Extension tag carrying, in a HelloAck, where the Hello it answers came from (<see cref="ObservedEndPoint"/>).</summary>
         public const ushort ObservedEndPointTag = 3;
+
+        /// <summary>Extension tag carrying the admission cookie (<see cref="Admission"/>).</summary>
+        public const ushort AdmissionTag = 4;
+
+        /// <summary>The size of an admission cookie.</summary>
+        public const int AdmissionCookieSize = 16;
 
         /// <summary>The longest <see cref="Build"/> sent or kept, in UTF-8 bytes.</summary>
         public const int BuildMaxBytes = 64;
@@ -167,6 +173,14 @@ namespace JoinFS.Net.Jfp2
         /// unassigned or the value is too short. Null when not sent (a Hello, an older build).
         /// </summary>
         public IPEndPoint ObservedEndPoint;
+
+        /// <summary>
+        /// Admission (docs/network/jfp2/protocol.md §5.9). Null: not sent. In a Hello, empty: a stranger
+        /// asking to be admitted; 16 bytes: the cookie it was given, echoed. In a HelloAck with
+        /// <see cref="ResultNotAdmitted"/>: the cookie. A value of 1 to 15 bytes is ignored, and a longer one
+        /// is read as its first 16 bytes.
+        /// </summary>
+        public byte[] Admission;
 
         /// <summary>
         /// The build text as it may travel: printable ASCII only (0x20-0x7E; it comes from
@@ -226,9 +240,13 @@ namespace JoinFS.Net.Jfp2
             {
                 Tlv.Write(bytes, ObservedEndPointTag, WireEndPoint.ToBytes(ObservedEndPoint));
             }
+            if (Admission != null)
+            {
+                Tlv.Write(bytes, AdmissionTag, Admission);
+            }
             foreach (var kv in Extensions)
             {
-                if (kv.Key != NamesTag && kv.Key != BuildTag && kv.Key != ObservedEndPointTag) Tlv.Write(bytes, kv.Key, kv.Value);
+                if (kv.Key != NamesTag && kv.Key != BuildTag && kv.Key != ObservedEndPointTag && kv.Key != AdmissionTag) Tlv.Write(bytes, kv.Key, kv.Value);
             }
             return bytes.ToArray();
         }
@@ -272,6 +290,10 @@ namespace JoinFS.Net.Jfp2
             {
                 WireEndPoint.TryReadFrom(observed, out msg.ObservedEndPoint);
             }
+            if (msg.Extensions.Remove(AdmissionTag, out byte[] admission) && (admission.Length == 0 || admission.Length >= AdmissionCookieSize))
+            {
+                msg.Admission = admission.Length == 0 ? admission : admission[..AdmissionCookieSize];
+            }
             return msg;
         }
     }
@@ -298,6 +320,16 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>A build was learned for this session (and logged at event level) at least once; later changes are logged at network level only.</summary>
         public bool BuildLearned;
+
+        /// <summary>
+        /// A non-member session (protocol.md §5.9): a stranger that echoed a cookie. It is never a next hop
+        /// and carries no application class; it expires at <see cref="NonMemberUntil"/> unless a Join
+        /// (a later stage) makes it the member session.
+        /// </summary>
+        public bool NonMember;
+
+        /// <summary>IClock.Now at which a non-member session ends.</summary>
+        public double NonMemberUntil;
 
         public readonly byte[] AgreedAppVersion = new byte[256];
         public readonly byte[] AgreedInternalVersion = new byte[256];

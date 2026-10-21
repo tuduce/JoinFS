@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using JoinFS.Net.Jfp2;
 using JoinFS.Net.Legacy;
 
 namespace JoinFS.Net
@@ -80,9 +81,9 @@ namespace JoinFS.Net
             // stamped on the receive thread, as soon as the datagram arrives (MessageMeta.ReceivedAt)
             transport.Received += (from, buffer, length) =>
             {
-                if (from.AddressFamily != AddressFamily.InterNetwork)
+                if (from.AddressFamily != AddressFamily.InterNetwork && !(length > 0 && buffer[0] == Envelope.Magic))
                 {
-                    // nothing above the transport speaks IPv6 yet (the core's peers are IPv4 legacy ids)
+                    // only JFP2 speaks IPv6 (the legacy wire names nodes by IPv4 address)
                     ArrayPool<byte>.Shared.Return(buffer);
                     return;
                 }

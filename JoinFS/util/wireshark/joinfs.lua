@@ -170,12 +170,12 @@ local JFP2_CAPABILITY_BITS = {
 -- HelloAck Result values (docs/network/jfp2/protocol.md §5.2); any other
 -- value is unassigned, and every value but 0 means "no session now"
 local JFP2_RESULT = {
-    [0] = "Accepted", [1] = "NoCompatibleProtoMajor", [2] = "NotAdmitted",
+    [0] = "Accepted", [1] = "NoCompatibleProtoMajor", [2] = "NotAdmitted (a stranger's challenge: a cookie follows, protocol.md §5.9)",
 }
 
 -- JoinFS.Jfp2.HandshakeMessage extension tags (docs/network/jfp2/protocol.md §5.4)
 local JFP2_TLV_TAG = {
-    [1] = "Names", [2] = "Build", [3] = "ObservedEndPoint",
+    [1] = "Names", [2] = "Build", [3] = "ObservedEndPoint", [4] = "Admission",
 }
 
 -- JoinFS.Net.Jfp2.WireEndPoint (docs/network/jfp2/protocol.md §4.4): family u8 (4 IPv4, 6 IPv6),
@@ -610,6 +610,17 @@ local function decode_jfp2_handshake(tree, buffer, offset, isAck)
                 end
             elseif tagName == "Build" and tlvLen > 0 then
                 item:add(buffer(offset + 4, tlvLen), "Build: " .. buffer(offset + 4, tlvLen):string(ENC_UTF_8))
+            elseif tagName == "Admission" then
+                -- docs/network/jfp2/protocol.md §5.9: empty in a Hello asks for admission, 16 bytes is a cookie
+                if tlvLen == 0 then
+                    item:add(buffer(offset + 4, 0), "Admission: empty (a stranger asks to be admitted)")
+                elseif tlvLen >= 16 then
+                    item:add(buffer(offset + 4, 16), "Admission cookie: " .. tostring(buffer(offset + 4, 16):bytes()) ..
+                        (tlvLen > 16 and " (the rest is skipped)" or "") ..
+                        (isAck and (result == 2 and " (the challenge)" or "") or " (echoed)"))
+                else
+                    item:add(buffer(offset + 4, tlvLen), "Admission: " .. tlvLen .. " bytes, too short (ignored)")
+                end
             elseif tagName == "ObservedEndPoint" and tlvLen > 0 then
                 -- the UDP source of the Hello this HelloAck answers, as the responder received it
                 local text = jfp2_wire_endpoint_string(buffer, offset + 4, tlvLen)

@@ -203,7 +203,7 @@ namespace JoinFS.Net.Jfp2
             // the handshake is the only traffic that has no session yet; it says who is speaking itself
             if (envelope.IsInternal && envelope.RawMessageClass == MessageClasses.Hello)
             {
-                HandleHello(from, payload);
+                HandleHello(from, payload, datagram.Length);
                 return;
             }
             if (envelope.IsInternal && envelope.RawMessageClass == MessageClasses.HelloAck)
@@ -217,6 +217,13 @@ namespace JoinFS.Net.Jfp2
             if (!sessionsById.TryGetValue(envelope.RecipientPeerId, out PeerSession hop) || !hop.HandshakeComplete || hop.RemoteAssignedId != envelope.SenderPeerId)
             {
                 host.Log(NetLogLevel.Network, "JFP2: datagram from " + from + " belongs to no session here (ids " + envelope.SenderPeerId + " -> " + envelope.RecipientPeerId + ") - ignored");
+                return;
+            }
+
+            if (hop.NonMember)
+            {
+                // a stranger that echoed its cookie carries nothing but the handshake (protocol.md §5.9)
+                host.Log(NetLogLevel.Network, "JFP2: class " + envelope.RawMessageClass + " from " + from + " on a non-member session - dropped");
                 return;
             }
 

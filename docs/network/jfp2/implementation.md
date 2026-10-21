@@ -65,7 +65,10 @@ PositionV2; `WireEndPoint` lists; JFP2 mesh messages.
 ### 3.1 Node names and the route
 
 The plugin turns the name in a handshake into a `NodeId` only for kind 0, and looks the node up in
-the mesh the legacy plugin built. A Hello whose names resolve to no known peer is ignored.
+the mesh the legacy plugin built. A Hello whose names resolve to no known peer is ignored, unless it
+carries an `Admission` extension and the node is in a session: then it is a stranger, answered by
+`Jfp2Plugin.Admission.cs` (`protocol.md` §5.9). Strangers are kept apart from `sessions`, in
+`nonMembers` (the same id space, `sessionsById`), so no routing code can pick one as a next hop.
 
 ### 3.2 The observed endpoint
 
@@ -141,6 +144,7 @@ dotnet test JoinFS.Tests/JoinFS.Tests.csproj -c FS2024-Debug -p:Platform=x64
 | Kind | Where | What it pins |
 |---|---|---|
 | Golden bytes | `Jfp2/HandshakeGoldenTests` | Hello, HelloAck, HelloAck with the observed endpoint (`protocol.md` Appendix A). Never regenerate to make a test pass. |
+| Golden bytes, admission | `Jfp2/AdmissionGoldenTests` | The Hello that asks, the Hello that echoes the cookie, the `Result` 2 HelloAck (`protocol.md` Appendix A.3 to A.5). Beside the 26.6 goldens, which stay as they are. |
 | Envelope, names, endpoints, text | `Jfp2/EnvelopeTests`, `WireEndPointTests`, `WireTextTests` | §3, §4 |
 | Negotiation and TLV rules | `Jfp2/NegotiationTests` | §5 |
 | Codecs | `Jfp2/*CodecTests` | §9; one `LongStrings_AreCutToTheirLimits` per codec |
