@@ -78,7 +78,8 @@ through `IProtocolHost.Membership` (`IMembership`, implemented by `MeshManager.M
 is ever addressed to it. The app joins with `MeshManager.JoinJfp2First` (`protocol.md` §5.12): the
 stranger's Hello first, and the legacy Join after 2 s of silence or when the node takes no JFP2 join, the
 address then remembered as legacy-only for an hour (`-legacyjoin` skips JFP2); `JoinOverJfp2` is the same
-without the fallback, for tests. The joins under way are a list, one per address. The members already in the
+without the fallback, for tests. A JFP2-only hub (the `Jfp2Only` setting or `-jfp2only`, plan stage 11) builds
+`NetworkService` with `legacy: false`: no `LegacyPlugin` is registered, so legacy datagrams are dropped unread. The joins under way are a list, one per address. The members already in the
 session are told of a joiner by `MemberAnnounce` and of a departure by `MemberLeave` (`protocol.md` §5.11):
 the plugin sends the second from `OnPeerRemoved` (an expiry) and from `AnnounceLeaving`
 (`IMembershipExpression`, called by `MeshManager.Leave`), and `IMembership.Left` decides whether the sender may

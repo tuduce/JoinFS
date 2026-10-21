@@ -711,6 +711,54 @@ namespace JoinFS.Tests.Net
             Assert.DoesNotContain(mesh.Network.Log, d => d.Data[0] != Envelope.Magic);
         }
 
+        // ------------------------------------------------------------------ stage 11: a JFP2-only hub (S12) and the login gap (D5 b)
+
+        [Fact]
+        public void AJfp2OnlyHub_AnswersNoLegacyJoin_AndAdmitsAJfp2Joiner()
+        {
+            var mesh = new TestMesh();
+            TestNode h = Hub(mesh); // registers no legacy plugin
+            TestNode w = mesh.Add("198.51.100.5", 6112, new LegacyPlugin()); // a build released before the stand-alone JFP2
+            TestNode a = Both(mesh, "198.51.100.2");
+
+            w.Core.Mesh.Join(h.EndPoint, 0);
+            mesh.Run(6);
+
+            // W is not answered, and the hub knows nothing of it
+            Assert.False(w.Core.Mesh.Connected);
+            Assert.NotEmpty(Datagrams(mesh, w, h));
+            Assert.Empty(Datagrams(mesh, h, w));
+            Assert.False(h.Core.Peers.Contains(w.Id));
+
+            // A, which speaks both, joins over JFP2 and no legacy datagram passes between A and H
+            a.Core.Mesh.JoinJfp2First(h.EndPoint, 0);
+            mesh.Run(20);
+            Assert.True(a.Core.Mesh.Connected);
+            Assert.True(h.Core.Peers.Contains(a.Id));
+            Assert.Empty(Legacy(mesh, a, h));
+            Assert.Empty(Legacy(mesh, h, a));
+            Assert.False(w.Core.Mesh.Connected);
+        }
+
+        [Fact]
+        public void ALoginRequiredHub_RefusesAJfp2Join_WithLoginRequired_AndNoLegacyJoinFollows()
+        {
+            var mesh = new TestMesh();
+            TestNode h = Both(mesh, "203.0.113.1");
+            h.Core.Mesh.ForceSession(0x1234, loginRequired: true, creator: true);
+            TestNode a = Both(mesh, "198.51.100.2");
+
+            a.Core.Mesh.JoinJfp2First(h.EndPoint, 0);
+            mesh.Run(10);
+
+            // the refusal is final (the login is a legacy message, plan D5 b): the pilot is told, the hub holds no member
+            Assert.False(a.Core.Mesh.Connected);
+            Assert.Equal(JoinResult.LoginRequired, a.Core.Mesh.ActiveJoinResult);
+            Assert.False(h.Core.Peers.Contains(a.Id));
+            Assert.Empty(Legacy(mesh, a, h));
+            Assert.Contains(a.EventLogs, l => l.Contains("refused the join") && l.Contains("LoginRequired"));
+        }
+
         // ------------------------------------------------------------------ the bodies
 
         [Fact]

@@ -48,6 +48,7 @@ namespace JoinFS.Net
         /// <summary>The core. Touch it only from the network thread (i.e. inside <see cref="Post"/>).</summary>
         public NetworkCore Core { get; }
 
+        /// <summary>The legacy plugin; null on a JFP2-only node (the hub setting, scenario S12), which answers no legacy datagram at all.</summary>
         public LegacyPlugin Legacy { get; }
 
         public NetworkSnapshot Snapshot => snapshot;
@@ -75,12 +76,17 @@ namespace JoinFS.Net
             set => transport.Ipv4Enabled = value;
         }
 
-        public NetworkService(IClock clock = null, Func<string, CredentialStore> credentialStoreFactory = null)
+        /// <param name="legacy">Speak the legacy protocol. Off for a JFP2-only hub: no legacy plugin is registered, so
+        /// a legacy datagram finds nobody to read it and a pilot on a build before the stand-alone JFP2 cannot join.</param>
+        public NetworkService(IClock clock = null, Func<string, CredentialStore> credentialStoreFactory = null, bool legacy = true)
         {
             this.clock = clock ?? SystemClock.Instance;
             Core = new NetworkCore(transport, this.clock, this, credentialStoreFactory);
-            Legacy = new LegacyPlugin((ushort)Stopwatch.GetTimestamp());
-            Core.AddPlugin(Legacy);
+            if (legacy)
+            {
+                Legacy = new LegacyPlugin((ushort)Stopwatch.GetTimestamp());
+                Core.AddPlugin(Legacy);
+            }
             // stamped on the receive thread, as soon as the datagram arrives (MessageMeta.ReceivedAt)
             transport.Received += (from, buffer, length) =>
             {
@@ -382,8 +388,8 @@ namespace JoinFS.Net
                 LoginResult = mesh.ActiveLoginResult,
                 LowBandwidth = Core.LowBandwidth,
                 RelayCount = mesh.RelayCount,
-                GuaranteedInCount = Legacy.GuaranteedInCount,
-                GuaranteedOutCount = Legacy.GuaranteedOutCount,
+                GuaranteedInCount = Legacy?.GuaranteedInCount ?? 0,
+                GuaranteedOutCount = Legacy?.GuaranteedOutCount ?? 0,
                 Peers = peers,
                 PeerList = list,
             };

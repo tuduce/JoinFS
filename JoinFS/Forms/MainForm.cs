@@ -1248,6 +1248,14 @@ namespace JoinFS
                             }
                         }
                     }
+                    // a login is checked over the legacy protocol only (stand-alone JFP2 has none, plan D5), and legacy has no IPv6
+                    else if (main.network.Snapshot.JoinResult == JoinResult.LoginRequired && main.network.Snapshot.NoIPv4)
+                    {
+                        // leave existing network
+                        main.network.ScheduleLeave();
+                        // message
+                        main.ShowMessage("This hub asks for a login, which only works over IPv4, and this computer has no IPv4 connection. Join a hub that does not ask for a login.");
+                    }
                     // check for login required
                     else if (main.network.Snapshot.JoinResult == JoinResult.LoginRequired)
                     {

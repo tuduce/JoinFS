@@ -64,12 +64,16 @@ namespace JoinFS
             legacyOnly = new LegacyOnlyStore(main.storagePath, host);
             host.Event("Unique address is " + UserDirectory.UuidToString(main.uuid));
 
-            service = new NetworkService(credentialStoreFactory: folder => new CredentialStore(main.documentsPath, main.MonitorEvent))
+            service = new NetworkService(credentialStoreFactory: folder => new CredentialStore(main.documentsPath, main.MonitorEvent), legacy: !main.settingsJfp2Only)
             {
                 Ipv6Enabled = main.settingsIpv6,
                 Ipv4Enabled = main.settingsIpv4,
             };
-            // the protocols this build speaks (legacy is built in; newer ones win per peer and
+            if (main.settingsJfp2Only)
+            {
+                host.Event("NETWORK: JFP2-only: no legacy datagram is read or sent, so pilots on builds before the stand-alone JFP2 cannot join this node");
+            }
+            // the protocols this build speaks (legacy is built in unless this node is JFP2-only; newer ones win per peer and
             // message kind where both sides negotiated them). JFP2 tells each neighbor which build
             // this is, e.g. "26.6.0 JoinFS-FS2024".
             service.AddPlugin(new Jfp2Plugin((ushort)System.Diagnostics.Stopwatch.GetTimestamp(), Main.Version + " " + Main.Name));

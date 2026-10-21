@@ -180,6 +180,9 @@ namespace JoinFS
         /// <summary>Join over legacy alone (<c>-legacyjoin</c> test switch, never stored), as before the stand-alone JFP2: by default a join asks over JFP2 first and over legacy after 2 s of silence.</summary>
         public bool settingsLegacyJoin = false;
 
+        /// <summary>Hub setting (<c>Jfp2Only</c>, <c>-jfp2only</c> for this run): speak no legacy at all, so that only builds with the stand-alone JFP2 can join (scenario S12). Read when the network starts.</summary>
+        public bool settingsJfp2Only = false;
+
 #if CONSOLE
         public bool settingsBackground = false;
         public int settingsBackgroundDelay = 100;
@@ -302,6 +305,7 @@ namespace JoinFS
                 settingsWhazzupPublic = Settings.Default.WhazzupGlobal;
                 settingsMultiObjects = Settings.Default.MultipleObjectsEveryone;
                 settingsIpv6 = Settings.Default.Ipv6;
+                settingsJfp2Only = Settings.Default.Jfp2Only;
                 settingsLoop = Settings.Default.Loop;
                 settingsXplane = Settings.Default.XPlane;
                 settingsTcas = Settings.Default.TCAS;
@@ -420,6 +424,11 @@ namespace JoinFS
                             case "-legacyjoin":
                                 // join over legacy alone, to compare with the JFP2 join (test switch)
                                 settingsLegacyJoin = true;
+                                break;
+
+                            case "-jfp2only":
+                                // a JFP2-only hub, whatever the setting says (test switch)
+                                settingsJfp2Only = true;
                                 break;
 
                             case "-noipv6":

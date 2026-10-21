@@ -1717,6 +1717,18 @@ namespace JoinFS.Properties {
 
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool Jfp2Only {
+            get {
+                return ((bool)(this["Jfp2Only"]));
+            }
+            set {
+                this["Jfp2Only"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]
         public string UnlinkedCslSources {
             get {
