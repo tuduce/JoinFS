@@ -233,9 +233,9 @@ namespace JoinFS.Net.Jfp2
                 return;
             }
 
-            // consumed when the target is one of our names (our kind-0 name, in this build), compared
+            // consumed when the target is one of our names (our id, our key name or the alias we were given), compared
             // as bytes whatever the kind; relayed otherwise
-            if (envelope.IsForwarded && envelope.Target != Local)
+            if (envelope.IsForwarded && !IsOwnName(envelope.Target))
             {
                 Relay(from, hop, envelope, datagram, payload);
                 return;

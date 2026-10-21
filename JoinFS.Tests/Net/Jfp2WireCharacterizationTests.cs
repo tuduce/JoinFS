@@ -58,7 +58,7 @@ namespace JoinFS.Tests.Net
                 "1100" +                                           // seventeen offers, application classes at [1, 1], in this order:
                 "00070101" + "00080101" + "00010101" + "00020101" + "00000101" + // Status, StatusRequest, Identity, VariableSync, Position
                 "00030101" + "00040101" + "00050101" + "00060101" + "00090101" + // Event, FlightPlan, Notes, Weather, WeatherReply
-                "01020101" + "01030101" + "01040102" +             // internal classes (partition 1) of stage 4: Join, JoinResult, MemberList (versions 1 and 2 since stage 7)
+                "01020101" + "01030102" + "01040102" +             // internal classes (partition 1) of stage 4: Join, JoinResult (versions 1 and 2 since stage 8), MemberList (versions 1 and 2 since stage 7)
                 "01050102" + "01060101" +                          // and of stage 5: MemberAnnounce (versions 1 and 2), MemberLeave
                 "01070101" + "01080101" +                          // and of stage 6: RouteQuery, RouteAnswer
                 "0100080000017100CBE01701" +                       // TLV Names: one name, kind 0, legacy id 203.0.113.1, port 6112, local 1

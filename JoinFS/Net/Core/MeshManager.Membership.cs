@@ -57,15 +57,23 @@ namespace JoinFS.Net
             {
                 Join(legacy, password);
             }
+            else
+            {
+                core.Log(NetLogLevel.Event, "NETWORK: cannot join " + string.Join(", ", usable) + ": it did not take a join over JFP2, and this node has no IPv4 address to join it over legacy");
+            }
         }
 
-        /// <summary>The addresses of <paramref name="dial"/> this node can use, in the order given: an IPv6 one needs an IPv6 address of its own.</summary>
+        /// <summary>
+        /// The addresses of <paramref name="dial"/> this node can use, in the order given: an IPv6 one needs an IPv6 address of its own, and
+        /// a node with no IPv4 address uses no IPv4 one.
+        /// </summary>
         List<IPEndPoint> UsableTargets(IReadOnlyList<IPEndPoint> dial)
         {
             var usable = new List<IPEndPoint>(dial.Count);
             foreach (IPEndPoint endPoint in dial)
             {
-                if ((endPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork || core.Identity.HasIPv6) && !usable.Contains(endPoint))
+                bool v6 = endPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6;
+                if ((v6 ? core.Identity.HasIPv6 : !core.Identity.NoIPv4) && !usable.Contains(endPoint))
                 {
                     usable.Add(endPoint);
                 }
@@ -142,6 +150,7 @@ namespace JoinFS.Net
                 {
                     core.Peers.AddAlias(name, existing.Id);
                 }
+                IssueAlias(existing);
                 core.LinkChanged(existing.Id);
                 core.Log(NetLogLevel.Event, "NETWORK: " + joiner + " at " + endPoint + " joined again over JFP2, still a member");
                 return existing;
@@ -154,6 +163,7 @@ namespace JoinFS.Net
             Peer peer = AddJfp2Peer(joiner, endPoint, otherNames, default, candidates);
             isNew = true;
             core.Log(NetLogLevel.Event, "NETWORK: " + joiner + " at " + endPoint + " (" + FamilyName(endPoint) + ") joined over JFP2");
+            IssueAlias(peer);
             AnnounceToLegacy(peer);
             return peer;
         }
@@ -251,10 +261,64 @@ namespace JoinFS.Net
             {
                 if (other != member && other.LegacyLink)
                 {
-                    core.Broadcast(new AddNode { Suid = suid, Node = new KnownNode { Node = member.Id, Port = (ushort)member.EndPoint.Port } }, guaranteed: true);
+                    core.Broadcast(new AddNode { Suid = suid, Node = new KnownNode { Node = member.Id, Port = LegacyPort(member) } }, guaranteed: true);
                     core.Log(NetLogLevel.Event, "NETWORK: " + member.Id + " announced to the legacy members");
                     return;
                 }
+            }
+        }
+
+        /// <summary>
+        /// The port a node that speaks legacy is told for a member: the port the member was heard at, except for a member at an IPv6 endpoint,
+        /// whose legacy name (its own, or the alias this node gave it) holds the port legacy nodes send to.
+        /// </summary>
+        ushort LegacyPort(Peer member) =>
+            member.EndPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 && core.Peers.TryGetLegacy(member.Id, out LegacyNodeId legacy)
+                ? legacy.port
+                : (ushort)member.EndPoint.Port;
+
+        /// <summary>
+        /// A member with no kind-0 name (it has no IPv4 address) is given a synthetic alias so that nodes released before this work can
+        /// address it (plan D2, protocol.md §5.15): this node's own public IPv4 address and port, and a LAN octet nothing here uses. A datagram
+        /// a legacy node sends to the alias arrives at this node, which carries it to the member over JFP2. The octet follows the member's name,
+        /// so the alias is the same after this node restarts. None when this node has no IPv4 address of its own.
+        /// </summary>
+        void IssueAlias(Peer member)
+        {
+            if (core.Peers.TryGetLegacy(member.Id, out _))
+            {
+                return;
+            }
+            LegacyNodeId own = core.Identity.LegacyId;
+            if (!own.Valid())
+            {
+                core.Log(NetLogLevel.Event, "NETWORK: " + member.Id + " has no IPv4 address and this node has none to give it an alias: nodes that speak legacy cannot see it");
+                return;
+            }
+            Span<byte> name = stackalloc byte[NodeId.WireSize];
+            member.Id.WriteTo(name);
+            int start = name[1] % AliasOctets;
+            for (int i = 0; i < AliasOctets; i++)
+            {
+                byte local = (byte)(1 + (start + i) % AliasOctets);
+                NodeId alias = NodeId.FromLegacy(own.ip, own.port, local);
+                if (local != own.local && !core.Peers.TryResolve(alias, out _) && core.Peers.AddAlias(alias, member.Id))
+                {
+                    core.Log(NetLogLevel.Event, "NETWORK: " + member.Id + " has no IPv4 address: nodes that speak legacy know it as " + alias + ", at this node");
+                    return;
+                }
+            }
+        }
+
+        /// <summary>LAN octets 1 to 250 are tried for an alias; the rest are left alone.</summary>
+        const int AliasOctets = 250;
+
+        void IMembership.AliasIssued(NodeId admitter, NodeId alias)
+        {
+            if (core.Identity.Alias != alias)
+            {
+                core.Identity.Alias = alias;
+                core.Log(NetLogLevel.Event, "NETWORK: " + admitter + " gave this node the alias " + alias + ": nodes that speak legacy know it by that name");
             }
         }
 

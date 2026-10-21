@@ -53,6 +53,14 @@ namespace JoinFS.Net
             return transport;
         }
 
+        /// <summary>A node with no IPv4 address at all: one IPv6 endpoint, and no route to an IPv4 destination.</summary>
+        public InMemoryTransport AttachIPv6Only(IPEndPoint endPointV6, Action<IPEndPoint, byte[]> receive)
+        {
+            var transport = new InMemoryTransport(this, endPointV6, endPointV6, receive, ipv6Only: true);
+            transports.Add(endPointV6, transport);
+            return transport;
+        }
+
         public void Detach(IPEndPoint endPoint)
         {
             if (transports.Remove(endPoint, out InMemoryTransport transport) && transport.EndPointV6 != null)
@@ -124,8 +132,11 @@ namespace JoinFS.Net
 
         public event Action<IPEndPoint, string> SendFailed { add { } remove { } }
 
-        internal InMemoryTransport(InMemoryNetwork network, IPEndPoint endPoint, IPEndPoint endPointV6, Action<IPEndPoint, byte[]> receive)
+        readonly bool ipv6Only;
+
+        internal InMemoryTransport(InMemoryNetwork network, IPEndPoint endPoint, IPEndPoint endPointV6, Action<IPEndPoint, byte[]> receive, bool ipv6Only = false)
         {
+            this.ipv6Only = ipv6Only;
             this.network = network;
             this.receive = receive;
             EndPoint = endPoint;
@@ -134,6 +145,10 @@ namespace JoinFS.Net
 
         public void Send(IPEndPoint to, ReadOnlySpan<byte> datagram)
         {
+            if (ipv6Only && to.AddressFamily != AddressFamily.InterNetworkV6)
+            {
+                return; // a node with no IPv4 has no route to an IPv4 address
+            }
             IPEndPoint from = EndPointV6 != null && to.AddressFamily == AddressFamily.InterNetworkV6 ? EndPointV6 : EndPoint;
             if (EndPointV6 == null && from.AddressFamily != to.AddressFamily && from.AddressFamily == AddressFamily.InterNetwork)
             {

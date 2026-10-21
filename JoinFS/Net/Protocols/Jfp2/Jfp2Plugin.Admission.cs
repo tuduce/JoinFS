@@ -43,7 +43,8 @@ namespace JoinFS.Net.Jfp2
             {
                 names.Add(Local);
             }
-            if (host.Identity.KeyId.Valid())
+            // a node with no IPv4 address has its key name for its id, and states it once
+            if (host.Identity.KeyId.Valid() && host.Identity.KeyId != Local)
             {
                 names.Add(host.Identity.KeyId);
             }

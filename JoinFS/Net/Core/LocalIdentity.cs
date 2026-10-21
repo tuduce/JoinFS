@@ -19,6 +19,7 @@ namespace JoinFS.Net
         IPAddress internetAddress = IPAddress.None;
         IReadOnlyList<IPAddress> ipv6Addresses = [];
         IReadOnlyList<IPEndPoint> candidates;
+        bool noIPv4;
 
         /// <summary>The most IPv6 addresses this node advertises as candidates.</summary>
         public const int MaxIPv6Candidates = 4;
@@ -26,8 +27,32 @@ namespace JoinFS.Net
         /// <summary>This node's address as the legacy wire names it.</summary>
         public LegacyNodeId LegacyId { get; private set; }
 
-        /// <summary>This node's id in the core: the kind-0 id of <see cref="LegacyId"/>.</summary>
-        public NodeId Id => NodeId.FromLegacy(LegacyId);
+        /// <summary>
+        /// This node's id in the core: the kind-0 id of <see cref="LegacyId"/>, or its key name (<see cref="KeyId"/>) when it has no IPv4
+        /// address (<see cref="NoIPv4"/>), which no legacy id can be made of.
+        /// </summary>
+        public NodeId Id => NoIPv4 ? KeyId : NodeId.FromLegacy(LegacyId);
+
+        /// <summary>
+        /// This node has no IPv4 address to use: its socket serves IPv6 only (<c>-noipv4</c>), or the machine has no IPv4 address at all. It
+        /// is ready with its key name, states no IPv4 candidate and dials no IPv4 address (docs/network/jfp2/standalone-ipv6-plan.md §5.1, §5.4).
+        /// </summary>
+        public bool NoIPv4
+        {
+            get => noIPv4;
+            set
+            {
+                noIPv4 = value;
+                candidates = null;
+            }
+        }
+
+        /// <summary>
+        /// The kind-0 name the node that admitted this one gave it, so that nodes that speak legacy can address it (D2): none until the join
+        /// is accepted, and none for a node that has an IPv4 address. This node does not use it as a name of its own; the admitting node
+        /// translates (protocol.md §5.15).
+        /// </summary>
+        public NodeId Alias { get; set; }
 
         /// <summary>This instance's key pair, or null before the app has posted it. No wire carries it yet.</summary>
         public NodeKey Key { get; set; }
@@ -36,7 +61,7 @@ namespace JoinFS.Net
         public NodeId KeyId => Key?.Id ?? default;
 
         /// <summary>The node knows its public address, so it can take part in a session.</summary>
-        public bool Ready => LegacyId.Valid();
+        public bool Ready => Id.Valid();
 
         public IPAddress LocalAddress
         {
@@ -106,8 +131,11 @@ namespace JoinFS.Net
             {
                 list.Add(new IPEndPoint(address, port));
             }
-            AddIPv4(list, internetAddress, port);
-            AddIPv4(list, localAddress, port);
+            if (!noIPv4)
+            {
+                AddIPv4(list, internetAddress, port);
+                AddIPv4(list, localAddress, port);
+            }
             return list;
         }
 
@@ -182,6 +210,36 @@ namespace JoinFS.Net
             }
             Span<byte> bytes = stackalloc byte[16];
             return address.TryWriteBytes(bytes, out _) && (bytes[0] & 0xE0) == 0x20;
+        }
+
+        /// <summary>
+        /// This machine has an IPv4 address another host could reach (up, not loopback, not link-local). True when the interfaces cannot be
+        /// read, so a machine is never taken for IPv6-only on a failure.
+        /// </summary>
+        public static bool HasIPv4Interface()
+        {
+            try
+            {
+                foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (adapter.OperationalStatus != OperationalStatus.Up || adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                    {
+                        continue;
+                    }
+                    foreach (UnicastIPAddressInformation info in adapter.GetIPProperties().UnicastAddresses)
+                    {
+                        if (info.Address.AddressFamily == AddressFamily.InterNetwork && Peer.IsUsableCandidate(new IPEndPoint(info.Address, 1)))
+                        {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+            catch
+            {
+                return true;
+            }
         }
 
         /// <summary>For tests and diagnostics: set the whole id directly.</summary>

@@ -46,6 +46,12 @@ namespace JoinFS.Net
         public IReadOnlyList<IPAddress> Ipv6Addresses { get; init; } = [];
         public int Port { get; init; }
         public NodeId LocalId { get; init; }
+
+        /// <summary>The node has no IPv4 address: <see cref="LocalId"/> is its key name, and nodes that speak legacy know it by an alias its admitting node gave it.</summary>
+        public bool NoIPv4 { get; init; }
+
+        /// <summary>The kind-0 name the node that admitted this one gave it (<see cref="LocalIdentity.Alias"/>); none when it has an IPv4 address or is not in a session.</summary>
+        public NodeId Alias { get; init; }
         public bool Ready => LocalId.Valid();
         public IPAddress LocalAddress { get; init; } = IPAddress.Loopback;
         public IPAddress InternetAddress { get; init; } = IPAddress.None;

@@ -45,7 +45,7 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>
         /// The endpoints a Hello to <paramref name="peer"/> goes to, IPv6 ones first: for a member with a legacy link, where legacy has it;
-        /// otherwise its candidates and where it was registered, minus the IPv6 ones when this node has no IPv6 or the member's IPv6 is held off.
+        /// otherwise its candidates and where it was registered, minus the IPv6 ones when this node has no IPv6 or the member's IPv6 is held off, and minus the IPv4 ones when this node has no IPv4.
         /// </summary>
         List<IPEndPoint> ProbeTargets(Peer peer, double now)
         {
@@ -56,14 +56,15 @@ namespace JoinFS.Net.Jfp2
                 return targets;
             }
             bool v6 = host.Identity.HasIPv6 && now >= (paths.TryGetValue(peer.Id, out PathState state) ? state.V6HoldUntil : 0);
+            bool v4 = !host.Identity.NoIPv4;
             foreach (IPEndPoint candidate in peer.Candidates)
             {
-                if ((v6 || !IsV6(candidate)) && !IsForeignLan(candidate) && !targets.Contains(candidate))
+                if ((IsV6(candidate) ? v6 : v4) && !IsForeignLan(candidate) && !targets.Contains(candidate))
                 {
                     targets.Add(candidate);
                 }
             }
-            if ((v6 || !IsV6(peer.EndPoint)) && !targets.Contains(peer.EndPoint))
+            if ((IsV6(peer.EndPoint) ? v6 : v4) && !targets.Contains(peer.EndPoint))
             {
                 targets.Add(peer.EndPoint);
             }

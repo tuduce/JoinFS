@@ -48,11 +48,11 @@ namespace JoinFS.Net.Jfp2
             Offers = Array.AsReadOnly(offers);
         }
 
-        /// <summary>The internal classes that carry membership, version 1 each (protocol.md §5.10, §5.11, §5.13).</summary>
+        /// <summary>The internal classes that carry membership: version 1 each, and 2 for MemberList and MemberAnnounce (§5.14) and JoinResult (§5.15); protocol.md §5.10, §5.11, §5.13.</summary>
         public static IReadOnlyList<SchemaOffer> MembershipClasses { get; } = Array.AsReadOnly(
         [
             new SchemaOffer(true, MessageClasses.Join, 1, 1),
-            new SchemaOffer(true, MessageClasses.JoinResult, 1, 1),
+            new SchemaOffer(true, MessageClasses.JoinResult, 1, 2),
             new SchemaOffer(true, MessageClasses.MemberList, 1, 2),
             new SchemaOffer(true, MessageClasses.MemberAnnounce, 1, 2),
             new SchemaOffer(true, MessageClasses.MemberLeave, 1, 1),

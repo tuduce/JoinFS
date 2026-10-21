@@ -56,6 +56,24 @@ namespace JoinFS.Tests.Net
             }
         }
 
+        /// <summary>A node with no IPv4 address at all (C of the plan's cast): one IPv6 endpoint, known by the name of its key.</summary>
+        public TestNode(TestMesh mesh, string ip6, ushort port, NodeKey key, params IProtocolPlugin[] plugins)
+        {
+            EndPoint6 = new IPEndPoint(IPAddress.Parse(ip6), port);
+            EndPoint = EndPoint6;
+            Action<IPEndPoint, byte[]> receive = (from, data) => Core!.OnDatagram(from, data, ReceiveTime?.Invoke() ?? 0);
+            Transport = mesh.Network.AttachIPv6Only(EndPoint6, receive);
+            Core = new NetworkCore(Transport, mesh.Clock, this) { IsOpen = true };
+            Core.Identity.Port = port;
+            Core.Identity.Ipv6Addresses = [EndPoint6.Address];
+            Core.Identity.Key = key;
+            Core.Identity.NoIPv4 = true;
+            foreach (IProtocolPlugin plugin in plugins.Length > 0 ? plugins : [new LegacyPlugin()])
+            {
+                Core.AddPlugin(plugin);
+            }
+        }
+
         public NodeId Id => Core.Identity.Id;
 
         public void Deliver<T>(in MessageMeta meta, in T message) where T : struct, IMessage => Received.Add((meta, message));
@@ -83,7 +101,7 @@ namespace JoinFS.Tests.Net
 
         public TestNode Add(string ip, ushort port = 6112, params IProtocolPlugin[] plugins)
         {
-            var node = new TestNode(this, ip, port, null, plugins);
+            var node = new TestNode(this, ip, port, (string?)null, plugins);
             Nodes.Add(node);
             return node;
         }
@@ -92,6 +110,14 @@ namespace JoinFS.Tests.Net
         public TestNode AddDualStack(string ip, string ip6, ushort port = 6112, params IProtocolPlugin[] plugins)
         {
             var node = new TestNode(this, ip, ip6, port, null, plugins);
+            Nodes.Add(node);
+            return node;
+        }
+
+        /// <summary>A node with no IPv4 address at all, known by the name of a new key (see <see cref="TestNode"/>).</summary>
+        public TestNode AddIPv6Only(string ip6, ushort port = 6112, params IProtocolPlugin[] plugins)
+        {
+            var node = new TestNode(this, ip6, port, NodeKey.Generate(), plugins);
             Nodes.Add(node);
             return node;
         }

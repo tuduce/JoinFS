@@ -103,13 +103,13 @@ namespace JoinFS
         /// <summary>Latest picture of the network thread's state (lock-free, at most ~100 ms old).</summary>
         public NetworkSnapshot Snapshot => service.Snapshot;
 
-        /// <summary>This node's id (invalid until the public address is known).</summary>
-        public NodeId LocalId => Bootstrap.LocalId;
+        /// <summary>This node's id (invalid until the public address is known); a node with no IPv4 address is known by its key name, which the network thread decides.</summary>
+        public NodeId LocalId => Snapshot.NoIPv4 ? Snapshot.LocalId : Bootstrap.LocalId;
 
         /// <summary>In a session.</summary>
         public bool Connected => Snapshot.Connected;
 
-        /// <summary>This node's public address is known, so it can join or create a session.</summary>
+        /// <summary>This node's public address (or, with no IPv4 address, its key) is known, so it can join or create a session.</summary>
         public bool Ready => LocalId.Valid();
 
         // ------------------------------------------------------------------ transport

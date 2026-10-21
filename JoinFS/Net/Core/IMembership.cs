@@ -42,6 +42,12 @@ namespace JoinFS.Net
         /// </summary>
         Peer Joined(uint suid, NodeId admitter, IPEndPoint endPoint, IReadOnlyList<NodeId> otherNames, IReadOnlyList<IPEndPoint> candidates);
 
+        /// <summary>
+        /// The node that admitted this one (<paramref name="admitter"/>) gave it <paramref name="alias"/>, the kind-0 name nodes that speak
+        /// legacy know it by, since it has no IPv4 address of its own.
+        /// </summary>
+        void AliasIssued(NodeId admitter, NodeId alias);
+
         /// <summary>The node this one asked to join refused it (what the app reads as <see cref="MeshManager.ActiveJoinResult"/>).</summary>
         void JoinRefused(JoinResult result);
 

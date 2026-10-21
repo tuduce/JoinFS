@@ -300,6 +300,15 @@ namespace JoinFS.Net
                 loggedAddresses = text;
                 core.Log(NetLogLevel.Event, "NETWORK: global IPv6 addresses: " + text);
             }
+            // a node with no IPv4 is known by its key name, and nodes that speak legacy see it through the node that admits it
+            bool noIPv4 = transport.IsIPv6Only || (ipv6 && !LocalIdentity.HasIPv4Interface());
+            if (noIPv4 != core.Identity.NoIPv4)
+            {
+                core.Identity.NoIPv4 = noIPv4;
+                core.Log(NetLogLevel.Event, noIPv4
+                    ? "NETWORK: this node has no IPv4 address: it is known by its key name, and takes part over IPv6 and JFP2 alone"
+                    : "NETWORK: this node has an IPv4 address again");
+            }
         }
 
         void Execute(IWork work)
@@ -353,6 +362,8 @@ namespace JoinFS.Net
                 Ipv6Addresses = Core.Identity.Ipv6Addresses,
                 Port = Core.Identity.Port,
                 LocalId = Core.Identity.Id,
+                NoIPv4 = Core.Identity.NoIPv4,
+                Alias = Core.Identity.Alias,
                 LocalAddress = Core.Identity.LocalAddress,
                 InternetAddress = Core.Identity.InternetAddress,
                 State = mesh.State,

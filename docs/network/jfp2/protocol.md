@@ -299,7 +299,7 @@ Every reference to a node on the wire is a **name**: 8 bytes.
 |---|---|---|
 | 0 | Legacy node id: ip u32, port u16, local u8, the legacy header's layout | Sent and resolved |
 | 1 | Random key, 56 bits, not all zero | Reserved |
-| 2 | Key-pair id: the first 7 bytes of the SHA-256 of the node's public key | Reserved |
+| 2 | Key-pair id: the first 7 bytes of the SHA-256 of the node's public key | Reserved in release 1. Edition 2 uses it (§5.9, §5.15): a node states its key name beside its kind-0 name, and a node with no IPv4 address is known by it |
 | 3–254 | — | Unassigned |
 | 255 | Group name: `FF 00 00 00 00 00 00 00` is all members of the session | Reserved |
 
@@ -307,7 +307,11 @@ All zero is "no node". Two names are equal when their 8 bytes are equal, whateve
 
 - **Which name a node writes for another.** The kind-0 name while that node has a legacy id,
   otherwise its key. Every member has a legacy id while legacy carries membership, so release 1
-  writes kind 0 only.
+  writes kind 0 only. In edition 2 a node with no IPv4 address has a legacy id too, the alias of
+  §5.15, and is written by it in the Origin and Target of a Forwarded datagram (and in a legacy
+  message), so that a node released before edition 2, which resolves kind 0 only, can read it; a node
+  of edition 2 resolves the alias to the same node as its key name, and takes a datagram whose Target is
+  its key name or its alias as its own.
 - **Comparing** needs no kind: a node consumes a forwarded datagram whose Target is one of its own
   names, and relays the others.
 - **Resolving** (finding the node a name belongs to) is by kind 0 only, converted to the legacy
@@ -570,13 +574,16 @@ a legacy node ignores a legacy Join. Otherwise it answers JoinResult, in this or
    not added twice, and a device that holds as many nodes as the legacy limit (32) is ignored, as legacy
    ignores it.
 
-**JoinResult** (class 3), admitting node to joiner. Payload, 6 bytes:
+**JoinResult** (class 3), admitting node to joiner. Schema version 1, or version 2 when both ends offered it (§5.15),
+which adds the joiner's alias. Payload of version 1, 6 bytes:
 
 | Field | Size | Notes |
 |---|---|---|
 | Result | 1 | 0 `Accepted`, 1 `PasswordRequired`, 2 `LoginRequired`. Any other value is a refusal. |
 | Suid | 4 | u32 little-endian: the session's id when accepted, else 0. |
 | ListSegments | 1 | How many MemberList datagrams follow when accepted. |
+
+Version 2 appends **Alias**, 8 bytes: a name (§4.3), or all zero when there is none (§5.15).
 
 **MemberList** (class 4), admitting node to a member that just joined: the members it knows other than the
 joiner and itself, split into datagrams of at most 1,000 bytes of entries. The schema is version 1, or version 2
@@ -748,6 +755,45 @@ the fallback:
   Any other (the same node on the other family, a straggler of an earlier round) is read as a sign of life and moves
   nothing, so a link never flips between the two because datagrams happen to arrive on both.
 - Only a member with no legacy link has candidates that matter. A member with a legacy link stays where legacy has it.
+
+### 5.15 Nodes with no IPv4 address (edition 2)
+
+A node that has no IPv4 address (its socket serves IPv6 only, or the machine has no IPv4 address) cannot
+be named by a kind-0 name, which is an IPv4 address, a port and a LAN octet, and nodes released before
+edition 2 can name nothing else. Such a node is known by its **key name** (kind 2, §4.3): it states it as
+its only name in every Hello, HelloAck and stranger's Hello (§5.9), and the node that admits it (§5.10)
+holds it as one peer under that name. It states no IPv4 candidate (§5.14), asks no IPv4 address when
+it joins and sends nothing to an IPv4 address; a host name it dials gives it the host's IPv6 addresses only.
+
+**The alias.** So that nodes that speak legacy can see the node, the node that admitted it gives it an
+**alias**: a kind-0 name made of the admitting node's own public IPv4 address and port and a LAN octet that
+no member of the session and not the admitting node itself uses (octets 1 to 250, chosen from the joiner's key name so that a
+node that joins again, or the same hub after a restart, gets the same alias). It is the admitting node's
+own address, so a datagram a legacy node sends to the alias arrives at the admitting node, and no
+datagram goes to a third party. An admitting node with no IPv4 address of its own gives none, and the node is
+not seen by legacy nodes. The alias is carried in three places and nowhere else:
+- **JoinResult version 2** (§5.10, Appendix A.15) tells the joiner its alias. A joiner that offers version 1 only
+  is admitted all the same; it does not learn the alias, and nothing else changes.
+- **Member entries** (MemberList, MemberAnnounce, §5.10, §5.11) list the member's names: the key name first, then the alias.
+  A node that reads an entry holds both names as one peer (the second is an alias of the first).
+- **Legacy messages** (AddNode, the member list of a legacy JoinReply, Leave, the sender of a relayed message) name the node
+  by its alias, and give the port of the alias, which is the admitting node's own, for a member whose endpoint is an IPv6 one (§5.13).
+
+**What the node does not do.** It does not use the alias as a name of its own: it states its key name, and
+the admitting node writes the alias where a legacy node reads the name (the Origin of a datagram it passes on, the sender of a message it
+translates). It does take a datagram whose Target is its alias as its own (§4.3).
+
+**Seen by a legacy node.** The alias is announced to the members that have a legacy link by AddNode, as any member with no
+legacy link is (§5.13); the admitting node answers the legacy Pulse and Pathfinder for it in its name (§5.13) and carries the
+application messages between them (§8.4). A legacy node sees the node as a peer reached through the admitting node, as it sees a
+node behind CGNAT. A legacy node on the admitting node's LAN guesses a LAN address from the alias, gets no answer and
+asks Pathfinder, which the admitting node answers: the traffic goes through it, where it has to go. When the admitting node
+leaves, the node stays a member through its other links, but the alias still names the admitting node's address: a legacy
+node loses the member when its pulses go unanswered, unless another member that reaches the node answers its Pathfinder.
+
+**Reaching the others.** A node with no IPv4 address reaches a member that has IPv6 directly (§5.14) and any other member
+through a neighbour that has both families, found by RouteQuery (§5.13) like any member that is not reached directly. A
+member with IPv4 only is not tried at its IPv4 endpoints, and is found through a neighbour as above.
 
 ---
 
@@ -1062,8 +1108,8 @@ cited rule says.
 | Offer partitions (§5.3) | u8 | 0 application, 1 internal | Skip the offer |
 | Handshake `Result` (§5.2) | u8 | 0, 1, 2 | Read as "no session now" |
 | Handshake TLV tags (§5.4) | u16 | 1 Names, 2 Build, 3 ObservedEndPoint, 4 Admission, 5 Candidates | Skip |
-| Schema versions of internal classes (§5.5) | u8 | 1 for each, and 2 for MemberList and MemberAnnounce (§5.14) | Not agreed: the lower common version, or none |
-| Name kinds (§4.3) | u8 | 0 assigned; 1, 2, 255 reserved | Skip; unresolvable |
+| Schema versions of internal classes (§5.5) | u8 | 1 for each, and 2 for MemberList and MemberAnnounce (§5.14) and JoinResult (§5.15) | Not agreed: the lower common version, or none |
+| Name kinds (§4.3) | u8 | 0 and 2 assigned (2 since edition 2); 1, 255 reserved | Skip; unresolvable |
 | `WireEndPoint` families (§4.4) | u8 | 4 IPv4, 6 IPv6 | Ignore the value |
 | Capability bits (§5.6) | 64 | none | Not in the AND of both sides, so never agreed |
 | ProtoMajor (§3.1) | u8 | 2 | Drop the datagram |
@@ -1300,6 +1346,18 @@ FA 02 08 78 56 21 43 05                   magic, ProtoMajor 2, Internal, sender 
 13  06 20 01 0D B8 00 00 00 00 00 00 00 00 00 00 00 01 E0 17    length 19: IPv6 2001:db8::1, port 6112
 07  04 CB 00 71 01 E0 17                  length 7: IPv4 203.0.113.1, port 6112
 ```
+
+**A.15 JoinResult, version 2** (edition 2) from the node of A.2 to a joiner with no IPv4 address, accepted, session `0x01020304`, one MemberList follows, and the alias `203.0.113.1:6112` local 20 (the node of A.8's address is the admitting node's own):
+
+```
+FA 02 08 78 56 34 12 03                   magic, ProtoMajor 2, Internal, sender 0x5678, recipient 0x1234, class JoinResult
+00                                        Result: accepted
+04 03 02 01                               Suid
+01                                        ListSegments
+00 01 71 00 CB E0 17 14                   Alias: kind 0, legacy id 203.0.113.1, port 6112, local 20
+```
+
+Version 1 of A.7 is unchanged. The bodies of A.15 are pinned by `JoinFS.Tests/Net/Jfp2IPv6OnlyTests.cs`.
 
 ---
 

@@ -163,6 +163,27 @@ namespace JoinFS.Net.Jfp2
             return node.Valid() && (node.Kind == NodeId.LegacyKind || host.Peers.Contains(node));
         }
 
+        /// <summary>
+        /// The name a Forwarded envelope carries for a node (protocol.md §4.3, §5.15): its kind-0 name while it has one, the alias its admitting
+        /// node gave it included, else its key name. A node released before edition 2 reads kind 0 only, so a datagram a relay passes on to it
+        /// byte for byte must name its origin that way; a node of this build resolves the alias to the one peer.
+        /// </summary>
+        NodeId NameOnWire(NodeId node)
+        {
+            if (!node.Valid() || node.Kind == NodeId.LegacyKind)
+            {
+                return node;
+            }
+            if (node == Local)
+            {
+                return host.Identity.Alias.Valid() ? host.Identity.Alias : node;
+            }
+            return host.Peers.TryGetLegacy(node, out LegacyNodeId legacy) ? NodeId.FromLegacy(legacy) : node;
+        }
+
+        /// <summary>The name is one of this node's: its id, its key name or the alias it was given.</summary>
+        bool IsOwnName(NodeId name) => name == Local || (name.Valid() && (name == host.Identity.KeyId || name == host.Identity.Alias));
+
         // ================================================================== periodic
 
         public void Tick()
@@ -226,7 +247,7 @@ namespace JoinFS.Net.Jfp2
             ushort guaranteedId = 0, byte guaranteedIndex = 0, byte guaranteedCount = 0, NodeId origin = default, NodeId target = default)
         {
             if (endPoint == null) return;
-            var envelope = new Envelope(flags, senderPeerId, recipientPeerId, messageClass, guaranteedId, guaranteedIndex, guaranteedCount, origin, target);
+            var envelope = new Envelope(flags, senderPeerId, recipientPeerId, messageClass, guaranteedId, guaranteedIndex, guaranteedCount, NameOnWire(origin), NameOnWire(target));
             int header = envelope.WriteTo(datagramBuffer);
             payload.CopyTo(datagramBuffer.AsSpan(header));
             host.Transport.Send(endPoint, datagramBuffer.AsSpan(0, header + payload.Length));

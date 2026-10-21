@@ -812,7 +812,7 @@ local function decode_jfp2_join(tree, buffer, offset)
     tree:add(buffer(offset + 1, 32), "Proof: " .. buffer(offset + 1, 32):bytes():tohex())
 end
 
--- JoinResult (internal class 3): Result u8, Suid u32, ListSegments u8
+-- JoinResult (internal class 3): Result u8, Suid u32, ListSegments u8; schema version 2 (§5.15) appends Alias, a name of 8 bytes
 local function decode_jfp2_join_result(tree, buffer, offset)
     if buffer:len() < offset + 6 then
         tree:add(buffer(offset, buffer:len() - offset), "Short JoinResult (" .. (buffer:len() - offset) .. " bytes): ignored")
@@ -822,6 +822,9 @@ local function decode_jfp2_join_result(tree, buffer, offset)
     tree:add(buffer(offset, 1), "Result: " .. result .. " (" .. (JFP2_JOIN_RESULT[result] or "refused") .. ")")
     tree:add(buffer(offset + 1, 4), "Suid: " .. buffer(offset + 1, 4):le_uint())
     tree:add(buffer(offset + 5, 1), "ListSegments: " .. buffer(offset + 5, 1):uint())
+    if buffer:len() >= offset + 14 then
+        add_jfp2_name(tree, buffer, offset + 6, "Alias (version 2)")
+    end
 end
 
 -- The offset after one member entry, or nil when the bytes end inside it. Schema version 2 (§5.14) has the candidates after the endpoint.

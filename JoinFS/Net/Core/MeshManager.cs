@@ -395,7 +395,7 @@ namespace JoinFS.Net
             {
                 if (other.ReceiveEstablished)
                 {
-                    nodes.Add(new KnownNode { Node = other.Id, Port = (ushort)other.EndPoint.Port });
+                    nodes.Add(new KnownNode { Node = other.Id, Port = LegacyPort(other) });
                 }
             }
             return nodes;

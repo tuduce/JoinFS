@@ -67,7 +67,7 @@ namespace JoinFS.Net.Jfp2
             foreach (IPEndPoint target in targets)
             {
                 IPEndPoint copy = Copy(target);
-                if (!addresses.Contains(copy) && (!IsV6(copy) || host.Identity.HasIPv6))
+                if (!addresses.Contains(copy) && (IsV6(copy) ? host.Identity.HasIPv6 : !host.Identity.NoIPv4))
                 {
                     addresses.Add(copy);
                 }
@@ -272,7 +272,7 @@ namespace JoinFS.Net.Jfp2
         void HandleJoinResult(PeerSession hop, ReadOnlySpan<byte> payload)
         {
             PendingJoin join = JoinOf(hop);
-            if (join == null || !JoinResultBody.TryRead(payload, out JoinResultBody result))
+            if (join == null || !JoinResultBody.TryRead(payload, out JoinResultBody result, hop.AgreedInternalVersion[MessageClasses.JoinResult]))
             {
                 host.Log(NetLogLevel.Network, "JFP2: JoinResult from " + hop.Peer + " answers no join of this node - ignored");
                 return;
@@ -298,6 +298,10 @@ namespace JoinFS.Net.Jfp2
                 host.LinkChanged(hop.Peer);
                 join.Accepted = true;
                 join.Segments = result.ListSegments;
+                if (result.Alias.Valid())
+                {
+                    host.Membership.AliasIssued(hop.Peer, result.Alias);
+                }
             }
             ApplyLists(join);
         }
@@ -369,7 +373,7 @@ namespace JoinFS.Net.Jfp2
                 && CryptographicOperations.FixedTimeEquals(JoinBody.ComputeProof(hash, hop.AdmissionCookie, joiner), join.Proof));
             if (verdict != JoinResult.Accepted)
             {
-                SendInternal(hop, MessageClasses.JoinResult, new JoinResultBody { Result = verdict }.Serialize());
+                SendInternal(hop, MessageClasses.JoinResult, new JoinResultBody { Result = verdict }.Serialize(hop.AgreedInternalVersion[MessageClasses.JoinResult]));
                 host.Log(NetLogLevel.Event, "JFP2: join of " + joiner + " at " + from + " refused: " + verdict);
                 return;
             }
@@ -517,7 +521,14 @@ namespace JoinFS.Net.Jfp2
                 current.Add(entry);
                 bytes += size;
             }
-            SendInternal(hop, MessageClasses.JoinResult, new JoinResultBody { Result = JoinResult.Accepted, Suid = host.Membership.Suid, ListSegments = (byte)segments.Count }.Serialize());
+            // a joiner with no IPv4 address is told the name nodes that speak legacy know it by (§5.15)
+            NodeId alias = default;
+            if (!joiner.Id.TryGetLegacy(out _) && host.Peers.TryGetLegacy(joiner.Id, out LegacyNodeId legacyAlias))
+            {
+                alias = NodeId.FromLegacy(legacyAlias);
+            }
+            SendInternal(hop, MessageClasses.JoinResult, new JoinResultBody { Result = JoinResult.Accepted, Suid = host.Membership.Suid, ListSegments = (byte)segments.Count, Alias = alias }
+                .Serialize(hop.AgreedInternalVersion[MessageClasses.JoinResult]));
             for (int index = 0; index < segments.Count; index++)
             {
                 SendInternal(hop, MessageClasses.MemberList, new MemberListBody { Index = (byte)index, Entries = segments[index] }.Serialize(listVersion));

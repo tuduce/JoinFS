@@ -64,10 +64,16 @@ namespace JoinFS.Net.Jfp2
         }
     }
 
-    /// <summary>JoinResult (internal class 3, version 1): the admitting node's answer to a Join.</summary>
+    /// <summary>
+    /// JoinResult (internal class 3, versions 1 and 2): the admitting node's answer to a Join. Version 2 adds the alias of a joiner that
+    /// has no IPv4 address (protocol.md §5.15).
+    /// </summary>
     public struct JoinResultBody
     {
         public const int WireSize = 1 + 4 + 1;
+
+        /// <summary>Version 2: the six bytes of version 1, then the alias.</summary>
+        public const int WireSizeV2 = WireSize + NodeId.WireSize;
 
         public JoinResult Result;
 
@@ -77,25 +83,36 @@ namespace JoinFS.Net.Jfp2
         /// <summary>How many MemberList datagrams follow (0 when the joiner is alone with the admitting node).</summary>
         public byte ListSegments;
 
-        public readonly byte[] Serialize()
+        /// <summary>Version 2: the kind-0 name the admitting node gave the joiner; all zero (none) when the joiner has an IPv4 address of its own or the result is a refusal.</summary>
+        public NodeId Alias;
+
+        public readonly byte[] Serialize(byte version = 1)
         {
-            byte[] bytes = new byte[WireSize];
+            byte[] bytes = new byte[version >= 2 ? WireSizeV2 : WireSize];
             bytes[0] = (byte)Result;
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(1), Suid);
             bytes[5] = ListSegments;
+            if (version >= 2)
+            {
+                Alias.WriteTo(bytes.AsSpan(WireSize));
+            }
             return bytes;
         }
 
-        public static bool TryRead(ReadOnlySpan<byte> src, out JoinResultBody body)
+        public static bool TryRead(ReadOnlySpan<byte> src, out JoinResultBody body, byte version = 1)
         {
             body = default;
-            if (src.Length < WireSize)
+            if (src.Length < (version >= 2 ? WireSizeV2 : WireSize))
             {
                 return false;
             }
             body.Result = (JoinResult)src[0];
             body.Suid = BinaryPrimitives.ReadUInt32LittleEndian(src[1..]);
             body.ListSegments = src[5];
+            if (version >= 2)
+            {
+                body.Alias = NodeId.ReadFrom(src[WireSize..]);
+            }
             return true;
         }
     }
