@@ -146,8 +146,7 @@ namespace JoinFS.Net
                         {
                             continue;
                         }
-                        // Windows reports a privacy address with a random suffix
-                        (info.SuffixOrigin == SuffixOrigin.Random ? temporary : stable).Add(info.Address);
+                        (IsTemporary(info) ? temporary : stable).Add(info.Address);
                     }
                 }
             }
@@ -156,6 +155,22 @@ namespace JoinFS.Net
             }
             stable.AddRange(temporary);
             return stable.GetRange(0, Math.Min(stable.Count, MaxIPv6Candidates));
+        }
+
+        /// <summary>
+        /// Windows reports a privacy (temporary) address with a random suffix. Linux does not say (the property throws), so there every address
+        /// counts as stable.
+        /// </summary>
+        static bool IsTemporary(UnicastIPAddressInformation info)
+        {
+            try
+            {
+                return info.SuffixOrigin == SuffixOrigin.Random;
+            }
+            catch (PlatformNotSupportedException)
+            {
+                return false;
+            }
         }
 
         /// <summary>An IPv6 address in 2000::/3: reachable from the internet, unlike link-local (fe80::/10) and unique-local (fc00::/7).</summary>
