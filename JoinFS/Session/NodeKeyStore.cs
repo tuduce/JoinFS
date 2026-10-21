@@ -125,7 +125,7 @@ namespace JoinFS
             }
             else
             {
-                log.Network("Node key " + key.Id + " from slot " + slot);
+                log.Event("Node key " + key.Id + " from slot " + slot);
             }
             Write();
         }

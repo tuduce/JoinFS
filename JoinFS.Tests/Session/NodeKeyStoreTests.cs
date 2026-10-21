@@ -26,6 +26,21 @@ namespace JoinFS.Tests.Session
         }
 
         [Fact]
+        public void EveryStart_LogsTheKeyNameAsAnEvent()
+        {
+            using NodeKeyStore first = Store();
+            NodeId id = first.Claim(6112).Id;
+            first.Dispose();
+            log.Events.Clear();
+
+            using NodeKeyStore second = Store();
+            second.Claim(6112);
+
+            // an event, not a NETWORK line: the network monitor is off at start
+            Assert.Contains(log.Events, line => line.Contains(id.ToString()) && line.Contains("slot 0"));
+        }
+
+        [Fact]
         public void SlotRecordingThisPort_IsPreferred()
         {
             NodeId hub;
