@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
@@ -20,6 +21,7 @@ namespace JoinFS.Net
         Socket socket;
         Thread receiveThread;
         volatile bool closing;
+        readonly HashSet<IPAddress> droppedIPv4 = [];
 
         public int LocalPort { get; private set; }
         public bool IsOpen => socket != null;
@@ -69,6 +71,7 @@ namespace JoinFS.Net
                 return true;
             }
             Close();
+            droppedIPv4.Clear();
             try
             {
                 Socket s = CreateSocket(out bool dual, out bool v6Only);
@@ -181,7 +184,12 @@ namespace JoinFS.Net
             }
             if (IsIPv6Only && to.AddressFamily == AddressFamily.InterNetwork)
             {
-                return; // no IPv4 route
+                // no IPv4 route; say so once per address, so a join that goes nowhere is not silent
+                if (droppedIPv4.Count < 64 && droppedIPv4.Add(to.Address))
+                {
+                    SendFailed?.Invoke(to, "Not sent: IPv4 is turned off (-noipv4)");
+                }
+                return;
             }
             try
             {

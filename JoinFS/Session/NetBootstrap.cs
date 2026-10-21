@@ -305,6 +305,7 @@ namespace JoinFS
                 endPoint = new IPEndPoint(address, remotePort);
                 return true;
             }
+            log.Event("Join address '" + addressText + "' is not an IPv4 address, nor a host name that resolves to one (IPv6 addresses are not accepted yet)");
             return false;
         }
 
@@ -322,7 +323,7 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                log.Event(ex.Message);
+                log.Event("Cannot resolve '" + addressText + "': " + ex.Message);
                 address = IPAddress.None;
             }
             dnsLookups[addressText] = address;

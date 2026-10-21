@@ -167,8 +167,11 @@ namespace JoinFS.Tests.Net
             Assert.True(v6only.Open(0, out error), error);
             client4.SendTo([4], new IPEndPoint(IPAddress.Loopback, v6only.LocalPort));
             Assert.Null(inbox4.WaitForOne(0.3));
-            v6only.Send(new IPEndPoint(IPAddress.Loopback, 9), [1]);
             Assert.Empty(failures);
+            transport.Send(new IPEndPoint(IPAddress.Loopback, 9), [1]);
+            transport.Send(new IPEndPoint(IPAddress.Loopback, 10), [1]);
+            Assert.Single(failures);              // said once per address
+            Assert.Contains("IPv4 is turned off", failures[0]);
         }
 
         [Fact]
