@@ -51,6 +51,8 @@ namespace JoinFS
         uint Uuid { get; }
         string Nickname { get; }
         bool Hub { get; }
+        /// <summary>Report a connected simulator even without one, so pilots send this node positions at the full rate</summary>
+        bool FeedFullRate { get; }
         string HubName { get; }
         string HubAbout { get; }
         string HubVoip { get; }

@@ -56,6 +56,7 @@ namespace JoinFS.Tests.Session
         public uint Uuid { get; set; } = 0x12345678;
         public string Nickname { get; set; } = "Me";
         public bool Hub { get; set; }
+        public bool FeedFullRate { get; set; }
         public string HubName { get; set; } = "";
         public string HubAbout { get; set; } = "";
         public string HubVoip { get; set; } = "";
