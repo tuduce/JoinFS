@@ -510,7 +510,8 @@ session on one of the two branches got it wrong.
 10. **Keep the copies in sync** (`JoinFS.Tests` copies of `Program.Code`, `Substitution`;
     `NetworkSnapshot.MakeEndPoint` beside `LocalIdentity.MakeEndPoint`).
 11. **Report short.** A stage report is the roadmap entry plus at most 250 words: scenario shown,
-    tests added, deviations, what the evening test should look at.
+    tests added, deviations, what the evening test should look at. It ends with the prompt for the
+    next stage, copied from §9 word for word, so the owner only has to paste it.
 
 ## 8. The two branches
 
@@ -525,14 +526,139 @@ The local `.claude/CLAUDE.md` is gitignored; stage 0 rewrote its JFP3 paragraph 
 
 ## 9. Starting a session
 
-The owner pastes this, with the stage number, and nothing else. Every session gets the same text,
-so every session starts from the same picture.
+The owner pastes the prompt of the stage, and nothing else. Every prompt is the same text with the
+stage number changed, so every session starts from the same picture. A session that continues a
+stage after a resume note gets the same prompt again. Each stage report ends with the next prompt
+(§7 rule 11); this list is the copy for when it does not.
+
+**Stage 2: Dual-mode socket**
 
 ```
-Implement stage N of docs/network/jfp2/standalone-ipv6-plan.md.
+Implement stage 2 of docs/network/jfp2/standalone-ipv6-plan.md.
 Read §6.1 first and follow §6.2: claim the row or continue its resume note; one commit per stage,
 named after the row, only when §6.2 rule 4 holds; otherwise write the resume note and commit nothing.
 Then read §1, §2.1, §5, §7 and your row in §6, and only the protocol.md sections the row cites.
 Decisions are in §4 and §5; if your row needs one that is not there, follow §7 rule 1.
-Report in at most 250 words: scenario shown, tests added, deviations, what the evening test should look at.
+Report in at most 250 words: scenario shown, tests added, deviations, what the evening test should
+look at; end with the prompt for stage 3 from §9.
+```
+
+**Stage 3: Admission**
+
+```
+Implement stage 3 of docs/network/jfp2/standalone-ipv6-plan.md.
+Read §6.1 first and follow §6.2: claim the row or continue its resume note; one commit per stage,
+named after the row, only when §6.2 rule 4 holds; otherwise write the resume note and commit nothing.
+Then read §1, §2.1, §5, §7 and your row in §6, and only the protocol.md sections the row cites.
+Decisions are in §4 and §5; if your row needs one that is not there, follow §7 rule 1.
+Report in at most 250 words: scenario shown, tests added, deviations, what the evening test should
+look at; end with the prompt for stage 4 from §9.
+```
+
+**Stage 4: Join over JFP2**
+
+```
+Implement stage 4 of docs/network/jfp2/standalone-ipv6-plan.md.
+Read §6.1 first and follow §6.2: claim the row or continue its resume note; one commit per stage,
+named after the row, only when §6.2 rule 4 holds; otherwise write the resume note and commit nothing.
+Then read §1, §2.1, §5, §7 and your row in §6, and only the protocol.md sections the row cites.
+Decisions are in §4 and §5; if your row needs one that is not there, follow §7 rule 1.
+Report in at most 250 words: scenario shown, tests added, deviations, what the evening test should
+look at; end with the prompt for stage 5 from §9.
+```
+
+**Stage 5: Membership and fallback**
+
+```
+Implement stage 5 of docs/network/jfp2/standalone-ipv6-plan.md.
+Read §6.1 first and follow §6.2: claim the row or continue its resume note; one commit per stage,
+named after the row, only when §6.2 rule 4 holds; otherwise write the resume note and commit nothing.
+Then read §1, §2.1, §5, §7 and your row in §6, and only the protocol.md sections the row cites.
+Decisions are in §4 and §5; if your row needs one that is not there, follow §7 rule 1.
+Report in at most 250 words: scenario shown, tests added, deviations, what the evening test should
+look at; end with the prompt for stage 6 from §9.
+```
+
+**Stage 6: Bridging on IPv4**
+
+```
+Implement stage 6 of docs/network/jfp2/standalone-ipv6-plan.md.
+Read §6.1 first and follow §6.2: claim the row or continue its resume note; one commit per stage,
+named after the row, only when §6.2 rule 4 holds; otherwise write the resume note and commit nothing.
+Then read §1, §2.1, §5, §7 and your row in §6, and only the protocol.md sections the row cites.
+Decisions are in §4 and §5; if your row needs one that is not there, follow §7 rule 1.
+Report in at most 250 words: scenario shown, tests added, deviations, what the evening test should
+look at; end with the prompt for stage 7 from §9.
+```
+
+**Stage 7: IPv6 between N nodes**
+
+```
+Implement stage 7 of docs/network/jfp2/standalone-ipv6-plan.md.
+Read §6.1 first and follow §6.2: claim the row or continue its resume note; one commit per stage,
+named after the row, only when §6.2 rule 4 holds; otherwise write the resume note and commit nothing.
+Then read §1, §2.1, §5, §7 and your row in §6, and only the protocol.md sections the row cites.
+Decisions are in §4 and §5; if your row needs one that is not there, follow §7 rule 1.
+Report in at most 250 words: scenario shown, tests added, deviations, what the evening test should
+look at; end with the prompt for stage 8 from §9.
+```
+
+**Stage 8: IPv6-only nodes**
+
+```
+Implement stage 8 of docs/network/jfp2/standalone-ipv6-plan.md.
+Read §6.1 first and follow §6.2: claim the row or continue its resume note; one commit per stage,
+named after the row, only when §6.2 rule 4 holds; otherwise write the resume note and commit nothing.
+Then read §1, §2.1, §5, §7 and your row in §6, and only the protocol.md sections the row cites.
+Decisions are in §4 and §5; if your row needs one that is not there, follow §7 rule 1.
+Report in at most 250 words: scenario shown, tests added, deviations, what the evening test should
+look at; end with the prompt for stage 9 from §9.
+```
+
+**Stage 9: Directory over JFP2**
+
+```
+Implement stage 9 of docs/network/jfp2/standalone-ipv6-plan.md.
+Read §6.1 first and follow §6.2: claim the row or continue its resume note; one commit per stage,
+named after the row, only when §6.2 rule 4 holds; otherwise write the resume note and commit nothing.
+Then read §1, §2.1, §5, §7 and your row in §6, and only the protocol.md sections the row cites.
+Decisions are in §4 and §5; if your row needs one that is not there, follow §7 rule 1.
+Report in at most 250 words: scenario shown, tests added, deviations, what the evening test should
+look at; end with the prompt for stage 10 from §9.
+```
+
+**Stage 10: Remaining kinds and large messages**
+
+```
+Implement stage 10 of docs/network/jfp2/standalone-ipv6-plan.md.
+Read §6.1 first and follow §6.2: claim the row or continue its resume note; one commit per stage,
+named after the row, only when §6.2 rule 4 holds; otherwise write the resume note and commit nothing.
+Then read §1, §2.1, §5, §7 and your row in §6, and only the protocol.md sections the row cites.
+Decisions are in §4 and §5; if your row needs one that is not there, follow §7 rule 1.
+Report in at most 250 words: scenario shown, tests added, deviations, what the evening test should
+look at; end with the prompt for stage 11 from §9.
+```
+
+**Stage 11: JFP2-only hub**
+
+```
+Implement stage 11 of docs/network/jfp2/standalone-ipv6-plan.md.
+Read §6.1 first and follow §6.2: claim the row or continue its resume note; one commit per stage,
+named after the row, only when §6.2 rule 4 holds; otherwise write the resume note and commit nothing.
+Then read §1, §2.1, §5, §7 and your row in §6, and only the protocol.md sections the row cites.
+Decisions are in §4 and §5; if your row needs one that is not there, follow §7 rule 1.
+Report in at most 250 words: scenario shown, tests added, deviations, what the evening test should
+look at; end with the prompt for stage 12 from §9.
+```
+
+**Stage 12: Specification and release**
+
+```
+Implement stage 12 of docs/network/jfp2/standalone-ipv6-plan.md.
+Read §6.1 first and follow §6.2: claim the row or continue its resume note; one commit per stage,
+named after the row, only when §6.2 rule 4 holds; otherwise write the resume note and commit nothing.
+Then read §1, §2.1, §5, §7 and your row in §6, and only the protocol.md sections the row cites.
+Decisions are in §4 and §5; if your row needs one that is not there, follow §7 rule 1.
+Report in at most 250 words: scenario shown, tests added, deviations, what the evening test should
+look at; this is the last stage, so no next prompt.
 ```
