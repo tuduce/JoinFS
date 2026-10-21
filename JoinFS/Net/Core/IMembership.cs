@@ -32,14 +32,15 @@ namespace JoinFS.Net
         /// nodes on its device). A node that is a member already (it rejoins, or was learned through another
         /// member) is the same peer: it becomes a direct neighbour at <paramref name="endPoint"/>, linked over
         /// JFP2 only, and its expiry is renewed; <paramref name="isNew"/> tells which of the two it was.
+        /// <paramref name="candidates"/> are the endpoints the joiner advertised (null: none).
         /// </summary>
-        Peer Admit(NodeId joiner, IPEndPoint endPoint, IReadOnlyList<NodeId> otherNames, out bool isNew);
+        Peer Admit(NodeId joiner, IPEndPoint endPoint, IReadOnlyList<NodeId> otherNames, IReadOnlyList<IPEndPoint> candidates, out bool isNew);
 
         /// <summary>
         /// The node this one asked to join accepted it: the session is joined, and <paramref name="admitter"/>
         /// is the first neighbour. Null when no join is under way or the session is another.
         /// </summary>
-        Peer Joined(uint suid, NodeId admitter, IPEndPoint endPoint, IReadOnlyList<NodeId> otherNames);
+        Peer Joined(uint suid, NodeId admitter, IPEndPoint endPoint, IReadOnlyList<NodeId> otherNames, IReadOnlyList<IPEndPoint> candidates);
 
         /// <summary>The node this one asked to join refused it (what the app reads as <see cref="MeshManager.ActiveJoinResult"/>).</summary>
         void JoinRefused(JoinResult result);
@@ -82,10 +83,18 @@ namespace JoinFS.Net
         void RouteThrough(NodeId via, NodeId member);
 
         /// <summary>
-        /// A verified session with <paramref name="member"/> at its own endpoint: it is a direct neighbour now, whatever
-        /// reached it before, and it lives for another expiry time.
+        /// A verified session with <paramref name="member"/> at <paramref name="endPoint"/>, which is one of its own (the
+        /// endpoint it was registered at, or one it advertised): it is a direct neighbour at that endpoint now, whatever reached
+        /// it before, and it lives for another expiry time. The member may already be direct, at another of its endpoints: the
+        /// route then moves (another family).
         /// </summary>
-        void RouteDirect(NodeId member);
+        void RouteDirect(NodeId member, IPEndPoint endPoint);
+
+        /// <summary>
+        /// <paramref name="member"/> advertised the endpoints it can be tried at (a Hello of its own, or a member entry): they
+        /// replace what was known. Candidates nobody else could use (loopback, link-local, a port of 0) are left out.
+        /// </summary>
+        void Advertised(NodeId member, IReadOnlyList<IPEndPoint> candidates);
 
         /// <summary>The member's direct link stopped answering: it is reached through no one until a neighbour says it reaches it.</summary>
         void RouteLost(NodeId member);
@@ -95,13 +104,14 @@ namespace JoinFS.Net
     public interface IMembershipExpression
     {
         /// <summary>
-        /// Start joining the session of the node at <paramref name="target"/> over this protocol. False when it
-        /// cannot (nothing to state as a name, or no way to reach the node). With
+        /// Start joining the session of the node at <paramref name="targets"/>, the addresses of one node (its IPv6 ones first), over
+        /// this protocol: every one is tried, IPv6 first and IPv4 a short delay later, and the first to answer is the one joined. False
+        /// when it cannot (nothing to state as a name, or no way to reach the node). With
         /// <paramref name="legacyFallback"/> the attempt is given up after a short silence, or when the node takes no
         /// join over this protocol, and reported through <see cref="IMembership.JoinFailedOverJfp2"/> so the mesh
         /// joins over legacy; a refusal is final either way.
         /// </summary>
-        bool BeginJoin(IPEndPoint target, uint passwordHash, bool legacyFallback);
+        bool BeginJoin(IReadOnlyList<IPEndPoint> targets, uint passwordHash, bool legacyFallback);
 
         /// <summary>This node leaves the session: tell the neighbours this protocol holds as members, before its state is reset.</summary>
         void AnnounceLeaving();

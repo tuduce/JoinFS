@@ -195,6 +195,7 @@ namespace JoinFS.Net.Jfp2
         public void OnPeerRemoved(Peer peer)
         {
             RemoveSession(peer.Id);
+            paths.Remove(peer.Id);
             reliability.RemovePeer(peer.Id);
             identitySent.RemoveWhere((k, _) => k.Peer == peer.Id || k.Owner == peer.Id);
             occupants.RemoveWhere((_, o) => o.Node == peer.Id);
@@ -207,6 +208,7 @@ namespace JoinFS.Net.Jfp2
         {
             sessions.Clear();
             sessionsById.Clear();
+            paths.Clear();
             nonMembers.Clear();
             introductions.Clear();
             pendingJoins.Clear();

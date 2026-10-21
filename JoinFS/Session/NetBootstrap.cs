@@ -50,8 +50,14 @@ namespace JoinFS
         /// <summary>Where neighbors see this node (JFP2's observed endpoint), and the NAT class that follows.</summary>
         readonly ObservedEndPoints observed = new();
 
-        readonly Dictionary<string, IPAddress> dnsLookups = [];
+        readonly Dictionary<string, IPAddress[]> dnsLookups = [];
         DateTime dnsResetTime = DateTime.Now.AddDays(1);
+
+        /// <summary>
+        /// Every address a text resolved to, by the one endpoint <see cref="MakeEndPoint(string, ushort, out IPEndPoint)"/> handed out for it
+        /// (a host name with an A and an AAAA record has two); a join dials all of them (<see cref="DialList"/>). Only a text with several.
+        /// </summary>
+        readonly Dictionary<IPEndPoint, IReadOnlyList<IPEndPoint>> dialLists = [];
 
         /// <param name="localAddressOverride">A LAN address to use instead of the detected one (Docker, NAT), or empty.</param>
         /// <param name="knownPublicIp">The public IP remembered from last time, used until a fresh one is downloaded.</param>
@@ -286,48 +292,64 @@ namespace JoinFS
 
         public IPEndPoint MakeEndPoint(LegacyNodeId node, ushort port) => identity.MakeEndPoint(node, port);
 
+        /// <summary>
+        /// What the user typed (<c>host</c>, <c>a.b.c.d:port</c>, <c>[v6]:port</c>, a bare <c>v6</c>) as the addresses a join dials, IPv6 ones
+        /// first: a host name gives all its addresses, not just the first. Which of them this node can use is decided when it joins.
+        /// </summary>
+        public DialAddresses.Result Dial(string addressText, int defaultPort) => DialAddresses.Parse(addressText, defaultPort, true, DnsLookupAll);
+
+        /// <summary>
+        /// "address[:port]" (an IP, an IPv6 one in brackets, or a DNS name) to an endpoint. For a host with IPv4 and IPv6 addresses it is the first
+        /// IPv4 one, which is what the code that speaks legacy (the hub list, bans) can use; a join dials all of them (<see cref="DialList"/>).
+        /// A host with an IPv6 address only gives that one.
+        /// </summary>
         public bool MakeEndPoint(string addressText, ushort port, out IPEndPoint endPoint)
         {
             endPoint = new IPEndPoint(0, 0);
-            string[] parts = addressText.Split(':');
-            if (parts.Length <= 0)
+            DialAddresses.Result dial = Dial(addressText, port);
+            if (dial.Failure != DialAddresses.Failure.None)
             {
+                log.Event("Join address '" + addressText + "' " + (dial.Failure == DialAddresses.Failure.InvalidPort ? "has an invalid port '" + dial.BadPort + "'" : "is not an IP address, nor a host name that resolves to one"));
                 return false;
             }
-            int remotePort = port;
-            if (parts.Length > 1 && Int32.TryParse(parts[1], NumberStyles.Number, CultureInfo.InvariantCulture, out remotePort) == false)
+            endPoint = dial.EndPoints.Find(e => e.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork) ?? dial.EndPoints[0];
+            if (dial.EndPoints.Count > 1)
             {
-                return false;
+                dialLists[endPoint] = dial.EndPoints;
             }
-            if (IsIPv4(parts[0], out IPAddress address)
-                || DnsLookup(parts[0], out address) && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-            {
-                endPoint = new IPEndPoint(address, remotePort);
-                return true;
-            }
-            log.Event("Join address '" + addressText + "' is not an IPv4 address, nor a host name that resolves to one (IPv6 addresses are not accepted yet)");
-            return false;
+            return true;
         }
 
-        /// <summary>Look up a host name (cached for a day, failures included).</summary>
+        /// <summary>The addresses to dial for an endpoint <see cref="MakeEndPoint(string, ushort, out IPEndPoint)"/> gave: all those its text resolved to, else just it.</summary>
+        public IReadOnlyList<IPEndPoint> DialList(IPEndPoint endPoint) => dialLists.TryGetValue(endPoint, out IReadOnlyList<IPEndPoint> list) ? list : [endPoint];
+
+        /// <summary>Look up a host name (cached for a day, failures included): its first IPv4 address, else its first address.</summary>
         public bool DnsLookup(string addressText, out IPAddress address)
         {
-            if (dnsLookups.TryGetValue(addressText, out address))
+            IReadOnlyList<IPAddress> list = DnsLookupAll(addressText);
+            address = list.FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork) ?? list.FirstOrDefault() ?? IPAddress.None;
+            return list.Count > 0;
+        }
+
+        /// <summary>Every address a host name resolves to (cached for a day, failures included); empty when it does not.</summary>
+        public IReadOnlyList<IPAddress> DnsLookupAll(string addressText)
+        {
+            if (dnsLookups.TryGetValue(addressText, out IPAddress[] cached))
             {
-                return !address.Equals(IPAddress.None);
+                return cached;
             }
+            IPAddress[] list;
             try
             {
-                IPAddress[] list = Dns.GetHostAddresses(addressText);
-                address = list.Length > 0 ? list[0] : IPAddress.None;
+                list = Dns.GetHostAddresses(addressText);
             }
             catch (Exception ex)
             {
                 log.Event("Cannot resolve '" + addressText + "': " + ex.Message);
-                address = IPAddress.None;
+                list = [];
             }
-            dnsLookups[addressText] = address;
-            return !address.Equals(IPAddress.None);
+            dnsLookups[addressText] = list;
+            return list;
         }
     }
 }

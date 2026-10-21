@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -39,6 +40,8 @@ namespace JoinFS.Net
         volatile bool running;
         volatile NetworkSnapshot snapshot = NetworkSnapshot.Empty;
         string loggedSocketMode;
+        string loggedAddresses;
+        double nextAddressCheck;
         double nextTick;
         double nextSnapshot;
 
@@ -182,6 +185,7 @@ namespace JoinFS.Net
                     }
                 }
                 if (ok) core.Identity.Port = (ushort)transport.LocalPort;
+                if (ok) RefreshAddresses(core);
                 nextSnapshot = 0;
             }
             if (running && Thread.CurrentThread != thread)
@@ -262,11 +266,39 @@ namespace JoinFS.Net
                     }
                     nextTick = now + TickInterval;
                 }
+                if (now >= nextAddressCheck && Core.IsOpen)
+                {
+                    RefreshAddresses(Core);
+                }
                 if (now >= nextSnapshot)
                 {
                     snapshot = BuildSnapshot();
                     nextSnapshot = now + SnapshotInterval;
                 }
+            }
+        }
+
+        /// <summary>How often the machine's IPv6 addresses are read again (they change with the ISP, the router and sleep).</summary>
+        const double AddressCheckInterval = 30;
+
+        /// <summary>
+        /// The global IPv6 addresses this node advertises as candidates (<see cref="LocalIdentity.Candidates"/>), read from the interfaces
+        /// when the socket serves IPv6. A change is logged at event level and goes out with the next Hello.
+        /// </summary>
+        void RefreshAddresses(NetworkCore core)
+        {
+            nextAddressCheck = clock.Now + AddressCheckInterval;
+            bool ipv6 = transport.IsDualStack || transport.IsIPv6Only;
+            IReadOnlyList<IPAddress> found = ipv6 ? LocalIdentity.DetectGlobalIPv6() : [];
+            string text = ipv6 ? (found.Count == 0 ? "none" : string.Join(", ", found)) : "IPv6 is not in use";
+            if (!found.SequenceEqual(core.Identity.Ipv6Addresses))
+            {
+                core.Identity.Ipv6Addresses = found;
+            }
+            if (text != loggedAddresses)
+            {
+                loggedAddresses = text;
+                core.Log(NetLogLevel.Event, "NETWORK: global IPv6 addresses: " + text);
             }
         }
 
@@ -318,6 +350,7 @@ namespace JoinFS.Net
                 Open = Core.IsOpen,
                 DualStack = transport.IsDualStack,
                 Ipv6Only = transport.IsIPv6Only,
+                Ipv6Addresses = Core.Identity.Ipv6Addresses,
                 Port = Core.Identity.Port,
                 LocalId = Core.Identity.Id,
                 LocalAddress = Core.Identity.LocalAddress,

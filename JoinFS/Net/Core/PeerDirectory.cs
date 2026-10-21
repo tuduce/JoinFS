@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Sockets;
 
 namespace JoinFS.Net
 {
@@ -22,7 +24,7 @@ namespace JoinFS.Net
         /// Route goes to the node's own address (port may differ). The legacy protocol's notion of
         /// "direct", used for its relay and pathfinder decisions.
         /// </summary>
-        public bool Direct => EndPoint.Address.Equals(RouteEndPoint.Address);
+        public bool Direct => EndPoint.Address.Equals(RouteEndPoint.Address) || (!Relayed && IsCandidate(RouteEndPoint));
 
         /// <summary>
         /// The relay node this peer is reached through, or invalid when it is reached directly. Set
@@ -41,10 +43,58 @@ namespace JoinFS.Net
         public bool Relayed => RouteVia.Valid();
 
         /// <summary>
+        /// The endpoints the node can be tried at, as it advertised them, preferred first: global IPv6, public IPv4, LAN IPv4
+        /// (docs/network/jfp2/standalone-ipv6-plan.md §5.4). Empty until it has. Only a member with no legacy link has any that
+        /// matter (a legacy link is IPv4 and stays where legacy put it); the JFP2 plugin tries them and the route moves to the
+        /// one that answers (<see cref="RouteEndPoint"/>).
+        /// </summary>
+        public IReadOnlyList<IPEndPoint> Candidates = [];
+
+        /// <summary><paramref name="endPoint"/> is one of the endpoints the node advertised.</summary>
+        public bool IsCandidate(IPEndPoint endPoint)
+        {
+            foreach (IPEndPoint candidate in Candidates)
+            {
+                if (candidate.Equals(endPoint))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary><paramref name="endPoint"/> is the node's own: where it was registered, or an endpoint it advertised.</summary>
+        public bool IsOwnEndPoint(IPEndPoint endPoint) => EndPoint.Equals(endPoint) || IsCandidate(endPoint);
+
+        /// <summary>
+        /// An endpoint worth trying a node at, when a neighbour says the node has it: a port, and an address another host can
+        /// reach (a global IPv6 address, or an IPv4 address that is not loopback, unspecified, multicast, broadcast or link-local).
+        /// </summary>
+        public static bool IsUsableCandidate(IPEndPoint endPoint)
+        {
+            if (endPoint == null || endPoint.Port == 0)
+            {
+                return false;
+            }
+            IPAddress address = endPoint.Address;
+            if (address.AddressFamily == AddressFamily.InterNetworkV6)
+            {
+                return LocalIdentity.IsGlobalUnicast(address);
+            }
+            if (address.AddressFamily != AddressFamily.InterNetwork)
+            {
+                return false;
+            }
+            Span<byte> bytes = stackalloc byte[4];
+            address.TryWriteBytes(bytes, out _);
+            return bytes[0] != 0 && bytes[0] != 127 && bytes[0] < 224 && !(bytes[0] == 169 && bytes[1] == 254);
+        }
+
+        /// <summary>
         /// Route is exactly the node's own endpoint (address and port) and no relay is involved.
         /// Stricter than <see cref="Direct"/>; what a relay needs before it forwards to a peer.
         /// </summary>
-        public bool RouteIsOwnEndPoint => !Relayed && RouteEndPoint.Equals(EndPoint);
+        public bool RouteIsOwnEndPoint => !Relayed && IsOwnEndPoint(RouteEndPoint);
 
         /// <summary>We have heard from the node.</summary>
         public bool ReceiveEstablished;

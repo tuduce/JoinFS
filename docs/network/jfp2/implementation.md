@@ -96,6 +96,15 @@ acknowledges a guaranteed message in the target's name. `Jfp2Plugin.Routing.cs` 
 A member reached through a relay is probed at its own endpoint (`ProbeDirect` in `Jfp2Plugin.Handshake.cs`); a session
 verified there makes it a direct neighbour (`PromoteDirect`, `IMembership.RouteDirect`), and `Demote` of such a
 session hands it back to the neighbours (`RouteLost`, then RouteQuery).
+The endpoints a member can be tried at (`protocol.md` §5.14) are `Peer.Candidates`, set by `IMembership.Advertised`
+(from a Hello or HelloAck of its own) and by the entries of MemberList and MemberAnnounce at schema version 2; this
+node's own are `LocalIdentity.Candidates`. A member's `EndPoint` stays where it was registered and its path is
+`RouteEndPoint`, any endpoint in `Peer.IsOwnEndPoint`. `Jfp2Plugin.Paths.cs` holds the rules of the path: the targets of
+a round of Hellos (`ProbeTargets`, `StartProbe`: IPv6 first, IPv4 after `HappyEyeballsDelay`), the 60 s IPv6 probe of a
+link on IPv4 (`ProbeIPv6`), the answer that may move a link (`MovesPath`) and the hold-off after IPv6 went silent
+(`HoldOffIPv6`, from `Demote`). A join takes the addresses of one node (`BeginJoin(IReadOnlyList<IPEndPoint>, ...)`):
+`Asks` start an introduction per address, and the first to give a cookie is the one joined (`CommitTo`). The app side
+turns text into addresses with `DialAddresses` and keeps a host's addresses together (`NetBootstrap.DialList`).
 
 ### 3.2 The observed endpoint
 

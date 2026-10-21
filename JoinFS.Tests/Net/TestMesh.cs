@@ -49,6 +49,7 @@ namespace JoinFS.Tests.Net
             Core.Identity.LocalAddress = EndPoint.Address;
             Core.Identity.InternetAddress = publicIp == null ? EndPoint.Address : IPAddress.Parse(publicIp);
             Core.Identity.Port = port;
+            if (EndPoint6 != null) Core.Identity.Ipv6Addresses = [EndPoint6.Address];
             foreach (IProtocolPlugin plugin in plugins.Length > 0 ? plugins : [new LegacyPlugin()])
             {
                 Core.AddPlugin(plugin);

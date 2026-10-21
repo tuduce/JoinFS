@@ -91,7 +91,7 @@ namespace JoinFS.Live
                 nuid.ToString(), nickname, main.network.Peers.GetNodeCallsign(nuid), connected,
                 (int)Math.Round(main.network.GetNodeRTT(nuid) * 1000.0f), aircraft, objects,
                 main.network.Peers.GetNodeSimulator(nuid), main.network.Peers.GetNodeVersion(nuid),
-                link.ToDisplay(), peer?.EndPoint?.Port ?? 0);
+                link.ToDisplay(peer?.Family), peer?.EndPoint?.Port ?? 0);
         }
 
         public PeerSettings GetSettings(string peerId)

@@ -100,10 +100,16 @@ namespace JoinFS.Net.Jfp2
         }
     }
 
-    /// <summary>A member as MemberList lists it: the names it is known by (preferred first) and where it is.</summary>
-    public readonly record struct MemberEntry(NodeId[] Names, IPEndPoint EndPoint);
+    /// <summary>
+    /// A member as MemberList lists it: the names it is known by (preferred first), where the sender reaches it and, from
+    /// schema version 2, the endpoints it can be tried at (<see cref="Candidates"/>, null or empty when there are none).
+    /// </summary>
+    public readonly record struct MemberEntry(NodeId[] Names, IPEndPoint EndPoint, IReadOnlyList<IPEndPoint> Candidates = null);
 
-    /// <summary>MemberList (internal class 4, version 1): some of the members the admitting node knows, for a node that just joined.</summary>
+    /// <summary>
+    /// MemberList (internal class 4, versions 1 and 2): some of the members the admitting node knows, for a node that just joined.
+    /// Version 2 adds the member's candidates to each entry (protocol.md §5.14).
+    /// </summary>
     public struct MemberListBody
     {
         public const int MaxNames = 4;
@@ -114,25 +120,37 @@ namespace JoinFS.Net.Jfp2
         public byte Index;
         public List<MemberEntry> Entries;
 
-        public static int SizeOf(MemberEntry entry) => 1 + Math.Min(entry.Names.Length, MaxNames) * NodeId.WireSize + 1 + WireEndPoint.SizeOf(entry.EndPoint);
+        public static int SizeOf(MemberEntry entry, byte version = 1)
+        {
+            int size = 1 + Math.Min(entry.Names.Length, MaxNames) * NodeId.WireSize + 1 + WireEndPoint.SizeOf(entry.EndPoint);
+            if (version >= 2)
+            {
+                size += 1;
+                int count = CandidateCount(entry);
+                for (int i = 0; i < count; i++) size += 1 + WireEndPoint.SizeOf(entry.Candidates[i]);
+            }
+            return size;
+        }
 
-        public readonly byte[] Serialize()
+        static int CandidateCount(MemberEntry entry) => Math.Min(entry.Candidates?.Count ?? 0, HandshakeMessage.MaxCandidates);
+
+        public readonly byte[] Serialize(byte version = 1)
         {
             int size = 2;
-            foreach (MemberEntry entry in Entries) size += SizeOf(entry);
+            foreach (MemberEntry entry in Entries) size += SizeOf(entry, version);
             byte[] bytes = new byte[size];
             bytes[0] = Index;
             bytes[1] = (byte)Entries.Count;
             int at = 2;
             foreach (MemberEntry entry in Entries)
             {
-                at += WriteEntry(entry, bytes.AsSpan(at));
+                at += WriteEntry(entry, bytes.AsSpan(at), version);
             }
             return bytes;
         }
 
         /// <summary>Writes one entry (<see cref="SizeOf"/> bytes) and returns how many it wrote.</summary>
-        public static int WriteEntry(MemberEntry entry, Span<byte> dest)
+        public static int WriteEntry(MemberEntry entry, Span<byte> dest, byte version = 1)
         {
             int at = 0;
             int names = Math.Min(entry.Names.Length, MaxNames);
@@ -145,7 +163,20 @@ namespace JoinFS.Net.Jfp2
             int length = WireEndPoint.SizeOf(entry.EndPoint);
             dest[at++] = (byte)length;
             WireEndPoint.WriteTo(entry.EndPoint, dest.Slice(at, length));
-            return at + length;
+            at += length;
+            if (version >= 2)
+            {
+                int count = CandidateCount(entry);
+                dest[at++] = (byte)count;
+                for (int i = 0; i < count; i++)
+                {
+                    int candidateLength = WireEndPoint.SizeOf(entry.Candidates[i]);
+                    dest[at++] = (byte)candidateLength;
+                    WireEndPoint.WriteTo(entry.Candidates[i], dest.Slice(at, candidateLength));
+                    at += candidateLength;
+                }
+            }
+            return at;
         }
 
         /// <summary>
@@ -153,7 +184,7 @@ namespace JoinFS.Net.Jfp2
         /// bytes end inside the entry (<paramref name="at"/> is then the end); true with a null
         /// <paramref name="entry"/> for an entry that is skipped, since its declared sizes tell where the next begins.
         /// </summary>
-        public static bool TryReadEntry(ReadOnlySpan<byte> src, ref int at, out MemberEntry? entry)
+        public static bool TryReadEntry(ReadOnlySpan<byte> src, ref int at, out MemberEntry? entry, byte version = 1)
         {
             entry = null;
             if (at >= src.Length)
@@ -178,11 +209,42 @@ namespace JoinFS.Net.Jfp2
                 at = src.Length;
                 return false;
             }
-            if (names > 0 && list[0].Valid() && WireEndPoint.TryReadFrom(src.Slice(at, length), out IPEndPoint endPoint))
-            {
-                entry = new MemberEntry(list, endPoint);
-            }
+            IPEndPoint endPoint = null;
+            bool usable = names > 0 && list[0].Valid() && WireEndPoint.TryReadFrom(src.Slice(at, length), out endPoint);
             at += length;
+            List<IPEndPoint> candidates = null;
+            if (version >= 2)
+            {
+                if (at >= src.Length)
+                {
+                    return false;
+                }
+                int count = src[at++];
+                candidates = [];
+                for (int c = 0; c < count; c++)
+                {
+                    if (at >= src.Length)
+                    {
+                        at = src.Length;
+                        return false;
+                    }
+                    int candidateLength = src[at++];
+                    if (at + candidateLength > src.Length)
+                    {
+                        at = src.Length;
+                        return false;
+                    }
+                    if (candidates.Count < HandshakeMessage.MaxCandidates && WireEndPoint.TryReadFrom(src.Slice(at, candidateLength), out IPEndPoint candidate) && !candidates.Contains(candidate))
+                    {
+                        candidates.Add(candidate);
+                    }
+                    at += candidateLength;
+                }
+            }
+            if (usable)
+            {
+                entry = new MemberEntry(list, endPoint, candidates);
+            }
             return true;
         }
 
@@ -190,7 +252,7 @@ namespace JoinFS.Net.Jfp2
         /// Reads a MemberList. An entry with no name this build can use, or an endpoint of an unassigned family,
         /// is skipped (its declared sizes tell where the next begins); a list cut short ends where it is cut.
         /// </summary>
-        public static bool TryRead(ReadOnlySpan<byte> src, out MemberListBody body)
+        public static bool TryRead(ReadOnlySpan<byte> src, out MemberListBody body, byte version = 1)
         {
             body = default;
             if (src.Length < 2)
@@ -203,7 +265,7 @@ namespace JoinFS.Net.Jfp2
             int at = 2;
             for (int e = 0; e < count; e++)
             {
-                if (!TryReadEntry(src, ref at, out MemberEntry? entry))
+                if (!TryReadEntry(src, ref at, out MemberEntry? entry, version))
                 {
                     break;
                 }
@@ -216,24 +278,24 @@ namespace JoinFS.Net.Jfp2
         }
     }
 
-    /// <summary>MemberAnnounce (internal class 5, version 1): a node that admitted a member tells its other neighbours of it. One member entry, as in MemberList.</summary>
+    /// <summary>MemberAnnounce (internal class 5, versions 1 and 2): a node that admitted a member tells its other neighbours of it. One member entry, as in MemberList.</summary>
     public struct MemberAnnounceBody
     {
         public MemberEntry Entry;
 
-        public readonly byte[] Serialize()
+        public readonly byte[] Serialize(byte version = 1)
         {
-            byte[] bytes = new byte[MemberListBody.SizeOf(Entry)];
-            MemberListBody.WriteEntry(Entry, bytes);
+            byte[] bytes = new byte[MemberListBody.SizeOf(Entry, version)];
+            MemberListBody.WriteEntry(Entry, bytes, version);
             return bytes;
         }
 
         /// <summary>False for an entry this build cannot use (no usable first name, an endpoint of an unassigned family) or a cut one.</summary>
-        public static bool TryRead(ReadOnlySpan<byte> src, out MemberAnnounceBody body)
+        public static bool TryRead(ReadOnlySpan<byte> src, out MemberAnnounceBody body, byte version = 1)
         {
             body = default;
             int at = 0;
-            if (!MemberListBody.TryReadEntry(src, ref at, out MemberEntry? entry) || !entry.HasValue)
+            if (!MemberListBody.TryReadEntry(src, ref at, out MemberEntry? entry, version) || !entry.HasValue)
             {
                 return false;
             }

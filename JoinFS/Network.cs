@@ -447,6 +447,8 @@ namespace JoinFS
         {
             sessionOrigin = SessionOrigin.Join;
             lastPasswordHash = passwordHash;
+            // a host name with an IPv4 and an IPv6 address is dialled at both (IPv6 first)
+            IReadOnlyList<IPEndPoint> dial = Bootstrap.DialList(endPoint);
             StartSession(endPoint, core =>
             {
                 if (joinOverLegacy)
@@ -455,7 +457,7 @@ namespace JoinFS
                 }
                 else
                 {
-                    core.Mesh.JoinJfp2First(endPoint, passwordHash);
+                    core.Mesh.JoinJfp2First(dial, passwordHash);
                 }
             });
         }

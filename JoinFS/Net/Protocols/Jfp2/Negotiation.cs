@@ -132,6 +132,12 @@ namespace JoinFS.Net.Jfp2
         /// <summary>Extension tag carrying the admission cookie (<see cref="Admission"/>).</summary>
         public const ushort AdmissionTag = 4;
 
+        /// <summary>Extension tag carrying the sender's endpoint candidates (<see cref="Candidates"/>).</summary>
+        public const ushort CandidatesTag = 5;
+
+        /// <summary>The most candidates a sender writes and a reader keeps (protocol.md §5.14).</summary>
+        public const int MaxCandidates = 8;
+
         /// <summary>The size of an admission cookie.</summary>
         public const int AdmissionCookieSize = 16;
 
@@ -181,6 +187,13 @@ namespace JoinFS.Net.Jfp2
         /// is read as its first 16 bytes.
         /// </summary>
         public byte[] Admission;
+
+        /// <summary>
+        /// Candidates (docs/network/jfp2/protocol.md §5.14): the endpoints the sender can be tried at, preferred first (global IPv6,
+        /// then public IPv4, then LAN IPv4). Travels as a list of one length byte and a <see cref="WireEndPoint"/> each; an entry
+        /// that cannot be read is skipped, and at most <see cref="MaxCandidates"/> are kept. Null: not sent (and none read).
+        /// </summary>
+        public List<IPEndPoint> Candidates;
 
         /// <summary>
         /// The build text as it may travel: printable ASCII only (0x20-0x7E; it comes from
@@ -244,9 +257,13 @@ namespace JoinFS.Net.Jfp2
             {
                 Tlv.Write(bytes, AdmissionTag, Admission);
             }
+            if (Candidates is { Count: > 0 })
+            {
+                Tlv.Write(bytes, CandidatesTag, WriteCandidates(Candidates));
+            }
             foreach (var kv in Extensions)
             {
-                if (kv.Key != NamesTag && kv.Key != BuildTag && kv.Key != ObservedEndPointTag && kv.Key != AdmissionTag) Tlv.Write(bytes, kv.Key, kv.Value);
+                if (kv.Key != NamesTag && kv.Key != BuildTag && kv.Key != ObservedEndPointTag && kv.Key != AdmissionTag && kv.Key != CandidatesTag) Tlv.Write(bytes, kv.Key, kv.Value);
             }
             return bytes.ToArray();
         }
@@ -294,7 +311,53 @@ namespace JoinFS.Net.Jfp2
             {
                 msg.Admission = admission.Length == 0 ? admission : admission[..AdmissionCookieSize];
             }
+            if (msg.Extensions.Remove(CandidatesTag, out byte[] candidates))
+            {
+                msg.Candidates = ReadCandidates(candidates);
+            }
             return msg;
+        }
+
+        /// <summary>A list of endpoints as the wire carries it: one length byte before each <see cref="WireEndPoint"/> (§4.4), at most <see cref="MaxCandidates"/>.</summary>
+        public static byte[] WriteCandidates(IReadOnlyList<IPEndPoint> endPoints)
+        {
+            int count = Math.Min(endPoints.Count, MaxCandidates);
+            int size = 0;
+            for (int i = 0; i < count; i++) size += 1 + WireEndPoint.SizeOf(endPoints[i]);
+            byte[] bytes = new byte[size];
+            int at = 0;
+            for (int i = 0; i < count; i++)
+            {
+                int length = WireEndPoint.SizeOf(endPoints[i]);
+                bytes[at++] = (byte)length;
+                WireEndPoint.WriteTo(endPoints[i], bytes.AsSpan(at, length));
+                at += length;
+            }
+            return bytes;
+        }
+
+        /// <summary>
+        /// Reads a list written by <see cref="WriteCandidates"/>. An entry of an unassigned family or too short is skipped (its length
+        /// byte says where the next begins); a list cut short ends where it is cut; a duplicate is kept once.
+        /// </summary>
+        public static List<IPEndPoint> ReadCandidates(ReadOnlySpan<byte> src)
+        {
+            var list = new List<IPEndPoint>();
+            int at = 0;
+            while (at < src.Length && list.Count < MaxCandidates)
+            {
+                int length = src[at++];
+                if (at + length > src.Length)
+                {
+                    break;
+                }
+                if (WireEndPoint.TryReadFrom(src.Slice(at, length), out IPEndPoint endPoint) && !list.Contains(endPoint))
+                {
+                    list.Add(endPoint);
+                }
+                at += length;
+            }
+            return list;
         }
     }
 
@@ -364,6 +427,18 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>The endpoint the outstanding Hello was sent to; becomes <see cref="Endpoint"/> when answered.</summary>
         public IPEndPoint ProbeEndPoint;
+
+        /// <summary>
+        /// Every endpoint a Hello of the current round went to, <see cref="ProbeEndPoint"/> among them: a member with several
+        /// candidates is tried at all of them, and the first to answer is its endpoint (protocol.md §5.14).
+        /// </summary>
+        public readonly List<IPEndPoint> Probes = [];
+
+        /// <summary>Hellos of the round not sent yet, with the time to send each: IPv4 waits a short head start behind IPv6.</summary>
+        public readonly List<(IPEndPoint EndPoint, double At)> PendingProbes = [];
+
+        /// <summary>The endpoints the neighbour advertised in its handshake (a non-member session keeps them until a Join makes it a member).</summary>
+        public List<IPEndPoint> Candidates;
 
         /// <summary>
         /// True once a Hello has gone unanswered past a short timeout (a few retransmits of the

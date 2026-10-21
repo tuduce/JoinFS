@@ -53,8 +53,8 @@ namespace JoinFS.Net.Jfp2
         [
             new SchemaOffer(true, MessageClasses.Join, 1, 1),
             new SchemaOffer(true, MessageClasses.JoinResult, 1, 1),
-            new SchemaOffer(true, MessageClasses.MemberList, 1, 1),
-            new SchemaOffer(true, MessageClasses.MemberAnnounce, 1, 1),
+            new SchemaOffer(true, MessageClasses.MemberList, 1, 2),
+            new SchemaOffer(true, MessageClasses.MemberAnnounce, 1, 2),
             new SchemaOffer(true, MessageClasses.MemberLeave, 1, 1),
             new SchemaOffer(true, MessageClasses.RouteQuery, 1, 1),
             new SchemaOffer(true, MessageClasses.RouteAnswer, 1, 1),

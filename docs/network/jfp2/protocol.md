@@ -410,6 +410,7 @@ lets the handshake grow without a new envelope version.
 | 2 | Build | Hello, HelloAck | Text naming the speaker's build, for diagnostics and for counting which builds speak JFP2; `<version> <assembly name>`, for example `26.6.0 JoinFS-FS2024`. Printable ASCII (`0x20`–`0x7E`), at most 64 bytes: a sender cleans it to that, and a receiver cuts it to 64 bytes and drops every other character before using it. OPTIONAL. Nothing in the protocol depends on it. |
 | 3 | ObservedEndPoint | HelloAck | A `WireEndPoint` (§4.4): the UDP source of the Hello being answered, as the responder received it (an IPv4-mapped address normalized). Every HelloAck carries it, refusals included. OPTIONAL for a reader. |
 | 4 | Admission | Hello, HelloAck | Edition 2 (§5.9). In a Hello: empty, a stranger asking to be admitted; 16 bytes, the cookie it was given, echoed. In a HelloAck with `Result` 2: the 16-byte cookie. A value of 1 to 15 bytes is ignored; a longer one is read as its first 16 bytes. OPTIONAL. Release 1 skips the tag. |
+| 5 | Candidates | Hello, HelloAck | Edition 2 (§5.14). The endpoints the speaker can be tried at, preferred first: a list of entries, each a length byte and a `WireEndPoint` (§4.4) of that length. At most 8 are read; an entry that cannot be read is skipped by its length. OPTIONAL. Release 1 skips the tag. |
 
 An asker MUST count an `ObservedEndPoint` only from a HelloAck that answers its own Hello, from the
 endpoint the Hello went to (§5.7), so that a datagram from elsewhere cannot plant an address.
@@ -578,7 +579,8 @@ a legacy node ignores a legacy Join. Otherwise it answers JoinResult, in this or
 | ListSegments | 1 | How many MemberList datagrams follow when accepted. |
 
 **MemberList** (class 4), admitting node to a member that just joined: the members it knows other than the
-joiner and itself, split into datagrams of at most 1,000 bytes of entries. Payload:
+joiner and itself, split into datagrams of at most 1,000 bytes of entries. The schema is version 1, or version 2
+when both ends offered it (§5.14), which adds the member's candidates to each entry. Payload:
 
 | Field | Size | Notes |
 |---|---|---|
@@ -618,7 +620,7 @@ session between two neighbours. Neither is repeated: a lost one costs the member
 
 **MemberAnnounce** (class 5), from the node that admitted a member to every other neighbour of it
 that is a member and offered the class. Payload: one member entry exactly as MemberList (§5.10)
-has it: `NameCount` u8 (1 to 4), the names (8 bytes each), `EndPointLength` u8, a `WireEndPoint`. A
+has it, in the schema version agreed with the neighbour (§5.14): `NameCount` u8 (1 to 4), the names (8 bytes each), `EndPointLength` u8, a `WireEndPoint`. A
 receiver that holds the member by none of its names adds it, reached through the sender (as a
 MemberList entry is); one it holds is left as it is. An entry it cannot use (§5.10) is skipped. A node
 announces a joiner only when it adds it: a repeated Join, or the Join of a member it still holds
@@ -698,6 +700,49 @@ confirmed it for **15 s** (counted from the time the member was first asked abou
 the member was left without a route because the node it was reached through is gone. A node does not leave a
 route that works for another that answers, so a route never flips between two neighbours that both reach the
 member. One hop, as with Pathfinder: the member is reached through a neighbour of the asker or not at all.
+
+### 5.14 Endpoint candidates and the path of a link (edition 2)
+
+A node can be reached at more than one endpoint: an IPv4 address and a global IPv6 address, a public
+IPv4 address and a LAN one. Legacy names a node by its IPv4 address alone; JFP2 lets a node say where else it
+is, tries those places, and keeps the link on the best one that answers. Nothing here is carried by legacy,
+which is never handed an IPv6 endpoint.
+
+**Candidates.** The extension `Candidates` (§5.4, tag 5) lists the endpoints the speaker can be tried at,
+preferred first: its global IPv6 addresses (2000::/3, stable addresses before temporary ones, at most 4), its public
+IPv4 address, its LAN IPv4 address, each with the port of its socket. A node that has candidates states them in every
+Hello and HelloAck it sends, keepalives included, so a change reaches its neighbours within a keepalive (§6.2); it
+leaves them out of the challenge of §5.9, which keeps that answer small. A node that reads them takes what it read last
+from that speaker as the speaker's list, and keeps only the entries another host could reach: not a port of 0, not an
+IPv4 loopback, unspecified, multicast or link-local address, and an IPv6 address only in 2000::/3. A node that has none
+states none; a reader then has only the endpoint the member was registered at.
+
+**In member entries.** MemberList and MemberAnnounce (§5.10, §5.11) offer schema versions 1 and 2. Version 2 adds, after
+the `WireEndPoint` of an entry, `CandidateCount` u8 and that many candidates, each a length byte and a `WireEndPoint`
+(at most 8 are read; an entry cut short ends the list where it is cut). The members a joiner learns of come with the
+places it can try them at, and the admitting node states those it was told in the member's own Hello or Join.
+
+**Joining a node that has several addresses** (a host name with an A and an AAAA record). The joiner of §5.12 asks all of
+the addresses as a stranger (§5.9): the IPv6 ones at once, the IPv4 ones **250 ms** later when there is an IPv6 one,
+and the first to admit it is the one it joins; the conversations with the others end. A node with no IPv6 address of its
+own asks the IPv4 ones only. The legacy Join of §5.12 goes to the IPv4 address, and a node with none has no fallback.
+
+**Reaching a member directly.** The Hellos of §6.3 go to every candidate of the member and to the endpoint it was
+registered at, the IPv6 ones first and the IPv4 ones 250 ms later when there is an IPv6 one; the first to answer is
+the member's endpoint (the node named in the HelloAck is still the one asked for, §5.7). A node with no IPv6 address
+of its own does not send to an IPv6 candidate, and an IPv4 candidate in a private, shared (100.64.0.0/10) or link-local
+range is tried only by a node on the same /24, since it names a device of someone else's network. The endpoint a member
+was registered at is always tried.
+
+**Preference.** Between two nodes that both have IPv6, the link is verified on IPv6 whenever IPv6 answers, and IPv4 is
+the fallback:
+- A link on IPv4 sends a Hello to the member's IPv6 candidates every **60 s**, and moves to the first that answers.
+- A link on IPv6 that has not been answered for **15 s** (§6.2) moves to IPv4, and the member's IPv6 is not used
+  for **60 s**; the 60 s are counted from the move, and the probe above resumes after them.
+- A HelloAck from an endpoint the link is not on moves it only from IPv4 to IPv6, when the member's IPv6 is not held off.
+  Any other (the same node on the other family, a straggler of an earlier round) is read as a sign of life and moves
+  nothing, so a link never flips between the two because datagrams happen to arrive on both.
+- Only a member with no legacy link has candidates that matter. A member with a legacy link stays where legacy has it.
 
 ---
 
@@ -1011,7 +1056,8 @@ cited rule says.
 | Application classes (§3.3) | u8 | 0–9; 255 reserved as Extended | Not agreed: drop, do not acknowledge |
 | Offer partitions (§5.3) | u8 | 0 application, 1 internal | Skip the offer |
 | Handshake `Result` (§5.2) | u8 | 0, 1, 2 | Read as "no session now" |
-| Handshake TLV tags (§5.4) | u16 | 1 Names, 2 Build, 3 ObservedEndPoint, 4 Admission | Skip |
+| Handshake TLV tags (§5.4) | u16 | 1 Names, 2 Build, 3 ObservedEndPoint, 4 Admission, 5 Candidates | Skip |
+| Schema versions of internal classes (§5.5) | u8 | 1 for each, and 2 for MemberList and MemberAnnounce (§5.14) | Not agreed: the lower common version, or none |
 | Name kinds (§4.3) | u8 | 0 assigned; 1, 2, 255 reserved | Skip; unresolvable |
 | `WireEndPoint` families (§4.4) | u8 | 4 IPv4, 6 IPv6 | Ignore the value |
 | Capability bits (§5.6) | 64 | none | Not in the AND of both sides, so never agreed |
@@ -1230,6 +1276,26 @@ FA 02 08 78 56 34 12 08                   magic, ProtoMajor 2, Internal, sender 
 00 01 71 00 CB E0 17 14                   name: kind 0, legacy id 203.0.113.1, port 6112, local 20
 ```
 
+**A.13 Hello with Candidates** (edition 2): the Hello of A.1 with its candidates, an IPv6 address and the IPv4 address, appended:
+
+```
+05 00 1C 00                               TLV Candidates, 28 bytes
+13 06 20 01 0D B8 00 00 00 00 00 00 00 00 00 00 00 01 E0 17    length 19: IPv6 2001:db8::1, port 6112
+07 04 CB 00 71 01 E0 17                   length 7: IPv4 203.0.113.1, port 6112
+```
+
+**A.14 MemberAnnounce, version 2** (edition 2) from the node of A.2 to the member of A.9, for the member of A.8, with the same two candidates after its endpoint:
+
+```
+FA 02 08 78 56 21 43 05                   magic, ProtoMajor 2, Internal, sender 0x5678, recipient 0x4321, class MemberAnnounce
+01                                        NameCount
+00 01 71 00 CB E0 17 14                   name: kind 0, legacy id 203.0.113.1, port 6112, local 20
+07  04 CB 00 71 01 E0 17                  EndPointLength 7, WireEndPoint: family 4, 203.0.113.1, port 6112
+02                                        CandidateCount
+13  06 20 01 0D B8 00 00 00 00 00 00 00 00 00 00 00 01 E0 17    length 19: IPv6 2001:db8::1, port 6112
+07  04 CB 00 71 01 E0 17                  length 7: IPv4 203.0.113.1, port 6112
+```
+
 ---
 
 ## Appendix B. Constants
@@ -1257,6 +1323,9 @@ FA 02 08 78 56 34 12 08                   magic, ProtoMajor 2, Internal, sender 
 | Identity heartbeat | 4 s | 9.2 |
 | VariableSync message size | 1,000 bytes, 255 entries | 9.3 |
 | Relay budget | 10 senders (released nodes) | 8.5 |
+| IPv6 head start over IPv4 | 250 ms | 5.14 |
+| Link on IPv4 tries IPv6 / IPv6 held off after silence | 60 s / 60 s | 5.14 |
+| Candidates a reader keeps | 8 | 5.14 |
 
 ---
 

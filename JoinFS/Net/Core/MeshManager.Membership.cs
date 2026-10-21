@@ -26,38 +26,72 @@ namespace JoinFS.Net
         /// remembered, and joined over legacy at once (protocol.md §5.12). Legacy's Join alone when no protocol
         /// carries membership.
         /// </summary>
-        public void JoinJfp2First(IPEndPoint endPoint, uint password)
+        public void JoinJfp2First(IPEndPoint endPoint, uint password) => JoinJfp2First([endPoint], password);
+
+        /// <summary>
+        /// <see cref="JoinJfp2First(IPEndPoint, uint)"/> for a node with several addresses (a host name with an A and an AAAA record):
+        /// all are tried, IPv6 first, and legacy joins the IPv4 one. An IPv6 address is left out when this node has no IPv6.
+        /// </summary>
+        public void JoinJfp2First(IReadOnlyList<IPEndPoint> dial, uint password)
         {
             if (!core.IsOpen || !core.Identity.Ready)
             {
                 return;
             }
-            if (legacyOnly.TryGetValue(endPoint, out double until) && Now < until)
+            List<IPEndPoint> usable = UsableTargets(dial);
+            if (usable.Count == 0)
             {
-                core.Log(NetLogLevel.Network, "NETWORK: " + endPoint + " took no join over JFP2 before - joining it over legacy");
+                core.Log(NetLogLevel.Event, "NETWORK: cannot join " + (dial.Count > 0 ? dial[0] : "nothing") + ": this node has no address in a family it uses");
+                return;
             }
-            else if (StartJfp2Join(endPoint, password, legacyFallback: true))
+            IPEndPoint legacy = usable.Find(e => e.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+            if (legacy != null && legacyOnly.TryGetValue(legacy, out double until) && Now < until)
+            {
+                core.Log(NetLogLevel.Network, "NETWORK: " + legacy + " took no join over JFP2 before - joining it over legacy");
+            }
+            else if (StartJfp2Join(usable, password, legacyFallback: legacy != null))
             {
                 return;
             }
-            Join(endPoint, password);
+            if (legacy != null)
+            {
+                Join(legacy, password);
+            }
+        }
+
+        /// <summary>The addresses of <paramref name="dial"/> this node can use, in the order given: an IPv6 one needs an IPv6 address of its own.</summary>
+        List<IPEndPoint> UsableTargets(IReadOnlyList<IPEndPoint> dial)
+        {
+            var usable = new List<IPEndPoint>(dial.Count);
+            foreach (IPEndPoint endPoint in dial)
+            {
+                if ((endPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork || core.Identity.HasIPv6) && !usable.Contains(endPoint))
+                {
+                    usable.Add(endPoint);
+                }
+            }
+            return usable;
         }
 
         /// <summary>
         /// Join the session of the node at <paramref name="endPoint"/> over a protocol that carries
         /// membership (JFP2) and no other: no legacy Join follows a failure. False when none can start the join.
         /// </summary>
-        public bool JoinOverJfp2(IPEndPoint endPoint, uint password) => StartJfp2Join(endPoint, password, legacyFallback: false);
+        public bool JoinOverJfp2(IPEndPoint endPoint, uint password) => StartJfp2Join([endPoint], password, legacyFallback: false);
 
-        bool StartJfp2Join(IPEndPoint endPoint, uint password, bool legacyFallback)
+        /// <summary><see cref="JoinOverJfp2(IPEndPoint, uint)"/> for a node with several addresses (IPv6 ones first): all are tried.</summary>
+        public bool JoinOverJfp2(IReadOnlyList<IPEndPoint> endPoints, uint password) => StartJfp2Join(endPoints, password, legacyFallback: false);
+
+        bool StartJfp2Join(IReadOnlyList<IPEndPoint> endPoints, uint password, bool legacyFallback)
         {
+            IPEndPoint endPoint = endPoints[0];
             if (!core.IsOpen || !core.Identity.Ready)
             {
                 return false;
             }
             foreach (IProtocolPlugin plugin in core.Plugins)
             {
-                if (plugin is IMembershipExpression expression && expression.BeginJoin(endPoint, password, legacyFallback))
+                if (plugin is IMembershipExpression expression && expression.BeginJoin(endPoints, password, legacyFallback))
                 {
                     passwordHash = password;
                     ActiveJoinResult = JoinResult.Accepted;
@@ -65,7 +99,7 @@ namespace JoinFS.Net
                     Creator = false;
                     allowJoin = true;
                     active = true;
-                    core.Log(NetLogLevel.Event, "NETWORK: joining " + endPoint + " over " + plugin.Name);
+                    core.Log(NetLogLevel.Event, "NETWORK: joining " + string.Join(", ", endPoints) + " over " + plugin.Name);
                     return true;
                 }
             }
@@ -81,7 +115,7 @@ namespace JoinFS.Net
             return LoginRequired ? JoinResult.LoginRequired : JoinResult.Accepted;
         }
 
-        Peer IMembership.Admit(NodeId joiner, IPEndPoint endPoint, IReadOnlyList<NodeId> otherNames, out bool isNew)
+        Peer IMembership.Admit(NodeId joiner, IPEndPoint endPoint, IReadOnlyList<NodeId> otherNames, IReadOnlyList<IPEndPoint> candidates, out bool isNew)
         {
             isNew = false;
             if (!Connected || !joiner.Valid() || joiner == LocalId)
@@ -98,6 +132,7 @@ namespace JoinFS.Net
                 // the cookie proved the endpoint answers, so that is where it is, and the link is JFP2's
                 existing.EndPoint = new IPEndPoint(endPoint.Address, endPoint.Port);
                 existing.RouteEndPoint = existing.EndPoint;
+                SetCandidates(existing, candidates);
                 existing.RouteVia = default;
                 existing.LegacyLink = false;
                 existing.SendEstablished = true;
@@ -116,9 +151,9 @@ namespace JoinFS.Net
                 core.Log(NetLogLevel.Network, "NETWORK: Exceeded MAX_NODES_PER_DEVICE - " + joiner + " - " + endPoint);
                 return null;
             }
-            Peer peer = AddJfp2Peer(joiner, endPoint, otherNames, default);
+            Peer peer = AddJfp2Peer(joiner, endPoint, otherNames, default, candidates);
             isNew = true;
-            core.Log(NetLogLevel.Event, "NETWORK: " + joiner + " at " + endPoint + " joined over JFP2");
+            core.Log(NetLogLevel.Event, "NETWORK: " + joiner + " at " + endPoint + " (" + FamilyName(endPoint) + ") joined over JFP2");
             AnnounceToLegacy(peer);
             return peer;
         }
@@ -152,7 +187,7 @@ namespace JoinFS.Net
             return true;
         }
 
-        Peer IMembership.Joined(uint sessionId, NodeId admitter, IPEndPoint endPoint, IReadOnlyList<NodeId> otherNames)
+        Peer IMembership.Joined(uint sessionId, NodeId admitter, IPEndPoint endPoint, IReadOnlyList<NodeId> otherNames, IReadOnlyList<IPEndPoint> candidates)
         {
             if (!active || Creator || !admitter.Valid() || (Connected && sessionId != suid))
             {
@@ -167,8 +202,8 @@ namespace JoinFS.Net
             {
                 return existing;
             }
-            Peer peer = AddJfp2Peer(admitter, endPoint, otherNames, default);
-            core.Log(NetLogLevel.Event, "NETWORK: joined session " + sessionId + " through " + admitter + " at " + endPoint + " over JFP2");
+            Peer peer = AddJfp2Peer(admitter, endPoint, otherNames, default, candidates);
+            core.Log(NetLogLevel.Event, "NETWORK: joined session " + sessionId + " through " + admitter + " at " + endPoint + " (" + FamilyName(endPoint) + ") over JFP2");
             return peer;
         }
 
@@ -198,7 +233,7 @@ namespace JoinFS.Net
                 {
                     continue;
                 }
-                Peer peer = AddJfp2Peer(id, member.EndPoint, member.Names[1..], via);
+                Peer peer = AddJfp2Peer(id, member.EndPoint, member.Names[1..], via, member.Candidates);
                 peer.RouteEndPoint = relay.RouteEndPoint;
                 core.Log(NetLogLevel.Network, "NETWORK: member " + id + " at " + member.EndPoint + " learned from " + via + ", reached through it");
                 AnnounceToLegacy(peer);
@@ -281,15 +316,16 @@ namespace JoinFS.Net
             return reachable;
         }
 
-        void IMembership.RouteDirect(NodeId member)
+        void IMembership.RouteDirect(NodeId member, IPEndPoint endPoint)
         {
-            if (!Connected || !core.Peers.TryGet(member, out Peer peer))
+            if (!Connected || !core.Peers.TryGet(member, out Peer peer) || !peer.IsOwnEndPoint(endPoint))
             {
                 return;
             }
             bool established = peer.SendEstablished;
             NodeId was = peer.RouteVia;
-            peer.RouteEndPoint = peer.EndPoint;
+            IPEndPoint before = peer.RouteEndPoint;
+            peer.RouteEndPoint = new IPEndPoint(endPoint.Address, endPoint.Port);
             peer.RouteVia = default;
             peer.SendEstablished = true;
             peer.ExpireTime = Now + ExpireTime;
@@ -299,7 +335,47 @@ namespace JoinFS.Net
             {
                 core.RaisePeerEstablished(peer.Id);
             }
-            core.Log(NetLogLevel.Event, "NETWORK: " + peer.Id + " is reached directly at " + peer.EndPoint + (was.Valid() ? ", no longer through " + was : ""));
+            core.Log(NetLogLevel.Event, "NETWORK: " + peer.Id + " is reached directly at " + endPoint + " (" + FamilyName(endPoint) + ")"
+                + (was.Valid() ? ", no longer through " + was : !established ? "" : ", was at " + before + " (" + FamilyName(before) + ")"));
+        }
+
+        /// <summary>"IPv6" or "IPv4": the family of the path an endpoint is on.</summary>
+        internal static string FamilyName(IPEndPoint endPoint) => endPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? "IPv6" : "IPv4";
+
+        void IMembership.Advertised(NodeId member, IReadOnlyList<IPEndPoint> candidates)
+        {
+            if (core.Peers.TryGet(core.Peers.Resolve(member), out Peer peer))
+            {
+                SetCandidates(peer, candidates);
+            }
+        }
+
+        /// <summary>The usable candidates a node advertised replace what was known; a change is logged at event level (what the field test reads).</summary>
+        void SetCandidates(Peer peer, IReadOnlyList<IPEndPoint> advertised)
+        {
+            if (advertised == null)
+            {
+                return;
+            }
+            var list = new List<IPEndPoint>(advertised.Count);
+            foreach (IPEndPoint candidate in advertised)
+            {
+                if (Peer.IsUsableCandidate(candidate) && !list.Contains(candidate))
+                {
+                    list.Add(candidate);
+                }
+            }
+            if (list.Count == peer.Candidates.Count)
+            {
+                int same = 0;
+                while (same < list.Count && list[same].Equals(peer.Candidates[same])) same++;
+                if (same == list.Count)
+                {
+                    return;
+                }
+            }
+            peer.Candidates = list;
+            core.Log(NetLogLevel.Event, "NETWORK: " + peer.Id + " can be tried at " + (list.Count == 0 ? "no endpoint" : string.Join(", ", list)));
         }
 
         void IMembership.RouteLost(NodeId member)
@@ -350,9 +426,10 @@ namespace JoinFS.Net
         }
 
         /// <summary>A member that has no legacy link: the peer is there, answering, and the app is told.</summary>
-        Peer AddJfp2Peer(NodeId id, IPEndPoint endPoint, IReadOnlyList<NodeId> otherNames, NodeId via)
+        Peer AddJfp2Peer(NodeId id, IPEndPoint endPoint, IReadOnlyList<NodeId> otherNames, NodeId via, IReadOnlyList<IPEndPoint> candidates = null)
         {
             Peer peer = core.Peers.Add(id, endPoint, true);
+            SetCandidates(peer, candidates);
             peer.LegacyLink = false;
             peer.SendEstablished = true;
             peer.RouteVia = via;

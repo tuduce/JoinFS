@@ -122,6 +122,15 @@ namespace JoinFS.Net.Jfp2
                 {
                     return; // the retry timer ends it; a loop of new cookies does not get another go
                 }
+                // the first address of a join to give a cookie is the one the join goes on at: the node would otherwise hold one non-member
+                // session for this node with the ids and the endpoint of whichever echo came last
+                PendingJoin asking = pendingJoins.Find(j => j.Targets.Contains(from));
+                if (asking != null && !CommitTo(asking, from))
+                {
+                    introductions.Remove(introduction.Id);
+                    host.Log(NetLogLevel.Network, "JFP2: " + from + " (" + Family(from) + ") gave a cookie after " + asking.Committed + " (" + Family(asking.Committed) + ") did - not used");
+                    return;
+                }
                 host.Log(NetLogLevel.Network, "JFP2: " + from + " sees this node at " + ack.ObservedEndPoint + " and gave it a cookie");
                 introduction.Cookie = ack.Admission;
                 SendIntroduction(introduction);
@@ -135,14 +144,26 @@ namespace JoinFS.Net.Jfp2
             }
             introductions.Remove(introduction.Id);
             NodeId name = ack.Names[0];
+            // the join this conversation is for has an answer already, from another of the node's addresses: the first to answer is the one joined
+            PendingJoin join = pendingJoins.Find(j => j.Targets.Contains(from));
+            if (join?.Session != null)
+            {
+                host.Log(NetLogLevel.Network, "JFP2: " + name + " at " + from + " (" + Family(from) + ") also admitted this node, after " + join.Target + " (" + Family(join.Target) + ") - not used");
+                return;
+            }
             RemoveNonMember(name);
             var session = new PeerSession
             {
                 Peer = name, LocalAssignedId = introduction.Id, RemoteAssignedId = ack.SelfAssignedId,
                 NonMember = true, NonMemberUntil = now + NonMemberLifetime, Names = ack.Names, AdmissionCookie = introduction.Cookie,
+                Candidates = ack.Candidates,
             };
             OpenNonMember(session, name, from, ack.Capabilities, ack.Offers, ack.Build, now);
-            host.Log(NetLogLevel.Event, "JFP2: " + name + " at " + from + " admitted this node: non-member session");
+            host.Log(NetLogLevel.Event, "JFP2: " + name + " at " + from + " (" + Family(from) + ") admitted this node: non-member session");
+            if (join != null)
+            {
+                ChooseTarget(join, session);
+            }
         }
 
         // ================================================================== answering (this node admits)
@@ -214,6 +235,7 @@ namespace JoinFS.Net.Jfp2
                 {
                     Peer = name, LocalAssignedId = NewId(), RemoteAssignedId = hello.SelfAssignedId,
                     NonMember = true, NonMemberUntil = now + NonMemberLifetime, Names = hello.Names, AdmissionCookie = hello.Admission,
+                    Candidates = hello.Candidates,
                 };
                 OpenNonMember(session, name, from, hello.Capabilities, hello.Offers, hello.Build, now);
                 host.Log(NetLogLevel.Event, "JFP2: admitted stranger " + name + " at " + from + ": non-member session for " + NonMemberLifetime + " s");
@@ -224,6 +246,7 @@ namespace JoinFS.Net.Jfp2
                 session.RemoteAssignedId = hello.SelfAssignedId;
                 session.Endpoint = from;
                 session.AdmissionCookie = hello.Admission;
+                session.Candidates = hello.Candidates ?? session.Candidates;
                 session.LastAck = now;
                 LearnBuild(session, hello.Build);
             }

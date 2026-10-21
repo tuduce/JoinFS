@@ -182,7 +182,7 @@ local JFP2_RESULT = {
 
 -- JoinFS.Jfp2.HandshakeMessage extension tags (docs/network/jfp2/protocol.md §5.4)
 local JFP2_TLV_TAG = {
-    [1] = "Names", [2] = "Build", [3] = "ObservedEndPoint", [4] = "Admission",
+    [1] = "Names", [2] = "Build", [3] = "ObservedEndPoint", [4] = "Admission", [5] = "Candidates",
 }
 
 -- JoinFS.Net.Jfp2.WireEndPoint (docs/network/jfp2/protocol.md §4.4): family u8 (4 IPv4, 6 IPv6),
@@ -628,6 +628,19 @@ local function decode_jfp2_handshake(tree, buffer, offset, isAck)
                 else
                     item:add(buffer(offset + 4, tlvLen), "Admission: " .. tlvLen .. " bytes, too short (ignored)")
                 end
+            elseif tagName == "Candidates" then
+                -- docs/network/jfp2/protocol.md §5.14: entries, each a length byte and a WireEndPoint; at most 8 are read
+                local at = offset + 4
+                local stop = offset + 4 + tlvLen
+                local n = 0
+                while at < stop and n < 8 do
+                    local l = buffer(at, 1):uint()
+                    if at + 1 + l > stop then break end
+                    n = n + 1
+                    local text = jfp2_wire_endpoint_string(buffer, at + 1, l)
+                    item:add(buffer(at, 1 + l), "Candidate " .. n .. ": " .. (text or "unassigned family or too short (skipped)"))
+                    at = at + 1 + l
+                end
             elseif tagName == "ObservedEndPoint" and tlvLen > 0 then
                 -- the UDP source of the Hello this HelloAck answers, as the responder received it
                 local text = jfp2_wire_endpoint_string(buffer, offset + 4, tlvLen)
@@ -811,9 +824,41 @@ local function decode_jfp2_join_result(tree, buffer, offset)
     tree:add(buffer(offset + 5, 1), "ListSegments: " .. buffer(offset + 5, 1):uint())
 end
 
--- One member entry (§5.10): NameCount u8, names (8 bytes each), EndPointLength u8, WireEndPoint.
+-- The offset after one member entry, or nil when the bytes end inside it. Schema version 2 (§5.14) has the candidates after the endpoint.
+local function skip_jfp2_member_entry(buffer, offset, v2)
+    local len = buffer:len()
+    if offset >= len then return nil end
+    offset = offset + 1 + buffer(offset, 1):uint() * 8
+    if offset >= len then return nil end
+    offset = offset + 1 + buffer(offset, 1):uint()
+    if offset > len then return nil end
+    if v2 then
+        if offset >= len then return nil end
+        local count = buffer(offset, 1):uint()
+        offset = offset + 1
+        for _ = 1, count do
+            if offset >= len then return nil end
+            offset = offset + 1 + buffer(offset, 1):uint()
+            if offset > len then return nil end
+        end
+    end
+    return offset
+end
+
+-- The schema version is agreed per session and not on the wire: entries that end exactly at the end of the datagram are version 1,
+-- else version 2 is taken (the dissector sees a datagram, not the session).
+local function jfp2_member_entries_are_v2(buffer, offset, count)
+    for _ = 1, count do
+        offset = skip_jfp2_member_entry(buffer, offset, false)
+        if not offset then return true end
+    end
+    return offset ~= buffer:len()
+end
+
+-- One member entry (§5.10, §5.14): NameCount u8, names (8 bytes each), EndPointLength u8, WireEndPoint, and in version 2 CandidateCount u8
+-- and that many candidates (a length byte and a WireEndPoint each).
 -- Returns the offset after it, or nil when the bytes end inside it.
-local function add_jfp2_member_entry(tree, buffer, offset, label)
+local function add_jfp2_member_entry(tree, buffer, offset, label, v2)
     local len = buffer:len()
     if offset >= len then return nil end
     local names = buffer(offset, 1):uint()
@@ -829,7 +874,22 @@ local function add_jfp2_member_entry(tree, buffer, offset, label)
     if offset + epLen > len then return nil end
     local text = jfp2_wire_endpoint_string(buffer, offset, epLen)
     entry:add(buffer(offset, epLen), "EndPoint: " .. (text or "(unreadable, entry skipped)"))
-    return offset + epLen
+    offset = offset + epLen
+    if v2 then
+        if offset >= len then return nil end
+        local count = buffer(offset, 1):uint()
+        entry:add(buffer(offset, 1), "CandidateCount: " .. count)
+        offset = offset + 1
+        for c = 1, count do
+            if offset >= len then return nil end
+            local l = buffer(offset, 1):uint()
+            if offset + 1 + l > len then return nil end
+            local candidate = jfp2_wire_endpoint_string(buffer, offset + 1, l)
+            entry:add(buffer(offset, 1 + l), "Candidate " .. c .. ": " .. (candidate or "unassigned family or too short (skipped)"))
+            offset = offset + 1 + l
+        end
+    end
+    return offset
 end
 
 -- MemberList (internal class 4): Index u8, EntryCount u8, entries as above
@@ -843,15 +903,16 @@ local function decode_jfp2_member_list(tree, buffer, offset)
     local count = buffer(offset + 1, 1):uint()
     tree:add(buffer(offset + 1, 1), "EntryCount: " .. count)
     offset = offset + 2
+    local v2 = jfp2_member_entries_are_v2(buffer, offset, count)
     for e = 1, count do
-        offset = add_jfp2_member_entry(tree, buffer, offset, "Entry " .. e)
+        offset = add_jfp2_member_entry(tree, buffer, offset, "Entry " .. e, v2)
         if not offset then break end
     end
 end
 
 -- MemberAnnounce (internal class 5, §5.11): one member entry, as in MemberList
 local function decode_jfp2_member_announce(tree, buffer, offset)
-    if offset >= buffer:len() or not add_jfp2_member_entry(tree, buffer, offset, "Member") then
+    if offset >= buffer:len() or not add_jfp2_member_entry(tree, buffer, offset, "Member", jfp2_member_entries_are_v2(buffer, offset, 1)) then
         tree:add(buffer(offset, buffer:len() - offset), "Short MemberAnnounce (" .. (buffer:len() - offset) .. " bytes): ignored")
     end
 end

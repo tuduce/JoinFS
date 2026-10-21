@@ -45,7 +45,7 @@ namespace JoinFS
             public string protocol;
             public int protocolValue;
 
-            public Item(Guid guid, NodeId nuid, IPEndPoint endPoint, string nickname, string version, string simulator, string callsign, int aircraftCount, int objectCount, string share, bool save, bool ignore, int port, bool receiveEstablished, bool sendEstablished, bool direct, float latency, PeerLinkState? jfp2State)
+            public Item(Guid guid, NodeId nuid, IPEndPoint endPoint, string nickname, string version, string simulator, string callsign, int aircraftCount, int objectCount, string share, bool save, bool ignore, int port, bool receiveEstablished, bool sendEstablished, bool direct, float latency, PeerLinkState? jfp2State, string family = null)
             {
                 this.guid = guid;
                 this.nuid = nuid;
@@ -83,7 +83,7 @@ namespace JoinFS
                 // network (transport) protocol indicator - distinct from the application `version`
                 // above.
                 this.jfp2State = jfp2State;
-                protocol = jfp2State?.ToDisplay() ?? "";
+                protocol = jfp2State?.ToDisplay(family) ?? "";
                 // own row sorts first; then negotiated, legacy, negotiating - matching the old
                 // (unused) enum's relative order, not the new enum's declaration order
                 protocolValue = jfp2State switch
@@ -386,7 +386,7 @@ namespace JoinFS
             PeerLinkState? jfp2State = peer?.LinkState ?? PeerLinkState.Negotiating;
 
             // add item
-            Item item = new(guid, nuid, endPoint, nickname, version, simulator, callsign, aircraftCount, objectCount, share, save, ignore, port, receiveEstablished, sendEstablished, direct, latency, jfp2State);
+            Item item = new(guid, nuid, endPoint, nickname, version, simulator, callsign, aircraftCount, objectCount, share, save, ignore, port, receiveEstablished, sendEstablished, direct, latency, jfp2State, peer?.Family);
             // add to list
             itemList.Add(item);
         }

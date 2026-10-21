@@ -88,6 +88,13 @@ namespace JoinFS.Net
             PeerLinkState.Legacy => "Legacy",
             _ => "Pending",
         };
+
+        /// <summary>
+        /// <see cref="ToDisplay(PeerLinkState)"/> with the family of the path a JFP2 link uses ("JFP2 (IPv6)"). Legacy is IPv4 only and a link
+        /// still being negotiated has no path yet, so only JFP2 says its family. No family (null) is the plain text.
+        /// </summary>
+        public static string ToDisplay(this PeerLinkState state, string family) =>
+            state == PeerLinkState.Negotiated && !string.IsNullOrEmpty(family) ? "JFP2 (" + family + ")" : state.ToDisplay();
     }
 
     public enum NetLogLevel

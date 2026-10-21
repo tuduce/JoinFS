@@ -13,6 +13,8 @@ namespace JoinFS.Net
         public bool RouteIsOwnEndPoint { get; init; }
         /// <summary>The relay node this peer is reached through (invalid when reached directly).</summary>
         public NodeId RouteVia { get; init; }
+        /// <summary>"IPv6" or "IPv4": the family of the path datagrams for this peer take, which is its relay's path when it is reached through one.</summary>
+        public string Family => RouteEndPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? "IPv6" : "IPv4";
         public bool ReceiveEstablished { get; init; }
         public bool SendEstablished { get; init; }
         public bool LowBandwidth { get; init; }
@@ -39,6 +41,9 @@ namespace JoinFS.Net
 
         /// <summary>The socket serves IPv6 only (a <c>-noipv4</c> test instance).</summary>
         public bool Ipv6Only { get; init; }
+
+        /// <summary>This node's global IPv6 addresses, which it advertises as candidates (empty: it has none, or IPv6 is off).</summary>
+        public IReadOnlyList<IPAddress> Ipv6Addresses { get; init; } = [];
         public int Port { get; init; }
         public NodeId LocalId { get; init; }
         public bool Ready => LocalId.Valid();

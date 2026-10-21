@@ -1986,10 +1986,10 @@ namespace JoinFS
                     return;
                 }
 
-                // an entry whose address did not resolve (an IPv6 address or a name with one, until the IPv6 stages) has no endpoint
+                // an entry whose address did not resolve has no endpoint
                 if (entry.endPoint.Port == 0 || entry.endPoint.Address.Equals(IPAddress.Any))
                 {
-                    MonitorEvent("Cannot join '" + addressText + "': its address is not an IPv4 address, nor a host name that resolves to one (IPv6 addresses are not accepted yet)");
+                    MonitorEvent("Cannot join '" + addressText + "': its address is not an IP address, nor a host name that resolves to one");
                     return;
                 }
 
@@ -1999,42 +1999,29 @@ namespace JoinFS
                 return;
             }
 
-            // parse ip address
-            string[] parts = addressText.Split(':');
-
-            // check for ip address
-            if (parts.Length > 0)
+            // an IP address (IPv4, or IPv6 in brackets) or a host name, with an optional port
+            DialAddresses.Result dial;
+            lock (conch)
             {
-                // get remote port
-                int remotePort = Network.DEFAULT_PORT;
-                if (parts.Length > 1 && Int32.TryParse(parts[1], NumberStyles.Number, CultureInfo.InvariantCulture, out remotePort) == false)
+                dial = network.Bootstrap.Dial(addressText, Network.DEFAULT_PORT);
+            }
+            if (dial.Failure == DialAddresses.Failure.InvalidPort)
+            {
+                ShowMessage(Resources.Strings.InvalidPortPrefix + " '" + dial.BadPort + "'. " + Resources.Strings.InvalidPortSuffix);
+                return;
+            }
+            if (dial.Failure == DialAddresses.Failure.None)
+            {
+                IPEndPoint first;
+                lock (conch)
                 {
-                    ShowMessage(Resources.Strings.InvalidPortPrefix + " '" + parts[1] + "'. " + Resources.Strings.InvalidPortSuffix);
+                    // the same endpoint (and so the same dial list) the address book and the hub list use for this text
+                    network.Bootstrap.MakeEndPoint(addressText, Network.DEFAULT_PORT, out first);
                 }
-                else
-                {
-                    if (IPAddress.TryParse(parts[0], out IPAddress address) && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-                    {
-                        // join endpoint
-                        Join(new IPEndPoint(address, remotePort));
-                        // done
-                        return;
-                    }
-
-                    bool result = false;
-                    lock (conch)
-                    {
-                        result = network.Bootstrap.DnsLookup(parts[0], out address);
-                    }
-                    // try DNS lookup
-                    if (result)
-                    {
-                        // join endpoint
-                        Join(new IPEndPoint(address, remotePort));
-                        // done
-                        return;
-                    }
-                }
+                // join endpoint
+                Join(first);
+                // done
+                return;
             }
 
             // failed
@@ -2124,7 +2111,7 @@ namespace JoinFS
                     line += " " + network.Peers.GetNodeSimulator(node.Key);
                     // network (transport) protocol indicator - distinct from the application
                     // GetNodeVersion above, as described by the protocol plugins
-                    line += " " + (network.Snapshot.Peer(node.Key)?.LinkState.ToDisplay() ?? "Pending");
+                    line += " " + (network.Snapshot.Peer(node.Key) is { } peerSnapshot ? peerSnapshot.LinkState.ToDisplay(peerSnapshot.Family) : "Pending");
                     MonitorEvent(line);
                 }
                 MonitorEvent("Total " + (1 + network.Peers.Nodes.Count) + " user(s)");

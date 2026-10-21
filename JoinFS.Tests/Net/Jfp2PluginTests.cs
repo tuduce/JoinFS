@@ -652,7 +652,8 @@ namespace JoinFS.Tests.Net
                 bool ack = d.Data[7] == MessageClasses.HelloAck;
                 Assert.Equal(ack ? d.To : null, message.ObservedEndPoint); // where the Hello came from
                 byte[] observed = ack ? [3, 0, 7, 0, .. WireEndPoint.ToBytes(d.To)] : [];
-                Assert.True(d.Data.AsSpan().EndsWith([.. Encoding.ASCII.GetBytes(build), .. observed])); // the last extensions, as sent
+                byte[] candidates = message.Candidates is { Count: > 0 } list ? [5, 0, .. BitConverter.GetBytes((ushort)HandshakeMessage.WriteCandidates(list).Length), .. HandshakeMessage.WriteCandidates(list)] : [];
+                Assert.True(d.Data.AsSpan().EndsWith([.. Encoding.ASCII.GetBytes(build), .. observed, .. candidates])); // the last extensions, as sent (the candidates of stage 7 after them)
             });
         }
 
