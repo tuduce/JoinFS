@@ -191,6 +191,30 @@ namespace JoinFS.Tests.Net
         }
 
         [Fact]
+        public void AHubThatAnswersFromAnotherAddressOfItsNetwork_IsStillAsked_AndAnswers()
+        {
+            // the hub list names 2001:db8::10, a second address of the hub's interface, and the hub answers from its preferred one (the evening test of stage 9)
+            var mesh = new TestMesh();
+            TestNode hub = mesh.AddDualStack("203.0.113.1", "2001:db8::1", 6112, new Jfp2Plugin());
+            hub.Core.Mesh.Create(false, 0, false, "");
+            TestNode c = mesh.AddIPv6Only("2001:db8:2::2", 6112, new Jfp2Plugin());
+            IPEndPoint named = IPEndPoint.Parse("[2001:db8::10]:6112");
+            mesh.Network.Nat = (from, to) => (from, to.Equals(named) ? hub.EndPoint6! : to);
+
+            c.Core.Mesh.Ask(named, new StatusRequestUpdate(), guaranteed: false);
+            mesh.Run(1);
+            Assert.Single(hub.Messages<StatusRequestUpdate>());
+            AnswerStatusRequests(hub);
+            mesh.Run(1);
+            c.Core.Mesh.Ask(named, new UserListRequest(), guaranteed: false);
+            mesh.Run(1);
+
+            Assert.Single(c.Messages<StatusUpdate>());
+            Assert.Single(hub.Messages<UserListRequest>());
+            Assert.DoesNotContain(c.Logs, l => l.Contains("did not answer over JFP2"));
+        }
+
+        [Fact]
         public void AnIPv6Request_ThatIsNotAnswered_GoesNowhereOverLegacy()
         {
             var mesh = new TestMesh();

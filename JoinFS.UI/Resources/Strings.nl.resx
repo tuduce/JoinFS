@@ -621,6 +621,9 @@
   <data name="Offline" xml:space="preserve">
     <value>Offline</value>
   </data>
+  <data name="Unreachable" xml:space="preserve">
+    <value>Vanaf hier niet bereikbaar</value>
+  </data>
   <data name="OK" xml:space="preserve">
     <value>OK</value>
   </data>

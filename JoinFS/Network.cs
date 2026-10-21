@@ -554,6 +554,11 @@ namespace JoinFS
             {
                 case NetworkEventKind.SessionJoined:
                     Peers.OnSessionJoined();
+                    // a node joined over JFP2 is not told by PeerInfo that the node it joined is a hub (stage 10): ask it
+                    if (joinEndPoint.Port != 0)
+                    {
+                        Hubs.SubmitSeed(joinEndPoint, Bootstrap.DialList(joinEndPoint));
+                    }
                     break;
                 case NetworkEventKind.PeerJoined:
                     Peers.OnPeerJoined(e.Node, e.EndPoint);

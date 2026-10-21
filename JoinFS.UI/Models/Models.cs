@@ -2,7 +2,7 @@ namespace JoinFS.UI.Models;
 
 public enum ConnectionState { Disconnected, Connecting, Connected }
 
-public enum HubStatus { Online, Password, Offline, Global }
+public enum HubStatus { Online, Password, Offline, Global, Unreachable }
 
 /// <summary>The sidebar tabs, in sidebar order. The README's ids are home|network|session|aircraft|objects|models|flightplan|recorder|chat|log|settings.</summary>
 public enum TabId { Home, Network, Session, Aircraft, Objects, Models, FlightPlan, Recorder, Chat, Monitor, Settings }

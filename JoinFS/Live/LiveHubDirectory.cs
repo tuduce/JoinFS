@@ -53,7 +53,7 @@ namespace JoinFS.Live
                         continue;
                     }
 
-                    HubStatus status = !hub.online ? HubStatus.Offline : hub.password ? HubStatus.Password : hub.globalSession ? HubStatus.Global : HubStatus.Online;
+                    HubStatus status = !hub.online ? (main.network.Hubs.Reachable(hub) ? HubStatus.Offline : HubStatus.Unreachable) : hub.password ? HubStatus.Password : hub.globalSession ? HubStatus.Global : HubStatus.Online;
                     hubs.Add(new HubInfo(
                         IdOf(hub), hub.name, status, hub.users, hub.planes + hub.helicopters, hub.appVersion,
                         hub.about, hub.voip, hub.nextEvent, hub.endPoint.ToString(),

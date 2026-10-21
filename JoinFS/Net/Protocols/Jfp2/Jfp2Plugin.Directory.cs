@@ -18,7 +18,9 @@ namespace JoinFS.Net.Jfp2
             endPoint = WireEndPoint.Normalize(endPoint);
             foreach (PeerSession session in nonMembers.Values)
             {
-                if (session.Verified && session.HandshakeComplete && session.Endpoint.Equals(endPoint))
+                // a host with several IPv6 addresses answers from its preferred one, whichever was asked (protocol.md §5.14): the session is under
+                // that address, and what was asked of another address of its network goes there
+                if (session.Verified && session.HandshakeComplete && (session.Endpoint.Equals(endPoint) || SameSubnet6(session.Endpoint, endPoint)))
                 {
                     return session;
                 }
