@@ -168,8 +168,9 @@ namespace JoinFS.Net.Jfp2
         public void Tick()
         {
             DoHandshake();
-            DoAdmission();
+            // before the admission work: a join that gives up ends its introduction, which would otherwise ask once more
             DoJoin();
+            DoAdmission();
             reliability.Tick();
             ForgetIdleIdentities();
         }
@@ -197,6 +198,7 @@ namespace JoinFS.Net.Jfp2
             identitySent.RemoveWhere((k, _) => k.Peer == peer.Id || k.Owner == peer.Id);
             occupants.RemoveWhere((_, o) => o.Node == peer.Id);
             observedBy.Remove(peer.Id);
+            AnnounceGone(peer);
         }
 
         public void OnSessionReset()
@@ -205,7 +207,7 @@ namespace JoinFS.Net.Jfp2
             sessionsById.Clear();
             nonMembers.Clear();
             introductions.Clear();
-            pendingJoin = null;
+            pendingJoins.Clear();
             occupants.Clear();
             observedBy.Clear();
             reliability.Clear();

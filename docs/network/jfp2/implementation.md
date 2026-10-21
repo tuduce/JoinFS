@@ -75,7 +75,15 @@ bodies are in `MembershipCodecs.cs` (internal classes, so not `ClassDescriptor`s
 messages; `Jfp2Profile` only offers them, `MembershipClasses`). The plugin reports what it learns
 through `IProtocolHost.Membership` (`IMembership`, implemented by `MeshManager.Membership.cs`), which adds the
 `Peer`, with `LegacyLink` false: `LegacyPlugin.CanCarry` is false for such a peer, so no legacy datagram
-is ever addressed to it. A node starts a join with `MeshManager.JoinOverJfp2` (the app: `-jfp2join`).
+is ever addressed to it. The app joins with `MeshManager.JoinJfp2First` (`protocol.md` §5.12): the
+stranger's Hello first, and the legacy Join after 2 s of silence or when the node takes no JFP2 join, the
+address then remembered as legacy-only for an hour (`-legacyjoin` skips JFP2); `JoinOverJfp2` is the same
+without the fallback, for tests. The joins under way are a list, one per address. The members already in the
+session are told of a joiner by `MemberAnnounce` and of a departure by `MemberLeave` (`protocol.md` §5.11):
+the plugin sends the second from `OnPeerRemoved` (an expiry) and from `AnnounceLeaving`
+(`IMembershipExpression`, called by `MeshManager.Leave`), and `IMembership.Left` decides whether the sender may
+say it. A Hello that carries `Admission` is always a stranger's, so a node that restarted before its expiry
+rejoins (`IMembership.Admit` makes the existing `Peer` direct at the proven endpoint).
 
 ### 3.2 The observed endpoint
 
@@ -151,7 +159,7 @@ dotnet test JoinFS.Tests/JoinFS.Tests.csproj -c FS2024-Debug -p:Platform=x64
 | Kind | Where | What it pins |
 |---|---|---|
 | Golden bytes | `Jfp2/HandshakeGoldenTests` | Hello, HelloAck, HelloAck with the observed endpoint (`protocol.md` Appendix A). Never regenerate to make a test pass. |
-| Join | `Net/Jfp2JoinTests` | The join on `TestMesh` with no legacy plugin (create, join, passwords, the list, loss, liveness), the bodies, and the bytes of `protocol.md` Appendix A.6 to A.8 |
+| Join | `Net/Jfp2JoinTests` | The join on `TestMesh` with no legacy plugin (create, join, passwords, the list, loss, liveness), members coming and going (announce, leave, crash, rejoin), JFP2 first with the legacy fallback, the JFP2-only mesh (the tracer bullet, roadmap item 12), the bodies, and the bytes of `protocol.md` Appendix A.6 to A.10 |
 | Golden bytes, admission | `Jfp2/AdmissionGoldenTests` | The Hello that asks, the Hello that echoes the cookie, the `Result` 2 HelloAck (`protocol.md` Appendix A.3 to A.5). Beside the 26.6 goldens, which stay as they are. |
 | Envelope, names, endpoints, text | `Jfp2/EnvelopeTests`, `WireEndPointTests`, `WireTextTests` | §3, §4 |
 | Negotiation and TLV rules | `Jfp2/NegotiationTests` | §5 |

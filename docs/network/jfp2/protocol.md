@@ -188,12 +188,14 @@ new classes take the next unused number.
 | 2 | Join | Edition 2, §5.10. Offered. |
 | 3 | JoinResult | Edition 2, §5.10. Offered. |
 | 4 | MemberList | Edition 2, §5.10. Offered. |
-| 5–8 | — | Unassigned. |
+| 5 | MemberAnnounce | Edition 2, §5.11. Offered. |
+| 6 | MemberLeave | Edition 2, §5.11. Offered. |
+| 7–8 | — | Unassigned. |
 | 9 | GuaranteedDone | The acknowledgement of §7.3. |
 
 Hello, HelloAck and GuaranteedDone are never offered (§5.3): every node speaks them, always at
-version 1. Join, JoinResult and MemberList are offered, in the internal partition, like any other
-class: a node sends them only on a session whose neighbour offered them.
+version 1. Join, JoinResult, MemberList, MemberAnnounce and MemberLeave are offered, in the internal
+partition, like any other class: a node sends them only on a session whose neighbour offered them.
 
 **Application partition**
 
@@ -497,7 +499,7 @@ Hello at least as large as the answer. Its `SelfAssignedId` is the id it will be
 is admitted; that id is not yet a session id, and a receiver of the answer finds the exchange by it.
 
 **Challenge.** A node that is in a session (a hub is one) and receives a Hello with an `Admission`
-extension from a name it does not know answers with a HelloAck that has:
+extension answers with a HelloAck that has:
 - `Result` 2, no offers, `SelfAssignedId` 0, the envelope's sender id 0 and its recipient id the
   Hello's `SelfAssignedId`;
 - `Names`: the answering node's names; `ObservedEndPoint`: the UDP source of the Hello;
@@ -525,8 +527,9 @@ session** with the stranger, named by the first name it stated, and is answered 
 HelloAck (`Result` 0, offers, `Names`, `ObservedEndPoint`). The cookie shows that the stranger
 receives at the endpoint it sends from, so the session is verified at once at both ends: the answering
 node from the cookie, the stranger from the answer. A retransmitted echo answers again and refreshes
-the stranger's id and endpoint. A Hello that carries a name the receiver already knows as a member is
-an ordinary Hello, whatever its `Admission` says.
+the stranger's id and endpoint. A Hello that carries an `Admission` is a stranger's whatever names it
+states, even a name the receiver holds as a member: a member's keepalive never carries one, and a node
+that restarted holds no session, so it can only ask as a stranger (§5.11, Rejoining).
 
 **A non-member session** has the id space and the negotiation of any session, and these limits:
 - It is never a next hop, never carries a Forwarded datagram, and `CanCarry` is false for every
@@ -603,7 +606,50 @@ JoinResult are kept until it comes.
 **What the joiner learns.** Each listed member becomes a peer that is **reached through the admitting node**
 (§6.3, item 2) until a direct link exists: the datagrams for it go to the admitting node, Forwarded
 (§8). A member the joiner knows already, by any of its names, is left as it is. How the other members learn of
-the joiner (MemberAnnounce) and of a departure (MemberLeave) is a later part of edition 2.
+the joiner (MemberAnnounce) and of a departure (MemberLeave) is §5.11.
+
+### 5.11 Members joining and leaving (edition 2)
+
+A member reached through a neighbour (§5.10) is kept as long as that neighbour keeps answering (its
+Hello or HelloAck renews the member, §5.10) and until a MemberLeave names it. Both classes are
+internal, version 1, offered in Hello, unreliable and never Forwarded, and travel on the member
+session between two neighbours. Neither is repeated: a lost one costs the member's expiry (30 s).
+
+**MemberAnnounce** (class 5), from the node that admitted a member to every other neighbour of it
+that is a member and offered the class. Payload: one member entry exactly as MemberList (§5.10)
+has it: `NameCount` u8 (1 to 4), the names (8 bytes each), `EndPointLength` u8, a `WireEndPoint`. A
+receiver that holds the member by none of its names adds it, reached through the sender (as a
+MemberList entry is); one it holds is left as it is. An entry it cannot use (§5.10) is skipped. A node
+announces a joiner only when it adds it: a repeated Join, or the Join of a member it still holds
+(Rejoining below), is not announced.
+
+**MemberLeave** (class 6), sent by a node that leaves the session, to every neighbour that is a member and
+offered the class, naming itself by the first name it stated; and by a node that stops holding a
+member, whether by expiry or by a MemberLeave, to every other such neighbour. Payload: one name, 8 bytes
+(§4.3). A receiver acts only on a member it holds that is either its neighbour and the sender (it
+leaves itself), or is reached through the sender; any other MemberLeave is ignored. It drops the member
+as for an expiry, which makes it announce the departure to its own neighbours in turn; a member it no
+longer holds is not announced twice.
+
+**Rejoining.** A node that restarts within the 30 s expiry is still a member at its admitting node,
+with a session whose ids it has forgotten. It asks as a stranger (§5.9), and the admitting node answers
+it as one, whatever it holds. On a Join that is judged `Accepted` for a name it holds as a member, the
+admitting node replaces the member session by the new one, takes the endpoint the cookie proved as the
+member's, holds it as its neighbour (no longer reached through another node), renews its expiry, does
+not announce it again, and answers in full (§5.10). A node it holds as a member by another name
+(an alias) is the same member.
+
+### 5.12 Choosing JFP2 or legacy to join (edition 2)
+
+What a node does to join the node at an address is the joiner's policy and puts nothing on the
+wire that §5.9 and §5.10 do not. It asks as a stranger first. If no HelloAck of any kind (a cookie
+or an answer) arrives within **2 s** of the first Hello, or the JFP2 join fails for a reason other than
+a refusal (the node takes no Join, or a Join gets no answer within the limits of §5.10), it sends the
+legacy Join to the same address instead and forgets the JFP2 join; a refusal by JoinResult is final
+and is never retried over legacy. It remembers the address as legacy-only for **1 hour**, and
+joins it over legacy at once in that time. A node that speaks both protocols admits a legacy Join like
+any other, as a member linked over legacy. A node released before edition 2 ignores the stranger's Hello (§5.9)
+and so costs the 2 s once.
 
 ---
 
@@ -895,7 +941,7 @@ cited rule says.
 | Space | Size | Assigned | Unknown values |
 |---|---|---|---|
 | Flag bits (§3.2) | 8 bits | 0 Guaranteed, 1 Forwarded, 3 Internal; 2 Coalesced reserved | Drop the datagram |
-| Internal classes (§3.3) | u8 | 0 Hello, 1 HelloAck, 2 Join, 3 JoinResult, 4 MemberList, 9 GuaranteedDone | Not agreed: drop, do not acknowledge |
+| Internal classes (§3.3) | u8 | 0 Hello, 1 HelloAck, 2 Join, 3 JoinResult, 4 MemberList, 5 MemberAnnounce, 6 MemberLeave, 9 GuaranteedDone | Not agreed: drop, do not acknowledge |
 | Application classes (§3.3) | u8 | 0–9; 255 reserved as Extended | Not agreed: drop, do not acknowledge |
 | Offer partitions (§5.3) | u8 | 0 application, 1 internal | Skip the offer |
 | Handshake `Result` (§5.2) | u8 | 0, 1, 2 | Read as "no session now" |
@@ -1057,7 +1103,7 @@ FA 02 08 00 00 34 12 01                   magic, ProtoMajor 2, Internal, sender 
 04 00 10 00  00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F   TLV Admission: the cookie
 ```
 
-The three datagrams of the join of §5.10 (edition 2) are pinned by `JoinFS.Tests/Net/Jfp2JoinTests.cs`.
+The five datagrams of the join of §5.10 and the members of §5.11 (edition 2), A.6 to A.10, are pinned by `JoinFS.Tests/Net/Jfp2JoinTests.cs`.
 
 **A.6 Join** from the node of A.1 (id `0x1234`) to the node of A.2 (id `0x5678`), with no password:
 
@@ -1086,6 +1132,22 @@ FA 02 08 78 56 34 12 04                   magic, ProtoMajor 2, Internal, sender 
 07  04 CB 00 71 01 E0 17                  EndPointLength 7, WireEndPoint: family 4, 203.0.113.1, port 6112
 ```
 
+**A.9 MemberAnnounce** from the node of A.2 (id `0x5678`) to a member (id `0x4321`), announcing the member of A.8:
+
+```
+FA 02 08 78 56 21 43 05                   magic, ProtoMajor 2, Internal, sender 0x5678, recipient 0x4321, class MemberAnnounce
+01                                        NameCount
+00 01 71 00 CB E0 17 14                   name: kind 0, legacy id 203.0.113.1, port 6112, local 20
+07  04 CB 00 71 01 E0 17                  EndPointLength 7, WireEndPoint: family 4, 203.0.113.1, port 6112
+```
+
+**A.10 MemberLeave** from the same node to the same member, for the same member:
+
+```
+FA 02 08 78 56 21 43 06                   magic, ProtoMajor 2, Internal, sender 0x5678, recipient 0x4321, class MemberLeave
+00 01 71 00 CB E0 17 14                   name: kind 0, legacy id 203.0.113.1, port 6112, local 20
+```
+
 ---
 
 ## Appendix B. Constants
@@ -1102,6 +1164,7 @@ FA 02 08 78 56 34 12 04                   magic, ProtoMajor 2, Internal, sender 
 | Admission: challenges answered | 10 per second, burst 20 | 5.9 |
 | Non-member sessions | 32 at once, 60 s each | 5.9 |
 | Join: repeat / give up | 2 s, 5 attempts / 15 s | 5.10 |
+| Join over JFP2 before legacy: silence / memory of a legacy-only address | 2 s / 1 hour | 5.12 |
 | MemberList entries per datagram | 1,000 bytes | 5.10 |
 | Expiry of a member linked over JFP2 | 30 s, renewed by each Hello or HelloAck | 5.10 |
 | Keepalive Hello | 5 s | 6.2 |

@@ -151,9 +151,10 @@ local LEGACY_APP_MSG = {
     [39] = "String8Variables", [40] = "ShowOnRadar",
 }
 
--- JoinFS.Jfp2.MessageClasses - Internal partition (5-8 unassigned)
+-- JoinFS.Jfp2.MessageClasses - Internal partition (7-8 unassigned)
 local JFP2_INTERNAL_CLASS = {
     [0] = "Hello", [1] = "HelloAck", [2] = "Join", [3] = "JoinResult", [4] = "MemberList",
+    [5] = "MemberAnnounce", [6] = "MemberLeave",
     [9] = "GuaranteedDone",
 }
 
@@ -810,8 +811,28 @@ local function decode_jfp2_join_result(tree, buffer, offset)
     tree:add(buffer(offset + 5, 1), "ListSegments: " .. buffer(offset + 5, 1):uint())
 end
 
--- MemberList (internal class 4): Index u8, EntryCount u8, entries of
--- NameCount u8, names (8 bytes each), EndPointLength u8, WireEndPoint
+-- One member entry (§5.10): NameCount u8, names (8 bytes each), EndPointLength u8, WireEndPoint.
+-- Returns the offset after it, or nil when the bytes end inside it.
+local function add_jfp2_member_entry(tree, buffer, offset, label)
+    local len = buffer:len()
+    if offset >= len then return nil end
+    local names = buffer(offset, 1):uint()
+    if offset + 1 + names * 8 + 1 > len then return nil end
+    local entry = tree:add(buffer(offset, 1), label .. ": " .. names .. " name(s)")
+    offset = offset + 1
+    for n = 1, names do
+        add_jfp2_name(entry, buffer, offset, "Name " .. n)
+        offset = offset + 8
+    end
+    local epLen = buffer(offset, 1):uint()
+    offset = offset + 1
+    if offset + epLen > len then return nil end
+    local text = jfp2_wire_endpoint_string(buffer, offset, epLen)
+    entry:add(buffer(offset, epLen), "EndPoint: " .. (text or "(unreadable, entry skipped)"))
+    return offset + epLen
+end
+
+-- MemberList (internal class 4): Index u8, EntryCount u8, entries as above
 local function decode_jfp2_member_list(tree, buffer, offset)
     local len = buffer:len()
     if len < offset + 2 then
@@ -823,22 +844,25 @@ local function decode_jfp2_member_list(tree, buffer, offset)
     tree:add(buffer(offset + 1, 1), "EntryCount: " .. count)
     offset = offset + 2
     for e = 1, count do
-        if offset >= len then break end
-        local names = buffer(offset, 1):uint()
-        if offset + 1 + names * 8 + 1 > len then break end
-        local entry = tree:add(buffer(offset, 1), "Entry " .. e .. ": " .. names .. " name(s)")
-        offset = offset + 1
-        for n = 1, names do
-            add_jfp2_name(entry, buffer, offset, "Name " .. n)
-            offset = offset + 8
-        end
-        local epLen = buffer(offset, 1):uint()
-        offset = offset + 1
-        if offset + epLen > len then break end
-        local text = jfp2_wire_endpoint_string(buffer, offset, epLen)
-        entry:add(buffer(offset, epLen), "EndPoint: " .. (text or "(unreadable, entry skipped)"))
-        offset = offset + epLen
+        offset = add_jfp2_member_entry(tree, buffer, offset, "Entry " .. e)
+        if not offset then break end
     end
+end
+
+-- MemberAnnounce (internal class 5, §5.11): one member entry, as in MemberList
+local function decode_jfp2_member_announce(tree, buffer, offset)
+    if offset >= buffer:len() or not add_jfp2_member_entry(tree, buffer, offset, "Member") then
+        tree:add(buffer(offset, buffer:len() - offset), "Short MemberAnnounce (" .. (buffer:len() - offset) .. " bytes): ignored")
+    end
+end
+
+-- MemberLeave (internal class 6, §5.11): one name
+local function decode_jfp2_member_leave(tree, buffer, offset)
+    if buffer:len() < offset + 8 then
+        tree:add(buffer(offset, buffer:len() - offset), "Short MemberLeave (" .. (buffer:len() - offset) .. " bytes): ignored")
+        return
+    end
+    add_jfp2_name(tree, buffer, offset, "Name")
 end
 
 local function decode_jfp2_application(tree, buffer, offset, class)
@@ -881,6 +905,10 @@ local function decode_jfp2_internal(tree, buffer, offset, class)
         decode_jfp2_join_result(tree, buffer, offset)
     elseif name == "MemberList" then
         decode_jfp2_member_list(tree, buffer, offset)
+    elseif name == "MemberAnnounce" then
+        decode_jfp2_member_announce(tree, buffer, offset)
+    elseif name == "MemberLeave" then
+        decode_jfp2_member_leave(tree, buffer, offset)
     elseif name == "GuaranteedDone" then
         decode_jfp2_guaranteed_done(tree, buffer, offset)
     elseif offset < len then

@@ -375,6 +375,339 @@ namespace JoinFS.Tests.Net
             Assert.DoesNotContain(Datagrams(mesh, a, h), d => d.Data[0] != Envelope.Magic);
         }
 
+        // ------------------------------------------------------------------ stage 5: members come and go
+
+        static bool Left(TestNode node, TestNode who) => node.Events.Any(e => e.Kind == NetworkEventKind.PeerLeft && e.Node == who.Id);
+
+        [Fact]
+        public void AMemberAlreadyInTheSession_LearnsOfALateJoiner_WithoutAskingTheHub()
+        {
+            var mesh = new TestMesh();
+            TestNode h = Hub(mesh);
+            TestNode b = Node(mesh, "198.51.100.3");
+            TestNode c = Node(mesh, "198.51.100.4");
+            Join(mesh, b, h);
+
+            Join(mesh, c, h);
+
+            Assert.True(b.Core.Peers.TryGet(c.Id, out Peer? cAtB));
+            Assert.True(cAtB!.Relayed);
+            Assert.Equal(h.Id, cAtB.RouteVia);
+            Assert.Equal(c.EndPoint, cAtB.EndPoint);
+            Assert.Contains(b.Events, e => e.Kind == NetworkEventKind.PeerJoined && e.Node == c.Id);
+            Assert.Single(Datagrams(mesh, h, b), d => IsInternal(d.Data, MessageClasses.MemberAnnounce));
+            Assert.DoesNotContain(Datagrams(mesh, h, c), d => IsInternal(d.Data, MessageClasses.MemberAnnounce));
+            Assert.DoesNotContain(mesh.Network.Log, d => d.Data[0] != Envelope.Magic);
+        }
+
+        [Fact]
+        public void AMemberThatLeaves_IsDroppedByEveryoneAtOnce_NotAtTheExpiry()
+        {
+            var mesh = new TestMesh();
+            TestNode h = Hub(mesh);
+            TestNode b = Node(mesh, "198.51.100.3");
+            TestNode c = Node(mesh, "198.51.100.4");
+            Join(mesh, b, h);
+            Join(mesh, c, h);
+            Assert.True(b.Core.Peers.Contains(c.Id));
+
+            c.Core.Mesh.Leave();
+            mesh.Run(1);
+
+            Assert.False(h.Core.Peers.Contains(c.Id));
+            Assert.False(b.Core.Peers.Contains(c.Id));
+            Assert.True(b.Core.Peers.Contains(h.Id));
+            Assert.True(Left(h, c));
+            Assert.True(Left(b, c));
+            Assert.Single(Datagrams(mesh, c, h), d => IsInternal(d.Data, MessageClasses.MemberLeave));
+            Assert.Single(Datagrams(mesh, h, b), d => IsInternal(d.Data, MessageClasses.MemberLeave));
+            Assert.Equal(1, b.Events.Count(e => e.Kind == NetworkEventKind.PeerLeft && e.Node == c.Id));
+        }
+
+        [Fact]
+        public void AMemberThatCrashes_IsGoneFromTheOthersWhenTheHubExpiresIt()
+        {
+            var mesh = new TestMesh();
+            TestNode h = Hub(mesh);
+            TestNode b = Node(mesh, "198.51.100.3");
+            TestNode c = Node(mesh, "198.51.100.4");
+            Join(mesh, b, h);
+            Join(mesh, c, h);
+
+            mesh.Partition(c, h);
+            mesh.Run(45);
+
+            // before MemberLeave, b kept c for as long as the hub answered
+            Assert.False(h.Core.Peers.Contains(c.Id));
+            Assert.False(b.Core.Peers.Contains(c.Id));
+            Assert.True(b.Core.Peers.Contains(h.Id));
+            Assert.True(Left(b, c));
+        }
+
+        [Fact]
+        public void AMemberLeave_NamingANodeTheSenderHasNoSayOver_IsIgnored()
+        {
+            var mesh = new TestMesh();
+            TestNode h = Hub(mesh);
+            TestNode b = Node(mesh, "198.51.100.3");
+            TestNode c = Node(mesh, "198.51.100.4");
+            Join(mesh, b, h);
+            Join(mesh, c, h);
+            Jfp2Of(b).TryGetHopIds(h.Id, out ushort bId, out ushort hId);
+
+            // b says c is gone, but c is the hub's neighbour and not reached through b
+            b.Transport.Send(h.EndPoint, Datagram(MessageClasses.MemberLeave, bId, hId, new MemberLeaveBody { Name = c.Id }.Serialize()));
+            mesh.Run(1);
+
+            Assert.True(h.Core.Peers.Contains(c.Id));
+            Assert.False(Left(h, c));
+            Assert.Contains(h.Logs, l => l.Contains("none of its business"));
+        }
+
+        [Fact]
+        public void ANodeThatRestarts_RejoinsAHubThatStillHoldsItAsAMember()
+        {
+            var mesh = new TestMesh();
+            TestNode h = Hub(mesh);
+            TestNode a = Node(mesh, "198.51.100.2");
+            TestNode b = Node(mesh, "198.51.100.3");
+            Join(mesh, a, h);
+            Join(mesh, b, h);
+            int announcedBefore = Datagrams(mesh, h, b).Count(d => IsInternal(d.Data, MessageClasses.MemberAnnounce));
+            // a crashes: the hub never hears it leave
+            var previous = mesh.Network.Filter;
+            mesh.Network.Filter = (from, to, data) => !(from.Equals(a.EndPoint) && IsInternal(data, MessageClasses.MemberLeave)) && (previous == null || previous(from, to, data));
+            a.Core.Mesh.Leave();
+            mesh.Run(0.5);
+            Assert.True(h.Core.Peers.Contains(a.Id));
+
+            Join(mesh, a, h, seconds: 3);
+
+            Assert.True(a.Core.Mesh.Connected);
+            Assert.False(Jfp2Of(a).JoinPending);
+            Assert.True(a.Core.Peers.Contains(h.Id));
+            Assert.True(a.Core.Peers.Contains(b.Id));
+            Assert.Equal(2, h.Core.Peers.Count);
+            Assert.Equal(1, h.Events.Count(e => e.Kind == NetworkEventKind.PeerJoined && e.Node == a.Id));
+            Assert.Equal(announcedBefore, Datagrams(mesh, h, b).Count(d => IsInternal(d.Data, MessageClasses.MemberAnnounce)));
+            Assert.Contains(h.EventLogs, l => l.Contains("joined again over JFP2"));
+            SendPosition(h, a, 5, 55);
+            mesh.Run(0.5);
+            Assert.Equal(55, Assert.Single(a.Messages<PositionUpdate>()).Latitude);
+            mesh.Run(60);
+            Assert.True(h.Core.Peers.Contains(a.Id) && a.Core.Peers.Contains(h.Id));
+        }
+
+        [Fact]
+        public void TheGlobalSessionJoinsSeveralHubsAtOnce_AndEveryJoinCompletes()
+        {
+            var mesh = new TestMesh();
+            TestNode h1 = Node(mesh, "203.0.113.1");
+            TestNode h2 = Node(mesh, "203.0.113.2");
+            h1.Core.Mesh.Create(true, 0, false, "");
+            h2.Core.Mesh.Create(true, 0, false, "");
+            TestNode a = Node(mesh, "198.51.100.2");
+            a.Core.Mesh.Create(true, 0, false, "");
+
+            a.Core.Mesh.JoinOverJfp2(h1.EndPoint, 0);
+            a.Core.Mesh.JoinOverJfp2(h2.EndPoint, 0);
+            mesh.Run(3);
+
+            Assert.True(a.Core.Peers.Contains(h1.Id));
+            Assert.True(a.Core.Peers.Contains(h2.Id));
+            Assert.False(Jfp2Of(a).JoinPending);
+        }
+
+        // ------------------------------------------------------------------ stage 5: JFP2 first, legacy after silence (D4, S2)
+
+        static IEnumerable<(IPEndPoint From, IPEndPoint To, byte[] Data)> Legacy(TestMesh mesh, TestNode from, TestNode to) =>
+            Datagrams(mesh, from, to).Where(d => d.Data[0] != Envelope.Magic);
+
+        /// <summary>A node that speaks both protocols, as the app does.</summary>
+        static TestNode Both(TestMesh mesh, string ip) => mesh.Add(ip, 6112, new LegacyPlugin(), new Jfp2Plugin());
+
+        [Fact]
+        public void ALegacyHub_GetsTheLegacyJoinAfterTwoSeconds()
+        {
+            var mesh = new TestMesh();
+            TestNode o = mesh.Add("203.0.113.1", 6112, new LegacyPlugin());
+            o.Core.Mesh.Create(false, 0, false, "");
+            TestNode a = Both(mesh, "198.51.100.2");
+
+            a.Core.Mesh.JoinJfp2First(o.EndPoint, 0);
+            mesh.Run(1.8);
+
+            // O ignored the stranger's Hello; nothing legacy has been sent yet
+            Assert.False(a.Core.Mesh.Connected);
+            Assert.NotEmpty(Datagrams(mesh, a, o));
+            Assert.Empty(Legacy(mesh, a, o));
+
+            mesh.Run(0.4);
+            Assert.NotEmpty(Legacy(mesh, a, o));
+            mesh.Run(3);
+
+            Assert.True(a.Core.Mesh.Connected);
+            Assert.True(a.Core.Peers.TryGet(o.Id, out Peer? oAtA));
+            Assert.True(oAtA!.LegacyLink);
+            Assert.True(o.Core.Peers.Contains(a.Id));
+            Assert.Contains(a.EventLogs, l => l.Contains("takes no join over JFP2") && l.Contains("joining it over legacy"));
+            Assert.False(Jfp2Of(a).JoinPending);
+            Assert.Equal(0, Jfp2Of(a).IntroductionCount);
+        }
+
+        [Fact]
+        public void AnAddressThatTookNoJoinOverJfp2_IsJoinedOverLegacyAtOnceNextTime()
+        {
+            var mesh = new TestMesh();
+            TestNode o = mesh.Add("203.0.113.1", 6112, new LegacyPlugin());
+            o.Core.Mesh.Create(false, 0, false, "");
+            TestNode a = Both(mesh, "198.51.100.2");
+            a.Core.Mesh.JoinJfp2First(o.EndPoint, 0);
+            mesh.Run(5);
+            Assert.True(a.Core.Mesh.Connected);
+            a.Core.Mesh.Leave();
+            mesh.Run(1);
+            mesh.Network.Log.Clear();
+
+            a.Core.Mesh.JoinJfp2First(o.EndPoint, 0);
+            mesh.Run(0.05);
+
+            // the first thing sent is the legacy Join: no stranger's Hello first (a peer's Hello comes later)
+            Assert.NotEmpty(Legacy(mesh, a, o));
+            Assert.DoesNotContain(Datagrams(mesh, a, o), d => d.Data[0] == Envelope.Magic);
+            mesh.Run(2);
+            Assert.True(a.Core.Mesh.Connected);
+        }
+
+        [Fact]
+        public void TheMemoryOfALegacyOnlyAddress_EndsAfterAnHour()
+        {
+            var mesh = new TestMesh();
+            TestNode o = mesh.Add("203.0.113.1", 6112, new LegacyPlugin());
+            o.Core.Mesh.Create(false, 0, false, "");
+            TestNode a = Both(mesh, "198.51.100.2");
+            a.Core.Mesh.JoinJfp2First(o.EndPoint, 0);
+            mesh.Run(5);
+            a.Core.Mesh.Leave();
+            mesh.Run(3600);
+            mesh.Network.Log.Clear();
+
+            a.Core.Mesh.JoinJfp2First(o.EndPoint, 0);
+            mesh.Run(0.1);
+
+            Assert.NotEmpty(Datagrams(mesh, a, o));
+            Assert.Empty(Legacy(mesh, a, o));
+        }
+
+        [Fact]
+        public void AJfp2Hub_IsJoinedOverJfp2_AndNoLegacyDatagramPassesBetweenThem()
+        {
+            var mesh = new TestMesh();
+            TestNode h = Both(mesh, "203.0.113.1");
+            h.Core.Mesh.Create(false, 0, false, "");
+            TestNode a = Both(mesh, "198.51.100.2");
+
+            a.Core.Mesh.JoinJfp2First(h.EndPoint, 0);
+            mesh.Run(20);
+
+            Assert.True(a.Core.Mesh.Connected);
+            Assert.True(a.Core.Peers.TryGet(h.Id, out Peer? hAtA));
+            Assert.False(hAtA!.LegacyLink);
+            Assert.Empty(Legacy(mesh, a, h));
+            Assert.Empty(Legacy(mesh, h, a));
+            Assert.Contains(a.EventLogs, l => l.Contains("joining") && l.Contains("over JFP2"));
+        }
+
+        [Fact]
+        public void ARefusalOverJfp2_IsFinal_AndNoLegacyJoinFollows()
+        {
+            var mesh = new TestMesh();
+            TestNode h = Both(mesh, "203.0.113.1");
+            h.Core.Mesh.Create(false, 0xCAFEBABE, false, "");
+            TestNode a = Both(mesh, "198.51.100.2");
+
+            a.Core.Mesh.JoinJfp2First(h.EndPoint, 0x12345678);
+            mesh.Run(10);
+
+            Assert.False(a.Core.Mesh.Connected);
+            Assert.Equal(JoinResult.PasswordRequired, a.Core.Mesh.ActiveJoinResult);
+            Assert.Empty(Legacy(mesh, a, h));
+            Assert.False(h.Core.Peers.Contains(a.Id));
+        }
+
+        [Fact]
+        public void AHubThatTakesNoJoinOverJfp2_IsJoinedOverLegacy_AtOnceWhenItSaysSo()
+        {
+            var mesh = new TestMesh();
+            TestNode h = mesh.Add("203.0.113.1", 6112, new LegacyPlugin(), new Jfp2Plugin(profile: Jfp2Profile.Default.WithoutInternal(MessageClasses.Join)));
+            h.Core.Mesh.Create(false, 0, false, "");
+            TestNode a = Both(mesh, "198.51.100.2");
+
+            a.Core.Mesh.JoinJfp2First(h.EndPoint, 0);
+            mesh.Run(4);
+
+            Assert.True(a.Core.Mesh.Connected);
+            Assert.True(a.Core.Peers.TryGet(h.Id, out Peer? hAtA));
+            Assert.True(hAtA!.LegacyLink);
+            Assert.NotEmpty(Legacy(mesh, a, h));
+        }
+
+        [Fact]
+        public void ANodeWithoutAMembershipProtocol_JoinsOverLegacyAtOnce()
+        {
+            var mesh = new TestMesh();
+            TestNode o = mesh.Add("203.0.113.1", 6112, new LegacyPlugin());
+            o.Core.Mesh.Create(false, 0, false, "");
+            TestNode a = mesh.Add("198.51.100.2", 6112, new LegacyPlugin());
+
+            a.Core.Mesh.JoinJfp2First(o.EndPoint, 0);
+            mesh.Run(1);
+
+            Assert.True(a.Core.Mesh.Connected);
+        }
+
+        // ------------------------------------------------------------------ the tracer bullet: nothing but JFP2 (roadmap item 12)
+
+        [Fact]
+        public void AJfp2OnlyMesh_CreatesJoinsExchangesPositionsAndLeaves()
+        {
+            var mesh = new TestMesh();
+            TestNode h = Hub(mesh);
+            TestNode a = Node(mesh, "198.51.100.2");
+            TestNode b = Node(mesh, "198.51.100.3");
+            Join(mesh, a, h);
+            Join(mesh, b, h);
+
+            // a and b see each other and the hub, and positions cross between them through the hub
+            Assert.True(a.Core.Peers.Contains(b.Id) && b.Core.Peers.Contains(a.Id));
+            SendPosition(a, b, 1, 11);
+            SendPosition(b, a, 2, 22);
+            SendPosition(h, a, 3, 33);
+            mesh.Run(0.5);
+            var atB = Assert.Single(b.MessagesWithMeta<PositionUpdate>());
+            Assert.Equal(11, atB.Message.Latitude);
+            Assert.Equal(a.Id, atB.Meta.Sender);
+            Assert.Equal(22, Assert.Single(a.MessagesWithMeta<PositionUpdate>(), m => m.Meta.Sender == b.Id).Message.Latitude);
+            Assert.Equal(33, Assert.Single(a.MessagesWithMeta<PositionUpdate>(), m => m.Meta.Sender == h.Id).Message.Latitude);
+
+            // nothing expires while everyone is there
+            mesh.Run(90);
+            Assert.Equal(2, h.Core.Peers.Count);
+            Assert.Equal(2, a.Core.Peers.Count);
+            Assert.Equal(2, b.Core.Peers.Count);
+            Assert.All(new[] { h, a, b }, node => Assert.DoesNotContain(node.Events, e => e.Kind == NetworkEventKind.PeerLeft));
+
+            // leaving: the others hear of it
+            b.Core.Mesh.Leave();
+            mesh.Run(1);
+            Assert.False(a.Core.Peers.Contains(b.Id));
+            Assert.False(h.Core.Peers.Contains(b.Id));
+            a.Core.Mesh.Leave();
+            mesh.Run(1);
+            Assert.Equal(0, h.Core.Peers.Count);
+            Assert.DoesNotContain(mesh.Network.Log, d => d.Data[0] != Envelope.Magic);
+        }
+
         // ------------------------------------------------------------------ the bodies
 
         [Fact]
@@ -451,6 +784,38 @@ namespace JoinFS.Tests.Net
             Assert.Equal(Convert.FromHexString("FA02087856341204" + "0001" + "01" + "00017100CBE01714" + "07" + "04CB007101E017"),
                 Datagram(MessageClasses.MemberList, 0x5678, 0x1234,
                     new MemberListBody { Entries = [new MemberEntry([member], new IPEndPoint(IPAddress.Parse("203.0.113.1"), 6112))] }.Serialize()));
+        }
+
+        /// <summary>The datagrams of protocol.md Appendix A.9 and A.10. NEVER change these bytes to make a test pass.</summary>
+        [Fact]
+        public void TheMemberDatagrams_AreThoseOfAppendixA()
+        {
+            NodeId member = NodeId.FromLegacy(0xCB007101, 6112, 20);
+
+            byte[] announce = Datagram(MessageClasses.MemberAnnounce, 0x5678, 0x4321,
+                new MemberAnnounceBody { Entry = new MemberEntry([member], new IPEndPoint(IPAddress.Parse("203.0.113.1"), 6112)) }.Serialize());
+            byte[] leave = Datagram(MessageClasses.MemberLeave, 0x5678, 0x4321, new MemberLeaveBody { Name = member }.Serialize());
+
+            Assert.Equal(Convert.FromHexString("FA0208785621430501" + "00017100CBE01714" + "07" + "04CB007101E017"), announce);
+            Assert.Equal(Convert.FromHexString("FA0208785621430600017100CBE01714"), leave);
+            Assert.True(MemberAnnounceBody.TryRead(announce.AsSpan(8), out MemberAnnounceBody readAnnounce));
+            Assert.Equal([member], readAnnounce.Entry.Names);
+            Assert.Equal(new IPEndPoint(IPAddress.Parse("203.0.113.1"), 6112), readAnnounce.Entry.EndPoint);
+            Assert.True(MemberLeaveBody.TryRead(leave.AsSpan(8), out MemberLeaveBody readLeave));
+            Assert.Equal(member, readLeave.Name);
+        }
+
+        [Fact]
+        public void TheMemberBodies_RefuseWhatTheyCannotUse()
+        {
+            NodeId member = NodeId.FromLegacy(0xCB007101, 6112, 20);
+            byte[] announce = new MemberAnnounceBody { Entry = new MemberEntry([member], new IPEndPoint(IPAddress.Parse("203.0.113.1"), 6112)) }.Serialize();
+
+            Assert.False(MemberAnnounceBody.TryRead(announce.AsSpan(0, announce.Length - 1), out _));   // cut short
+            Assert.False(MemberAnnounceBody.TryRead([], out _));
+            Assert.False(MemberAnnounceBody.TryRead([1, .. NameBytes(member), 7, 9, 0, 0, 0, 0, 0, 0], out _)); // an endpoint of an unassigned family
+            Assert.False(MemberLeaveBody.TryRead(new byte[7], out _));
+            Assert.False(MemberLeaveBody.TryRead(new byte[8], out _));                                    // not a valid name
         }
 
         [Fact]

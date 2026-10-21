@@ -126,19 +126,64 @@ namespace JoinFS.Net.Jfp2
             int at = 2;
             foreach (MemberEntry entry in Entries)
             {
-                int names = Math.Min(entry.Names.Length, MaxNames);
-                bytes[at++] = (byte)names;
-                for (int n = 0; n < names; n++)
-                {
-                    entry.Names[n].WriteTo(bytes.AsSpan(at, NodeId.WireSize));
-                    at += NodeId.WireSize;
-                }
-                int length = WireEndPoint.SizeOf(entry.EndPoint);
-                bytes[at++] = (byte)length;
-                WireEndPoint.WriteTo(entry.EndPoint, bytes.AsSpan(at, length));
-                at += length;
+                at += WriteEntry(entry, bytes.AsSpan(at));
             }
             return bytes;
+        }
+
+        /// <summary>Writes one entry (<see cref="SizeOf"/> bytes) and returns how many it wrote.</summary>
+        public static int WriteEntry(MemberEntry entry, Span<byte> dest)
+        {
+            int at = 0;
+            int names = Math.Min(entry.Names.Length, MaxNames);
+            dest[at++] = (byte)names;
+            for (int n = 0; n < names; n++)
+            {
+                entry.Names[n].WriteTo(dest.Slice(at, NodeId.WireSize));
+                at += NodeId.WireSize;
+            }
+            int length = WireEndPoint.SizeOf(entry.EndPoint);
+            dest[at++] = (byte)length;
+            WireEndPoint.WriteTo(entry.EndPoint, dest.Slice(at, length));
+            return at + length;
+        }
+
+        /// <summary>
+        /// Reads one entry at <paramref name="at"/> and moves <paramref name="at"/> past it. False when the
+        /// bytes end inside the entry (<paramref name="at"/> is then the end); true with a null
+        /// <paramref name="entry"/> for an entry that is skipped, since its declared sizes tell where the next begins.
+        /// </summary>
+        public static bool TryReadEntry(ReadOnlySpan<byte> src, ref int at, out MemberEntry? entry)
+        {
+            entry = null;
+            if (at >= src.Length)
+            {
+                return false;
+            }
+            int names = src[at++];
+            if (at + names * NodeId.WireSize + 1 > src.Length)
+            {
+                at = src.Length;
+                return false;
+            }
+            var list = new NodeId[names];
+            for (int n = 0; n < names; n++)
+            {
+                list[n] = NodeId.ReadFrom(src.Slice(at, NodeId.WireSize));
+                at += NodeId.WireSize;
+            }
+            int length = src[at++];
+            if (at + length > src.Length)
+            {
+                at = src.Length;
+                return false;
+            }
+            if (names > 0 && list[0].Valid() && WireEndPoint.TryReadFrom(src.Slice(at, length), out IPEndPoint endPoint))
+            {
+                entry = new MemberEntry(list, endPoint);
+            }
+            at += length;
+            return true;
         }
 
         /// <summary>
@@ -158,33 +203,66 @@ namespace JoinFS.Net.Jfp2
             int at = 2;
             for (int e = 0; e < count; e++)
             {
-                if (at >= src.Length)
+                if (!TryReadEntry(src, ref at, out MemberEntry? entry))
                 {
                     break;
                 }
-                int names = src[at++];
-                if (at + names * NodeId.WireSize + 1 > src.Length)
+                if (entry.HasValue)
                 {
-                    break;
+                    body.Entries.Add(entry.Value);
                 }
-                var list = new NodeId[names];
-                for (int n = 0; n < names; n++)
-                {
-                    list[n] = NodeId.ReadFrom(src.Slice(at, NodeId.WireSize));
-                    at += NodeId.WireSize;
-                }
-                int length = src[at++];
-                if (at + length > src.Length)
-                {
-                    break;
-                }
-                if (names > 0 && list[0].Valid() && WireEndPoint.TryReadFrom(src.Slice(at, length), out IPEndPoint endPoint))
-                {
-                    body.Entries.Add(new MemberEntry(list, endPoint));
-                }
-                at += length;
             }
             return true;
+        }
+    }
+
+    /// <summary>MemberAnnounce (internal class 5, version 1): a node that admitted a member tells its other neighbours of it. One member entry, as in MemberList.</summary>
+    public struct MemberAnnounceBody
+    {
+        public MemberEntry Entry;
+
+        public readonly byte[] Serialize()
+        {
+            byte[] bytes = new byte[MemberListBody.SizeOf(Entry)];
+            MemberListBody.WriteEntry(Entry, bytes);
+            return bytes;
+        }
+
+        /// <summary>False for an entry this build cannot use (no usable first name, an endpoint of an unassigned family) or a cut one.</summary>
+        public static bool TryRead(ReadOnlySpan<byte> src, out MemberAnnounceBody body)
+        {
+            body = default;
+            int at = 0;
+            if (!MemberListBody.TryReadEntry(src, ref at, out MemberEntry? entry) || !entry.HasValue)
+            {
+                return false;
+            }
+            body.Entry = entry.Value;
+            return true;
+        }
+    }
+
+    /// <summary>MemberLeave (internal class 6, version 1): a member is gone. One name, 8 bytes.</summary>
+    public struct MemberLeaveBody
+    {
+        public NodeId Name;
+
+        public readonly byte[] Serialize()
+        {
+            byte[] bytes = new byte[NodeId.WireSize];
+            Name.WriteTo(bytes);
+            return bytes;
+        }
+
+        public static bool TryRead(ReadOnlySpan<byte> src, out MemberLeaveBody body)
+        {
+            body = default;
+            if (src.Length < NodeId.WireSize)
+            {
+                return false;
+            }
+            body.Name = NodeId.ReadFrom(src[..NodeId.WireSize]);
+            return body.Name.Valid();
         }
     }
 }

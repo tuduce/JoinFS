@@ -50,12 +50,12 @@ namespace JoinFS
         readonly MainSessionHost host;
         readonly NodeKeyStore nodeKeys;
 
-        /// <summary>Join over JFP2 alone (the <c>-jfp2join</c> test switch).</summary>
-        readonly bool joinOverJfp2;
+        /// <summary>Join over legacy alone (the <c>-legacyjoin</c> test switch); by default a join asks over JFP2 first.</summary>
+        readonly bool joinOverLegacy;
 
         public Network(Main main)
         {
-            joinOverJfp2 = main.settingsJfp2Join;
+            joinOverLegacy = main.settingsLegacyJoin;
             host = new MainSessionHost(main);
             nodeKeys = new NodeKeyStore(main.storagePath, host);
             host.Event("Unique address is " + UserDirectory.UuidToString(main.uuid));
@@ -449,9 +449,13 @@ namespace JoinFS
             lastPasswordHash = passwordHash;
             StartSession(endPoint, core =>
             {
-                if (!joinOverJfp2 || !core.Mesh.JoinOverJfp2(endPoint, passwordHash))
+                if (joinOverLegacy)
                 {
                     core.Mesh.Join(endPoint, passwordHash);
+                }
+                else
+                {
+                    core.Mesh.JoinJfp2First(endPoint, passwordHash);
                 }
             });
         }

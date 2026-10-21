@@ -150,6 +150,10 @@ namespace JoinFS.Net
                 return;
             }
             core.Broadcast(new Leave { Suid = suid }, guaranteed: false);
+            foreach (IProtocolPlugin plugin in core.Plugins)
+            {
+                (plugin as IMembershipExpression)?.AnnounceLeaving();
+            }
             // every plugin forgets its per-session state (the legacy LocalNode only cleared its own
             // guaranteed lists here, leaking JFP2 sessions and relay slots into the next session)
             core.ResetSession();

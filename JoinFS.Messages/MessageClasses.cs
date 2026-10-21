@@ -12,7 +12,7 @@ namespace JoinFS.Net.Jfp2
     public static class MessageClasses
     {
         // -- Internal / session-management partition (EnvelopeFlags.Internal set) --
-        // 5-8 are free: they were reserved for a mesh whose message set the mesh over JFP2 designs
+        // 7 and 8 are free: they were reserved for a mesh whose message set the mesh over JFP2 designs
         // afresh, and are assigned by that design (docs/network/jfp2/protocol.md §3.3).
         public const byte Hello = 0;
         public const byte HelloAck = 1;
@@ -22,6 +22,10 @@ namespace JoinFS.Net.Jfp2
         public const byte JoinResult = 3;
         /// <summary>Members the admitting node knows, for a node that just joined (§5.10).</summary>
         public const byte MemberList = 4;
+        /// <summary>A node tells its neighbours of a member that just joined (§5.11).</summary>
+        public const byte MemberAnnounce = 5;
+        /// <summary>A node tells its neighbours that a member is gone (§5.11).</summary>
+        public const byte MemberLeave = 6;
         public const byte GuaranteedDone = 9;
 
         // -- Application partition (EnvelopeFlags.Internal clear) --

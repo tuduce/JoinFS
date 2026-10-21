@@ -108,7 +108,7 @@ namespace JoinFS.Tests.Net
             SchemaOffer position = PositionV2.Offers.Single(o => o.MessageClass == MessageClasses.Position);
             Assert.Equal((1, 2), (position.MinVersion, position.MaxVersion));
             Assert.Equal(Jfp2Profile.Default.Offers.Select(o => o.MessageClass), PositionV2.Offers.Select(o => o.MessageClass)); // replaced in place
-            Assert.DoesNotContain(NoNotes.Offers, o => o.MessageClass == MessageClasses.Notes);
+            Assert.DoesNotContain(NoNotes.Offers, o => !o.Internal && o.MessageClass == MessageClasses.Notes);
             Assert.Null(NoNotes.ForKind(MessageKind.Notes));
         }
 

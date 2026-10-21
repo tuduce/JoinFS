@@ -6,20 +6,26 @@ using System.Security.Cryptography;
 namespace JoinFS.Net.Jfp2
 {
     // Join over JFP2: a node in a non-member session (protocol.md §5.9) asks to become a member with Join, is
-    // answered with JoinResult and then told of the members with MemberList (§5.10). The membership itself
-    // is the mesh's: this file reports what the wire brought through IMembership.
+    // answered with JoinResult and then told of the members with MemberList (§5.10); the members already in
+    // the session are told of the joiner with MemberAnnounce, and of a departure with MemberLeave (§5.11). The
+    // membership itself is the mesh's: this file reports what the wire brought through IMembership.
     public sealed partial class Jfp2Plugin
     {
         const double JoinRetryInterval = 2.0;
         const double JoinTimeout = 15.0;
         const int JoinMaxAttempts = 5;
+        /// <summary>How long a join that may fall back to legacy waits for any answer to its first Hello (protocol.md §5.12).</summary>
+        const double JoinSilence = 2.0;
 
         /// <summary>The join this node started and has not finished: Join is repeated until JoinResult and every MemberList datagram it announced have arrived.</summary>
         sealed class PendingJoin
         {
             public IPEndPoint Target;
             public uint PasswordHash;
+            public double Started;
             public double Deadline;
+            /// <summary>When it fails without a refusal, the mesh joins over legacy (<see cref="IMembership.JoinFailedOverJfp2"/>).</summary>
+            public bool LegacyFallback;
             /// <summary>The session with the target, once the cookie exchange has made it.</summary>
             public PeerSession Session;
             public int Attempts;
@@ -30,22 +36,26 @@ namespace JoinFS.Net.Jfp2
             public readonly HashSet<byte> Applied = [];
         }
 
-        PendingJoin pendingJoin;
+        /// <summary>The joins under way, one per address: the global session joins several hubs at once.</summary>
+        readonly List<PendingJoin> pendingJoins = [];
 
         /// <summary>For tests and diagnostics: a join started with <see cref="BeginJoin"/> is not finished.</summary>
-        public bool JoinPending => pendingJoin != null;
+        public bool JoinPending => pendingJoins.Count > 0;
 
-        static bool IsMembershipClass(byte messageClass) => messageClass is MessageClasses.Join or MessageClasses.JoinResult or MessageClasses.MemberList;
+        static bool IsMembershipClass(byte messageClass) =>
+            messageClass is MessageClasses.Join or MessageClasses.JoinResult or MessageClasses.MemberList or MessageClasses.MemberAnnounce or MessageClasses.MemberLeave;
 
         // ================================================================== asking (this node joins)
 
-        public bool BeginJoin(IPEndPoint target, uint passwordHash)
+        public bool BeginJoin(IPEndPoint target, uint passwordHash, bool legacyFallback)
         {
             target = Copy(target);
             if (OwnNames().Count == 0)
             {
                 return false;
             }
+            // a join of the same address that is under way is replaced by this one
+            pendingJoins.RemoveAll(other => other.Target.Equals(target));
             // a session left over from an earlier attempt has a cookie and ids that mean nothing to a fresh Join
             foreach (NodeId name in new List<NodeId>(nonMembers.Keys))
             {
@@ -54,23 +64,31 @@ namespace JoinFS.Net.Jfp2
                     RemoveNonMember(name);
                 }
             }
-            pendingJoin = new PendingJoin { Target = target, PasswordHash = passwordHash, Deadline = Now + JoinTimeout };
+            double now = Now;
+            pendingJoins.Add(new PendingJoin { Target = target, PasswordHash = passwordHash, Started = now, Deadline = now + JoinTimeout, LegacyFallback = legacyFallback });
             Introduce(target);
-            host.Log(NetLogLevel.Network, "JFP2: joining the session of " + target);
+            host.Log(NetLogLevel.Network, "JFP2: joining the session of " + target + (legacyFallback ? ", legacy if it does not answer within " + JoinSilence + " s" : ""));
             return true;
         }
 
         void DoJoin()
         {
-            PendingJoin join = pendingJoin;
-            if (join == null)
+            if (pendingJoins.Count == 0)
             {
                 return;
             }
+            foreach (PendingJoin join in pendingJoins.ToArray())
+            {
+                DoJoin(join);
+            }
+        }
+
+        void DoJoin(PendingJoin join)
+        {
             double now = Now;
             if (now >= join.Deadline && !join.Accepted)
             {
-                FailJoin(join, "no answer from " + join.Target + " within " + JoinTimeout + " s");
+                FailJoin(join, "no answer from " + join.Target + " within " + JoinTimeout + " s", fallback: true);
                 return;
             }
             if (join.Session == null)
@@ -85,11 +103,15 @@ namespace JoinFS.Net.Jfp2
                 }
                 if (join.Session == null)
                 {
+                    if (now >= join.Started + JoinSilence && !AnsweredIntroduction(join.Target))
+                    {
+                        FailJoin(join, "no answer from " + join.Target + " within " + JoinSilence + " s", fallback: true);
+                    }
                     return;
                 }
                 if (join.Session.AgreedInternalVersion[MessageClasses.Join] == 0)
                 {
-                    FailJoin(join, join.Target + " does not take a join over JFP2");
+                    FailJoin(join, join.Target + " does not take a join over JFP2", fallback: true);
                     return;
                 }
             }
@@ -99,7 +121,7 @@ namespace JoinFS.Net.Jfp2
             }
             if (join.Attempts >= JoinMaxAttempts)
             {
-                FailJoin(join, join.Accepted ? join.Target + " did not send all its members" : join.Target + " did not answer the Join");
+                FailJoin(join, join.Accepted ? join.Target + " did not send all its members" : join.Target + " did not answer the Join", fallback: true);
                 return;
             }
             join.Attempts++;
@@ -113,23 +135,57 @@ namespace JoinFS.Net.Jfp2
             host.Log(NetLogLevel.Network, "JFP2: Join sent to " + join.Session.Peer + " at " + join.Target + " (attempt " + join.Attempts + ")");
         }
 
-        void FailJoin(PendingJoin join, string reason)
+        /// <summary>The first Hello of an introduction to this endpoint was answered (a cookie came back).</summary>
+        bool AnsweredIntroduction(IPEndPoint target)
         {
-            pendingJoin = null;
-            host.Log(NetLogLevel.Event, "JFP2: join failed: " + reason);
+            foreach (Introduction introduction in introductions.Values)
+            {
+                if (introduction.Cookie != null && introduction.EndPoint.Equals(target))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
+
+        /// <summary>
+        /// The join is over without a refusal. Before it was accepted, and when it was started with the fallback, the
+        /// mesh joins over legacy; what this node began with the address (the introduction, a non-member session) ends.
+        /// </summary>
+        void FailJoin(PendingJoin join, string reason, bool fallback = false)
+        {
+            pendingJoins.Remove(join);
+            host.Log(NetLogLevel.Event, "JFP2: join failed: " + reason);
+            if (fallback && join.LegacyFallback && !join.Accepted)
+            {
+                foreach (Introduction introduction in new List<Introduction>(introductions.Values))
+                {
+                    if (introduction.EndPoint.Equals(join.Target))
+                    {
+                        introductions.Remove(introduction.Id);
+                    }
+                }
+                if (join.Session != null)
+                {
+                    RemoveNonMember(join.Session.Peer);
+                }
+                host.Membership.JoinFailedOverJfp2(join.Target, join.PasswordHash);
+            }
+        }
+
+        PendingJoin JoinOf(PeerSession hop) => pendingJoins.Find(join => join.Session == hop);
 
         void HandleJoinResult(PeerSession hop, ReadOnlySpan<byte> payload)
         {
-            PendingJoin join = pendingJoin;
-            if (join == null || join.Session != hop || !JoinResultBody.TryRead(payload, out JoinResultBody result))
+            PendingJoin join = JoinOf(hop);
+            if (join == null || !JoinResultBody.TryRead(payload, out JoinResultBody result))
             {
                 host.Log(NetLogLevel.Network, "JFP2: JoinResult from " + hop.Peer + " answers no join of this node - ignored");
                 return;
             }
             if (result.Result != JoinResult.Accepted)
             {
-                pendingJoin = null;
+                pendingJoins.Remove(join);
                 RemoveNonMember(hop.Peer);
                 host.Membership.JoinRefused(result.Result);
                 host.Log(NetLogLevel.Event, "JFP2: " + hop.Peer + " refused the join: " + result.Result);
@@ -141,6 +197,7 @@ namespace JoinFS.Net.Jfp2
                 if (admitter == null)
                 {
                     FailJoin(join, hop.Peer + " accepted the join but this node cannot take its session");
+                    RemoveNonMember(hop.Peer);
                     return;
                 }
                 Promote(hop);
@@ -153,8 +210,8 @@ namespace JoinFS.Net.Jfp2
 
         void HandleMemberList(PeerSession hop, ReadOnlySpan<byte> payload)
         {
-            PendingJoin join = pendingJoin;
-            if (join == null || join.Session != hop || !MemberListBody.TryRead(payload, out MemberListBody list))
+            PendingJoin join = JoinOf(hop);
+            if (join == null || !MemberListBody.TryRead(payload, out MemberListBody list))
             {
                 host.Log(NetLogLevel.Network, "JFP2: MemberList from " + hop.Peer + " answers no join of this node - ignored");
                 return;
@@ -179,7 +236,7 @@ namespace JoinFS.Net.Jfp2
             }
             if (join.Applied.Count >= join.Segments)
             {
-                pendingJoin = null;
+                pendingJoins.Remove(join);
                 host.Log(NetLogLevel.Event, "JFP2: joined through " + join.Session.Peer + " at " + join.Target + ", " + host.Peers.Count + " peer(s) in the session");
             }
         }
@@ -222,7 +279,7 @@ namespace JoinFS.Net.Jfp2
                 host.Log(NetLogLevel.Event, "JFP2: join of " + joiner + " at " + from + " refused: " + verdict);
                 return;
             }
-            Peer peer = host.Membership.Admit(joiner, hop.Endpoint, OtherNames(hop));
+            Peer peer = host.Membership.Admit(joiner, hop.Endpoint, OtherNames(hop), out bool isNew);
             if (peer == null)
             {
                 host.Log(NetLogLevel.Network, "JFP2: join of " + joiner + " at " + from + " not taken: the mesh cannot add it");
@@ -230,7 +287,103 @@ namespace JoinFS.Net.Jfp2
             }
             Promote(hop);
             host.LinkChanged(joiner);
+            if (isNew)
+            {
+                AnnounceMember(peer);
+            }
+            else
+            {
+                // it restarted: what it was sent before it knew nothing of, so its identities go out again
+                identitySent.RemoveWhere((key, _) => key.Peer == peer.Id);
+            }
             AnswerJoin(hop, peer);
+        }
+
+        /// <summary>A member just admitted: the other members that are neighbours of this node are told (§5.11).</summary>
+        void AnnounceMember(Peer member)
+        {
+            var names = new List<NodeId> { member.Id };
+            if (member.Aliases != null)
+            {
+                names.AddRange(member.Aliases);
+            }
+            byte[] body = new MemberAnnounceBody { Entry = new MemberEntry(names.ToArray(), member.EndPoint) }.Serialize();
+            int told = SendToMembers(MessageClasses.MemberAnnounce, body, member.Id);
+            if (told > 0)
+            {
+                host.Log(NetLogLevel.Network, "JFP2: " + member.Id + " announced to " + told + " member(s)");
+            }
+        }
+
+        /// <summary>An internal datagram to every neighbour that is a member and offered the class, except <paramref name="except"/>. Returns how many.</summary>
+        int SendToMembers(byte messageClass, ReadOnlySpan<byte> payload, NodeId except)
+        {
+            int count = 0;
+            foreach (PeerSession session in sessions.Values)
+            {
+                if (session.Verified && session.HandshakeComplete && !session.NonMember && session.Peer != except && session.AgreedInternalVersion[messageClass] != 0)
+                {
+                    SendInternal(session, messageClass, payload);
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        // ================================================================== members coming and going
+
+        void HandleMemberAnnounce(PeerSession hop, ReadOnlySpan<byte> payload)
+        {
+            if (!MemberOfThisSession(hop, out NodeId neighbor) || !MemberAnnounceBody.TryRead(payload, out MemberAnnounceBody announce))
+            {
+                host.Log(NetLogLevel.Network, "JFP2: MemberAnnounce from " + hop.Peer + " is not from a member or not readable - ignored");
+                return;
+            }
+            host.Membership.LearnMembers(neighbor, [announce.Entry]);
+        }
+
+        void HandleMemberLeave(PeerSession hop, ReadOnlySpan<byte> payload)
+        {
+            if (!MemberOfThisSession(hop, out NodeId neighbor) || !MemberLeaveBody.TryRead(payload, out MemberLeaveBody leave))
+            {
+                host.Log(NetLogLevel.Network, "JFP2: MemberLeave from " + hop.Peer + " is not from a member or not readable - ignored");
+                return;
+            }
+            host.Membership.Left(neighbor, leave.Name);
+        }
+
+        /// <summary>The neighbour of the session is a member of this node's session: a stranger on a non-member session has no say.</summary>
+        bool MemberOfThisSession(PeerSession hop, out NodeId neighbor)
+        {
+            neighbor = host.Peers.Resolve(hop.Peer);
+            return !hop.NonMember && host.Peers.Contains(neighbor);
+        }
+
+        /// <summary>A member this node held is gone (expired, or told to be): the neighbours it may have told of it are told (§5.11).</summary>
+        void AnnounceGone(Peer peer)
+        {
+            if (peer.LegacyLink || !host.Connected)
+            {
+                return;
+            }
+            int told = SendToMembers(MessageClasses.MemberLeave, new MemberLeaveBody { Name = peer.Id }.Serialize(), peer.Id);
+            if (told > 0)
+            {
+                host.Log(NetLogLevel.Network, "JFP2: " + peer.Id + " is gone: told " + told + " member(s)");
+            }
+        }
+
+        public void AnnounceLeaving()
+        {
+            if (OwnNames() is not { Count: > 0 } names)
+            {
+                return;
+            }
+            int told = SendToMembers(MessageClasses.MemberLeave, new MemberLeaveBody { Name = names[0] }.Serialize(), default);
+            if (told > 0)
+            {
+                host.Log(NetLogLevel.Network, "JFP2: this node left: told " + told + " member(s)");
+            }
         }
 
         /// <summary>JoinResult, then the members other than the joiner in as many MemberList datagrams as they need.</summary>
@@ -288,6 +441,12 @@ namespace JoinFS.Net.Jfp2
                     break;
                 case MessageClasses.MemberList:
                     HandleMemberList(hop, payload);
+                    break;
+                case MessageClasses.MemberAnnounce:
+                    HandleMemberAnnounce(hop, payload);
+                    break;
+                case MessageClasses.MemberLeave:
+                    HandleMemberLeave(hop, payload);
                     break;
             }
         }

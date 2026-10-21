@@ -28,10 +28,12 @@ namespace JoinFS.Net
 
         /// <summary>
         /// <paramref name="joiner"/> is a member now, linked over JFP2 only (no legacy datagram goes to it).
-        /// Registers the peer, tells the app and returns it; the existing peer when the node is a member
-        /// already; null when the node cannot be added (too many nodes on its device).
+        /// Registers the peer, tells the app and returns it; null when the node cannot be added (too many
+        /// nodes on its device). A node that is a member already (it rejoins, or was learned through another
+        /// member) is the same peer: it becomes a direct neighbour at <paramref name="endPoint"/>, linked over
+        /// JFP2 only, and its expiry is renewed; <paramref name="isNew"/> tells which of the two it was.
         /// </summary>
-        Peer Admit(NodeId joiner, IPEndPoint endPoint, IReadOnlyList<NodeId> otherNames);
+        Peer Admit(NodeId joiner, IPEndPoint endPoint, IReadOnlyList<NodeId> otherNames, out bool isNew);
 
         /// <summary>
         /// The node this one asked to join accepted it: the session is joined, and <paramref name="admitter"/>
@@ -43,10 +45,23 @@ namespace JoinFS.Net
         void JoinRefused(JoinResult result);
 
         /// <summary>
+        /// The join over JFP2 of <paramref name="target"/> did not happen (no answer, or it takes none) and was
+        /// started with the legacy fallback: join it over legacy instead, and remember that it speaks nothing else.
+        /// </summary>
+        void JoinFailedOverJfp2(IPEndPoint target, uint passwordHash);
+
+        /// <summary>
         /// Members the neighbour <paramref name="via"/> told this node of, reached through it until a direct
         /// link exists. A member already known by any of its names is left as it is.
         /// </summary>
         void LearnMembers(NodeId via, IReadOnlyList<MemberEntry> members);
+
+        /// <summary>
+        /// A neighbour reported that <paramref name="member"/> left the session. The member is dropped as if it had
+        /// expired when the neighbour is the member itself or the member is reached through it; any other report is
+        /// ignored. False when it was not acted on.
+        /// </summary>
+        bool Left(NodeId neighbor, NodeId member);
 
         /// <summary>
         /// <paramref name="neighbor"/> answered over a link that is not legacy's: it, and the members reached
@@ -60,8 +75,14 @@ namespace JoinFS.Net
     {
         /// <summary>
         /// Start joining the session of the node at <paramref name="target"/> over this protocol. False when it
-        /// cannot (nothing to state as a name, or no way to reach the node).
+        /// cannot (nothing to state as a name, or no way to reach the node). With
+        /// <paramref name="legacyFallback"/> the attempt is given up after a short silence, or when the node takes no
+        /// join over this protocol, and reported through <see cref="IMembership.JoinFailedOverJfp2"/> so the mesh
+        /// joins over legacy; a refusal is final either way.
         /// </summary>
-        bool BeginJoin(IPEndPoint target, uint passwordHash);
+        bool BeginJoin(IPEndPoint target, uint passwordHash, bool legacyFallback);
+
+        /// <summary>This node leaves the session: tell the neighbours this protocol holds as members, before its state is reset.</summary>
+        void AnnounceLeaving();
     }
 }

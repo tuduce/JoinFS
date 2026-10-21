@@ -271,9 +271,10 @@ namespace JoinFS.Net.Jfp2
         void HandleHello(IPEndPoint from, ReadOnlySpan<byte> payload, int datagramLength)
         {
             HandshakeMessage hello = HandshakeMessage.Deserialize(payload);
-            // a stranger asking to be admitted (or echoing its cookie) is answered statelessly; a member's
-            // Hello carries no Admission, and one that does is read as an ordinary Hello
-            if (hello.Admission != null && !(TryGetSpeaker(hello.Names, out NodeId known) && host.Peers.Contains(known)))
+            // a stranger asking to be admitted (or echoing its cookie) is answered statelessly. A member's
+            // keepalive carries no Admission, so one that does is a stranger's whatever name it states: a
+            // node that restarted before its expiry still has its name here (protocol.md §5.11, Rejoining)
+            if (hello.Admission != null)
             {
                 HandleAdmission(from, hello, datagramLength);
                 return;
