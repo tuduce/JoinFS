@@ -23,8 +23,8 @@ namespace JoinFS.Net.Jfp2
         /// header appended right after the fixed 8 bytes whenever this bit is set.</summary>
         Guaranteed = 1 << 0,
         /// <summary>A 16-byte extension follows immediately after the (optional) Guaranteed
-        /// extension: Origin (an 8-byte <see cref="NodeName"/>, who this really came from) then Target
-        /// (an 8-byte NodeName, who it's ultimately meant for) - always both, regardless of which leg
+        /// extension: Origin (an 8-byte <see cref="NodeId"/>, who this really came from) then Target
+        /// (an 8-byte NodeId, who it's ultimately meant for) - always both, regardless of which leg
         /// of a relay hop this datagram is on. SenderPeerId/RecipientPeerId are HOP-scoped: they name
         /// the session between the two nodes that exchange THIS datagram (sender to relay, then relay
         /// to target), exactly as on a direct datagram, so the receiver finds the neighbor session by
@@ -97,8 +97,8 @@ namespace JoinFS.Net.Jfp2
         public const int FixedSize = 8;
         public const int GuaranteedExtraSize = 4;
 
-        /// <summary>The Forwarded extension: the origin's and the target's <see cref="NodeName"/>.</summary>
-        public const int ForwardedExtraSize = NodeName.WireSize * 2;
+        /// <summary>The Forwarded extension: the origin's and the target's <see cref="NodeId"/>.</summary>
+        public const int ForwardedExtraSize = NodeId.WireSize * 2;
 
         /// <summary>
         /// No JFP2 datagram is larger (docs/network/jfp2/protocol.md §3.6): IPv6's minimum MTU of
@@ -135,11 +135,11 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>Meaningful only when Flags.Forwarded is set - see EnvelopeFlags.Forwarded's doc
         /// comment. Default/unset otherwise.</summary>
-        public readonly NodeName Origin;
+        public readonly NodeId Origin;
 
         /// <summary>Meaningful only when Flags.Forwarded is set - see EnvelopeFlags.Forwarded's doc
         /// comment. Default/unset otherwise.</summary>
-        public readonly NodeName Target;
+        public readonly NodeId Target;
 
         public Envelope(EnvelopeFlags flags, ushort senderPeerId, ushort recipientPeerId, byte rawMessageClass)
             : this(flags, senderPeerId, recipientPeerId, rawMessageClass, 0, 0, 0, default, default)
@@ -154,7 +154,7 @@ namespace JoinFS.Net.Jfp2
         /// <summary>Constructs a relayed envelope (Flags must include Forwarded). SenderPeerId/
         /// RecipientPeerId stay hop-scoped, as on any datagram (the session with the neighbor it goes
         /// to); Origin/Target are end to end - see EnvelopeFlags.Forwarded's doc comment.</summary>
-        public Envelope(EnvelopeFlags flags, ushort senderPeerId, ushort recipientPeerId, byte rawMessageClass, ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount, NodeName origin, NodeName target)
+        public Envelope(EnvelopeFlags flags, ushort senderPeerId, ushort recipientPeerId, byte rawMessageClass, ushort guaranteedId, byte guaranteedIndex, byte guaranteedCount, NodeId origin, NodeId target)
         {
             Flags = flags;
             SenderPeerId = senderPeerId;
@@ -213,10 +213,10 @@ namespace JoinFS.Net.Jfp2
             }
             if (IsForwarded)
             {
-                Origin.WriteTo(dest.Slice(offset, NodeName.WireSize));
-                offset += NodeName.WireSize;
-                Target.WriteTo(dest.Slice(offset, NodeName.WireSize));
-                offset += NodeName.WireSize;
+                Origin.WriteTo(dest.Slice(offset, NodeId.WireSize));
+                offset += NodeId.WireSize;
+                Target.WriteTo(dest.Slice(offset, NodeId.WireSize));
+                offset += NodeId.WireSize;
             }
             return offset;
         }
@@ -289,16 +289,16 @@ namespace JoinFS.Net.Jfp2
                 offset += GuaranteedExtraSize;
             }
 
-            NodeName origin = default;
-            NodeName target = default;
+            NodeId origin = default;
+            NodeId target = default;
             if ((flags & EnvelopeFlags.Forwarded) != 0)
             {
                 if (src.Length < offset + ForwardedExtraSize)
                     throw new ArgumentException("datagram shorter than the JFP2 relay-addressing extension it claims to carry");
-                origin = NodeName.ReadFrom(src.Slice(offset, NodeName.WireSize));
-                offset += NodeName.WireSize;
-                target = NodeName.ReadFrom(src.Slice(offset, NodeName.WireSize));
-                offset += NodeName.WireSize;
+                origin = NodeId.ReadFrom(src.Slice(offset, NodeId.WireSize));
+                offset += NodeId.WireSize;
+                target = NodeId.ReadFrom(src.Slice(offset, NodeId.WireSize));
+                offset += NodeId.WireSize;
             }
 
             bytesConsumed = offset;

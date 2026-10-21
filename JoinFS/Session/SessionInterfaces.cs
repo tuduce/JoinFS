@@ -38,7 +38,7 @@ namespace JoinFS
     public interface IEndPointResolver
     {
         /// <summary>Endpoint to reach <paramref name="node"/> on <paramref name="port"/> (LAN address when it shares our NAT).</summary>
-        IPEndPoint MakeEndPoint(NodeId node, ushort port);
+        IPEndPoint MakeEndPoint(LegacyNodeId node, ushort port);
 
         /// <summary>"address[:port]" (IP or DNS name) to an endpoint.</summary>
         bool MakeEndPoint(string addressText, ushort port, out IPEndPoint endPoint);

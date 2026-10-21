@@ -579,7 +579,7 @@ namespace JoinFS
         /// </summary>
         /// <param name="nuid">Sender nuid</param>
         /// <param name="reader">Message reader</param>
-        void ReceiveMsg(IPEndPoint endPoint, Net.NodeId nuid, BinaryReader reader)
+        void ReceiveMsg(IPEndPoint endPoint, Net.LegacyNodeId nuid, BinaryReader reader)
         {
             try
             {

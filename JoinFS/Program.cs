@@ -26,7 +26,8 @@ namespace JoinFS
         public const int DEFAULT_ACTIVITY_CIRCLE = 40;
         public const int DEFAULT_FOLLOW_DISTANCE = 80;
 
-        const int MAX_INSTANCES = 4;
+        /// <summary>Also the number of node key slots (<see cref="NodeKeyStore"/>).</summary>
+        public const int MAX_INSTANCES = 4;
 
         /// <summary>
         /// Current version
@@ -234,7 +235,7 @@ namespace JoinFS
                 // leave session and stop the network thread
                 network.Shutdown();
                 // monitor
-                MonitorEvent("Closed UDP port " + network.LocalId.port);
+                MonitorEvent("Closed UDP port " + network.Snapshot.Port);
             }
 #if CONSOLE
             webSocketServer?.Close();

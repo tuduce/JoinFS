@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Platform cryptography the stand-alone JFP2 plan needs (docs/network/jfp2/standalone-ipv6-plan.md):
+       P-256 key pairs now (node identity, D3), the stateless cookie from stage 3. Plain C# over .NET's
+       cryptography: no sockets, no clock of its own, no reference to JoinFS and no build symbol, so every
+       configuration computes the same bytes. No Noise and no sealing (plan D1). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <RootNamespace>JoinFS.Net.Crypto</RootNamespace>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="JoinFS.Tests" />
+  </ItemGroup>
+
+</Project>

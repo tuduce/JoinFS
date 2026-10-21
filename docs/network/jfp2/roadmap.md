@@ -25,8 +25,8 @@ the open questions (§4) and the verification items (§2.4); §3 below is histor
 
 | # | Task | Design | Notes |
 |---|---|---|---|
-| 10 | **Core identity migration.** `NodeId` becomes the 8-byte name; `LegacyNodeId` for the legacy plugin; an alias index in `PeerDirectory`. A pure refactor. | `design-node-identity.md` §1 | All existing tests pass unchanged. |
-| 11 | **Node key.** `NodeKeyStore`, `LocalIdentity.Key`, the kind-1 name in `Names`, alias binding only from a matching HelloAck, detection logs, a `VOLUME` line in the `Dockerfile` and the README's Docker section. | `design-node-identity.md` §2 | After 10, so the key is an identity from the day it exists. |
+| 10 | **Core identity migration.** Done in stage 1 of `jfp2-standalone`: `NodeId` is the 8-byte name (`JoinFS.Messages`), `LegacyNodeId` serves the legacy plugin, `PeerDirectory` has an alias index; `NodeName` is gone. | `design-node-identity.md` §1 | All existing tests pass unchanged (goldens untouched). |
+| 11 | **Node key.** Done in stage 1 of `jfp2-standalone` (plan D3): `NodeKeyStore` (four slots, `node-N.key`, held open while the instance runs), `NodeKey` over `JoinFS.Crypto`'s `P256KeyPair`, `LocalIdentity.Key`/`KeyId`, the `Node key ... from slot` log line, the `VOLUME` line in the `Dockerfile` and the README's Docker section. The name is kind 2 (first 7 bytes of SHA-256 of the public key), not kind 1. No wire carries it before stage 4. | `design-node-identity.md` §2 | After 10. Deviations from the row: none. The evening test (two instances on 6112/6113 keep their key names across restarts) was not run by the implementing session. |
 | 12 | **JFP2-only `TestMesh`** (review item C6). A test whose nodes register only `Jfp2Plugin`: it must create, join, exchange positions and leave. Committed skipped, with the reason; B3's stages un-skip it. Add IPv6 endpoints and a per-destination NAT to `InMemoryNetwork` too. | | The tracer bullet for B3. |
 
 ### 2.2 Towards a stand-alone JFP2

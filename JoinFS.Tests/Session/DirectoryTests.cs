@@ -9,7 +9,7 @@ namespace JoinFS.Tests.Session
     /// </summary>
     public class DirectoryTests
     {
-        static NodeId Node(uint last, ushort port = 6112) => new(0x0A000000 + last, port, (byte)last);
+        static NodeId Node(uint last, ushort port = 6112) => NodeId.FromLegacy(0x0A000000 + last, port, (byte)last);
 
         static StatusUpdate Status(string name, bool hub = true, bool global = false) => new()
         {
@@ -78,7 +78,7 @@ namespace JoinFS.Tests.Session
             rig.Session.Snapshot = new NetworkSnapshot { GlobalSession = true, Peers = new Dictionary<NodeId, PeerSnapshot>(), PeerList = [] };
             AddHub(rig, Node(2), "Global2", global: true);
             AddHub(rig, Node(2), "Global2", global: true);
-            Assert.Equal(Node(2).ToEndPoint(Node(2).port), Assert.Single(found));
+            Assert.Equal(Node(2).ToEndPoint(), Assert.Single(found));
         }
 
         [Fact]

@@ -31,6 +31,12 @@ namespace JoinFS.Net
         /// </summary>
         public NodeId RouteVia;
 
+        /// <summary>
+        /// The other names the node is known by (its <see cref="Id"/> is the first it was learned by and
+        /// never changes). Null until it has one; the index of them is <see cref="PeerDirectory"/>'s.
+        /// </summary>
+        internal List<NodeId> Aliases;
+
         /// <summary>The peer is reached through another node.</summary>
         public bool Relayed => RouteVia.Valid();
 
@@ -80,10 +86,16 @@ namespace JoinFS.Net
     /// The one table of session peers, keyed by <see cref="NodeId"/>. Iteration order is insertion
     /// order (plain Dictionary, same add/remove pattern as LocalNode.nodes), which the legacy
     /// broadcast byte order depends on.
+    ///
+    /// A peer's id is the name it was first learned by and is never re-keyed (docs/network/jfp2/
+    /// design-node-identity.md §1.2). Every other name of a peer (its legacy id learned through a
+    /// handshake, its key learned through legacy) is an alias: the alias index maps a name to the id
+    /// of its peer, so a plugin that decodes a name resolves it before it touches the core.
     /// </summary>
     public sealed class PeerDirectory
     {
         readonly Dictionary<NodeId, Peer> peers = [];
+        readonly Dictionary<NodeId, NodeId> aliases = [];
         readonly Stack<int> freeSlots = new();
         int nextSlot;
 
@@ -120,6 +132,10 @@ namespace JoinFS.Net
             if (peers.Remove(id, out Peer peer))
             {
                 freeSlots.Push(peer.Slot);
+                if (peer.Aliases != null)
+                {
+                    foreach (NodeId alias in peer.Aliases) aliases.Remove(alias);
+                }
                 return true;
             }
             return false;
@@ -128,8 +144,69 @@ namespace JoinFS.Net
         public void Clear()
         {
             peers.Clear();
+            aliases.Clear();
             freeSlots.Clear();
             nextSlot = 0;
+        }
+
+        /// <summary>
+        /// Records <paramref name="name"/> as another name of the peer <paramref name="id"/>. False, and
+        /// nothing changes, when the peer is not in the directory, the name is not valid, or it already
+        /// names a peer (this one: nothing to do; another: a name is never taken over).
+        /// </summary>
+        public bool AddAlias(NodeId name, NodeId id)
+        {
+            if (!name.Valid() || !peers.TryGetValue(id, out Peer peer) || peers.ContainsKey(name) || aliases.ContainsKey(name))
+            {
+                return false;
+            }
+            aliases[name] = id;
+            (peer.Aliases ??= []).Add(name);
+            return true;
+        }
+
+        /// <summary>
+        /// The id of the peer <paramref name="name"/> belongs to: the name itself when it is a peer's id,
+        /// the peer's id when it is an alias. False for a name no peer has.
+        /// </summary>
+        public bool TryResolve(NodeId name, out NodeId id)
+        {
+            if (peers.ContainsKey(name))
+            {
+                id = name;
+                return true;
+            }
+            return aliases.TryGetValue(name, out id);
+        }
+
+        /// <summary>
+        /// <paramref name="name"/> as the id of its peer when it has one, else unchanged: how a plugin
+        /// reads a name off the wire (an unknown kind-0 name still stands for a node not yet added).
+        /// </summary>
+        public NodeId Resolve(NodeId name) => TryResolve(name, out NodeId id) ? id : name;
+
+        /// <summary>
+        /// The legacy id of the node <paramref name="id"/>: its own when it is a kind-0 id, else the kind-0
+        /// alias of its peer. False for a node without one, which no legacy message can name.
+        /// </summary>
+        public bool TryGetLegacy(NodeId id, out LegacyNodeId legacy)
+        {
+            if (id.TryGetLegacy(out legacy))
+            {
+                return true;
+            }
+            if (peers.TryGetValue(id, out Peer peer) && peer.Aliases != null)
+            {
+                foreach (NodeId alias in peer.Aliases)
+                {
+                    if (alias.TryGetLegacy(out legacy))
+                    {
+                        return true;
+                    }
+                }
+            }
+            legacy = default;
+            return false;
         }
 
         /// <summary>The peer whose own endpoint is exactly <paramref name="endPoint"/>, if any.</summary>

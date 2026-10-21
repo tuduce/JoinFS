@@ -66,7 +66,7 @@ namespace JoinFS.Net
         public float Rtt(NodeId id) => Peers.TryGetValue(id, out PeerSnapshot peer) ? peer.Rtt : 9999.0f;
 
         /// <summary>The endpoint to reach <paramref name="node"/> on <paramref name="port"/> (LAN address when it shares our NAT).</summary>
-        public IPEndPoint MakeEndPoint(NodeId node, ushort port)
+        public IPEndPoint MakeEndPoint(LegacyNodeId node, ushort port)
         {
             IPEndPoint endPoint = node.ToEndPoint(port);
             if (endPoint.Address.Equals(InternetAddress))

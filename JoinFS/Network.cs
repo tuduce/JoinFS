@@ -48,10 +48,12 @@ namespace JoinFS
         readonly SimIngest simIngest;
 
         readonly MainSessionHost host;
+        readonly NodeKeyStore nodeKeys;
 
         public Network(Main main)
         {
             host = new MainSessionHost(main);
+            nodeKeys = new NodeKeyStore(main.storagePath, host);
             host.Event("Unique address is " + UserDirectory.UuidToString(main.uuid));
 
             service = new NetworkService(credentialStoreFactory: folder => new CredentialStore(main.documentsPath, main.MonitorEvent));
@@ -114,6 +116,7 @@ namespace JoinFS
             }
             // moving to a new port: the network thread already left any session on the old one
             Bootstrap.SetPort((ushort)service.Port);
+            Bootstrap.SetKey(nodeKeys.Claim(service.Port));
             return true;
         }
 
@@ -123,6 +126,7 @@ namespace JoinFS
             Leave();
             service.Close();
             service.Stop();
+            nodeKeys.Dispose();
         }
 
         /// <summary>Ask for (or stop asking for) reduced traffic.</summary>

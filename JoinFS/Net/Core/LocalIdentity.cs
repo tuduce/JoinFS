@@ -4,19 +4,30 @@ namespace JoinFS.Net
 {
     /// <summary>
     /// Who this node is on the network: its public address (learned from a my-IP service), LAN
-    /// address and UDP port, which together make up its <see cref="NodeId"/>. Also turns a peer's
-    /// NodeId into the endpoint to reach it, taking the shared-NAT case into account (a peer
-    /// behind our own public IP is reached on its LAN address instead).
+    /// address and UDP port, which together make up its <see cref="LegacyNodeId"/> (and so its
+    /// <see cref="NodeId"/>, until it has a key). Also turns a peer's legacy id into the endpoint to
+    /// reach it, taking the shared-NAT case into account (a peer behind our own public IP is reached
+    /// on its LAN address instead).
     /// </summary>
     public sealed class LocalIdentity
     {
         IPAddress localAddress = IPAddress.Loopback;
         IPAddress internetAddress = IPAddress.None;
 
-        public NodeId Id { get; private set; }
+        /// <summary>This node's address as the legacy wire names it.</summary>
+        public LegacyNodeId LegacyId { get; private set; }
+
+        /// <summary>This node's id in the core: the kind-0 id of <see cref="LegacyId"/>.</summary>
+        public NodeId Id => NodeId.FromLegacy(LegacyId);
+
+        /// <summary>This instance's key pair, or null before the app has posted it. No wire carries it yet.</summary>
+        public NodeKey Key { get; set; }
+
+        /// <summary>The kind-2 id of <see cref="Key"/>: this node's alias beside its legacy id, none without a key.</summary>
+        public NodeId KeyId => Key?.Id ?? default;
 
         /// <summary>The node knows its public address, so it can take part in a session.</summary>
-        public bool Ready => Id.Valid();
+        public bool Ready => LegacyId.Valid();
 
         public IPAddress LocalAddress
         {
@@ -24,7 +35,7 @@ namespace JoinFS.Net
             set
             {
                 localAddress = value;
-                Id = new NodeId(Id.ip, Id.port, value.GetAddressBytes()[3]);
+                LegacyId = new LegacyNodeId(LegacyId.ip, LegacyId.port, value.GetAddressBytes()[3]);
             }
         }
 
@@ -34,20 +45,20 @@ namespace JoinFS.Net
             set
             {
                 internetAddress = value;
-                Id = new NodeId(value, Id.port, Id.local);
+                LegacyId = new LegacyNodeId(value, LegacyId.port, LegacyId.local);
             }
         }
 
         public ushort Port
         {
-            get => Id.port;
-            set => Id = Id.WithPort(value);
+            get => LegacyId.port;
+            set => LegacyId = LegacyId.WithPort(value);
         }
 
         /// <summary>For tests and diagnostics: set the whole id directly.</summary>
-        public void Set(NodeId id) => Id = id;
+        public void Set(NodeId id) => LegacyId = id.TryGetLegacy(out LegacyNodeId legacy) ? legacy : default;
 
-        public IPEndPoint MakeEndPoint(NodeId node, ushort port)
+        public IPEndPoint MakeEndPoint(LegacyNodeId node, ushort port)
         {
             IPEndPoint endPoint = node.ToEndPoint(port);
             if (endPoint.Address.Equals(internetAddress))

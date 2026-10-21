@@ -63,9 +63,9 @@ namespace JoinFS.Tests.Net
         [Fact]
         public void SimIngest_PassesTheArrivalTimeWithEachPosition()
         {
-            NodeId peer = new(0x0A000001, 6112, 1);
+            NodeId peer = NodeId.FromLegacy(0x0A000001, 6112, 1);
             var rig = new SessionRig();
-            rig.Peers.OnPeerJoined(peer, peer.ToEndPoint(peer.port));
+            rig.Peers.OnPeerJoined(peer, peer.ToEndPoint());
             MessageMeta meta = SessionRig.From(peer);
             meta.ReceivedAt = 12.25;
             rig.Ingest.Handle(meta, Identity());

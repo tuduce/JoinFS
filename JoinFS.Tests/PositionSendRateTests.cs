@@ -10,7 +10,7 @@ namespace JoinFS.Tests
     {
         static int SendsOver(double seconds, double frameInterval, double start = 100.0)
         {
-            var plane = new Sim.Plane(new NodeId(0x0A000001, 6112, 1), 1);
+            var plane = new Sim.Plane(NodeId.FromLegacy(0x0A000001, 6112, 1), 1);
             int sends = 0;
             int frames = (int)Math.Round(seconds / frameInterval);
             for (int frame = 0; frame < frames; frame++)
@@ -41,7 +41,7 @@ namespace JoinFS.Tests
         [Fact]
         public void AfterAGap_SendingRestartsWithoutABurst()
         {
-            var plane = new Sim.Plane(new NodeId(0x0A000001, 6112, 1), 1);
+            var plane = new Sim.Plane(NodeId.FromLegacy(0x0A000001, 6112, 1), 1);
             Assert.True(Sim.SendDue(plane, 100.0));
             // nothing for 5 s (paused, loading), then frames again
             Assert.True(Sim.SendDue(plane, 105.0));

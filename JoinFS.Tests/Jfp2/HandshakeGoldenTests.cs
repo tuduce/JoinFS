@@ -64,7 +64,7 @@ namespace JoinFS.Tests.Jfp2
         {
             ProtoMajorMin = 2, ProtoMajorMax = 2, Capabilities = 0, SelfAssignedId = 0x1234, Result = 0,
             Offers = new List<SchemaOffer> { new(false, MessageClasses.Position, 1, 1), new(false, MessageClasses.Status, 1, 1) },
-            Names = [NodeName.FromLegacy(new NodeId(0xCB007101, 6112, 20))],
+            Names = [NodeId.FromLegacy(0xCB007101, 6112, 20)],
             Build = "26.6.0 JoinFS-FS2024",
         };
 
@@ -72,7 +72,7 @@ namespace JoinFS.Tests.Jfp2
         {
             ProtoMajorMin = 2, ProtoMajorMax = 2, Capabilities = 0, SelfAssignedId = 0x5678, Result = 0,
             Offers = new List<SchemaOffer> { new(false, MessageClasses.Position, 1, 1) },
-            Names = [NodeName.FromLegacy(new NodeId(0xC6336402, 6112, 2))],
+            Names = [NodeId.FromLegacy(0xC6336402, 6112, 2)],
             Build = "26.6.0 JoinFS-CONSOLE",
         };
 
@@ -108,7 +108,7 @@ namespace JoinFS.Tests.Jfp2
             Assert.Equal(0x1234, hello.SelfAssignedId);
             Assert.Equal(2, hello.Offers.Count);
             Assert.Equal(MessageClasses.Status, hello.Offers[1].MessageClass);
-            Assert.Equal(NodeName.FromLegacy(new NodeId(0xCB007101, 6112, 20)), Assert.Single(hello.Names));
+            Assert.Equal(NodeId.FromLegacy(0xCB007101, 6112, 20), Assert.Single(hello.Names));
             Assert.Equal("26.6.0 JoinFS-FS2024", hello.Build);
             Assert.Empty(hello.Extensions);
         }
@@ -126,7 +126,7 @@ namespace JoinFS.Tests.Jfp2
             Assert.Equal(0, ack.Result);
             Assert.Equal(0x5678, ack.SelfAssignedId);
             Assert.Equal(new SchemaOffer(false, MessageClasses.Position, 1, 1), ack.Offers[0]);
-            Assert.Equal(NodeName.FromLegacy(new NodeId(0xC6336402, 6112, 2)), Assert.Single(ack.Names));
+            Assert.Equal(NodeId.FromLegacy(0xC6336402, 6112, 2), Assert.Single(ack.Names));
             Assert.Equal("26.6.0 JoinFS-CONSOLE", ack.Build);
         }
 
@@ -144,7 +144,7 @@ namespace JoinFS.Tests.Jfp2
 
             HandshakeMessage ack = HandshakeMessage.Deserialize(datagram.AsSpan(header));
             Assert.Equal(new IPEndPoint(IPAddress.Parse("203.0.113.1"), 6112), ack.ObservedEndPoint);
-            Assert.Equal(NodeName.FromLegacy(new NodeId(0xC6336402, 6112, 2)), Assert.Single(ack.Names));
+            Assert.Equal(NodeId.FromLegacy(0xC6336402, 6112, 2), Assert.Single(ack.Names));
             Assert.Equal("26.6.0 JoinFS-CONSOLE", ack.Build);
             Assert.Empty(ack.Extensions);
         }

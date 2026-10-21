@@ -292,7 +292,7 @@ namespace JoinFS
             nuid = main.network.LocalId;
 
             // create new item
-            Item item = new(main.guid, nuid, new IPEndPoint(0, 0), main.settingsNickname, Main.Version, main.sim != null ? main.sim.View.SimulatorName : "", callsign, aircraftCount, objectCount, "", false, false, main.network.LocalId.port, connected, connected, true, 0.0f, null);
+            Item item = new(main.guid, nuid, new IPEndPoint(0, 0), main.settingsNickname, Main.Version, main.sim != null ? main.sim.View.SimulatorName : "", callsign, aircraftCount, objectCount, "", false, false, main.network.Snapshot.Port, connected, connected, true, 0.0f, null);
             // add to list
             itemList.Add(item);
         }

@@ -179,7 +179,7 @@ namespace JoinFS.Net.Jfp2
             Capabilities = profile.Capabilities,
             SelfAssignedId = session.LocalAssignedId,
             Result = result,
-            Names = [NameOf(Local)],
+            Names = [Local],
             Build = build,
             Offers = new List<SchemaOffer>(profile.Offers),
         };
@@ -236,11 +236,11 @@ namespace JoinFS.Net.Jfp2
         /// only kind this build resolves) that is a known mesh peer, else the first kind-0 name (for the
         /// "unknown node" log). False when it lists none, so the speaker cannot be placed.
         /// </summary>
-        bool TryGetSpeaker(List<NodeName> names, out NodeId speaker)
+        bool TryGetSpeaker(List<NodeId> names, out NodeId speaker)
         {
             speaker = default;
             bool found = false;
-            foreach (NodeName name in names)
+            foreach (NodeId name in names)
             {
                 if (!TryResolve(name, out NodeId node))
                 {

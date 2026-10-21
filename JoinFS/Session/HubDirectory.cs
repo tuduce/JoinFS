@@ -291,9 +291,10 @@ namespace JoinFS
             foreach (HubAddress address in list.Hubs)
             {
                 NodeId hubNuid = address.Node;
-                if (List.Find(h => h.nuid == hubNuid) == null)
+                // a hub without a legacy id has no address to submit
+                if (hubNuid.TryGetLegacy(out LegacyNodeId legacyHub) && List.Find(h => h.nuid == hubNuid) == null)
                 {
-                    SubmitHub(endPoints.MakeEndPoint(hubNuid, address.Port));
+                    SubmitHub(endPoints.MakeEndPoint(legacyHub, address.Port));
                 }
             }
         }
@@ -309,7 +310,7 @@ namespace JoinFS
                 pendingHubs.Remove(endPoint);
 
                 // not too many at one IP, and not this hub
-                if (HubCount_IP(nuid) < MAX_IP_HUBS && nuid != session.LocalId)
+                if (HubCount_IP(endPoint.Address) < MAX_IP_HUBS && nuid != session.LocalId)
                 {
                     Hub hub = List.Find(h => h.nuid == nuid);
                     if (hub == null)
@@ -396,12 +397,12 @@ namespace JoinFS
             if (list.Hubs.Count > 0) outbox.SendToEndPoint(endPoint, list);
         }
 
-        int HubCount_IP(NodeId nuid)
+        int HubCount_IP(IPAddress address)
         {
             int count = 0;
             foreach (var hub in List)
             {
-                if (hub.nuid.ip == nuid.ip) count++;
+                if (hub.endPoint.Address.Equals(address)) count++;
             }
             return count;
         }
@@ -543,7 +544,8 @@ namespace JoinFS
                 // ignored hubs aren't kept
                 foreach (var hub in List)
                 {
-                    if (policy.IgnoreNode(hub.endPoint.Address) == false && policy.IgnoreNode(ref hub.guid) == false)
+                    // hubs.dat holds legacy ids; a hub without one is not saved
+                    if (hub.nuid.TryGetLegacy(out _) && policy.IgnoreNode(hub.endPoint.Address) == false && policy.IgnoreNode(ref hub.guid) == false)
                     {
                         tempHubs.Add(hub);
                     }
@@ -554,7 +556,8 @@ namespace JoinFS
                 foreach (var hub in tempHubs)
                 {
                     writer.Write(hub.addressText);
-                    hub.nuid.Write(writer);
+                    hub.nuid.TryGetLegacy(out LegacyNodeId legacyNuid);
+                    legacyNuid.Write(writer);
                     writer.Write(hub.port);
                     writer.Write(hub.dateTime.ToBinary());
                     writer.Write(hub.guid.ToByteArray());
@@ -610,7 +613,7 @@ namespace JoinFS
 
                                 if (version >= 10005)
                                 {
-                                    hub.nuid = NodeId.Read(reader);
+                                    hub.nuid = NodeId.FromLegacy(LegacyNodeId.Read(reader));
                                     hub.port = reader.ReadUInt16();
                                 }
                                 else
@@ -618,7 +621,7 @@ namespace JoinFS
                                     uint ip = version >= 10003 ? reader.ReadUInt32() : 0;
                                     hub.port = reader.ReadUInt16();
                                     byte local = version >= 10002 ? reader.ReadByte() : (byte)0;
-                                    hub.nuid = new NodeId(ip, hub.nuid.port, local);
+                                    hub.nuid = NodeId.FromLegacy(ip, 0, local);
                                 }
                                 hub.dateTime = DateTime.FromBinary(reader.ReadInt64());
                                 hub.guid = new Guid(reader.ReadBytes(16));
@@ -635,14 +638,18 @@ namespace JoinFS
                                 if (version < 10003)
                                 {
                                     endPoints.MakeEndPoint(hub.addressText, hub.port, out hub.endPoint);
-                                    hub.nuid = new NodeId(hub.endPoint, hub.nuid.local);
+                                    hub.nuid.TryGetLegacy(out LegacyNodeId legacyRead);
+                                    hub.nuid = NodeId.FromLegacy(hub.endPoint, legacyRead.local);
                                 }
                                 else
                                 {
-                                    hub.endPoint = endPoints.MakeEndPoint(hub.nuid, hub.port);
+                                    if (hub.nuid.TryGetLegacy(out LegacyNodeId legacyHubId))
+                                    {
+                                        hub.endPoint = endPoints.MakeEndPoint(legacyHubId, hub.port);
+                                    }
                                 }
 
-                                if (hub.nuid.Valid() && HubCount_IP(hub.nuid) < MAX_IP_HUBS)
+                                if (hub.nuid.Valid() && HubCount_IP(hub.endPoint.Address) < MAX_IP_HUBS)
                                 {
                                     List.Add(hub);
                                 }

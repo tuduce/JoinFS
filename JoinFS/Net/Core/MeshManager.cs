@@ -340,8 +340,13 @@ namespace JoinFS.Net
             }
             else
             {
+                if (!id.TryGetLegacy(out LegacyNodeId legacyId))
+                {
+                    // the mesh is legacy's: it reaches a node by its legacy id, so a node without one is not added here
+                    return;
+                }
                 if (receive) firstContact = true;
-                IPEndPoint endPoint = core.Identity.MakeEndPoint(id, port);
+                IPEndPoint endPoint = core.Identity.MakeEndPoint(legacyId, port);
                 // MakeEndPoint guesses a LAN address for any peer behind our public IP; a datagram that
                 // reached us directly tells the real one (strangers behind one CGNAT address)
                 if (receive && direct && heardFrom != null)

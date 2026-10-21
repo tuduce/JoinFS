@@ -149,7 +149,7 @@ namespace JoinFS.Net.Jfp2
         /// 8 bytes per name; a reader takes the whole names and skips a shorter remainder. Empty when
         /// the sender named none (a peer that names none it can resolve is treated as legacy-only).
         /// </summary>
-        public List<NodeName> Names = new();
+        public List<NodeId> Names = new();
 
         /// <summary>
         /// Which build is speaking, as text (JoinFS sends its version and variant), so a hub can count
@@ -210,10 +210,10 @@ namespace JoinFS.Net.Jfp2
             }
             if (Names.Count > 0)
             {
-                var names = new byte[Names.Count * NodeName.WireSize];
+                var names = new byte[Names.Count * NodeId.WireSize];
                 for (int n = 0; n < Names.Count; n++)
                 {
-                    Names[n].WriteTo(names.AsSpan(n * NodeName.WireSize, NodeName.WireSize));
+                    Names[n].WriteTo(names.AsSpan(n * NodeId.WireSize, NodeId.WireSize));
                 }
                 Tlv.Write(bytes, NamesTag, names);
             }
@@ -259,9 +259,9 @@ namespace JoinFS.Net.Jfp2
             if (msg.Extensions.Remove(NamesTag, out byte[] names))
             {
                 // whole names only: a remainder shorter than a name is skipped, so a value under 8 bytes gives none
-                for (int n = 0; n + NodeName.WireSize <= names.Length; n += NodeName.WireSize)
+                for (int n = 0; n + NodeId.WireSize <= names.Length; n += NodeId.WireSize)
                 {
-                    msg.Names.Add(NodeName.ReadFrom(names.AsSpan(n, NodeName.WireSize)));
+                    msg.Names.Add(NodeId.ReadFrom(names.AsSpan(n, NodeId.WireSize)));
                 }
             }
             if (msg.Extensions.Remove(BuildTag, out byte[] build))

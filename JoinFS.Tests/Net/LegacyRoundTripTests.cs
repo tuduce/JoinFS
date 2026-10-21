@@ -107,12 +107,12 @@ namespace JoinFS.Tests.Net
 
         [Fact] public void Event() => AssertRoundTrip(new EventUpdate { ObjectId = 1, EventId = 2, Data = 3 }, true);
         [Fact] public void Remove() => AssertRoundTrip(new RemoveObject { ObjectId = 4 }, true);
-        [Fact] public void Radar() => AssertRoundTrip(new ShowOnRadar { Owner = new NodeId(1, 2, 3), ObjectId = 4, Show = true }, true);
+        [Fact] public void Radar() => AssertRoundTrip(new ShowOnRadar { Owner = NodeId.FromLegacy(1, 2, 3), ObjectId = 4, Show = true }, true);
 
         [Fact]
         public void FlightPlan() => AssertRoundTrip(new FlightPlanUpdate
         {
-            Owner = new NodeId(9, 8, 7), ObjectId = 6, IcaoType = "B738", Departure = "EDDF", Destination = "EGLL",
+            Owner = NodeId.FromLegacy(9, 8, 7), ObjectId = 6, IcaoType = "B738", Departure = "EDDF", Destination = "EGLL",
             Rules = "IFR", Route = "R", Remarks = "RMK", Alternate = "EGKK", Speed = "N0450", Altitude = "F350", Callsign = "DLH2",
             Registration = "D-X", IcaoAirline = "DLH", FlightNumber = "2",
         });
@@ -137,12 +137,12 @@ namespace JoinFS.Tests.Net
         [Fact] public void WeatherRequest() => AssertRoundTrip(new WeatherRequest { ObjectId = 5 }, true);
         [Fact] public void WeatherReply() => AssertRoundTrip(new WeatherReply { Metar = "M1" }, true);
         [Fact] public void WeatherUpdate() => AssertRoundTrip(new WeatherUpdate { Metar = "M2" });
-        [Fact] public void Hubs() => AssertRoundTrip(new HubList { Hubs = [new HubAddress { Node = new NodeId(5, 6, 7), Port = 8 }] });
+        [Fact] public void Hubs() => AssertRoundTrip(new HubList { Hubs = [new HubAddress { Node = NodeId.FromLegacy(5, 6, 7), Port = 8 }] });
         [Fact] public void UserListRequest() => AssertRoundTrip(new UserListRequest());
         [Fact] public void UserPositionsRequest() => AssertRoundTrip(new UserPositionsRequest());
         [Fact] public void Online() => AssertRoundTrip(new OnlineAnnouncement { Uuid = 99 });
         [Fact] public void NuidRequest() => AssertRoundTrip(new UserNuidRequest { Uuid = 98 }, true);
-        [Fact] public void NuidReply() => AssertRoundTrip(new UserNuidReply { Uuid = 97, Node = new NodeId(1, 1, 1), Port = 2 }, true);
+        [Fact] public void NuidReply() => AssertRoundTrip(new UserNuidReply { Uuid = 97, Node = NodeId.FromLegacy(1, 1, 1), Port = 2 }, true);
         [Fact] public void Comms() => AssertRoundTrip(new CommsRequest { Scope = CommsScope.Session }, true);
 
         [Fact]

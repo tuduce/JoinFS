@@ -87,6 +87,13 @@ namespace JoinFS
             Publish();
         }
 
+        /// <summary>This instance's key pair (from <see cref="NodeKeyStore"/>), once its port is known.</summary>
+        public void SetKey(NodeKey key)
+        {
+            identity.Key = key;
+            service.Post(core => core.Identity.Key = key);
+        }
+
         void Publish()
         {
             IPAddress local = identity.LocalAddress;
@@ -277,7 +284,7 @@ namespace JoinFS
 
         // ------------------------------------------------------------------ endpoints and DNS
 
-        public IPEndPoint MakeEndPoint(NodeId node, ushort port) => identity.MakeEndPoint(node, port);
+        public IPEndPoint MakeEndPoint(LegacyNodeId node, ushort port) => identity.MakeEndPoint(node, port);
 
         public bool MakeEndPoint(string addressText, ushort port, out IPEndPoint endPoint)
         {

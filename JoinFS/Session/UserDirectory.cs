@@ -98,9 +98,9 @@ namespace JoinFS
         /// <summary>Where to reach a user, if we know.</summary>
         public bool TryGetEndPoint(uint uuid, out IPEndPoint endPoint)
         {
-            if (onlineUsers.TryGetValue(uuid, out OnlineUser user))
+            if (onlineUsers.TryGetValue(uuid, out OnlineUser user) && user.nuid.TryGetLegacy(out LegacyNodeId legacy))
             {
-                endPoint = endPoints.MakeEndPoint(user.nuid, user.port);
+                endPoint = endPoints.MakeEndPoint(legacy, user.port);
                 return true;
             }
             endPoint = null;

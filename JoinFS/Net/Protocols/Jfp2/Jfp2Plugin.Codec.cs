@@ -222,7 +222,7 @@ namespace JoinFS.Net.Jfp2
 
             // consumed when the target is one of our names (our kind-0 name, in this build), compared
             // as bytes whatever the kind; relayed otherwise
-            if (envelope.IsForwarded && envelope.Target != NameOf(Local))
+            if (envelope.IsForwarded && envelope.Target != Local)
             {
                 Relay(from, hop, envelope, datagram, payload);
                 return;

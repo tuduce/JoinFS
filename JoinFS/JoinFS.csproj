@@ -318,6 +318,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\JoinFS.Messages\JoinFS.Messages.csproj" />
+    <ProjectReference Include="..\JoinFS.Crypto\JoinFS.Crypto.csproj" />
     <ProjectReference Include="..\JoinFS.Recording.Format\JoinFS.Recording.Format.csproj" />
     <ProjectReference Include="..\JoinFS.Recording\JoinFS.Recording.csproj" />
   </ItemGroup>

@@ -281,7 +281,7 @@ namespace JoinFS.Tests.Net
             var hello = new HandshakeMessage
             {
                 ProtoMajorMin = Envelope.ProtoMajor, ProtoMajorMax = Envelope.ProtoMajor, SelfAssignedId = aId,
-                Names = [NodeName.FromLegacy(a.Id)],
+                Names = [a.Id],
                 Offers = [new SchemaOffer(false, MessageClasses.Position, 1, 1)],
             };
             SendRaw(a, hub, EnvelopeFlags.Internal, MessageClasses.Hello, hello.Serialize());
@@ -575,7 +575,7 @@ namespace JoinFS.Tests.Net
             var hello = new HandshakeMessage
             {
                 ProtoMajorMin = protoMajorMin, ProtoMajorMax = protoMajorMax, SelfAssignedId = aId,
-                Names = [NodeName.FromLegacy(a.Id)],
+                Names = [a.Id],
                 Offers = [new SchemaOffer(false, MessageClasses.Position, 1, 1)],
             };
             extend?.Invoke(hello);
@@ -644,7 +644,8 @@ namespace JoinFS.Tests.Net
                 Assert.Equal((byte)EnvelopeFlags.Internal, d.Data[2]);
                 HandshakeMessage message = HandshakeMessage.Deserialize(d.Data.AsSpan(Envelope.FixedSize));
                 bool fromHub = d.From.Equals(hub.EndPoint);
-                Assert.True(Assert.Single(message.Names).TryGetLegacy(out NodeId named));
+                NodeId named = Assert.Single(message.Names);
+                Assert.Equal(NodeId.LegacyKind, named.Kind);
                 Assert.Equal(fromHub ? hub.Id : a.Id, named);
                 string build = fromHub ? "26.6.0 JoinFS-FS2024" : "26.6.0 JoinFS-CONSOLE";
                 Assert.Equal(build, message.Build);
@@ -692,7 +693,7 @@ namespace JoinFS.Tests.Net
 
             SendHelloAck(hub, a, HandshakeMessage.ResultAccepted, "spoof", from: spoofer, observed: Planted);
             SendHelloAck(hub, a, HandshakeMessage.ResultNotAdmitted, "spoof", from: spoofer, observed: Planted);
-            SendHelloAck(hub, a, HandshakeMessage.ResultAccepted, "stranger", names: [NodeName.FromLegacy(stranger.Id)], observed: Planted);
+            SendHelloAck(hub, a, HandshakeMessage.ResultAccepted, "stranger", names: [stranger.Id], observed: Planted);
             mesh.Run(0.1);
 
             Assert.Empty(Observations(a));
@@ -740,7 +741,7 @@ namespace JoinFS.Tests.Net
             {
                 ProtoMajorMin = 2, ProtoMajorMax = 2, Result = HandshakeMessage.ResultAccepted,
                 Offers = [.. Jfp2Profile.Default.Offers],
-                Names = [NodeName.FromLegacy(new NodeId(0xCB007101, 6112, 1))],
+                Names = [NodeId.FromLegacy(0xCB007101, 6112, 1)],
                 Build = new string('x', HandshakeMessage.BuildMaxBytes),
                 ObservedEndPoint = new IPEndPoint(IPAddress.Parse("2001:db8::1"), 65535),
             };
@@ -754,11 +755,11 @@ namespace JoinFS.Tests.Net
         // ------------------------------------------------ node names (docs/network/jfp2/protocol.md §4.3)
 
         /// <summary>A name of kind 1 (a random key): a later build's, which this build cannot resolve.</summary>
-        static readonly NodeName KeyName = NodeName.ReadFrom(new byte[] { 1, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11 });
+        static readonly NodeId KeyName = NodeId.ReadFrom(new byte[] { 1, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11 });
 
         /// <summary>A hand-built Forwarded datagram from <paramref name="from"/> to its neighbor <paramref name="to"/>, in their session.</summary>
         static void SendForwarded(TestNode from, TestNode to, EnvelopeFlags flags, byte messageClass, ReadOnlySpan<byte> payload, ushort guaranteedId,
-            NodeName origin, NodeName target)
+            NodeId origin, NodeId target)
         {
             Assert.True(Jfp2Of(from).TryGetHopIds(to.Id, out ushort local, out ushort remote));
             bool guaranteed = (flags & EnvelopeFlags.Guaranteed) != 0;
@@ -784,9 +785,9 @@ namespace JoinFS.Tests.Net
             mesh.Network.Log.Clear();
             hub.Logs.Clear();
             // from an origin named by a key, for the hub
-            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 41, KeyName, NodeName.FromLegacy(hub.Id));
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 41, KeyName, hub.Id);
             // from a, for a node named by a key (the hub would relay it)
-            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 42, NodeName.FromLegacy(a.Id), KeyName);
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 42, a.Id, KeyName);
             mesh.Run(1);
 
             Assert.Empty(hub.Messages<EventUpdate>());
@@ -795,7 +796,7 @@ namespace JoinFS.Tests.Net
             Assert.DoesNotContain(hub.Logs, l => l.Contains("ERROR"));
 
             // the same datagram naming both by their legacy ids is delivered and acknowledged
-            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 43, NodeName.FromLegacy(a.Id), NodeName.FromLegacy(hub.Id));
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 43, a.Id, hub.Id);
             mesh.Run(1);
             var (meta, evt) = Assert.Single(hub.MessagesWithMeta<EventUpdate>());
             Assert.Equal(a.Id, meta.Sender);
@@ -816,7 +817,7 @@ namespace JoinFS.Tests.Net
 
             mesh.Network.Log.Clear();
             hub.Logs.Clear();
-            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 44, default, NodeName.FromLegacy(hub.Id));
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 44, default, hub.Id);
             mesh.Run(1);
 
             Assert.Empty(hub.Messages<EventUpdate>());
@@ -847,7 +848,7 @@ namespace JoinFS.Tests.Net
 
             mesh.Network.Log.Clear();
             hub.Logs.Clear();
-            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 45, KeyName, NodeName.FromLegacy(b.Id));
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 45, KeyName, b.Id);
             mesh.Run(1);
 
             Assert.Empty(b.Messages<EventUpdate>());
@@ -856,7 +857,7 @@ namespace JoinFS.Tests.Net
             Assert.DoesNotContain(mesh.Network.Log, d => d.From.Equals(hub.EndPoint) && IsGuaranteedDone(d.Data));
             Assert.Contains(hub.Logs, l => l.Contains("cannot resolve") && l.Contains("dropped"));
 
-            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 46, NodeName.FromLegacy(a.Id), NodeName.FromLegacy(b.Id));
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 46, a.Id, b.Id);
             mesh.Run(1);
             var (meta, evt) = Assert.Single(b.MessagesWithMeta<EventUpdate>());
             Assert.Equal(a.Id, meta.Sender);
@@ -877,7 +878,7 @@ namespace JoinFS.Tests.Net
             // the hand-made Hello offers Position only: the hub applying it to a's session shows it was bound to a
             mesh.Network.Log.Clear();
             hub.Logs.Clear();
-            SendHello(a, hub, 2, 2, hello => hello.Names = [KeyName, NodeName.FromLegacy(a.Id)]);
+            SendHello(a, hub, 2, 2, hello => hello.Names = [KeyName, a.Id]);
             mesh.Run(0.1);
 
             Assert.Equal(0, Assert.Single(HelloAcksTo(mesh, hub, a)).Result);
@@ -900,14 +901,14 @@ namespace JoinFS.Tests.Net
         /// A hand-made HelloAck in the hub's session with a, as a later build might send it: from the hub
         /// naming itself, unless another sender (a spoofer, with the ids guessed) or other names are given.
         /// </summary>
-        static void SendHelloAck(TestNode hub, TestNode a, byte result, string build, TestNode? from = null, List<NodeName>? names = null,
+        static void SendHelloAck(TestNode hub, TestNode a, byte result, string build, TestNode? from = null, List<NodeId>? names = null,
             IPEndPoint? observed = null)
         {
             Assert.True(Jfp2Of(hub).TryGetHopIds(a.Id, out ushort hubId, out ushort aId));
             var ack = new HandshakeMessage
             {
                 ProtoMajorMin = Envelope.ProtoMajor, ProtoMajorMax = Envelope.ProtoMajor, SelfAssignedId = hubId, Result = result,
-                Names = names ?? [NodeName.FromLegacy(hub.Id)], Build = build, ObservedEndPoint = observed,
+                Names = names ?? [hub.Id], Build = build, ObservedEndPoint = observed,
             };
             byte[] payload = ack.Serialize();
             var envelope = new Envelope(EnvelopeFlags.Internal, hubId, aId, MessageClasses.HelloAck);
@@ -930,7 +931,7 @@ namespace JoinFS.Tests.Net
 
             a.Logs.Clear();
             SendHelloAck(hub, a, HandshakeMessage.ResultNotAdmitted, "spoof", from: spoofer);
-            SendHelloAck(hub, a, HandshakeMessage.ResultNotAdmitted, "other", names: [NodeName.FromLegacy(other.Id)]);
+            SendHelloAck(hub, a, HandshakeMessage.ResultNotAdmitted, "other", names: [other.Id]);
             SendHelloAck(hub, a, HandshakeMessage.ResultNotAdmitted, "none", names: []);
             mesh.Run(0.1);
 
@@ -995,7 +996,7 @@ namespace JoinFS.Tests.Net
             byte[] hello = new HandshakeMessage
             {
                 ProtoMajorMin = Envelope.ProtoMajor, ProtoMajorMax = Envelope.ProtoMajor, SelfAssignedId = aId,
-                Names = [NodeName.FromLegacy(a.Id)],
+                Names = [a.Id],
                 Offers = [new SchemaOffer(false, MessageClasses.Notes, 1, 1), new SchemaOffer(false, MessageClasses.Position, 1, 1)],
             }.Serialize();
             hello[15] = 2; // the first offer's partition byte, after the 15 bytes of fixed fields
@@ -1221,7 +1222,7 @@ namespace JoinFS.Tests.Net
             {
                 var flags = EnvelopeFlags.Forwarded | (guaranteed ? EnvelopeFlags.Guaranteed : 0);
                 var envelope = new Envelope(flags, hopLocal, hopRemote, messageClass, id, 0, (byte)(guaranteed ? 1 : 0),
-                    NodeName.FromLegacy(A.Id), NodeName.FromLegacy(B.Id));
+                    A.Id, B.Id);
                 byte[] data = new byte[envelope.WireSize + payload.Length];
                 int header = envelope.WriteTo(data);
                 payload.CopyTo(data.AsSpan(header));

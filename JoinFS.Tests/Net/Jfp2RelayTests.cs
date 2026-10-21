@@ -308,7 +308,7 @@ namespace JoinFS.Tests.Net
             foreach (TestNode target in new[] { b1, b2 })
             {
                 var envelope = new Envelope(EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded, local, remote, MessageClasses.Event, 50, 0, 1,
-                    NodeName.FromLegacy(a.Id), NodeName.FromLegacy(target.Id));
+                    a.Id, target.Id);
                 byte[] datagram = new byte[envelope.WireSize + payload.Length];
                 payload.CopyTo(datagram, envelope.WriteTo(datagram));
                 a.Core.Transport.Send(hub.EndPoint, datagram);
@@ -323,8 +323,8 @@ namespace JoinFS.Tests.Net
             }
             List<Envelope> acks = mesh.Network.Log.Where(d => d.From.Equals(hub.EndPoint) && d.To.Equals(a.EndPoint) && d.Data[0] == Envelope.Magic)
                 .Select(d => Envelope.ReadFrom(d.Data, out _)).Where(e => e.IsInternal && e.RawMessageClass == MessageClasses.GuaranteedDone).ToList();
-            Assert.Equal([NodeName.FromLegacy(b1.Id), NodeName.FromLegacy(b2.Id)], acks.Select(e => e.Origin).ToList());
-            Assert.All(acks, e => Assert.True(e.IsForwarded && e.Target == NodeName.FromLegacy(a.Id)));
+            Assert.Equal([b1.Id, b2.Id], acks.Select(e => e.Origin).ToList());
+            Assert.All(acks, e => Assert.True(e.IsForwarded && e.Target == a.Id));
             Assert.Equal(0, hub.Core.Plugins.OfType<LegacyPlugin>().Single().GuaranteedOutCount); // legacy's own acks consumed
 
             // A's own messages to both: each cleared by the hub's ack in its target's name

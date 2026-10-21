@@ -12,7 +12,7 @@ namespace JoinFS.Tests.Session
         static readonly IPAddress Local = IPAddress.Parse("192.168.1.20");
         const ushort Bound = 6112;
 
-        static NodeId Reporter(uint n) => new(0xCB007100 + n, 6112, (byte)n);
+        static NodeId Reporter(uint n) => NodeId.FromLegacy(0xCB007100 + n, 6112, (byte)n);
 
         static IPEndPoint At(string address, int port) => new(IPAddress.Parse(address), port);
 

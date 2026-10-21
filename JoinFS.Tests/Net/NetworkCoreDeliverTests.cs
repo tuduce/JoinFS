@@ -32,8 +32,8 @@ namespace JoinFS.Tests.Net
         }
 
         static readonly IPEndPoint OriginEndPoint = new(IPAddress.Parse("198.51.100.2"), 6112);
-        static readonly NodeId Origin = new(OriginEndPoint, 2);
-        static readonly NodeId Other = new(IPAddress.Parse("192.0.2.3"), 6112, 3);
+        static readonly NodeId Origin = NodeId.FromLegacy(OriginEndPoint, 2);
+        static readonly NodeId Other = NodeId.FromLegacy(IPAddress.Parse("192.0.2.3"), 6112, 3);
 
         static (TestNode Node, RecordingPlugin Plugin) InSession()
         {
@@ -106,8 +106,8 @@ namespace JoinFS.Tests.Net
             var (_, to, data) = Assert.Single(mesh.Network.Log);
             Assert.Equal(b.EndPoint, to);
             Assert.Equal(LegacyWire.FlagInternal | LegacyWire.FlagForward, data[LegacyWire.FlagsOffset]);
-            Assert.Equal(a.Id, NodeId.Read(data.AsSpan(LegacyWire.SenderOffset)));
-            Assert.Equal(b.Id, NodeId.Read(data.AsSpan(LegacyWire.RecipientOffset)));
+            Assert.Equal(a.Id, NodeId.FromLegacy(LegacyNodeId.Read(data.AsSpan(LegacyWire.SenderOffset))));
+            Assert.Equal(b.Id, NodeId.FromLegacy(LegacyNodeId.Read(data.AsSpan(LegacyWire.RecipientOffset))));
             Assert.Equal((short)LegacyWire.InternalId.Pulse, BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(LegacyWire.DataOffset)));
         }
     }

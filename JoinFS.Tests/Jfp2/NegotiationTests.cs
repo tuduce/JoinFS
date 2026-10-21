@@ -134,8 +134,8 @@ namespace JoinFS.Tests.Jfp2
         [Fact]
         public void HandshakeMessage_Names_RoundTripAndAreNotLeftInExtensions()
         {
-            NodeName key = NodeName.ReadFrom(new byte[] { 1, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11 });
-            var hello = new HandshakeMessage { SelfAssignedId = 5, Names = [NodeName.FromLegacy(new JoinFS.Net.NodeId(0xCB007101, 6112, 20)), key] };
+            JoinFS.Net.NodeId key = JoinFS.Net.NodeId.ReadFrom(new byte[] { 1, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11 });
+            var hello = new HandshakeMessage { SelfAssignedId = 5, Names = [JoinFS.Net.NodeId.FromLegacy(0xCB007101, 6112, 20), key] };
             hello.Extensions[0x0100] = new byte[] { 9 };
 
             HandshakeMessage back = HandshakeMessage.Deserialize(hello.Serialize());
@@ -243,7 +243,7 @@ namespace JoinFS.Tests.Jfp2
                 (0x7FFF, [2])));
 
             Assert.Equal("first", back.Build);
-            Assert.Equal(1, Assert.Single(back.Names).TryGetLegacy(out JoinFS.Net.NodeId id) ? id.local : -1);
+            Assert.Equal(1, Assert.Single(back.Names).TryGetLegacy(out JoinFS.Net.LegacyNodeId id) ? id.local : -1);
             Assert.Equal(new byte[] { 1 }, back.Extensions[0x7FFF]);
         }
 

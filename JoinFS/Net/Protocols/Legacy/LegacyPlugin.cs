@@ -30,6 +30,7 @@ namespace JoinFS.Net.Legacy
         bool sendGuaranteed;
         ushort sendGuaranteedId;
         NodeId sendSender;
+        bool sendUnnameable;
 
         // receive side
         readonly MemoryStream receiveStream = new(1024);
@@ -77,8 +78,34 @@ namespace JoinFS.Net.Legacy
             message.Dispatch(encoder, meta);
         }
 
+        // ------------------------------------------------------------------ node ids on the legacy wire
+
+        /// <summary>
+        /// A node id off the wire, as the id of the peer it belongs to when the directory knows the name,
+        /// else the kind-0 id the legacy name stands for.
+        /// </summary>
+        NodeId ReadId(BinaryReader r) => host.Peers.Resolve(NodeId.FromLegacy(LegacyNodeId.Read(r)));
+
+        NodeId ReadId(ReadOnlySpan<byte> src) => host.Peers.Resolve(NodeId.FromLegacy(LegacyNodeId.Read(src)));
+
+        /// <summary>
+        /// A node id onto the wire, as the node's legacy id. A node without one cannot be named: the
+        /// message being prepared is dropped (<see cref="Commit"/>), and lists leave it out (<see cref="HasLegacy"/>).
+        /// </summary>
+        void WriteId(BinaryWriter w, NodeId id)
+        {
+            if (!host.Peers.TryGetLegacy(id, out LegacyNodeId legacy))
+            {
+                sendUnnameable = true;
+            }
+            legacy.Write(w);
+        }
+
+        bool HasLegacy(NodeId id) => host.Peers.TryGetLegacy(id, out _);
+
         BinaryWriter BeginHeader(byte flags, bool guaranteed)
         {
+            sendUnnameable = false;
             sendGuaranteed = guaranteed;
             sendGuaranteedId = guaranteed ? reliability.NextId() : (ushort)0;
             if (guaranteed) flags |= LegacyWire.FlagGuaranteed;
@@ -93,9 +120,9 @@ namespace JoinFS.Net.Legacy
             writer.Write(sendGuaranteedId);
             writer.Write((byte)0);
             writer.Write((byte)1);
-            sender.Write(writer);
+            WriteId(writer, sender);
             // recipient: patched per target in Commit
-            sendMeta.Recipient.Write(writer);
+            WriteId(writer, sendMeta.Recipient);
             return writer;
         }
 
@@ -117,6 +144,11 @@ namespace JoinFS.Net.Legacy
         /// <summary>Send the prepared message to the explicit endpoint, or to each target via its route.</summary>
         void Commit()
         {
+            if (sendUnnameable)
+            {
+                host.Log(NetLogLevel.Network, "LEGACY: message names a node without a legacy id, not sent");
+                return;
+            }
             writer.Flush();
             byte[] data = sendStream.GetBuffer();
             int length = (int)sendStream.Length;
@@ -137,8 +169,12 @@ namespace JoinFS.Net.Legacy
             }
             foreach (NodeId target in targets)
             {
-                target.Write(data.AsSpan(LegacyWire.RecipientOffset));
-                IPEndPoint endPoint = host.Peers.TryGet(target, out Peer peer) ? peer.RouteEndPoint : host.Identity.MakeEndPoint(target, target.port);
+                if (!host.Peers.TryGetLegacy(target, out LegacyNodeId legacyTarget))
+                {
+                    continue;
+                }
+                legacyTarget.Write(data.AsSpan(LegacyWire.RecipientOffset));
+                IPEndPoint endPoint = host.Peers.TryGet(target, out Peer peer) ? peer.RouteEndPoint : host.Identity.MakeEndPoint(legacyTarget, legacyTarget.port);
                 if (sendGuaranteed)
                 {
                     reliability.Send(sendGuaranteedId, sendSender, target, endPoint, data.AsSpan(0, length));
@@ -220,10 +256,13 @@ namespace JoinFS.Net.Legacy
             {
                 BinaryWriter w = p.BeginInternal(LegacyWire.InternalId.JoinReply, true);
                 w.Write(m.Suid);
-                w.Write((ushort)m.Nodes.Count);
+                int count = 0;
+                foreach (KnownNode node in m.Nodes) if (p.HasLegacy(node.Node)) count++;
+                w.Write((ushort)count);
                 foreach (KnownNode node in m.Nodes)
                 {
-                    node.Node.Write(w);
+                    if (!p.HasLegacy(node.Node)) continue;
+                    p.WriteId(w, node.Node);
                     w.Write(node.Port);
                 }
                 p.Commit();
@@ -254,7 +293,7 @@ namespace JoinFS.Net.Legacy
             {
                 BinaryWriter w = p.BeginInternal(LegacyWire.InternalId.AddNode, true);
                 w.Write(m.Suid);
-                m.Node.Node.Write(w);
+                p.WriteId(w, m.Node.Node);
                 w.Write(m.Node.Port);
                 p.Commit();
             }
@@ -288,8 +327,10 @@ namespace JoinFS.Net.Legacy
             {
                 BinaryWriter w = p.BeginInternal(id, false);
                 w.Write(suid);
-                w.Write((ushort)nodes.Count);
-                foreach (NodeId node in nodes) node.Write(w);
+                int count = 0;
+                foreach (NodeId node in nodes) if (p.HasLegacy(node)) count++;
+                w.Write((ushort)count);
+                foreach (NodeId node in nodes) if (p.HasLegacy(node)) p.WriteId(w, node);
                 p.Commit();
             }
 
@@ -389,7 +430,7 @@ namespace JoinFS.Net.Legacy
                     if (w == null)
                     {
                         w = p.BeginApp(id, false);
-                        owner.Write(w);
+                        p.WriteId(w, owner);
                         w.Write(m.ObjectId);
                         countPosition = w.BaseStream.Position;
                         count = 0;
@@ -441,7 +482,7 @@ namespace JoinFS.Net.Legacy
             public void Handle(in MessageMeta meta, in FlightPlanUpdate m)
             {
                 BinaryWriter w = p.BeginApp(LegacyWire.AppId.FlightPlan, false);
-                m.Owner.Write(w);
+                p.WriteId(w, m.Owner);
                 w.Write(m.ObjectId);
                 w.Write(LegacyWire.FlightPlanFormatVersion);
                 w.Write(m.IcaoType);
@@ -463,7 +504,7 @@ namespace JoinFS.Net.Legacy
             public void Handle(in MessageMeta meta, in ShowOnRadar m)
             {
                 BinaryWriter w = p.BeginApp(LegacyWire.AppId.ShowOnRadar, true);
-                m.Owner.Write(w);
+                p.WriteId(w, m.Owner);
                 w.Write(m.ObjectId);
                 w.Write(m.Show);
                 p.Commit();
@@ -556,15 +597,17 @@ namespace JoinFS.Net.Legacy
 
             public void Handle(in MessageMeta meta, in HubList m)
             {
-                for (int start = 0; start < m.Hubs.Count; start += LegacyWire.MaxHubListEntries)
+                // a hub without a legacy id is left out
+                List<HubAddress> hubs = m.Hubs.TrueForAll(h => p.HasLegacy(h.Node)) ? m.Hubs : m.Hubs.FindAll(h => p.HasLegacy(h.Node));
+                for (int start = 0; start < hubs.Count; start += LegacyWire.MaxHubListEntries)
                 {
-                    int count = Math.Min(m.Hubs.Count - start, LegacyWire.MaxHubListEntries);
+                    int count = Math.Min(hubs.Count - start, LegacyWire.MaxHubListEntries);
                     BinaryWriter w = p.BeginApp(LegacyWire.AppId.HubList, false);
                     w.Write((ushort)count);
                     for (int i = start; i < start + count; i++)
                     {
-                        m.Hubs[i].Node.Write(w);
-                        w.Write(m.Hubs[i].Port);
+                        p.WriteId(w, hubs[i].Node);
+                        w.Write(hubs[i].Port);
                     }
                     p.Commit();
                 }
@@ -654,7 +697,7 @@ namespace JoinFS.Net.Legacy
             {
                 BinaryWriter w = p.BeginApp(LegacyWire.AppId.UserNuid, true);
                 w.Write(m.Uuid);
-                m.Node.Write(w);
+                p.WriteId(w, m.Node);
                 w.Write(m.Port);
                 p.Commit();
             }
@@ -730,8 +773,8 @@ namespace JoinFS.Net.Legacy
             ushort guaranteedId = (ushort)(data[LegacyWire.GuaranteedIdOffset] | data[LegacyWire.GuaranteedIdOffset + 1] << 8);
             byte guaranteedIndex = data[LegacyWire.GuaranteedIndexOffset];
             byte guaranteedCount = data[LegacyWire.GuaranteedCountOffset];
-            NodeId sender = NodeId.Read(data.AsSpan(LegacyWire.SenderOffset));
-            NodeId recipient = NodeId.Read(data.AsSpan(LegacyWire.RecipientOffset));
+            NodeId sender = ReadId(data.AsSpan(LegacyWire.SenderOffset));
+            NodeId recipient = ReadId(data.AsSpan(LegacyWire.RecipientOffset));
             NodeId local = host.Identity.Id;
 
             host.Peers.TryGet(sender, out Peer senderPeer);
@@ -801,8 +844,12 @@ namespace JoinFS.Net.Legacy
             done[3] = 0; done[4] = 0; // not itself guaranteed
             done[LegacyWire.GuaranteedIndexOffset] = 0;
             done[LegacyWire.GuaranteedCountOffset] = 1;
-            host.Identity.Id.Write(done[LegacyWire.SenderOffset..]);
-            sender.Write(done[LegacyWire.RecipientOffset..]);
+            if (!host.Peers.TryGetLegacy(sender, out LegacyNodeId legacySender))
+            {
+                return;
+            }
+            host.Identity.LegacyId.Write(done[LegacyWire.SenderOffset..]);
+            legacySender.Write(done[LegacyWire.RecipientOffset..]);
             BitConverter.TryWriteBytes(done[LegacyWire.DataOffset..], (short)LegacyWire.InternalId.GuaranteedDone);
             BitConverter.TryWriteBytes(done[(LegacyWire.DataOffset + 2)..], id);
             done[LegacyWire.DataOffset + 4] = index;
@@ -833,7 +880,7 @@ namespace JoinFS.Net.Legacy
                             int count = reader.ReadInt16();
                             for (int i = 0; i < count; i++)
                             {
-                                m.Nodes.Add(new KnownNode { Node = NodeId.Read(reader), Port = reader.ReadUInt16() });
+                                m.Nodes.Add(new KnownNode { Node = ReadId(reader), Port = reader.ReadUInt16() });
                             }
                             host.Deliver(meta, m);
                         }
@@ -844,7 +891,7 @@ namespace JoinFS.Net.Legacy
                         break;
                     case LegacyWire.InternalId.AddNode:
                         Stats.AddNode.Record(length);
-                        host.Deliver(meta, new AddNode { Suid = reader.ReadUInt32(), Node = new KnownNode { Node = NodeId.Read(reader), Port = reader.ReadUInt16() } });
+                        host.Deliver(meta, new AddNode { Suid = reader.ReadUInt32(), Node = new KnownNode { Node = ReadId(reader), Port = reader.ReadUInt16() } });
                         break;
                     case LegacyWire.InternalId.Pulse:
                         Stats.Pulse.Record(length);
@@ -870,7 +917,7 @@ namespace JoinFS.Net.Legacy
                             uint suid = reader.ReadUInt32();
                             int count = reader.ReadInt16();
                             List<NodeId> nodes = new(Math.Max(count, 0));
-                            for (int i = 0; i < count; i++) nodes.Add(NodeId.Read(reader));
+                            for (int i = 0; i < count; i++) nodes.Add(ReadId(reader));
                             if (id == LegacyWire.InternalId.Pathfinder)
                                 host.Deliver(meta, new Pathfinder { Suid = suid, Nodes = nodes });
                             else
@@ -952,7 +999,7 @@ namespace JoinFS.Net.Legacy
                             Stats.HubList.Record(length);
                             int count = reader.ReadUInt16();
                             var m = new HubList { Hubs = new(count) };
-                            for (int i = 0; i < count; i++) m.Hubs.Add(new HubAddress { Node = NodeId.Read(reader), Port = reader.ReadUInt16() });
+                            for (int i = 0; i < count; i++) m.Hubs.Add(new HubAddress { Node = ReadId(reader), Port = reader.ReadUInt16() });
                             host.Deliver(meta, m);
                         }
                         break;
@@ -1008,7 +1055,7 @@ namespace JoinFS.Net.Legacy
                         break;
                     case LegacyWire.AppId.UserNuid:
                         Stats.UserNuid.Record(length);
-                        host.Deliver(meta, new UserNuidReply { Uuid = reader.ReadUInt32(), Node = NodeId.Read(reader), Port = reader.ReadUInt16() });
+                        host.Deliver(meta, new UserNuidReply { Uuid = reader.ReadUInt32(), Node = ReadId(reader), Port = reader.ReadUInt16() });
                         break;
                     case LegacyWire.AppId.Online:
                         Stats.Online.Record(length);
@@ -1021,7 +1068,7 @@ namespace JoinFS.Net.Legacy
                         ReadVariables(meta, id, length);
                         break;
                     case LegacyWire.AppId.ShowOnRadar:
-                        host.Deliver(meta, new ShowOnRadar { Owner = NodeId.Read(reader), ObjectId = reader.ReadUInt32(), Show = reader.ReadBoolean() });
+                        host.Deliver(meta, new ShowOnRadar { Owner = ReadId(reader), ObjectId = reader.ReadUInt32(), Show = reader.ReadBoolean() });
                         break;
                 }
             }
@@ -1132,7 +1179,7 @@ namespace JoinFS.Net.Legacy
                 _ => VariableKind.String8,
             };
             (kind switch { VariableKind.Int32 => Stats.IntegerVariables, VariableKind.Float32 => Stats.FloatVariables, _ => Stats.String8Variables }).Record(length);
-            NodeId wireOwner = NodeId.Read(reader);
+            NodeId wireOwner = ReadId(reader);
             // Insurance for docs/network/network-plugin-architecture.md §2.11 item 3's redundancy claim: no
             // known sender (this codebase's, or any released build's, as far as could be confirmed)
             // sets this to anything but its own id, which meta.Sender already carries - but if one
@@ -1284,7 +1331,7 @@ namespace JoinFS.Net.Legacy
             Stats.FlightPlan.Record(length);
             var m = new FlightPlanUpdate
             {
-                Owner = NodeId.Read(reader),
+                Owner = ReadId(reader),
                 ObjectId = reader.ReadUInt32(),
             };
             reader.ReadByte(); // the message's own format-version byte - never gates anything, discarded (LegacyWire.FlightPlanFormatVersion)

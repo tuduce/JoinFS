@@ -27,8 +27,8 @@ namespace JoinFS.Tests.Estimation
         [Fact]
         public void EachObject_HasItsOwnClockAndEstimator()
         {
-            var a = new Sim.Plane(new NodeId(0x0A000001, 6112, 1), 1);
-            var b = new Sim.Plane(new NodeId(0x0A000001, 6112, 1), 2);
+            var a = new Sim.Plane(NodeId.FromLegacy(0x0A000001, 6112, 1), 1);
+            var b = new Sim.Plane(NodeId.FromLegacy(0x0A000001, 6112, 1), 2);
             Assert.Same(a.Clock, a.Clock);
             Assert.NotSame(a.Clock, b.Clock);
             Assert.NotSame(a.Estimator, b.Estimator);
@@ -37,7 +37,7 @@ namespace JoinFS.Tests.Estimation
         [Fact]
         public void SnapshotCopies_DoNotShareTheSimThreadsClock()
         {
-            var plane = new Sim.Plane(new NodeId(0x0A000001, 6112, 1), 1);
+            var plane = new Sim.Plane(NodeId.FromLegacy(0x0A000001, 6112, 1), 1);
             plane.Clock.OnSample(10.0, 0.0, 100.0);
             Sim.Obj view = plane.CloneView();
             Assert.NotSame(plane.Clock, view.Clock);

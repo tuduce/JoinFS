@@ -20,7 +20,7 @@ namespace JoinFS.Net.Jfp2
     /// endpoint it answers from (two nodes can share one public endpoint). A peer that is not a
     /// neighbor is reached through the neighbor that carries its traffic (<see cref="NextHop"/>): the
     /// datagram goes to that hop in the hop's negotiated schema, addressed end to end with Forwarded
-    /// Origin/Target names (<see cref="NodeName"/>), and the hop either forwards it
+    /// Origin/Target names (<see cref="NodeId"/>), and the hop either forwards it
     /// byte for byte (the target agreed the same schema) or decodes it and lets the core re-send it in
     /// the target's own terms (the generic translation path, design §2.6). Whatever a peer's hop
     /// cannot carry goes through the legacy plugin.
@@ -137,17 +137,15 @@ namespace JoinFS.Net.Jfp2
         double Now => host.Clock.Now;
 
         /// <summary>
-        /// The name this node writes for a node: its kind-0 name, since every node has a legacy id
-        /// until the mesh runs over JFP2 (docs/network/jfp2/protocol.md §4.3).
+        /// The node a name belongs to: the peer the directory knows it by, else a kind-0 name stands for
+        /// itself. Only a valid id resolves (an all-zero or ip-0 name would read as "this node" in the
+        /// app); a name of another kind that no peer has is dropped, and so is what carries it (§4.9).
         /// </summary>
-        static NodeName NameOf(NodeId node) => NodeName.FromLegacy(node);
-
-        /// <summary>
-        /// The node a name belongs to. This build resolves kind 0 only, and only to a valid node id: an
-        /// all-zero or ip-0 name would read as "this node" in the app. What carries any other name is
-        /// dropped (§4.9).
-        /// </summary>
-        static bool TryResolve(NodeName name, out NodeId node) => name.TryGetLegacy(out node) && node.Valid();
+        bool TryResolve(NodeId name, out NodeId node)
+        {
+            node = host.Peers.Resolve(name);
+            return node.Valid() && (node.Kind == NodeId.LegacyKind || host.Peers.Contains(node));
+        }
 
         // ================================================================== periodic
 
@@ -196,7 +194,7 @@ namespace JoinFS.Net.Jfp2
         // ================================================================== datagrams out
 
         void SendDatagram(IPEndPoint endPoint, EnvelopeFlags flags, byte messageClass, ushort senderPeerId, ushort recipientPeerId, ReadOnlySpan<byte> payload,
-            ushort guaranteedId = 0, byte guaranteedIndex = 0, byte guaranteedCount = 0, NodeName origin = default, NodeName target = default)
+            ushort guaranteedId = 0, byte guaranteedIndex = 0, byte guaranteedCount = 0, NodeId origin = default, NodeId target = default)
         {
             if (endPoint == null) return;
             var envelope = new Envelope(flags, senderPeerId, recipientPeerId, messageClass, guaranteedId, guaranteedIndex, guaranteedCount, origin, target);
@@ -249,7 +247,7 @@ namespace JoinFS.Net.Jfp2
                 flags |= EnvelopeFlags.Forwarded;
             }
             SendDatagram(hop.Endpoint, flags, messageClass, hop.LocalAssignedId, hop.RemoteAssignedId, payload, guaranteedId, guaranteedIndex, guaranteedCount,
-                forwarded ? NameOf(origin) : default, forwarded ? NameOf(target) : default);
+                forwarded ? origin : default, forwarded ? target : default);
         }
 
         /// <summary>
@@ -268,7 +266,7 @@ namespace JoinFS.Net.Jfp2
             if (ackTo.HasValue)
             {
                 SendDatagram(endPoint, EnvelopeFlags.Internal | EnvelopeFlags.Forwarded, MessageClasses.GuaranteedDone, hop.LocalAssignedId, hop.RemoteAssignedId, payload,
-                    origin: NameOf(acker), target: NameOf(ackTo.Value));
+                    origin: acker, target: ackTo.Value);
             }
             else
             {

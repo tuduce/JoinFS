@@ -12,7 +12,7 @@ All under `JoinFS/Net/Protocols/Jfp2/`, tests under `JoinFS.Tests/Jfp2/` and `Jo
 |---|---|---|
 | Envelope, flags, class constants, size limits | `Envelope.cs` | §3 |
 | Handshake message, offers, TLVs, resolution, capabilities | `Negotiation.cs` | §5 |
-| Node names (`NodeName`) | `NodeName.cs` | §4.3 |
+| Node names (`NodeId`, with `LegacyNodeId` for kind 0) | `JoinFS.Messages/NodeId.cs`, `LegacyNodeId.cs` | §4.3 |
 | Address and port on the wire | `WireEndPoint.cs` | §4.4 |
 | Text with limits | `Codecs/WireText.cs` | §4.2 |
 | Guaranteed delivery: pending, acks, duplicates, reassembly | `Jfp2Reliability.cs` | §7 |
@@ -28,8 +28,9 @@ number (a `MessageClasses` constant), its partition, whether it is guaranteed, o
 version, and how a decoded message reaches the core. The Hello offers, routing (`CanCarry`),
 encoding and decoding all read the profile, and nothing else lists classes.
 
-Names are `NodeName` on the wire and `NodeId` in the core; release 1 converts kind 0 both ways and
-drops every other kind. The route of a peer (`Peer.RouteVia`, `RouteIsOwnEndPoint`) lives in the core.
+Names are `NodeId` (8 bytes) on the wire and in the core; the legacy plugin works in `LegacyNodeId` and
+`PeerDirectory` keeps an alias index. Release 1 resolved kind 0 only; since stage 1 of `jfp2-standalone`
+a kind-2 name (the node's key) exists in the core, but no wire carries it yet. The route of a peer (`Peer.RouteVia`, `RouteIsOwnEndPoint`) lives in the core.
 
 ## 2. What is implemented, and what is not
 

@@ -26,6 +26,15 @@ OR
 ### If you want to run it as unattended Hub on Docker
 the docker image is worth a look: https://hub.docker.com/r/joinfs/joinfs-console
 
+The hub's node key (its identity on the network) lives in the container's storage folder, so mount
+that folder on a **named** volume, or a recreated container becomes a new node:
+```
+docker run -d -p 6112:6112/udp -v joinfs:/root/.local/share joinfs/joinfs-console
+```
+(The image declares the volume, but without a name `docker run` makes an anonymous one that a new
+container does not reuse. The folder is `$HOME/.local/share` as root; adjust it if the image runs as
+another user.)
+
 ## Building from source
 To build JoinFS from source, please follow these steps:
 * Clone this repository
