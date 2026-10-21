@@ -1,7 +1,7 @@
 # JFP2: implementation
 
-How `protocol.md` is realized in the code, what is built and what is not, how to extend and test it,
-and the record of how it got here. How JFP2 fits into the application as one protocol plugin is
+How `protocol.md` (edition 2) is realized in the code, what is built and what is not, how to extend and
+test it, and the record of how it got here. How JFP2 fits into the application as one protocol plugin is
 `../../architecture.md` (§5 and §6); this document is about JFP2's own parts.
 
 ## 1. Code map
@@ -19,6 +19,12 @@ All under `JoinFS/Net/Protocols/Jfp2/`, tests under `JoinFS.Tests/Jfp2/` and `Jo
 | One descriptor per class; the set a plugin speaks | `ClassDescriptor.cs`, `Jfp2Profile.cs` | §3.3, §5.3, §10.3 |
 | Codecs, one per class and schema version | `Codecs/*Codec.cs` | §9 |
 | The plugin | `Jfp2Plugin.cs` (state, routing), `.Handshake.cs` (handshake, keepalive, occupants), `.Relay.cs` (next hop, relay, translation), `.Codec.cs` (encoder, decode) | §5–§8 |
+| Admission of a stranger, non-member sessions | `Jfp2Plugin.Admission.cs`; cookie in `JoinFS.Crypto/StatelessCookie.cs` | §5.9 |
+| Join, MemberList, MemberAnnounce, MemberLeave | `Jfp2Plugin.Membership.cs`, `MembershipCodecs.cs` | §5.10–§5.12 |
+| RouteQuery, RouteAnswer, the bridge to legacy | `Jfp2Plugin.Routing.cs`; `MeshManager.Membership.cs` | §5.13 |
+| Candidates, IPv6, the path of a link | `Jfp2Plugin.Paths.cs`; `LocalIdentity.cs` | §5.14, §5.15 |
+| The directory | `Jfp2Plugin.Directory.cs`, `DirectoryCodecs.cs`; `MeshManager.Directory.cs` | §5.16 |
+| Segments, the remaining kinds, the notes history | `Jfp2Reliability.cs`, `Jfp2Capabilities.cs`; `JoinFS.Messages/Codecs/RemainingKindsCodecs.cs` | §7.5, §9.4, §9.8 |
 | Wireshark dissector | `JoinFS/util/wireshark/joinfs.lua` | all |
 
 The plugin runs on the network thread, takes no lock, and reaches the core only through
@@ -29,12 +35,13 @@ version, and how a decoded message reaches the core. The Hello offers, routing (
 encoding and decoding all read the profile, and nothing else lists classes.
 
 Names are `NodeId` (8 bytes) on the wire and in the core; the legacy plugin works in `LegacyNodeId` and
-`PeerDirectory` keeps an alias index. Release 1 resolved kind 0 only; since stage 1 of `jfp2-standalone`
-a kind-2 name (the node's key) exists in the core, but no wire carries it yet. The route of a peer (`Peer.RouteVia`, `RouteIsOwnEndPoint`) lives in the core.
+`PeerDirectory` keeps an alias index. Release 1 resolved kind 0 only; since edition 2 a kind-2 name (the node's
+key, `NodeKeyStore`, `NodeKey`) is stated in every Hello beside the legacy id and names a node with no IPv4 address,
+which also has a kind-0 alias (`protocol.md` §4.3, §5.15). The route of a peer (`Peer.RouteVia`, `RouteIsOwnEndPoint`) lives in the core.
 
 ## 2. What is implemented, and what is not
 
-**Implemented (release 1):**
+**Implemented (release 1, edition 1):**
 - the envelope with its guaranteed and forwarded extensions, hop-scoped ids on relayed datagrams;
 - Hello/HelloAck with per-class negotiation, node names (kind 0), the build advertisement, the
   observed endpoint, and verified sessions with a keepalive;
@@ -46,10 +53,26 @@ a kind-2 name (the node's key) exists in the core, but no wire carries it yet. T
 - the relay budget as a setting (`MeshManager.RelayBudget`, `--hubrelays <n>`, default 10), and a log
   line when a relay is refused ("relay capacity reached", at most once per 5 s).
 
+**Implemented in edition 2** (stages 1 to 12 of `standalone-ipv6-plan.md`; each has its entry in `roadmap.md` §2.2
+with the deviations from the plan):
+- the node key and its kind-2 name; the dual-mode socket and IPv6 endpoints;
+- admission of a stranger by a stateless cookie, and non-member sessions (§5.9);
+- Join (with the password proof), JoinResult, MemberList, MemberAnnounce and MemberLeave; liveness of a member by
+  the keepalive; JFP2 first with the legacy fallback after 2 s and a memory per address (§5.10 to §5.12);
+- RouteQuery and RouteAnswer, and the bridge between a JFP2 side and a legacy side: AddNode, Pulse and Leave in a
+  member's name, legacy datagrams for a member with no legacy link decoded and sent over JFP2 (§5.13, §8.4);
+- endpoint candidates, the IPv6 preference, Happy Eyeballs, the move between families (§5.14);
+- nodes with no IPv4 address and their alias (§5.15);
+- the directory over JFP2: hub list with candidates, user lists, positions, online and lookups, `hubs.dat` version
+  10007, `legacyonly.txt`, the unreachable-hub note (§5.16);
+- ObjectPosition, RemoveObject, PeerInfo, CommsRequest, and NotesHistory in segments behind capability bit 0
+  (§7.5, §9.4, §9.8);
+- the JFP2-only hub (`Jfp2Only` setting, `-jfp2only`: no `LegacyPlugin` registered).
+
 **Specified or reserved, not implemented** (the reservations are in `protocol.md` §10.2; the sketches
-in `design-future.md`): the Coalesced flag; the `Extended` class; name kinds other than 0;
-multi-segment guaranteed delivery; capability bits (they are exchanged and agreed, none is assigned);
-PositionV2; `WireEndPoint` lists; JFP2 mesh messages.
+in `design-future.md`): the Coalesced flag; the `Extended` class; name kinds 1 and 255; PositionV2; per-hop
+protection of datagrams (§11.3); Login and LoginFail over JFP2 (a login-required hub refuses a JFP2 join,
+open question R); a settings-form control for the IPv6 and JFP2-only settings; WeatherRequest and ShowOnRadar.
 
 **Not implemented and not specified here:** everything in `roadmap.md`.
 
@@ -64,8 +87,8 @@ PositionV2; `WireEndPoint` lists; JFP2 mesh messages.
 
 ### 3.1 Node names and the route
 
-The plugin turns the name in a handshake into a `NodeId` only for kind 0, and looks the node up in
-the mesh the legacy plugin built. A Hello whose names resolve to no known peer is ignored, unless it
+The plugin turns the name in a handshake into a `NodeId` and looks the node up in the mesh (built by the legacy
+plugin or by earlier JFP2 joins; `PeerDirectory` resolves every name of a peer, key name and alias too). A Hello whose names resolve to no known peer is ignored, unless it
 carries an `Admission` extension and the node is in a session: then it is a stranger, answered by
 `Jfp2Plugin.Admission.cs` (`protocol.md` §5.9). Strangers are kept apart from `sessions`, in
 `nonMembers` (the same id space, `sessionsById`), so no routing code can pick one as a next hop.
@@ -139,10 +162,12 @@ therefore shows which builds speak JFP2, which is the data the legacy retirement
 
 ## 4. Offers in this build
 
-Every application class 0–9 at version range [1, 1]; no internal classes. They come from the
-plugin's profile, in its order: Status, StatusRequest, Identity, VariableSync, Position, Event,
-FlightPlan, Notes, Weather, WeatherReply. The order is visible in Hello, so a new class is appended
-last.
+Thirty offers, from the plugin's profile (`Jfp2Profile.Default`), in its order: the application classes 0 to 9 at
+[1, 1] (Status, StatusRequest, Identity, VariableSync, Position, Event, FlightPlan, Notes, Weather, WeatherReply),
+then 10 to 22 at [1, 1] (the directory, ObjectPosition, RemoveObject, PeerInfo, CommsRequest, NotesHistory), then the
+internal classes Join [1, 1], JoinResult [1, 2], MemberList [1, 2], MemberAnnounce [1, 2], MemberLeave, RouteQuery,
+RouteAnswer [1, 1]; the capability Segments (bit 0). The order is visible in Hello, so a new class is appended last.
+`Edition2HelloGoldenTests` pins the whole Hello (`protocol.md` Appendix A.18).
 
 ## 5. Adding a class or a schema version
 
@@ -183,6 +208,12 @@ dotnet test JoinFS.Tests/JoinFS.Tests.csproj -c FS2024-Debug -p:Platform=x64
 | Golden bytes | `Jfp2/HandshakeGoldenTests` | Hello, HelloAck, HelloAck with the observed endpoint (`protocol.md` Appendix A). Never regenerate to make a test pass. |
 | Join | `Net/Jfp2JoinTests` | The join on `TestMesh` with no legacy plugin (create, join, passwords, the list, loss, liveness), members coming and going (announce, leave, crash, rejoin), JFP2 first with the legacy fallback, the JFP2-only mesh (the tracer bullet, roadmap item 12), the bodies, and the bytes of `protocol.md` Appendix A.6 to A.10 |
 | Golden bytes, admission | `Jfp2/AdmissionGoldenTests` | The Hello that asks, the Hello that echoes the cookie, the `Result` 2 HelloAck (`protocol.md` Appendix A.3 to A.5). Beside the 26.6 goldens, which stay as they are. |
+| Golden bytes, candidates and the whole Hello | `Jfp2/CandidatesGoldenTests`, `Jfp2/Edition2HelloGoldenTests` | The Hello with candidates, MemberAnnounce version 2 (A.13, A.14), and the complete Hello of edition 2: 30 offers, Segments, both names, candidates (A.18). Never regenerate. |
+| Admission | `Net/Jfp2AdmissionTests` | Challenge, non-member sessions, limits and rate |
+| Mixed sessions | `Net/Jfp2MixedSessionTests` | H, A and W (release 1 and legacy) with `TestMesh.Partition`; RouteQuery chains; the pulse proxy; the relay budget |
+| IPv6 | `Net/Jfp2IPv6Tests`, `Jfp2IPv6OnlyTests`, `DualStackHarnessTests`, `UdpTransportTests` | S1, S3, S5 to S8, S13, S14 of the plan; dial lists; the alias |
+| Directory | `Net/Jfp2DirectoryTests`, `Jfp2/DirectoryCodecTests`, `Session/DirectoryJfp2Tests` | S9: lists, status, lookups, `hubs.dat`, the unreachable note |
+| Remaining kinds and segments | `Net/Jfp2RemainingKindsTests` | Stage 10: the four kinds, NotesHistory in segments, the large history |
 | Envelope, names, endpoints, text | `Jfp2/EnvelopeTests`, `WireEndPointTests`, `WireTextTests` | §3, §4 |
 | Negotiation and TLV rules | `Jfp2/NegotiationTests` | §5 |
 | Codecs | `Jfp2/*CodecTests` | §9; one `LongStrings_AreCutToTheirLimits` per codec |
@@ -238,5 +269,13 @@ tests green, six configurations built):
 (only JFP2 did), and the hub is mostly joined directly. `TryAcquireRelay` now logs it, so the next
 journals can say.
 
-**Branch state:** the wire is complete for release 1 and 26.6 may ship. The remaining stages are in
-`roadmap.md`.
+**Branch state (release 1):** the wire is complete for release 1 and 26.6 may ship.
+
+**The stand-alone work, `jfp2-standalone` (2026-10-21).** Twelve stages of `standalone-ipv6-plan.md`, each one commit
+(`Stage N of jfp2-standalone`), with `Fix after stage N` commits where a field test found a defect: 1 identity (`NodeId`
+as 8 bytes, key store), 2 the dual-mode socket, 3 admission, 4 Join over JFP2, 5 membership and the JFP2-first join, 6
+bridging with legacy, 7 IPv6 between nodes of this build, 8 nodes with no IPv4 address, 9 the directory, 10 the
+remaining kinds and large messages, 11 the JFP2-only hub, 12 this specification (edition 2), the full Hello golden, the
+dissector for every class and the release notes (`../../../Readmes/`). Each stage's design, deviations and what its
+evening test should show are in its `roadmap.md` entry. The wire of edition 2 is frozen from the release that ships it, as
+edition 1's is from 26.6 (`protocol.md` §5.8, §10). What remains is in `roadmap.md`.

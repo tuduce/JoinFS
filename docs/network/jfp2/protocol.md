@@ -1,13 +1,24 @@
 # JFP2: the JoinFS Protocol, version 2
 
-**Specification, edition 1.** It defines the wire format and the behaviour that two JFP2 nodes need
+**Specification, edition 2.** It defines the wire format and the behaviour that two JFP2 nodes need
 to interoperate. It does not say why the protocol looks this way (`rationale.md`), how the code
 implements it (`implementation.md`), or what is still to be built (`roadmap.md`).
 
 **Status of this edition.** Edition 1 is the wire of JoinFS 26.6, the first release that speaks
-JFP2. Until 26.6 ships, parts of it may still change deliberately (`goals.md` §5); from 26.6 on,
-§5.8 and §10 bind. Where the implementation does not yet do something this edition specifies, or
-the reverse, `implementation.md` §2 says so.
+JFP2. Edition 2 is the wire of the build that follows it (the `jfp2-standalone` work): it grows edition 1
+within the rules of §5.8 and §10, and adds what a node needs to create, join, stay in and leave a session,
+use the hub directory and be relayed with no legacy datagram involved, over IPv4 and IPv6. Every section
+and row an edition adds says "edition 2"; everything else is edition 1 unchanged, and a node of edition 1
+interoperates with a node of edition 2 as §12.2 says. §5.8 and §10 bind. Where the implementation does not
+yet do something this edition specifies, or the reverse, `implementation.md` §2 says so.
+
+**What edition 2 adds.** Admission of a stranger and non-member sessions (§5.9); Join, JoinResult,
+MemberList, MemberAnnounce and MemberLeave (§5.10, §5.11); the choice between JFP2 and legacy to join
+(§5.12); RouteQuery and RouteAnswer and the bridge to nodes that speak legacy only (§5.13); endpoint
+candidates, IPv6 and the path of a link (§5.14); nodes with no IPv4 address and their alias (§5.15); the
+directory (§5.16); ObjectPosition, RemoveObject, PeerInfo, CommsRequest and NotesHistory (§9.4, §9.8);
+segments (§7.5) behind capability bit 0; name kind 2 (§4.3); the extension tags 4 and 5 (§5.4); schema
+version 2 of MemberList, MemberAnnounce and JoinResult.
 
 ## Abstract
 
@@ -49,9 +60,11 @@ of release 1. It does not specify the legacy protocol (`../network-protocol.md`)
 file format (`../../recording/jfs-format.md`), or anything above the wire (simulator access, model
 matching).
 
-JFP2 does not yet carry the session's membership: the mesh (Join, Pulse, Pathfinder, directory
-messages) still runs over legacy, and every JFP2 node therefore also speaks legacy (§2.4). That is
-a property of release 1, not of the protocol; `roadmap.md` tracks its removal.
+In release 1 JFP2 does not carry the session's membership: the mesh (Join, Pulse, Pathfinder, directory
+messages) runs over legacy, and every JFP2 node therefore also speaks legacy (§2.4). Edition 2 carries
+the membership and the directory (§5.9 to §5.16), so a node of edition 2 may speak no legacy at all; it
+still speaks legacy to the nodes of earlier releases for as long as they exist. `roadmap.md` tracks
+the retirement of legacy.
 
 ### 1.2 Requirements language
 
@@ -75,7 +88,10 @@ interpreted as in RFC 2119 and RFC 8174 when, and only when, they appear in capi
 | Capability | A bit in a 64-bit set, agreed per session, for behaviour that is not tied to one class (§5.6). |
 | Name | The 8-byte reference to a node used on the wire (§4.3). |
 | Legacy | JoinFS's original wire protocol, which is frozen. |
-| Release 1 | The wire of JoinFS 26.6, defined by this edition. |
+| Release 1 | The wire of JoinFS 26.6, defined by edition 1 of this document. |
+| Non-member session | A verified session with a node that has not joined, limited in number and lifetime, that carries the join and the directory and nothing else (§5.9). Edition 2. |
+| Alias | A kind-0 name made up for a node that has no IPv4 address, so that nodes of earlier releases can address it (§5.15). Edition 2. |
+| Candidate | An endpoint a node can be tried at (§5.14). Edition 2. |
 
 ### 1.4 Conventions
 
@@ -123,8 +139,10 @@ The choice between JFP2 and legacy is made per peer and per kind of message, not
   Hello, sessions that are not, or no longer, verified, and the membership traffic.
 - The choice is re-evaluated whenever a peer's route or a session's state changes.
 
-In release 1 every node speaks legacy, so falling back is always possible. A node that speaks JFP2
-alone is outside this edition.
+In release 1 every node speaks legacy, so falling back is always possible. In edition 2 a node MAY
+speak JFP2 alone (a JFP2-only hub, a node with no IPv4 address); it joins and asks only over JFP2 and a
+node of an earlier release cannot reach it directly (§5.12, §5.15). A node that does speak legacy joins
+over JFP2 first and falls back to legacy after 2 s of silence (§5.12).
 
 ### 2.5 Evolution in brief
 
@@ -482,7 +500,8 @@ none. A bit is assigned together with the design that needs it, and with any fla
 **Responder.**
 - Ignore a Hello whose `Names` hold no name that resolves to a node the receiver knows from the
   membership layer. In release 1 membership comes from legacy, which always happens first, so a
-  build that does not say who it is stays on legacy. With several resolvable names, the speaker is
+  build that does not say who it is stays on legacy. In edition 2 a node in a session also knows the
+  members it was told of over JFP2 (§5.10, §5.11). With several resolvable names, the speaker is
   the first that is a known peer.
 - Ignore unknown extension tags.
 - Remember the speaker's `Build` for the session, and forget it when a later handshake omits it.
@@ -1149,7 +1168,8 @@ name, so no negotiation is needed.
 Always legacy in release 1: object positions of non-aircraft objects, RemoveObject, ShowOnRadar,
 PeerInfo, WeatherRequest, hub directory messages, comms requests and all mesh messages. Edition 2
 carries all of these over JFP2 except ShowOnRadar and WeatherRequest, which nothing acts on or sends
-and which stay legacy.
+and which stay legacy, and the legacy mesh messages that JFP2 replaces by its own (Pulse by the
+keepalive, AddNode by MemberAnnounce, Pathfinder by RouteQuery).
 
 ### 9.7 Field limits
 
@@ -1296,6 +1316,8 @@ release-1 peer:
 
 | Pair | What happens |
 |---|---|
+| Edition 2 ↔ edition 2 | Everything of this document, with no legacy datagram between the two nodes, on IPv4 or IPv6. |
+| Edition 2 ↔ release 1 or legacy-only, in one session | The edition 2 node joins the session over legacy when the other side takes no JFP2 join (§5.12), or through a hub of edition 2 that speaks both and bridges (§5.13). A node with no IPv4 address is seen by them under its alias (§5.15). Legacy is never handed an IPv6 endpoint. |
 | Legacy-only build ↔ any | Legacy only, unchanged. A legacy-only build drops every `0xFA` datagram. |
 | Release 1 ↔ a later edition | The later edition names a node by kind 0 while it has a legacy id, so release 1 resolves every name it is sent. New flags go only to a neighbour that agreed their capability, which release 1 never advertises. Non-zero `Result` values mean "no session now" to release 1. A non-member's Hello is ignored by release 1. |
 | A relay with one release-1 side and one later side | The forwarded layout is the same for every build, so the relay forwards byte for byte or translates, as today; it never rewrites names. A translating relay keeps the origin's guaranteed id whichever side is release 1. The one exception is a future fan-out (`design-future.md`). |
@@ -1305,7 +1327,9 @@ release-1 peer:
 - A JFP2 relay between a JFP2 neighbour and a legacy neighbour translates (§8.4); the legacy
   receiver sees an ordinary relayed legacy message.
 - Legacy is frozen. New fields, messages and capabilities go into JFP2, never into legacy's codecs.
-- Falling back to legacy for a peer is always possible in release 1 (§2.4).
+- Falling back to legacy for a peer is always possible in release 1 (§2.4). In edition 2 it is possible
+  for a node that speaks legacy; a JFP2-only node (§5.12) has no legacy to fall back to and a node of an
+  earlier release cannot join it.
 
 ---
 
@@ -1496,6 +1520,29 @@ E0 17                                     Port 6112
 
 The bodies of A.16 and A.17 are pinned by `JoinFS.Tests/Jfp2/DirectoryCodecTests.cs`.
 
+**A.18 The whole Hello of edition 2**, pinned by `JoinFS.Tests/Jfp2/Edition2HelloGoldenTests.cs`: a node with a legacy id (203.0.113.1:6112, local 20) and a key name, id `0x1234`, that offers every class of this edition, advertises Segments, and lists an IPv6 and an IPv4 candidate. The offers are in the order of the reference implementation; a reader does not depend on it.
+
+```
+FA 02 08 34 12 00 00 00                   magic, ProtoMajor 2, Internal, sender 0x1234, recipient 0, class Hello
+02 02                                     ProtoMajorMin, ProtoMajorMax
+01 00 00 00 00 00 00 00                   Capabilities: bit 0 Segments
+34 12                                     SelfAssignedId
+00                                        Result
+1E 00                                     OfferCount: 30
+00 07 01 01  00 08 01 01  00 01 01 01  00 02 01 01  00 00 01 01    application Status, StatusRequest, Identity, VariableSync, Position, each [1, 1]
+00 03 01 01  00 04 01 01  00 05 01 01  00 06 01 01  00 09 01 01    Event, FlightPlan, Notes, Weather, WeatherReply
+00 0A 01 01  00 0B 01 01  00 0C 01 01  00 0D 01 01                HubList, UserListRequest, HubUser, UserPositionsRequest
+00 0E 01 01  00 0F 01 01  00 10 01 01  00 11 01 01                UserPositions, Online, UserLookup, UserLookupAnswer
+00 12 01 01  00 13 01 01  00 14 01 01  00 15 01 01  00 16 01 01    ObjectPosition, RemoveObject, PeerInfo, CommsRequest, NotesHistory
+01 02 01 01  01 03 01 02  01 04 01 02                              internal Join [1, 1], JoinResult [1, 2], MemberList [1, 2]
+01 05 01 02  01 06 01 01  01 07 01 01  01 08 01 01                  MemberAnnounce [1, 2], MemberLeave, RouteQuery, RouteAnswer
+01 00 10 00  00 01 71 00 CB E0 17 14  02 11 22 33 44 55 66 77       TLV Names: the legacy id, then the key name
+02 00 14 00  32 36 2E 36 2E 30 20 ...                               TLV Build: "26.6.0 JoinFS-FS2024"
+05 00 1C 00  13 06 20 01 0D B8 ... 01 E0 17  07 04 CB 00 71 01 E0 17   TLV Candidates: IPv6 2001:db8::1 and IPv4 203.0.113.1, port 6112
+```
+
+A node of 26.6 reading this Hello skips every offer, tag and capability bit it does not know (§5.3, §5.4, §5.6) and agrees the ten application classes it has.
+
 ---
 
 ## Appendix B. Constants
@@ -1538,6 +1585,7 @@ The bodies of A.16 and A.17 are pinned by `JoinFS.Tests/Jfp2/DirectoryCodecTests
 | Edition | Date | Change |
 |---|---|---|
 | 1 | 2026-10 | The wire of JoinFS 26.6: 8-byte names, per-origin guaranteed ids, field limits and the 1,200-byte ceiling, the observed endpoint, and defined handling of unknown values. The development history before this edition is `history/`. |
+| 2 | 2026-10 | Stand-alone JFP2 and IPv6 (`standalone-ipv6-plan.md`, stages 1 to 12). Name kind 2 (§4.3); Hello extension tags 4 `Admission` and 5 `Candidates` (§5.4); `Result` 2 (§5.2); capability bit 0 `Segments` (§5.6); internal classes 2 to 8 (Join, JoinResult, MemberList, MemberAnnounce, MemberLeave, RouteQuery, RouteAnswer); application classes 10 to 22 (the directory, ObjectPosition, RemoveObject, PeerInfo, CommsRequest, NotesHistory); schema version 2 of MemberList, MemberAnnounce and JoinResult; the sections §5.9 to §5.16, §7.5 and §9.8; examples A.3 to A.17. The envelope, the Hello fixed fields and offer layout, the flags and every class and tag of edition 1 are unchanged: the goldens of 26.6 (A.1, A.2) are untouched, and the Hello of this edition is pinned beside them (A.3, A.4, A.13). |
 
 ---
 

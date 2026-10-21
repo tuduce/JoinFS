@@ -759,6 +759,88 @@ local function decode_jfp2_notes_v1(tree, buffer, offset)
     s, offset = read_jfp2_string(buffer, offset); tree:add(buffer(),"Text: " .. s)
 end
 
+-- ObjectPosition (application class 18, §9.4): a Position without the controls and the ground fields, 89 bytes
+local function decode_jfp2_object_position_v1(tree, buffer, offset)
+    if buffer:len() < offset + 89 then return end
+    tree:add(buffer(offset, 4), "ObjectId: " .. buffer(offset, 4):le_uint()); offset = offset + 4
+    tree:add(buffer(offset, 8), "NetTime: " .. buffer(offset, 8):le_float()); offset = offset + 8
+    tree:add(buffer(offset, 8), "Latitude: " .. buffer(offset, 8):le_float()); offset = offset + 8
+    tree:add(buffer(offset, 8), "Longitude: " .. buffer(offset, 8):le_float()); offset = offset + 8
+    tree:add(buffer(offset, 8), "Altitude: " .. buffer(offset, 8):le_float()); offset = offset + 8
+    local floats = { "Pitch", "Bank", "Heading", "VelocityX", "VelocityY", "VelocityZ",
+        "AngularVelocityX", "AngularVelocityY", "AngularVelocityZ",
+        "AccelerationX", "AccelerationY", "AccelerationZ", "Height" }
+    for _, label in ipairs(floats) do
+        tree:add(buffer(offset, 4), label .. ": " .. buffer(offset, 4):le_float()); offset = offset + 4
+    end
+    local stateFlags = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "StateFlags: 0x" .. string.format("%02x", stateFlags) ..
+        (testbit(stateFlags, 0) and " (OnGround)" or "") ..
+        (testbit(stateFlags, 1) and " (ElevationCorrection)" or "") ..
+        (testbit(stateFlags, 3) and " (Paused)" or ""))
+end
+
+-- PeerInfo (application class 20, §9.4)
+local function decode_jfp2_peer_info_v1(tree, buffer, offset)
+    if buffer:len() < offset + 22 then return end
+    local share = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Share: 0x" .. string.format("%02x", share) ..
+        (testbit(share, 0) and " (Cockpit)" or "") ..
+        (testbit(share, 1) and " (FlightControls)" or "") ..
+        (testbit(share, 2) and " (AncillaryControls)" or "") ..
+        (testbit(share, 3) and " (NavControls)" or "")); offset = offset + 1
+    local flags = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Flags: 0x" .. string.format("%02x", flags) ..
+        (testbit(flags, 0) and " (Hub)" or "") ..
+        (testbit(flags, 1) and " (Atc)" or "") ..
+        (testbit(flags, 2) and " (SimulatorConnected)" or "")); offset = offset + 1
+    tree:add(buffer(offset, 16), "Guid: " .. buffer(offset, 16):bytes():tohex()); offset = offset + 16
+    tree:add(buffer(offset, 1), "AtcLevel: " .. buffer(offset, 1):uint()); offset = offset + 1
+    tree:add(buffer(offset, 2), "AtcFrequency: " .. buffer(offset, 2):le_int()); offset = offset + 2
+    tree:add(buffer(offset, 1), "ActivityCircle: " .. buffer(offset, 1):uint()); offset = offset + 1
+    for _, label in ipairs({ "Nickname", "AtcAirport", "Version", "Simulator" }) do
+        local s; s, offset = read_jfp2_string(buffer, offset)
+        tree:add(buffer(), label .. ": " .. s)
+    end
+end
+
+-- NotesHistory (application class 22, §9.8): Scope u8, UserCount u16, then per user Guid, Nickname, Callsign, NoteCount u16 and
+-- per note NoteId u32, Age f32, Channel u16, Text. Larger than a datagram, so it travels in segments (§7.5): only a message
+-- of one segment, or the first segment of several, starts at the Scope; a later segment is a piece of the middle and shows as bytes.
+local function decode_jfp2_notes_history_v1(tree, buffer, offset, segmentIndex, segmentCount)
+    if segmentIndex > 0 then
+        tree:add(buffer(offset, buffer:len() - offset), "Segment " .. (segmentIndex + 1) .. " of " .. segmentCount ..
+            " (" .. (buffer:len() - offset) .. " bytes of the middle of the message, not decoded)")
+        return
+    end
+    if segmentCount > 1 then
+        tree:add(buffer(offset, 0), "Segment 1 of " .. segmentCount .. ": the users and notes beyond this datagram follow in the others")
+    end
+    if buffer:len() < offset + 3 then return end
+    local scope = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Scope: " .. scope .. " (" .. (({ [0] = "Session", [1] = "Global", [2] = "All" })[scope] or "unknown") .. ")"); offset = offset + 1
+    local users = buffer(offset, 2):le_uint()
+    tree:add(buffer(offset, 2), "UserCount: " .. users); offset = offset + 2
+    local len = buffer:len()
+    for u = 1, users do
+        if offset + 16 > len then return end
+        local user = tree:add(buffer(offset, 16), "User " .. u .. ": Guid " .. buffer(offset, 16):bytes():tohex()); offset = offset + 16
+        local s
+        s, offset = read_jfp2_string(buffer, offset); user:add(buffer(), "Nickname: " .. s)
+        s, offset = read_jfp2_string(buffer, offset); user:add(buffer(), "Callsign: " .. s)
+        if offset + 2 > len then return end
+        local notes = buffer(offset, 2):le_uint()
+        user:add(buffer(offset, 2), "NoteCount: " .. notes); offset = offset + 2
+        for n = 1, notes do
+            if offset + 10 > len then return end
+            local id, age, channel = buffer(offset, 4):le_uint(), buffer(offset + 4, 4):le_float(), buffer(offset + 8, 2):le_uint()
+            offset = offset + 10
+            s, offset = read_jfp2_string(buffer, offset)
+            user:add(buffer(), "Note " .. n .. ": id " .. id .. ", age " .. age .. ", channel " .. channel .. ", \"" .. s .. "\"")
+        end
+    end
+end
+
 local function decode_jfp2_weather_v1(tree, buffer, offset)
     local s = select(1, read_jfp2_string(buffer, offset))
     tree:add(buffer(offset, buffer:len() - offset), "Metar: " .. s)
@@ -1053,7 +1135,7 @@ local function decode_jfp2_user_lookup_answer(tree, buffer, offset)
     add_jfp2_directory_candidates(tree, buffer, offset)
 end
 
-local function decode_jfp2_application(tree, buffer, offset, class)
+local function decode_jfp2_application(tree, buffer, offset, class, segmentIndex, segmentCount)
     local name = JFP2_APP_CLASS[class]
     local len = buffer:len()
     if name == "Position" then
@@ -1086,6 +1168,12 @@ local function decode_jfp2_application(tree, buffer, offset, class)
         decode_jfp2_user_lookup_answer(tree, buffer, offset)
     elseif name == "UserListRequest" or name == "UserPositionsRequest" then
         if offset < len then tree:add(buffer(offset, 1), "Reserved: " .. buffer(offset, 1):uint()) end
+    elseif name == "ObjectPosition" then
+        decode_jfp2_object_position_v1(tree, buffer, offset)
+    elseif name == "PeerInfo" then
+        decode_jfp2_peer_info_v1(tree, buffer, offset)
+    elseif name == "NotesHistory" then
+        decode_jfp2_notes_history_v1(tree, buffer, offset, segmentIndex or 0, segmentCount or 1)
     elseif name == "RemoveObject" and len >= offset + 4 then
         tree:add(buffer(offset, 4), "ObjectId: " .. buffer(offset, 4):le_uint())
     elseif name == "CommsRequest" and len >= offset + 1 then
@@ -1139,6 +1227,7 @@ local function dissect_jfp2(buffer, pinfo, tree)
     local isGuaranteed = testbit(flags, 0)
     local isForwarded = testbit(flags, 1)
     local isCoalesced = testbit(flags, 2)
+    local segmentIndex, segmentCount = 0, 1
     local isInternal = testbit(flags, 3)
     subtree:add(buffer(2, 1), "Flags: 0x" .. string.format("%02x", flags) ..
         (isGuaranteed and " [Guaranteed]" or "") ..
@@ -1169,7 +1258,9 @@ local function dissect_jfp2(buffer, pinfo, tree)
     if isGuaranteed then
         subtree:add(buffer(offset, 2), "GuaranteedId: " .. buffer(offset, 2):le_uint())
         subtree:add(buffer(offset + 2, 1), "GuaranteedIndex: " .. buffer(offset + 2, 1):uint())
-        subtree:add(buffer(offset + 3, 1), "GuaranteedCount: " .. buffer(offset + 3, 1):uint())
+        subtree:add(buffer(offset + 3, 1), "GuaranteedCount: " .. buffer(offset + 3, 1):uint() ..
+            (buffer(offset + 3, 1):uint() > 1 and " (a segment, protocol.md §7.5)" or ""))
+        segmentIndex, segmentCount = buffer(offset + 2, 1):uint(), buffer(offset + 3, 1):uint()
         offset = offset + 4
     end
 
@@ -1212,7 +1303,7 @@ local function dissect_jfp2(buffer, pinfo, tree)
     if isInternal then
         ok, err = pcall(decode_jfp2_internal, msgtree, buffer, offset, class)
     else
-        ok, err = pcall(decode_jfp2_application, msgtree, buffer, offset, class)
+        ok, err = pcall(decode_jfp2_application, msgtree, buffer, offset, class, segmentIndex, segmentCount)
     end
     if not ok then msgtree:add_expert_info(PI_MALFORMED, PI_ERROR, "joinfs.lua decode error: " .. tostring(err)) end
 end

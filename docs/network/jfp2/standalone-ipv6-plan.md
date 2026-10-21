@@ -443,7 +443,7 @@ ends (resume note or done). Nothing else in this document changes with progress.
 | 9 | done 2026-10-21 | the commit `Stage 9 of jfp2-standalone` | — |
 | 10 | done 2026-10-21 | the commit `Stage 10 of jfp2-standalone` | — |
 | 11 | done 2026-10-21 | the commit `Stage 11 of jfp2-standalone` | — |
-| 12 | not started | | |
+| 12 | done 2026-10-21 | the commit `Stage 12 of jfp2-standalone` | — |
 
 ### 6.2 One stage, one claim, one commit
 

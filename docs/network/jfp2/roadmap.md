@@ -16,8 +16,9 @@ the open questions (§4) and the verification items (§2.4); §3 below is histor
 - **The first-release wire is complete.** Stages 1 to 9 are done, reviewed and merged to `main`
   (#200). 26.6 may ship: nothing in JFP2 blocks it. From that tag the evolution rules
   of `protocol.md` §5.8 and §10 bind.
-- **Nothing in release 1 lets a node join over JFP2 alone.** Legacy is still the membership layer.
-  Everything below is about getting past that.
+- **Release 1 could not join over JFP2 alone; edition 2 can.** Stages 1 to 12 of `jfp2-standalone`
+  are built (the rows of §2.2 say how), `protocol.md` is edition 2 and `Readmes/Release-26.7.md` announces it.
+  What is left is in §2.3 and §4, the verification items of §2.4, and the retirement of legacy.
 
 ## 2. Open tasks
 
@@ -44,6 +45,7 @@ Each needs its own design, approved by the owner, before it is built.
 | B5 | **Remaining kinds.** **Done in stage 10 of `jfp2-standalone` (plan row 10).** ObjectPosition (18), RemoveObject (19, guaranteed), PeerInfo (20) and CommsRequest (21, guaranteed) are application classes of version 1 (`protocol.md` §9.4, §9.7, the dissector), offered in every Hello by this build; ObjectPosition is sent by the plugin after its object's Identity, as Position is. The bulk notes catch-up is **NotesHistory (22)**: the notes of several users as one guaranteed message (§9.8), which is larger than a datagram, so it is sent in segments (§7.5) behind capability bit 0, **Segments** (§5.6), the first capability this build advertises. Directory kinds: done in stage 9 (B3 above). WeatherRequest and ShowOnRadar are not ported. Deviations and limits: (1) a history is sent in segments only to a *direct* neighbour that agreed the capability; to a relayed target, or to a build without it, the same notes go one by one as Notes messages, so a user without notes is not announced there (as before this stage). A relay never translates segments, it drops one it would have to (§7.5), so a history for a legacy-only target always travels note by note. (2) A receiver keeps at most 8 messages in pieces for 180 s. (3) The Hello of this build now carries the Segments bit and 30 offers; the pinned Hello of `Jfp2WireCharacterizationTests` changed with it, the 26.6 goldens did not. (4) The recorder is not changed: its playback sends ObjectPosition and RemoveObject through the same core, which now routes them over JFP2 to a node that offered them (proved by `Jfp2RemainingKindsTests`, not with a recording). (5) The evening test did not run yet: see the stage 10 report. | `design-future.md` §8 | B2 |
 | B7 | **Security.** Challenge-response Join, node names bound to a key pair (kind 2), per-hop protection of every datagram. | `design-future.md` §6, `rationale.md` §7 | B3 |
 | — | **JFP2-only hub.** **Done in stage 11 of `jfp2-standalone` (plan row 11), scenario S12.** The user setting `Jfp2Only` (default off) or the `-jfp2only` switch (this run only) makes `Network` build its `NetworkService` with `legacy: false`: no `LegacyPlugin` is registered, so a legacy datagram (first byte `0x0B`) finds no plugin that accepts it and is dropped unanswered, W cannot join and does not see the hub in the hub list, and A, B, C and D join over JFP2 alone. The setting is read when the network starts (changing it needs a restart); the log says `NETWORK: JFP2-only: no legacy datagram is read or sent...` at start. No wire change: `protocol.md` and the dissector are unchanged. A JFP2 `Join` at a login-required hub is refused with `JoinResult` 2 (`LoginRequired`, §5.10, already so since stage 4); the joiner takes it as final (no legacy join follows), the login dialog may still log in over legacy, and a node with no IPv4 is told in a message box that a login only works over IPv4 (`MainForm.RefreshNetwork`). The app never creates a login-required session today (`Network` passes `loginRequired: false`); the case exists for hubs of released builds and in tests. The gap (D5 b) is open question R. Tests: `Jfp2JoinTests.AJfp2OnlyHub_AnswersNoLegacyJoin_AndAdmitsAJfp2Joiner`, `ALoginRequiredHub_RefusesAJfp2Join_WithLoginRequired_AndNoLegacyJoinFollows`, and the JFP2-only mesh test (item 12) stays green. Deviations from the row: (1) there is no settings-form control for `Jfp2Only`, as for the IPv6 setting (the row above in 2.3: nine languages of designer layout), so a hub is set with the stored setting or `-jfp2only` (also for the Docker hub); (2) the setting is not limited to hubs: a JFP2-only node that joins a legacy-only hub cannot (it has no legacy plugin to fall back to), which is the intended meaning of "JFP2 only". The evening test: restart H (minion) with `-jfp2only`; W (a 26.6 instance) fails to join and finds no hub in its list; A and B join; check H's journal for the start line and no `0B 52` in Wireshark between A and H. |
+| — | **Specification and release.** **Done in stage 12 of `jfp2-standalone` (plan row 12), the last stage.** `protocol.md` is **edition 2**: the header, scope, terminology (non-member session, alias, candidate), §2.4, §9.6, §12 (the pair edition 2 with edition 2, and with release 1 or legacy) and Appendix C say what the edition adds; the registries of §10.2 and the tables of §3.3, §5.4 and §5.6 were already complete from the stages and were checked against `MessageClasses`, `Jfp2Capabilities` and the tag list of `Negotiation.cs`; Appendix A gains **A.18, the whole Hello of this build** (30 offers, Segments, both names, candidates), pinned by `Jfp2/Edition2HelloGoldenTests` beside the 26.6 goldens, which are untouched (plan §7 rule 4). The dissector decodes the three bodies it was missing, ObjectPosition, PeerInfo and NotesHistory (with the segment index and count of the guaranteed extension), so every class of §3.3 has a decoder. `implementation.md` has the edition 2 code map, the list of what is implemented, the 30 offers, the tests and the record of the work. `Readmes/Release-26.7.md` is the release note. Deviations from the row: (1) the release number 26.7 is a guess for the notes' file name (`Readmes/README.md` names them by version); rename the file to the version that ships; (2) no new class, tag or capability was added: the stage is documentation, one golden and the dissector; (3) the dissector was written without Lua available in the session and has not run in Wireshark (as in stages 5 to 11): open `JoinFS/util/wireshark/joinfs.lua` on a capture of an evening test and check that no packet shows "joinfs.lua decode error". The evening test of this stage is the whole of the plan: see the 12 reports above, in particular the checks of stages 5 to 11. |
 | — | **Retire legacy.** Delete the legacy plugin when the `Build` counts hubs log show enough users run the build with the JFP2 mesh. The X-Plane link keeps the framing constants it shares. | `goals.md` §5 | B3 and field data |
 
 ### 2.3 Smaller items
@@ -51,7 +53,7 @@ Each needs its own design, approved by the owner, before it is built.
 | Item | Task | Status |
 |---|---|---|
 | D3 | **DNS lookup** keeps only the first address returned, so a hostname that also has an IPv6 address can fail to join. | Done in stage 7 of `jfp2-standalone`: a host name gives all its addresses and a join dials them in family order (B3 above). |
-| — | **Settings control for the IPv6 setting.** The setting (`settingsIpv6`), `-noipv6` and `-noipv4` exist; the settings forms (WinForms and Avalonia, nine languages) have no control for it. | Open (left out of stage 7: the row does not list it). Take it with the first stage that touches the settings forms, or on its own. |
+| — | **Settings controls for the IPv6 and JFP2-only settings.** The settings (`settingsIpv6`, `settingsJfp2Only`), `-noipv6`, `-noipv4` and `-jfp2only` exist; the settings forms (WinForms and Avalonia, nine languages) have no control for them. The release notes list the switches. | Open (left out of stage 7: the row does not list it). Take it with the first stage that touches the settings forms, or on its own. |
 | C3 | Split `Jfp2Plugin.cs` further, into separate classes (the partial-class split is done). | Optional; the partial split covers the need. |
 | C5 | Separate `MeshManager`'s wire-visible rules from local policy. The relay budget is a setting (stage 9); the Pulse and Pathfinder timings are not. | Partly done. |
 | — | **Position v2, coalescing, selective acknowledgement.** Each is designed when a measurement says it pays. The recorder will use Position v2 too (decided 2026-10-15): a quantised 52-byte candidate halves a `.jfs2` file (`docs/recording/jfs2/README.md`, Measurements, step 3). | `design-future.md` §7 |
@@ -75,15 +77,15 @@ attempted. Field testing since may have covered some; check the logs before call
 
 ## 3. Suggested order
 
-1. Ship 26.6.
-2. Stages 10, 11, 12.
-3. B2, then B3 with B6, until the JFP2-only mesh test (12) passes. Dual-stack socket and IPv6
-   candidates.
-4. B4 and B5.
-5. B7, designed with B3 but built when there is a key to sign with.
-6. Retire legacy when the `Build` counts say it is time.
+1. Ship 26.6. (Done.)
+2. Stages 1 to 12 of `jfp2-standalone`: B2, B3, B5, B6, the dual-stack socket, IPv6 candidates, the
+   JFP2-only hub and the JFP2-only mesh test (12). (Built; the evening tests of stages 5 to 12 are the
+   remaining proof.)
+3. B4 (relay as a first-class feature).
+4. B7 (security), designed with B3 but built when there is a key to sign with. The key exists since stage 1.
+5. Retire legacy when the `Build` counts say it is time, hub by hub (`-jfp2only` first).
 
-D3 and the verification items can go in at any point.
+The settings controls and the verification items can go in at any point.
 
 ## 4. Open questions
 
