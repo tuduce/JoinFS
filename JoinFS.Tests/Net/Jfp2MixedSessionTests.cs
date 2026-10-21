@@ -390,6 +390,39 @@ namespace JoinFS.Tests.Net
             Assert.True(w.Core.Peers.Contains(a.Id));
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void AWhoseLegacyDatagramsReachAFromW_DoesNotMoveWToTheHubsEndpoint(bool r1)
+        {
+            // the field test of 2026-10-21 (second run): W's legacy datagrams, heard while A routed W through the hub, put the hub's address on W
+            var mesh = new TestMesh();
+            TestNode h = Hub(mesh);
+            TestNode a = N(mesh, "198.51.100.2");
+            TestNode w = W(mesh, "198.51.100.9", r1);
+            JoinOverLegacy(mesh, w, h);
+            JoinOverJfp2(mesh, a, h);
+
+            mesh.Run(60);
+
+            Assert.True(a.Core.Peers.TryGet(w.Id, out Peer? wAtA));
+            Assert.Equal(w.EndPoint, wAtA!.EndPoint);
+            Assert.DoesNotContain(a.Logs, l => l.Contains("is not the node answering"));
+            // three Hellos and a minute's wait: never one every 2 s
+            Assert.InRange(a.Logs.Count(l => l.Contains("to reach it directly") && l.Contains(w.Id.ToString())), 1, 6);
+        }
+
+        [Fact]
+        public void AMemberAtTheEndpointOfAnotherNode_IsNotProbedThere()
+        {
+            var s = new Session(r1: false);
+            Assert.True(s.A.Core.Peers.TryGet(s.W.Id, out Peer? wAtA));
+            wAtA!.EndPoint = new IPEndPoint(s.H.EndPoint.Address, s.H.EndPoint.Port); // a stale address that is the hub's
+            s.Mesh.Run(40);
+
+            Assert.InRange(s.A.Logs.Count(l => l.Contains("to reach it directly") && l.Contains(s.H.EndPoint.ToString())), 0, 3);
+        }
+
         // ------------------------------------------------------------------ the bridge's own work
 
         [Fact]

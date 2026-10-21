@@ -336,7 +336,8 @@ namespace JoinFS.Net
                 {
                     if (!peer.ReceiveEstablished) firstContact = true;
                     peer.ReceiveEstablished = true;
-                    if (direct)
+                    // a member with no legacy link is where JFP2 says it is: the route a legacy datagram was heard on (a relay's) is not its address
+                    if (direct && peer.LegacyLink)
                     {
                         // mutates the shared IPEndPoint instance, exactly like LocalNode (the route
                         // endpoint is the same object until a relay is chosen)

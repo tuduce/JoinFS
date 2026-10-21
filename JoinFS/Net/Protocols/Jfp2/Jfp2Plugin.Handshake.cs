@@ -140,6 +140,12 @@ namespace JoinFS.Net.Jfp2
                 return;
             }
             IPEndPoint target = peer.EndPoint;
+            // another node answers there (the endpoint of the relay, say): the member is not at it, and asking would only
+            // make that node say so every two seconds
+            if (occupants.TryGetValue(target, out Occupant occupant) && now <= occupant.Expire && occupant.Node != peer.Id)
+            {
+                return;
+            }
             foreach (PeerSession other in sessions.Values)
             {
                 // two members behind one endpoint: one Hello at a time, so the answer finds its session
