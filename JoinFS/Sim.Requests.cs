@@ -43,6 +43,11 @@ namespace JoinFS
                 pendingModelListRequests.Add(Requests.GET_MODELS_BALLOON);
                 simconnect.RequestSimulatorModels();
             }
+            else
+            {
+                // nothing to list, and nothing will ever finish the listing
+                requestModelListInProgress = false;
+            }
 #endif
         }
 

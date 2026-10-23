@@ -1274,8 +1274,29 @@ namespace JoinFS
         /// </summary>
         public void ScheduleSubstitutionLoad()
         {
+            substitutionLoaded = false;
             scheduleSubstitutionLoad = true;
         }
+
+        /// <summary>
+        /// The substitution load of the current simulator connection has run to its end
+        /// </summary>
+        volatile bool substitutionLoaded = false;
+
+        /// <summary>
+        /// The simulator went away: its models must be loaded again before anything waits on them
+        /// </summary>
+        public void ForgetSubstitutionLoaded()
+        {
+            substitutionLoaded = false;
+        }
+
+        /// <summary>
+        /// The models of the simulator are loaded, scanned (when the scan on connection is set) and matched (any thread).
+        /// Whatever needs the models, like the automatic join of the network, waits for this.
+        /// </summary>
+        public bool ModelsReady => substitutionLoaded && !scheduleSubstitutionLoad && !substitutionLoadRunning
+            && !scheduleSubstitutionMatch && !(substitution?.ScanRunning ?? false);
 
         /// <summary>
         /// Schedule substitution load
@@ -1439,13 +1460,15 @@ namespace JoinFS
                             }
                             finally
                             {
+                                // Load() calls Scan() when settingsScan is true, and Scan() calls Match()
+                                // If Scan() was not called, we need to call Match() to load matching data from file
+                                if (!settingsScan)
+                                {
+                                    scheduleSubstitutionMatch = true;
+                                }
+                                // both before the running flag drops, so ModelsReady never sees a gap
+                                substitutionLoaded = true;
                                 substitutionLoadRunning = false;
-                            }
-                            // Load() calls Scan() when settingsScan is true, and Scan() calls Match()
-                            // If Scan() was not called, we need to call Match() to load matching data from file
-                            if (!settingsScan)
-                            {
-                                scheduleSubstitutionMatch = true;
                             }
                         });
                     }

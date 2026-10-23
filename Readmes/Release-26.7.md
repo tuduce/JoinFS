@@ -1,29 +1,58 @@
 ## New Features
 
-- JFP2, the protocol introduced in 26.6, now stands on its own. A JoinFS node can create a session, join one, stay in it, leave it, use the hub list and be relayed without a single message of the original protocol. Joining tries JFP2 first and falls back to the original protocol after 2 seconds of silence, so joining a hub of an older version costs two seconds once; JoinFS remembers which hubs need the original protocol, also across restarts (`legacyonly.txt` in the JoinFS data folder). Sessions with older versions keep working: a hub of this version relays between the two, so pilots on 26.6 or earlier and pilots on this version see each other.
-- IPv6. JoinFS opens one socket for IPv4 and IPv6. Between two instances of this version the connection uses IPv6 whenever both have it, falls back to IPv4 within 15 seconds when IPv6 stops working, and tries IPv6 again later without flipping back and forth. Addresses can be typed as a host name, `a.b.c.d:port`, `[ipv6]:port` or a bare IPv6 address; a host name with both an A and an AAAA record is tried on both. The Protocol column of the session window reads "JFP2 (IPv6)" or "JFP2 (IPv4)". Pilots on older versions are always reached over IPv4.
-- Pilots with IPv6 only. An instance with no IPv4 address can fly in a session with everyone, including pilots on older versions: the hub that admits it gives it a name those versions can address, and relays for it.
-- The hub list over IPv6: hubs are listed with their IPv6 addresses, preferred when you have IPv6. A hub you cannot reach because it has no address in a family you use is shown as "Unreachable from here" instead of being hidden. The ban list accepts IPv6 addresses (one /64 per entry).
-- Each instance has a key pair, kept in the JoinFS data folder (`node-N.key`), and a name derived from it, so an instance keeps its identity across restarts and two instances on one PC have different ones. Nothing is encrypted or signed yet. Docker hubs should keep the data folder in a volume.
-- The password of a session is proved over JFP2 without sending its hash.
-- Chat history, the remove-object message, the cockpit-sharing and ATC information and the other messages that only the original protocol carried now also travel over JFP2; the chat history of a late joiner can be larger than one datagram and is sent in pieces.
-- JFP2-only hubs: a hub started with the `Jfp2Only` setting or `-jfp2only` speaks no original protocol at all. Pilots on older versions cannot join it and do not see it in their hub list. This is how the original protocol will be retired, hub by hub.
-- The Wireshark dissector decodes every JFP2 message of this version, including the join, the directory and the chat history.
-- The JFP2 specification is now edition 2 (`docs/network/jfp2/protocol.md`).
+- JFP2, the protocol introduced in 26.6, now stands on its own. A JoinFS node can create a session, join one, stay in it, leave it, use the hub list and be relayed without a single message of the original protocol.
+- New UI
+- IPv6 support
+- JFS2 - New recording format. The new format sts clear boundries for data fields, so that evolutions of the recording format do not break the reading of recording files. JFS2 allows for multiple aicraft tracks that start at different times (as opposed to the old format where all recorded planes started at time 0).
 
-## Command-line options
+## Bug Fixes
 
-- `-noipv6`: do not use IPv6 in this run (the IPv6 setting is stored; there is no control for it in the settings window yet).
-- `-noipv4`: behave as a pilot with no IPv4 address, for testing (never stored).
-- `-legacyjoin`: join with the original protocol only, as in 26.6 (never stored).
-- `-jfp2only`: speak JFP2 only in this run.
+
 
 ## Limitations
 
-- A hub that requires an email and password to join cannot be joined over JFP2: a pilot with IPv4 logs in over the original protocol as before; a pilot with no IPv4 address cannot use such a hub.
-- The `NNNNN-NNNNN` form that hides an address in the log and the session window works for IPv4 only; an IPv6 address is shown as text.
-- Nothing is encrypted: JFP2 has no more protection than the original protocol.
+Old .jfs recordings are converted to the new format .jfs2. The new format is not backwards compatible with the old format. Joinfs versions before 26.7 will not be able to play the new recording format.
+
+Smart model matching has been tested live on MSFS 2024 only. MSFS 2020, FSX, P3D and X-Plane use the same rules with less measured aircraft data (on X-Plane the plugin still makes the final choice of the CSL model). About 75 of the 399 bundled reference aircraft are verified against manufacturer data; the others are compiled values and still to be checked.
+
+The `FSX` and `P3D` variants are built for the x86 (32bit) architecture. Since the Microsoft.ML package does not currently offer a x86 variant, the AI-enchanced model matching is not included for `FSX` or `P3D`.
+
+## Known Issues
+
+- Some XPLANE models appear incomplete (when the model has a space in the filenames of the model data).
+- When moving the timeline of a recording in XPLANE, the recorded aircraft disappears.
+- When in XPLANE an aircraft model is substituted, the new model is displayed in the center of gravity of the original model. If the replacement model is smaller than the original model, it may appear to be floating in the air. If the replacement model is larger than the original model, it may appear to be embedded in the ground.
 
 ## Installation
 
-Please follow the instructions for your simulator, as for 26.6.
+Please follow the instructions for your simulator.
+
+### MSFS2024 or MSFS2020
+
+Please make sure that you have the .NET 8.0 runtime installed. You can download it from the [.NET download page](https://dotnet.microsoft.com/en-us/download/dotnet/8.0).
+
+Download the installer corresponding to your simulator version (`JoinFS-FS2024.msi` or `JoinFS-FS2020.msi`). If upgrading from a `3.2.x` version, please uninstall the previous version before installing the new one.
+
+### FSX or P3D
+
+Please make sure that you have the .NET 8.0 runtime installed. You can download it from the [.NET download page](https://dotnet.microsoft.com/en-us/download/dotnet/8.0).
+
+Download the installer corresponding to your simulator version (`JoinFS-FSX.msi` or `JoinFS-P3D.msi`). If upgrading from a `3.2.x` version, please uninstall the previous version before installing the new one.
+
+Please make sure that you have the SimConnect SDK installed for your simulator version.
+
+### XPLANE
+
+Please make sure that you have the .NET 8.0 runtime installed. You can download it from the [.NET download page](https://dotnet.microsoft.com/en-us/download/dotnet/8.0).
+
+Download the installer corresponding to your simulator version (`JoinFS-XPLANE.msi`). If upgrading from a `3.2.x` version, please uninstall the previous version before installing the new one.
+
+If you are installing JoinFS for the first time, start JoinFS before starting XPLANE. From JoinFS install the plugin into XPLANE using the "Install XPLANE Plugin" button in the settings dialog.
+
+### CONSOLE
+
+The `CONSOLE` variant is compiled for both `x64` and `ARM64` architectures.
+
+Please make sure that you have the .NET 8.0 runtime installed. You can download it from the [.NET download page](https://dotnet.microsoft.com/en-us/download/dotnet/8.0).
+
+Download the ZIP file (`JoinFS-CONSOLE-ARCH-VER.zip`) and extract it to a folder of your choice. Follow the instructions in the `Old-Readme.txt` file.
