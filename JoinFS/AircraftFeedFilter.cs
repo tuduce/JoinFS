@@ -16,7 +16,7 @@ namespace JoinFS
         public string trafficType;
         public string registration, icaoAirline, flightNumber;
         public double altitude, speed, latitude, longitude;
-        public int heading;
+        public double heading;      // degrees 0-359.9, in 0.1 steps
         // degrees, pitch positive nose up, bank signed like the simulator's PLANE BANK DEGREES (what panels such as
         // the Garmin G5 expect), sent unrounded; null when unknown (hub users carry no attitude) - then the fields are
         // left out of the JSON altogether
@@ -53,6 +53,8 @@ namespace JoinFS
             AircraftSnapshot r = this;
             r.altitude = Math.Round(altitude, 0);
             r.speed = Math.Round(speed, 1);
+            r.heading = Math.Round(heading, 1);
+            if (r.heading >= 360.0) r.heading -= 360.0;
             r.latitude = Math.Round(latitude, 6);
             r.longitude = Math.Round(longitude, 6);
             r.flaps = Math.Round(flaps, 3);
@@ -63,7 +65,18 @@ namespace JoinFS
         static bool SamePosition(in AircraftSnapshot a, in AircraftSnapshot b) =>
             a.altitude == b.altitude && a.speed == b.speed &&
             a.latitude == b.latitude && a.longitude == b.longitude &&
-            a.heading == b.heading && a.pitch == b.pitch && a.bank == b.bank && a.onGround == b.onGround;
+            HeadingNear(a.heading, b.heading) && a.pitch == b.pitch && a.bank == b.bank && a.onGround == b.onGround;
+
+        /// <summary>
+        /// A heading counts as changed from 0.2 degrees on (two steps of the 0.1 wire resolution): the last heading sent is the reference, so a heading that flickers
+        /// across one rounding boundary (a parked aircraft) does not make the feed send every tick. Wraps at north.
+        /// </summary>
+        static bool HeadingNear(double a, double b)
+        {
+            double d = Math.Abs(a - b);
+            if (d > 180.0) d = 360.0 - d;
+            return d < 0.15;
+        }
 
         static bool SameDetails(in AircraftSnapshot a, in AircraftSnapshot b) =>
             a.callsign == b.callsign && a.nickname == b.nickname && a.trafficType == b.trafficType &&

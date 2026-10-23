@@ -198,7 +198,27 @@ namespace JoinFS
         /// <see cref="HeadingDegrees"/>; before that, the first clockwise crossing of north (361) silenced a
         /// replayed aircraft until the recording was jumped.
         /// </summary>
-        public static bool IsPlausibleHeading(int heading) => heading >= -360 && heading <= 360;
+        public static bool IsPlausibleHeading(double heading) => heading >= -360 && heading <= 360;
+
+        /// <summary>
+        /// The same compass heading as <see cref="HeadingDegrees"/> in 0.1 degree steps, 0.0 up to 359.9 (359.96 is 0.0,
+        /// never 360.0). The websocket publishes this, so a heading tape can move smoothly. Never feed this back into
+        /// playback or the simulator.
+        /// </summary>
+        public static double HeadingDegreesTenth(double radians)
+        {
+            if (!double.IsFinite(radians))
+            {
+                return 0.0;
+            }
+            double degrees = radians * (180.0 / Math.PI) % 360.0;
+            if (degrees < 0.0)
+            {
+                degrees += 360.0;
+            }
+            double tenth = Math.Round(degrees, 1, MidpointRounding.AwayFromZero);
+            return tenth >= 360.0 ? 0.0 : tenth;
+        }
 
         /// <summary>
         /// Difference between two sets of angles

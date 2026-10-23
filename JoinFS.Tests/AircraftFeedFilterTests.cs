@@ -293,4 +293,49 @@ public class AircraftFeedFilterTests
         Assert.False(json.ContainsKey("pitch"));
         Assert.False(json.ContainsKey("bank"));
     }
+
+    [Fact]
+    public void HeadingIsRoundedToTenthsOnTheWire_AndNeverReads360()
+    {
+        var s = Parked();
+        s.heading = 251.34;
+        Assert.Equal(251.3, s.Rounded().heading);
+        s.heading = 359.96;
+        Assert.Equal(0.0, s.Rounded().heading);
+    }
+
+    [Fact]
+    public void AHeadingFlickerOverOneRoundingStepIsNotAChange_ButATurnIs()
+    {
+        var sent = Parked();
+        sent.heading = 169.4;
+        filter.ShouldSend(key, sent);
+
+        var flicker = sent;
+        flicker.heading = 169.5;       // one step on the wire: a parked aircraft's sensor noise
+        now = FlushInterval + 1;
+        Assert.False(filter.ShouldSend(key, flicker));
+
+        var turning = sent;
+        turning.heading = 169.6;       // two steps from what the clients have
+        now = (FlushInterval + 1) * 2;
+        Assert.True(filter.ShouldSend(key, turning));
+    }
+
+    [Fact]
+    public void AHeadingAcrossNorthIsComparedTheShortWayRound()
+    {
+        var sent = Parked();
+        sent.heading = 359.9;
+        filter.ShouldSend(key, sent);
+
+        var across = sent;
+        across.heading = 0.0;          // 0.1 degrees further: the same as before for a client
+        now = FlushInterval + 1;
+        Assert.False(filter.ShouldSend(key, across));
+
+        across.heading = 0.3;          // 0.4 degrees further
+        now = (FlushInterval + 1) * 2;
+        Assert.True(filter.ShouldSend(key, across));
+    }
 }

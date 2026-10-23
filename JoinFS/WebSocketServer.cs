@@ -65,7 +65,7 @@ namespace JoinFS
             vuidCom2   = VariableMgr.CreateVuid("com active frequency:2");
             vuidSquawk = VariableMgr.CreateVuid("transponder code:1");
             vuidGear   = VariableMgr.CreateVuid("gear handle position");
-            vuidFlaps  = VariableMgr.CreateVuid("trailing edge flaps left percent");
+            vuidFlaps  = VariableMgr.CreateVuid("flaps handle percent");
             vuidLights = VariableMgr.CreateVuid("light states");
             vuidEng1   = VariableMgr.CreateVuid("general eng combustion:1");
             vuidEng2   = VariableMgr.CreateVuid("general eng combustion:2");
@@ -207,7 +207,7 @@ namespace JoinFS
                 snap.longitude = pos.geo.x * (180.0 / Math.PI);
                 snap.altitude  = pos.geo.y * Sim.FEET_PER_METRE;
                 // compass 0-359: playback's running heading is unwrapped (361, 722, ...) and would fail Vector.IsPlausibleHeading
-                snap.heading   = Vector.HeadingDegrees(pos.angles.y);
+                snap.heading   = Vector.HeadingDegreesTenth(pos.angles.y);
                 // attitude is part of the position every peer already exchanges, so the UDP protocol is untouched;
                 // pitch positive nose up, bank as the simulator's PLANE BANK DEGREES
                 snap.pitch     = AircraftSnapshot.PitchWireDegrees(pos.angles.x);
