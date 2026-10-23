@@ -17,7 +17,9 @@
     <!-- Negative side margins give the labels room to run past the 56px column, centred, like the design. -->
     <StackPanel Width="140" Margin="-42,6,-42,0" HorizontalAlignment="Center">
       <TextBlock x:Name="TitleText" FontSize="12.5" Foreground="{DynamicResource Text2Brush}" TextAlignment="Center" HorizontalAlignment="Center" />
-      <TextBlock Text="{Binding StateLabel}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextAlignment="Center" HorizontalAlignment="Center" />
+      <TextBlock x:Name="StateLabelText" Text="{Binding StateLabel}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextAlignment="Center" HorizontalAlignment="Center" />
+      <!-- Stands in for the state label while StateText is set. -->
+      <TextBlock x:Name="StateTextBlock" IsVisible="False" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextAlignment="Center" HorizontalAlignment="Center" />
     </StackPanel>
   </StackPanel>
 </UserControl>

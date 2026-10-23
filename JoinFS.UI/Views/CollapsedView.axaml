@@ -3,19 +3,28 @@
              xmlns:c="using:JoinFS.UI.Views.Controls"
              xmlns:v="using:JoinFS.UI.Views"
              xmlns:vm="using:JoinFS.UI.ViewModels"
+             x:Name="Root"
              x:Class="JoinFS.UI.Views.CollapsedView"
              x:DataType="vm:MainViewModel">
-  <!-- The small view: Simulator → Hub → Network, and a link to open the full window. -->
+  <UserControl.Styles>
+    <!-- With the flight plan loaded its node takes room from the hub picker. Opening the picker gives that room back for the moment,
+         over the Network node, so a hub is easy to pick. -->
+    <Style Selector="StackPanel.hub.plan.open">
+      <Setter Property="Grid.ColumnSpan" Value="3" />
+      <Setter Property="ZIndex" Value="1" />
+    </Style>
+  </UserControl.Styles>
+  <!-- The small view: Simulator → Hub → Network (→ Flight Plan, once one is loaded), and a link to open the full window. -->
   <StackPanel Margin="16" Spacing="12">
     <!-- The outer columns are wider than the 56px nodes so the centred labels ("Disconnected") stay inside the window. -->
-    <Grid ColumnDefinitions="72,16,*,16,72">
+    <Grid ColumnDefinitions="72,16,*,16,72,Auto">
       <c:ConnectorNode Grid.Column="0" DataContext="{Binding Simulator}" HorizontalAlignment="Center"
                        Icon="{DynamicResource IconAircraft}" Title="{l:T 'Simulator'}" ButtonTip="{l:T 'Connect to simulator'}" />
       <Border Grid.Column="1" Classes="wire" />
 
-      <StackPanel Grid.Column="2">
+      <StackPanel Grid.Column="2" Classes="hub" Classes.plan="{Binding FlightPlanLoad.IsConnected}" Classes.open="{Binding #Picker.IsOpen}">
         <Panel Height="42">
-          <v:HubPicker Height="36" VerticalAlignment="Center" />
+          <v:HubPicker x:Name="Picker" Height="36" VerticalAlignment="Center" />
         </Panel>
         <TextBlock Text="{l:T 'Hub'}" Classes="label" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
       </StackPanel>
@@ -23,6 +32,14 @@
       <Border Grid.Column="3" Classes="wire" />
       <c:ConnectorNode Grid.Column="4" DataContext="{Binding Network}" HorizontalAlignment="Center"
                        Icon="{DynamicResource IconNetworkNode}" Title="{l:T 'Network'}" ButtonTip="{l:T 'Connect to hub'}" />
+
+      <!-- The loaded flight plan; its second row names the airports it connects. -->
+      <Grid Grid.Column="5" ColumnDefinitions="16,72" IsVisible="{Binding FlightPlanLoad.IsConnected}">
+        <Border Classes="wire" Width="16" />
+        <c:ConnectorNode Grid.Column="1" DataContext="{Binding FlightPlanLoad}" HorizontalAlignment="Center"
+                         Icon="{DynamicResource IconFlightPlan}" Title="{l:T 'Flight Plan'}" ButtonTip="{l:T 'Fetch flight plan from Simbrief'}"
+                         StateText="{Binding ((vm:MainViewModel)DataContext).FlightPlan.Airports, ElementName=Root}" />
+      </Grid>
     </Grid>
 
     <!-- The version on the left, the link to the full view in the middle. A notice takes the whole row while there is one
