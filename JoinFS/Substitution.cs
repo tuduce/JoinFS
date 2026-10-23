@@ -1342,11 +1342,7 @@ namespace JoinFS
                 {
                     main.MonitorEvent("Error resolving LIVERY FOLDER '" + liveryFolder + "': " + ex.Message);
                 }
-
-                if (resolvedFolder == null && LogOnce(liveryFolderDiagLogged, liveryFolder))
-                {
-                    main.MonitorEvent("DIAG: could not resolve LIVERY FOLDER '" + liveryFolder + "' to an existing directory (tried as-is, relative to the configured sim folder '" + simFolder + "', and by leaf folder name) - trying the title->folder index instead.");
-                }
+                // An unresolved folder is normal: FS2024 streams most liveries, so there is none on disk.
             }
 
             if (resolvedFolder == null)
@@ -1478,12 +1474,6 @@ namespace JoinFS
                 if (value.Length > 0) yield return value;
             }
         }
-
-        /// <summary>
-        /// Distinct raw LIVERY FOLDER values already logged once (success or failure), so the
-        /// diagnostic doesn't repeat on every single spawn of the same model within a session.
-        /// </summary>
-        readonly HashSet<string> liveryFolderDiagLogged = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Resolve SimConnect's LIVERY FOLDER value to an existing directory. The exact format this
