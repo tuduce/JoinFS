@@ -721,6 +721,7 @@ namespace JoinFS
 
                 writer.Write(HUB_LIST_VERSION);
                 writer.Write((ushort)tempHubs.Count);
+                Span<byte> name = stackalloc byte[NodeId.WireSize];
                 foreach (var hub in tempHubs)
                 {
                     writer.Write(hub.addressText);
@@ -740,7 +741,6 @@ namespace JoinFS
                     writer.Write(hub.globalSession);
                     writer.Write(hub.password);
                     // version 10007: the hub's name whatever its kind, and where it can be reached
-                    Span<byte> name = stackalloc byte[NodeId.WireSize];
                     hub.nuid.WriteTo(name);
                     writer.Write(name);
                     writer.Write((byte)hub.candidates.Count);
