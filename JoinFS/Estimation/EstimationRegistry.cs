@@ -5,7 +5,7 @@ namespace JoinFS.Estimation
 {
     /// <summary>
     /// The position estimation parts by name, so that they can be swapped to try other ideas
-    /// (docs/position-estimation-plan.md §4). Register a new clock model or estimator here.
+    /// (docs/estimation/position-estimation-plan.md §4). Register a new clock model or estimator here.
     /// </summary>
     public static class EstimationRegistry
     {

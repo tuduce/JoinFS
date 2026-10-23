@@ -8,7 +8,7 @@ using JoinFS.Net.Legacy;
 namespace JoinFS.Benchmarks
 {
     /// <summary>
-    /// The send/receive path's hot path (docs/network-plugin-architecture.md §5): encode, route and
+    /// The send/receive path's hot path (docs/network/network-plugin-architecture.md §5): encode, route and
     /// decode of a Position update, for both protocols. Each [Benchmark] exercises exactly one plugin
     /// call - no transport I/O (SwitchableTransport.Silent), no app-layer work (NullSink) - so
     /// [MemoryDiagnoser]'s Allocated column is the plugin/core layer's own allocation, matching the

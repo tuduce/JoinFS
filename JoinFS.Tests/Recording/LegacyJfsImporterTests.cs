@@ -4,7 +4,7 @@ using JoinFS.Recording;
 namespace JoinFS.Tests.Recording;
 
 /// <summary>
-/// The importer of old <c>.jfs</c> recordings (docs/jfs2/recorder-v2-design.md section 8): the frozen old reader, free of Sim and of build
+/// The importer of old <c>.jfs</c> recordings (docs/recording/jfs2/recorder-v2-design.md section 8): the frozen old reader, free of Sim and of build
 /// symbols, and since stage 5e the only reader of old files in the application. The files here are made by the test-side <see cref="LegacyJfsWriter"/>.
 /// </summary>
 public sealed class LegacyJfsImporterTests : IDisposable
@@ -77,7 +77,7 @@ public sealed class LegacyJfsImporterTests : IDisposable
             for (int i = 0; i < 12; i++) w.Write(1.0f + i);
             w.Write(1.5f); // height
             w.Write((byte)0x01);
-            w.Write((byte)10); // SimEvent on a plain object (recording-protocol.md 7.2)
+            w.Write((byte)10); // SimEvent on a plain object (jfs-format.md 7.2)
             w.Write(1.5);
             w.Write(66000u);
             w.Write(7u);

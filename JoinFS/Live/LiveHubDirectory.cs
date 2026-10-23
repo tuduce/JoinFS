@@ -53,9 +53,9 @@ namespace JoinFS.Live
                         continue;
                     }
 
-                    HubStatus status = !hub.online ? HubStatus.Offline : hub.password ? HubStatus.Password : hub.globalSession ? HubStatus.Global : HubStatus.Online;
+                    HubStatus status = !hub.online ? (main.network.Hubs.Reachable(hub) ? HubStatus.Offline : HubStatus.Unreachable) : hub.password ? HubStatus.Password : hub.globalSession ? HubStatus.Global : HubStatus.Online;
                     hubs.Add(new HubInfo(
-                        IdOf(hub), hub.name, status, hub.users, hub.planes + hub.helicopters, hub.appVersion,
+                        IdOf(hub), hub.name.Length > 0 ? hub.name : hub.addressText, status, hub.users, hub.planes + hub.helicopters, hub.appVersion,
                         hub.about, hub.voip, hub.nextEvent, hub.endPoint.ToString(),
                         Ignored: IsIgnored(hub), Saved: SavedEntries(hub).Any(), CanJoin: hub.online, CanIgnore: true));
                 }

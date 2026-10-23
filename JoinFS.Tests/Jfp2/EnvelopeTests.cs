@@ -5,9 +5,9 @@ using Xunit;
 namespace JoinFS.Tests.Jfp2
 {
     // Formalizes the envelope round-trip and legacy/JFP2 discrimination behavior specified in
-    // docs/jfp2/protocol.md §2.2 (coexistence via the magic byte) and §4.1 (the fixed envelope),
+    // docs/network/jfp2/protocol.md §2.2 (coexistence via the magic byte) and §4.1 (the fixed envelope),
     // now run against the code ported into JoinFS/Jfp2/Envelope.cs
-    // (docs/jfp2/history/protocol-v2-implementation-plan.md Phase 0/1).
+    // (docs/network/jfp2/history/protocol-v2-implementation-plan.md Phase 0/1).
     public class EnvelopeTests
     {
         [Fact]
@@ -72,7 +72,7 @@ namespace JoinFS.Tests.Jfp2
         [Fact]
         public void MagicBytes_CanNeverCollide()
         {
-            // The whole coexistence strategy (docs/jfp2/protocol.md §2.2) rests on this never
+            // The whole coexistence strategy (docs/network/jfp2/protocol.md §2.2) rests on this never
             // being equal - assert it directly so a future edit to either constant fails loudly.
             Assert.NotEqual(Envelope.Magic, (byte)(Envelope.LegacyVersionConstant & 0xFF));
         }
@@ -80,11 +80,11 @@ namespace JoinFS.Tests.Jfp2
         [Fact]
         public void FixedSize_Is8Bytes()
         {
-            // The 62%-smaller-than-legacy claim in docs/jfp2/protocol.md §3.1 depends on this.
+            // The 62%-smaller-than-legacy claim in docs/network/jfp2/protocol.md §3.1 depends on this.
             Assert.Equal(8, Envelope.FixedSize);
         }
 
-        // docs/jfp2/history/protocol-v2-implementation-review.md Finding 1: the guaranteed-delivery extension block
+        // docs/network/jfp2/history/protocol-v2-implementation-review.md Finding 1: the guaranteed-delivery extension block
         // (§4.4) was defined on the wire since Phase 1 but WriteTo/ReadFrom never actually produced or
         // consumed it. These tests cover the fix.
 
@@ -142,12 +142,12 @@ namespace JoinFS.Tests.Jfp2
         }
 
         // Relay-addressing extension (EnvelopeFlags.Forwarded / Origin+Target names) - see
-        // docs/jfp2/protocol.md §3.5 and §8. Both Origin and Target are
+        // docs/network/jfp2/protocol.md §3.5 and §8. Both Origin and Target are
         // always carried (never a single field whose meaning flips by direction) so that any
         // receiving node can decide "consume or relay further" purely by comparing Target to its
         // own name, regardless of whether it's playing hub or final-recipient role for this message.
 
-        static NodeName Legacy(uint ip, ushort port, byte local) => NodeName.FromLegacy(new NodeId(ip, port, local));
+        static NodeId Legacy(uint ip, ushort port, byte local) => NodeId.FromLegacy(ip, port, local);
 
         /// <summary>
         /// The Forwarded extension's exact bytes (§4.5, §4.9): after the guaranteed extension, the
@@ -163,8 +163,8 @@ namespace JoinFS.Tests.Jfp2
                 "00 01 71 00 CB E0 17 14" +   // origin: kind 0, legacy id 203.0.113.1 (ip u32 LE), port 6112, local 20
                 "01 AA BB CC DD EE FF 11";    // target: kind 1 (a random key), 7 bytes of value
             byte[] expected = System.Convert.FromHexString(hex.Replace(" ", ""));
-            NodeName origin = Legacy(0xCB007101, 6112, 20);
-            NodeName target = NodeName.ReadFrom(expected.AsSpan(20, 8));
+            NodeId origin = Legacy(0xCB007101, 6112, 20);
+            NodeId target = NodeId.ReadFrom(expected.AsSpan(20, 8));
 
             var envelope = new Envelope(EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded, 0x1234, 0x5678, MessageClasses.Event, 999, 0, 1, origin, target);
             byte[] written = new byte[envelope.WireSize];
@@ -175,8 +175,8 @@ namespace JoinFS.Tests.Jfp2
             Assert.Equal(28, consumed);
             Assert.Equal(origin, back.Origin);
             Assert.Equal(0, back.Origin.Kind);
-            Assert.True(back.Origin.TryGetLegacy(out NodeId originId));
-            Assert.Equal(new NodeId(0xCB007101, 6112, 20), originId);
+            Assert.True(back.Origin.TryGetLegacy(out LegacyNodeId originId));
+            Assert.Equal(new LegacyNodeId(0xCB007101, 6112, 20), originId);
             Assert.Equal(target, back.Target);
             Assert.Equal(1, back.Target.Kind);
             Assert.False(back.Target.TryGetLegacy(out _));
@@ -189,12 +189,12 @@ namespace JoinFS.Tests.Jfp2
             var origin = Legacy(0x0A0B0C0D, 5555, 42);
             var target = Legacy(0x11223344, 7777, 9);
             var envelope = new Envelope(EnvelopeFlags.Forwarded, 0, 0, MessageClasses.Position, 0, 0, 0, origin, target);
-            byte[] buffer = new byte[Envelope.FixedSize + NodeName.WireSize * 2];
+            byte[] buffer = new byte[Envelope.FixedSize + NodeId.WireSize * 2];
 
             int written = envelope.WriteTo(buffer);
             Envelope back = Envelope.ReadFrom(buffer, out int consumed);
 
-            int expectedSize = Envelope.FixedSize + NodeName.WireSize * 2;
+            int expectedSize = Envelope.FixedSize + NodeId.WireSize * 2;
             Assert.Equal(expectedSize, written);
             Assert.Equal(expectedSize, consumed);
             Assert.True(back.IsForwarded);
@@ -210,12 +210,12 @@ namespace JoinFS.Tests.Jfp2
             var origin = Legacy(0x7F000001, 8080, 1);
             var target = Legacy(0x7F000002, 8081, 1);
             var envelope = new Envelope(EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded, 0, 0, MessageClasses.Event, 999, 0, 1, origin, target);
-            byte[] buffer = new byte[Envelope.FixedSize + Envelope.GuaranteedExtraSize + NodeName.WireSize * 2];
+            byte[] buffer = new byte[Envelope.FixedSize + Envelope.GuaranteedExtraSize + NodeId.WireSize * 2];
 
             int written = envelope.WriteTo(buffer);
             Envelope back = Envelope.ReadFrom(buffer, out int consumed);
 
-            int expectedSize = Envelope.FixedSize + Envelope.GuaranteedExtraSize + NodeName.WireSize * 2;
+            int expectedSize = Envelope.FixedSize + Envelope.GuaranteedExtraSize + NodeId.WireSize * 2;
             Assert.Equal(expectedSize, written);
             Assert.Equal(expectedSize, consumed);
             Assert.True(back.IsGuaranteed);
@@ -234,21 +234,21 @@ namespace JoinFS.Tests.Jfp2
             var both = new Envelope(EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded, 0, 0, MessageClasses.Event, 1, 0, 1, relayFields.Item1, relayFields.Item2);
 
             Assert.Equal(Envelope.FixedSize, notForwarded.WireSize);
-            Assert.Equal(Envelope.FixedSize + NodeName.WireSize * 2, forwarded.WireSize);
-            Assert.Equal(Envelope.FixedSize + Envelope.GuaranteedExtraSize + NodeName.WireSize * 2, both.WireSize);
+            Assert.Equal(Envelope.FixedSize + NodeId.WireSize * 2, forwarded.WireSize);
+            Assert.Equal(Envelope.FixedSize + Envelope.GuaranteedExtraSize + NodeId.WireSize * 2, both.WireSize);
         }
 
         [Fact]
         public void ReadFrom_ForwardedDatagramTooShortForExtension_Throws()
         {
-            byte[] full = new byte[Envelope.FixedSize + NodeName.WireSize * 2];
+            byte[] full = new byte[Envelope.FixedSize + NodeId.WireSize * 2];
             new Envelope(EnvelopeFlags.Forwarded, 0, 0, MessageClasses.Position, 0, 0, 0, Legacy(1, 2, 3), Legacy(4, 5, 6)).WriteTo(full);
-            byte[] truncated = full[..(Envelope.FixedSize + NodeName.WireSize)];
+            byte[] truncated = full[..(Envelope.FixedSize + NodeId.WireSize)];
 
             Assert.Throws<System.ArgumentException>(() => Envelope.ReadFrom(truncated, out _));
         }
 
-        // A datagram this build must not read (docs/jfp2/protocol.md §3.1, §3.2): another
+        // A datagram this build must not read (docs/network/jfp2/protocol.md §3.1, §3.2): another
         // ProtoMajor, or a flag bit outside SupportedFlags. TryReadFrom says so instead of throwing,
         // so the plugin can drop it quietly.
 

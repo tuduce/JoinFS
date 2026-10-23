@@ -16,6 +16,12 @@ namespace JoinFS.Net
 
         void SendToEndPoint<T>(IPEndPoint endPoint, in T message, bool guaranteed = false) where T : struct, IMessage;
 
+        /// <summary>
+        /// A request to a node that may not be a member of the session (a hub, an address book entry): over JFP2 through a directory link
+        /// when the node takes one, else over legacy after a short silence (<see cref="MeshManager.Ask"/>).
+        /// </summary>
+        void Ask<T>(IPEndPoint endPoint, in T message, bool guaranteed = false) where T : struct, IMessage;
+
         void Broadcast<T>(in T message, bool guaranteed = false) where T : struct, IMessage;
 
         /// <summary>An object's identity (cached for the protocols that need it) and then its position.</summary>

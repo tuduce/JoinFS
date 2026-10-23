@@ -1,7 +1,7 @@
 namespace JoinFS.Tests
 {
     /// <summary>
-    /// Substitution's collections are copy-on-write (docs/sim-thread-architecture.md §8.3): the sim
+    /// Substitution's collections are copy-on-write (docs/sim/sim-thread-architecture.md §8.3): the sim
     /// thread reads them without a lock while other threads replace them, so a published collection
     /// must never change.
     /// </summary>

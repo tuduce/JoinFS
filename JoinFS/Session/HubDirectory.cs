@@ -2,6 +2,7 @@ using JoinFS.Net;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Threading;
 
@@ -15,7 +16,8 @@ namespace JoinFS
     public sealed class HubDirectory
     {
         const string HUB_LIST_FILE = "hubs.dat";
-        const ushort HUB_LIST_VERSION = 10006;
+        // 10007 adds, per hub, its name as the network knows it (a hub with no IPv4 address has no legacy id) and the endpoints it can be reached at
+        const ushort HUB_LIST_VERSION = 10007;
 
         /// <summary>At most this many hubs per IP address.</summary>
         public const int MAX_IP_HUBS = 4;
@@ -106,6 +108,15 @@ namespace JoinFS
             public bool globalSession = false;
             public bool password = false;
 
+            /// <summary>
+            /// Where the hub can be reached: the endpoints it answered at and those a hub list named for it, best first (global IPv6, then IPv4).
+            /// <see cref="endPoint"/> is the one it is polled and joined at. A hub with no endpoint this node can use is unreachable for it.
+            /// </summary>
+            public List<IPEndPoint> candidates = [];
+
+            /// <summary>Which usable candidate an offline hub is polled at next.</summary>
+            public int pollIndex;
+
             /// <summary>The users this hub published.</summary>
             public List<HubUser> userList = [];
         }
@@ -131,6 +142,9 @@ namespace JoinFS
 
         /// <summary>Hubs waiting to answer a status request, and when to give up on them.</summary>
         readonly Dictionary<IPEndPoint, float> pendingHubs = [];
+
+        /// <summary>The endpoints a hub list named for a hub, by the endpoint chosen to poll it, until the hub answers.</summary>
+        readonly Dictionary<IPEndPoint, List<IPEndPoint>> announcedCandidates = [];
         readonly List<Hub> tempHubs = [];
         readonly List<IPEndPoint> tempEndPoints = [];
 
@@ -164,6 +178,77 @@ namespace JoinFS
             }
         }
 
+        // ------------------------------------------------------------------ where a hub is
+
+        /// <summary>This node can send to the endpoint: an IPv6 one needs a global IPv6 address of its own, and a node with no IPv4 address uses no IPv4 one.</summary>
+        public bool CanUse(IPEndPoint endPoint)
+        {
+            NetworkSnapshot snapshot = session.Snapshot;
+            return endPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? snapshot.Ipv6Addresses.Count > 0 : !snapshot.NoIPv4;
+        }
+
+        /// <summary>This node can reach the hub at one of its endpoints at least (an IPv4-only hub is not reachable for a node with no IPv4 address).</summary>
+        public bool Reachable(Hub hub) => CanUse(hub.endPoint) || hub.candidates.Any(CanUse);
+
+        /// <summary>Global IPv6 first, then IPv4, each in the order given.</summary>
+        internal static List<IPEndPoint> InFamilyOrder(IEnumerable<IPEndPoint> endPoints) =>
+            [.. endPoints.Where(e => e.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6), .. endPoints.Where(e => e.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6)];
+
+        /// <summary>
+        /// The endpoint to ask the hub at: the one it answers at while online, else its usable endpoints in turn, so that a hub whose IPv6 broke
+        /// is found again on IPv4. Null when this node can use none of them.
+        /// </summary>
+        public IPEndPoint PollEndPoint(Hub hub)
+        {
+            if (hub.online && CanUse(hub.endPoint))
+            {
+                // now and then the preferred endpoint (IPv6) when the hub is polled at another: if it answers there, the hub moves to it
+                IPEndPoint best = hub.candidates.Find(CanUse);
+                return best != null && !best.Equals(hub.endPoint) && ++hub.pollIndex % 4 == 0 ? best : hub.endPoint;
+            }
+            List<IPEndPoint> usable = hub.candidates.FindAll(CanUse);
+            if (usable.Count == 0)
+            {
+                return CanUse(hub.endPoint) ? hub.endPoint : null;
+            }
+            return usable[hub.pollIndex++ % usable.Count];
+        }
+
+        /// <summary>At most this many endpoints are kept for a hub (the Hello's bound, and the one it answered at).</summary>
+        const int MaxHubEndPoints = 5;
+
+        /// <summary>The hub answered at <paramref name="endPoint"/>: that is where it is, and a way to reach it, with those a hub list named.</summary>
+        void Learn(Hub hub, IPEndPoint endPoint, IReadOnlyList<IPEndPoint> announced)
+        {
+            var all = new List<IPEndPoint> { endPoint };
+            if (announced != null)
+            {
+                all.AddRange(announced.Where(Peer.IsUsableCandidate));
+            }
+            all.AddRange(hub.candidates);
+            List<IPEndPoint> merged = InFamilyOrder(all.Distinct()).Take(MaxHubEndPoints).ToList();
+            if (!merged.SequenceEqual(hub.candidates))
+            {
+                hub.candidates = merged;
+                changed = true;
+            }
+            // IPv6 is preferred: a hub that answers on both is polled and joined on IPv6
+            bool v6 = endPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6;
+            IPEndPoint previous = hub.endPoint;
+            if (hub.endPoint.Port == 0 || !CanUse(hub.endPoint) || !hub.candidates.Contains(hub.endPoint) || (v6 && hub.endPoint.AddressFamily != endPoint.AddressFamily && CanUse(endPoint)))
+            {
+                hub.endPoint = endPoint;
+            }
+            hub.port = (ushort)hub.endPoint.Port;
+            if (previous.Port != 0 && !previous.Equals(hub.endPoint))
+            {
+                log.Event("Hub '" + hub.name + "' is now asked at " + hub.endPoint + " (" + FamilyName(hub.endPoint) + "), was " + previous + " (" + FamilyName(previous) + "): it answers there and IPv6 is preferred");
+            }
+            endPoints.NoteCandidates(hub.endPoint, hub.candidates);
+        }
+
+        static string FamilyName(IPEndPoint endPoint) => endPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? "IPv6" : "IPv4";
+
         // ------------------------------------------------------------------ discovery
 
         /// <summary>Submit a hub on the next hubs tick.</summary>
@@ -175,8 +260,16 @@ namespace JoinFS
         }
 
         /// <summary>A possible hub: ask it for its status (it's added once it answers as a hub).</summary>
-        public void SubmitHub(IPEndPoint endPoint)
+        public void SubmitHub(IPEndPoint endPoint) => SubmitHub(endPoint, null);
+
+        /// <summary>A possible hub that a hub list named at several endpoints: <paramref name="endPoint"/> is asked, the others are kept with the hub once it answers.</summary>
+        void SubmitHub(IPEndPoint endPoint, List<IPEndPoint> announced)
         {
+            if (announced != null)
+            {
+                if (announcedCandidates.Count >= 64) announcedCandidates.Clear(); // bounded: a hub list is somebody else's word
+                announcedCandidates[endPoint] = announced;
+            }
             int count = 0;
             foreach (var pending in pendingHubs)
             {
@@ -197,7 +290,16 @@ namespace JoinFS
         };
 
         /// <summary>Ask a node or hub for its status.</summary>
-        public void SendStatusRequest(IPEndPoint endPoint, bool requestHubList) => outbox.SendToEndPoint(endPoint, BuildStatusRequest(requestHubList));
+        public void SendStatusRequest(IPEndPoint endPoint, bool requestHubList) => outbox.Ask(endPoint, BuildStatusRequest(requestHubList));
+
+        /// <summary>Ask a hub for its status, at the endpoint it is polled at; nothing when this node can use none of its endpoints.</summary>
+        void Poll<T>(Hub hub, in T message) where T : struct, IMessage
+        {
+            if (PollEndPoint(hub) is { } endPoint)
+            {
+                outbox.Ask(endPoint, message);
+            }
+        }
 
         /// <summary>Poll hubs' status, drop dead hubs, save changes, retry pending hubs.</summary>
         public void DoWork()
@@ -226,7 +328,7 @@ namespace JoinFS
                     {
                         if (hub.nuid.Valid() && hub.online == false)
                         {
-                            outbox.SendToEndPoint(hub.endPoint, request);
+                            Poll(hub, request);
                         }
                     }
                 }
@@ -236,7 +338,7 @@ namespace JoinFS
                     int index = statusRequestCount % List.Count;
                     if (List[index].nuid.Valid())
                     {
-                        outbox.SendToEndPoint(List[index].endPoint, request);
+                        Poll(List[index], request);
                     }
                 }
 
@@ -272,7 +374,7 @@ namespace JoinFS
             {
                 foreach (var pending in pendingHubs)
                 {
-                    outbox.SendToEndPoint(pending.Key, BuildStatusRequest(true));
+                    outbox.Ask(pending.Key, BuildStatusRequest(true));
                     if (pending.Value < now)
                     {
                         tempEndPoints.Add(pending.Key);
@@ -290,11 +392,59 @@ namespace JoinFS
         {
             foreach (HubAddress address in list.Hubs)
             {
-                NodeId hubNuid = address.Node;
-                if (List.Find(h => h.nuid == hubNuid) == null)
+                // where the hub is: its legacy id says (our LAN address when it shares our NAT), and a JFP2 list adds the endpoints it can be reached at
+                var found = new List<IPEndPoint>();
+                if (address.Node.TryGetLegacy(out LegacyNodeId legacyHub))
                 {
-                    SubmitHub(endPoints.MakeEndPoint(hubNuid, address.Port));
+                    found.Add(endPoints.MakeEndPoint(legacyHub, address.Port));
                 }
+                found.AddRange((address.Candidates ?? []).Where(Peer.IsUsableCandidate));
+                found = InFamilyOrder(found.Distinct()).Take(MaxHubEndPoints).ToList();
+                if (found.Count == 0)
+                {
+                    continue;
+                }
+                Hub known = List.Find(h => h.nuid == address.Node || found.Contains(h.endPoint));
+                if (known != null)
+                {
+                    Learn(known, known.endPoint.Port != 0 ? known.endPoint : found[0], found);
+                    continue;
+                }
+                SubmitOrKeep(address.Node, found);
+            }
+        }
+
+        /// <summary>
+        /// A seed hub: a host name with an A and an AAAA record gives both, and the hub is asked at the first this node can use. A seed that is an IPv4
+        /// address only is kept as unreachable by a node with no IPv4 address, like a hub named by a hub list.
+        /// </summary>
+        public void SubmitSeed(IPEndPoint seed, IReadOnlyList<IPEndPoint> addresses)
+        {
+            var found = InFamilyOrder(addresses.Distinct()).Take(MaxHubEndPoints).ToList();
+            if (List.Find(h => found.Contains(h.endPoint)) != null)
+            {
+                return;
+            }
+            // a seed says no name: an IPv4 one is named as the legacy id of its address, which is what a hub list would call it
+            NodeId name = seed.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? NodeId.FromLegacy(seed, 0) : default;
+            SubmitOrKeep(name, found);
+        }
+
+        /// <summary>Ask the hub at the first endpoint this node can use; one it can use none of is kept and shown as unreachable, not hidden.</summary>
+        void SubmitOrKeep(NodeId name, List<IPEndPoint> found)
+        {
+            IPEndPoint ask = found.Find(CanUse);
+            if (ask != null)
+            {
+                SubmitHub(ask, found);
+            }
+            else if (name.Valid())
+            {
+                // a hub nobody can poll from here, say an IPv4-only hub for a node with no IPv4 address
+                var hub = new Hub { nuid = name, endPoint = found[0], port = (ushort)found[0].Port, addressText = found[0].Address.ToString(), dateTime = DateTime.Now, candidates = found };
+                List.Add(hub);
+                changed = true;
+                log.Event("Hub " + found[0] + " is unreachable from this node: it has no address in a family this node uses");
             }
         }
 
@@ -309,9 +459,9 @@ namespace JoinFS
                 pendingHubs.Remove(endPoint);
 
                 // not too many at one IP, and not this hub
-                if (HubCount_IP(nuid) < MAX_IP_HUBS && nuid != session.LocalId)
+                if (HubCount_IP(endPoint.Address) < MAX_IP_HUBS && nuid != session.LocalId)
                 {
-                    Hub hub = List.Find(h => h.nuid == nuid);
+                    Hub hub = FindHub(nuid, endPoint);
                     if (hub == null)
                     {
                         hub = new Hub();
@@ -343,8 +493,8 @@ namespace JoinFS
                     }
 
                     hub.nuid = nuid;
-                    hub.endPoint = endPoint;
-                    hub.port = (ushort)endPoint.Port;
+                    announcedCandidates.Remove(endPoint, out List<IPEndPoint> announced);
+                    Learn(hub, endPoint, announced);
                     hub.dateTime = DateTime.Now;
                     hub.guid = status.Guid;
                     hub.appVersion = status.AppVersion;
@@ -372,7 +522,7 @@ namespace JoinFS
             else
             {
                 // no longer a hub
-                Hub hub = List.Find(h => h.nuid == nuid);
+                Hub hub = FindHub(nuid, endPoint);
                 if (hub != null)
                 {
                     log.Event("Removed hub '" + hub.name + "' - '" + UserDirectory.UuidToString(UserDirectory.MakeUuid(status.Guid)) + "'");
@@ -382,26 +532,46 @@ namespace JoinFS
             }
         }
 
-        /// <summary>The online hubs we know (reply to a StatusRequest asking for them).</summary>
+        /// <summary>The hub with this name, or the one known at this endpoint.</summary>
+        Hub FindHub(NodeId nuid, IPEndPoint endPoint) => List.Find(h => h.nuid == nuid) ?? List.Find(h => h.endPoint.Equals(endPoint) || h.candidates.Contains(endPoint));
+
+        /// <summary>The hub that has an endpoint at this address (the sender of a user list).</summary>
+        Hub FindHubAt(IPEndPoint endPoint) => List.Find(h => h.endPoint.Address.Equals(endPoint.Address) || h.candidates.Exists(c => c.Address.Equals(endPoint.Address)));
+
+        /// <summary>Entries in one HubList message: a JFP2 entry is at most 8 + 2 + 1 + 5 * 20 = 111 bytes (five endpoints are kept for a hub, each a length byte and 19 for IPv6), so 8 of them fit the 1,000 bytes of a message.</summary>
+        const int HubListChunk = 8;
+
+        /// <summary>
+        /// The online hubs we know (reply to a StatusRequest asking for them), a few to a message. The wire the answer goes by chooses what it can
+        /// say: legacy names the hubs that have a legacy id, by it and the port, and JFP2 adds the endpoints (IPv6 ones included) each can be reached at.
+        /// </summary>
         public void SendHubList(IPEndPoint endPoint)
         {
-            var list = new HubList { Hubs = [] };
+            var entries = new List<HubAddress>();
             foreach (var hub in List)
             {
                 if (hub.online && policy.IgnoreNode(hub.endPoint.Address) == false && policy.IgnoreNode(ref hub.guid) == false)
                 {
-                    list.Hubs.Add(new HubAddress { Node = hub.nuid, Port = (ushort)hub.endPoint.Port });
+                    entries.Add(new HubAddress
+                    {
+                        Node = hub.nuid,
+                        Port = (ushort)hub.endPoint.Port,
+                        Candidates = hub.candidates.FindAll(Peer.IsUsableCandidate),
+                    });
                 }
             }
-            if (list.Hubs.Count > 0) outbox.SendToEndPoint(endPoint, list);
+            for (int start = 0; start < entries.Count; start += HubListChunk)
+            {
+                outbox.SendToEndPoint(endPoint, new HubList { Hubs = entries.GetRange(start, Math.Min(HubListChunk, entries.Count - start)) });
+            }
         }
 
-        int HubCount_IP(NodeId nuid)
+        int HubCount_IP(IPAddress address)
         {
             int count = 0;
             foreach (var hub in List)
             {
-                if (hub.nuid.ip == nuid.ip) count++;
+                if (hub.endPoint.Address.Equals(address)) count++;
             }
             return count;
         }
@@ -430,7 +600,7 @@ namespace JoinFS
                     {
                         if (hub.online && hub.userList.Count == 0)
                         {
-                            SendUserListRequest(hub.endPoint);
+                            SendUserListRequest(hub);
                         }
                     }
                 }
@@ -440,7 +610,7 @@ namespace JoinFS
                     int index = userListRequestCount % List.Count;
                     if (List[index].online)
                     {
-                        SendUserListRequest(List[index].endPoint);
+                        SendUserListRequest(List[index]);
                     }
                     if (profile.PublishWhazzup)
                     {
@@ -448,7 +618,7 @@ namespace JoinFS
                         {
                             if (hub.online)
                             {
-                                outbox.SendToEndPoint(hub.endPoint, new UserPositionsRequest());
+                                Poll(hub, new UserPositionsRequest());
                             }
                         }
                     }
@@ -457,12 +627,12 @@ namespace JoinFS
             }
         }
 
-        void SendUserListRequest(IPEndPoint endPoint) => outbox.SendToEndPoint(endPoint, new UserListRequest());
+        void SendUserListRequest(Hub hub) => Poll(hub, new UserListRequest());
 
         public void Handle(in MessageMeta meta, in HubUserUpdate update)
         {
             IPEndPoint endPoint = meta.EndPoint;
-            Hub hub = List.Find(h => h.endPoint.Address.Equals(endPoint.Address));
+            Hub hub = FindHubAt(endPoint);
             if (hub == null || update.Guid.Equals(profile.Guid))
             {
                 return;
@@ -505,7 +675,7 @@ namespace JoinFS
         public void Handle(in MessageMeta meta, in UserPositions positions)
         {
             IPEndPoint endPoint = meta.EndPoint;
-            Hub hub = List.Find(h => h.endPoint.Address.Equals(endPoint.Address));
+            Hub hub = FindHubAt(endPoint);
             if (hub == null)
             {
                 return;
@@ -543,7 +713,7 @@ namespace JoinFS
                 // ignored hubs aren't kept
                 foreach (var hub in List)
                 {
-                    if (policy.IgnoreNode(hub.endPoint.Address) == false && policy.IgnoreNode(ref hub.guid) == false)
+                    if (hub.nuid.Valid() && policy.IgnoreNode(hub.endPoint.Address) == false && policy.IgnoreNode(ref hub.guid) == false)
                     {
                         tempHubs.Add(hub);
                     }
@@ -554,7 +724,9 @@ namespace JoinFS
                 foreach (var hub in tempHubs)
                 {
                     writer.Write(hub.addressText);
-                    hub.nuid.Write(writer);
+                    // the legacy id of the hub, all zeros when it has none (its name follows at the end of the entry)
+                    hub.nuid.TryGetLegacy(out LegacyNodeId legacyNuid);
+                    legacyNuid.Write(writer);
                     writer.Write(hub.port);
                     writer.Write(hub.dateTime.ToBinary());
                     writer.Write(hub.guid.ToByteArray());
@@ -567,6 +739,12 @@ namespace JoinFS
                     writer.Write(hub.activityCircle);
                     writer.Write(hub.globalSession);
                     writer.Write(hub.password);
+                    // version 10007: the hub's name whatever its kind, and where it can be reached
+                    Span<byte> name = stackalloc byte[NodeId.WireSize];
+                    hub.nuid.WriteTo(name);
+                    writer.Write(name);
+                    writer.Write((byte)hub.candidates.Count);
+                    foreach (IPEndPoint candidate in hub.candidates) writer.Write(candidate.ToString());
                 }
 
                 log.Event("Saved " + tempHubs.Count + " hub(s)");
@@ -610,7 +788,7 @@ namespace JoinFS
 
                                 if (version >= 10005)
                                 {
-                                    hub.nuid = NodeId.Read(reader);
+                                    hub.nuid = NodeId.FromLegacy(LegacyNodeId.Read(reader));
                                     hub.port = reader.ReadUInt16();
                                 }
                                 else
@@ -618,7 +796,7 @@ namespace JoinFS
                                     uint ip = version >= 10003 ? reader.ReadUInt32() : 0;
                                     hub.port = reader.ReadUInt16();
                                     byte local = version >= 10002 ? reader.ReadByte() : (byte)0;
-                                    hub.nuid = new NodeId(ip, hub.nuid.port, local);
+                                    hub.nuid = NodeId.FromLegacy(ip, 0, local);
                                 }
                                 hub.dateTime = DateTime.FromBinary(reader.ReadInt64());
                                 hub.guid = new Guid(reader.ReadBytes(16));
@@ -631,18 +809,46 @@ namespace JoinFS
                                 hub.activityCircle = reader.ReadInt32();
                                 hub.globalSession = reader.ReadBoolean();
                                 hub.password = version >= 10004 && reader.ReadBoolean();
+                                if (version >= 10007)
+                                {
+                                    hub.nuid = NodeId.ReadFrom(reader.ReadBytes(NodeId.WireSize));
+                                    int candidateCount = reader.ReadByte();
+                                    for (int c = 0; c < candidateCount; c++)
+                                    {
+                                        if (IPEndPoint.TryParse(reader.ReadString(), out IPEndPoint candidate))
+                                        {
+                                            hub.candidates.Add(candidate);
+                                        }
+                                    }
+                                }
 
                                 if (version < 10003)
                                 {
                                     endPoints.MakeEndPoint(hub.addressText, hub.port, out hub.endPoint);
-                                    hub.nuid = new NodeId(hub.endPoint, hub.nuid.local);
+                                    hub.nuid.TryGetLegacy(out LegacyNodeId legacyRead);
+                                    hub.nuid = NodeId.FromLegacy(hub.endPoint, legacyRead.local);
                                 }
                                 else
                                 {
-                                    hub.endPoint = endPoints.MakeEndPoint(hub.nuid, hub.port);
+                                    if (hub.nuid.TryGetLegacy(out LegacyNodeId legacyHubId))
+                                    {
+                                        hub.endPoint = endPoints.MakeEndPoint(legacyHubId, hub.port);
+                                    }
+                                    else if (hub.candidates.Count > 0)
+                                    {
+                                        hub.endPoint = hub.candidates[0]; // a hub with no IPv4 address has no legacy id to say where it is
+                                    }
                                 }
 
-                                if (hub.nuid.Valid() && HubCount_IP(hub.nuid) < MAX_IP_HUBS)
+                                if (hub.endPoint.Port != 0 && !hub.candidates.Contains(hub.endPoint))
+                                {
+                                    hub.candidates.Insert(0, hub.endPoint);
+                                }
+                                if (hub.endPoint.Port != 0)
+                                {
+                                    endPoints.NoteCandidates(hub.endPoint, hub.candidates);
+                                }
+                                if (hub.nuid.Valid() && HubCount_IP(hub.endPoint.Address) < MAX_IP_HUBS)
                                 {
                                     List.Add(hub);
                                 }

@@ -24,6 +24,15 @@ namespace JoinFS.Tests.Session
         public void SendToEndPoint<T>(IPEndPoint endPoint, in T message, bool guaranteed = false) where T : struct, IMessage =>
             Sent.Add(new Sent(message, default, endPoint, guaranteed, false, []));
 
+        /// <summary>The requests to a node that may not be a member: also in <see cref="Sent"/>, like any send to an endpoint.</summary>
+        public readonly List<(IPEndPoint EndPoint, object Message)> Asked = [];
+
+        public void Ask<T>(IPEndPoint endPoint, in T message, bool guaranteed = false) where T : struct, IMessage
+        {
+            Asked.Add((endPoint, message));
+            SendToEndPoint(endPoint, message, guaranteed);
+        }
+
         public void Broadcast<T>(in T message, bool guaranteed = false) where T : struct, IMessage =>
             Sent.Add(new Sent(message, default, null, guaranteed, true, []));
 
@@ -37,7 +46,7 @@ namespace JoinFS.Tests.Session
     sealed class FakeSession : ISessionState
     {
         public NetworkSnapshot Snapshot { get; set; } = NetworkSnapshot.Empty;
-        public NodeId LocalId { get; set; } = new(0x01020304, 6112, 4);
+        public NodeId LocalId { get; set; } = NodeId.FromLegacy(0x01020304, 6112, 4);
         public bool Ready => LocalId.Valid();
         public bool Connected { get; set; } = true;
     }
@@ -214,12 +223,12 @@ namespace JoinFS.Tests.Session
         }
 
         /// <summary>Metadata of a message from <paramref name="sender"/> at its default endpoint.</summary>
-        public static MessageMeta From(NodeId sender) => new() { Sender = sender, EndPoint = sender.ToEndPoint(sender.port) };
+        public static MessageMeta From(NodeId sender) => new() { Sender = sender, EndPoint = sender.ToEndPoint() };
     }
 
     sealed class FakeEndPoints : IEndPointResolver
     {
-        public IPEndPoint MakeEndPoint(NodeId node, ushort port) => node.ToEndPoint(port);
+        public IPEndPoint MakeEndPoint(LegacyNodeId node, ushort port) => node.ToEndPoint(port);
 
         public bool MakeEndPoint(string addressText, ushort port, out IPEndPoint endPoint)
         {
@@ -227,5 +236,9 @@ namespace JoinFS.Tests.Session
             endPoint = ok ? new IPEndPoint(address, port) : new IPEndPoint(0, 0);
             return ok;
         }
+
+        public readonly Dictionary<IPEndPoint, IReadOnlyList<IPEndPoint>> Candidates = [];
+
+        public void NoteCandidates(IPEndPoint primary, IReadOnlyList<IPEndPoint> candidates) => Candidates[primary] = candidates;
     }
 }

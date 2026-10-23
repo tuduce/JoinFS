@@ -30,7 +30,7 @@ namespace JoinFS
         ushort port;
 
         /// <summary>Called for each message from the plugin, with the reader positioned after the header.</summary>
-        public Action<IPEndPoint, NodeId, BinaryReader> receiveNotify;
+        public Action<IPEndPoint, LegacyNodeId, BinaryReader> receiveNotify;
         public Action<string> nodeError;
 
         /// <summary>
@@ -115,8 +115,8 @@ namespace JoinFS
             writer.Write((ushort)0);    // guaranteed id
             writer.Write((byte)0);      // segment index
             writer.Write((byte)1);      // segment count
-            new NodeId(0, port, localOctet).Write(writer);
-            default(NodeId).Write(writer);
+            new LegacyNodeId(0, port, localOctet).Write(writer);
+            default(LegacyNodeId).Write(writer);
             return writer;
         }
 
@@ -155,7 +155,7 @@ namespace JoinFS
                 receiveStream.Position = LegacyWire.DataOffset;
                 try
                 {
-                    receiveNotify?.Invoke(endPoint, NodeId.Read(data.AsSpan(LegacyWire.SenderOffset)), reader);
+                    receiveNotify?.Invoke(endPoint, LegacyNodeId.Read(data.AsSpan(LegacyWire.SenderOffset)), reader);
                 }
                 catch (Exception ex)
                 {

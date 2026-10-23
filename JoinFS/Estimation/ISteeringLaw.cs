@@ -2,7 +2,7 @@ namespace JoinFS.Estimation
 {
     /// <summary>
     /// Decides how to move an injected object in the simulator toward its predicted state
-    /// (docs/position-estimation-plan.md §4). It only computes a <see cref="SteeringCommand"/>;
+    /// (docs/estimation/position-estimation-plan.md §4). It only computes a <see cref="SteeringCommand"/>;
     /// the simulator side applies it, so the law can be tested without a simulator.
     /// </summary>
     public interface ISteeringLaw

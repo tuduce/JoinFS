@@ -3,6 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
 WORKDIR /src
 COPY JoinFS/JoinFS.csproj JoinFS/
 COPY JoinFS.Messages/JoinFS.Messages.csproj JoinFS.Messages/
+COPY JoinFS.Crypto/JoinFS.Crypto.csproj JoinFS.Crypto/
 COPY JoinFS.Recording.Format/JoinFS.Recording.Format.csproj JoinFS.Recording.Format/
 COPY JoinFS.Recording/JoinFS.Recording.csproj JoinFS.Recording/
 # The CONSOLE configuration pins PlatformTarget to ARM64; override it so the RID decides.
@@ -26,6 +27,9 @@ RUN dotnet publish JoinFS/JoinFS.csproj \
 # Stage 2: Alpine runtime
 FROM mcr.microsoft.com/dotnet/runtime:8.0-alpine
 EXPOSE 6112
+# The storage folder (LocalApplicationData, $HOME/.local/share as root) holds the node key; keep it
+# across container re-creation. Name the volume on `docker run` (see the README).
+VOLUME /root/.local/share
 WORKDIR /JoinFS-CONSOLE
 COPY --from=build /app/publish .
 RUN mv JoinFS-CONSOLE JoinFS

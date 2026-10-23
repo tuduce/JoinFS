@@ -6,8 +6,8 @@ namespace JoinFS.Tests.Session
     /// <summary>PeerTable: what nodes tell us about themselves, and what we tell them.</summary>
     public class PeerTableTests
     {
-        static readonly NodeId Peer = new(0x0A000001, 6112, 1);
-        static readonly NodeId Other = new(0x0A000002, 6112, 2);
+        static readonly NodeId Peer = NodeId.FromLegacy(0x0A000001, 6112, 1);
+        static readonly NodeId Other = NodeId.FromLegacy(0x0A000002, 6112, 2);
 
         static PeerInfo Info(string nickname, bool hub = false, bool atc = false, string airport = "", byte level = 2, short frequency = 22800) => new()
         {
@@ -17,7 +17,7 @@ namespace JoinFS.Tests.Session
 
         static NetworkSnapshot WithPeers(params NodeId[] ids)
         {
-            var peers = ids.Select(id => new PeerSnapshot { Id = id, EndPoint = id.ToEndPoint(id.port) }).ToList();
+            var peers = ids.Select(id => new PeerSnapshot { Id = id, EndPoint = id.ToEndPoint() }).ToList();
             return new NetworkSnapshot { State = SessionState.Connected, Peers = peers.ToDictionary(p => p.Id), PeerList = peers };
         }
 
@@ -25,7 +25,7 @@ namespace JoinFS.Tests.Session
         public void PeerInfo_DescribesTheNode_AndReportsWhatChanged()
         {
             var rig = new SessionRig();
-            rig.Peers.OnPeerJoined(Peer, Peer.ToEndPoint(Peer.port));
+            rig.Peers.OnPeerJoined(Peer, Peer.ToEndPoint());
 
             rig.Peers.Handle(SessionRig.From(Peer), Info("Bob", hub: true, atc: true, airport: "EDDF", level: 3, frequency: 12345));
 
@@ -111,10 +111,10 @@ namespace JoinFS.Tests.Session
             rig.Session.Snapshot = WithPeers(Peer);
 
             Assert.Equal("Me", rig.Peers.GetNodeName(new NodeId()));
-            Assert.Equal(Peer.ToEndPoint(Peer.port).ToString(), rig.Peers.GetNodeName(Peer));
+            Assert.Equal(Peer.ToEndPoint().ToString(), rig.Peers.GetNodeName(Peer));
             Assert.Equal("", rig.Peers.GetNodeName(Other));
 
-            rig.Peers.OnPeerJoined(Peer, Peer.ToEndPoint(Peer.port));
+            rig.Peers.OnPeerJoined(Peer, Peer.ToEndPoint());
             rig.Peers.Handle(SessionRig.From(Peer), Info("Bob"));
             Assert.Equal("Bob", rig.Peers.GetNodeName(Peer));
         }
@@ -123,7 +123,7 @@ namespace JoinFS.Tests.Session
         public void MainAtc_IsThisNodeFirst_ThenTheSessions()
         {
             var rig = new SessionRig();
-            rig.Peers.OnPeerJoined(Peer, Peer.ToEndPoint(Peer.port));
+            rig.Peers.OnPeerJoined(Peer, Peer.ToEndPoint());
             rig.Peers.Handle(SessionRig.From(Peer), Info("Bob", atc: true, airport: "eddf", level: 4));
             Assert.Equal((1, "EDDF", 4), (rig.Peers.GetMainAtc(out string airport, out int level), airport, level));
 
@@ -164,7 +164,7 @@ namespace JoinFS.Tests.Session
             // regression: the first fix attempt only disambiguated by owner, so one peer
             // broadcasting more than one aircraft at once still collapsed them onto a single guid.
             var rig = new SessionRig();
-            rig.Peers.OnPeerJoined(Peer, Peer.ToEndPoint(Peer.port));
+            rig.Peers.OnPeerJoined(Peer, Peer.ToEndPoint());
             rig.Peers.Handle(SessionRig.From(Peer), Info("Bob") with { Guid = Guid.NewGuid() });
 
             var first = rig.Peers.GetAircraftIdentityGuid(Peer, netId: 1, simId: 201);
@@ -177,7 +177,7 @@ namespace JoinFS.Tests.Session
         public void AircraftIdentityGuid_IsStable_ForTheSameOwnerAndNetId()
         {
             var rig = new SessionRig();
-            rig.Peers.OnPeerJoined(Peer, Peer.ToEndPoint(Peer.port));
+            rig.Peers.OnPeerJoined(Peer, Peer.ToEndPoint());
             rig.Peers.Handle(SessionRig.From(Peer), Info("Bob") with { Guid = Guid.NewGuid() });
 
             var a = rig.Peers.GetAircraftIdentityGuid(Peer, netId: 7, simId: 301);
@@ -190,7 +190,7 @@ namespace JoinFS.Tests.Session
         public void AircraftIdentityGuid_FallsBackToSimId_ForAnUnrecognisedOwner()
         {
             var rig = new SessionRig();
-            var unrecognised = new NodeId(0x0A0000FF, 6112, 99); // never registered via OnPeerJoined
+            var unrecognised = NodeId.FromLegacy(0x0A0000FF, 6112, 99); // never registered via OnPeerJoined
 
             var first = rig.Peers.GetAircraftIdentityGuid(unrecognised, netId: 1, simId: 401);
             var second = rig.Peers.GetAircraftIdentityGuid(unrecognised, netId: 1, simId: 402);

@@ -9,6 +9,12 @@ namespace JoinFS.Tests.Net
     {
         public readonly NetworkCore Core;
         public readonly IPEndPoint EndPoint;
+
+        /// <summary>The IPv6 endpoint of a dual-stack node (null for an IPv4-only node).</summary>
+        public readonly IPEndPoint? EndPoint6;
+
+        /// <summary>The node's one transport (to send datagrams without going through the core).</summary>
+        public readonly InMemoryTransport Transport;
         public readonly List<(MessageMeta Meta, object Message)> Received = [];
         public readonly List<NetworkEvent> Events = [];
         public readonly List<string> Logs = [];
@@ -20,13 +26,48 @@ namespace JoinFS.Tests.Net
         public Func<double>? ReceiveTime;
 
         public TestNode(TestMesh mesh, string ip, ushort port, string publicIp, params IProtocolPlugin[] plugins)
+            : this(mesh, ip, null, port, publicIp, plugins)
+        {
+        }
+
+        /// <param name="ip6">The node's IPv6 address, for a dual-stack node (one transport, two endpoints on the same port).</param>
+        public TestNode(TestMesh mesh, string ip, string? ip6, ushort port, string publicIp, params IProtocolPlugin[] plugins)
         {
             EndPoint = new IPEndPoint(IPAddress.Parse(ip), port);
-            InMemoryTransport transport = mesh.Network.Attach(EndPoint, (from, data) => Core!.OnDatagram(from, data, ReceiveTime?.Invoke() ?? 0));
+            Action<IPEndPoint, byte[]> receive = (from, data) => Core!.OnDatagram(from, data, ReceiveTime?.Invoke() ?? 0);
+            if (ip6 != null)
+            {
+                EndPoint6 = new IPEndPoint(IPAddress.Parse(ip6), port);
+                Transport = mesh.Network.Attach(EndPoint, EndPoint6, receive);
+            }
+            else
+            {
+                Transport = mesh.Network.Attach(EndPoint, receive);
+            }
+            InMemoryTransport transport = Transport;
             Core = new NetworkCore(transport, mesh.Clock, this) { IsOpen = true };
             Core.Identity.LocalAddress = EndPoint.Address;
             Core.Identity.InternetAddress = publicIp == null ? EndPoint.Address : IPAddress.Parse(publicIp);
             Core.Identity.Port = port;
+            if (EndPoint6 != null) Core.Identity.Ipv6Addresses = [EndPoint6.Address];
+            foreach (IProtocolPlugin plugin in plugins.Length > 0 ? plugins : [new LegacyPlugin()])
+            {
+                Core.AddPlugin(plugin);
+            }
+        }
+
+        /// <summary>A node with no IPv4 address at all (C of the plan's cast): one IPv6 endpoint, known by the name of its key.</summary>
+        public TestNode(TestMesh mesh, string ip6, ushort port, NodeKey key, params IProtocolPlugin[] plugins)
+        {
+            EndPoint6 = new IPEndPoint(IPAddress.Parse(ip6), port);
+            EndPoint = EndPoint6;
+            Action<IPEndPoint, byte[]> receive = (from, data) => Core!.OnDatagram(from, data, ReceiveTime?.Invoke() ?? 0);
+            Transport = mesh.Network.AttachIPv6Only(EndPoint6, receive);
+            Core = new NetworkCore(Transport, mesh.Clock, this) { IsOpen = true };
+            Core.Identity.Port = port;
+            Core.Identity.Ipv6Addresses = [EndPoint6.Address];
+            Core.Identity.Key = key;
+            Core.Identity.NoIPv4 = true;
             foreach (IProtocolPlugin plugin in plugins.Length > 0 ? plugins : [new LegacyPlugin()])
             {
                 Core.AddPlugin(plugin);
@@ -60,7 +101,23 @@ namespace JoinFS.Tests.Net
 
         public TestNode Add(string ip, ushort port = 6112, params IProtocolPlugin[] plugins)
         {
-            var node = new TestNode(this, ip, port, null, plugins);
+            var node = new TestNode(this, ip, port, (string?)null, plugins);
+            Nodes.Add(node);
+            return node;
+        }
+
+        /// <summary>A dual-stack node: an IPv4 address (its legacy id) and an IPv6 address, one socket port.</summary>
+        public TestNode AddDualStack(string ip, string ip6, ushort port = 6112, params IProtocolPlugin[] plugins)
+        {
+            var node = new TestNode(this, ip, ip6, port, null, plugins);
+            Nodes.Add(node);
+            return node;
+        }
+
+        /// <summary>A node with no IPv4 address at all, known by the name of a new key (see <see cref="TestNode"/>).</summary>
+        public TestNode AddIPv6Only(string ip6, ushort port = 6112, params IProtocolPlugin[] plugins)
+        {
+            var node = new TestNode(this, ip6, port, NodeKey.Generate(), plugins);
             Nodes.Add(node);
             return node;
         }
@@ -82,6 +139,18 @@ namespace JoinFS.Tests.Net
                 foreach (TestNode node in Nodes) node.Core.Tick();
                 Network.Pump();
             }
+        }
+
+        /// <summary>Put a dual-stack node behind the stateful IPv6 firewall of a home router (see <see cref="InMemoryNetwork.FirewallIpv6"/>).</summary>
+        public void Firewall(TestNode node) => Network.FirewallIpv6(node.EndPoint6!.Address);
+
+        /// <summary>Drop IPv6 traffic between two dual-stack nodes (both directions); IPv4 between them is untouched.</summary>
+        public void CutIpv6(TestNode a, TestNode b)
+        {
+            var previous = Network.Filter;
+            Network.Filter = (from, to, data) =>
+                !((from.Equals(a.EndPoint6) && to.Equals(b.EndPoint6)) || (from.Equals(b.EndPoint6) && to.Equals(a.EndPoint6)))
+                && (previous == null || previous(from, to, data));
         }
 
         /// <summary>Drop all traffic between two nodes (both directions).</summary>

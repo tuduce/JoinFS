@@ -73,14 +73,23 @@ namespace JoinFS.Tests.Jfp2
         [Fact]
         public void DefaultProfile_LooksUpByClassAndByKind()
         {
-            Assert.Equal(10, Jfp2Profile.Default.Classes.Count);
+            Assert.Equal(23, Jfp2Profile.Default.Classes.Count);
             foreach (ClassDescriptor c in Jfp2Profile.Default.Classes)
             {
                 Assert.Same(c, Jfp2Profile.Default.ForClass(c.MessageClass));
-                Assert.Same(c, Jfp2Profile.Default.ForKind(c.Kind));
                 Assert.False(c.Internal);
+                if (c.Segmented)
+                {
+                    Assert.Equal(MessageKind.Notes, c.Kind); // beside the class of one note, which stays the kind's
+                    Assert.Same(c, Jfp2Profile.Default.ForSegmentedKind<NotesBundle>(c.Kind));
+                    Assert.NotSame(c, Jfp2Profile.Default.ForKind(c.Kind));
+                }
+                else
+                {
+                    Assert.Same(c, Jfp2Profile.Default.ForKind(c.Kind));
+                }
             }
-            Assert.Null(Jfp2Profile.Default.ForKind(MessageKind.RemoveObject));
+            Assert.Null(Jfp2Profile.Default.ForKind(MessageKind.ShowOnRadar));
             Assert.Null(Jfp2Profile.Default.ForKind<EventUpdate>(MessageKind.Position)); // another codec type
         }
     }

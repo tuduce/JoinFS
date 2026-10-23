@@ -2,7 +2,7 @@ namespace JoinFS.Estimation
 {
     /// <summary>
     /// Follows the sender's clock for one remote object, so that the age of its newest sample is
-    /// known at any local time (docs/position-estimation-plan.md §4). Used on the sim thread only.
+    /// known at any local time (docs/estimation/position-estimation-plan.md §4). Used on the sim thread only.
     /// </summary>
     public interface IClockModel
     {

@@ -1,7 +1,7 @@
 # JoinFS.UI
 
 The Avalonia (.NET 8, MVVM with CommunityToolkit.Mvvm) implementation of the desktop redesign in
-[`docs/design_handoff_avalonia_ui/`](../docs/design_handoff_avalonia_ui/README.md). The HTML prototype there is the visual and
+[`docs/ui/design-handoff/`](../docs/ui/design-handoff/README.md). The HTML prototype there is the visual and
 behavioural reference.
 
 ## Status

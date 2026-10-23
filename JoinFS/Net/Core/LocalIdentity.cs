@@ -1,19 +1,64 @@
+using System;
+using System.Collections.Generic;
 using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 
 namespace JoinFS.Net
 {
     /// <summary>
     /// Who this node is on the network: its public address (learned from a my-IP service), LAN
-    /// address and UDP port, which together make up its <see cref="NodeId"/>. Also turns a peer's
-    /// NodeId into the endpoint to reach it, taking the shared-NAT case into account (a peer
-    /// behind our own public IP is reached on its LAN address instead).
+    /// address and UDP port, which together make up its <see cref="LegacyNodeId"/> (and so its
+    /// <see cref="NodeId"/>, until it has a key). Also turns a peer's legacy id into the endpoint to
+    /// reach it, taking the shared-NAT case into account (a peer behind our own public IP is reached
+    /// on its LAN address instead).
     /// </summary>
     public sealed class LocalIdentity
     {
         IPAddress localAddress = IPAddress.Loopback;
         IPAddress internetAddress = IPAddress.None;
+        IReadOnlyList<IPAddress> ipv6Addresses = [];
+        IReadOnlyList<IPEndPoint> candidates;
+        bool noIPv4;
 
-        public NodeId Id { get; private set; }
+        /// <summary>The most IPv6 addresses this node advertises as candidates.</summary>
+        public const int MaxIPv6Candidates = 4;
+
+        /// <summary>This node's address as the legacy wire names it.</summary>
+        public LegacyNodeId LegacyId { get; private set; }
+
+        /// <summary>
+        /// This node's id in the core: the kind-0 id of <see cref="LegacyId"/>, or its key name (<see cref="KeyId"/>) when it has no IPv4
+        /// address (<see cref="NoIPv4"/>), which no legacy id can be made of.
+        /// </summary>
+        public NodeId Id => NoIPv4 ? KeyId : NodeId.FromLegacy(LegacyId);
+
+        /// <summary>
+        /// This node has no IPv4 address to use: its socket serves IPv6 only (<c>-noipv4</c>), or the machine has no IPv4 address at all. It
+        /// is ready with its key name, states no IPv4 candidate and dials no IPv4 address (docs/network/jfp2/standalone-ipv6-plan.md §5.1, §5.4).
+        /// </summary>
+        public bool NoIPv4
+        {
+            get => noIPv4;
+            set
+            {
+                noIPv4 = value;
+                candidates = null;
+            }
+        }
+
+        /// <summary>
+        /// The kind-0 name the node that admitted this one gave it, so that nodes that speak legacy can address it (D2): none until the join
+        /// is accepted, and none for a node that has an IPv4 address. This node does not use it as a name of its own; the admitting node
+        /// translates (protocol.md §5.15).
+        /// </summary>
+        public NodeId Alias { get; set; }
+
+        /// <summary>This instance's key pair, or null before the app has posted it. No wire carries it yet.</summary>
+        public NodeKey Key { get; set; }
+
+        /// <summary>The kind-2 id of <see cref="Key"/>: this node's alias beside its legacy id, none without a key.</summary>
+        public NodeId KeyId => Key?.Id ?? default;
 
         /// <summary>The node knows its public address, so it can take part in a session.</summary>
         public bool Ready => Id.Valid();
@@ -24,7 +69,8 @@ namespace JoinFS.Net
             set
             {
                 localAddress = value;
-                Id = new NodeId(Id.ip, Id.port, value.GetAddressBytes()[3]);
+                candidates = null;
+                LegacyId = new LegacyNodeId(LegacyId.ip, LegacyId.port, value.GetAddressBytes()[3]);
             }
         }
 
@@ -34,20 +80,176 @@ namespace JoinFS.Net
             set
             {
                 internetAddress = value;
-                Id = new NodeId(value, Id.port, Id.local);
+                candidates = null;
+                LegacyId = new LegacyNodeId(value, LegacyId.port, LegacyId.local);
             }
         }
 
         public ushort Port
         {
-            get => Id.port;
-            set => Id = Id.WithPort(value);
+            get => LegacyId.port;
+            set
+            {
+                candidates = null;
+                LegacyId = LegacyId.WithPort(value);
+            }
+        }
+
+        /// <summary>
+        /// This node's global unicast IPv6 addresses, stable ones before temporary ones, at most <see cref="MaxIPv6Candidates"/>
+        /// (<see cref="DetectGlobalIPv6"/>). Empty when the node has none or does not use IPv6 (the IPv6 setting is off).
+        /// </summary>
+        public IReadOnlyList<IPAddress> Ipv6Addresses
+        {
+            get => ipv6Addresses;
+            set
+            {
+                ipv6Addresses = value ?? [];
+                candidates = null;
+            }
+        }
+
+        /// <summary>This node can be reached, and reach others, over IPv6.</summary>
+        public bool HasIPv6 => ipv6Addresses.Count > 0;
+
+        /// <summary>
+        /// The endpoints this node can be tried at, preferred first (docs/network/jfp2/standalone-ipv6-plan.md §5.4): its global IPv6
+        /// addresses, its public IPv4 address, its LAN IPv4 address, each on the socket's port. Advertised in every JFP2 Hello and in
+        /// member entries. Empty until the node knows its port.
+        /// </summary>
+        public IReadOnlyList<IPEndPoint> Candidates => candidates ??= BuildCandidates();
+
+        IReadOnlyList<IPEndPoint> BuildCandidates()
+        {
+            var list = new List<IPEndPoint>();
+            int port = LegacyId.port;
+            if (port == 0)
+            {
+                return list;
+            }
+            foreach (IPAddress address in ipv6Addresses)
+            {
+                list.Add(new IPEndPoint(address, port));
+            }
+            if (!noIPv4)
+            {
+                AddIPv4(list, internetAddress, port);
+                AddIPv4(list, localAddress, port);
+            }
+            return list;
+        }
+
+        static void AddIPv4(List<IPEndPoint> list, IPAddress address, int port)
+        {
+            if (address.AddressFamily == AddressFamily.InterNetwork && !address.Equals(IPAddress.Any) && !address.Equals(IPAddress.None) && !IPAddress.IsLoopback(address))
+            {
+                var endPoint = new IPEndPoint(address, port);
+                if (!list.Contains(endPoint))
+                {
+                    list.Add(endPoint);
+                }
+            }
+        }
+
+        /// <summary>
+        /// This machine's global unicast IPv6 addresses (2000::/3: never link-local, unique-local or loopback) on interfaces that are up,
+        /// at most <see cref="MaxIPv6Candidates"/>. Addresses of a temporary (privacy) kind come after the stable ones, since a stable address
+        /// is the one that keeps answering. Empty when there are none or the interfaces cannot be read.
+        /// </summary>
+        public static List<IPAddress> DetectGlobalIPv6()
+        {
+            var stable = new List<IPAddress>();
+            var temporary = new List<IPAddress>();
+            try
+            {
+                foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (adapter.OperationalStatus != OperationalStatus.Up || adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                    {
+                        continue;
+                    }
+                    foreach (UnicastIPAddressInformation info in adapter.GetIPProperties().UnicastAddresses)
+                    {
+                        if (info.Address.AddressFamily != AddressFamily.InterNetworkV6 || !IsGlobalUnicast(info.Address))
+                        {
+                            continue;
+                        }
+                        (IsTemporary(info) ? temporary : stable).Add(info.Address);
+                    }
+                }
+            }
+            catch
+            {
+            }
+            stable.AddRange(temporary);
+            return stable.GetRange(0, Math.Min(stable.Count, MaxIPv6Candidates));
+        }
+
+        /// <summary>
+        /// Windows reports a privacy (temporary) address with a random suffix. Linux does not say (the property throws), so there every address
+        /// counts as stable.
+        /// </summary>
+        static bool IsTemporary(UnicastIPAddressInformation info)
+        {
+            try
+            {
+                return info.SuffixOrigin == SuffixOrigin.Random;
+            }
+            catch (PlatformNotSupportedException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>An IPv6 address in 2000::/3: reachable from the internet, unlike link-local (fe80::/10) and unique-local (fc00::/7).</summary>
+        public static bool IsGlobalUnicast(IPAddress address)
+        {
+            if (address.AddressFamily != AddressFamily.InterNetworkV6)
+            {
+                return false;
+            }
+            Span<byte> bytes = stackalloc byte[16];
+            return address.TryWriteBytes(bytes, out _) && (bytes[0] & 0xE0) == 0x20;
+        }
+
+        /// <summary>
+        /// This machine has an IPv4 address another host could reach (up, not loopback, not link-local). True when the interfaces cannot be
+        /// read, so a machine is never taken for IPv6-only on a failure.
+        /// </summary>
+        public static bool HasIPv4Interface()
+        {
+            try
+            {
+                foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (adapter.OperationalStatus != OperationalStatus.Up || adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                    {
+                        continue;
+                    }
+                    foreach (UnicastIPAddressInformation info in adapter.GetIPProperties().UnicastAddresses)
+                    {
+                        if (info.Address.AddressFamily == AddressFamily.InterNetwork && Peer.IsUsableCandidate(new IPEndPoint(info.Address, 1)))
+                        {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+            catch
+            {
+                return true;
+            }
         }
 
         /// <summary>For tests and diagnostics: set the whole id directly.</summary>
-        public void Set(NodeId id) => Id = id;
+        public void Set(NodeId id)
+        {
+            candidates = null;
+            LegacyId = id.TryGetLegacy(out LegacyNodeId legacy) ? legacy : default;
+        }
 
-        public IPEndPoint MakeEndPoint(NodeId node, ushort port)
+        public IPEndPoint MakeEndPoint(LegacyNodeId node, ushort port)
         {
             IPEndPoint endPoint = node.ToEndPoint(port);
             if (endPoint.Address.Equals(internetAddress))

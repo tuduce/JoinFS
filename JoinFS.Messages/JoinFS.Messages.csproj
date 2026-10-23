@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- The canonical in-process messages and the JFP2 body codecs, shared by the network stack and the
-       recorder (docs/jfs2/recorder-v2-design.md section 6). No reference to JoinFS, Sim or UI and no
+       recorder (docs/recording/jfs2/recorder-v2-design.md section 6). No reference to JoinFS, Sim or UI and no
        build symbol, so one conditional compilation symbol can never make two builds disagree on a byte.
        Namespaces are those the code had inside JoinFS (JoinFS.Net, JoinFS.Net.Jfp2, ...Codecs). -->
   <PropertyGroup>

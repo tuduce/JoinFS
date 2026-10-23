@@ -47,7 +47,7 @@ namespace JoinFS.Tests.Net
 
             Assert.True(Jfp2Of(a).IsNegotiated(hub.Id));
             Assert.Equal("JFP2", a.Core.Route(hub.Id, MessageKind.Position)!.Name);
-            Assert.Equal("Legacy", a.Core.Route(hub.Id, MessageKind.RemoveObject)!.Name);
+            Assert.Equal("Legacy", a.Core.Route(hub.Id, MessageKind.WeatherRequest)!.Name);
 
             mesh.Network.Log.Clear();
             SendPosition(a, hub, 3, "JF1", 12.5);
@@ -167,7 +167,7 @@ namespace JoinFS.Tests.Net
         }
 
         /// <summary>
-        /// Pins a known limit (docs/jfp2/protocol.md §7.5): a guaranteed payload over the
+        /// Pins a known limit (docs/network/jfp2/protocol.md §7.5): a guaranteed payload over the
         /// 1,100-byte ceiling, which the field limits (§6.7) leave only to a codec bug, still goes out
         /// as a single datagram, and is logged. When segmentation is implemented this should expect
         /// ceil(size / GuaranteedSegmentSize) segments instead, as
@@ -218,7 +218,7 @@ namespace JoinFS.Tests.Net
         }
 
         /// <summary>
-        /// The field limits are JFP2's (docs/jfp2/protocol.md §9.7): a note longer than the JFP2
+        /// The field limits are JFP2's (docs/network/jfp2/protocol.md §9.7): a note longer than the JFP2
         /// limit is cut over JFP2 and arrives whole over legacy, which has no such limit.
         /// </summary>
         [Fact]
@@ -281,7 +281,7 @@ namespace JoinFS.Tests.Net
             var hello = new HandshakeMessage
             {
                 ProtoMajorMin = Envelope.ProtoMajor, ProtoMajorMax = Envelope.ProtoMajor, SelfAssignedId = aId,
-                Names = [NodeName.FromLegacy(a.Id)],
+                Names = [a.Id],
                 Offers = [new SchemaOffer(false, MessageClasses.Position, 1, 1)],
             };
             SendRaw(a, hub, EnvelopeFlags.Internal, MessageClasses.Hello, hello.Serialize());
@@ -346,7 +346,7 @@ namespace JoinFS.Tests.Net
             Assert.Equal(2, Assert.Single(hub.Messages<PositionUpdate>()).Latitude);
         }
 
-        // ------------------------------------------------ datagrams from later builds (docs/jfp2/protocol.md §3.1, §3.2)
+        // ------------------------------------------------ datagrams from later builds (docs/network/jfp2/protocol.md §3.1, §3.2)
 
         /// <summary>A Position datagram from a to the hub in their session, with bytes 1 (ProtoMajor) and 2 (Flags) as given.</summary>
         static void SendPositionWith(TestNode a, TestNode hub, byte protoMajor, byte flags)
@@ -439,7 +439,7 @@ namespace JoinFS.Tests.Net
         }
 
         /// <summary>
-        /// Every class, every string longer than its field's limit (docs/jfp2/protocol.md §9.7), so
+        /// Every class, every string longer than its field's limit (docs/network/jfp2/protocol.md §9.7), so
         /// that each message is the largest of its class.
         /// </summary>
         static void SendEveryClassAtItsLimits(TestNode from, TestNode to)
@@ -455,6 +455,15 @@ namespace JoinFS.Tests.Net
                 Wtc = Text(IdentityV1Codec.WtcLimit),
             });
             from.Core.SendTo(to.Id, new PositionUpdate { ObjectId = 3, NetTime = 1, Latitude = 1 }, false);
+            from.Core.Objects.SetIdentity(from.Id, new IdentityUpdate { ObjectId = 4, IsAircraft = false, Model = "Boat", TypeRole = 0 });
+            from.Core.SendTo(to.Id, new ObjectPositionUpdate { ObjectId = 4, NetTime = 1, Latitude = 1 }, false);
+            from.Core.SendTo(to.Id, new RemoveObject { ObjectId = 4 }, true);
+            from.Core.SendTo(to.Id, new CommsRequest { Scope = CommsScope.All }, true);
+            from.Core.SendTo(to.Id, new PeerInfo
+            {
+                Nickname = Text(PeerInfoV1Codec.NicknameLimit), AtcAirport = Text(PeerInfoV1Codec.AtcAirportLimit),
+                Version = Text(PeerInfoV1Codec.VersionLimit), Simulator = Text(PeerInfoV1Codec.SimulatorLimit),
+            }, false);
             var entries = new List<VariableEntry>();
             for (uint vuid = 1; vuid <= 10; vuid++)
             {
@@ -499,10 +508,31 @@ namespace JoinFS.Tests.Net
             }, false);
             from.Core.SendTo(to.Id, new StatusRequestUpdate { HubEnabled = true, HubListRequested = true, Uuid = 1 }, false);
             from.Core.SendTo(to.Id, new WeatherReply { Metar = Text(WeatherReplyV1Codec.MetarLimit) }, true);
+            // the directory (stage 9): a full hub list and a user at the limits of every field
+            var hubs = new List<HubAddress>();
+            for (int n = 0; n < 8; n++)
+            {
+                hubs.Add(new HubAddress { Node = NodeId.FromLegacy(0xCB000000u + (uint)n, 6112, 1), Port = 6112, Candidates = [new IPEndPoint(IPAddress.Parse("2001:db8::1"), 6112), new IPEndPoint(IPAddress.Parse("2001:db8::2"), 6112), new IPEndPoint(IPAddress.Parse("2001:db8::3"), 6112), new IPEndPoint(IPAddress.Parse("2001:db8::4"), 6112)] });
+            }
+            from.Core.SendTo(to.Id, new HubList { Hubs = hubs }, false);
+            from.Core.SendTo(to.Id, new UserListRequest(), false);
+            from.Core.SendTo(to.Id, new HubUserUpdate
+            {
+                Guid = Guid.NewGuid(), Nickname = Text(HubUserV1Codec.NicknameLimit), Callsign = Text(HubUserV1Codec.CallsignLimit), IcaoType = Text(HubUserV1Codec.IcaoTypeLimit),
+                Departure = Text(HubUserV1Codec.DepartureLimit), Destination = Text(HubUserV1Codec.DestinationLimit), Rules = Text(HubUserV1Codec.RulesLimit),
+                Route = Text(HubUserV1Codec.RouteLimit), Remarks = Text(HubUserV1Codec.RemarksLimit), Alternate = Text(HubUserV1Codec.AlternateLimit),
+                FlightSpeed = Text(HubUserV1Codec.SpeedLimit), FlightAltitude = Text(HubUserV1Codec.AltitudeLimit), Registration = Text(HubUserV1Codec.RegistrationLimit),
+                IcaoAirline = Text(HubUserV1Codec.IcaoAirlineLimit), FlightNumber = Text(HubUserV1Codec.FlightNumberLimit),
+            }, false);
+            from.Core.SendTo(to.Id, new UserPositionsRequest(), false);
+            from.Core.SendTo(to.Id, new UserPositions { Users = Enumerable.Range(0, UserPositionsV1Codec.MaxUsers).Select(_ => new UserPosition { Guid = Guid.NewGuid() }).ToList() }, false);
+            from.Core.SendTo(to.Id, new OnlineAnnouncement { Uuid = 1 }, false);
+            from.Core.SendTo(to.Id, new UserNuidRequest { Uuid = 1 }, false);
+            from.Core.SendTo(to.Id, new UserNuidReply { Uuid = 1, Node = to.Id, Port = 6112, Candidates = [new IPEndPoint(IPAddress.Parse("2001:db8::1"), 6112), new IPEndPoint(IPAddress.Parse("2001:db8::2"), 6112), new IPEndPoint(IPAddress.Parse("2001:db8::3"), 6112), new IPEndPoint(IPAddress.Parse("2001:db8::4"), 6112)] }, false);
         }
 
         /// <summary>
-        /// No JFP2 datagram is larger than 1,200 bytes (docs/jfp2/protocol.md §3.6): every class with
+        /// No JFP2 datagram is larger than 1,200 bytes (docs/network/jfp2/protocol.md §3.6): every class with
         /// maximum-length strings in every field, guaranteed where the class is, relayed so that the
         /// Forwarded extension is included, and sent directly; with the handshakes, keepalives and acks
         /// that go with them.
@@ -546,9 +576,14 @@ namespace JoinFS.Tests.Net
                 [MessageClasses.Status] = StatusV1Codec.MaxSize,
                 [MessageClasses.StatusRequest] = StatusRequestV1Codec.Size,
                 [MessageClasses.WeatherReply] = WeatherReplyV1Codec.MaxSize,
+                [MessageClasses.ObjectPosition] = ObjectPositionUpdateV1Codec.Size,
+                [MessageClasses.RemoveObject] = RemoveObjectV1Codec.Size,
+                [MessageClasses.CommsRequest] = CommsRequestV1Codec.Size,
+                [MessageClasses.PeerInfo] = PeerInfoV1Codec.MaxSize,
             };
             foreach (ClassDescriptor c in Jfp2Profile.Default.Classes)
             {
+                if (c.Segmented) continue; // the notes history never goes through a relay (§7.5): its notes do, one by one
                 byte[] datagram = relayed.First(d => d.Data[7] == c.MessageClass).Data;
                 int header = Envelope.FixedSize + Envelope.ForwardedExtraSize + (c.Guaranteed ? Envelope.GuaranteedExtraSize : 0);
                 Assert.Equal(c.Guaranteed, (datagram[2] & (byte)EnvelopeFlags.Guaranteed) != 0);
@@ -557,7 +592,7 @@ namespace JoinFS.Tests.Net
                     Assert.Equal(header + payload, datagram.Length);
                 }
             }
-            Assert.Equal(Envelope.FixedSize + Envelope.ForwardedExtraSize + 1058, relayed.Max(d => d.Data.Length)); // Status
+            Assert.Equal(Envelope.FixedSize + Envelope.ForwardedExtraSize + 1 + UserPositionsV1Codec.MaxUsers * UserPositionsV1Codec.EntrySize, relayed.Max(d => d.Data.Length)); // UserPositions (the largest since stage 9; Status was)
             Assert.True(relayed.Count(d => d.Data[7] == MessageClasses.VariableSync) > 1);
 
             // and what was cut still arrived
@@ -575,7 +610,7 @@ namespace JoinFS.Tests.Net
             var hello = new HandshakeMessage
             {
                 ProtoMajorMin = protoMajorMin, ProtoMajorMax = protoMajorMax, SelfAssignedId = aId,
-                Names = [NodeName.FromLegacy(a.Id)],
+                Names = [a.Id],
                 Offers = [new SchemaOffer(false, MessageClasses.Position, 1, 1)],
             };
             extend?.Invoke(hello);
@@ -644,18 +679,20 @@ namespace JoinFS.Tests.Net
                 Assert.Equal((byte)EnvelopeFlags.Internal, d.Data[2]);
                 HandshakeMessage message = HandshakeMessage.Deserialize(d.Data.AsSpan(Envelope.FixedSize));
                 bool fromHub = d.From.Equals(hub.EndPoint);
-                Assert.True(Assert.Single(message.Names).TryGetLegacy(out NodeId named));
+                NodeId named = Assert.Single(message.Names);
+                Assert.Equal(NodeId.LegacyKind, named.Kind);
                 Assert.Equal(fromHub ? hub.Id : a.Id, named);
                 string build = fromHub ? "26.6.0 JoinFS-FS2024" : "26.6.0 JoinFS-CONSOLE";
                 Assert.Equal(build, message.Build);
                 bool ack = d.Data[7] == MessageClasses.HelloAck;
                 Assert.Equal(ack ? d.To : null, message.ObservedEndPoint); // where the Hello came from
                 byte[] observed = ack ? [3, 0, 7, 0, .. WireEndPoint.ToBytes(d.To)] : [];
-                Assert.True(d.Data.AsSpan().EndsWith([.. Encoding.ASCII.GetBytes(build), .. observed])); // the last extensions, as sent
+                byte[] candidates = message.Candidates is { Count: > 0 } list ? [5, 0, .. BitConverter.GetBytes((ushort)HandshakeMessage.WriteCandidates(list).Length), .. HandshakeMessage.WriteCandidates(list)] : [];
+                Assert.True(d.Data.AsSpan().EndsWith([.. Encoding.ASCII.GetBytes(build), .. observed, .. candidates])); // the last extensions, as sent (the candidates of stage 7 after them)
             });
         }
 
-        // ------------------------------------------------ observed endpoint (docs/jfp2/protocol.md §5.4)
+        // ------------------------------------------------ observed endpoint (docs/network/jfp2/protocol.md §5.4)
 
         static List<(NodeId Reporter, IPEndPoint EndPoint)> Observations(TestNode node) =>
             node.Events.Where(e => e.Kind == NetworkEventKind.EndPointObserved).Select(e => (e.Node, e.EndPoint)).ToList();
@@ -692,7 +729,7 @@ namespace JoinFS.Tests.Net
 
             SendHelloAck(hub, a, HandshakeMessage.ResultAccepted, "spoof", from: spoofer, observed: Planted);
             SendHelloAck(hub, a, HandshakeMessage.ResultNotAdmitted, "spoof", from: spoofer, observed: Planted);
-            SendHelloAck(hub, a, HandshakeMessage.ResultAccepted, "stranger", names: [NodeName.FromLegacy(stranger.Id)], observed: Planted);
+            SendHelloAck(hub, a, HandshakeMessage.ResultAccepted, "stranger", names: [stranger.Id], observed: Planted);
             mesh.Run(0.1);
 
             Assert.Empty(Observations(a));
@@ -740,7 +777,7 @@ namespace JoinFS.Tests.Net
             {
                 ProtoMajorMin = 2, ProtoMajorMax = 2, Result = HandshakeMessage.ResultAccepted,
                 Offers = [.. Jfp2Profile.Default.Offers],
-                Names = [NodeName.FromLegacy(new NodeId(0xCB007101, 6112, 1))],
+                Names = [NodeId.FromLegacy(0xCB007101, 6112, 1)],
                 Build = new string('x', HandshakeMessage.BuildMaxBytes),
                 ObservedEndPoint = new IPEndPoint(IPAddress.Parse("2001:db8::1"), 65535),
             };
@@ -751,14 +788,14 @@ namespace JoinFS.Tests.Net
             Assert.True(size <= Envelope.MaxDatagramSize);
         }
 
-        // ------------------------------------------------ node names (docs/jfp2/protocol.md §4.3)
+        // ------------------------------------------------ node names (docs/network/jfp2/protocol.md §4.3)
 
         /// <summary>A name of kind 1 (a random key): a later build's, which this build cannot resolve.</summary>
-        static readonly NodeName KeyName = NodeName.ReadFrom(new byte[] { 1, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11 });
+        static readonly NodeId KeyName = NodeId.ReadFrom(new byte[] { 1, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11 });
 
         /// <summary>A hand-built Forwarded datagram from <paramref name="from"/> to its neighbor <paramref name="to"/>, in their session.</summary>
         static void SendForwarded(TestNode from, TestNode to, EnvelopeFlags flags, byte messageClass, ReadOnlySpan<byte> payload, ushort guaranteedId,
-            NodeName origin, NodeName target)
+            NodeId origin, NodeId target)
         {
             Assert.True(Jfp2Of(from).TryGetHopIds(to.Id, out ushort local, out ushort remote));
             bool guaranteed = (flags & EnvelopeFlags.Guaranteed) != 0;
@@ -784,9 +821,9 @@ namespace JoinFS.Tests.Net
             mesh.Network.Log.Clear();
             hub.Logs.Clear();
             // from an origin named by a key, for the hub
-            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 41, KeyName, NodeName.FromLegacy(hub.Id));
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 41, KeyName, hub.Id);
             // from a, for a node named by a key (the hub would relay it)
-            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 42, NodeName.FromLegacy(a.Id), KeyName);
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 42, a.Id, KeyName);
             mesh.Run(1);
 
             Assert.Empty(hub.Messages<EventUpdate>());
@@ -795,7 +832,7 @@ namespace JoinFS.Tests.Net
             Assert.DoesNotContain(hub.Logs, l => l.Contains("ERROR"));
 
             // the same datagram naming both by their legacy ids is delivered and acknowledged
-            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 43, NodeName.FromLegacy(a.Id), NodeName.FromLegacy(hub.Id));
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 43, a.Id, hub.Id);
             mesh.Run(1);
             var (meta, evt) = Assert.Single(hub.MessagesWithMeta<EventUpdate>());
             Assert.Equal(a.Id, meta.Sender);
@@ -816,7 +853,7 @@ namespace JoinFS.Tests.Net
 
             mesh.Network.Log.Clear();
             hub.Logs.Clear();
-            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 44, default, NodeName.FromLegacy(hub.Id));
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 44, default, hub.Id);
             mesh.Run(1);
 
             Assert.Empty(hub.Messages<EventUpdate>());
@@ -847,7 +884,7 @@ namespace JoinFS.Tests.Net
 
             mesh.Network.Log.Clear();
             hub.Logs.Clear();
-            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 45, KeyName, NodeName.FromLegacy(b.Id));
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 45, KeyName, b.Id);
             mesh.Run(1);
 
             Assert.Empty(b.Messages<EventUpdate>());
@@ -856,7 +893,7 @@ namespace JoinFS.Tests.Net
             Assert.DoesNotContain(mesh.Network.Log, d => d.From.Equals(hub.EndPoint) && IsGuaranteedDone(d.Data));
             Assert.Contains(hub.Logs, l => l.Contains("cannot resolve") && l.Contains("dropped"));
 
-            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 46, NodeName.FromLegacy(a.Id), NodeName.FromLegacy(b.Id));
+            SendForwarded(a, hub, EnvelopeFlags.Guaranteed, MessageClasses.Event, payload.AsSpan(0, n), 46, a.Id, b.Id);
             mesh.Run(1);
             var (meta, evt) = Assert.Single(b.MessagesWithMeta<EventUpdate>());
             Assert.Equal(a.Id, meta.Sender);
@@ -864,7 +901,7 @@ namespace JoinFS.Tests.Net
         }
 
         /// <summary>
-        /// A later build lists a key beside its legacy id (stage 11 of docs/jfp2/roadmap.md): this
+        /// A later build lists a key beside its legacy id (stage 11 of docs/network/jfp2/roadmap.md): this
         /// build skips the name it cannot resolve and binds the session by the legacy one. A Hello that
         /// names only a key is from no node this build can place, and is ignored.
         /// </summary>
@@ -877,7 +914,7 @@ namespace JoinFS.Tests.Net
             // the hand-made Hello offers Position only: the hub applying it to a's session shows it was bound to a
             mesh.Network.Log.Clear();
             hub.Logs.Clear();
-            SendHello(a, hub, 2, 2, hello => hello.Names = [KeyName, NodeName.FromLegacy(a.Id)]);
+            SendHello(a, hub, 2, 2, hello => hello.Names = [KeyName, a.Id]);
             mesh.Run(0.1);
 
             Assert.Equal(0, Assert.Single(HelloAcksTo(mesh, hub, a)).Result);
@@ -894,20 +931,20 @@ namespace JoinFS.Tests.Net
             Assert.Contains(hub.Logs, l => l.Contains("does not say who it is"));
         }
 
-        // ------------------------------------------------ handshake and envelope rules (docs/jfp2/protocol.md §7, §5.1)
+        // ------------------------------------------------ handshake and envelope rules (docs/network/jfp2/protocol.md §7, §5.1)
 
         /// <summary>
         /// A hand-made HelloAck in the hub's session with a, as a later build might send it: from the hub
         /// naming itself, unless another sender (a spoofer, with the ids guessed) or other names are given.
         /// </summary>
-        static void SendHelloAck(TestNode hub, TestNode a, byte result, string build, TestNode? from = null, List<NodeName>? names = null,
+        static void SendHelloAck(TestNode hub, TestNode a, byte result, string build, TestNode? from = null, List<NodeId>? names = null,
             IPEndPoint? observed = null)
         {
             Assert.True(Jfp2Of(hub).TryGetHopIds(a.Id, out ushort hubId, out ushort aId));
             var ack = new HandshakeMessage
             {
                 ProtoMajorMin = Envelope.ProtoMajor, ProtoMajorMax = Envelope.ProtoMajor, SelfAssignedId = hubId, Result = result,
-                Names = names ?? [NodeName.FromLegacy(hub.Id)], Build = build, ObservedEndPoint = observed,
+                Names = names ?? [hub.Id], Build = build, ObservedEndPoint = observed,
             };
             byte[] payload = ack.Serialize();
             var envelope = new Envelope(EnvelopeFlags.Internal, hubId, aId, MessageClasses.HelloAck);
@@ -930,7 +967,7 @@ namespace JoinFS.Tests.Net
 
             a.Logs.Clear();
             SendHelloAck(hub, a, HandshakeMessage.ResultNotAdmitted, "spoof", from: spoofer);
-            SendHelloAck(hub, a, HandshakeMessage.ResultNotAdmitted, "other", names: [NodeName.FromLegacy(other.Id)]);
+            SendHelloAck(hub, a, HandshakeMessage.ResultNotAdmitted, "other", names: [other.Id]);
             SendHelloAck(hub, a, HandshakeMessage.ResultNotAdmitted, "none", names: []);
             mesh.Run(0.1);
 
@@ -995,7 +1032,7 @@ namespace JoinFS.Tests.Net
             byte[] hello = new HandshakeMessage
             {
                 ProtoMajorMin = Envelope.ProtoMajor, ProtoMajorMax = Envelope.ProtoMajor, SelfAssignedId = aId,
-                Names = [NodeName.FromLegacy(a.Id)],
+                Names = [a.Id],
                 Offers = [new SchemaOffer(false, MessageClasses.Notes, 1, 1), new SchemaOffer(false, MessageClasses.Position, 1, 1)],
             }.Serialize();
             hello[15] = 2; // the first offer's partition byte, after the 15 bytes of fixed fields
@@ -1043,7 +1080,7 @@ namespace JoinFS.Tests.Net
         /// was never delivered as delivered (§4.4). Count 1 is the control.
         /// </summary>
         [Fact]
-        public void GuaranteedSegmentOfSeveral_IsDroppedWithoutAck()
+        public void GuaranteedSegmentOfSeveral_OfAClassThatIsNotSegmented_IsDroppedWithoutAck()
         {
             var (mesh, hub, a) = TwoNegotiated();
             Assert.True(Jfp2Of(a).TryGetHopIds(hub.Id, out ushort local, out ushort remote));
@@ -1063,7 +1100,7 @@ namespace JoinFS.Tests.Net
             mesh.Run(1);
             Assert.Empty(hub.Messages<EventUpdate>());
             Assert.DoesNotContain(mesh.Network.Log, d => d.From.Equals(hub.EndPoint) && IsGuaranteedDone(d.Data));
-            Assert.Contains(hub.Logs, l => l.Contains("dropped segment 0/2"));
+            Assert.Contains(hub.Logs, l => l.Contains("segment 0/2") && l.Contains("never agreed"));
 
             Send(62, 1);
             mesh.Run(1);
@@ -1221,7 +1258,7 @@ namespace JoinFS.Tests.Net
             {
                 var flags = EnvelopeFlags.Forwarded | (guaranteed ? EnvelopeFlags.Guaranteed : 0);
                 var envelope = new Envelope(flags, hopLocal, hopRemote, messageClass, id, 0, (byte)(guaranteed ? 1 : 0),
-                    NodeName.FromLegacy(A.Id), NodeName.FromLegacy(B.Id));
+                    A.Id, B.Id);
                 byte[] data = new byte[envelope.WireSize + payload.Length];
                 int header = envelope.WriteTo(data);
                 payload.CopyTo(data.AsSpan(header));

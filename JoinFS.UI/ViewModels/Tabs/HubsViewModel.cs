@@ -41,7 +41,7 @@ public sealed partial class HubRowViewModel : ObservableObject
     public bool IsOnline => Hub.Status == HubStatus.Online;
     public bool IsGlobal => Hub.Status == HubStatus.Global;
     public bool IsPassword => Hub.Status == HubStatus.Password;
-    public bool IsOffline => Hub.Status == HubStatus.Offline;
+    public bool IsOffline => Hub.Status is HubStatus.Offline or HubStatus.Unreachable;
 
     /// <summary>False for an offline hub, and for this node's own hub (in hub mode), which has no address to join.</summary>
     public bool CanJoin => Hub.CanJoin;

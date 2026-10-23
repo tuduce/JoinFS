@@ -10,7 +10,7 @@ namespace JoinFS.Tests
     {
         static Sim.Plane LivePlane()
         {
-            var plane = new Sim.Plane(new NodeId(0x0A000001, 6112, 1), 7);
+            var plane = new Sim.Plane(NodeId.FromLegacy(0x0A000001, 6112, 1), 7);
             plane.flightPlan.callsign = "DLH1";
             plane.simPosition.geo.y = 1000;
             plane.netPosition.geo.y = 2000;

@@ -16,11 +16,11 @@ namespace JoinFS.Tests.Legacy
     /// </summary>
     public class LegacyPluginGoldenTests
     {
-        static readonly NodeId Self = new(0xCB007101u, 6112, 42);
-        static readonly NodeId Peer = new(0xC6336402u, 6113, 7);
-        static readonly NodeId Other = new(0xC0000299u, 6200, 9);
+        static readonly NodeId Self = NodeId.FromLegacy(0xCB007101u, 6112, 42);
+        static readonly NodeId Peer = NodeId.FromLegacy(0xC6336402u, 6113, 7);
+        static readonly NodeId Other = NodeId.FromLegacy(0xC0000299u, 6200, 9);
         static readonly IPEndPoint Capture = new(IPAddress.Loopback, 46112);
-        static readonly NodeId Loopback = new(IPAddress.Loopback, 46112, 1);
+        static readonly NodeId Loopback = NodeId.FromLegacy(IPAddress.Loopback, 46112, 1);
         static readonly IPEndPoint NodeEndPoint = new(IPAddress.Loopback, 50000);
         static readonly Guid MainGuid = new("0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0");
         const uint Suid = 0x0BADF00D;
@@ -355,7 +355,7 @@ namespace JoinFS.Tests.Legacy
         {
             var s = new Stack();
             var m = new HubList { Hubs = [] };
-            for (int i = 0; i < 26; i++) m.Hubs.Add(new HubAddress { Node = new NodeId(0x0A000000u + (uint)i, (ushort)(6112 + i), (byte)i), Port = (ushort)(6112 + i) });
+            for (int i = 0; i < 26; i++) m.Hubs.Add(new HubAddress { Node = NodeId.FromLegacy(0x0A000000u + (uint)i, (ushort)(6112 + i), (byte)i), Port = (ushort)(6112 + i) });
             s.Core.SendToEndPoint(Capture, m, false);
             AssertMatches("app_hub_list_chunked", s.Drain());
         }

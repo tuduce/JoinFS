@@ -19,12 +19,12 @@ namespace JoinFS.Net
     ///
     /// Protocol-neutral: it sends and receives canonical mesh messages through the core's router,
     /// so which wire carries them is a plugin decision (today only the legacy plugin does; see
-    /// docs/network-plugin-architecture.md §2.4 for what a JFP2 mesh would add). The rules and
+    /// docs/network/network-plugin-architecture.md §2.4 for what a JFP2 mesh would add). The rules and
     /// timings are a faithful port of LocalNode's, because released v26.5 peers depend on them.
     ///
     /// Network thread only.
     /// </summary>
-    public sealed class MeshManager : IMessageHandler
+    public sealed partial class MeshManager : IMessageHandler, IMembership
     {
         public const int ExpireTime = 30;
         public const int MaxNodesPerDevice = 32;
@@ -150,6 +150,10 @@ namespace JoinFS.Net
                 return;
             }
             core.Broadcast(new Leave { Suid = suid }, guaranteed: false);
+            foreach (IProtocolPlugin plugin in core.Plugins)
+            {
+                (plugin as IMembershipExpression)?.AnnounceLeaving();
+            }
             // every plugin forgets its per-session state (the legacy LocalNode only cleared its own
             // guaranteed lists here, leaking JFP2 sessions and relay slots into the next session)
             core.ResetSession();
@@ -225,6 +229,10 @@ namespace JoinFS.Net
                         peer.RouteVia = default;
                         peer.InvalidateRoutes();
                     }
+                }
+                if (!gone.LegacyLink)
+                {
+                    TellLegacyLeft(gone);
                 }
                 core.RemovePeer(gone);
             }
@@ -328,7 +336,8 @@ namespace JoinFS.Net
                 {
                     if (!peer.ReceiveEstablished) firstContact = true;
                     peer.ReceiveEstablished = true;
-                    if (direct)
+                    // a member with no legacy link is where JFP2 says it is: the route a legacy datagram was heard on (a relay's) is not its address
+                    if (direct && peer.LegacyLink)
                     {
                         // mutates the shared IPEndPoint instance, exactly like LocalNode (the route
                         // endpoint is the same object until a relay is chosen)
@@ -340,8 +349,13 @@ namespace JoinFS.Net
             }
             else
             {
+                if (!id.TryGetLegacy(out LegacyNodeId legacyId))
+                {
+                    // the mesh is legacy's: it reaches a node by its legacy id, so a node without one is not added here
+                    return;
+                }
                 if (receive) firstContact = true;
-                IPEndPoint endPoint = core.Identity.MakeEndPoint(id, port);
+                IPEndPoint endPoint = core.Identity.MakeEndPoint(legacyId, port);
                 // MakeEndPoint guesses a LAN address for any peer behind our public IP; a datagram that
                 // reached us directly tells the real one (strangers behind one CGNAT address)
                 if (receive && direct && heardFrom != null)
@@ -357,6 +371,10 @@ namespace JoinFS.Net
             {
                 core.RaisePeerJoined(id, peer.EndPoint);
                 core.Broadcast(new AddNode { Suid = suid, Node = new KnownNode { Node = id, Port = (ushort)peer.EndPoint.Port } }, guaranteed: true);
+                foreach (IProtocolPlugin plugin in core.Plugins)
+                {
+                    (plugin as IMembershipExpression)?.AnnounceJoined(peer);
+                }
             }
         }
 
@@ -377,7 +395,7 @@ namespace JoinFS.Net
             {
                 if (other.ReceiveEstablished)
                 {
-                    nodes.Add(new KnownNode { Node = other.Id, Port = (ushort)other.EndPoint.Port });
+                    nodes.Add(new KnownNode { Node = other.Id, Port = LegacyPort(other) });
                 }
             }
             return nodes;

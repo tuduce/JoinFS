@@ -5,7 +5,7 @@ using System.Net;
 namespace JoinFS.Net.Jfp2
 {
     // Next hop: which neighbor carries a peer's traffic; and the relay of Forwarded envelopes
-    // for another node (docs/jfp2/protocol.md §3.5, §9.3, §8).
+    // for another node (docs/network/jfp2/protocol.md §3.5, §9.3, §8).
     public sealed partial class Jfp2Plugin
     {
         // ================================================================== next hop

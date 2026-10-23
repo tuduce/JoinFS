@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Text;
 using System.Net;
@@ -97,10 +98,12 @@ namespace JoinFS
                     writer.Write(guid.ToByteArray(), 0, 16);
                 }
 
+                // the file holds IPv4 addresses (4 bytes each): an IPv6 address would be written as the wrong IPv4 one, so it is left out
+                var addresses = addressList.Keys.Where(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork).ToList();
                 // write length
-                writer.Write((ushort)addressList.Count);
+                writer.Write((ushort)addresses.Count);
                 // for each address
-                foreach (var address in addressList.Keys)
+                foreach (var address in addresses)
                 {
                     // write address
                     writer.Write(address.GetAddressBytes(), 0, 4);
@@ -695,10 +698,12 @@ namespace JoinFS
             /// <param name="writer">Writer</param>
             public void Write(BinaryWriter writer)
             {
+                // the file holds IPv4 addresses (4 bytes each): a password remembered for an IPv6 address is left out
+                var passwords = passwordList.Where(p => p.Key.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork).ToList();
                 // write list length
-                writer.Write((ushort)passwordList.Count);
+                writer.Write((ushort)passwords.Count);
                 // for each password
-                foreach (var password in passwordList)
+                foreach (var password in passwords)
                 {
                     // write address
                     writer.Write(password.Key.Address.GetAddressBytes(), 0, 4);

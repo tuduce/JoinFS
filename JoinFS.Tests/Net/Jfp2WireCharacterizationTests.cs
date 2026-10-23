@@ -46,7 +46,7 @@ namespace JoinFS.Tests.Net
                 .Select(d => Describe(d.Data)).ToList();
 
         [Fact]
-        public void DefaultPlugin_HelloIsUnchanged()
+        public void DefaultPlugin_HelloOffersTheApplicationClassesOf26_6_AndTheMembershipClasses()
         {
             var (mesh, hub, a) = Pair();
 
@@ -54,12 +54,19 @@ namespace JoinFS.Tests.Net
                 && (d.Data[2] & (byte)EnvelopeFlags.Internal) != 0 && d.Data[7] == MessageClasses.Hello).Take(1).Select(d => Describe(d.Data)));
             Assert.Equal(
                 "08 00 " +                                         // Internal, class Hello
-                "0202" + "0000000000000000" + "0000" + "00" +      // ProtoMajor 2..2, no capabilities, SelfAssignedId (zeroed), Result
-                "0A00" +                                           // ten offers, application classes at [1, 1], in this order:
+                "0202" + "0100000000000000" + "0000" + "00" +      // ProtoMajor 2..2, the Segments capability (stage 10), SelfAssignedId (zeroed), Result
+                "1E00" +                                           // thirty offers, application classes at [1, 1], in this order:
                 "00070101" + "00080101" + "00010101" + "00020101" + "00000101" + // Status, StatusRequest, Identity, VariableSync, Position
                 "00030101" + "00040101" + "00050101" + "00060101" + "00090101" + // Event, FlightPlan, Notes, Weather, WeatherReply
+                "000A0101" + "000B0101" + "000C0101" + "000D0101" +              // the directory of stage 9: HubList, UserListRequest, HubUser, UserPositionsRequest,
+                "000E0101" + "000F0101" + "00100101" + "00110101" +              // UserPositions, Online, UserLookup, UserLookupAnswer
+                "00120101" + "00130101" + "00140101" + "00150101" + "00160101" + // stage 10: ObjectPosition, RemoveObject, PeerInfo, CommsRequest, NotesHistory
+                "01020101" + "01030102" + "01040102" +             // internal classes (partition 1) of stage 4: Join, JoinResult (versions 1 and 2 since stage 8), MemberList (versions 1 and 2 since stage 7)
+                "01050102" + "01060101" +                          // and of stage 5: MemberAnnounce (versions 1 and 2), MemberLeave
+                "01070101" + "01080101" +                          // and of stage 6: RouteQuery, RouteAnswer
                 "0100080000017100CBE01701" +                       // TLV Names: one name, kind 0, legacy id 203.0.113.1, port 6112, local 1
-                "02001400" + "32362E362E30204A6F696E46532D465332303234", // TLV Build: "26.6.0 JoinFS-FS2024"
+                "02001400" + "32362E362E30204A6F696E46532D465332303234" + // TLV Build: "26.6.0 JoinFS-FS2024"
+                "05000800" + "0704CB007101E017",                 // TLV Candidates (stage 7): the node's one endpoint, 203.0.113.1:6112
                 hello);
         }
 

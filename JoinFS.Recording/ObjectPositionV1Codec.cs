@@ -2,7 +2,7 @@ using System;
 using System.Buffers.Binary;
 using JoinFS.Net;
 
-// The body of an object-position record, version 1 (docs/jfs2/format-spec.md section 7.2): 89 bytes. It is private to the
+// The body of an object-position record, version 1 (docs/recording/jfs2/format-spec.md section 7.2): 89 bytes. It is private to the
 // recorder (spec Appendix C item 6): JFP2 has no message class for it, so the codec lives here and not in JoinFS.Messages.
 // No build symbols (spec 10.8).
 

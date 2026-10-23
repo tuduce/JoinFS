@@ -208,7 +208,7 @@ namespace JoinFS.Tests.Net
         public void RelayBudget_IsTheConfiguredOne()
         {
             var (_, hub, _, _) = Session();
-            NodeId[] strangers = [.. Enumerable.Range(1, 4).Select(i => new NodeId(0x0A000000u + (uint)i, 6112, 1))];
+            NodeId[] strangers = [.. Enumerable.Range(1, 4).Select(i => NodeId.FromLegacy(0x0A000000u + (uint)i, 6112, 1))];
             Assert.Equal(MeshManager.DefaultRelayBudget, hub.Core.Mesh.RelayBudget);
 
             hub.Core.Mesh.RelayBudget = 2;

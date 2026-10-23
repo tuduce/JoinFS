@@ -12,8 +12,8 @@ namespace JoinFS.Tests.Session
     /// </summary>
     public class SimIngestTests
     {
-        static readonly NodeId Peer = new(0x0A000001, 6112, 1);
-        static readonly NodeId Other = new(0x0A000002, 6112, 2);
+        static readonly NodeId Peer = NodeId.FromLegacy(0x0A000001, 6112, 1);
+        static readonly NodeId Other = NodeId.FromLegacy(0x0A000002, 6112, 2);
 
         static IdentityUpdate Identity(uint id, string model = "C172", string callsign = "N1") => new()
         {
@@ -27,7 +27,7 @@ namespace JoinFS.Tests.Session
         static SessionRig WithPeer(string nickname = "Bob")
         {
             var rig = new SessionRig();
-            rig.Peers.OnPeerJoined(Peer, Peer.ToEndPoint(Peer.port));
+            rig.Peers.OnPeerJoined(Peer, Peer.ToEndPoint());
             rig.Peers.Handle(SessionRig.From(Peer), new PeerInfo { Nickname = nickname, AtcAirport = "", Version = "", Simulator = "" });
             return rig;
         }
@@ -170,7 +170,7 @@ namespace JoinFS.Tests.Session
         public void PeerLeft_ForgetsOnlyThatNodesIdentitiesAndRemovesItsObjects()
         {
             var rig = WithPeer();
-            rig.Peers.OnPeerJoined(Other, Other.ToEndPoint(Other.port));
+            rig.Peers.OnPeerJoined(Other, Other.ToEndPoint());
             rig.Ingest.Handle(SessionRig.From(Peer), Identity(1));
             rig.Ingest.Handle(SessionRig.From(Peer), Identity(2));
             rig.Ingest.Handle(SessionRig.From(Other), Identity(1));

@@ -4,7 +4,7 @@ using RecordingXRay.Services;
 
 namespace RecordingXRay.Tests;
 
-/// <summary>The viewer opens .jfs2 files (docs/jfs2) into the model it uses for .jfs files.</summary>
+/// <summary>The viewer opens .jfs2 files (docs/recording/jfs2) into the model it uses for .jfs files.</summary>
 public sealed class Jfs2ReaderTests : IDisposable
 {
     private readonly string folder = Directory.CreateTempSubdirectory("xray-jfs2-").FullName;

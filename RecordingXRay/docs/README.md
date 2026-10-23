@@ -64,7 +64,7 @@ frame browser, map, inspector and a multi-track timeline.
   `AircraftPosition`, `SimEvent`, `IntegerVariables`, `FloatVariables`, `String8Variables`.
 - `VariableLookup.cs` maps variable ids (uint) to names.
 - `Form1.cs` has `FormatFrame` (the existing text dump, reuse it for the "Raw" view) and `TypeRoleToText`.
-- The format is documented in `docs/recording-protocol.md`.
+- The format is documented in `docs/recording/jfs-format.md`.
 
 ## 2. Project setup
 
@@ -150,7 +150,7 @@ frame browser 400 | map (fills, min 400) | inspector 440 (min 360).
   - Latitude, longitude, pitch, bank and heading are **radians** in the recording (the sim definitions use radians);
     show degrees beside the raw value: latitude/longitude 4 decimals, pitch/bank 2, heading 2.
   - Controls: Rudder, Elevator, Aileron are centred bars, Brake left / right fill from the left. The recording stores
-    fixed-point `int16` where `value = raw / 16384` (see `docs/recording-protocol.md` 4.2), so scale bars with
+    fixed-point `int16` where `value = raw / 16384` (see `docs/recording/jfs-format.md` 4.2), so scale bars with
     `raw / 16384`, ±1. (The mock-up assumed 16383; use 16384.) Show the raw integer at the right.
 - `ObjectPosition`: same as above without Controls; show `Height` instead of `Elevation`.
 - `SimEvent`: two rows, `EventId` and `Data`.
@@ -267,7 +267,7 @@ void SelectAircraft(Lane lane)        // map marker, timeline track, keyboard Up
   aircraft positions, all trails, the lane extents of other aircraft and the mid-flight coordinates in the mock-up are
   illustrative. Implement from the real frames.
 - The lane texture in the mock-up is illustrative; the real one is the density histogram described in 5.4.
-- Check `RecordingReader` against files from build 21008 or newer: `docs/recording-protocol.md` 4.2 says
+- Check `RecordingReader` against files from build 21008 or newer: `docs/recording/jfs-format.md` 4.2 says
   `AircraftPositionFrame` gains a trailing `StaticCgToGround` float at version 21008+, and the current reader does not
   read it. The sample file is version 21005, so it parses fine, but newer files may mis-parse. Fix separately from this
   UI work, and expose `StaticCgToGround` in the inspector once the reader reads it.

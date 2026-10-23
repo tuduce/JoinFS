@@ -13,7 +13,7 @@ namespace JoinFS.Tests
 
         static Sim.Obj FailedObject(int failedCount)
         {
-            return new Sim.Plane(new NodeId(0x0A000001, 6112, 1), 1)
+            return new Sim.Plane(NodeId.FromLegacy(0x0A000001, 6112, 1), 1)
             {
                 failed = true,
                 failedTime = FailedAt,
@@ -24,7 +24,7 @@ namespace JoinFS.Tests
         [Fact]
         public void ObjectThatNeverFailed_IsEligible()
         {
-            var obj = new Sim.Plane(new NodeId(0x0A000001, 6112, 1), 1);
+            var obj = new Sim.Plane(NodeId.FromLegacy(0x0A000001, 6112, 1), 1);
             Assert.True(Sim.InjectionRetryEligible(obj, FailedAt, RetrySeconds));
         }
 

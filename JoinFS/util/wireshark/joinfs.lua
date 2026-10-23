@@ -3,9 +3,9 @@
 -- Decodes both wire formats JoinFS speaks on one UDP socket:
 --   * Legacy protocol: every datagram starts with the 16-bit constant 0x520B
 --     (LocalNode.VERSION), written little-endian, so byte 0 on the wire is
---     0x0B. See docs/network-protocol.md.
+--     0x0B. See docs/network/network-protocol.md.
 --   * JFP2: every datagram starts with the magic byte 0xFA
---     (JoinFS.Jfp2.Envelope.Magic). See docs/jfp2/protocol.md.
+--     (JoinFS.Jfp2.Envelope.Magic). See docs/network/jfp2/protocol.md.
 --
 -- Install: copy this file into your Wireshark "Personal Lua Plugins" folder
 -- (Help > About Wireshark > Folders > Personal Lua Plugins), or run Wireshark/
@@ -17,7 +17,7 @@
 -- (P2P peers, or a hub configured on a different port).
 --
 -- CAVEAT: JFP2's per-(peer, message class) schema version is negotiated at
--- Hello/HelloAck time (docs/jfp2/protocol.md §5) and is NOT carried on
+-- Hello/HelloAck time (docs/network/jfp2/protocol.md §5) and is NOT carried on
 -- every application datagram - a dissector reading packets in isolation has
 -- no reliable way to know which schema version a given peer pair agreed on.
 -- As of this writing every JFP2 message class in the codebase
@@ -151,9 +151,16 @@ local LEGACY_APP_MSG = {
     [39] = "String8Variables", [40] = "ShowOnRadar",
 }
 
--- JoinFS.Jfp2.MessageClasses - Internal partition (2-8 unassigned)
+-- JoinFS.Jfp2.MessageClasses - Internal partition
 local JFP2_INTERNAL_CLASS = {
-    [0] = "Hello", [1] = "HelloAck", [9] = "GuaranteedDone",
+    [0] = "Hello", [1] = "HelloAck", [2] = "Join", [3] = "JoinResult", [4] = "MemberList",
+    [5] = "MemberAnnounce", [6] = "MemberLeave", [7] = "RouteQuery", [8] = "RouteAnswer",
+    [9] = "GuaranteedDone",
+}
+
+-- JoinResult.Result (docs/network/jfp2/protocol.md §5.10); any other value is a refusal
+local JFP2_JOIN_RESULT = {
+    [0] = "Accepted", [1] = "PasswordRequired", [2] = "LoginRequired",
 }
 
 -- JoinFS.Jfp2.MessageClasses - Application partition
@@ -161,24 +168,30 @@ local JFP2_APP_CLASS = {
     [0] = "Position", [1] = "Identity", [2] = "VariableSync", [3] = "Event",
     [4] = "FlightPlan", [5] = "Notes", [6] = "Weather", [7] = "Status",
     [8] = "StatusRequest", [9] = "WeatherReply",
+    -- the directory (edition 2, §5.16)
+    [10] = "HubList", [11] = "UserListRequest", [12] = "HubUser", [13] = "UserPositionsRequest",
+    [14] = "UserPositions", [15] = "Online", [16] = "UserLookup", [17] = "UserLookupAnswer",
+    -- the kinds legacy alone carried, and the notes history in segments (edition 2, §9.4, §9.8)
+    [18] = "ObjectPosition", [19] = "RemoveObject", [20] = "PeerInfo", [21] = "CommsRequest", [22] = "NotesHistory",
 }
 
--- Capability bits (docs/jfp2/protocol.md §5.6): none assigned yet
+-- Capability bits (docs/network/jfp2/protocol.md §5.6)
 local JFP2_CAPABILITY_BITS = {
+    [0] = "Segments",
 }
 
--- HelloAck Result values (docs/jfp2/protocol.md §5.2); any other
+-- HelloAck Result values (docs/network/jfp2/protocol.md §5.2); any other
 -- value is unassigned, and every value but 0 means "no session now"
 local JFP2_RESULT = {
-    [0] = "Accepted", [1] = "NoCompatibleProtoMajor", [2] = "NotAdmitted",
+    [0] = "Accepted", [1] = "NoCompatibleProtoMajor", [2] = "NotAdmitted (a stranger's challenge: a cookie follows, protocol.md §5.9)",
 }
 
--- JoinFS.Jfp2.HandshakeMessage extension tags (docs/jfp2/protocol.md §5.4)
+-- JoinFS.Jfp2.HandshakeMessage extension tags (docs/network/jfp2/protocol.md §5.4)
 local JFP2_TLV_TAG = {
-    [1] = "Names", [2] = "Build", [3] = "ObservedEndPoint",
+    [1] = "Names", [2] = "Build", [3] = "ObservedEndPoint", [4] = "Admission", [5] = "Candidates",
 }
 
--- JoinFS.Net.Jfp2.WireEndPoint (docs/jfp2/protocol.md §4.4): family u8 (4 IPv4, 6 IPv6),
+-- JoinFS.Net.Jfp2.WireEndPoint (docs/network/jfp2/protocol.md §4.4): family u8 (4 IPv4, 6 IPv6),
 -- the address in network byte order, the port u16 little-endian; 7 or 19 bytes. Returns the text,
 -- or nil for an unassigned family or a value shorter than its family needs (a receiver ignores
 -- both). Bytes after the endpoint are not read (a later build may extend the value).
@@ -197,7 +210,7 @@ local function jfp2_wire_endpoint_string(buffer, offset, len)
     return nil
 end
 
--- JoinFS.Net.Jfp2.NodeName kinds (docs/jfp2/protocol.md §4.3)
+-- JoinFS.Net.Jfp2.NodeName kinds (docs/network/jfp2/protocol.md §4.3)
 local JFP2_NAME_KIND = {
     [0] = "legacy id", [1] = "random key", [2] = "key-pair id", [255] = "group name",
 }
@@ -223,7 +236,7 @@ local function add_jfp2_name(tree, buffer, offset, label)
 end
 
 ----------------------------------------------------------------------
--- Legacy payload decoders (docs/network-protocol.md §8)
+-- Legacy payload decoders (docs/network/network-protocol.md §9)
 ----------------------------------------------------------------------
 
 local function decode_legacy_internal(tree, buffer, offset, msgId)
@@ -332,7 +345,7 @@ local function decode_legacy_position(tree, buffer, offset, isAircraft)
         (testbit(groundFlags, 0) and " (OnGround)" or "") ..
         (testbit(groundFlags, 1) and " (ElevationCorrection)" or "")); offset = offset + 1
     -- Trailing fields added over time; legacy readers EOF-sense these (see
-    -- network-protocol.md §5). Order and presence per-field verified against
+    -- network-protocol.md §3.5). Order and presence per-field verified against
     -- Network.cs's WriteObjectPositionVelocityMessage/WriteAircraftPositionMessage
     -- (NOT the network-protocol.md table, whose row order doesn't match the
     -- actual wire order for StaticCgToGround - it's written LAST, after
@@ -488,7 +501,7 @@ local function decode_legacy_application(tree, buffer, offset, msgId)
 end
 
 ----------------------------------------------------------------------
--- Legacy dissector: 21-byte transport header (network-protocol.md §2),
+-- Legacy dissector: 21-byte transport header (network-protocol.md §3.1),
 -- then either an internal message (no DataVersion) or an application
 -- message (DataVersion + MessageId, §5) per FLAG_INTERNAL.
 ----------------------------------------------------------------------
@@ -541,7 +554,7 @@ local function dissect_legacy(buffer, pinfo, tree)
 end
 
 ----------------------------------------------------------------------
--- JFP2 payload decoders (docs/jfp2/protocol.md §9, JoinFS/Jfp2/*)
+-- JFP2 payload decoders (docs/network/jfp2/protocol.md §9, JoinFS/Jfp2/*)
 ----------------------------------------------------------------------
 
 local function decode_jfp2_handshake(tree, buffer, offset, isAck)
@@ -610,6 +623,30 @@ local function decode_jfp2_handshake(tree, buffer, offset, isAck)
                 end
             elseif tagName == "Build" and tlvLen > 0 then
                 item:add(buffer(offset + 4, tlvLen), "Build: " .. buffer(offset + 4, tlvLen):string(ENC_UTF_8))
+            elseif tagName == "Admission" then
+                -- docs/network/jfp2/protocol.md §5.9: empty in a Hello asks for admission, 16 bytes is a cookie
+                if tlvLen == 0 then
+                    item:add(buffer(offset + 4, 0), "Admission: empty (a stranger asks to be admitted)")
+                elseif tlvLen >= 16 then
+                    item:add(buffer(offset + 4, 16), "Admission cookie: " .. tostring(buffer(offset + 4, 16):bytes()) ..
+                        (tlvLen > 16 and " (the rest is skipped)" or "") ..
+                        (isAck and (result == 2 and " (the challenge)" or "") or " (echoed)"))
+                else
+                    item:add(buffer(offset + 4, tlvLen), "Admission: " .. tlvLen .. " bytes, too short (ignored)")
+                end
+            elseif tagName == "Candidates" then
+                -- docs/network/jfp2/protocol.md §5.14: entries, each a length byte and a WireEndPoint; at most 8 are read
+                local at = offset + 4
+                local stop = offset + 4 + tlvLen
+                local n = 0
+                while at < stop and n < 8 do
+                    local l = buffer(at, 1):uint()
+                    if at + 1 + l > stop then break end
+                    n = n + 1
+                    local text = jfp2_wire_endpoint_string(buffer, at + 1, l)
+                    item:add(buffer(at, 1 + l), "Candidate " .. n .. ": " .. (text or "unassigned family or too short (skipped)"))
+                    at = at + 1 + l
+                end
             elseif tagName == "ObservedEndPoint" and tlvLen > 0 then
                 -- the UDP source of the Hello this HelloAck answers, as the responder received it
                 local text = jfp2_wire_endpoint_string(buffer, offset + 4, tlvLen)
@@ -722,6 +759,88 @@ local function decode_jfp2_notes_v1(tree, buffer, offset)
     s, offset = read_jfp2_string(buffer, offset); tree:add(buffer(),"Text: " .. s)
 end
 
+-- ObjectPosition (application class 18, §9.4): a Position without the controls and the ground fields, 89 bytes
+local function decode_jfp2_object_position_v1(tree, buffer, offset)
+    if buffer:len() < offset + 89 then return end
+    tree:add(buffer(offset, 4), "ObjectId: " .. buffer(offset, 4):le_uint()); offset = offset + 4
+    tree:add(buffer(offset, 8), "NetTime: " .. buffer(offset, 8):le_float()); offset = offset + 8
+    tree:add(buffer(offset, 8), "Latitude: " .. buffer(offset, 8):le_float()); offset = offset + 8
+    tree:add(buffer(offset, 8), "Longitude: " .. buffer(offset, 8):le_float()); offset = offset + 8
+    tree:add(buffer(offset, 8), "Altitude: " .. buffer(offset, 8):le_float()); offset = offset + 8
+    local floats = { "Pitch", "Bank", "Heading", "VelocityX", "VelocityY", "VelocityZ",
+        "AngularVelocityX", "AngularVelocityY", "AngularVelocityZ",
+        "AccelerationX", "AccelerationY", "AccelerationZ", "Height" }
+    for _, label in ipairs(floats) do
+        tree:add(buffer(offset, 4), label .. ": " .. buffer(offset, 4):le_float()); offset = offset + 4
+    end
+    local stateFlags = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "StateFlags: 0x" .. string.format("%02x", stateFlags) ..
+        (testbit(stateFlags, 0) and " (OnGround)" or "") ..
+        (testbit(stateFlags, 1) and " (ElevationCorrection)" or "") ..
+        (testbit(stateFlags, 3) and " (Paused)" or ""))
+end
+
+-- PeerInfo (application class 20, §9.4)
+local function decode_jfp2_peer_info_v1(tree, buffer, offset)
+    if buffer:len() < offset + 22 then return end
+    local share = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Share: 0x" .. string.format("%02x", share) ..
+        (testbit(share, 0) and " (Cockpit)" or "") ..
+        (testbit(share, 1) and " (FlightControls)" or "") ..
+        (testbit(share, 2) and " (AncillaryControls)" or "") ..
+        (testbit(share, 3) and " (NavControls)" or "")); offset = offset + 1
+    local flags = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Flags: 0x" .. string.format("%02x", flags) ..
+        (testbit(flags, 0) and " (Hub)" or "") ..
+        (testbit(flags, 1) and " (Atc)" or "") ..
+        (testbit(flags, 2) and " (SimulatorConnected)" or "")); offset = offset + 1
+    tree:add(buffer(offset, 16), "Guid: " .. buffer(offset, 16):bytes():tohex()); offset = offset + 16
+    tree:add(buffer(offset, 1), "AtcLevel: " .. buffer(offset, 1):uint()); offset = offset + 1
+    tree:add(buffer(offset, 2), "AtcFrequency: " .. buffer(offset, 2):le_int()); offset = offset + 2
+    tree:add(buffer(offset, 1), "ActivityCircle: " .. buffer(offset, 1):uint()); offset = offset + 1
+    for _, label in ipairs({ "Nickname", "AtcAirport", "Version", "Simulator" }) do
+        local s; s, offset = read_jfp2_string(buffer, offset)
+        tree:add(buffer(), label .. ": " .. s)
+    end
+end
+
+-- NotesHistory (application class 22, §9.8): Scope u8, UserCount u16, then per user Guid, Nickname, Callsign, NoteCount u16 and
+-- per note NoteId u32, Age f32, Channel u16, Text. Larger than a datagram, so it travels in segments (§7.5): only a message
+-- of one segment, or the first segment of several, starts at the Scope; a later segment is a piece of the middle and shows as bytes.
+local function decode_jfp2_notes_history_v1(tree, buffer, offset, segmentIndex, segmentCount)
+    if segmentIndex > 0 then
+        tree:add(buffer(offset, buffer:len() - offset), "Segment " .. (segmentIndex + 1) .. " of " .. segmentCount ..
+            " (" .. (buffer:len() - offset) .. " bytes of the middle of the message, not decoded)")
+        return
+    end
+    if segmentCount > 1 then
+        tree:add(buffer(offset, 0), "Segment 1 of " .. segmentCount .. ": the users and notes beyond this datagram follow in the others")
+    end
+    if buffer:len() < offset + 3 then return end
+    local scope = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Scope: " .. scope .. " (" .. (({ [0] = "Session", [1] = "Global", [2] = "All" })[scope] or "unknown") .. ")"); offset = offset + 1
+    local users = buffer(offset, 2):le_uint()
+    tree:add(buffer(offset, 2), "UserCount: " .. users); offset = offset + 2
+    local len = buffer:len()
+    for u = 1, users do
+        if offset + 16 > len then return end
+        local user = tree:add(buffer(offset, 16), "User " .. u .. ": Guid " .. buffer(offset, 16):bytes():tohex()); offset = offset + 16
+        local s
+        s, offset = read_jfp2_string(buffer, offset); user:add(buffer(), "Nickname: " .. s)
+        s, offset = read_jfp2_string(buffer, offset); user:add(buffer(), "Callsign: " .. s)
+        if offset + 2 > len then return end
+        local notes = buffer(offset, 2):le_uint()
+        user:add(buffer(offset, 2), "NoteCount: " .. notes); offset = offset + 2
+        for n = 1, notes do
+            if offset + 10 > len then return end
+            local id, age, channel = buffer(offset, 4):le_uint(), buffer(offset + 4, 4):le_float(), buffer(offset + 8, 2):le_uint()
+            offset = offset + 10
+            s, offset = read_jfp2_string(buffer, offset)
+            user:add(buffer(), "Note " .. n .. ": id " .. id .. ", age " .. age .. ", channel " .. channel .. ", \"" .. s .. "\"")
+        end
+    end
+end
+
 local function decode_jfp2_weather_v1(tree, buffer, offset)
     local s = select(1, read_jfp2_string(buffer, offset))
     tree:add(buffer(offset, buffer:len() - offset), "Metar: " .. s)
@@ -770,7 +889,253 @@ local function decode_jfp2_guaranteed_done(tree, buffer, offset)
     tree:add(buffer(offset + 2, 1), "GuaranteedIndex: " .. buffer(offset + 2, 1):uint())
 end
 
-local function decode_jfp2_application(tree, buffer, offset, class)
+-- Join (internal class 2, protocol.md §5.10): Flags u8, Proof 32 bytes
+local function decode_jfp2_join(tree, buffer, offset)
+    if buffer:len() < offset + 33 then
+        tree:add(buffer(offset, buffer:len() - offset), "Short Join (" .. (buffer:len() - offset) .. " bytes): ignored")
+        return
+    end
+    local flags = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Flags: 0x" .. string.format("%02x", flags) .. (testbit(flags, 0) and " (proof present)" or " (no proof)"))
+    tree:add(buffer(offset + 1, 32), "Proof: " .. buffer(offset + 1, 32):bytes():tohex())
+end
+
+-- JoinResult (internal class 3): Result u8, Suid u32, ListSegments u8; schema version 2 (§5.15) appends Alias, a name of 8 bytes
+local function decode_jfp2_join_result(tree, buffer, offset)
+    if buffer:len() < offset + 6 then
+        tree:add(buffer(offset, buffer:len() - offset), "Short JoinResult (" .. (buffer:len() - offset) .. " bytes): ignored")
+        return
+    end
+    local result = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Result: " .. result .. " (" .. (JFP2_JOIN_RESULT[result] or "refused") .. ")")
+    tree:add(buffer(offset + 1, 4), "Suid: " .. buffer(offset + 1, 4):le_uint())
+    tree:add(buffer(offset + 5, 1), "ListSegments: " .. buffer(offset + 5, 1):uint())
+    if buffer:len() >= offset + 14 then
+        add_jfp2_name(tree, buffer, offset + 6, "Alias (version 2)")
+    end
+end
+
+-- The offset after one member entry, or nil when the bytes end inside it. Schema version 2 (§5.14) has the candidates after the endpoint.
+local function skip_jfp2_member_entry(buffer, offset, v2)
+    local len = buffer:len()
+    if offset >= len then return nil end
+    offset = offset + 1 + buffer(offset, 1):uint() * 8
+    if offset >= len then return nil end
+    offset = offset + 1 + buffer(offset, 1):uint()
+    if offset > len then return nil end
+    if v2 then
+        if offset >= len then return nil end
+        local count = buffer(offset, 1):uint()
+        offset = offset + 1
+        for _ = 1, count do
+            if offset >= len then return nil end
+            offset = offset + 1 + buffer(offset, 1):uint()
+            if offset > len then return nil end
+        end
+    end
+    return offset
+end
+
+-- The schema version is agreed per session and not on the wire: entries that end exactly at the end of the datagram are version 1,
+-- else version 2 is taken (the dissector sees a datagram, not the session).
+local function jfp2_member_entries_are_v2(buffer, offset, count)
+    for _ = 1, count do
+        offset = skip_jfp2_member_entry(buffer, offset, false)
+        if not offset then return true end
+    end
+    return offset ~= buffer:len()
+end
+
+-- One member entry (§5.10, §5.14): NameCount u8, names (8 bytes each), EndPointLength u8, WireEndPoint, and in version 2 CandidateCount u8
+-- and that many candidates (a length byte and a WireEndPoint each).
+-- Returns the offset after it, or nil when the bytes end inside it.
+local function add_jfp2_member_entry(tree, buffer, offset, label, v2)
+    local len = buffer:len()
+    if offset >= len then return nil end
+    local names = buffer(offset, 1):uint()
+    if offset + 1 + names * 8 + 1 > len then return nil end
+    local entry = tree:add(buffer(offset, 1), label .. ": " .. names .. " name(s)")
+    offset = offset + 1
+    for n = 1, names do
+        add_jfp2_name(entry, buffer, offset, "Name " .. n)
+        offset = offset + 8
+    end
+    local epLen = buffer(offset, 1):uint()
+    offset = offset + 1
+    if offset + epLen > len then return nil end
+    local text = jfp2_wire_endpoint_string(buffer, offset, epLen)
+    entry:add(buffer(offset, epLen), "EndPoint: " .. (text or "(unreadable, entry skipped)"))
+    offset = offset + epLen
+    if v2 then
+        if offset >= len then return nil end
+        local count = buffer(offset, 1):uint()
+        entry:add(buffer(offset, 1), "CandidateCount: " .. count)
+        offset = offset + 1
+        for c = 1, count do
+            if offset >= len then return nil end
+            local l = buffer(offset, 1):uint()
+            if offset + 1 + l > len then return nil end
+            local candidate = jfp2_wire_endpoint_string(buffer, offset + 1, l)
+            entry:add(buffer(offset, 1 + l), "Candidate " .. c .. ": " .. (candidate or "unassigned family or too short (skipped)"))
+            offset = offset + 1 + l
+        end
+    end
+    return offset
+end
+
+-- MemberList (internal class 4): Index u8, EntryCount u8, entries as above
+local function decode_jfp2_member_list(tree, buffer, offset)
+    local len = buffer:len()
+    if len < offset + 2 then
+        tree:add(buffer(offset, len - offset), "Short MemberList (" .. (len - offset) .. " bytes): ignored")
+        return
+    end
+    tree:add(buffer(offset, 1), "Index: " .. buffer(offset, 1):uint())
+    local count = buffer(offset + 1, 1):uint()
+    tree:add(buffer(offset + 1, 1), "EntryCount: " .. count)
+    offset = offset + 2
+    local v2 = jfp2_member_entries_are_v2(buffer, offset, count)
+    for e = 1, count do
+        offset = add_jfp2_member_entry(tree, buffer, offset, "Entry " .. e, v2)
+        if not offset then break end
+    end
+end
+
+-- MemberAnnounce (internal class 5, §5.11): one member entry, as in MemberList
+local function decode_jfp2_member_announce(tree, buffer, offset)
+    if offset >= buffer:len() or not add_jfp2_member_entry(tree, buffer, offset, "Member", jfp2_member_entries_are_v2(buffer, offset, 1)) then
+        tree:add(buffer(offset, buffer:len() - offset), "Short MemberAnnounce (" .. (buffer:len() - offset) .. " bytes): ignored")
+    end
+end
+
+-- MemberLeave (internal class 6, §5.11): one name
+local function decode_jfp2_member_leave(tree, buffer, offset)
+    if buffer:len() < offset + 8 then
+        tree:add(buffer(offset, buffer:len() - offset), "Short MemberLeave (" .. (buffer:len() - offset) .. " bytes): ignored")
+        return
+    end
+    add_jfp2_name(tree, buffer, offset, "Name")
+end
+
+-- RouteQuery (internal class 7) and RouteAnswer (class 8), §5.13: Count u8 (at most 100), then that many names
+local function decode_jfp2_route_names(tree, buffer, offset, label)
+    local len = buffer:len()
+    if len < offset + 1 then
+        tree:add(buffer(offset, len - offset), "Short " .. label .. " (" .. (len - offset) .. " bytes): ignored")
+        return
+    end
+    local count = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Count: " .. count)
+    if count > 100 or len < offset + 1 + count * 8 then
+        tree:add(buffer(offset, len - offset), label .. " not readable (count " .. count .. "): ignored")
+        return
+    end
+    offset = offset + 1
+    for n = 1, count do
+        add_jfp2_name(tree, buffer, offset, "Name " .. n)
+        offset = offset + 8
+    end
+end
+
+-- The candidates of a directory entry (§5.16): CandidateCount u8, then each a length u8 and a WireEndPoint.
+-- Returns the offset after them, or nil when they run past the datagram.
+local function add_jfp2_directory_candidates(tree, buffer, offset)
+    local len = buffer:len()
+    if offset >= len then return nil end
+    local count = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "CandidateCount: " .. count)
+    offset = offset + 1
+    for c = 1, count do
+        if offset >= len then return nil end
+        local l = buffer(offset, 1):uint()
+        if offset + 1 + l > len then return nil end
+        local candidate = jfp2_wire_endpoint_string(buffer, offset + 1, l)
+        tree:add(buffer(offset, 1 + l), "Candidate " .. c .. ": " .. (candidate or "unassigned family or too short (skipped)"))
+        offset = offset + 1 + l
+    end
+    return offset
+end
+
+-- HubList (application class 10): Count u8, then per hub Name (8), Port u16, the candidates
+local function decode_jfp2_hub_list(tree, buffer, offset)
+    local len = buffer:len()
+    if offset >= len then return end
+    local count = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Count: " .. count)
+    offset = offset + 1
+    for n = 1, count do
+        if offset + 11 > len then return end
+        local entry = tree:add(buffer(offset, 11), "Hub " .. n)
+        add_jfp2_name(entry, buffer, offset, "Name")
+        entry:add(buffer(offset + 8, 2), "Port: " .. buffer(offset + 8, 2):le_uint())
+        offset = add_jfp2_directory_candidates(entry, buffer, offset + 10)
+        if offset == nil then return end
+    end
+end
+
+-- HubUser (class 12): Guid, Flags, Nickname, Frequency, Latitude, Longitude, Altitude, Speed, Squawk, Level, Range, Heading, 13 strings
+local function decode_jfp2_hub_user(tree, buffer, offset)
+    if buffer:len() < offset + 17 then return end
+    tree:add(buffer(offset, 16), "Guid: " .. buffer(offset, 16):bytes():tohex()); offset = offset + 16
+    local flags = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Flags: 0x" .. string.format("%02x", flags) ..
+        (testbit(flags, 0) and " (Atc)" or "") .. (testbit(flags, 1) and " (Ifr)" or "")); offset = offset + 1
+    local s; s, offset = read_jfp2_string(buffer, offset); tree:add(buffer(), "Nickname: " .. s)
+    if buffer:len() < offset + 18 then return end
+    tree:add(buffer(offset, 2), "Frequency: " .. buffer(offset, 2):le_uint()); offset = offset + 2
+    tree:add(buffer(offset, 4), "Latitude: " .. buffer(offset, 4):le_float()); offset = offset + 4
+    tree:add(buffer(offset, 4), "Longitude: " .. buffer(offset, 4):le_float()); offset = offset + 4
+    tree:add(buffer(offset, 2), "Altitude: " .. buffer(offset, 2):le_uint()); offset = offset + 2
+    tree:add(buffer(offset, 2), "Speed: " .. buffer(offset, 2):le_uint()); offset = offset + 2
+    tree:add(buffer(offset, 2), "Squawk: " .. buffer(offset, 2):le_uint()); offset = offset + 2
+    tree:add(buffer(offset, 1), "Level: " .. buffer(offset, 1):uint()); offset = offset + 1
+    tree:add(buffer(offset, 1), "Range: " .. buffer(offset, 1):uint()); offset = offset + 1
+    tree:add(buffer(offset, 2), "Heading: " .. buffer(offset, 2):le_uint()); offset = offset + 2
+    local labels = { "Callsign", "IcaoType", "Departure", "Destination", "Rules", "Route", "Remarks",
+        "Alternate", "FlightSpeed", "FlightAltitude", "Registration", "IcaoAirline", "FlightNumber" }
+    for _, label in ipairs(labels) do
+        s, offset = read_jfp2_string(buffer, offset)
+        tree:add(buffer(), label .. ": " .. s)
+    end
+end
+
+-- UserPositions (class 14): Count u8, then per user 32 bytes
+local function decode_jfp2_user_positions(tree, buffer, offset)
+    local len = buffer:len()
+    if offset >= len then return end
+    local count = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Count: " .. count)
+    offset = offset + 1
+    for n = 1, count do
+        if offset + 32 > len then return end
+        local user = tree:add(buffer(offset, 32), "User " .. n)
+        user:add(buffer(offset, 16), "Guid: " .. buffer(offset, 16):bytes():tohex())
+        user:add(buffer(offset + 16, 4), "Latitude: " .. buffer(offset + 16, 4):le_float())
+        user:add(buffer(offset + 20, 4), "Longitude: " .. buffer(offset + 20, 4):le_float())
+        user:add(buffer(offset + 24, 2), "Altitude: " .. buffer(offset + 24, 2):le_uint())
+        user:add(buffer(offset + 26, 2), "Speed: " .. buffer(offset + 26, 2):le_uint())
+        user:add(buffer(offset + 28, 2), "Squawk: " .. buffer(offset + 28, 2):le_uint())
+        user:add(buffer(offset + 30, 2), "Heading: " .. buffer(offset + 30, 2):le_uint())
+        offset = offset + 32
+    end
+end
+
+-- Online (class 15) and UserLookup (class 16): Uuid u32
+local function decode_jfp2_uuid(tree, buffer, offset)
+    if buffer:len() < offset + 4 then return end
+    tree:add(buffer(offset, 4), "Uuid: " .. buffer(offset, 4):le_uint())
+end
+
+-- UserLookupAnswer (class 17): Uuid u32, Name (8), Port u16, the candidates
+local function decode_jfp2_user_lookup_answer(tree, buffer, offset)
+    if buffer:len() < offset + 15 then return end
+    tree:add(buffer(offset, 4), "Uuid: " .. buffer(offset, 4):le_uint()); offset = offset + 4
+    add_jfp2_name(tree, buffer, offset, "Name"); offset = offset + 8
+    tree:add(buffer(offset, 2), "Port: " .. buffer(offset, 2):le_uint()); offset = offset + 2
+    add_jfp2_directory_candidates(tree, buffer, offset)
+end
+
+local function decode_jfp2_application(tree, buffer, offset, class, segmentIndex, segmentCount)
     local name = JFP2_APP_CLASS[class]
     local len = buffer:len()
     if name == "Position" then
@@ -791,6 +1156,29 @@ local function decode_jfp2_application(tree, buffer, offset, class)
         decode_jfp2_status_v1(tree, buffer, offset)
     elseif name == "StatusRequest" then
         decode_jfp2_status_request_v1(tree, buffer, offset)
+    elseif name == "HubList" then
+        decode_jfp2_hub_list(tree, buffer, offset)
+    elseif name == "HubUser" then
+        decode_jfp2_hub_user(tree, buffer, offset)
+    elseif name == "UserPositions" then
+        decode_jfp2_user_positions(tree, buffer, offset)
+    elseif name == "Online" or name == "UserLookup" then
+        decode_jfp2_uuid(tree, buffer, offset)
+    elseif name == "UserLookupAnswer" then
+        decode_jfp2_user_lookup_answer(tree, buffer, offset)
+    elseif name == "UserListRequest" or name == "UserPositionsRequest" then
+        if offset < len then tree:add(buffer(offset, 1), "Reserved: " .. buffer(offset, 1):uint()) end
+    elseif name == "ObjectPosition" then
+        decode_jfp2_object_position_v1(tree, buffer, offset)
+    elseif name == "PeerInfo" then
+        decode_jfp2_peer_info_v1(tree, buffer, offset)
+    elseif name == "NotesHistory" then
+        decode_jfp2_notes_history_v1(tree, buffer, offset, segmentIndex or 0, segmentCount or 1)
+    elseif name == "RemoveObject" and len >= offset + 4 then
+        tree:add(buffer(offset, 4), "ObjectId: " .. buffer(offset, 4):le_uint())
+    elseif name == "CommsRequest" and len >= offset + 1 then
+        local scope = buffer(offset, 1):uint()
+        tree:add(buffer(offset, 1), "Scope: " .. scope .. " (" .. (({ [0] = "Session", [1] = "Global", [2] = "All" })[scope] or "unknown") .. ")")
     elseif offset < len then
         tree:add(buffer(offset, len - offset), (name or ("Unknown(" .. class .. ")")) ..
             " payload (undecoded, " .. (len - offset) .. " bytes)")
@@ -804,6 +1192,18 @@ local function decode_jfp2_internal(tree, buffer, offset, class)
         decode_jfp2_handshake(tree, buffer, offset, false)
     elseif name == "HelloAck" then
         decode_jfp2_handshake(tree, buffer, offset, true)
+    elseif name == "Join" then
+        decode_jfp2_join(tree, buffer, offset)
+    elseif name == "JoinResult" then
+        decode_jfp2_join_result(tree, buffer, offset)
+    elseif name == "MemberList" then
+        decode_jfp2_member_list(tree, buffer, offset)
+    elseif name == "MemberAnnounce" then
+        decode_jfp2_member_announce(tree, buffer, offset)
+    elseif name == "MemberLeave" then
+        decode_jfp2_member_leave(tree, buffer, offset)
+    elseif name == "RouteQuery" or name == "RouteAnswer" then
+        decode_jfp2_route_names(tree, buffer, offset, name)
     elseif name == "GuaranteedDone" then
         decode_jfp2_guaranteed_done(tree, buffer, offset)
     elseif offset < len then
@@ -814,7 +1214,7 @@ end
 
 ----------------------------------------------------------------------
 -- JFP2 dissector: 8-byte fixed envelope (+4-byte guaranteed extension,
--- +16-byte Forwarded extension), docs/jfp2/protocol.md §3.
+-- +16-byte Forwarded extension), docs/network/jfp2/protocol.md §3.
 ----------------------------------------------------------------------
 
 local function dissect_jfp2(buffer, pinfo, tree)
@@ -827,6 +1227,7 @@ local function dissect_jfp2(buffer, pinfo, tree)
     local isGuaranteed = testbit(flags, 0)
     local isForwarded = testbit(flags, 1)
     local isCoalesced = testbit(flags, 2)
+    local segmentIndex, segmentCount = 0, 1
     local isInternal = testbit(flags, 3)
     subtree:add(buffer(2, 1), "Flags: 0x" .. string.format("%02x", flags) ..
         (isGuaranteed and " [Guaranteed]" or "") ..
@@ -857,7 +1258,9 @@ local function dissect_jfp2(buffer, pinfo, tree)
     if isGuaranteed then
         subtree:add(buffer(offset, 2), "GuaranteedId: " .. buffer(offset, 2):le_uint())
         subtree:add(buffer(offset + 2, 1), "GuaranteedIndex: " .. buffer(offset + 2, 1):uint())
-        subtree:add(buffer(offset + 3, 1), "GuaranteedCount: " .. buffer(offset + 3, 1):uint())
+        subtree:add(buffer(offset + 3, 1), "GuaranteedCount: " .. buffer(offset + 3, 1):uint() ..
+            (buffer(offset + 3, 1):uint() > 1 and " (a segment, protocol.md §7.5)" or ""))
+        segmentIndex, segmentCount = buffer(offset + 2, 1):uint(), buffer(offset + 3, 1):uint()
         offset = offset + 4
     end
 
@@ -900,7 +1303,7 @@ local function dissect_jfp2(buffer, pinfo, tree)
     if isInternal then
         ok, err = pcall(decode_jfp2_internal, msgtree, buffer, offset, class)
     else
-        ok, err = pcall(decode_jfp2_application, msgtree, buffer, offset, class)
+        ok, err = pcall(decode_jfp2_application, msgtree, buffer, offset, class, segmentIndex, segmentCount)
     end
     if not ok then msgtree:add_expert_info(PI_MALFORMED, PI_ERROR, "joinfs.lua decode error: " .. tostring(err)) end
 end
@@ -908,7 +1311,7 @@ end
 ----------------------------------------------------------------------
 -- Top-level dissect: one magic-byte compare routes to the right decoder,
 -- exactly like LocalNode.ReceiveMessages does on the real socket
--- (docs/jfp2/protocol.md §2.2).
+-- (docs/network/jfp2/protocol.md §2.2).
 ----------------------------------------------------------------------
 
 function joinfs_proto.dissector(buffer, pinfo, tree)

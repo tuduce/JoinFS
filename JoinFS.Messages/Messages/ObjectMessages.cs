@@ -132,10 +132,10 @@ namespace JoinFS.Net
         // No Owner field: unlike legacy's wire encoding, every other canonical object message
         // (Position, ObjectPosition, Identity, Event, RemoveObject) identifies the owner purely via
         // MessageMeta.Sender, which the core's translation path already preserves as the true
-        // origin through a relay (docs/reference/joinfs-architecture.md §6). Confirmed redundant
+        // origin through a relay (docs/architecture.md §6). Confirmed redundant
         // for VariableSync too: this codebase's only sender always sets it to its own id (trivially
         // equal to what Sender reads as), JFP2's own codec never puts it on the wire at all, and no
-        // golden fixture exercises a divergent value - see docs/network-plugin-architecture.md
+        // golden fixture exercises a divergent value - see docs/network/network-plugin-architecture.md
         // §2.11 item 3. LegacyPlugin still reads/writes the wire's Owner field (for byte fidelity)
         // but logs if a received value ever disagrees with meta.Sender, as insurance.
         public uint ObjectId;

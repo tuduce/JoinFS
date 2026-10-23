@@ -21,7 +21,7 @@ namespace JoinFS
     /// </list>
     /// This class itself runs the session commands (join, login, create, leave), routes each
     /// incoming message to the part that owns it, and runs the parts each tick in a fixed order.
-    /// It knows nothing about wire protocols. See docs/reference/joinfs-architecture.md §7.
+    /// It knows nothing about wire protocols. See docs/architecture.md §7.
     /// </summary>
     public class Network : IMessageHandler, INetworkEventHandler, ISessionState
     {
@@ -48,14 +48,32 @@ namespace JoinFS
         readonly SimIngest simIngest;
 
         readonly MainSessionHost host;
+        readonly NodeKeyStore nodeKeys;
+
+        /// <summary>The addresses that took no conversation over JFP2, across runs.</summary>
+        readonly LegacyOnlyStore legacyOnly;
+
+        /// <summary>Join over legacy alone (the <c>-legacyjoin</c> test switch); by default a join asks over JFP2 first.</summary>
+        readonly bool joinOverLegacy;
 
         public Network(Main main)
         {
+            joinOverLegacy = main.settingsLegacyJoin;
             host = new MainSessionHost(main);
+            nodeKeys = new NodeKeyStore(main.storagePath, host);
+            legacyOnly = new LegacyOnlyStore(main.storagePath, host);
             host.Event("Unique address is " + UserDirectory.UuidToString(main.uuid));
 
-            service = new NetworkService(credentialStoreFactory: folder => new CredentialStore(main.documentsPath, main.MonitorEvent));
-            // the protocols this build speaks (legacy is built in; newer ones win per peer and
+            service = new NetworkService(credentialStoreFactory: folder => new CredentialStore(main.documentsPath, main.MonitorEvent), legacy: !main.settingsJfp2Only)
+            {
+                Ipv6Enabled = main.settingsIpv6,
+                Ipv4Enabled = main.settingsIpv4,
+            };
+            if (main.settingsJfp2Only)
+            {
+                host.Event("NETWORK: JFP2-only: no legacy datagram is read or sent, so pilots on builds before the stand-alone JFP2 cannot join this node");
+            }
+            // the protocols this build speaks (legacy is built in unless this node is JFP2-only; newer ones win per peer and
             // message kind where both sides negotiated them). JFP2 tells each neighbor which build
             // this is, e.g. "26.6.0 JoinFS-FS2024".
             service.AddPlugin(new Jfp2Plugin((ushort)System.Diagnostics.Stopwatch.GetTimestamp(), Main.Version + " " + Main.Name));
@@ -68,6 +86,12 @@ namespace JoinFS
             Users = new UserDirectory(service, this, host, Hubs, Bootstrap, host, host, host);
             HubHost = new HubHost(service, this, host, host, Peers, Hubs, Users, host, host);
             Comms = new SessionComms(service, () => main.notes, host, host);
+
+            // what the last run learned about the addresses that took no conversation over JFP2 (the network thread starts below, and runs these first)
+            foreach (var (endPoint, seconds) in legacyOnly.Load())
+            {
+                service.Post(core => core.Mesh.RestoreLegacyOnly(endPoint, seconds));
+            }
 
             // what one part learns that another acts on
             Peers.HubAnnounced += Hubs.SubmitHub;
@@ -93,13 +117,13 @@ namespace JoinFS
         /// <summary>Latest picture of the network thread's state (lock-free, at most ~100 ms old).</summary>
         public NetworkSnapshot Snapshot => service.Snapshot;
 
-        /// <summary>This node's id (invalid until the public address is known).</summary>
-        public NodeId LocalId => Bootstrap.LocalId;
+        /// <summary>This node's id (invalid until the public address is known); a node with no IPv4 address is known by its key name, which the network thread decides.</summary>
+        public NodeId LocalId => Snapshot.NoIPv4 ? Snapshot.LocalId : Bootstrap.LocalId;
 
         /// <summary>In a session.</summary>
         public bool Connected => Snapshot.Connected;
 
-        /// <summary>This node's public address is known, so it can join or create a session.</summary>
+        /// <summary>This node's public address (or, with no IPv4 address, its key) is known, so it can join or create a session.</summary>
         public bool Ready => LocalId.Valid();
 
         // ------------------------------------------------------------------ transport
@@ -114,6 +138,7 @@ namespace JoinFS
             }
             // moving to a new port: the network thread already left any session on the old one
             Bootstrap.SetPort((ushort)service.Port);
+            Bootstrap.SetKey(nodeKeys.Claim(service.Port));
             return true;
         }
 
@@ -123,6 +148,7 @@ namespace JoinFS
             Leave();
             service.Close();
             service.Stop();
+            nodeKeys.Dispose();
         }
 
         /// <summary>Ask for (or stop asking for) reduced traffic.</summary>
@@ -169,7 +195,7 @@ namespace JoinFS
             Bootstrap.DoWork(host.Now, host.Hub);
             foreach (IPEndPoint seed in Bootstrap.TakeSeedHubs())
             {
-                Hubs.SubmitHub(seed);
+                Hubs.SubmitSeed(seed, Bootstrap.DialList(seed));
             }
             Peers.DoWork();
             Users.DoAddressBook();
@@ -303,6 +329,14 @@ namespace JoinFS
         public bool scheduleJoinUser = false;
         uint scheduleJoinUuid = 0;
 
+        /// <summary>
+        /// A lookup over JFP2 is not guaranteed, as the legacy one was: while the user's node is not found the question is asked again, a few times.
+        /// </summary>
+        const double JOIN_USER_RETRY_S = 3.0;
+        const int JOIN_USER_RETRIES = 5;
+        double nextJoinUserRequest = 0;
+        int joinUserRetries = 0;
+
         public string ScheduleLoginEmail => scheduleLoginEmail;
         public uint ScheduleLoginHash => scheduleLoginHash;
 
@@ -338,6 +372,8 @@ namespace JoinFS
         {
             scheduleJoinUser = true;
             scheduleJoinUuid = uuid;
+            nextJoinUserRequest = host.Now + JOIN_USER_RETRY_S;
+            joinUserRetries = 0;
             Users.RequestNuid(uuid);
         }
 
@@ -367,6 +403,12 @@ namespace JoinFS
             {
                 Join(userEndPoint, 0);
                 scheduleJoinUser = false;
+            }
+            else if (scheduleJoinUser && joinUserRetries < JOIN_USER_RETRIES && host.Now >= nextJoinUserRequest)
+            {
+                joinUserRetries++;
+                nextJoinUserRequest = host.Now + JOIN_USER_RETRY_S;
+                Users.RequestNuid(scheduleJoinUuid);
             }
 
             if (scheduleCreate)
@@ -435,7 +477,19 @@ namespace JoinFS
         {
             sessionOrigin = SessionOrigin.Join;
             lastPasswordHash = passwordHash;
-            StartSession(endPoint, core => core.Mesh.Join(endPoint, passwordHash));
+            // a host name with an IPv4 and an IPv6 address is dialled at both (IPv6 first)
+            IReadOnlyList<IPEndPoint> dial = Bootstrap.DialList(endPoint);
+            StartSession(endPoint, core =>
+            {
+                if (joinOverLegacy)
+                {
+                    core.Mesh.Join(endPoint, passwordHash);
+                }
+                else
+                {
+                    core.Mesh.JoinJfp2First(dial, passwordHash);
+                }
+            });
         }
 
         void Login(IPEndPoint endPoint, string email, uint hash, bool verify)
@@ -449,7 +503,7 @@ namespace JoinFS
 
         /// <summary>
         /// Leave the session. Always posted - MeshManager.Leave() is a cheap no-op with nothing to
-        /// leave (docs/network-plugin-architecture.md §2.11 item 2), so there's no need for a local
+        /// leave (docs/network/network-plugin-architecture.md §2.11 item 2), so there's no need for a local
         /// "are we in a session" flag that could disagree with the network thread's own answer while
         /// the snapshot catches up. The event/refresh are still gated on the snapshot, since skipping
         /// them once in the rare race right after a Join is harmless; skipping the actual Leave
@@ -504,6 +558,11 @@ namespace JoinFS
             {
                 case NetworkEventKind.SessionJoined:
                     Peers.OnSessionJoined();
+                    // a node joined over JFP2 is not told by PeerInfo that the node it joined is a hub (stage 10): ask it
+                    if (joinEndPoint.Port != 0)
+                    {
+                        Hubs.SubmitSeed(joinEndPoint, Bootstrap.DialList(joinEndPoint));
+                    }
                     break;
                 case NetworkEventKind.PeerJoined:
                     Peers.OnPeerJoined(e.Node, e.EndPoint);
@@ -519,6 +578,9 @@ namespace JoinFS
                     break;
                 case NetworkEventKind.EndPointObserved:
                     Bootstrap.OnEndPointObserved(e.Node, e.EndPoint);
+                    break;
+                case NetworkEventKind.LegacyOnly:
+                    legacyOnly.Remember(e.EndPoint, e.Seconds);
                     break;
                 case NetworkEventKind.Log:
                     if (e.Level == NetLogLevel.Event) host.Event(e.Text);

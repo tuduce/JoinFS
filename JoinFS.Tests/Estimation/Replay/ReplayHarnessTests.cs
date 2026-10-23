@@ -72,7 +72,7 @@ namespace JoinFS.Tests.Estimation.Replay
         {
             var writer = new StringWriter();
             var log = new EstimationLog(writer, () => new DateTime(2026, 10, 1, 20, 0, 0, DateTimeKind.Utc));
-            var plane = new Sim.Plane(new NodeId(0x0A000001, 6112, 1), 7);
+            var plane = new Sim.Plane(NodeId.FromLegacy(0x0A000001, 6112, 1), 7);
             plane.flightPlan.callsign = "JFS123";
             plane.netPosition = new Sim.Pos(new Vector(0.1, 1500.0, 0.8), new Vector(0.05, 1.2, -0.3), 0.0, 0);
             plane.netVelocity = new Sim.Vel(new Vector(100.0, -2.0, 50.0), new Vector(0.01, 0.02, 0.03), new Vector(0.5, 0.25, -0.5));

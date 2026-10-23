@@ -26,7 +26,8 @@ namespace JoinFS
         public const int DEFAULT_ACTIVITY_CIRCLE = 40;
         public const int DEFAULT_FOLLOW_DISTANCE = 80;
 
-        const int MAX_INSTANCES = 4;
+        /// <summary>Also the number of node key slots (<see cref="NodeKeyStore"/>).</summary>
+        public const int MAX_INSTANCES = 4;
 
         /// <summary>
         /// Current version
@@ -83,7 +84,7 @@ namespace JoinFS
         public Sim sim;
 
         /// <summary>
-        /// The sim thread: runs Sim and the Recorder (docs/sim-thread-architecture.md)
+        /// The sim thread: runs Sim and the Recorder (docs/sim/sim-thread-architecture.md)
         /// </summary>
         public SimService simService;
         public Network network;
@@ -134,7 +135,7 @@ namespace JoinFS
         public bool settingsLoop = false;
 
         /// <summary>
-        /// Journal each new recording to a working file (docs/jfs2), so it can be recovered after a crash; -no-jfs2 switches it off
+        /// Journal each new recording to a working file (docs/recording/jfs2), so it can be recovered after a crash; -no-jfs2 switches it off
         /// </summary>
         public bool settingsJfs2Capture = true;
         public bool settingsXplane = false;
@@ -169,6 +170,18 @@ namespace JoinFS
 #endif
 
         public string settingsLocalAddress = "";
+
+        /// <summary>Use IPv6 as well as IPv4 (the IPv6 setting; <c>-noipv6</c> turns it off for this run).</summary>
+        public bool settingsIpv6 = true;
+
+        /// <summary>Use IPv4 (<c>-noipv4</c> turns it off for this run, to test as an IPv6-only node; never stored).</summary>
+        public bool settingsIpv4 = true;
+
+        /// <summary>Join over legacy alone (<c>-legacyjoin</c> test switch, never stored), as before the stand-alone JFP2: by default a join asks over JFP2 first and over legacy after 2 s of silence.</summary>
+        public bool settingsLegacyJoin = false;
+
+        /// <summary>Hub setting (<c>Jfp2Only</c>, <c>-jfp2only</c> for this run): speak no legacy at all, so that only builds with the stand-alone JFP2 can join (scenario S12). Read when the network starts.</summary>
+        public bool settingsJfp2Only = false;
 
 #if CONSOLE
         public bool settingsBackground = false;
@@ -234,7 +247,7 @@ namespace JoinFS
                 // leave session and stop the network thread
                 network.Shutdown();
                 // monitor
-                MonitorEvent("Closed UDP port " + network.LocalId.port);
+                MonitorEvent("Closed UDP port " + network.Snapshot.Port);
             }
 #if CONSOLE
             webSocketServer?.Close();
@@ -291,6 +304,8 @@ namespace JoinFS
                 settingsWhazzup = Settings.Default.Whazzup;
                 settingsWhazzupPublic = Settings.Default.WhazzupGlobal;
                 settingsMultiObjects = Settings.Default.MultipleObjectsEveryone;
+                settingsIpv6 = Settings.Default.Ipv6;
+                settingsJfp2Only = Settings.Default.Jfp2Only;
                 settingsLoop = Settings.Default.Loop;
                 settingsXplane = Settings.Default.XPlane;
                 settingsTcas = Settings.Default.TCAS;
@@ -399,6 +414,26 @@ namespace JoinFS
                             case "-hub":
                                 // enable hub mode
                                 settingsHub = true;
+                                break;
+
+                            case "-noipv4":
+                                // IPv6 only: this instance behaves as a node with no IPv4 route (test switch)
+                                settingsIpv4 = false;
+                                break;
+
+                            case "-legacyjoin":
+                                // join over legacy alone, to compare with the JFP2 join (test switch)
+                                settingsLegacyJoin = true;
+                                break;
+
+                            case "-jfp2only":
+                                // a JFP2-only hub, whatever the setting says (test switch)
+                                settingsJfp2Only = true;
+                                break;
+
+                            case "-noipv6":
+                                // IPv4 only, whatever the IPv6 setting says
+                                settingsIpv6 = false;
                                 break;
 
                             case "-localaddress":
@@ -1960,48 +1995,42 @@ namespace JoinFS
                     return;
                 }
 
+                // an entry whose address did not resolve has no endpoint
+                if (entry.endPoint.Port == 0 || entry.endPoint.Address.Equals(IPAddress.Any))
+                {
+                    MonitorEvent("Cannot join '" + addressText + "': its address is not an IP address, nor a host name that resolves to one");
+                    return;
+                }
+
                 // join endpoint
                 Join(entry.endPoint);
                 // done
                 return;
             }
 
-            // parse ip address
-            string[] parts = addressText.Split(':');
-
-            // check for ip address
-            if (parts.Length > 0)
+            // an IP address (IPv4, or IPv6 in brackets) or a host name, with an optional port
+            DialAddresses.Result dial;
+            lock (conch)
             {
-                // get remote port
-                int remotePort = Network.DEFAULT_PORT;
-                if (parts.Length > 1 && Int32.TryParse(parts[1], NumberStyles.Number, CultureInfo.InvariantCulture, out remotePort) == false)
+                dial = network.Bootstrap.Dial(addressText, Network.DEFAULT_PORT);
+            }
+            if (dial.Failure == DialAddresses.Failure.InvalidPort)
+            {
+                ShowMessage(Resources.Strings.InvalidPortPrefix + " '" + dial.BadPort + "'. " + Resources.Strings.InvalidPortSuffix);
+                return;
+            }
+            if (dial.Failure == DialAddresses.Failure.None)
+            {
+                IPEndPoint first;
+                lock (conch)
                 {
-                    ShowMessage(Resources.Strings.InvalidPortPrefix + " '" + parts[1] + "'. " + Resources.Strings.InvalidPortSuffix);
+                    // the same endpoint (and so the same dial list) the address book and the hub list use for this text
+                    network.Bootstrap.MakeEndPoint(addressText, Network.DEFAULT_PORT, out first);
                 }
-                else
-                {
-                    if (IPAddress.TryParse(parts[0], out IPAddress address) && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-                    {
-                        // join endpoint
-                        Join(new IPEndPoint(address, remotePort));
-                        // done
-                        return;
-                    }
-
-                    bool result = false;
-                    lock (conch)
-                    {
-                        result = network.Bootstrap.DnsLookup(parts[0], out address);
-                    }
-                    // try DNS lookup
-                    if (result)
-                    {
-                        // join endpoint
-                        Join(new IPEndPoint(address, remotePort));
-                        // done
-                        return;
-                    }
-                }
+                // join endpoint
+                Join(first);
+                // done
+                return;
             }
 
             // failed
@@ -2091,7 +2120,7 @@ namespace JoinFS
                     line += " " + network.Peers.GetNodeSimulator(node.Key);
                     // network (transport) protocol indicator - distinct from the application
                     // GetNodeVersion above, as described by the protocol plugins
-                    line += " " + (network.Snapshot.Peer(node.Key)?.LinkState.ToDisplay() ?? "Pending");
+                    line += " " + (network.Snapshot.Peer(node.Key) is { } peerSnapshot ? peerSnapshot.LinkState.ToDisplay(peerSnapshot.Family) : "Pending");
                     MonitorEvent(line);
                 }
                 MonitorEvent("Total " + (1 + network.Peers.Nodes.Count) + " user(s)");
@@ -2382,7 +2411,7 @@ namespace JoinFS
         [STAThread]
         static void Main()
         {
-            // a conversion of old recordings needs neither the application nor a simulator (docs/jfs2/recorder-v2-design.md section 8)
+            // a conversion of old recordings needs neither the application nor a simulator (docs/recording/jfs2/recorder-v2-design.md section 8)
             if (JoinFS.Recording.Jfs2Convert.FilesOf(Environment.GetCommandLineArgs()[1..]) is { } convertFiles)
             {
 #if !CONSOLE

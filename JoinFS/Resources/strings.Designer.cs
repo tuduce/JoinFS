@@ -403,6 +403,15 @@ namespace JoinFS.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Unreachable from here.
+        /// </summary>
+        internal static string HubUnreachable {
+            get {
+                return ResourceManager.GetString("HubUnreachable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Connection lost. Automatic reconnect could not re-establish it within the last {0} minutes. Try reconnecting manually when you are ready..
         /// </summary>
         internal static string ReconnectGaveUp {

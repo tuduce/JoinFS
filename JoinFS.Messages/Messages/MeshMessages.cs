@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 // Canonical mesh messages: session membership (join/login/leave), liveness (pulse) and route
 // discovery (pathfinder). Handled by the core's MeshManager, never by the application. Only the
-// legacy plugin carries these today (docs/network-plugin-architecture.md §2.4).
+// legacy plugin carries these today (docs/network/network-plugin-architecture.md §2.4).
 
 namespace JoinFS.Net
 {

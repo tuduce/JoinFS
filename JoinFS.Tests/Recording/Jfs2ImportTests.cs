@@ -4,7 +4,7 @@ using JoinFS.Recording;
 namespace JoinFS.Tests.Recording;
 
 /// <summary>
-/// Save and <c>JoinFS -convert</c> (docs/jfs2/README.md): recorded tracks, or an old <c>.jfs</c> read by the importer, are written as
+/// Save and <c>JoinFS -convert</c> (docs/recording/jfs2/README.md): recorded tracks, or an old <c>.jfs</c> read by the importer, are written as
 /// <c>.jfs2</c> by <see cref="Jfs2SceneWriter"/>, and the new file plays the same (design section 8: same objects, same frames per object and
 /// kind, same values).
 /// </summary>

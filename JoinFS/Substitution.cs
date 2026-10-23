@@ -512,7 +512,7 @@ namespace JoinFS
 #endif
         }
 
-        // ---- Concurrency (docs/sim-thread-architecture.md §2.4, §8.3) ----
+        // ---- Concurrency (docs/sim/sim-thread-architecture.md §2.4, §8.3) ----
         // Substitution is read from several threads (the sim thread matches and masquerades as
         // objects appear; the UI shows lists) while it is rebuilt on others (Load/Scan on the thread
         // pool, Match on the app thread, the edit dialogs on the UI thread). So its collections -

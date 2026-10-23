@@ -5,14 +5,14 @@ namespace JoinFS.Tests.Session
 {
     /// <summary>
     /// ObservedEndPoints: what neighbors' observations of this node's endpoint say about its NAT
-    /// (docs/jfp2/implementation.md §3.2). This node: interface 192.168.1.20, bound to port 6112.
+    /// (docs/network/jfp2/implementation.md §3.2). This node: interface 192.168.1.20, bound to port 6112.
     /// </summary>
     public class ObservedEndPointsTests
     {
         static readonly IPAddress Local = IPAddress.Parse("192.168.1.20");
         const ushort Bound = 6112;
 
-        static NodeId Reporter(uint n) => new(0xCB007100 + n, 6112, (byte)n);
+        static NodeId Reporter(uint n) => NodeId.FromLegacy(0xCB007100 + n, 6112, (byte)n);
 
         static IPEndPoint At(string address, int port) => new(IPAddress.Parse(address), port);
 

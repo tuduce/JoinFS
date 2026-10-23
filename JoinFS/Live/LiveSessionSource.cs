@@ -62,7 +62,7 @@ namespace JoinFS.Live
             NodeId local = main.network.LocalId;
             return new UiPeer(
                 local.ToString(), main.settingsNickname, main.network.Peers.GetLocalCallsign(), "Yes", 0, aircraft, objects,
-                simulator, Main.Version, "", local.port, IsMe: true);
+                simulator, Main.Version, "", main.network.Snapshot.Port, IsMe: true);
         }
 
         UiPeer Other(NodeId nuid, string nickname)
@@ -91,7 +91,7 @@ namespace JoinFS.Live
                 nuid.ToString(), nickname, main.network.Peers.GetNodeCallsign(nuid), connected,
                 (int)Math.Round(main.network.GetNodeRTT(nuid) * 1000.0f), aircraft, objects,
                 main.network.Peers.GetNodeSimulator(nuid), main.network.Peers.GetNodeVersion(nuid),
-                link.ToDisplay(), peer?.EndPoint?.Port ?? 0);
+                link.ToDisplay(peer?.Family), peer?.EndPoint?.Port ?? 0);
         }
 
         public PeerSettings GetSettings(string peerId)

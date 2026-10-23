@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.Net;
 using System.Text;
 
-// Ported from ProtocolV2Reference/Negotiation.cs (docs/jfp2/protocol.md §5) as part of
-// docs/jfp2/history/protocol-v2-implementation-plan.md Phase 1. PeerSession gained two fields
+// Ported from ProtocolV2Reference/Negotiation.cs (docs/network/jfp2/protocol.md §5) as part of
+// docs/network/jfp2/history/protocol-v2-implementation-plan.md Phase 1. PeerSession gained two fields
 // (HelloAttempts/NextHelloAttempt) beyond the reference implementation, needed to drive the actual
 // Hello-retry timer in Jfp2Plugin.DoHandshake.
 
@@ -38,7 +38,7 @@ namespace JoinFS.Net.Jfp2
     /// capability is only usable with a given peer once BOTH sides have set the bit - see
     /// Negotiator.Resolve, which ANDs the two capability masks together. None is assigned: each bit is
     /// assigned by the design that needs it, together with any flag it defines
-    /// (docs/jfp2/protocol.md §5.6), and this build advertises none
+    /// (docs/network/jfp2/protocol.md §5.6), and this build advertises none
     /// (<see cref="Jfp2Profile.Capabilities"/>).
     /// </summary>
     [Flags]
@@ -53,7 +53,7 @@ namespace JoinFS.Net.Jfp2
     /// token, a vendor-specific extension, ...) can be added here without changing how any existing field
     /// is parsed - an unrecognized tag is simply skipped by its declared length instead of desyncing
     /// the rest of the message. This generalizes the one place the legacy protocol already does this
-    /// (the Notes message's length-prefixed inner records, docs/network-protocol.md §8.9/§9.2) to the
+    /// (the Notes message's length-prefixed inner records, docs/network/network-protocol.md §9.11) to the
     /// handshake message itself, so the negotiation protocol can evolve the same way application
     /// messages can.
     /// </summary>
@@ -96,7 +96,7 @@ namespace JoinFS.Net.Jfp2
     /// This is the permanent entry point of JFP2: its envelope (Envelope.HandshakeProtoMajor), its
     /// fixed fields and its offer list layout never change. Anything new goes into the extension
     /// area, and a later major version is agreed through ProtoMajorMin/Max inside it
-    /// (docs/jfp2/protocol.md §5.1; pinned by HandshakeGoldenTests).
+    /// (docs/network/jfp2/protocol.md §5.1; pinned by HandshakeGoldenTests).
     ///
     /// Reading the extension area (§5.5): unknown tags are skipped, the first copy of a repeated tag
     /// counts, a value shorter than its tag needs is ignored, and a longer one is read up to the
@@ -111,7 +111,7 @@ namespace JoinFS.Net.Jfp2
         /// <summary><see cref="Result"/>: no ProtoMajor in common.</summary>
         public const byte ResultNoCompatibleProtoMajor = 1;
 
-        /// <summary><see cref="Result"/>: not admitted, no session was created (reserved for the mesh over JFP2; this build never sends it).</summary>
+        /// <summary><see cref="Result"/>: not admitted, no session was created (a node in a session answers a stranger's Hello with it and a cookie, <see cref="Admission"/>).</summary>
         public const byte ResultNotAdmitted = 2;
 
         /// <summary>An offer's partition byte: an application class.</summary>
@@ -128,6 +128,18 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>Extension tag carrying, in a HelloAck, where the Hello it answers came from (<see cref="ObservedEndPoint"/>).</summary>
         public const ushort ObservedEndPointTag = 3;
+
+        /// <summary>Extension tag carrying the admission cookie (<see cref="Admission"/>).</summary>
+        public const ushort AdmissionTag = 4;
+
+        /// <summary>Extension tag carrying the sender's endpoint candidates (<see cref="Candidates"/>).</summary>
+        public const ushort CandidatesTag = 5;
+
+        /// <summary>The most candidates a sender writes and a reader keeps (protocol.md §5.14).</summary>
+        public const int MaxCandidates = 8;
+
+        /// <summary>The size of an admission cookie.</summary>
+        public const int AdmissionCookieSize = 16;
 
         /// <summary>The longest <see cref="Build"/> sent or kept, in UTF-8 bytes.</summary>
         public const int BuildMaxBytes = 64;
@@ -149,7 +161,7 @@ namespace JoinFS.Net.Jfp2
         /// 8 bytes per name; a reader takes the whole names and skips a shorter remainder. Empty when
         /// the sender named none (a peer that names none it can resolve is treated as legacy-only).
         /// </summary>
-        public List<NodeName> Names = new();
+        public List<NodeId> Names = new();
 
         /// <summary>
         /// Which build is speaking, as text (JoinFS sends its version and variant), so a hub can count
@@ -162,11 +174,26 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>
         /// HelloAck: the UDP source of the Hello it answers, as the responder received it - so the asker
-        /// learns the public endpoint a NAT gave it (docs/jfp2/protocol.md §5.4). Travels as a
+        /// learns the public endpoint a NAT gave it (docs/network/jfp2/protocol.md §5.4). Travels as a
         /// <see cref="WireEndPoint"/>; read up to its family's size, and ignored when its family is
         /// unassigned or the value is too short. Null when not sent (a Hello, an older build).
         /// </summary>
         public IPEndPoint ObservedEndPoint;
+
+        /// <summary>
+        /// Admission (docs/network/jfp2/protocol.md §5.9). Null: not sent. In a Hello, empty: a stranger
+        /// asking to be admitted; 16 bytes: the cookie it was given, echoed. In a HelloAck with
+        /// <see cref="ResultNotAdmitted"/>: the cookie. A value of 1 to 15 bytes is ignored, and a longer one
+        /// is read as its first 16 bytes.
+        /// </summary>
+        public byte[] Admission;
+
+        /// <summary>
+        /// Candidates (docs/network/jfp2/protocol.md §5.14): the endpoints the sender can be tried at, preferred first (global IPv6,
+        /// then public IPv4, then LAN IPv4). Travels as a list of one length byte and a <see cref="WireEndPoint"/> each; an entry
+        /// that cannot be read is skipped, and at most <see cref="MaxCandidates"/> are kept. Null: not sent (and none read).
+        /// </summary>
+        public List<IPEndPoint> Candidates;
 
         /// <summary>
         /// The build text as it may travel: printable ASCII only (0x20-0x7E; it comes from
@@ -210,10 +237,10 @@ namespace JoinFS.Net.Jfp2
             }
             if (Names.Count > 0)
             {
-                var names = new byte[Names.Count * NodeName.WireSize];
+                var names = new byte[Names.Count * NodeId.WireSize];
                 for (int n = 0; n < Names.Count; n++)
                 {
-                    Names[n].WriteTo(names.AsSpan(n * NodeName.WireSize, NodeName.WireSize));
+                    Names[n].WriteTo(names.AsSpan(n * NodeId.WireSize, NodeId.WireSize));
                 }
                 Tlv.Write(bytes, NamesTag, names);
             }
@@ -226,9 +253,17 @@ namespace JoinFS.Net.Jfp2
             {
                 Tlv.Write(bytes, ObservedEndPointTag, WireEndPoint.ToBytes(ObservedEndPoint));
             }
+            if (Admission != null)
+            {
+                Tlv.Write(bytes, AdmissionTag, Admission);
+            }
+            if (Candidates is { Count: > 0 })
+            {
+                Tlv.Write(bytes, CandidatesTag, WriteCandidates(Candidates));
+            }
             foreach (var kv in Extensions)
             {
-                if (kv.Key != NamesTag && kv.Key != BuildTag && kv.Key != ObservedEndPointTag) Tlv.Write(bytes, kv.Key, kv.Value);
+                if (kv.Key != NamesTag && kv.Key != BuildTag && kv.Key != ObservedEndPointTag && kv.Key != AdmissionTag && kv.Key != CandidatesTag) Tlv.Write(bytes, kv.Key, kv.Value);
             }
             return bytes.ToArray();
         }
@@ -259,9 +294,9 @@ namespace JoinFS.Net.Jfp2
             if (msg.Extensions.Remove(NamesTag, out byte[] names))
             {
                 // whole names only: a remainder shorter than a name is skipped, so a value under 8 bytes gives none
-                for (int n = 0; n + NodeName.WireSize <= names.Length; n += NodeName.WireSize)
+                for (int n = 0; n + NodeId.WireSize <= names.Length; n += NodeId.WireSize)
                 {
-                    msg.Names.Add(NodeName.ReadFrom(names.AsSpan(n, NodeName.WireSize)));
+                    msg.Names.Add(NodeId.ReadFrom(names.AsSpan(n, NodeId.WireSize)));
                 }
             }
             if (msg.Extensions.Remove(BuildTag, out byte[] build))
@@ -272,7 +307,57 @@ namespace JoinFS.Net.Jfp2
             {
                 WireEndPoint.TryReadFrom(observed, out msg.ObservedEndPoint);
             }
+            if (msg.Extensions.Remove(AdmissionTag, out byte[] admission) && (admission.Length == 0 || admission.Length >= AdmissionCookieSize))
+            {
+                msg.Admission = admission.Length == 0 ? admission : admission[..AdmissionCookieSize];
+            }
+            if (msg.Extensions.Remove(CandidatesTag, out byte[] candidates))
+            {
+                msg.Candidates = ReadCandidates(candidates);
+            }
             return msg;
+        }
+
+        /// <summary>A list of endpoints as the wire carries it: one length byte before each <see cref="WireEndPoint"/> (§4.4), at most <see cref="MaxCandidates"/>.</summary>
+        public static byte[] WriteCandidates(IReadOnlyList<IPEndPoint> endPoints)
+        {
+            int count = Math.Min(endPoints.Count, MaxCandidates);
+            int size = 0;
+            for (int i = 0; i < count; i++) size += 1 + WireEndPoint.SizeOf(endPoints[i]);
+            byte[] bytes = new byte[size];
+            int at = 0;
+            for (int i = 0; i < count; i++)
+            {
+                int length = WireEndPoint.SizeOf(endPoints[i]);
+                bytes[at++] = (byte)length;
+                WireEndPoint.WriteTo(endPoints[i], bytes.AsSpan(at, length));
+                at += length;
+            }
+            return bytes;
+        }
+
+        /// <summary>
+        /// Reads a list written by <see cref="WriteCandidates"/>. An entry of an unassigned family or too short is skipped (its length
+        /// byte says where the next begins); a list cut short ends where it is cut; a duplicate is kept once.
+        /// </summary>
+        public static List<IPEndPoint> ReadCandidates(ReadOnlySpan<byte> src)
+        {
+            var list = new List<IPEndPoint>();
+            int at = 0;
+            while (at < src.Length && list.Count < MaxCandidates)
+            {
+                int length = src[at++];
+                if (at + length > src.Length)
+                {
+                    break;
+                }
+                if (WireEndPoint.TryReadFrom(src.Slice(at, length), out IPEndPoint endPoint) && !list.Contains(endPoint))
+                {
+                    list.Add(endPoint);
+                }
+                at += length;
+            }
+            return list;
         }
     }
 
@@ -298,6 +383,22 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>A build was learned for this session (and logged at event level) at least once; later changes are logged at network level only.</summary>
         public bool BuildLearned;
+
+        /// <summary>
+        /// A non-member session (protocol.md §5.9): a stranger that echoed a cookie. It is never a next hop
+        /// and carries no application class; it expires at <see cref="NonMemberUntil"/> unless a Join
+        /// (a later stage) makes it the member session.
+        /// </summary>
+        public bool NonMember;
+
+        /// <summary>IClock.Now at which a non-member session ends.</summary>
+        public double NonMemberUntil;
+
+        /// <summary>The names the neighbour stated, preferred first (a non-member session is named by the first).</summary>
+        public List<NodeId> Names;
+
+        /// <summary>The cookie a non-member session was admitted with (16 bytes), which a Join's password proof is bound to.</summary>
+        public byte[] AdmissionCookie;
 
         public readonly byte[] AgreedAppVersion = new byte[256];
         public readonly byte[] AgreedInternalVersion = new byte[256];
@@ -326,6 +427,18 @@ namespace JoinFS.Net.Jfp2
 
         /// <summary>The endpoint the outstanding Hello was sent to; becomes <see cref="Endpoint"/> when answered.</summary>
         public IPEndPoint ProbeEndPoint;
+
+        /// <summary>
+        /// Every endpoint a Hello of the current round went to, <see cref="ProbeEndPoint"/> among them: a member with several
+        /// candidates is tried at all of them, and the first to answer is its endpoint (protocol.md §5.14).
+        /// </summary>
+        public readonly List<IPEndPoint> Probes = [];
+
+        /// <summary>Hellos of the round not sent yet, with the time to send each: IPv4 waits a short head start behind IPv6.</summary>
+        public readonly List<(IPEndPoint EndPoint, double At)> PendingProbes = [];
+
+        /// <summary>The endpoints the neighbour advertised in its handshake (a non-member session keeps them until a Join makes it a member).</summary>
+        public List<IPEndPoint> Candidates;
 
         /// <summary>
         /// True once a Hello has gone unanswered past a short timeout (a few retransmits of the
@@ -366,7 +479,7 @@ namespace JoinFS.Net.Jfp2
         /// <summary>
         /// Combine a local and a remote offer set into a per-class agreed version table. A class
         /// either side never declared, or whose ranges do not overlap, gets version 0, which means
-        /// "don't send this class to this peer" (docs/jfp2/protocol.md §5.5): no codec has
+        /// "don't send this class to this peer" (docs/network/jfp2/protocol.md §5.5): no codec has
         /// version 0, and the message goes through the legacy plugin instead - so an
         /// unrecognized/newer class on either side degrades gracefully instead of failing the whole
         /// handshake.

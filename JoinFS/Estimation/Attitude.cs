@@ -4,7 +4,7 @@ namespace JoinFS.Estimation
 {
     /// <summary>
     /// Attitude kinematics: how pitch, heading and bank change under body rotation rates (finding
-    /// F4 in docs/position-estimation-plan.md). Body rates are not the rates of the angles: in a
+    /// F4 in docs/estimation/position-estimation-plan.md). Body rates are not the rates of the angles: in a
     /// banked turn the yaw rate is only cos(bank) of the heading rate, and the pitch rate makes up
     /// the rest. Integrated through a quaternion, which is exact for constant body rates and has
     /// no trouble near ±90° pitch.

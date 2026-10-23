@@ -7,7 +7,7 @@ namespace JoinFS
 {
     // The narrow views of the application that the network session's parts (JoinFS/Session) work
     // through. MainSessionHost implements the app-facing ones over Main; tests implement them with
-    // small fakes. See docs/reference/joinfs-architecture.md §7.
+    // small fakes. See docs/architecture.md §7.
 
     /// <summary>Monitor output (Main.MonitorEvent / Main.MonitorNetwork).</summary>
     public interface ISessionLog
@@ -38,10 +38,13 @@ namespace JoinFS
     public interface IEndPointResolver
     {
         /// <summary>Endpoint to reach <paramref name="node"/> on <paramref name="port"/> (LAN address when it shares our NAT).</summary>
-        IPEndPoint MakeEndPoint(NodeId node, ushort port);
+        IPEndPoint MakeEndPoint(LegacyNodeId node, ushort port);
 
         /// <summary>"address[:port]" (IP or DNS name) to an endpoint.</summary>
         bool MakeEndPoint(string addressText, ushort port, out IPEndPoint endPoint);
+
+        /// <summary>The endpoints a node can be reached at, <paramref name="primary"/> among them: a join to <paramref name="primary"/> dials all of them.</summary>
+        void NoteCandidates(IPEndPoint primary, IReadOnlyList<IPEndPoint> candidates);
     }
 
     /// <summary>Who the local user is, and the settings the session uses.</summary>

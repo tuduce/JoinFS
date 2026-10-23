@@ -5,7 +5,7 @@ using JoinFS.Net.Jfp2.Codecs;
 
 namespace JoinFS.Net.Jfp2
 {
-    // Encode and decode: canonical messages to JFP2 datagrams and back (docs/jfp2/protocol.md §9).
+    // Encode and decode: canonical messages to JFP2 datagrams and back (docs/network/jfp2/protocol.md §9).
     public sealed partial class Jfp2Plugin
     {
         // ================================================================== canonical → wire
@@ -102,6 +102,18 @@ namespace JoinFS.Net.Jfp2
                 }
             }
 
+            public void Handle(in MessageMeta meta, in ObjectPositionUpdate m)
+            {
+                if (p.profile.ForKind<ObjectPositionUpdate>(MessageKind.ObjectPosition) is not { } messageClass) return;
+                foreach (NodeId target in p.targets)
+                {
+                    byte version = p.AgreedVersion(target, messageClass, out Peer peer, out PeerSession session);
+                    if (version == 0 || !p.EnsureIdentity(meta.Sender, m.ObjectId, peer, session)) continue;
+                    int length = messageClass.Codec(version).Encode(m, p.payloadBuffer);
+                    p.SendApplication(peer, session, messageClass, p.payloadBuffer.AsSpan(0, length));
+                }
+            }
+
             public void Handle(in MessageMeta meta, in VariableSyncUpdate m)
             {
                 if (m.Entries == null || m.Entries.Count == 0) return;
@@ -150,11 +162,13 @@ namespace JoinFS.Net.Jfp2
 
             public void Handle(in MessageMeta meta, in NotesBundle m)
             {
-                // JFP2 carries one note per message: a bundle goes out as its notes
+                // a note posted goes as one Notes message. A history (the answer to a CommsRequest) goes whole as one
+                // NotesHistory message, in segments, to a direct neighbour that agreed them, and as its notes, one each, to the rest
                 if (p.profile.ForKind<NoteUpdate>(MessageKind.Notes) is not { } messageClass) return;
                 if (m.Users.Count != 1 || m.Users[0].Notes.Count != 1)
                 {
                     p.sendOriginId = 0; // an origin's id belongs to one message, not to each of several
+                    p.SendHistory(m);
                 }
                 foreach (NotesUser user in m.Users)
                 {
@@ -168,6 +182,26 @@ namespace JoinFS.Net.Jfp2
                         SendAsIs(messageClass, single);
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// The history as one message to each target that is a direct neighbour having agreed segments and the
+        /// class; those are taken from <see cref="targets"/>, so that the notes go one by one to the others only.
+        /// A history that a relay translates for its origin is not sent so (one message of segments would have
+        /// to be translated again, §7.5).
+        /// </summary>
+        void SendHistory(in NotesBundle m)
+        {
+            if (profile.ForSegmentedKind<NotesBundle>(MessageKind.Notes) is not { } history || sendOrigin != Local) return;
+            for (int i = targets.Count - 1; i >= 0; i--)
+            {
+                byte version = AgreedVersion(targets[i], history, out Peer peer, out PeerSession session);
+                if (version == 0 || session.Peer != targets[i] || (session.AgreedCapabilities & Jfp2Capabilities.Segments) == 0) continue;
+                historyBuffer ??= new byte[NotesHistoryV1Codec.MaxSize];
+                int length = history.Codec(version).Encode(m, historyBuffer);
+                SendApplication(peer, session, history, historyBuffer.AsSpan(0, length));
+                targets.RemoveAt(i);
             }
         }
 
@@ -203,7 +237,7 @@ namespace JoinFS.Net.Jfp2
             // the handshake is the only traffic that has no session yet; it says who is speaking itself
             if (envelope.IsInternal && envelope.RawMessageClass == MessageClasses.Hello)
             {
-                HandleHello(from, payload);
+                HandleHello(from, payload, datagram.Length);
                 return;
             }
             if (envelope.IsInternal && envelope.RawMessageClass == MessageClasses.HelloAck)
@@ -220,9 +254,21 @@ namespace JoinFS.Net.Jfp2
                 return;
             }
 
-            // consumed when the target is one of our names (our kind-0 name, in this build), compared
+            if (envelope.IsInternal && !envelope.IsForwarded && IsMembershipClass(envelope.RawMessageClass))
+            {
+                HandleMembership(from, hop, envelope.RawMessageClass, payload);
+                return;
+            }
+
+            if (hop.NonMember)
+            {
+                ReceiveDirectory(from, hop, envelope, payload);
+                return;
+            }
+
+            // consumed when the target is one of our names (our id, our key name or the alias we were given), compared
             // as bytes whatever the kind; relayed otherwise
-            if (envelope.IsForwarded && envelope.Target != NameOf(Local))
+            if (envelope.IsForwarded && !IsOwnName(envelope.Target))
             {
                 Relay(from, hop, envelope, datagram, payload);
                 return;
@@ -252,6 +298,11 @@ namespace JoinFS.Net.Jfp2
                 host.Log(NetLogLevel.Network, "JFP2: class " + envelope.RawMessageClass + " from " + hop.Peer + " was never agreed on - ignored");
                 return;
             }
+            if (envelope.IsGuaranteed && envelope.GuaranteedCount > 1)
+            {
+                ReceiveSegment(from, hop, envelope, sender, payload, version);
+                return;
+            }
             // also before acking: a segment this build cannot reassemble is dropped, not acknowledged
             if (!TryComplete(sender, Local, envelope, payload, out ReadOnlySpan<byte> message))
             {
@@ -266,30 +317,59 @@ namespace JoinFS.Net.Jfp2
                     return;
                 }
             }
-            var meta = new MessageMeta
+            Decode(MetaOf(sender, from, envelope), envelope.RawMessageClass, version, message);
+        }
+
+        MessageMeta MetaOf(NodeId sender, IPEndPoint from, in Envelope envelope) => new()
+        {
+            Sender = sender,
+            Recipient = Local,
+            EndPoint = host.Peers.TryGet(sender, out Peer senderPeer) && senderPeer.SendEstablished ? senderPeer.RouteEndPoint : from,
+            Guaranteed = envelope.IsGuaranteed,
+            Forwarded = envelope.IsForwarded,
+        };
+
+        /// <summary>
+        /// One segment of a guaranteed message for this node (§7.5). Only a segmented class from a neighbour that
+        /// agreed the capability is taken: any other is dropped, not acknowledged. A segment is acknowledged when
+        /// it is kept, a duplicate again; the message is delivered once, when its last segment arrives.
+        /// </summary>
+        void ReceiveSegment(IPEndPoint from, PeerSession hop, in Envelope envelope, NodeId sender, ReadOnlySpan<byte> payload, byte version)
+        {
+            if (profile.ForClass(envelope.RawMessageClass) is not { Segmented: true } || (hop.AgreedCapabilities & Jfp2Capabilities.Segments) == 0)
             {
-                Sender = sender,
-                Recipient = Local,
-                EndPoint = host.Peers.TryGet(sender, out Peer senderPeer) && senderPeer.SendEstablished ? senderPeer.RouteEndPoint : from,
-                Guaranteed = envelope.IsGuaranteed,
-                Forwarded = envelope.IsForwarded,
-            };
-            Decode(meta, envelope.RawMessageClass, version, message);
+                host.Log(NetLogLevel.Network, "JFP2: segment " + envelope.GuaranteedIndex + "/" + envelope.GuaranteedCount + " of class " + envelope.RawMessageClass + " from " + hop.Peer + " was never agreed on - ignored");
+                return;
+            }
+            bool complete = reliability.Reassemble(sender, Local, envelope.GuaranteedId, envelope.GuaranteedIndex, envelope.GuaranteedCount, payload, out bool accepted, out byte[] message);
+            if (!accepted)
+            {
+                return;
+            }
+            SendGuaranteedDone(from, hop, envelope.GuaranteedId, envelope.GuaranteedIndex, envelope.IsForwarded ? sender : null, Local);
+            if (!complete || reliability.IsDuplicate(sender, Local, envelope.GuaranteedId))
+            {
+                return;
+            }
+            host.Log(NetLogLevel.Network, "JFP2: class " + envelope.RawMessageClass + " of " + message.Length + " bytes complete from " + sender + " (" + envelope.GuaranteedCount + " segments)");
+            Decode(MetaOf(sender, from, envelope), envelope.RawMessageClass, version, message);
         }
 
         /// <summary>
-        /// The whole message a datagram completes: its own payload, unless it is one segment of a
-        /// guaranteed message from <paramref name="origin"/> for <paramref name="target"/>. False: drop
-        /// it, without acknowledging it.
+        /// The message a datagram carries: its own payload. False: drop it, without acknowledging it - a
+        /// segment of several, which a relay does not translate (it passes the bytes on, or drops them) and
+        /// <see cref="ReceiveSegment"/> alone puts together.
         /// </summary>
         bool TryComplete(NodeId origin, NodeId target, in Envelope envelope, ReadOnlySpan<byte> payload, out ReadOnlySpan<byte> message)
         {
-            if (!envelope.IsGuaranteed)
+            if (envelope.IsGuaranteed && envelope.GuaranteedCount > 1)
             {
-                message = payload;
-                return true;
+                host.Log(NetLogLevel.Network, "JFP2: dropped segment " + envelope.GuaranteedIndex + "/" + envelope.GuaranteedCount + " of guaranteed id " + envelope.GuaranteedId + " from " + origin + " for " + target + " (a relay does not translate segments)");
+                message = default;
+                return false;
             }
-            return reliability.Reassemble(origin, target, envelope.GuaranteedId, envelope.GuaranteedIndex, envelope.GuaranteedCount, payload, out message);
+            message = payload;
+            return true;
         }
 
         /// <summary>A class agreed on (a version above 0) is one of the profile's: decode it and hand it to the core.</summary>

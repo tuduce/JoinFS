@@ -108,7 +108,7 @@ namespace JoinFS.Tests.Net
             SchemaOffer position = PositionV2.Offers.Single(o => o.MessageClass == MessageClasses.Position);
             Assert.Equal((1, 2), (position.MinVersion, position.MaxVersion));
             Assert.Equal(Jfp2Profile.Default.Offers.Select(o => o.MessageClass), PositionV2.Offers.Select(o => o.MessageClass)); // replaced in place
-            Assert.DoesNotContain(NoNotes.Offers, o => o.MessageClass == MessageClasses.Notes);
+            Assert.DoesNotContain(NoNotes.Offers, o => !o.Internal && o.MessageClass == MessageClasses.Notes);
             Assert.Null(NoNotes.ForKind(MessageKind.Notes));
         }
 
@@ -162,8 +162,8 @@ namespace JoinFS.Tests.Net
         [Fact]
         public void BuildsWithOtherCapabilities_AgreeTheBitsBothAdvertise()
         {
-            const ulong x = 1UL << 0, y = 1UL << 1;
-            Assert.Equal(0UL, Jfp2Profile.Default.Capabilities);
+            const ulong x = 1UL << 1, y = 1UL << 2; // bit 0 is Segments, which this build advertises
+            Assert.Equal(Jfp2Capabilities.Segments, Jfp2Profile.Default.Capabilities);
             Assert.Equal(x | y, NoNotes.WithCapabilities(x | y).Without(MessageClasses.Event).Capabilities); // kept by With/Without
             var mesh = new TestMesh();
             TestNode hub = Node(mesh, "203.0.113.1", Jfp2Profile.Default.WithCapabilities(x | y));
@@ -217,7 +217,7 @@ namespace JoinFS.Tests.Net
                 byte[] payload = new byte[EventV2TestCodec.Size];
                 new EventV2TestCodec().Encode(new EventUpdate { ObjectId = 1, EventId = eventId }, payload);
                 var envelope = new Envelope(EnvelopeFlags.Guaranteed | EnvelopeFlags.Forwarded, local, remote, MessageClasses.Event, id, 0, 1,
-                    NodeName.FromLegacy(A.Id), NodeName.FromLegacy(target.Id));
+                    A.Id, target.Id);
                 byte[] datagram = new byte[envelope.WireSize + payload.Length];
                 payload.CopyTo(datagram, envelope.WriteTo(datagram));
                 A.Core.Transport.Send(Hub.EndPoint, datagram);
@@ -255,8 +255,8 @@ namespace JoinFS.Tests.Net
             Assert.Equal(1001u, Assert.Single(t.T2.MessagesWithMeta<EventUpdate>(), m => m.Meta.Sender == t.A.Id).Message.EventId);
             List<Envelope> acks = t.Acks(t.Hub, t.A);
             Assert.Equal(2, acks.Count);
-            Assert.All(acks, ack => Assert.True(ack.IsForwarded && ack.Target == NodeName.FromLegacy(t.A.Id)));
-            Assert.Equal([NodeName.FromLegacy(t.T1.Id), NodeName.FromLegacy(t.T2.Id)], acks.Select(ack => ack.Origin).ToList());
+            Assert.All(acks, ack => Assert.True(ack.IsForwarded && ack.Target == t.A.Id));
+            Assert.Equal([t.T1.Id, t.T2.Id], acks.Select(ack => ack.Origin).ToList());
             Assert.Equal(0, Jfp2Of(t.Hub).GuaranteedPendingCount);
         }
 
@@ -276,7 +276,7 @@ namespace JoinFS.Tests.Net
             Envelope downstream = Assert.Single(t.Guaranteed(t.Hub, t.T1));
             Assert.Equal(upstream.GuaranteedId, downstream.GuaranteedId);
             Assert.True(upstream.GuaranteedId < 5000);
-            Assert.Equal(NodeName.FromLegacy(t.A.Id), downstream.Origin);
+            Assert.Equal(t.A.Id, downstream.Origin);
             Assert.Equal(7u, Assert.Single(t.T1.Messages<EventUpdate>()).EventId);
             Assert.Equal(0, Jfp2Of(t.A).GuaranteedPendingCount); // the hub's ack in T1's name cleared A's entry
             Assert.Equal(0, Jfp2Of(t.Hub).GuaranteedPendingCount);

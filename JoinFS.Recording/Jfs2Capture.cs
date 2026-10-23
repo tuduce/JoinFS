@@ -7,7 +7,7 @@ using JoinFS.Recording.Format;
 namespace JoinFS.Recording
 {
     /// <summary>
-    /// Writes a recording as a JFS2 file while it is made (docs/jfs2/recorder-v2-design.md section 5.5). It takes canonical
+    /// Writes a recording as a JFS2 file while it is made (docs/recording/jfs2/recorder-v2-design.md section 5.5). It takes canonical
     /// messages and times in recording seconds, and knows nothing of Sim or Main, so it is testable without a simulator.
     /// Writes track-open, identity, position, object-position, variables and event.
     /// </summary>
@@ -106,7 +106,7 @@ namespace JoinFS.Recording
 
         /// <summary>
         /// Every chunk is deflated (kept as is when that is not smaller): files shrink to 55 to 62% for under 1 ms a chunk
-        /// (docs/jfs2/README.md, stage 6). The scene writer writes through a capture, so Save writes the same.
+        /// (docs/recording/jfs2/README.md, stage 6). The scene writer writes through a capture, so Save writes the same.
         /// </summary>
         static readonly RecordingWriterOptions WriterOptions = new()
         {

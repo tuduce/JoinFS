@@ -621,6 +621,9 @@
   <data name="Offline" xml:space="preserve">
     <value>Не в сети</value>
   </data>
+  <data name="Unreachable" xml:space="preserve">
+    <value>Недоступен</value>
+  </data>
   <data name="OK" xml:space="preserve">
     <value>OK</value>
   </data>

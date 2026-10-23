@@ -6,7 +6,7 @@ namespace JoinFS.Tests.Net
     /// <summary>
     /// Every inbound message carries the time its datagram arrived (MessageMeta.ReceivedAt), and
     /// SimIngest hands it to the simulator with each position, so time spent in queues before a
-    /// position is applied doesn't distort extrapolation (docs/sim-thread-architecture.md §2.7).
+    /// position is applied doesn't distort extrapolation (docs/sim/sim-thread-architecture.md §2.7).
     /// </summary>
     public class ReceiveTimestampTests
     {
@@ -63,9 +63,9 @@ namespace JoinFS.Tests.Net
         [Fact]
         public void SimIngest_PassesTheArrivalTimeWithEachPosition()
         {
-            NodeId peer = new(0x0A000001, 6112, 1);
+            NodeId peer = NodeId.FromLegacy(0x0A000001, 6112, 1);
             var rig = new SessionRig();
-            rig.Peers.OnPeerJoined(peer, peer.ToEndPoint(peer.port));
+            rig.Peers.OnPeerJoined(peer, peer.ToEndPoint());
             MessageMeta meta = SessionRig.From(peer);
             meta.ReceivedAt = 12.25;
             rig.Ingest.Handle(meta, Identity());

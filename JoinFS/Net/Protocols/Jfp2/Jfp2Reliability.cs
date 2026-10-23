@@ -4,35 +4,49 @@ using System.Collections.Generic;
 namespace JoinFS.Net.Jfp2
 {
     /// <summary>
-    /// JFP2 guaranteed delivery (docs/jfp2/protocol.md §7): a guaranteed message is resent
+    /// JFP2 guaranteed delivery (docs/network/jfp2/protocol.md §7): a guaranteed message is resent
     /// every 2 s until acknowledged or 180 s pass. Each attempt goes through the target's current next
     /// hop, so a route change or a session that drops and is verified again does not strand it; while
     /// JFP2 has no route to the target the message waits. Receivers ack every copy and deliver once,
     /// remembering ids for 30 s.
     ///
     /// A guaranteed id is unique per (origin, final target) within those 30 s; one message to several
-    /// targets may share one (docs/jfp2/protocol.md §7.2). So everything here is keyed by
+    /// targets may share one (docs/network/jfp2/protocol.md §7.2). So everything here is keyed by
     /// both: pending segments by (origin, target, id, index), since a relay re-sending on an origin's
     /// behalf keeps the origin's id; received ids by (origin, target, id), since a relay that
     /// translates sees one origin's id for several targets. A node that is the final target is the
     /// target of its own keys.
     ///
-    /// Messages are single-segment: multi-segment delivery is specified but not implemented. Pending
-    /// entries and acks already carry the segment index, and <see cref="Send"/> and
-    /// <see cref="Reassemble"/> are the two places segmentation plugs in.
+    /// A message of a segmented class (<see cref="ClassDescriptor.Segmented"/>) larger than one
+    /// datagram goes out as up to 255 segments, each pending, resent and acknowledged on its own;
+    /// <see cref="Reassemble"/> puts the segments a receiver gets back together.
     /// </summary>
     sealed class Jfp2Reliability
     {
         /// <summary>
-        /// Payload bytes per guaranteed segment once segmentation exists: the payload ceiling that
-        /// keeps a datagram within 1,200 bytes with every header (docs/jfp2/protocol.md
-        /// §3.6). The field limits keep every v1 payload within it, so today a larger one is a codec bug.
+        /// Payload bytes per guaranteed segment: the payload ceiling that keeps a datagram within 1,200
+        /// bytes with every header (docs/network/jfp2/protocol.md §3.6). The field limits keep every v1
+        /// payload of a class that is not segmented within it, so a larger one is a codec bug.
         /// </summary>
         public const int GuaranteedSegmentSize = Envelope.MaxPayloadSize;
+
+        /// <summary>The most segments a message has: the count is one byte (§3.4).</summary>
+        public const int MaxSegments = byte.MaxValue;
+
+        /// <summary>Messages being put together at one time; a segment of one more is dropped, and its sender resends it.</summary>
+        const int MaxPartials = 8;
 
         const double RetryInterval = 2.0;
         const double ExpireTime = 180.0;
         const double DedupWindow = 30.0;
+
+        /// <summary>The segments of one message received so far.</summary>
+        sealed class Partial
+        {
+            public byte[][] Segments;
+            public int Received;
+            public double Expire;
+        }
 
         sealed class Pending
         {
@@ -57,6 +71,7 @@ namespace JoinFS.Net.Jfp2
         /// <summary>Keyed by who the message is from (this node, or the origin a relay re-sends it for), its final target, its id and the segment.</summary>
         readonly Dictionary<(NodeId Origin, NodeId Target, ushort Id, byte Index), Pending> pending = [];
         readonly Dictionary<(NodeId Origin, NodeId Target, ushort Id), double> recentlySeen = [];
+        readonly Dictionary<(NodeId Origin, NodeId Target, ushort Id), Partial> partials = [];
         readonly List<(NodeId, NodeId, ushort, byte)> scratchPendingKeys = [];
         readonly List<(NodeId, NodeId, ushort)> scratchSeenKeys = [];
         ushort nextGuaranteedId;
@@ -92,26 +107,41 @@ namespace JoinFS.Net.Jfp2
         /// the target deduplicates by the origin's ids, so one from this node's counter could collide
         /// with one of the origin's own. 0: this node's next id.
         /// </summary>
-        public void Send(NodeId target, NodeId origin, byte messageClass, byte version, ReadOnlySpan<byte> payload, ushort originId = 0)
+        public void Send(NodeId target, NodeId origin, byte messageClass, byte version, ReadOnlySpan<byte> payload, ushort originId = 0, bool segmented = false)
         {
-            if (payload.Length > GuaranteedSegmentSize)
+            int count = segmented ? Math.Max(1, (payload.Length + GuaranteedSegmentSize - 1) / GuaranteedSegmentSize) : 1;
+            if (count > MaxSegments)
+            {
+                host.Log(NetLogLevel.Network, "JFP2: guaranteed class " + messageClass + " payload of " + payload.Length + " bytes needs more than " + MaxSegments + " segments - not sent");
+                return;
+            }
+            if (!segmented && payload.Length > GuaranteedSegmentSize)
             {
                 host.Log(NetLogLevel.Network, "JFP2: guaranteed class " + messageClass + " payload of " + payload.Length + " bytes is over the "
                     + GuaranteedSegmentSize + "-byte ceiling (a codec exceeds its field limits) - sent as one datagram");
             }
             double now = Now;
-            var key = (origin, target, originId != 0 ? originId : NextId(), (byte)0);
-            var message = new Pending
+            ushort id = originId != 0 ? originId : NextId();
+            for (int index = 0; index < count; index++)
             {
-                MessageClass = messageClass,
-                Version = version,
-                Payload = payload.ToArray(),
-                Count = 1,
-                NextRetry = now + RetryInterval,
-                Expire = now + ExpireTime,
-            };
-            pending[key] = message;
-            TransmitNow(key, message);
+                ReadOnlySpan<byte> part = count == 1 ? payload : payload.Slice(index * GuaranteedSegmentSize, Math.Min(GuaranteedSegmentSize, payload.Length - index * GuaranteedSegmentSize));
+                var key = (origin, target, id, (byte)index);
+                var message = new Pending
+                {
+                    MessageClass = messageClass,
+                    Version = version,
+                    Payload = part.ToArray(),
+                    Count = (byte)count,
+                    NextRetry = now + RetryInterval,
+                    Expire = now + ExpireTime,
+                };
+                pending[key] = message;
+                TransmitNow(key, message);
+            }
+            if (count > 1)
+            {
+                host.Log(NetLogLevel.Network, "JFP2: guaranteed class " + messageClass + " of " + payload.Length + " bytes to " + target + " in " + count + " segments");
+            }
         }
 
         void TransmitNow((NodeId Origin, NodeId Target, ushort Id, byte Index) key, Pending p) =>
@@ -137,6 +167,10 @@ namespace JoinFS.Net.Jfp2
                     TransmitNow(kv.Key, p);
                 }
                 foreach (var key in scratchPendingKeys) pending.Remove(key);
+            }
+            if (partials.Count > 0)
+            {
+                partials.RemoveWhere((_, partial) => now > partial.Expire);
             }
             if (now >= nextDedupSweep && recentlySeen.Count > 0)
             {
@@ -171,23 +205,63 @@ namespace JoinFS.Net.Jfp2
         }
 
         /// <summary>
-        /// Turn a received guaranteed segment into its complete message; false while (or because) it
-        /// is not complete. Single-segment messages pass straight through.
+        /// Take a received guaranteed segment of a message of <paramref name="count"/> segments (above 1);
+        /// true with the whole message when it was the last one missing. The caller acknowledges every
+        /// segment, duplicates included, and calls <see cref="IsDuplicate"/> on the completed message
+        /// (never per segment: keyed by id alone it would drop segments 2 to N). A segment of a message
+        /// delivered within the duplicate window is ignored. A segment whose index or count disagrees with the
+        /// first one of its message, or one that would make more than <see cref="MaxPartials"/> messages
+        /// at once, is not <paramref name="accepted"/>: the caller does not acknowledge it, and its sender resends it.
         /// </summary>
-        public bool Reassemble(NodeId origin, NodeId target, ushort guaranteedId, byte index, byte count, ReadOnlySpan<byte> segment, out ReadOnlySpan<byte> message)
+        public bool Reassemble(NodeId origin, NodeId target, ushort guaranteedId, byte index, byte count, ReadOnlySpan<byte> segment, out bool accepted, out byte[] message)
         {
-            if (count <= 1)
+            message = null;
+            accepted = false;
+            var key = (origin, target, guaranteedId);
+            if (index >= count)
             {
-                message = segment;
-                return true;
+                return false;
             }
-            // Implementing this needs a per-(origin, target, id) segment buffer here, and IsDuplicate must
-            // then run on completion instead of per datagram: keyed by id alone, it drops segments 2..N.
-            // Until then the caller drops the segment before acknowledging it, so its sender does not
-            // take a message that was never delivered as delivered.
-            host.Log(NetLogLevel.Network, "JFP2: dropped segment " + index + "/" + count + " of guaranteed id " + guaranteedId + " from " + origin + " for " + target + " (segmentation not implemented)");
-            message = default;
-            return false;
+            if (recentlySeen.ContainsKey(key))
+            {
+                accepted = true; // delivered already: acknowledged again, since our ack was lost
+                return false;
+            }
+            if (!partials.TryGetValue(key, out Partial partial))
+            {
+                if (partials.Count >= MaxPartials)
+                {
+                    host.Log(NetLogLevel.Network, "JFP2: dropped segment " + index + "/" + count + " of guaranteed id " + guaranteedId + " from " + origin + " (too many messages in pieces)");
+                    return false;
+                }
+                partial = new Partial { Segments = new byte[count][], Expire = Now + ExpireTime };
+                partials[key] = partial;
+            }
+            if (partial.Segments.Length != count)
+            {
+                return false;
+            }
+            accepted = true;
+            if (partial.Segments[index] == null)
+            {
+                partial.Segments[index] = segment.ToArray();
+                partial.Received++;
+            }
+            if (partial.Received < count)
+            {
+                return false;
+            }
+            partials.Remove(key);
+            int total = 0;
+            foreach (byte[] part in partial.Segments) total += part.Length;
+            message = new byte[total];
+            int at = 0;
+            foreach (byte[] part in partial.Segments)
+            {
+                part.CopyTo(message, at);
+                at += part.Length;
+            }
+            return true;
         }
 
         /// <summary>A peer left: its messages have nowhere to go. Messages that only passed through it re-route.</summary>
@@ -195,12 +269,14 @@ namespace JoinFS.Net.Jfp2
         {
             pending.RemoveWhere((k, _) => k.Target == peer);
             recentlySeen.RemoveWhere((k, _) => k.Origin == peer);
+            partials.RemoveWhere((k, _) => k.Origin == peer);
         }
 
         public void Clear()
         {
             pending.Clear();
             recentlySeen.Clear();
+            partials.Clear();
         }
     }
 }

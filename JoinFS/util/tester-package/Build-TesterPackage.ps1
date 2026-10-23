@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
 Builds a zip for testers: JoinFS builds that start with the position estimation log on, plus
-scripts to start them and to collect the logs afterwards (docs/position-estimation-plan.md 6.1).
+scripts to start them and to collect the logs afterwards (docs/estimation/position-estimation-plan.md 6.1).
 
 .EXAMPLE
 .\JoinFS\util\tester-package\Build-TesterPackage.ps1 -UploadTarget user@host.example:/incoming/ -UploadPort 2224
@@ -22,7 +22,7 @@ param(
     [string]$UploadInfo = 'send the zip to the test organiser.',
     # SFTP target the collect script uploads to, e.g. user@host:/incoming/ - passed here rather than
     # written in the repository. The package gets its own login key for it; the server must have
-    # the account set up as a write-only drop box (docs/position-estimation-plan.md 6.1).
+    # the account set up as a write-only drop box (docs/estimation/position-estimation-plan.md 6.1).
     [string]$UploadTarget,
     [int]$UploadPort = 22,
     # how long the package's login key works, in days (the server enforces it)

@@ -10,7 +10,7 @@ namespace JoinFS.Net
     /// of the network stack comes through <see cref="IProtocolHost"/>.
     ///
     /// All methods are called on the network thread only.
-    /// See docs/network-plugin-architecture.md §2.3.
+    /// See docs/network/network-plugin-architecture.md §2.3.
     /// </summary>
     public interface IProtocolPlugin
     {
@@ -52,6 +52,25 @@ namespace JoinFS.Net
         void OnSessionReset();
     }
 
+    /// <summary>
+    /// Optional: a plugin that can talk to a node that is not a member of the session, over a short-lived link of its own (JFP2's non-member
+    /// session, docs/network/jfp2/protocol.md §5.9): the directory conversations (status, hub list, users, lookups) of §5.16.
+    /// </summary>
+    public interface IDirectoryLink
+    {
+        /// <summary>Start a conversation with the node at <paramref name="endPoint"/>, unless one is under way or open. False when it cannot be started.</summary>
+        bool Introduce(IPEndPoint endPoint);
+
+        /// <summary>A verified link to the node at <paramref name="endPoint"/> is open.</summary>
+        bool HasLink(IPEndPoint endPoint);
+
+        /// <summary>
+        /// Send <paramref name="message"/> over the open link to the node at <paramref name="endPoint"/>. False when there is no such link, the
+        /// message is not a directory one, or the node did not agree its class: nothing was sent.
+        /// </summary>
+        bool TrySend<T>(IPEndPoint endPoint, in T message) where T : struct, IMessage;
+    }
+
     /// <summary>Optional: a plugin that can describe its per-peer link state for the UI.</summary>
     public interface IDescribesLinks
     {
@@ -61,8 +80,8 @@ namespace JoinFS.Net
     }
 
     /// <summary>
-    /// Which protocol actually carries traffic to a peer, for display (docs/network-plugin-
-    /// architecture.md §2.11 item 4: this replaces matching literal strings such as "JFP2"/"Legacy"
+    /// Which protocol actually carries traffic to a peer, for display (docs/network/
+    /// network-plugin-architecture.md §2.11 item 4: this replaces matching literal strings such as "JFP2"/"Legacy"
     /// in the UI). Reported by whichever plugin implements <see cref="IDescribesLinks"/>;
     /// <see cref="NetworkSnapshot"/> defaults untracked peers to <see cref="Legacy"/>, since with no
     /// negotiating plugin registered at all, legacy is the only thing a peer could be talking.
@@ -88,6 +107,13 @@ namespace JoinFS.Net
             PeerLinkState.Legacy => "Legacy",
             _ => "Pending",
         };
+
+        /// <summary>
+        /// <see cref="ToDisplay(PeerLinkState)"/> with the family of the path a JFP2 link uses ("JFP2 (IPv6)"). Legacy is IPv4 only and a link
+        /// still being negotiated has no path yet, so only JFP2 says its family. No family (null) is the plain text.
+        /// </summary>
+        public static string ToDisplay(this PeerLinkState state, string family) =>
+            state == PeerLinkState.Negotiated && !string.IsNullOrEmpty(family) ? "JFP2 (" + family + ")" : state.ToDisplay();
     }
 
     public enum NetLogLevel
@@ -106,6 +132,9 @@ namespace JoinFS.Net
         LocalIdentity Identity { get; }
         PeerDirectory Peers { get; }
         ObjectStateCache Objects { get; }
+
+        /// <summary>The session's membership: what a plugin reports to when its wire brings a member (<see cref="IMembership"/>).</summary>
+        IMembership Membership { get; }
 
         /// <summary>The local node is in a session (has a session id).</summary>
         bool Connected { get; }

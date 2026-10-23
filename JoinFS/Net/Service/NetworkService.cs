@@ -1,9 +1,13 @@
 using System;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Diagnostics;
 using System.Net;
+using System.Net.Sockets;
 using System.Threading;
+using JoinFS.Net.Jfp2;
 using JoinFS.Net.Legacy;
 
 namespace JoinFS.Net
@@ -21,7 +25,7 @@ namespace JoinFS.Net
     /// - UI/Sim/CONSOLE code reads <see cref="Snapshot"/>: immutable, lock-free, at most
     ///   <see cref="SnapshotInterval"/> old.
     ///
-    /// See docs/network-plugin-architecture.md §2.7.
+    /// See docs/network/network-plugin-architecture.md §2.7.
     /// </summary>
     public sealed class NetworkService : INetworkSink, INetworkOutbox, IDisposable
     {
@@ -35,12 +39,16 @@ namespace JoinFS.Net
         Thread thread;
         volatile bool running;
         volatile NetworkSnapshot snapshot = NetworkSnapshot.Empty;
+        string loggedSocketMode;
+        string loggedAddresses;
+        double nextAddressCheck;
         double nextTick;
         double nextSnapshot;
 
         /// <summary>The core. Touch it only from the network thread (i.e. inside <see cref="Post"/>).</summary>
         public NetworkCore Core { get; }
 
+        /// <summary>The legacy plugin; null on a JFP2-only node (the hub setting, scenario S12), which answers no legacy datagram at all.</summary>
         public LegacyPlugin Legacy { get; }
 
         public NetworkSnapshot Snapshot => snapshot;
@@ -48,14 +56,48 @@ namespace JoinFS.Net
         /// <summary>The UDP port currently bound (0 when closed).</summary>
         public int Port => transport.LocalPort;
 
-        public NetworkService(IClock clock = null, Func<string, CredentialStore> credentialStoreFactory = null)
+        /// <summary>
+        /// Open the socket dual-mode (IPv6 and IPv4). On by default; off for an IPv4-only node
+        /// (the IPv6 setting, <c>-noipv6</c>). Takes effect at the next <see cref="Open"/>.
+        /// </summary>
+        public bool Ipv6Enabled
+        {
+            get => transport.Ipv6Enabled;
+            set => transport.Ipv6Enabled = value;
+        }
+
+        /// <summary>
+        /// Serve IPv4. Off only for a test instance that behaves as an IPv6-only node (<c>-noipv4</c>).
+        /// Takes effect at the next <see cref="Open"/>.
+        /// </summary>
+        public bool Ipv4Enabled
+        {
+            get => transport.Ipv4Enabled;
+            set => transport.Ipv4Enabled = value;
+        }
+
+        /// <param name="legacy">Speak the legacy protocol. Off for a JFP2-only hub: no legacy plugin is registered, so
+        /// a legacy datagram finds nobody to read it and a pilot on a build before the stand-alone JFP2 cannot join.</param>
+        public NetworkService(IClock clock = null, Func<string, CredentialStore> credentialStoreFactory = null, bool legacy = true)
         {
             this.clock = clock ?? SystemClock.Instance;
             Core = new NetworkCore(transport, this.clock, this, credentialStoreFactory);
-            Legacy = new LegacyPlugin((ushort)Stopwatch.GetTimestamp());
-            Core.AddPlugin(Legacy);
+            if (legacy)
+            {
+                Legacy = new LegacyPlugin((ushort)Stopwatch.GetTimestamp());
+                Core.AddPlugin(Legacy);
+            }
             // stamped on the receive thread, as soon as the datagram arrives (MessageMeta.ReceivedAt)
-            transport.Received += (from, buffer, length) => mailbox.Add(DatagramWork.Rent(from, buffer, length, this.clock.Now));
+            transport.Received += (from, buffer, length) =>
+            {
+                if (from.AddressFamily != AddressFamily.InterNetwork && !(length > 0 && buffer[0] == Envelope.Magic))
+                {
+                    // only JFP2 speaks IPv6 (the legacy wire names nodes by IPv4 address)
+                    ArrayPool<byte>.Shared.Return(buffer);
+                    return;
+                }
+                mailbox.Add(DatagramWork.Rent(from, buffer, length, this.clock.Now));
+            };
             transport.SendFailed += (to, error) => Core.Log(NetLogLevel.Event, error + ", " + to);
             Core.Identity.LocalAddress = LocalIdentity.DetectLocalAddress();
         }
@@ -104,6 +146,12 @@ namespace JoinFS.Net
         public void SendToEndPoint<T>(IPEndPoint endPoint, in T message, bool guaranteed = false) where T : struct, IMessage =>
             Send(MessageMeta.ToEndPoint(endPoint, guaranteed), message, ReadOnlySpan<NodeId>.Empty);
 
+        public void Ask<T>(IPEndPoint endPoint, in T message, bool guaranteed = false) where T : struct, IMessage
+        {
+            T copy = message;
+            Post(core => core.Mesh.Ask(endPoint, copy, guaranteed));
+        }
+
         public void Broadcast<T>(in T message, bool guaranteed = false) where T : struct, IMessage =>
             mailbox.Add(new BroadcastWork<T>(message, guaranteed));
 
@@ -120,6 +168,13 @@ namespace JoinFS.Net
         /// Open (or move to) a UDP port. Moving leaves any current session first, on the old port,
         /// like LocalNode.Open did. Runs on the network thread; the caller waits for the result.
         /// </summary>
+        string SocketModeText() =>
+            transport.IsDualStack ? "IPv4 and IPv6 (dual-mode)"
+            : transport.IsIPv6Only ? "IPv6 only (IPv4 is turned off)"
+            : transport.FallbackReason != null ? "IPv4 only (IPv6 is not available: " + transport.FallbackReason + ")"
+            : !transport.Ipv6Enabled ? "IPv4 only (IPv6 is turned off)"
+            : "IPv4 only";
+
         public bool Open(int port, out string error)
         {
             bool ok = false;
@@ -132,7 +187,17 @@ namespace JoinFS.Net
                 }
                 ok = transport.Open(port, out failure);
                 core.IsOpen = ok;
+                if (ok)
+                {
+                    string mode = SocketModeText();
+                    if (mode != loggedSocketMode)
+                    {
+                        loggedSocketMode = mode;
+                        core.Log(NetLogLevel.Event, "NETWORK: socket on port " + transport.LocalPort + ": " + mode);
+                    }
+                }
                 if (ok) core.Identity.Port = (ushort)transport.LocalPort;
+                if (ok) RefreshAddresses(core);
                 nextSnapshot = 0;
             }
             if (running && Thread.CurrentThread != thread)
@@ -213,11 +278,48 @@ namespace JoinFS.Net
                     }
                     nextTick = now + TickInterval;
                 }
+                if (now >= nextAddressCheck && Core.IsOpen)
+                {
+                    RefreshAddresses(Core);
+                }
                 if (now >= nextSnapshot)
                 {
                     snapshot = BuildSnapshot();
                     nextSnapshot = now + SnapshotInterval;
                 }
+            }
+        }
+
+        /// <summary>How often the machine's IPv6 addresses are read again (they change with the ISP, the router and sleep).</summary>
+        const double AddressCheckInterval = 30;
+
+        /// <summary>
+        /// The global IPv6 addresses this node advertises as candidates (<see cref="LocalIdentity.Candidates"/>), read from the interfaces
+        /// when the socket serves IPv6. A change is logged at event level and goes out with the next Hello.
+        /// </summary>
+        void RefreshAddresses(NetworkCore core)
+        {
+            nextAddressCheck = clock.Now + AddressCheckInterval;
+            bool ipv6 = transport.IsDualStack || transport.IsIPv6Only;
+            IReadOnlyList<IPAddress> found = ipv6 ? LocalIdentity.DetectGlobalIPv6() : [];
+            string text = ipv6 ? (found.Count == 0 ? "none" : string.Join(", ", found)) : "IPv6 is not in use";
+            if (!found.SequenceEqual(core.Identity.Ipv6Addresses))
+            {
+                core.Identity.Ipv6Addresses = found;
+            }
+            if (text != loggedAddresses)
+            {
+                loggedAddresses = text;
+                core.Log(NetLogLevel.Event, "NETWORK: global IPv6 addresses: " + text);
+            }
+            // a node with no IPv4 is known by its key name, and nodes that speak legacy see it through the node that admits it
+            bool noIPv4 = transport.IsIPv6Only || (ipv6 && !LocalIdentity.HasIPv4Interface());
+            if (noIPv4 != core.Identity.NoIPv4)
+            {
+                core.Identity.NoIPv4 = noIPv4;
+                core.Log(NetLogLevel.Event, noIPv4
+                    ? "NETWORK: this node has no IPv4 address: it is known by its key name, and takes part over IPv6 and JFP2 alone"
+                    : "NETWORK: this node has an IPv4 address again");
             }
         }
 
@@ -267,8 +369,13 @@ namespace JoinFS.Net
             return new NetworkSnapshot
             {
                 Open = Core.IsOpen,
+                DualStack = transport.IsDualStack,
+                Ipv6Only = transport.IsIPv6Only,
+                Ipv6Addresses = Core.Identity.Ipv6Addresses,
                 Port = Core.Identity.Port,
                 LocalId = Core.Identity.Id,
+                NoIPv4 = Core.Identity.NoIPv4,
+                Alias = Core.Identity.Alias,
                 LocalAddress = Core.Identity.LocalAddress,
                 InternetAddress = Core.Identity.InternetAddress,
                 State = mesh.State,
@@ -281,8 +388,8 @@ namespace JoinFS.Net
                 LoginResult = mesh.ActiveLoginResult,
                 LowBandwidth = Core.LowBandwidth,
                 RelayCount = mesh.RelayCount,
-                GuaranteedInCount = Legacy.GuaranteedInCount,
-                GuaranteedOutCount = Legacy.GuaranteedOutCount,
+                GuaranteedInCount = Legacy?.GuaranteedInCount ?? 0,
+                GuaranteedOutCount = Legacy?.GuaranteedOutCount ?? 0,
                 Peers = peers,
                 PeerList = list,
             };

@@ -2,25 +2,26 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Net;
+using JoinFS.Net.Crypto;
 using JoinFS.Net.Jfp2;
 using JoinFS.Net.Jfp2.Codecs;
 
 namespace JoinFS.Net.Jfp2
 {
     /// <summary>
-    /// The JFP2 protocol as a plugin (docs/jfp2/protocol.md): an 8-byte envelope starting with
+    /// The JFP2 protocol as a plugin (docs/network/jfp2/protocol.md): an 8-byte envelope starting with
     /// magic 0xFA, a Hello/HelloAck handshake that agrees a schema version per message class with
     /// each neighbor, versioned codecs, guaranteed delivery (<see cref="Jfp2Reliability"/>), and relay
     /// of Forwarded envelopes.
     ///
-    /// Today JFP2 is a per-hop "link upgrader" (docs/network-plugin-architecture.md §2.4): the legacy
+    /// Today JFP2 is a per-hop "link upgrader" (docs/network/network-plugin-architecture.md §2.4): the legacy
     /// mesh holds membership and JFP2 carries what it negotiated with each neighbor. It is to become
     /// the successor of legacy (§2.13 there). A session is with a NEIGHBOR: a node we exchange
     /// datagrams with directly, identified by the name it states in the handshake and never by the
     /// endpoint it answers from (two nodes can share one public endpoint). A peer that is not a
     /// neighbor is reached through the neighbor that carries its traffic (<see cref="NextHop"/>): the
     /// datagram goes to that hop in the hop's negotiated schema, addressed end to end with Forwarded
-    /// Origin/Target names (<see cref="NodeName"/>), and the hop either forwards it
+    /// Origin/Target names (<see cref="NodeId"/>), and the hop either forwards it
     /// byte for byte (the target agreed the same schema) or decodes it and lets the core re-send it in
     /// the target's own terms (the generic translation path, design §2.6). Whatever a peer's hop
     /// cannot carry goes through the legacy plugin.
@@ -36,7 +37,7 @@ namespace JoinFS.Net.Jfp2
     ///
     /// Ported from the JFP2 regions of Node.cs and Network.cs.
     /// </summary>
-    public sealed partial class Jfp2Plugin : IProtocolPlugin, IDescribesLinks
+    public sealed partial class Jfp2Plugin : IProtocolPlugin, IDescribesLinks, IMembershipExpression
     {
         const int HelloMaxAttempts = 5;
         const double HelloRetryInterval = 2.0;
@@ -47,6 +48,14 @@ namespace JoinFS.Net.Jfp2
         const double IdentityHeartbeatInterval = 4.0;
         const double IdentityForgetAfter = 30.0;
         const int GuaranteedDoneSize = 3;
+        /// <summary>Non-member sessions at once, and how long one lasts unless a Join makes it a member (protocol.md §5.9).</summary>
+        const int MaxNonMembers = 256;
+        const double NonMemberLifetime = 60.0;
+        /// <summary>Cookie challenges answered per second, with a burst of <see cref="AdmissionBurst"/> (protocol.md §5.9).</summary>
+        const double AdmissionRate = 10.0;
+        const double AdmissionBurst = 20.0;
+        /// <summary>Hellos a stranger is asked with (the ask, then the echo) before the attempt is given up.</summary>
+        const int IntroduceMaxAttempts = 3;
         /// <summary>VariableSync payload budget per datagram, to stay under a safe UDP MTU like legacy's variable messages (about 850 bytes).</summary>
         const int VariableSyncMaxPayload = 1000;
 
@@ -65,6 +74,13 @@ namespace JoinFS.Net.Jfp2
         readonly Encoder encoder;
         readonly Dictionary<NodeId, PeerSession> sessions = [];
         readonly Dictionary<ushort, PeerSession> sessionsById = [];
+        /// <summary>Sessions that are not members (<see cref="PeerSession.NonMember"/>), by the first name the stranger stated; their ids are in <see cref="sessionsById"/> too.</summary>
+        readonly Dictionary<NodeId, PeerSession> nonMembers = [];
+        /// <summary>Conversations this node started with a stranger (<see cref="Introduce"/>), by the id it gave in its Hello.</summary>
+        readonly Dictionary<ushort, Introduction> introductions = [];
+        readonly StatelessCookie cookies = new();
+        double admissionTokens = AdmissionBurst;
+        double admissionTokensAt;
         readonly Dictionary<IPEndPoint, Occupant> occupants = [];
         /// <summary>Where each neighbor last said our datagrams come from (its HelloAck's ObservedEndPoint), so only changes are reported.</summary>
         readonly Dictionary<NodeId, IPEndPoint> observedBy = [];
@@ -72,6 +88,8 @@ namespace JoinFS.Net.Jfp2
         readonly Dictionary<(NodeId Owner, uint ObjectId, NodeId Peer), IdentitySent> identitySent = [];
         readonly List<NodeId> targets = [];
         readonly byte[] payloadBuffer = new byte[16384];
+        /// <summary>Room for the largest notes history; made when the first one is sent.</summary>
+        byte[] historyBuffer;
         readonly byte[] datagramBuffer = new byte[16384 + 64];
         /// <summary>Who a send is on behalf of: this node, or (translation at a relay) the message's author.</summary>
         NodeId sendOrigin;
@@ -91,6 +109,14 @@ namespace JoinFS.Net.Jfp2
             this.profile = profile ?? Jfp2Profile.Default;
             foreach (ClassDescriptor c in this.profile.Classes)
             {
+                if (c.Segmented)
+                {
+                    if (c is not ClassDescriptor<NotesBundle> || !c.Guaranteed)
+                    {
+                        throw new ArgumentException("JFP2 profile: class " + c.MessageClass + " (" + c.Kind + ") is segmented, which only the guaranteed notes history is");
+                    }
+                    continue;
+                }
                 Type sender = OwnSender(c.Kind);
                 if (!c.SentAsIs && c.GetType() != sender)
                 {
@@ -111,6 +137,7 @@ namespace JoinFS.Net.Jfp2
         {
             MessageKind.Identity => typeof(ClassDescriptor<IdentityUpdate>),
             MessageKind.Position => typeof(ClassDescriptor<PositionUpdate>),
+            MessageKind.ObjectPosition => typeof(ClassDescriptor<ObjectPositionUpdate>),
             MessageKind.VariableSync => typeof(ClassDescriptor<VariableSyncUpdate>),
             MessageKind.Notes => typeof(ClassDescriptor<NoteUpdate>),
             _ => null,
@@ -137,23 +164,46 @@ namespace JoinFS.Net.Jfp2
         double Now => host.Clock.Now;
 
         /// <summary>
-        /// The name this node writes for a node: its kind-0 name, since every node has a legacy id
-        /// until the mesh runs over JFP2 (docs/jfp2/protocol.md §4.3).
+        /// The node a name belongs to: the peer the directory knows it by, else a kind-0 name stands for
+        /// itself. Only a valid id resolves (an all-zero or ip-0 name would read as "this node" in the
+        /// app); a name of another kind that no peer has is dropped, and so is what carries it (§4.9).
         /// </summary>
-        static NodeName NameOf(NodeId node) => NodeName.FromLegacy(node);
+        bool TryResolve(NodeId name, out NodeId node)
+        {
+            node = host.Peers.Resolve(name);
+            return node.Valid() && (node.Kind == NodeId.LegacyKind || host.Peers.Contains(node));
+        }
 
         /// <summary>
-        /// The node a name belongs to. This build resolves kind 0 only, and only to a valid node id: an
-        /// all-zero or ip-0 name would read as "this node" in the app. What carries any other name is
-        /// dropped (§4.9).
+        /// The name a Forwarded envelope carries for a node (protocol.md §4.3, §5.15): its kind-0 name while it has one, the alias its admitting
+        /// node gave it included, else its key name. A node released before edition 2 reads kind 0 only, so a datagram a relay passes on to it
+        /// byte for byte must name its origin that way; a node of this build resolves the alias to the one peer.
         /// </summary>
-        static bool TryResolve(NodeName name, out NodeId node) => name.TryGetLegacy(out node) && node.Valid();
+        NodeId NameOnWire(NodeId node)
+        {
+            if (!node.Valid() || node.Kind == NodeId.LegacyKind)
+            {
+                return node;
+            }
+            if (node == Local)
+            {
+                return host.Identity.Alias.Valid() ? host.Identity.Alias : node;
+            }
+            return host.Peers.TryGetLegacy(node, out LegacyNodeId legacy) ? NodeId.FromLegacy(legacy) : node;
+        }
+
+        /// <summary>The name is one of this node's: its id, its key name or the alias it was given.</summary>
+        bool IsOwnName(NodeId name) => name == Local || (name.Valid() && (name == host.Identity.KeyId || name == host.Identity.Alias));
 
         // ================================================================== periodic
 
         public void Tick()
         {
             DoHandshake();
+            // before the admission work: a join that gives up ends its introduction, which would otherwise ask once more
+            DoJoin();
+            DoAdmission();
+            DoRoute();
             reliability.Tick();
             ForgetIdleIdentities();
         }
@@ -177,16 +227,25 @@ namespace JoinFS.Net.Jfp2
         public void OnPeerRemoved(Peer peer)
         {
             RemoveSession(peer.Id);
+            paths.Remove(peer.Id);
             reliability.RemovePeer(peer.Id);
             identitySent.RemoveWhere((k, _) => k.Peer == peer.Id || k.Owner == peer.Id);
             occupants.RemoveWhere((_, o) => o.Node == peer.Id);
             observedBy.Remove(peer.Id);
+            ForgetRoute(peer.Id);
+            AnnounceGone(peer);
         }
 
         public void OnSessionReset()
         {
             sessions.Clear();
             sessionsById.Clear();
+            paths.Clear();
+            nonMembers.Clear();
+            introductions.Clear();
+            pendingJoins.Clear();
+            routeConfirmed.Clear();
+            routeAsked.Clear();
             occupants.Clear();
             observedBy.Clear();
             reliability.Clear();
@@ -196,10 +255,10 @@ namespace JoinFS.Net.Jfp2
         // ================================================================== datagrams out
 
         void SendDatagram(IPEndPoint endPoint, EnvelopeFlags flags, byte messageClass, ushort senderPeerId, ushort recipientPeerId, ReadOnlySpan<byte> payload,
-            ushort guaranteedId = 0, byte guaranteedIndex = 0, byte guaranteedCount = 0, NodeName origin = default, NodeName target = default)
+            ushort guaranteedId = 0, byte guaranteedIndex = 0, byte guaranteedCount = 0, NodeId origin = default, NodeId target = default)
         {
             if (endPoint == null) return;
-            var envelope = new Envelope(flags, senderPeerId, recipientPeerId, messageClass, guaranteedId, guaranteedIndex, guaranteedCount, origin, target);
+            var envelope = new Envelope(flags, senderPeerId, recipientPeerId, messageClass, guaranteedId, guaranteedIndex, guaranteedCount, NameOnWire(origin), NameOnWire(target));
             int header = envelope.WriteTo(datagramBuffer);
             payload.CopyTo(datagramBuffer.AsSpan(header));
             host.Transport.Send(endPoint, datagramBuffer.AsSpan(0, header + payload.Length));
@@ -215,7 +274,7 @@ namespace JoinFS.Net.Jfp2
             byte number = messageClass.MessageClass;
             if (messageClass.Guaranteed)
             {
-                reliability.Send(target.Id, sendOrigin, number, hop.AgreedAppVersion[number], payload, sendOriginId);
+                reliability.Send(target.Id, sendOrigin, number, hop.AgreedAppVersion[number], payload, sendOriginId, messageClass.Segmented);
             }
             else
             {
@@ -249,7 +308,7 @@ namespace JoinFS.Net.Jfp2
                 flags |= EnvelopeFlags.Forwarded;
             }
             SendDatagram(hop.Endpoint, flags, messageClass, hop.LocalAssignedId, hop.RemoteAssignedId, payload, guaranteedId, guaranteedIndex, guaranteedCount,
-                forwarded ? NameOf(origin) : default, forwarded ? NameOf(target) : default);
+                forwarded ? origin : default, forwarded ? target : default);
         }
 
         /// <summary>
@@ -268,7 +327,7 @@ namespace JoinFS.Net.Jfp2
             if (ackTo.HasValue)
             {
                 SendDatagram(endPoint, EnvelopeFlags.Internal | EnvelopeFlags.Forwarded, MessageClasses.GuaranteedDone, hop.LocalAssignedId, hop.RemoteAssignedId, payload,
-                    origin: NameOf(acker), target: NameOf(ackTo.Value));
+                    origin: acker, target: ackTo.Value);
             }
             else
             {

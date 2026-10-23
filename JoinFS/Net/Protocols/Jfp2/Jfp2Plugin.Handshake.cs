@@ -5,12 +5,12 @@ using System.Net;
 namespace JoinFS.Net.Jfp2
 {
     // Sessions with neighbors: the Hello/HelloAck handshake, the keepalive, and the
-    // occupants seen answering at an endpoint (docs/jfp2/protocol.md §6, §9).
+    // occupants seen answering at an endpoint (docs/network/jfp2/protocol.md §6, §9).
     public sealed partial class Jfp2Plugin
     {
         // ================================================================== sessions
 
-        PeerSession CreateSession(NodeId peer)
+        ushort NewId()
         {
             ushort id;
             do
@@ -19,12 +19,20 @@ namespace JoinFS.Net.Jfp2
                 // node would otherwise match a session here by coincidence
                 id = (ushort)random.Next(1, 65536);
             }
-            while (sessionsById.ContainsKey(id));
-            var session = new PeerSession { Peer = peer, LocalAssignedId = id };
+            while (IdInUse(id));
+            return id;
+        }
+
+        PeerSession CreateSession(NodeId peer)
+        {
+            var session = new PeerSession { Peer = peer, LocalAssignedId = NewId() };
             sessions[peer] = session;
-            sessionsById[id] = session;
+            sessionsById[session.LocalAssignedId] = session;
             return session;
         }
+
+        /// <summary>A session or an introduction holds this id (they share one id space, so an answer finds one only).</summary>
+        bool IdInUse(ushort id) => sessionsById.ContainsKey(id) || introductions.ContainsKey(id);
 
         void RemoveSession(NodeId peer)
         {
@@ -36,10 +44,10 @@ namespace JoinFS.Net.Jfp2
 
         static IPEndPoint Copy(IPEndPoint endPoint) => WireEndPoint.Normalize(new IPEndPoint(endPoint.Address, endPoint.Port));
 
-        /// <summary>For tests and diagnostics: the ids of the session with a neighbor.</summary>
+        /// <summary>For tests and diagnostics: the ids of the session with a neighbor (a member's, else a non-member's).</summary>
         public bool TryGetHopIds(NodeId neighbor, out ushort local, out ushort remote)
         {
-            if (sessions.TryGetValue(neighbor, out PeerSession session))
+            if (sessions.TryGetValue(neighbor, out PeerSession session) || nonMembers.TryGetValue(neighbor, out session))
             {
                 local = session.LocalAssignedId;
                 remote = session.RemoteAssignedId;
@@ -60,6 +68,7 @@ namespace JoinFS.Net.Jfp2
         void DoHandshake()
         {
             double now = Now;
+            SendDueProbes();
             foreach (Peer peer in host.Peers.All)
             {
                 sessions.TryGetValue(peer.Id, out PeerSession session);
@@ -70,7 +79,16 @@ namespace JoinFS.Net.Jfp2
                 }
                 // negotiation is with a neighbor: a peer behind a relay is served by the relay's session,
                 // and a peer sharing an endpoint with a node that answers there is behind that node
-                if (peer.Relayed || IsBehindOccupant(peer, now))
+                if (peer.Relayed)
+                {
+                    // a member reached through a relay is tried at its own endpoint, in case the network lets us through (§5.13)
+                    if (!peer.LegacyLink)
+                    {
+                        ProbeDirect(peer, session, now);
+                    }
+                    continue;
+                }
+                if (IsBehindOccupant(peer, now))
                 {
                     continue;
                 }
@@ -101,9 +119,72 @@ namespace JoinFS.Net.Jfp2
                 }
                 session.HelloAttempts++;
                 session.NextHelloAttempt = now + HelloRetryInterval;
-                session.ProbeEndPoint = Copy(peer.RouteEndPoint);
-                SendHello(session.ProbeEndPoint, session);
-                host.Log(NetLogLevel.Network, "JFP2: Send Hello to " + peer.Id + " at " + session.ProbeEndPoint + " (attempt " + session.HelloAttempts + ")");
+                StartProbe(session, ProbeTargets(peer, now), now, " (attempt " + session.HelloAttempts + ")");
+            }
+        }
+
+        /// <summary>Hellos to a member's own endpoint before giving up for <see cref="DirectRetryInterval"/>.</summary>
+        const int DirectProbeAttempts = 3;
+        const double DirectRetryInterval = 60.0;
+
+        /// <summary>
+        /// A Hello to the endpoint of a member that is reached through a relay: both ends do it when they learn of each other, which
+        /// is what opens a home router to the other's datagrams. A HelloAck that verifies the session makes the route direct
+        /// (<see cref="PromoteDirect"/>); no answer leaves the member where it is and asks again after a minute.
+        /// </summary>
+        void ProbeDirect(Peer peer, PeerSession session, double now)
+        {
+            if (session != null && (now < session.NextHelloAttempt || now < session.RetryAt))
+            {
+                return;
+            }
+            // the member's own endpoints, IPv6 first; not one where another node answers (the endpoint of the relay, say): the member
+            // is not at it, and asking would only make that node say so every two seconds; and not one another member is being asked at
+            // (two members behind one endpoint: one Hello at a time, so the answer finds its session)
+            List<IPEndPoint> targets = ProbeTargets(peer, now);
+            targets.RemoveAll(target =>
+            {
+                if (occupants.TryGetValue(target, out Occupant occupant) && now <= occupant.Expire && occupant.Node != peer.Id)
+                {
+                    return true;
+                }
+                foreach (PeerSession other in sessions.Values)
+                {
+                    if (other != session && !other.Verified && other.HelloAttempts > 0 && other.ProbeEndPoint != null && IsProbe(other, target))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            if (targets.Count == 0)
+            {
+                return;
+            }
+            session ??= CreateSession(peer.Id);
+            if (session.HelloAttempts >= DirectProbeAttempts)
+            {
+                session.HelloAttempts = 0;
+                session.RetryAt = now + DirectRetryInterval;
+                host.Log(NetLogLevel.Network, "JFP2: " + peer.Id + " did not answer at " + string.Join(", ", targets) + " - it stays reached through " + peer.RouteVia);
+                return;
+            }
+            session.HelloAttempts++;
+            session.NextHelloAttempt = now + HelloRetryInterval;
+            StartProbe(session, targets, now, ", to reach it directly (attempt " + session.HelloAttempts + ")");
+        }
+
+        /// <summary>
+        /// The session with a member verified at the member's own endpoint, while the mesh holds it as reached through a relay (or
+        /// not reached): it is a direct neighbour now. Not for a member with a legacy link, whose route legacy keeps.
+        /// </summary>
+        void PromoteDirect(PeerSession session)
+        {
+            // also a member that is direct already, on a path other than the one the session was verified at: the path moves (§5.14)
+            if (host.Peers.TryGet(session.Peer, out Peer peer) && !peer.LegacyLink && session.Endpoint != null && peer.IsOwnEndPoint(session.Endpoint)
+                && (peer.Relayed || !peer.SendEstablished || !session.Endpoint.Equals(peer.RouteEndPoint)))
+            {
+                host.Membership.RouteDirect(peer.Id, session.Endpoint);
             }
         }
 
@@ -125,6 +206,7 @@ namespace JoinFS.Net.Jfp2
         /// <summary>A verified session must keep being answered, by the same node, at the same endpoint.</summary>
         void KeepAlive(Peer peer, PeerSession session, double now)
         {
+            PromoteDirect(session);
             if (!session.Endpoint.Equals(peer.RouteEndPoint))
             {
                 Demote(session, "its route moved to " + peer.RouteEndPoint);
@@ -138,6 +220,7 @@ namespace JoinFS.Net.Jfp2
                 session.NextKeepAlive = now + KeepAliveInterval;
                 session.ProbeEndPoint = session.Endpoint;
                 SendHello(session.Endpoint, session);
+                ProbeIPv6(peer, session, now);
             }
         }
 
@@ -149,11 +232,20 @@ namespace JoinFS.Net.Jfp2
             {
                 occupants.Remove(session.Endpoint);
             }
+            IPEndPoint lost = session.Endpoint;
             session.Endpoint = null;
             session.ProbeEndPoint = null;
+            session.Probes.Clear();
+            session.PendingProbes.Clear();
             session.HelloAttempts = 0;
             session.NextHelloAttempt = 0;
+            HoldOffIPv6(session.Peer, lost, Now);
             host.LinkChanged(session.Peer);
+            // a member that was reached directly at this endpoint is not any more: it is asked about of the neighbours, and goes on through one that answers
+            if (host.Peers.TryGet(session.Peer, out Peer peer) && !peer.LegacyLink && !peer.Relayed && lost != null && lost.Equals(peer.EndPoint))
+            {
+                host.Membership.RouteLost(peer.Id);
+            }
         }
 
         /// <summary>Another node answers at this peer's endpoint, so the peer is not there.</summary>
@@ -172,27 +264,28 @@ namespace JoinFS.Net.Jfp2
             return occupant.Node != peer.Id;
         }
 
-        HandshakeMessage MakeHandshake(PeerSession session, byte result) => new()
+        HandshakeMessage MakeHandshake(PeerSession session, byte result, List<NodeId> names = null) => new()
         {
             ProtoMajorMin = Envelope.ProtoMajor,
             ProtoMajorMax = Envelope.ProtoMajor,
             Capabilities = profile.Capabilities,
             SelfAssignedId = session.LocalAssignedId,
             Result = result,
-            Names = [NameOf(Local)],
+            Names = names ?? (OwnNames() is { Count: > 0 } own ? own : [Local]),
             Build = build,
+            Candidates = OwnCandidates(),
             Offers = new List<SchemaOffer>(profile.Offers),
         };
 
         // Internal and nothing else: no flag a peer could need a capability to read
-        // (docs/jfp2/protocol.md §3.2); the envelope goes out as Envelope.HandshakeProtoMajor
+        // (docs/network/jfp2/protocol.md §3.2); the envelope goes out as Envelope.HandshakeProtoMajor
         void SendHello(IPEndPoint endPoint, PeerSession session) =>
             SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.Hello, session.LocalAssignedId, session.RemoteAssignedId, MakeHandshake(session, 0).Serialize());
 
         /// <summary>The answer to a Hello from <paramref name="endPoint"/>, its source as we received it, which every HelloAck tells the asker (§5.5).</summary>
-        void SendHelloAck(IPEndPoint endPoint, PeerSession session, byte result)
+        void SendHelloAck(IPEndPoint endPoint, PeerSession session, byte result, List<NodeId> names = null)
         {
-            HandshakeMessage ack = MakeHandshake(session, result);
+            HandshakeMessage ack = MakeHandshake(session, result, names);
             ack.ObservedEndPoint = endPoint;
             SendDatagram(endPoint, EnvelopeFlags.Internal, MessageClasses.HelloAck, session.LocalAssignedId, session.RemoteAssignedId, ack.Serialize());
         }
@@ -236,11 +329,11 @@ namespace JoinFS.Net.Jfp2
         /// only kind this build resolves) that is a known mesh peer, else the first kind-0 name (for the
         /// "unknown node" log). False when it lists none, so the speaker cannot be placed.
         /// </summary>
-        bool TryGetSpeaker(List<NodeName> names, out NodeId speaker)
+        bool TryGetSpeaker(List<NodeId> names, out NodeId speaker)
         {
             speaker = default;
             bool found = false;
-            foreach (NodeName name in names)
+            foreach (NodeId name in names)
             {
                 if (!TryResolve(name, out NodeId node))
                 {
@@ -260,9 +353,17 @@ namespace JoinFS.Net.Jfp2
             return found;
         }
 
-        void HandleHello(IPEndPoint from, ReadOnlySpan<byte> payload)
+        void HandleHello(IPEndPoint from, ReadOnlySpan<byte> payload, int datagramLength)
         {
             HandshakeMessage hello = HandshakeMessage.Deserialize(payload);
+            // a stranger asking to be admitted (or echoing its cookie) is answered statelessly. A member's
+            // keepalive carries no Admission, so one that does is a stranger's whatever name it states: a
+            // node that restarted before its expiry still has its name here (protocol.md §5.11, Rejoining)
+            if (hello.Admission != null)
+            {
+                HandleAdmission(from, hello, datagramLength);
+                return;
+            }
             if (!TryGetSpeaker(hello.Names, out NodeId sender))
             {
                 host.Log(NetLogLevel.Network, "JFP2: Hello from " + from + " does not say who it is - ignored (legacy-only peer)");
@@ -280,6 +381,11 @@ namespace JoinFS.Net.Jfp2
             }
             session.RemoteAssignedId = hello.SelfAssignedId;
             LearnBuild(session, hello.Build);
+            host.Membership.Alive(sender);
+            if (hello.Candidates != null)
+            {
+                host.Membership.Advertised(sender, hello.Candidates);
+            }
             // a range that includes ours (2..3 from a later build, say) is fine: we speak the common one
             if (hello.ProtoMajorMin > Envelope.ProtoMajor || hello.ProtoMajorMax < Envelope.ProtoMajor)
             {
@@ -303,6 +409,12 @@ namespace JoinFS.Net.Jfp2
         void HandleHelloAck(IPEndPoint from, in Envelope envelope, ReadOnlySpan<byte> payload)
         {
             HandshakeMessage ack = HandshakeMessage.Deserialize(payload);
+            // the answer to a stranger we introduced ourselves to (a different id space from sessions)
+            if (introductions.TryGetValue(envelope.RecipientPeerId, out Introduction introduction))
+            {
+                HandleIntroductionAnswer(from, introduction, ack);
+                return;
+            }
             // addressed to the id we gave the peer the Hello was aimed at
             if (!sessionsById.TryGetValue(envelope.RecipientPeerId, out PeerSession session) || session.ProbeEndPoint == null)
             {
@@ -314,7 +426,7 @@ namespace JoinFS.Net.Jfp2
                 // a refusal takes a working link off JFP2 for the cooldown, so it counts only from the
                 // endpoint our Hello went to and from the peer asked: the session id alone is 16 bits,
                 // and guessable off the path
-                if (!from.Equals(session.ProbeEndPoint) || !TryGetSpeaker(ack.Names, out NodeId refuser) || refuser != session.Peer)
+                if (!IsProbe(session, from) || !TryGetSpeaker(ack.Names, out NodeId refuser) || refuser != session.Peer)
                 {
                     host.Log(NetLogLevel.Network, "JFP2: HelloAck with Result " + ack.Result + " from " + from + " is not the answer of " + session.Peer + " at " + session.ProbeEndPoint + " - ignored");
                     return;
@@ -335,7 +447,8 @@ namespace JoinFS.Net.Jfp2
                 host.Log(NetLogLevel.Network, "JFP2: HelloAck from unknown node " + responder + " - ignored");
                 return;
             }
-            IPEndPoint probe = session.ProbeEndPoint;
+            // a member tried at several endpoints answers at one of them
+            IPEndPoint probe = IsProbe(session, from) ? from : session.ProbeEndPoint;
             occupants[probe] = new Occupant(responder, now + OccupantTtl);
             if (from.Equals(probe))
             {
@@ -366,12 +479,36 @@ namespace JoinFS.Net.Jfp2
                 host.LinkChanged(session.Peer);
                 return;
             }
+            if (ack.Candidates != null)
+            {
+                host.Membership.Advertised(session.Peer, ack.Candidates);
+            }
+            if (session.Verified && !probe.Equals(session.Endpoint) && !MovesPath(session, probe, now))
+            {
+                // the link is verified on another path, and this answer is not a reason to move it (never flip between two)
+                host.Log(NetLogLevel.Network, "JFP2: HelloAck from " + session.Peer + " at " + probe + " (" + Family(probe) + ") - the link stays at " + session.Endpoint + " (" + Family(session.Endpoint) + ")");
+                return;
+            }
             session.RemoteAssignedId = ack.SelfAssignedId;
             LearnBuild(session, ack.Build);
+            host.Membership.Alive(session.Peer);
             bool agreementChanged = Negotiator.Resolve(session, profile.Capabilities, profile.Offers, ack.Capabilities, ack.Offers);
             bool wasVerified = session.Verified;
+            IPEndPoint previous = session.Endpoint;
             session.HandshakeComplete = true;
             session.Endpoint = probe;
+            session.PendingProbes.Clear(); // the round is decided: what waited for IPv6's head start is not sent
+            if (!wasVerified && host.Peers.TryGet(session.Peer, out Peer verifiedPeer) && !verifiedPeer.LegacyLink)
+            {
+                // a link verified at one of the member's endpoints: the family it was reached over, and what was tried
+                PathOf(session.Peer).NextV6Probe = now + IPv6ProbeInterval;
+                host.Log(NetLogLevel.Event, "JFP2: link to " + session.Peer + " verified over " + Family(probe) + " at " + probe + (session.Probes.Count > 1 ? " (tried " + string.Join(", ", session.Probes) + ")" : ""));
+            }
+            else if (wasVerified && previous != null && !previous.Equals(probe))
+            {
+                PathOf(session.Peer).NextV6Probe = now + IPv6ProbeInterval;
+                host.Log(NetLogLevel.Event, "JFP2: link to " + session.Peer + " moves from " + Family(previous) + " at " + previous + " to " + Family(probe) + " at " + probe + ": " + Family(probe) + " answers and is preferred");
+            }
             session.LastAck = now;
             session.NextKeepAlive = now + KeepAliveInterval;
             session.HelloAttempts = 0;
@@ -386,6 +523,7 @@ namespace JoinFS.Net.Jfp2
             {
                 host.LinkChanged(session.Peer);
             }
+            PromoteDirect(session);
         }
 
         /// <summary>

@@ -6,7 +6,7 @@ namespace JoinFS.Net
     /// <summary>
     /// Sends raw datagrams. Every protocol plugin shares one transport (one UDP socket and port),
     /// because the legacy wire identifies a node by IP+port and NAT traversal depends on it
-    /// (docs/network-plugin-architecture.md §1, idea B).
+    /// (docs/network/network-plugin-architecture.md §1, idea B).
     ///
     /// Receiving is not part of this interface: who calls the core with incoming datagrams, and on
     /// which thread, is decided by the owner (NetworkService for the real socket, InMemoryNetwork

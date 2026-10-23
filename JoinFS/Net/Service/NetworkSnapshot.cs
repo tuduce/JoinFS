@@ -13,6 +13,8 @@ namespace JoinFS.Net
         public bool RouteIsOwnEndPoint { get; init; }
         /// <summary>The relay node this peer is reached through (invalid when reached directly).</summary>
         public NodeId RouteVia { get; init; }
+        /// <summary>"IPv6" or "IPv4": the family of the path datagrams for this peer take, which is its relay's path when it is reached through one.</summary>
+        public string Family => RouteEndPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? "IPv6" : "IPv4";
         public bool ReceiveEstablished { get; init; }
         public bool SendEstablished { get; init; }
         public bool LowBandwidth { get; init; }
@@ -33,8 +35,23 @@ namespace JoinFS.Net
         public static readonly NetworkSnapshot Empty = new() { Peers = new Dictionary<NodeId, PeerSnapshot>(), PeerList = [] };
 
         public bool Open { get; init; }
+
+        /// <summary>The socket serves IPv6 as well as IPv4.</summary>
+        public bool DualStack { get; init; }
+
+        /// <summary>The socket serves IPv6 only (a <c>-noipv4</c> test instance).</summary>
+        public bool Ipv6Only { get; init; }
+
+        /// <summary>This node's global IPv6 addresses, which it advertises as candidates (empty: it has none, or IPv6 is off).</summary>
+        public IReadOnlyList<IPAddress> Ipv6Addresses { get; init; } = [];
         public int Port { get; init; }
         public NodeId LocalId { get; init; }
+
+        /// <summary>The node has no IPv4 address: <see cref="LocalId"/> is its key name, and nodes that speak legacy know it by an alias its admitting node gave it.</summary>
+        public bool NoIPv4 { get; init; }
+
+        /// <summary>The kind-0 name the node that admitted this one gave it (<see cref="LocalIdentity.Alias"/>); none when it has an IPv4 address or is not in a session.</summary>
+        public NodeId Alias { get; init; }
         public bool Ready => LocalId.Valid();
         public IPAddress LocalAddress { get; init; } = IPAddress.Loopback;
         public IPAddress InternetAddress { get; init; } = IPAddress.None;
@@ -66,7 +83,7 @@ namespace JoinFS.Net
         public float Rtt(NodeId id) => Peers.TryGetValue(id, out PeerSnapshot peer) ? peer.Rtt : 9999.0f;
 
         /// <summary>The endpoint to reach <paramref name="node"/> on <paramref name="port"/> (LAN address when it shares our NAT).</summary>
-        public IPEndPoint MakeEndPoint(NodeId node, ushort port)
+        public IPEndPoint MakeEndPoint(LegacyNodeId node, ushort port)
         {
             IPEndPoint endPoint = node.ToEndPoint(port);
             if (endPoint.Address.Equals(InternetAddress))

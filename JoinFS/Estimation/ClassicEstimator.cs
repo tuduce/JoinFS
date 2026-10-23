@@ -6,7 +6,7 @@ namespace JoinFS.Estimation
     /// The original estimator: dead reckoning from the newest sample with its velocity and
     /// acceleration (<see cref="Sim.Pos.Extrapolate"/>, <see cref="Sim.Vel.Extrapolate"/>).
     /// Kept unchanged as the baseline to compare others against, including its known errors
-    /// (findings F3/F4 in docs/position-estimation-plan.md).
+    /// (findings F3/F4 in docs/estimation/position-estimation-plan.md).
     /// </summary>
     public sealed class ClassicEstimator : IStateEstimator
     {
