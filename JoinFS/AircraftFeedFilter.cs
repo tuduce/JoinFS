@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 
 namespace JoinFS
 {
@@ -15,7 +16,11 @@ namespace JoinFS
         public string trafficType;
         public string registration, icaoAirline, flightNumber;
         public double altitude, speed, latitude, longitude;
-        public int heading;
+        public double heading;      // degrees 0-359.9, in 0.1 steps
+        // degrees, pitch positive nose up, bank signed like the simulator's PLANE BANK DEGREES (what panels such as
+        // the Garmin G5 expect), sent unrounded; null when unknown (hub users carry no attitude) - then the fields are
+        // left out of the JSON altogether
+        public double? pitch, bank;
         public string com1, com2, squawk;
         public string icaoType, from, to, rules, route, remarks, livery;
         public int gear;
@@ -24,6 +29,19 @@ namespace JoinFS
         public bool eng1, eng2, eng3, eng4;
         public double rotorRpm;
         public bool onGround;
+
+        /// <summary>Simulator pitch (radians, positive nose down in JoinFS) as feed degrees, positive nose up.</summary>
+        public static double PitchWireDegrees(double simRadians) => -simRadians * (180.0 / Math.PI);
+
+        /// <summary>Simulator bank (radians) as feed degrees; the sign is kept.</summary>
+        public static double BankWireDegrees(double simRadians) => simRadians * (180.0 / Math.PI);
+
+        /// <summary>Adds pitch and bank to the aircraft's JSON, or nothing when the attitude is unknown.</summary>
+        public readonly void AddAttitudeTo(JObject json)
+        {
+            if (pitch.HasValue) json["pitch"] = pitch.Value;
+            if (bank.HasValue) json["bank"] = bank.Value;
+        }
 
         /// <summary>
         /// This snapshot with every number at the precision the feed sends. The single source of the wire
@@ -35,6 +53,8 @@ namespace JoinFS
             AircraftSnapshot r = this;
             r.altitude = Math.Round(altitude, 0);
             r.speed = Math.Round(speed, 1);
+            r.heading = Math.Round(heading, 1);
+            if (r.heading >= 360.0) r.heading -= 360.0;
             r.latitude = Math.Round(latitude, 6);
             r.longitude = Math.Round(longitude, 6);
             r.flaps = Math.Round(flaps, 3);
@@ -45,7 +65,18 @@ namespace JoinFS
         static bool SamePosition(in AircraftSnapshot a, in AircraftSnapshot b) =>
             a.altitude == b.altitude && a.speed == b.speed &&
             a.latitude == b.latitude && a.longitude == b.longitude &&
-            a.heading == b.heading && a.onGround == b.onGround;
+            HeadingNear(a.heading, b.heading) && a.pitch == b.pitch && a.bank == b.bank && a.onGround == b.onGround;
+
+        /// <summary>
+        /// A heading counts as changed from 0.2 degrees on (two steps of the 0.1 wire resolution): the last heading sent is the reference, so a heading that flickers
+        /// across one rounding boundary (a parked aircraft) does not make the feed send every tick. Wraps at north.
+        /// </summary>
+        static bool HeadingNear(double a, double b)
+        {
+            double d = Math.Abs(a - b);
+            if (d > 180.0) d = 360.0 - d;
+            return d < 0.15;
+        }
 
         static bool SameDetails(in AircraftSnapshot a, in AircraftSnapshot b) =>
             a.callsign == b.callsign && a.nickname == b.nickname && a.trafficType == b.trafficType &&

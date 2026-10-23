@@ -132,6 +132,8 @@ namespace JoinFS
         /// </summary>
         public string settingsLanguage = "";
         public bool settingsNoSim = false;
+        /// <summary>Report a connected simulator to the network, so pilots send this node positions at the full rate (-feedfullrate)</summary>
+        public bool settingsFeedFullRate = false;
         public bool settingsLoop = false;
 
         /// <summary>
@@ -600,6 +602,10 @@ namespace JoinFS
                                 settingsConnectOnLaunch = false;
                                 break;
 
+                            case "-feedfullrate":
+                                settingsFeedFullRate = true;
+                                break;
+
                             case "-nogui":
                                 settingsNoGui = true;
                                 break;
@@ -844,6 +850,7 @@ namespace JoinFS
                                 Console.WriteLine("  --comswebhookmethod    HTTP method for COM webhook (POST|PUT|PATCH|GET, default PUT)");
                                 Console.WriteLine("  --websocket            Enable WebSocket server broadcasting aircraft data");
                                 Console.WriteLine("  --websocketport <port> WebSocket server port (default 8765)");
+                                Console.WriteLine("  --feedfullrate         Ask pilots for positions at the full 20 Hz rate (a node without simulator gets 1 in 32), for a smooth WebSocket feed");
                                 Console.WriteLine("  --websocketlog         Log WebSocket events and webhook calls (default false)");
                                 Console.WriteLine("  --elevatedplatformrecognition <true|false>       Confirm on-ground mismatches (any aircraft type) against local radar altitude instead of always trusting local terrain mesh (default true)");
                                 Console.WriteLine("  --elevatedplatformthreshold <cm>                 Minimum elevation mismatch before elevated platform recognition engages (default 50)");

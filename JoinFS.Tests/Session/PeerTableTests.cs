@@ -74,6 +74,17 @@ namespace JoinFS.Tests.Session
         }
 
         [Fact]
+        public void BuildPeerInfo_FeedFullRate_ReportsASimulatorEvenWithoutOne()
+        {
+            var rig = new SessionRig();
+            rig.Sim.SimulatorConnected = false;
+            Assert.False(rig.Peers.BuildPeerInfo(Peer).SimulatorConnected);
+
+            rig.Profile.FeedFullRate = true;
+            Assert.True(rig.Peers.BuildPeerInfo(Peer).SimulatorConnected);
+        }
+
+        [Fact]
         public void ScheduledPeerInfo_IsSentOnce_ToTheFirstNodeScheduled()
         {
             var rig = new SessionRig();

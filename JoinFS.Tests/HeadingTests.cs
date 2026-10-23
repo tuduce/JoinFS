@@ -116,4 +116,39 @@ public class HeadingTests
     {
         Assert.Equal(expected, Vector.IsPlausibleHeading(heading));
     }
+
+    [Theory]
+    [InlineData(0.0, 0.0)]
+    [InlineData(90.04, 90.0)]
+    [InlineData(90.05, 90.1)]
+    [InlineData(251.34, 251.3)]
+    [InlineData(359.94, 359.9)]
+    [InlineData(359.96, 0.0)]         // rounds up to 360, which reads as 0 and never as 360.0
+    [InlineData(361.3, 1.3)]          // the running heading just past north
+    [InlineData(829.0, 109.0)]
+    [InlineData(-0.04, 0.0)]
+    [InlineData(-0.06, 359.9)]
+    [InlineData(-90.0, 270.0)]
+    public void HeadingDegreesTenth_WrapsToCompassInTenths(double degrees, double expected)
+    {
+        Assert.Equal(expected, Vector.HeadingDegreesTenth(Rad(degrees)), 6);
+    }
+
+    [Theory]
+    [InlineData(double.NaN)] [InlineData(double.PositiveInfinity)] [InlineData(double.NegativeInfinity)]
+    public void HeadingDegreesTenth_NonFiniteInputReportsZero(double radians)
+    {
+        Assert.Equal(0.0, Vector.HeadingDegreesTenth(radians));
+    }
+
+    [Fact]
+    public void HeadingDegreesTenth_NeverReports360_AcrossTheWholeCircle()
+    {
+        for (double d = -720.0; d <= 1440.0; d += 0.013)
+        {
+            double h = Vector.HeadingDegreesTenth(Rad(d));
+            Assert.InRange(h, 0.0, 359.9);
+            Assert.True(Vector.IsPlausibleHeading(h));
+        }
+    }
 }
