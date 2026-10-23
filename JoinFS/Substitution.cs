@@ -1331,10 +1331,6 @@ namespace JoinFS
                 // in-one-aircraft.cfg packages that never had a livery.cfg at all (still very common
                 // among freeware/community add-ons). Fall back to a lazily-built title->folder index
                 // instead of giving up, since the real aircraft.cfg is still on disk somewhere.
-                if (LogOnce(liveryFolderDiagLogged, "<blank:" + modelTitle + ">"))
-                {
-                    main.MonitorEvent("DIAG: LIVERY FOLDER was blank/not reported by SimConnect for model '" + modelTitle + "' - trying the title->folder index instead.");
-                }
             }
             else
             {
@@ -1351,10 +1347,6 @@ namespace JoinFS
                 {
                     main.MonitorEvent("DIAG: could not resolve LIVERY FOLDER '" + liveryFolder + "' to an existing directory (tried as-is, relative to the configured sim folder '" + simFolder + "', and by leaf folder name) - trying the title->folder index instead.");
                 }
-                else if (resolvedFolder != null && LogOnce(liveryFolderDiagLogged, liveryFolder))
-                {
-                    main.MonitorEvent("DIAG: LIVERY FOLDER '" + liveryFolder + "' resolved to '" + resolvedFolder + "'.");
-                }
             }
 
             if (resolvedFolder == null)
@@ -1365,10 +1357,6 @@ namespace JoinFS
                 if (titles == null || titles.TryGetValue(modelTitle, out resolvedFolder) == false)
                 {
                     return false;
-                }
-                if (LogOnce(liveryFolderDiagLogged, "<titleindex:" + modelTitle + ">"))
-                {
-                    main.MonitorEvent("DIAG: title->folder index resolved model '" + modelTitle + "' to '" + resolvedFolder + "'.");
                 }
             }
 
