@@ -158,6 +158,7 @@ namespace JoinFS.Net.Jfp2.Codecs
         {
             var bytes = new List<byte>(1024) { (byte)v.Scope, 0, 0 };
             int users = 0;
+            Span<byte> fixedFields = stackalloc byte[NoteFixedSize];
             foreach (NotesUser user in v.Users ?? [])
             {
                 int userStart = bytes.Count;
@@ -177,7 +178,6 @@ namespace JoinFS.Net.Jfp2.Codecs
                     {
                         break;
                     }
-                    Span<byte> fixedFields = stackalloc byte[NoteFixedSize];
                     BinaryPrimitives.WriteUInt32LittleEndian(fixedFields[..4], note.NoteId);
                     BinaryPrimitives.WriteSingleLittleEndian(fixedFields.Slice(4, 4), note.Age);
                     BinaryPrimitives.WriteUInt16LittleEndian(fixedFields.Slice(8, 2), note.Channel);
