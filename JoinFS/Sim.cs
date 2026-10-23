@@ -236,6 +236,10 @@ namespace JoinFS
         // whether we've already attempted auto-network-join for the current simulator connection
         bool autoNetworkJoinAttempted = false;
 
+        // when the current connection started waiting for the models, and how long the automatic join waits for them at most
+        double autoNetworkJoinWaitStart = 0.0;
+        const double AUTO_JOIN_MODELS_TIMEOUT = 300.0;
+
         /// <summary>
         /// Connection attempts
         /// </summary>
@@ -1160,10 +1164,28 @@ namespace JoinFS
             {
                 // we just connected
                 autoNetworkJoinAttempted = false;
+                autoNetworkJoinWaitStart = main.ElapsedTime;
+            }
+            else if (previousConnected && !connectedNow)
+            {
+                // the next connection loads and scans its models again
+                main.ForgetSubstitutionLoaded();
             }
 
             if (connectedNow && !autoNetworkJoinAttempted)
             {
+                // the models come first: the join waits for the load and the scan of this connection to finish
+                // (a scan that never ends must not keep the pilot out of the network for good)
+                if (main.settingsConnectOnLaunch && !main.ModelsReady)
+                {
+                    if (main.ElapsedTime - autoNetworkJoinWaitStart < AUTO_JOIN_MODELS_TIMEOUT)
+                    {
+                        previousConnected = connectedNow;
+                        return;
+                    }
+                    main.MonitorEvent("Models not ready after " + AUTO_JOIN_MODELS_TIMEOUT + " s, joining anyway");
+                }
+
                 // only attempt once per connection
                 autoNetworkJoinAttempted = true;
 

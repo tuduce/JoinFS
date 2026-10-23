@@ -2032,6 +2032,14 @@ namespace JoinFS
         {
             // Scan() can run on a thread-pool thread, and SimConnect may only be called from the
             // sim thread, so hand the request to it
+#if FS2024
+            // the listing is under way from here on, not only once the sim thread got to the request: ScanRunning
+            // must not show a gap in which whatever waits for the scan (ModelsReady) would go ahead
+            if (main.sim != null)
+            {
+                main.sim.requestModelListInProgress = true;
+            }
+#endif
             main.PostToSim(() => main.sim?.RequestSimulatorModels());
         }
 
