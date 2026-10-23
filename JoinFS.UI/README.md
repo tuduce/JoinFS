@@ -161,7 +161,7 @@ What is missing is the old things listed under "Left for later".
 
 | Form | In the new UI |
 |---|---|
-| `MainForm` | The title bar and the strip (Simulator, hub picker, Network, Flight Plan). Join is the picked hub, Global is the built-in address-book entry, Create is the mesh card on Network Hubs |
+| `MainForm` | The title bar and the strip (Simulator, hub picker, Network, Flight Plan). Join is what the hub box says: an address-book entry picked from the suggestions (they narrow as the user types, by name or address), or text typed in it, which `Main.Join` resolves: the mesh code of another JoinFS, `[ipv6]:port`, `ipv4:port` or `name:port`. Global is the built-in address-book entry, Create is the mesh card on Network Hubs |
 | `HubsForm` | Network Hubs tab |
 | `SessionForm` (list) | Session tab |
 | `SessionForm` (lower part) | Chat tab |

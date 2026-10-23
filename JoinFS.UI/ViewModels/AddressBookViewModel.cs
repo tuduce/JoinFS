@@ -41,6 +41,7 @@ public sealed partial class AddressBookViewModel : ObservableObject
         foreach (AddressBookEntry entry in entries)
             Entries.Add(new AddressBookRow(entry, Remove));
         _selected = Entries.FirstOrDefault(r => r.Name == selectedName) ?? Entries.FirstOrDefault();
+        _pickerText = _selected?.Name ?? "";
     }
 
     public ObservableCollection<AddressBookRow> Entries { get; } = [];
@@ -91,7 +92,55 @@ public sealed partial class AddressBookViewModel : ObservableObject
             _stashed = null;
             TransientLabel = null;
         }
+        if (value is not null)
+            PickerText = value.Name;
         Persist();
+    }
+
+    // ---- the text of the picker ----
+
+    /// <summary>
+    /// What the picker's box shows and the user edits: the pick's name, the label of a joined hub, or what was typed.
+    /// What is typed can be anything <c>Main.Join</c> takes: a mesh code, an address book name, [ipv6]:port, ipv4:port or name:port.
+    /// </summary>
+    [ObservableProperty]
+    private string _pickerText = "";
+
+    private AddressBookRow? FindEntry(string name) =>
+        Entries.FirstOrDefault(r => string.Equals(r.Name, name.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Puts the box back to the pick (or the label), for when it was left empty.</summary>
+    public void RestoreText()
+    {
+        if (string.IsNullOrWhiteSpace(PickerText))
+            PickerText = TransientLabel ?? EffectiveSelection?.Name ?? "";
+    }
+
+    /// <summary>
+    /// What the Network button joins: the entry the text names, else a hub made of the text itself (the mesh code, the address or the
+    /// host name as typed, which the network resolves). Null while the text is blank.
+    /// </summary>
+    public AddressBookEntry? JoinTarget
+    {
+        get
+        {
+            string text = PickerText.Trim();
+            if (text.Length == 0)
+                return null;
+            return FindEntry(text)?.Entry ?? new AddressBookEntry(text, text);
+        }
+    }
+
+    /// <summary>
+    /// True when the entry belongs in the list for <paramref name="text"/>: it has the text in its name or its address. Nothing typed
+    /// narrows the list: a blank box, and the text of the pick or of the joined hub as it was put there, offer every entry.
+    /// </summary>
+    public bool Offers(AddressBookRow row, string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || string.Equals(text, TransientLabel ?? Selected?.Name, StringComparison.Ordinal))
+            return true;
+        string typed = text.Trim();
+        return row.Name.Contains(typed, StringComparison.OrdinalIgnoreCase) || row.Address.Contains(typed, StringComparison.OrdinalIgnoreCase);
     }
 
     // ---- the joined hub that is not in the book ----
@@ -125,6 +174,7 @@ public sealed partial class AddressBookViewModel : ObservableObject
             _swapping = false;
         }
         TransientLabel = label;
+        PickerText = label;
     }
 
     /// <summary>Goes back to the pick. Does nothing when no label is showing.</summary>
@@ -133,6 +183,8 @@ public sealed partial class AddressBookViewModel : ObservableObject
         if (TransientLabel is null)
             return;
 
+        // Text the user typed over the label is theirs; it stays.
+        bool typedOver = PickerText != TransientLabel;
         AddressBookRow? stashed = _stashed;
         _stashed = null;
         TransientLabel = null;
@@ -149,6 +201,8 @@ public sealed partial class AddressBookViewModel : ObservableObject
                 _swapping = false;
             }
         }
+        if (!typedOver)
+            PickerText = Selected?.Name ?? "";
     }
 
     // The two draft fields of the "add" row.
@@ -177,6 +231,7 @@ public sealed partial class AddressBookViewModel : ObservableObject
         if (row is null)
             return false;
         Selected = row;
+        PickerText = row.Name; // the exact name, whatever case was typed
         return true;
     }
 

@@ -119,7 +119,7 @@ public class RenderTests
         Logger.Sink = problems;
         var (window, main, _) = Open(expanded: false);
         CollapsedView view = Find<CollapsedView>(window);
-        ComboBox combo = view.GetVisualDescendants().OfType<ComboBox>().First();
+        AutoCompleteBox combo = view.GetVisualDescendants().OfType<AutoCompleteBox>().First();
         double closed = combo.Bounds.Width;
 
         main.FlightPlan.From = "LSZH";
@@ -435,10 +435,9 @@ public class RenderTests
         Settle();
         Snapshot(window, "picker-joined-hub");
 
-        ComboBox picker = window.GetVisualDescendants().OfType<ComboBox>().First(c => c.IsEffectivelyVisible);
-        Assert.Equal("Flight Unlimited Network", picker.PlaceholderText);
-        Assert.Null(picker.SelectedItem);
-        Assert.DoesNotContain(picker.Items.Cast<object>(), i => i is JoinFS.UI.ViewModels.AddressBookRow { Name: "Flight Unlimited Network" });
+        AutoCompleteBox picker = window.GetVisualDescendants().OfType<AutoCompleteBox>().First(c => c.IsEffectivelyVisible);
+        Assert.Equal("Flight Unlimited Network", picker.Text);
+        Assert.DoesNotContain(picker.ItemsSource!.Cast<object>(), i => i is JoinFS.UI.ViewModels.AddressBookRow { Name: "Flight Unlimited Network" });
 
         main.IsExpanded = false;
         Settle();
