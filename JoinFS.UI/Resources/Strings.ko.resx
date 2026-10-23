@@ -378,6 +378,9 @@
   <data name="Hub" xml:space="preserve">
     <value>허브</value>
   </data>
+  <data name="Hub, mesh code or address" xml:space="preserve">
+    <value>허브, 메시 코드 또는 주소</value>
+  </data>
   <data name="Hub Mode (Public)" xml:space="preserve">
     <value>허브 모드(공개)</value>
   </data>

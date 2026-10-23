@@ -530,9 +530,9 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     private void OpenAbout() =>
         ShowOverlay(new AboutViewModel(_services.App, _services.Updates.CheckForUpdate(), _services.Platform));
 
-    /// <summary>What the strip's Network button does while disconnected: join the hub picked in the strip.</summary>
+    /// <summary>What the strip's Network button does while disconnected: join what the picker says, a pick or text typed in it.</summary>
     private Task JoinSelectedAsync() =>
-        AddressBook.EffectiveSelection is { } selected ? JoinAsync(selected.Entry) : Task.CompletedTask;
+        AddressBook.JoinTarget is { } target ? JoinAsync(target) : Task.CompletedTask;
 
     // --- IShell ---
 

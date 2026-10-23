@@ -523,6 +523,23 @@
     <Setter Property="Background" Value="Transparent" />
   </Style>
 
+  <!-- The same for the hub picker's box, where the user can also type: the text box inside draws nothing of its own, in any state. -->
+  <Style Selector="AutoCompleteBox.bare">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="MinHeight" Value="34" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+  </Style>
+  <Style Selector="AutoCompleteBox.bare /template/ TextBox#PART_TextBox">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="34" />
+  </Style>
+  <Style Selector="AutoCompleteBox.bare /template/ TextBox#PART_TextBox:pointerover /template/ Border#PART_BorderElement, AutoCompleteBox.bare /template/ TextBox#PART_TextBox:focus /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+
   <Style Selector="CheckBox">
     <Setter Property="FontSize" Value="13" />
     <Setter Property="MinHeight" Value="22" />

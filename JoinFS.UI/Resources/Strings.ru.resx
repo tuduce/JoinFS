@@ -378,6 +378,9 @@
   <data name="Hub" xml:space="preserve">
     <value>Хаб</value>
   </data>
+  <data name="Hub, mesh code or address" xml:space="preserve">
+    <value>Хаб, код сети или адрес</value>
+  </data>
   <data name="Hub Mode (Public)" xml:space="preserve">
     <value>Режим хаба (публичный)</value>
   </data>

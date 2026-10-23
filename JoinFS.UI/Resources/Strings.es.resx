@@ -378,6 +378,9 @@
   <data name="Hub" xml:space="preserve">
     <value>Hub</value>
   </data>
+  <data name="Hub, mesh code or address" xml:space="preserve">
+    <value>Hub, código de malla o dirección</value>
+  </data>
   <data name="Hub Mode (Public)" xml:space="preserve">
     <value>Modo Hub (público)</value>
   </data>
