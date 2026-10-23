@@ -113,6 +113,47 @@ public class RenderTests
     }
 
     [AvaloniaFact]
+    public void The_collapsed_window_shows_a_loaded_flight_plan_with_its_airports_and_gives_the_hub_picker_room_when_it_opens()
+    {
+        Problems problems = new();
+        Logger.Sink = problems;
+        var (window, main, _) = Open(expanded: false);
+        CollapsedView view = Find<CollapsedView>(window);
+        ComboBox combo = view.GetVisualDescendants().OfType<ComboBox>().First();
+        double closed = combo.Bounds.Width;
+
+        main.FlightPlan.From = "LSZH";
+        main.FlightPlan.To = "LSGG";
+        main.FlightPlanLoad.SetState(ConnectionState.Connected);
+        Settle();
+        Snapshot(window, "collapsed-flight-plan");
+
+        ConnectorNode plan = view.GetVisualDescendants().OfType<ConnectorNode>().Last();
+        Assert.True(plan.IsEffectivelyVisible);
+        Assert.Contains(plan.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "LSZH-LSGG");
+        double narrow = combo.Bounds.Width;
+        Assert.True(narrow < closed, $"{narrow} vs {closed}");
+
+        combo.IsDropDownOpen = true;
+        Settle();
+        Assert.Equal(closed, combo.Bounds.Width, 1);
+        combo.IsDropDownOpen = false;
+        Settle();
+        Assert.Equal(narrow, combo.Bounds.Width, 1);
+
+        // expanding and collapsing again, with the list open and the plan loaded
+        combo.IsDropDownOpen = true;
+        Settle();
+        main.IsExpanded = true;
+        Settle();
+        main.IsExpanded = false;
+        Settle();
+
+        Assert.Empty(problems.Messages);
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void The_collapsed_window_has_the_same_margin_below_its_last_row_as_at_its_sides()
     {
         var (window, _, _) = Open(expanded: false);

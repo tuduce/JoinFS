@@ -38,11 +38,14 @@ public sealed partial class FlightPlanViewModel : ObservableObject
     [ObservableProperty] private string _callsign = "";
     [ObservableProperty] private string _type = "";
     [ObservableProperty] private string _rules = "VFR";
-    [ObservableProperty] private string _from = "";
-    [ObservableProperty] private string _to = "";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(Airports))] private string _from = "";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(Airports))] private string _to = "";
     [ObservableProperty] private string _altitude = "";
     [ObservableProperty] private string _route = "";
     [ObservableProperty] private string _remarks = "";
+
+    /// <summary>The start and the destination airport as "FROM-TO"; empty while the plan names neither.</summary>
+    public string Airports => From.Length == 0 && To.Length == 0 ? "" : $"{From}-{To}";
 
     /// <summary>What the last import did, in words: the route imported, or that SimBrief had nothing. Empty otherwise.</summary>
     [ObservableProperty]

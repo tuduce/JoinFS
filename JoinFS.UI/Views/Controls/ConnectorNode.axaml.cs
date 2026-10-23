@@ -15,6 +15,9 @@ public partial class ConnectorNode : UserControl
     public static readonly StyledProperty<string?> ButtonTipProperty =
         AvaloniaProperty.Register<ConnectorNode, string?>(nameof(ButtonTip));
 
+    public static readonly StyledProperty<string?> StateTextProperty =
+        AvaloniaProperty.Register<ConnectorNode, string?>(nameof(StateText));
+
     private ConnectionViewModel? _connection;
 
     public ConnectorNode() => InitializeComponent();
@@ -38,6 +41,13 @@ public partial class ConnectorNode : UserControl
         set => SetValue(ButtonTipProperty, value);
     }
 
+    /// <summary>Shown in the second row in place of the state label while it is not empty.</summary>
+    public string? StateText
+    {
+        get => GetValue(StateTextProperty);
+        set => SetValue(StateTextProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -48,6 +58,13 @@ public partial class ConnectorNode : UserControl
             TitleText.Text = Title;
         else if (change.Property == ButtonTipProperty)
             UpdateTip();
+        else if (change.Property == StateTextProperty)
+        {
+            bool set = !string.IsNullOrEmpty(StateText);
+            StateTextBlock.Text = StateText;
+            StateTextBlock.IsVisible = set;
+            StateLabelText.IsVisible = !set;
+        }
     }
 
     protected override void OnDataContextChanged(EventArgs e)
