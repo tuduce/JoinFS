@@ -480,6 +480,9 @@
   <data name="Tip_WhazzupGlobal" xml:space="preserve">
     <value>Incluir aviones de todos los centros públicos en el archivo 'whazzup.txt'</value>
   </data>
+  <data name="Options_WhazzupDelay" xml:space="preserve">
+    <value>Retraso en segundos entre las escrituras del archivo 'whazzup.txt' (por defecto 1.0, mínimo 0.1)</value>
+  </data>
   <data name="Tip_Xplane" xml:space="preserve">
     <value>Habilitar la conexión al simulador de vuelo X-Plane</value>
   </data>

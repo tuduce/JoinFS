@@ -444,6 +444,9 @@
   <data name="Tip_WhazzupGlobal" xml:space="preserve">
     <value>Nehmen Sie Flugzeuge von allen öffentlichen Hubs in die Datei 'whazzup.txt' auf</value>
   </data>
+  <data name="Options_WhazzupDelay" xml:space="preserve">
+    <value>Verzögerung in Sekunden zwischen den Schreibvorgängen der Datei 'whazzup.txt' (Standard 1.0, Minimum 0.1)</value>
+  </data>
   <data name="Tip_Xplane" xml:space="preserve">
     <value>Aktivieren Sie die Verbindung zum X-Plane-Flugsimulator</value>
   </data>

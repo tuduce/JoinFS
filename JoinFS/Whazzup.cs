@@ -43,10 +43,34 @@ namespace JoinFS
         const string OUTPUT_FILE = "whazzup.txt";
 
         /// <summary>
-        /// Update timer (default 1.0s, overridable via --whazzupdelay)
+        /// Shortest and longest accepted write interval in seconds
+        /// </summary>
+        internal const float MIN_DELAY = 0.1f;
+        internal const float MAX_DELAY = 3600.0f;
+
+        /// <summary>
+        /// Parse the --whazzupdelay value. Rejects text that is not a finite number
+        /// (NaN and Infinity would stop the feed for good); a finite value is clamped
+        /// to MIN_DELAY..MAX_DELAY.
+        /// </summary>
+        /// <param name="text">Command line value</param>
+        /// <param name="seconds">Write interval in seconds</param>
+        /// <returns>True if the text was a usable number</returns>
+        internal static bool TryParseDelay(string text, out float seconds)
+        {
+            if (float.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out float value) && float.IsFinite(value))
+            {
+                seconds = Math.Clamp(value, MIN_DELAY, MAX_DELAY);
+                return true;
+            }
+            seconds = 0.0f;
+            return false;
+        }
+
+        /// <summary>
+        /// Time of the next file write
         /// </summary>
         double updateTime = 0.0f;
-        float UpdateTime => Math.Max(0.1f, main.settingsWhazzupDelay);
 
         /// <summary>
         /// Update
@@ -57,7 +81,7 @@ namespace JoinFS
             if (main.ElapsedTime > updateTime)
             {
                 // next update
-                updateTime = main.ElapsedTime + UpdateTime;
+                updateTime = main.ElapsedTime + main.settingsWhazzupDelay;
 
                 // check if whazzup enabled
                 if (main.settingsWhazzup)

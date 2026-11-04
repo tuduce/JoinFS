@@ -109,6 +109,7 @@ namespace JoinFS
             DataGrid_Options.Rows.Add(@"--lowbandwidth", Resources.Strings.Tip_LowBandwidth);
             DataGrid_Options.Rows.Add(@"--whazzup", Resources.Strings.Tip_Whazzup);
             DataGrid_Options.Rows.Add(@"--whazzup-public", Resources.Strings.Tip_WhazzupGlobal);
+            DataGrid_Options.Rows.Add(@"--whazzupdelay <seconds>", Resources.Strings.Options_WhazzupDelay);
             DataGrid_Options.Rows.Add(@"--minimize", Resources.Strings.Options_Minimize);
             DataGrid_Options.Rows.Add(@"--nosim", Resources.Strings.Options_NoSim);
             DataGrid_Options.Rows.Add(@"--nogui", Resources.Strings.Options_NoGui);

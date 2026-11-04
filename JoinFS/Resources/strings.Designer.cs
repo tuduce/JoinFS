@@ -808,6 +808,15 @@ namespace JoinFS.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Delay in seconds between writes of the &apos;whazzup.txt&apos; file (default 1.0, minimum 0.1).
+        /// </summary>
+        internal static string Options_WhazzupDelay {
+            get {
+                return ResourceManager.GetString("Options_WhazzupDelay", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Use the specified IP port for connections to other sessions. The default port is 6112..
         /// </summary>
         internal static string Options_Port {

@@ -35,6 +35,7 @@ Usage: dotnet JoinFS-CONSOLE.dll [options]
   --lowbandwidth         Reduce the amount of network data used by JoinFS - may affect performance
   --whazzup              Update the file 'whazzup.txt' with aircraft data to use in your own online maps
   --whazzup-public       Include aircraft from all public hubs in the 'whazzup.txt' file
+  --whazzupdelay <sec>   Delay in seconds between writes of the 'whazzup.txt' file (default 1.0, minimum 0.1, maximum 3600)
   --minimize             Launch JoinFS minimized on the Windows task bar. Quiet mode.
   --background           For JoinFS-CONSOLE, run as a background task with no keyboard input.
   --backgrounddelay <ms> Idle delay for the --background shutdown poll (default 100). Use 0 to poll without sleeping, which costs a fully loaded CPU core. Aircraft syncing is unaffected either way - it runs on a separate work thread.

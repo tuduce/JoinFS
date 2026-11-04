@@ -441,6 +441,9 @@
   <data name="Tip_WhazzupGlobal" xml:space="preserve">
     <value>Neem vliegtuigen van alle openbare hubs op in het bestand 'whazzup.txt'</value>
   </data>
+  <data name="Options_WhazzupDelay" xml:space="preserve">
+    <value>Vertraging in seconden tussen het schrijven van het bestand 'whazzup.txt' (standaard 1.0, minimum 0.1)</value>
+  </data>
   <data name="Tip_Xplane" xml:space="preserve">
     <value>Maak verbinding met de X-Plane-vluchtsimulator mogelijk</value>
   </data>

@@ -552,6 +552,9 @@
   <data name="Tip_WhazzupGlobal" xml:space="preserve">
     <value>'wazzup.txt' 파일에 모든 공용 허브의 항공기 포함</value>
   </data>
+  <data name="Options_WhazzupDelay" xml:space="preserve">
+    <value>'whazzup.txt' 파일을 쓰는 간격(초) (기본값 1.0, 최소 0.1)</value>
+  </data>
   <data name="Tip_Xplane" xml:space="preserve">
     <value>X-Plane 비행 시뮬레이터에 연결 활성화</value>
   </data>

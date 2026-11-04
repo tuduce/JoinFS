@@ -480,6 +480,9 @@
   <data name="Tip_WhazzupGlobal" xml:space="preserve">
     <value>Включите самолеты из всех публичных узлов в файл whazzup.txt.</value>
   </data>
+  <data name="Options_WhazzupDelay" xml:space="preserve">
+    <value>Задержка в секундах между записями файла 'whazzup.txt' (по умолчанию 1.0, минимум 0.1)</value>
+  </data>
   <data name="Tip_Xplane" xml:space="preserve">
     <value>Разрешить подключение к симулятору полета X-Plane</value>
   </data>

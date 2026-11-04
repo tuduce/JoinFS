@@ -534,6 +534,9 @@
   <data name="Tip_WhazzupGlobal" xml:space="preserve">
     <value>Inclure les avions de tous les hubs publics dans le fichier 'whazzup.txt'</value>
   </data>
+  <data name="Options_WhazzupDelay" xml:space="preserve">
+    <value>Délai en secondes entre les écritures du fichier 'whazzup.txt' (1.0 par défaut, minimum 0.1)</value>
+  </data>
   <data name="Tip_Xplane" xml:space="preserve">
     <value>Activer la connexion au simulateur de vol X-Plane</value>
   </data>
