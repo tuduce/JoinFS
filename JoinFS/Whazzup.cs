@@ -43,10 +43,10 @@ namespace JoinFS
         const string OUTPUT_FILE = "whazzup.txt";
 
         /// <summary>
-        /// Update timer
+        /// Update timer (default 1.0s, overridable via --whazzupdelay)
         /// </summary>
-        const float UPDATE_TIME = 1.0f;
         double updateTime = 0.0f;
+        float UpdateTime => Math.Max(0.1f, main.settingsWhazzupDelay);
 
         /// <summary>
         /// Update
@@ -57,7 +57,7 @@ namespace JoinFS
             if (main.ElapsedTime > updateTime)
             {
                 // next update
-                updateTime = main.ElapsedTime + UPDATE_TIME;
+                updateTime = main.ElapsedTime + UpdateTime;
 
                 // check if whazzup enabled
                 if (main.settingsWhazzup)

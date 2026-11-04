@@ -1,4 +1,4 @@
-﻿﻿using System;
+﻿using System;
 using System.Collections.Generic;
 #if !CONSOLE
 using System.Windows.Forms;
@@ -119,6 +119,7 @@ namespace JoinFS
         public string settingsPassword = "";
         public bool settingsWhazzup = false;
         public bool settingsWhazzupPublic = false;
+        public float settingsWhazzupDelay = 1.0f;
         public bool settingsMultiObjects = false;
         public bool settingsMinimized = false;
         public bool settingsNoGui = false;
@@ -595,6 +596,20 @@ namespace JoinFS
                                 settingsWhazzupPublic = true;
                                 break;
 
+                            case "-whazzupdelay":
+                                // next parameter
+                                index++;
+                                // check for parameter
+                                if (index < args.Length)
+                                {
+                                    if (float.TryParse(args[index], NumberStyles.Number, CultureInfo.InvariantCulture, out float delay))
+                                    {
+                                        // update whazzup delay, never negative, minimum 0.1 seconds
+                                        settingsWhazzupDelay = Math.Max(0.1f, delay);
+                                    }
+                                }
+                                break;
+
                             case "-nosim":
                                 settingsNoSim = true;
                                 settingsConnectOnLaunch = false;
@@ -823,6 +838,7 @@ namespace JoinFS
                                 Console.WriteLine("  --lowbandwidth         " + Resources.Strings.Tip_LowBandwidth);
                                 Console.WriteLine("  --whazzup              " + Resources.Strings.Tip_Whazzup);
                                 Console.WriteLine("  --whazzup-public       " + Resources.Strings.Tip_WhazzupGlobal);
+                                Console.WriteLine("  --whazzupdelay <sec>  Delay in seconds between whazzup.txt file writes (default 1.0)");
                                 Console.WriteLine("  --minimize             " + Resources.Strings.Options_Minimize);
                                 Console.WriteLine("  --background           " + Resources.Strings.Options_Background);
                                 Console.WriteLine("  --backgrounddelay <ms> Idle delay of the --background shutdown poll (default 100, 0 to spin)");
