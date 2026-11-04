@@ -35,6 +35,7 @@ namespace JoinFS
         public uint Uuid => main.uuid;
         public string Nickname => main.settingsNickname;
         public bool Hub => main.settingsHub;
+        public bool FeedFullRate => main.settingsFeedFullRate;
         public string HubName => main.settingsHubName;
         public string HubAbout => main.settingsHubAbout;
         public string HubVoip => main.settingsHubVoip;
