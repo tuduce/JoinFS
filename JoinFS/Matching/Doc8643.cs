@@ -58,6 +58,15 @@ namespace JoinFS.Matching
 
         public static Doc8643 FromFile(string path) => FromLines(File.ReadAllLines(path));
 
+        /// <summary>
+        /// True for a designator ICAO collapsed many aircraft into (GLID, GLIM, UHEL, GYRO, BALL, ULAC, PARA, SHIP): Doc8643 lists it only under the
+        /// placeholder manufacturer "(ANY)". The dedicated designator of a real aircraft type is never collapsed.
+        /// </summary>
+        public bool IsCollapsed(string icaoType) =>
+            icaoType != null && allByIcao.TryGetValue(icaoType, out var list) && list.All(r => r.Manufacturer == CollapsedManufacturer);
+
+        const string CollapsedManufacturer = "(ANY)";
+
         /// <summary>True when icaoType is a real, recognized Doc8643 designator.</summary>
         public bool IsRecognized(string icaoType) => icaoType.Length > 0 && byIcao.ContainsKey(icaoType);
 

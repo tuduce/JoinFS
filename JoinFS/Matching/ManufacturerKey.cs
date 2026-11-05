@@ -27,7 +27,8 @@ namespace JoinFS.Matching
 
         public static string From(string manufacturer)
         {
-            if (string.IsNullOrWhiteSpace(manufacturer)) return "";
+            // Doc8643 lists the types ICAO folded together (GLID, BALL, UHEL ...) under the placeholder "(ANY)": that is no manufacturer
+            if (string.IsNullOrWhiteSpace(manufacturer) || manufacturer.Trim() == "(ANY)") return "";
 
             var words = manufacturer.Split([' ', '-', '/', ',', '.', '(', ')'], StringSplitOptions.RemoveEmptyEntries)
                 .Select(w => w.ToUpperInvariant())

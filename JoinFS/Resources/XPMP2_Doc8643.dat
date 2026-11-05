@@ -2,6 +2,7 @@
 (ANY)	Airship	SHIP	-	-
 (ANY)	Balloon	BALL	-	-
 (ANY)	Glider	GLID	-	-
+(ANY)	Motor glider	GLIM	-	-
 (ANY)	Microlight aircraft	ULAC	-	-
 (ANY)	Microlight autogyro	GYRO	-	-
 (ANY)	Microlight helicopter	UHEL	-	-
