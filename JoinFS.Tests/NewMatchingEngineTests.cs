@@ -415,7 +415,8 @@ namespace JoinFS.Tests
         [Fact]
         public void Reference_keys_are_unique()
         {
-            var duplicates = MatchingData.Reference.Entries.GroupBy(e => e.Icao, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+            // several rows may share a designator (GLID, GLIM ...) as long as their names differ
+            var duplicates = MatchingData.Reference.Entries.GroupBy(e => (e.Icao.ToUpperInvariant(), e.Name)).Where(g => g.Count() > 1).Select(g => g.Key.Item1 + " / " + g.Key.Name).ToList();
             Assert.True(duplicates.Count == 0, "duplicate: " + string.Join(", ", duplicates));
         }
 

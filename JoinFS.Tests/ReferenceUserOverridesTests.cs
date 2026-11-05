@@ -101,13 +101,27 @@ namespace JoinFS.Tests
         // ---- problems are reported, never fatal ----------------------------------------------------------------------
 
         [Fact]
-        public void A_duplicate_designator_in_the_user_file_keeps_the_first_row()
+        public void A_repeated_row_in_the_user_file_keeps_the_first_one()
         {
             var problems = new List<string>();
-            var merged = Merge(BuiltIn(), File(Row("C172", "First", 1), Row("C172", "Second", 2)), problems);
+            var merged = Merge(BuiltIn(), File(Row("C172", "First", 1), Row("C172", "First", 2)), problems);
 
-            Assert.Equal("First", merged.Entries.Single(e => e.Icao == "C172").Name);
+            Assert.Equal(1, merged.Entries.Count(e => e.Icao == "C172"));
+            Assert.Equal(1, merged.Find("C172")!.MtowKg);
             Assert.Contains(problems, p => p.Contains("C172"));
+        }
+
+        [Fact]
+        public void Several_differently_named_rows_of_one_designator_in_the_user_file_all_apply_and_replace_the_built_in_rows()
+        {
+            var builtIn = ReferenceSpecs.FromJson(File(Row("GLID", "Generic glider", 500), Row("GLID", "Built-in two-seat", 600), Row("C172", "Skyhawk", 1157)));
+            var problems = new List<string>();
+            var merged = Merge(builtIn, File(Row("GLID", "My generic", 300), Row("GLID", "My two-seat", 400)), problems);
+
+            Assert.Empty(problems);
+            Assert.Equal(["My generic", "My two-seat"], merged.Entries.Where(e => e.Icao == "GLID").Select(e => e.Name));
+            Assert.Equal(300, merged.Find("GLID")!.MtowKg);     // the first user row is the default
+            Assert.NotNull(merged.Find("C172"));
         }
 
         [Theory]
@@ -154,7 +168,8 @@ namespace JoinFS.Tests
                 File(Row("B744", "My 747", 1, "\"B747\", \"B74X\""), Row("B738", "My 737", 2, "\"B73X\"")),
                 MatchingData.Doc8643.IsRecognized, []);
 
-            Assert.Empty(merged.Entries.GroupBy(e => e.Icao, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1).Select(g => g.Key));
+            Assert.Empty(merged.Entries.GroupBy(e => (e.Icao.ToUpperInvariant(), e.Name)).Where(g => g.Count() > 1).Select(g => g.Key.Item1));
+            Assert.Single(merged.Entries, e => e.Icao == "B744");   // the replaced designators have exactly the user's row
             var aliases = merged.Entries.SelectMany(e => e.Aliases).ToList();
             Assert.Equal(aliases.Count, aliases.Distinct(StringComparer.OrdinalIgnoreCase).Count());
             Assert.All(aliases, alias => Assert.False(MatchingData.Doc8643.IsRecognized(alias), alias + " is an official designator"));
