@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Model = JoinFS.Substitution.Model;
 using MatchAttribute = JoinFS.Substitution.MatchAttribute;
 using MatchType = JoinFS.Substitution.Type;
@@ -17,6 +18,10 @@ namespace JoinFS.Matching
         public Dictionary<MatchAttribute, int> AttributeScores = [];
         public SimilarityResult Similarity = new();
         public int SimilarityPoints;
+        /// <summary>Points for aircraft that are almost the same (see <see cref="CombinedMatcher.NearIdenticalBonus"/>)</summary>
+        public int NearIdenticalPoints;
+        /// <summary>An airliner of the requested, verified airline that is at least 80 % alike: ranks above every model without that airline, the exact type included</summary>
+        public bool LiveryFirst;
         /// <summary>Points for "same manufacturer, same category, similar size" (0 when the rule does not apply)</summary>
         public int FamilyBonus;
         public string FamilyReason = "";
@@ -76,15 +81,28 @@ namespace JoinFS.Matching
         /// <summary>Points for a candidate of the same manufacturer, same category and a similar size - enough to beat another make that merely looks closer.</summary>
         public const int SameManufacturerBonus = 40;
 
-        /// <summary>Points for a model of a visually related ICAO type (same family, e.g. A320 for an A20N): between an airline match (100) and the exact type (200)</summary>
-        public const int RelatedTypePoints = 120;
+        /// <summary>For a designator several aircraft share (GLID ...): a model of another kind of aircraft - between an airline match (100) and the exact type (200)</summary>
+        public const int OtherKindOfAircraftPoints = 120;
+
+        /// <summary>Aircraft whose physical similarity is above this are "almost the same" (A320 and A20N, B744 and B748) and earn up to <see cref="NearIdenticalMax"/> points; there is no list of aircraft families</summary>
+        public const double NearIdenticalFrom = 0.8;
+        public const int NearIdenticalMax = 60;
+        /// <summary>Two aircraft are only called identical when at least this much of the weighted comparison is known</summary>
+        public const double NearIdenticalMinConfidence = 0.75;
+
+        /// <summary>The light wake category: general aviation, never an airliner. Only when Doc8643 has no wake category the weight decides (<see cref="AirlinerMinMtowKg"/>).</summary>
+        const string LightWake = "L";
+        const double AirlinerMinMtowKg = 7000;
+
+        /// <summary>A callsign of an airline: the three-letter ICAO code followed by the flight number (UAE123, DLH4AB). A registration (N748UA, D-EABC) is not.</summary>
+        static readonly Regex CallsignWithAirline = new(@"^([A-Z]{3})\d{1,4}[A-Z]{0,2}$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         /// <summary>A model without any ICAO tag whose title names the requested type (a curated title hint) earns the type/class/WTC points at this share</summary>
         public const double TitleInferredTypeFactor = 0.75;
 
         /// <summary>
         /// For a designator several aircraft share (GLID), points per word the candidate's title has in common with the remote title, at most
-        /// <see cref="TitleTokenBonusMax"/>: a tie-breaker that stays inside the gap between a related type (120) and the exact type (200).
+        /// <see cref="TitleTokenBonusMax"/>: a tie-breaker that stays inside the gap between another kind of aircraft (120) and the exact type (200).
         /// </summary>
         public const int TitleTokenPoints = 10;
         public const int TitleTokenBonusMax = 30;
@@ -104,12 +122,10 @@ namespace JoinFS.Matching
         readonly SpecResolver specResolver;
         readonly SimilarityScorer scorer;
         readonly AirlineResolver airlines;
-        readonly RelatedTypes related;
         readonly ModelSpecCache specCache;
 
-        public CombinedMatcher(IMatchCatalog catalog, ReferenceSpecs reference, SimilarityScorer scorer = null, AirlineResolver airlines = null, RelatedTypes related = null)
+        public CombinedMatcher(IMatchCatalog catalog, ReferenceSpecs reference, SimilarityScorer scorer = null, AirlineResolver airlines = null)
         {
-            this.related = related ?? RelatedTypes.Empty;
             this.airlines = airlines ?? AirlineResolver.Empty;
             this.catalog = catalog;
             this.reference = reference;
@@ -299,6 +315,7 @@ namespace JoinFS.Matching
         {
             public SimilarityResult Similarity;
             public int Points;
+            public int NearPoints;
             public int FamilyBonus;
             public string FamilyReason = "";
         }
@@ -319,6 +336,8 @@ namespace JoinFS.Matching
             string remoteType = foldedRequest && remoteSpecs.Name.Length > 0 && explanation.RemoteSpecs.EffectiveIcao.Length > 0 ? explanation.RemoteSpecs.EffectiveIcao : request.IcaoType;
             IReadOnlySet<string> remoteTokens = foldedRequest ? TitleTokens.Of(request.Title) : null;
             Dictionary<string, IReadOnlySet<string>> tokensByTitle = new(StringComparer.Ordinal);
+            // livery before exact type is for airliners only, and only for an airline that is certain (a stray callsign of a GA plane must never re-type it)
+            string verifiedAirline = IsAirlinerKind(request.IcaoType, remoteWtc, remoteSpecs, request.Typerole) ? VerifiedAirline(request) : "";
 
             foreach (var model in models)
             {
@@ -336,10 +355,13 @@ namespace JoinFS.Matching
                 }
 
                 CandidateScore baselineScore = IdentityScorer.Score(model, request, remoteClass, remoteWtc, registrationAlnum, typeroleIsWeakHint: true);
-                AddRelatedTypePoints(baselineScore, model, request);
                 AddTitleInferredIdentity(baselineScore, model, candidateSpecs, remoteType, foldedRequest, remoteClass, remoteWtc);
                 if (remoteTokens != null) AddSharedTitleWordPoints(baselineScore, model, remoteTokens, tokensByTitle);
                 bool genericFallback = foldedRequest && ApplyFoldedIdentity(baselineScore, model, candidateSpecs, remoteType, request, explanation.RemoteSpecs);
+                // for GLID, GLIM ... the title decides what the tag cannot; a physical "almost identical" must not outweigh that
+                int nearPoints = foldedRequest ? 0 : group.NearPoints;
+                bool liveryFirst = verifiedAirline.Length > 0 && model.icaoAirline.Equals(verifiedAirline, StringComparison.OrdinalIgnoreCase)
+                    && group.Similarity.Confidence > 0 && group.Similarity.Score >= NearIdenticalFrom && IsAirlinerKind(model.icaoType, model.wtc, candidateSpecs.Specs, model.typerole);
 
                 ranked.Add(new RankedCandidate
                 {
@@ -351,9 +373,11 @@ namespace JoinFS.Matching
                     GenericFallback = genericFallback,
                     Similarity = group.Similarity,
                     SimilarityPoints = group.Points,
+                    NearIdenticalPoints = nearPoints,
+                    LiveryFirst = liveryFirst,
                     FamilyBonus = group.FamilyBonus,
                     FamilyReason = group.FamilyReason,
-                    CombinedScore = baselineScore.Score + group.Points + group.FamilyBonus
+                    CombinedScore = baselineScore.Score + group.Points + nearPoints + group.FamilyBonus
                 });
             }
 
@@ -370,6 +394,7 @@ namespace JoinFS.Matching
             {
                 Similarity = similarity,
                 Points = (int)Math.Round(SimilarityPointsMax * similarity.Score * similarity.Confidence),
+                NearPoints = similarity.Gated ? 0 : NearIdenticalBonus(similarity),
                 FamilyBonus = familyBonus,
                 FamilyReason = familyReason
             };
@@ -377,6 +402,8 @@ namespace JoinFS.Matching
 
         static int CompareCandidates(RankedCandidate a, RankedCandidate b)
         {
+            int byLivery = b.LiveryFirst.CompareTo(a.LiveryFirst);
+            if (byLivery != 0) return byLivery;
             int byScore = b.CombinedScore.CompareTo(a.CombinedScore);
             if (byScore != 0) return byScore;
             int bySimilarity = b.Similarity.Score.CompareTo(a.Similarity.Score);
@@ -401,33 +428,51 @@ namespace JoinFS.Matching
         }
 
         /// <summary>
-        /// Same manufacturer + same category (rotorcraft or fixed wing) + a similar size (the size window keeps a Cessna 172 from borrowing a Citation): a sibling of the
-        /// requested aircraft (Robinson R22 for an R44, Boeing 747-400 for a 747-8) wins over another make that only looks close.
+        /// Up to <see cref="NearIdenticalMax"/> points for aircraft that are almost the same: 0 at a similarity of <see cref="NearIdenticalFrom"/>, rising smoothly to the
+        /// maximum at identical data, scaled by the confidence and only when at least <see cref="NearIdenticalMinConfidence"/> of the comparison is known. Replaces the
+        /// flat bonus of the family list (related.dat): which aircraft look alike is decided by their data, not by a list.
         /// </summary>
-        /// <summary>A related type (same family in related.dat) is worth <see cref="RelatedTypePoints"/>, scaled down when the model's type was guessed.</summary>
-        void AddRelatedTypePoints(CandidateScore score, Model model, MatchRequest request)
+        public static int NearIdenticalBonus(SimilarityResult similarity)
         {
-            if (score.AttributeScores.ContainsKey(MatchAttribute.IcaoType) || !related.AreRelated(request.IcaoType, model.icaoType)) return;
+            if (!(similarity.Score > NearIdenticalFrom) || !(similarity.Confidence >= NearIdenticalMinConfidence)) return 0;
+            double t = Math.Min(1, (similarity.Score - NearIdenticalFrom) / (1 - NearIdenticalFrom));
+            return (int)Math.Round(NearIdenticalMax * t * t * (3 - 2 * t) * similarity.Confidence, MidpointRounding.AwayFromZero);
+        }
 
-            double factor = model.icaoGuessed ? Substitution.GuessedSignalMultiplier : 1.0;
-            int points = (int)Math.Round(RelatedTypePoints * factor);
-            score.Score += points;
-            score.AttributeScores[MatchAttribute.IcaoType] = points;
-            score.Contributions.Add($"related ICAO type '{model.icaoType}' ~ '{request.IcaoType}' ({(factor < 1 ? "guessed, " : "")}+{points})");
+        /// <summary>The airline of the request when it is certain: a known ICAO code that was reported (not guessed from the title), or the prefix of a callsign like UAE123.</summary>
+        string VerifiedAirline(MatchRequest request)
+        {
+            string reported = request.IcaoAirline ?? "";
+            if (!request.IcaoAirlineGuessed && airlines.IsKnownCode(reported)) return reported.ToUpperInvariant();
+
+            Match callsign = CallsignWithAirline.Match((request.Callsign ?? "").Trim().ToUpperInvariant());
+            return callsign.Success && airlines.IsKnownCode(callsign.Groups[1].Value) ? callsign.Groups[1].Value : "";
+        }
+
+        /// <summary>
+        /// Not general aviation, a rotorcraft, balloon, airship, glider or motor glider: a fixed-wing type outside the light wake category - jets, turboprops
+        /// and piston airliners alike. Judged from the Doc8643 wake category; only without one the weight decides.
+        /// </summary>
+        bool IsAirlinerKind(string icaoType, string wtc, AircraftSpecs specs, int typerole)
+        {
+            if (catalog.Doc8643.IsCollapsed(icaoType) || specs.Rotor == true || typerole is TypeRole.Glider or TypeRole.Balloon or TypeRole.Airship) return false;
+
+            string wake = wtc.Length > 0 ? wtc : catalog.Doc8643.TryGet(icaoType, out var row) ? row.Wtc : "";
+            return wake.Length > 0 ? wake != LightWake : (specs.MtowKg ?? 0) >= AirlinerMinMtowKg;
         }
 
         /// <summary>
         /// For a designator several aircraft share (GLID), the tag says little, the title says more. A model that carries the tag, or has no real designator tag and
         /// whose title resolves to the remote aircraft's type, is judged by what its title names compared with the remote title:
-        /// the same title hint (the same aircraft) <see cref="SameHintPoints"/>, the same class 200, another class <see cref="RelatedTypePoints"/>, and a generic
-        /// model (no hint) while the remote names something also the related-type level but flagged as a last resort. Returns true for that last resort.
+        /// the same title hint (the same aircraft) <see cref="SameHintPoints"/>, the same class 200, another class <see cref="OtherKindOfAircraftPoints"/>, and a generic
+        /// model (no hint) while the remote names something also that level but flagged as a last resort. Returns true for that last resort.
         /// </summary>
         bool ApplyFoldedIdentity(CandidateScore score, Model model, ResolvedSpecs modelSpecs, string remoteType, MatchRequest request, ResolvedSpecs remote)
         {
             bool exactTag = model.icaoType.Equals(request.IcaoType, StringComparison.OrdinalIgnoreCase);
             bool tagLeavesTypeToTitle = !(model.icaoType.Length > 0 && catalog.Doc8643.IsRecognized(model.icaoType))
                 && (modelSpecs.EffectiveIcao.Equals(remoteType, StringComparison.OrdinalIgnoreCase) || reference.IsStandInFor(request.IcaoType, modelSpecs.EffectiveIcao));
-            if (!exactTag && !tagLeavesTypeToTitle) return false;
+            if (!exactTag && !tagLeavesTypeToTitle) return AddStandInPoints(score, model, request);
 
             bool remoteNamed = remote.MatchedHint.Length > 0, modelNamed = modelSpecs.MatchedHint.Length > 0;
             bool sameRow = modelSpecs.Specs.Name == remote.Specs.Name || reference.IsMemberOfRow(modelSpecs.EffectiveIcao, remote.Specs.Name, request.IcaoType);
@@ -446,7 +491,7 @@ namespace JoinFS.Matching
             }
             else
             {
-                points = RelatedTypePoints;
+                points = OtherKindOfAircraftPoints;
                 genericFallback = remoteNamed && !modelNamed;
                 why = genericFallback
                     ? $"generic model: its title names nothing, the remote aircraft names '{remote.MatchedHint}' (last resort)"
@@ -458,6 +503,20 @@ namespace JoinFS.Matching
             score.AttributeScores[MatchAttribute.IcaoType] = points;
             score.Contributions.Add($"'{request.IcaoType}' covers several aircraft: {why} ({(before > 0 ? $"type points {before} -> {points}" : $"+{points}")})");
             return genericFallback;
+        }
+
+        /// <summary>
+        /// A model with a designator of its own that can stand in for the folded designator - an LS8 for a GLID, judged by its physical data (same kind as the designator's
+        /// default row), not by a list - is "another kind of aircraft" (<see cref="OtherKindOfAircraftPoints"/>), unless it already scored more for its type.
+        /// </summary>
+        bool AddStandInPoints(CandidateScore score, Model model, MatchRequest request)
+        {
+            if (score.AttributeScores.ContainsKey(MatchAttribute.IcaoType) || !reference.IsStandInFor(request.IcaoType, model.icaoType)) return false;
+
+            score.Score += OtherKindOfAircraftPoints;
+            score.AttributeScores[MatchAttribute.IcaoType] = OtherKindOfAircraftPoints;
+            score.Contributions.Add($"'{request.IcaoType}' covers several aircraft: '{model.icaoType}' is a specific type that can stand in for it (+{OtherKindOfAircraftPoints})");
+            return false;
         }
 
         /// <summary>The title words a model shares with the remote aircraft, when the requested designator covers several aircraft.</summary>
@@ -556,6 +615,8 @@ namespace JoinFS.Matching
 
             result.Trace.steps.Add($"Scoring (combined): {explanation.ModelCount} installed model(s) compared on JoinFS signals plus physical similarity; {explanation.ExcludedCount} excluded as physically implausible. " +
                 $"Winner '{model.title}' / '{model.variation}' scored {winner.CombinedScore} = {winner.BaselineScore} (JoinFS signals) + {winner.SimilarityPoints} (similarity {winner.Similarity.Score:0.00} x confidence {winner.Similarity.Confidence:0.00})" +
+                (winner.NearIdenticalPoints > 0 ? $" + {winner.NearIdenticalPoints} (almost identical)" : "") +
+                (winner.LiveryFirst ? " [airliner of the requested airline and at least 80 % alike: the livery ranks before the exact type]" : "") +
                 (winner.FamilyBonus > 0 ? $" + {winner.FamilyBonus} ({winner.FamilyReason})." : "."));
 
             result.Trace.topCandidates = explanation.Ranking.Take(5).Select(r => new MatchTrace.Candidate
@@ -564,6 +625,8 @@ namespace JoinFS.Matching
                 variation = r.Model.variation,
                 totalScore = r.CombinedScore,
                 contributions = [.. r.BaselineContributions, $"similarity {r.Similarity.Score:0.00} x confidence {r.Similarity.Confidence:0.00} (+{r.SimilarityPoints})",
+                    .. (r.NearIdenticalPoints > 0 ? new[] { $"almost identical to the remote aircraft (+{r.NearIdenticalPoints})" } : []),
+                    .. (r.LiveryFirst ? new[] { "requested airline on an airliner at least 80 % alike: ranked before the exact type" } : []),
                     .. (r.FamilyBonus > 0 ? new[] { $"{r.FamilyReason} (+{r.FamilyBonus})" } : [])]
             }).ToList();
 

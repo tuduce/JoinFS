@@ -19,7 +19,7 @@ namespace JoinFS.Tests
             substitution.models = [.. models];
             substitution.RebuildTitleIndex();
             substitution.MakeIcaoIndex();
-            var matcher = new CombinedMatcher(new SubstitutionCatalog(substitution), MatchingData.Reference, null, MatchingData.Airlines, MatchingData.Related);
+            var matcher = new CombinedMatcher(new SubstitutionCatalog(substitution), MatchingData.Reference, null, MatchingData.Airlines);
             return matcher.Match(new MatchRequest(title, "", "GLID", "", "", "", false, Sub.TypeRole_Glider, ""));
         }
 
@@ -158,7 +158,7 @@ namespace JoinFS.Tests
             substitution.models = [Model("Cessna 172 Skyhawk", "C172")];
             substitution.RebuildTitleIndex();
             substitution.MakeIcaoIndex();
-            var matcher = new CombinedMatcher(new SubstitutionCatalog(substitution), MatchingData.Reference, null, MatchingData.Airlines, MatchingData.Related);
+            var matcher = new CombinedMatcher(new SubstitutionCatalog(substitution), MatchingData.Reference, null, MatchingData.Airlines);
 
             var result = matcher.Match(new MatchRequest("Cessna 172", "", "C172", "", "", "", false, 1, ""));
 

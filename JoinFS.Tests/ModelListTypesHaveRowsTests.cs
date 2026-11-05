@@ -63,7 +63,7 @@ namespace JoinFS.Tests
             substitution.models = [generic, k7];
             substitution.RebuildTitleIndex();
             substitution.MakeIcaoIndex();
-            var matcher = new CombinedMatcher(new SubstitutionCatalog(substitution), MatchingData.Reference, null, MatchingData.Airlines, MatchingData.Related);
+            var matcher = new CombinedMatcher(new SubstitutionCatalog(substitution), MatchingData.Reference, null, MatchingData.Airlines);
 
             var result = matcher.Match(new MatchRequest("K7 Cream/Green (imperial)", "", "GLID", "", "", "", false, Sub.TypeRole_Glider, ""));
 

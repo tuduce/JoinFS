@@ -56,10 +56,10 @@ namespace JoinFS.Tests
         }
 
         [Fact]
-        public void The_bonus_can_never_lift_a_related_type_over_the_exact_type()
+        public void The_bonus_can_never_lift_another_kind_of_aircraft_over_the_exact_type()
         {
-            // exact ICAO type 200, related type 120 (RelatedTypePoints): the bonus must stay inside that gap
-            Assert.True(CombinedMatcher.TitleTokenBonusMax < 200 - CombinedMatcher.RelatedTypePoints);
+            // exact ICAO type 200, another kind of aircraft 120 (OtherKindOfAircraftPoints): the bonus must stay inside that gap
+            Assert.True(CombinedMatcher.TitleTokenBonusMax < 200 - CombinedMatcher.OtherKindOfAircraftPoints);
         }
 
         // ---- in the matcher ---------------------------------------------------------------------------------------------------

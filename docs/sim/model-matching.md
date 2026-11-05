@@ -9,9 +9,9 @@ parameter `--classicmatching` (there is deliberately no setting and no UI switch
 |---|---|
 | Entry point (unchanged signature) | `Substitution.Match(...)` builds a `MatchRequest` and calls `Substitution.Resolve` |
 | Engine switch | `Substitution.Resolve` -> `MatchClassic` or `MatchWithNewEngine` (`Substitution.engine`) |
-| New engine | `JoinFS/Matching/`: `CombinedMatcher`, `SimilarityScorer`, `SpecResolver`, `ModelSpecCache`, `AirlineResolver`, `RelatedTypes`, `ReferenceSpecs`, `IdentityScorer` |
+| New engine | `JoinFS/Matching/`: `CombinedMatcher`, `SimilarityScorer`, `SpecResolver`, `ModelSpecCache`, `AirlineResolver`, `ReferenceSpecs`, `IdentityScorer` |
 | Identity signals (shared by both engines) | `Substitution.ScoreCandidate` (the new engine passes the typerole as a weak hint: no -240) |
-| Reference data | `Resources/aircraft-specs.json` (embedded), `XPMP2_Doc8643.dat`, `XPMP2_related.dat`, `ICAO_Airlines.dat` |
+| Reference data | `Resources/aircraft-specs.json` (embedded), `XPMP2_Doc8643.dat`, `ICAO_Airlines.dat` (`XPMP2_related.dat` is shipped to X-Plane for the XPMP2 plugin only; the matcher does not read it) |
 | Measured data | read during the model scan from each model's `aircraft.cfg` / `flight_model.cfg` / `engines.cfg` (`MeasuredSpecsReader`); cached in `specs - <sim>.txt` (`SpecCacheFile`) |
 | X-Plane | CSL `ICAO` / `AIRLINE` / `LIVERY` lines now give models an ICAO type and airline (`XsbEntry`); XPMP2 still makes the final CSL choice in the plugin |
 | Tests | `JoinFS.Tests`: `SubstitutionMatchCharacterizationTests` (pins Classic), `NewMatchingEngineTests`, `NewMatchingEnginePerformanceTests`, `MeasuredSpecsReaderTests`, `SpecCacheFileTests`, `XsbEntryTests` |
@@ -48,7 +48,7 @@ The remainder of this document is the rule set as implemented.
 1. Tier 1 - Substitute, on the request exactly as sent. A hit ends the match.
 2. Tier 2 - Original, on the request exactly as sent. A hit ends the match.
 3. Correct the request: type tag (alias, punctuation), airline, typerole (section 2). Notes are added to the matching steps.
-4. Tier 3 - score every installed model: identity signals (including related types), physical similarity, same-manufacturer bonus.
+4. Tier 3 - score every installed model: identity signals, physical similarity, near-identical bonus, same-manufacturer bonus.
 5. Plausibility gate, acceptance, deterministic ordering. The best acceptable model wins.
 6. Tier 4/5 - configured default for the typerole, else the last resort (Combined refuses an implausible model).
 
@@ -79,8 +79,8 @@ typerole, registration. From an Explain Match report, a debug bundle, `--icao/--
 or live from the simulator (`--simconnect`).
 
 **Reference data** (`data/`): `Doc8643.dat` (type to class code, WTC, manufacturer), `aircraft-specs.json` (size, weight, speeds,
-engines per ICAO type, aliases, title hints), `ICAO_Airlines.dat` (airline code, IATA code, name), `related.dat` (families of
-visually similar ICAO types, used by the Combined engine).
+engines per ICAO type, aliases, title hints), `ICAO_Airlines.dat` (airline code, IATA code, name). There is no list of aircraft families any more:
+how alike two aircraft are is decided by their data (section 6).
 
 **JoinFS settings** (`matching - <sim>.txt`): the user's substitutions (title to model) and the default model per typerole.
 
@@ -162,15 +162,14 @@ Every candidate gets a score as the sum of independent signals (`Substitution.Sc
 | WTC | **+40** | same wake category |
 | Typerole | +15 | same typerole |
 | Typerole mismatch | **-240** | typerole differs **and** the ICAO type is not an exact match (cancels coincidental airline + class + WTC = 240). Combined: **never applied** - the typerole is only a weak hint (+15 when equal); the class code, the similarity and the plausibility gate decide |
-| Related ICAO type (Combined only) | **+120** | the model's type is a *different* member of the same `related.dat` family as the requested one (`A320` for an `A20N`); not added on top of an exact type |
 | Registration | +15 | equals the model's `atc_id` (letters/digits only) |
 | Registration (weak) | +5 | model has no `atc_id` but title/livery contains the registration |
 | Title prefix | +min(n, 25) | shared start of the titles, n = common characters, only when n >= 4 |
 | Livery word | +1 | first livery word of 4+ letters that appears in the model's livery |
 
-**Related types** (`related.dat`, e.g. `A318 A319 A320 A321 A19N A20N A21N` are one family) get `RelatedTypePoints` = **120** in the
-Combined engine (x0.2 when the model's type is guessed): between an airline match (100) and the exact type (200). So an SAA A320 beats
-another airline's exact A20N, while an exact type of the right airline still wins. JoinFS today does not use the families.
+**Aircraft families are gone.** Earlier the Combined engine gave +120 to a type in the same `related.dat` family (`A318 A319 A320 A321 ...`). That list is no longer
+read: the bonus beat a livery-correct airliner of another make (an A388 of Emirates lost to any 747 for a B748). Closeness now comes from the data (section 6,
+*near-identical bonus*), and for airliners the airline comes first (section 8).
 
 **Untagged models (Combined only):** a model with no ICAO type at all whose title names the requested type through a title hint (`S12-G: Passengers` for
 a Stemme S12) is the aircraft itself. It earns type, class and WTC points at `TitleInferredTypeFactor` = **75%** (150 / 75 / 30), via the class code and WTC
@@ -212,7 +211,11 @@ features; **a feature only counts when both sides know it** (no guessing, no pen
 both are rotorcraft or both fixed wing, **and** the size is similar: weights within a factor **2.5**, or (without weights) spans within **1.6**.
 So an R22 beats another make as stand-in for an R44, and a Cessna 172 never borrows a Citation. The bonus is not given to gated candidates.
 
-**Combined score** = identity score (section 5, including related types) + similarity points + same-manufacturer bonus.
+**Near-identical bonus (Combined only):** up to **+60** (`NearIdenticalMax`) for aircraft that are almost the same: 0 at a similarity score of **0.8** (`NearIdenticalFrom`), rising smoothly
+(smoothstep) to the maximum at identical data, times the confidence, and only when the confidence is at least **0.75**. It replaces the flat family bonus. It is not given to gated candidates
+or to collapsed designators (GLID, GLIM ...), where the title decides.
+
+**Combined score** = identity score (section 5) + similarity points + near-identical bonus + same-manufacturer bonus.
 
 ---
 
@@ -223,10 +226,10 @@ A candidate is **excluded** ("implausible") regardless of score when
 - one is a rotorcraft and the other is fixed wing, or
 - the weights differ by more than a factor **8**.
 
-Excluded candidates are ranked last and cannot win.
+Excluded candidates are not ranked and cannot win.
 
 The best candidate is **accepted** when its combined score is at least **20** (`MinMatchScore`) and, if the comparison had any data
-(confidence > 0), either its similarity score is at least **0.5** or its ICAO type matched (exactly, or as a related type). If nobody qualifies the
+(confidence > 0), either its similarity score is at least **0.5** or its ICAO type matched exactly. If nobody qualifies the
 engine goes on to the default tier. The match type is set as in section 5.
 
 ---
@@ -236,6 +239,10 @@ engine goes on to the default tier. The match type is set as in section 5.
 Candidates are sorted deterministically, so the same inputs always give the same answer:
 
 1. non-excluded before excluded,
+2. **livery first (airliners):** a model of the requested airline that is at least **80 %** alike (similarity score >= `NearIdenticalFrom`) before every model without that airline - the exact
+   ICAO type included. The airline must be certain: a known ICAO code that was reported (not guessed from the title), or the prefix of a callsign such as `UAE123` (a registration
+   like `N748UA` never counts). Both the requested and the installed type must be airliners: fixed wing, not a collapsed designator (GLID ...), not a glider, balloon or airship,
+   and not in the light wake category (Doc8643 `L`; the weight is used only when there is no wake category). GA, helicopters, balloons, gliders and motor gliders keep "exact type first",
 2. higher combined score,
 3. higher similarity score,
 4. title, then variation (ordinal alphabetical).
@@ -287,7 +294,7 @@ plugin interfaces**:
   the class code. Its typerole is a weak hint (+15).
 - **`MatchRequest` / `Model` carry nothing new on the wire.** `atc_airline` is optional local input (not sent by remote clients),
   `IcaoAirlineGuessed` / `TyperoleDerived` are local flags, and `EngineKind.None` (gliders) exists only inside this matcher.
-- **Data is local:** `aircraft-specs.json`, `related.dat` and `ICAO_Airlines.dat` are read from files next to JoinFS; models keep their
+- **Data is local:** `aircraft-specs.json` and `ICAO_Airlines.dat` are read from files next to JoinFS; models keep their
   existing fields (title, livery, ICAO type, WTC, airline, class code, registration, typerole).
 - **Tiers 1 and 2 (Substitute, Original) and the JoinFS file formats (`models - ...txt`, `matching - ...txt`) are unchanged.**
 
