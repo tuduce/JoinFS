@@ -268,7 +268,7 @@ For the **request** (remote aircraft):
 1. Public reference for its ICAO type (after alias correction).
 2. If the type has no entry: the type inferred from the title - the longest of the title hints / names / ICAO code / aliases of any
    reference entry that appears as a whole word in the title.
-3. Coarse values derived from the class code and typerole (engine count, engine type, rotor) - low confidence.
+3. Coarse values derived from the class code and typerole (engine count, engine type, rotor) - low confidence. Confidence is always measured against all features, so a type known only by its class code ("1 piston engine") never outranks one whose size and speed were compared.
 
 **Aircraft without an ICAO designator** (Wright Flyer, Spirit of St. Louis, Do X, Latecoere 631, Boeing 307, Gee Bee ...) have reference rows with a
 pseudo key (`X-...`, flagged `nonIcao`) and are found by step 2, the title. That works for the request and for installed models alike; their
