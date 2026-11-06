@@ -15,6 +15,23 @@ namespace JoinFS.Tests
         [InlineData("MI24", 17.2, 12000)]
         [InlineData("EC75", 14.8, 7800)]
         [InlineData("F22", 13.56, 38000)]
+        [InlineData("MD81", 32.87, 63500)]
+        [InlineData("MG29", 11.36, 18000)]
+        [InlineData("MI26", 32.0, 56000)]
+        [InlineData("SU27", 14.7, 30450)]
+        [InlineData("AN26", 29.2, 24000)]
+        [InlineData("TUCA", 11.14, 3175)]
+        [InlineData("T134", 29.0, 47600)]
+        [InlineData("X-CONC", 25.6, 185070)]
+        [InlineData("X-ALIA", 15.24, 3175)]
+        [InlineData("L5", 10.36, 929)]
+        [InlineData("A4", 8.38, 11100)]
+        [InlineData("AMX", 8.87, 13000)]
+        [InlineData("B2", 52.4, 152600)]
+        [InlineData("F117", 13.2, 23800)]
+        [InlineData("F260", 8.35, 1100)]
+        [InlineData("F5", 8.13, 11200)]
+        [InlineData("T160", 55.7, 275000)]
         public void A_type_the_model_lists_use_has_a_row_with_its_size_and_weight(string tag, double spanM, double mtowKg)
         {
             var specs = MatchingData.Reference.Find(tag);
