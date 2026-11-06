@@ -22,5 +22,18 @@ namespace JoinFS.Tests
             MatchRequest request = new("", "", "AN2", "", "", "", false, Sub.TypeRole_SingleProp, "");
             Assert.Equal("DHC-2 Beaver", substitution.Resolve(request).model?.title);
         }
+
+        [Fact]
+        public void A_type_without_spec_data_gets_no_similarity_credit_at_all()
+        {
+            var substitution = new Sub(null!) { engine = MatchingEngine.New };
+            substitution.LoadDoc8643Index();
+            substitution.models = [Model("Jetson One", "ONE")];
+            substitution.RebuildTitleIndex();
+            substitution.MakeIcaoIndex();
+            MatchRequest request = new("", "", "AN2", "", "", "", false, Sub.TypeRole_SingleProp, "");
+            var trace = substitution.Resolve(request).trace;
+            Assert.Contains(trace.topCandidates[0].contributions, c => c.StartsWith("similarity") && c.EndsWith("(+0)"));
+        }
     }
 }

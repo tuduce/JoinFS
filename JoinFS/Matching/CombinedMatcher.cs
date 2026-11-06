@@ -389,6 +389,8 @@ namespace JoinFS.Matching
         GroupEvaluation Evaluate(AircraftSpecs remoteSpecs, ResolvedSpecs candidateSpecs)
         {
             SimilarityResult similarity = scorer.Compare(remoteSpecs, candidateSpecs.Specs);
+            // a model without any spec data was not really compared: it gets no similarity credit (it can still win on its identity)
+            if (candidateSpecs.CoarseOnly && !similarity.Gated) { similarity.Score = 0; similarity.Confidence = 0; }
             (int familyBonus, string familyReason) = similarity.Gated ? (0, "") : SameManufacturerRule(remoteSpecs, candidateSpecs.Specs);
             return new GroupEvaluation
             {
