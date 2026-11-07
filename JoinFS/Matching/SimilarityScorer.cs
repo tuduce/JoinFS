@@ -203,11 +203,9 @@ namespace JoinFS.Matching
             }
             result.Score = result.Features.Sum(f => f.Contribution);
 
-            // without any size data (weight, span, length on both sides) the airframe is judged on what is left: engine count, engine type
-            // and gear are then the reference for "enough to decide", so confidence is measured against them instead of all features
-            bool sizeKnown = result.Features.Any(f => f.Feature is "Mtow" or "Span" or "Length");
-            double reference = sizeKnown ? allWeights : weights.EngineCount + weights.EngineType + weights.Gear;
-            result.Confidence = Math.Min(1.0, totalWeight / reference);
+            // confidence is always measured against all features: two aircraft that agree on engine count and type only (no size, speed or wing
+            // known on either side) say little, and must not outrank a comparison that rests on real data
+            result.Confidence = Math.Min(1.0, totalWeight / allWeights);
         }
 
         static string Format(double value, string unit)

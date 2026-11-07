@@ -29,6 +29,10 @@ namespace JoinFS.Matching
         readonly List<Entry> entries = [];
         readonly Dictionary<string, Entry> byIcao = new(StringComparer.OrdinalIgnoreCase);
         readonly Dictionary<string, Entry> byAlias = new(StringComparer.OrdinalIgnoreCase);
+        readonly Dictionary<string, List<Entry>> rowsByIcao = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>A specific type found by title must be at most this much heavier or lighter than the default row of an ambiguous designator.</summary>
+        public const double AmbiguousDesignatorMaxMtowRatio = 4.0;
 
         public IReadOnlyList<Entry> Entries => entries;
 
@@ -119,7 +123,8 @@ namespace JoinFS.Matching
                     {
                         Entry entry = ReadEntry(row);
                         if (entry.Icao.Length == 0) throw new FormatException("empty icao");
-                        if (!seen.Add(entry.Icao)) problems.Add($"{entry.Icao}: designator appears more than once, the first row is used");
+                        // several rows may share a designator (ICAO folded GLID/GLIM ...) when their names differ; the first one is the default
+                        if (!seen.Add(entry.Icao + "\u0001" + entry.Name)) problems.Add($"{entry.Icao}: the row '{entry.Name}' appears more than once, the first one is used");
                         else entries.Add(entry);
                     }
                     catch (Exception ex) when (ex is KeyNotFoundException or InvalidOperationException or FormatException)
@@ -162,7 +167,9 @@ namespace JoinFS.Matching
         void Add(Entry entry)
         {
             entries.Add(entry);
-            byIcao.TryAdd(entry.Icao, entry);
+            byIcao.TryAdd(entry.Icao, entry);   // the first row of a designator is its default
+            if (!rowsByIcao.TryGetValue(entry.Icao, out var rows)) rowsByIcao[entry.Icao] = rows = [];
+            rows.Add(entry);
             foreach (var alias in entry.Aliases) byAlias.TryAdd(alias, entry);
         }
 
@@ -278,6 +285,101 @@ namespace JoinFS.Matching
             if (string.IsNullOrEmpty(icaoOrAlias)) return null;
             string icao = ResolveAlias(icaoOrAlias);
             return byIcao.TryGetValue(icao, out var entry) ? Clone(entry.Specs) : null;
+        }
+
+        /// <summary>How many rows the data has for a designator (or alias): 0 unknown, 1 normal, more when ICAO folded several aircraft into one code (GLID, GLIM ...).</summary>
+        public int RowCount(string icaoOrAlias)
+        {
+            if (string.IsNullOrEmpty(icaoOrAlias)) return 0;
+            return rowsByIcao.TryGetValue(ResolveAlias(icaoOrAlias), out var rows) ? rows.Count : 0;
+        }
+
+        /// <summary>
+        /// Like <see cref="Find"/>, but for a designator with several rows the title picks the row: the longest title hint found in
+        /// <paramref name="text"/> wins, whether it belongs to one of the designator's own rows or to a specific type of a similar kind (an
+        /// ASK 21 for GLID). No hint found: the first row. A designator with one row ignores the text.
+        /// </summary>
+        public AircraftSpecs FindForText(string icaoOrAlias, string text)
+        {
+            Entry entry = FindEntryForText(icaoOrAlias, text);
+            return entry == null ? null : Clone(entry.Specs);
+        }
+
+        /// <summary>The row <see cref="FindForText"/> uses (its <see cref="Entry.Icao"/> may be a specific type's, not the requested designator's); null when the type is unknown.</summary>
+        public Entry FindEntryForText(string icaoOrAlias, string text) => FindRowMatch(icaoOrAlias, text)?.Entry;
+
+        /// <summary>The row a text names and the title hint that named it ("" when no hint did and the first row is only the default; also for a designator with one row).</summary>
+        public sealed record RowMatch(Entry Entry, string Hint);
+
+        public RowMatch FindRowMatch(string icaoOrAlias, string text)
+        {
+            if (string.IsNullOrEmpty(icaoOrAlias)) return null;
+            string icao = ResolveAlias(icaoOrAlias);
+            if (!byIcao.TryGetValue(icao, out Entry first)) return null;
+            if (rowsByIcao[icao].Count < 2) return new RowMatch(first, BestMatch([first], text, designatorIsAHint: true).hint);   // the hint is still known: "K7" names the K 7 row
+
+            List<Entry> rows = rowsByIcao[icao];
+            (Entry ownRow, string ownHint) = BestMatch(rows, text);
+            (Entry specific, string specificHint) = BestMatch(entries.Where(e => IsSimilarKind(e, rows[0])), text, designatorIsAHint: true);   // a specific type's own designator (LS4) names it
+
+            // on an equally long hint the specific type wins: it is the more precise answer (a class row lists its members as hints)
+            if (specific != null && specificHint.Length >= ownHint.Length) return new RowMatch(specific, specificHint);
+            return ownRow != null ? new RowMatch(ownRow, ownHint) : new RowMatch(first, "");
+        }
+
+        /// <summary>
+        /// True when the specific type shares a title hint with the named row of the folded designator: the class row lists its members (the "classic wooden"
+        /// row lists K7 and Pirat), so a K 7 is the same kind of aircraft as a Grunau Baby.
+        /// </summary>
+        public bool IsMemberOfRow(string candidateIcao, string rowName, string foldedIcaoOrAlias)
+        {
+            if (string.IsNullOrEmpty(candidateIcao) || string.IsNullOrEmpty(rowName) || string.IsNullOrEmpty(foldedIcaoOrAlias)) return false;
+            if (!byIcao.TryGetValue(candidateIcao, out var candidate) || !rowsByIcao.TryGetValue(ResolveAlias(foldedIcaoOrAlias), out var rows)) return false;
+            Entry row = rows.FirstOrDefault(r => r.Name == rowName);
+            return row != null && row != candidate && row.TitleHints.Any(h => candidate.TitleHints.Contains(h, StringComparer.OrdinalIgnoreCase));
+        }
+
+        /// <summary>True when <paramref name="candidateIcao"/> is a specific type that can stand in for the folded designator (an ASK 7 for GLID): same kind as its default row.</summary>
+        public bool IsStandInFor(string foldedIcaoOrAlias, string candidateIcao)
+        {
+            if (string.IsNullOrEmpty(foldedIcaoOrAlias) || string.IsNullOrEmpty(candidateIcao)) return false;
+            string folded = ResolveAlias(foldedIcaoOrAlias);
+            return rowsByIcao.TryGetValue(folded, out var rows) && rows.Count > 1 && byIcao.TryGetValue(candidateIcao, out var candidate) && IsSimilarKind(candidate, rows[0]);
+        }
+
+        /// <summary>A candidate stand-in for an ambiguous designator: another designator, same rotor flag, same engine kind and a comparable weight.</summary>
+        static bool IsSimilarKind(Entry candidate, Entry defaultRow)
+        {
+            AircraftSpecs a = candidate.Specs, b = defaultRow.Specs;
+            if (candidate.Icao.Equals(defaultRow.Icao, StringComparison.OrdinalIgnoreCase)) return false;
+            if (a.Rotor != b.Rotor) return false;
+            if (a.Engine != EngineKind.Unknown && b.Engine != EngineKind.Unknown && a.Engine != b.Engine) return false;
+            if (a.MtowKg.HasValue && b.MtowKg.HasValue)
+            {
+                double ratio = Math.Max(a.MtowKg.Value, b.MtowKg.Value) / Math.Min(a.MtowKg.Value, b.MtowKg.Value);
+                return ratio <= AmbiguousDesignatorMaxMtowRatio;
+            }
+            return false;
+        }
+
+        /// <summary>The row with the longest title hint (not its bare designator) found as a token in the text; the first row wins a tie.</summary>
+        static (Entry entry, string hint) BestMatch(IEnumerable<Entry> candidates, string text, bool designatorIsAHint = false)
+        {
+            Entry best = null;
+            string bestHint = "";
+            if (string.IsNullOrWhiteSpace(text)) return (null, "");
+            foreach (var entry in candidates)
+            {
+                foreach (var hint in Hints(entry))
+                {
+                    if (hint.Length > bestHint.Length && (designatorIsAHint || !hint.Equals(entry.Icao, StringComparison.OrdinalIgnoreCase)) && TextTokens.ContainsToken(text, hint))
+                    {
+                        best = entry;
+                        bestHint = hint;
+                    }
+                }
+            }
+            return (best, bestHint);
         }
 
         /// <summary>

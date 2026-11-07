@@ -4887,13 +4887,13 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// The new matcher: explicit tiers as before, then identity signals + related types + physical similarity + plausibility gate,
+        /// The new matcher: explicit tiers as before, then identity signals + physical similarity (livery before exact type for airliners) + plausibility gate,
         /// deterministic order, and a refusal instead of a nonsense model.
         /// </summary>
         (Model model, Type type, MatchTrace trace) MatchWithNewEngine(MatchRequest request)
         {
             Matching.CombinedMatcher matcher = newMatcher ??= new Matching.CombinedMatcher(new Matching.SubstitutionCatalog(this), LoadReferenceSpecs(),
-                airlines: Matching.MatchingData.Airlines, related: Matching.MatchingData.Related);
+                airlines: Matching.MatchingData.Airlines);
             Matching.CombinedResult result = matcher.Match(request);
             return (result.Model, result.Type, result.Trace);
         }
