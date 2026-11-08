@@ -22,6 +22,13 @@ public sealed partial class FlightPlanViewModel : ObservableObject
 
     // Set while the fields are being filled from somewhere else, so that is not taken for an edit.
     private bool _applying;
+
+    // The plan the fields were last made equal to (the live one, or what Save read back). The fields differing from it is what
+    // enables Save, so typing a change and typing it back leaves nothing to save.
+    private FlightPlanData _baseline = new("", "", "VFR", "", "", "", "", "");
+
+    /// <summary>The fields differ from the plan that is live; Save is only available then.</summary>
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(SaveCommand))]
     private bool _hasUnsavedEdits;
 
     public FlightPlanViewModel(IFlightPlanStore store, ISimBriefClient simBrief, ProfileViewModel profile, IShell shell)
@@ -31,7 +38,21 @@ public sealed partial class FlightPlanViewModel : ObservableObject
         _profile = profile;
         _shell = shell;
         Apply(store.Load());
+        // the username is set in Settings (or the prompt), so the tab follows it
+        _profile.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(ProfileViewModel.SimbriefUsername) or nameof(ProfileViewModel.HasSimbriefUsername))
+            {
+                OnPropertyChanged(nameof(SimbriefUsername));
+                OnPropertyChanged(nameof(HasSimbriefUsername));
+            }
+        };
     }
+
+    /// <summary>The SimBrief username from the settings, shown next to the import link.</summary>
+    public string SimbriefUsername => _profile.SimbriefUsername;
+
+    public bool HasSimbriefUsername => _profile.HasSimbriefUsername;
 
     public IReadOnlyList<string> RulesOptions { get; } = ["VFR", "IFR"];
 
@@ -63,13 +84,13 @@ public sealed partial class FlightPlanViewModel : ObservableObject
     {
         base.OnPropertyChanged(e);
         if (!_applying && e.PropertyName is nameof(Callsign) or nameof(Type) or nameof(Rules) or nameof(From) or nameof(To) or nameof(Altitude) or nameof(Route) or nameof(Remarks))
-            _hasUnsavedEdits = true;
+            UpdateUnsavedEdits();
     }
 
     /// <summary>Reads the live plan again, unless the user is in the middle of editing it.</summary>
     public void Refresh()
     {
-        if (!_hasUnsavedEdits)
+        if (!HasUnsavedEdits)
             Apply(_store.Load());
     }
 
@@ -77,19 +98,17 @@ public sealed partial class FlightPlanViewModel : ObservableObject
     [RelayCommand]
     private void Clear()
     {
-        Apply(new FlightPlanData("", "", "VFR", "", "", "", "", ""));
-        _hasUnsavedEdits = true;
+        Apply(new FlightPlanData("", "", "VFR", "", "", "", "", ""), asBaseline: false);
         Status = "";
         _simBrief.Reset();
     }
 
     /// <summary>Makes the fields the user's plan. The plan is then read back: the live app fills what was left blank.</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasUnsavedEdits))]
     private void Save()
     {
         FlightPlanData plan = ToData();
         _store.Save(plan);
-        _hasUnsavedEdits = false;
         Apply(_store.Load());
         Saved?.Invoke(this, !plan.IsBlank);
     }
@@ -131,13 +150,16 @@ public sealed partial class FlightPlanViewModel : ObservableObject
         }
 
         // SimBrief knows the callsign it was filed under; if it gave none, the aircraft's own stays.
-        Apply(fetched with { Callsign = string.IsNullOrEmpty(fetched.Callsign) ? Callsign : fetched.Callsign });
-        _hasUnsavedEdits = !commit;
+        // committed, the plan is already the live one; otherwise it waits for Save
+        Apply(fetched with { Callsign = string.IsNullOrEmpty(fetched.Callsign) ? Callsign : fetched.Callsign }, asBaseline: commit);
         Status = Loc.F("Imported {0} → {1}", fetched.From, fetched.To);
         Imported?.Invoke(this, EventArgs.Empty);
     }
 
-    private void Apply(FlightPlanData plan)
+    private void UpdateUnsavedEdits() => HasUnsavedEdits = ToData() != _baseline;
+
+    /// <param name="asBaseline">The plan is the live one, so nothing is left to save; false when it is a change waiting for Save.</param>
+    private void Apply(FlightPlanData plan, bool asBaseline = true)
     {
         _applying = true;
         try
@@ -155,5 +177,9 @@ public sealed partial class FlightPlanViewModel : ObservableObject
         {
             _applying = false;
         }
+
+        if (asBaseline)
+            _baseline = plan;
+        UpdateUnsavedEdits();
     }
 }
