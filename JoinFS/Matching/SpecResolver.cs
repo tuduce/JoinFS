@@ -9,6 +9,8 @@ namespace JoinFS.Matching
         public AircraftSpecs Specs = new();
         /// <summary>The ICAO type the reference data was looked up under (after alias/title inference); "" when none</summary>
         public string EffectiveIcao = "";
+        /// <summary>The title hint that picked the row of a folded designator (GLID ...); "" when no hint did (the generic default row) or the designator has one row</summary>
+        public string MatchedHint = "";
         public List<string> Notes = [];
     }
 
@@ -34,16 +36,22 @@ namespace JoinFS.Matching
             string icao = reference.ResolveAlias(request.IcaoType);
             if (icao != request.IcaoType) resolved.Notes.Add($"ICAO type '{request.IcaoType}' is an alias of '{icao}'.");
 
-            AircraftSpecs specs = reference.Find(icao);
+            string text = request.Title + " " + request.Livery;
+            ReferenceSpecs.RowMatch match = reference.FindRowMatch(icao, text);
+            ReferenceSpecs.Entry row = match?.Entry;
+            AircraftSpecs specs = row != null ? reference.FindForText(icao, text) : null;
             if (specs != null)
             {
-                resolved.EffectiveIcao = icao;
+                resolved.EffectiveIcao = row.Icao;
+                resolved.MatchedHint = match.Hint;   // a folded designator (GLID) narrowed to a specific type (ASK 21) by the title
                 resolved.Notes.Add($"Public reference data for ICAO type '{icao}'.");
+                AddRowNote(resolved, icao, specs);
             }
             else
             {
                 string inferred = reference.InferIcaoFromText(request.Title);
-                specs = inferred != null ? reference.Find(inferred) : null;
+                specs = inferred != null ? reference.FindForText(inferred, text) : null;
+                if (specs != null) resolved.MatchedHint = reference.FindRowMatch(inferred, text).Hint;
                 if (specs != null)
                 {
                     resolved.EffectiveIcao = inferred;
@@ -81,20 +89,29 @@ namespace JoinFS.Matching
             }
         }
 
+        /// <summary>True when the model's specs depend on its title: it has no ICAO tag (the type is inferred), or its designator has several rows (the title picks one).</summary>
+        public bool DependsOnTitle(Model model) => model.icaoType.Length == 0 || reference.RowCount(model.icaoType) > 1;
+
         public ResolvedSpecs ForModel(Model model)
         {
             ResolvedSpecs resolved = new();
             string icao = reference.ResolveAlias(model.icaoType);
-            AircraftSpecs fallback = reference.Find(icao);
+            string text = model.title + " " + model.variation;
+            ReferenceSpecs.RowMatch modelMatch = reference.FindRowMatch(icao, text);
+            ReferenceSpecs.Entry modelRow = modelMatch?.Entry;
+            AircraftSpecs fallback = modelRow != null ? reference.FindForText(icao, text) : null;
             if (fallback != null)
             {
-                resolved.EffectiveIcao = icao;
+                resolved.EffectiveIcao = modelRow.Icao;
+                resolved.MatchedHint = modelMatch.Hint;
                 resolved.Notes.Add($"Public reference data for ICAO type '{icao}'.");
+                AddRowNote(resolved, icao, fallback);
             }
             else
             {
-                string inferred = reference.InferIcaoFromText(model.title + " " + model.variation);
-                fallback = inferred != null ? reference.Find(inferred) : null;
+                string inferred = reference.InferIcaoFromText(text);
+                fallback = inferred != null ? reference.FindForText(inferred, text) : null;
+                if (fallback != null) resolved.MatchedHint = reference.FindRowMatch(inferred, text).Hint;
                 if (fallback != null)
                 {
                     resolved.EffectiveIcao = inferred;
@@ -118,6 +135,13 @@ namespace JoinFS.Matching
             }
             FillManufacturer(resolved.Specs, resolved.EffectiveIcao.Length > 0 ? resolved.EffectiveIcao : model.icaoType);
             return resolved;
+        }
+
+        /// <summary>For a designator ICAO folded several aircraft into, say which row of the reference data describes this aircraft.</summary>
+        void AddRowNote(ResolvedSpecs resolved, string icao, AircraftSpecs specs)
+        {
+            if (reference.RowCount(icao) < 2) return;
+            resolved.Notes.Add($"'{icao}' covers several aircraft: row '{specs.Name}' chosen from the title.");
         }
 
         static string SourceName(AircraftSpecs specs) =>

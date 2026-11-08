@@ -12,7 +12,7 @@ namespace JoinFS.Matching
     /// </summary>
     public sealed class ModelSpecCache
     {
-        /// <summary>Everything <see cref="SpecResolver.ForModel"/> reads. Untagged models are resolved from their title, so it joins the key.</summary>
+        /// <summary>Everything <see cref="SpecResolver.ForModel"/> reads. Untagged models, and models of a designator with several rows (GLID, GLIM ...), are resolved from their title, so it joins the key.</summary>
         readonly record struct Key(string IcaoType, string ClassCode, int Typerole, AircraftSpecs Measured, string TitleText);
 
         readonly SpecResolver resolver;
@@ -36,7 +36,7 @@ namespace JoinFS.Matching
 
         public ResolvedSpecs For(Model model)
         {
-            Key key = new(model.icaoType, model.classCode, model.typerole, model.specs, model.icaoType.Length == 0 ? model.title + " " + model.variation : "");
+            Key key = new(model.icaoType, model.classCode, model.typerole, model.specs, resolver.DependsOnTitle(model) ? model.title + " " + model.variation : "");
             if (entries.TryGetValue(key, out ResolvedSpecs cached)) return cached;
             return entries.GetOrAdd(key, resolver.ForModel(model));
         }

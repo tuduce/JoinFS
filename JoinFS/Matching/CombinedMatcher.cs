@@ -22,6 +22,8 @@ namespace JoinFS.Matching
         public string FamilyReason = "";
         public int CombinedScore;
         public ResolvedSpecs CandidateSpecs = new();
+        /// <summary>A model of a folded designator that names nothing (the generic glider) while the remote aircraft does: used only when nothing better is installed</summary>
+        public bool GenericFallback;
     }
 
     /// <summary>Models of one title that were excluded as physically implausible, with the reason (rotor vs fixed wing, absurd weight ratio).</summary>
@@ -79,6 +81,19 @@ namespace JoinFS.Matching
 
         /// <summary>A model without any ICAO tag whose title names the requested type (a curated title hint) earns the type/class/WTC points at this share</summary>
         public const double TitleInferredTypeFactor = 0.75;
+
+        /// <summary>
+        /// For a designator several aircraft share (GLID), points per word the candidate's title has in common with the remote title, at most
+        /// <see cref="TitleTokenBonusMax"/>: a tie-breaker that stays inside the gap between a related type (120) and the exact type (200).
+        /// </summary>
+        public const int TitleTokenPoints = 10;
+        public const int TitleTokenBonusMax = 30;
+
+        /// <summary>For a folded designator, a model whose title names the same aircraft (the same title hint) as the remote aircraft: above the exact tag, whatever the tag is.</summary>
+        public const int SameHintPoints = 250;
+
+        /// <summary>The bonus for this many title words in common.</summary>
+        public static int TitleTokenBonus(int sharedTokens) => Math.Min(TitleTokenBonusMax, sharedTokens * TitleTokenPoints);
 
         /// <summary>"Similar size" for the same-make rule: weights within this ratio (or spans within <see cref="FamilyMaxSpanRatio"/> when weight is unknown)</summary>
         public const double FamilyMaxMtowRatio = 2.5;
@@ -152,7 +167,8 @@ namespace JoinFS.Matching
             (string remoteClass, string remoteWtc) = IdentityScorer.ResolveRemoteClass(request, catalog.Doc8643);
             explanation.Ranking = Rank(request, remoteClass, remoteWtc, explanation.RemoteSpecs.Specs, explanation);
 
-            RankedCandidate winner = explanation.Ranking.FirstOrDefault(IsAcceptable);
+            // the generic model of a folded designator is a last resort: any acceptable model that names something comes first
+            RankedCandidate winner = explanation.Ranking.FirstOrDefault(c => IsAcceptable(c) && !c.GenericFallback) ?? explanation.Ranking.FirstOrDefault(IsAcceptable);
             if (winner != null)
             {
                 return Accept(result, winner, request, remoteClass, remoteWtc, explanation);
@@ -297,6 +313,12 @@ namespace JoinFS.Matching
             Dictionary<ResolvedSpecs, GroupEvaluation> groups = new(ReferenceEqualityComparer.Instance);
             Dictionary<string, ExcludedGroup> excludedByTitle = new(StringComparer.Ordinal);
             List<RankedCandidate> ranked = [];
+            // the title-driven matching is only for the designators ICAO collapsed (GLID, GLIM, UHEL ...) and only when the data tells their aircraft apart
+            bool foldedRequest = catalog.Doc8643.IsCollapsed(request.IcaoType) && reference.RowCount(request.IcaoType) > 1;
+            // the type the remote aircraft stands for: its tag, or the specific type its title narrowed a folded tag down to
+            string remoteType = foldedRequest && remoteSpecs.Name.Length > 0 && explanation.RemoteSpecs.EffectiveIcao.Length > 0 ? explanation.RemoteSpecs.EffectiveIcao : request.IcaoType;
+            IReadOnlySet<string> remoteTokens = foldedRequest ? TitleTokens.Of(request.Title) : null;
+            Dictionary<string, IReadOnlySet<string>> tokensByTitle = new(StringComparer.Ordinal);
 
             foreach (var model in models)
             {
@@ -315,7 +337,9 @@ namespace JoinFS.Matching
 
                 CandidateScore baselineScore = IdentityScorer.Score(model, request, remoteClass, remoteWtc, registrationAlnum, typeroleIsWeakHint: true);
                 AddRelatedTypePoints(baselineScore, model, request);
-                AddTitleInferredIdentity(baselineScore, model, candidateSpecs, request, remoteClass, remoteWtc);
+                AddTitleInferredIdentity(baselineScore, model, candidateSpecs, remoteType, foldedRequest, remoteClass, remoteWtc);
+                if (remoteTokens != null) AddSharedTitleWordPoints(baselineScore, model, remoteTokens, tokensByTitle);
+                bool genericFallback = foldedRequest && ApplyFoldedIdentity(baselineScore, model, candidateSpecs, remoteType, request, explanation.RemoteSpecs);
 
                 ranked.Add(new RankedCandidate
                 {
@@ -324,6 +348,7 @@ namespace JoinFS.Matching
                     BaselineContributions = baselineScore.Contributions,
                     AttributeScores = baselineScore.AttributeScores,
                     CandidateSpecs = candidateSpecs,
+                    GenericFallback = genericFallback,
                     Similarity = group.Similarity,
                     SimilarityPoints = group.Points,
                     FamilyBonus = group.FamilyBonus,
@@ -392,21 +417,84 @@ namespace JoinFS.Matching
         }
 
         /// <summary>
+        /// For a designator several aircraft share (GLID), the tag says little, the title says more. A model that carries the tag, or has no real designator tag and
+        /// whose title resolves to the remote aircraft's type, is judged by what its title names compared with the remote title:
+        /// the same title hint (the same aircraft) <see cref="SameHintPoints"/>, the same class 200, another class <see cref="RelatedTypePoints"/>, and a generic
+        /// model (no hint) while the remote names something also the related-type level but flagged as a last resort. Returns true for that last resort.
+        /// </summary>
+        bool ApplyFoldedIdentity(CandidateScore score, Model model, ResolvedSpecs modelSpecs, string remoteType, MatchRequest request, ResolvedSpecs remote)
+        {
+            bool exactTag = model.icaoType.Equals(request.IcaoType, StringComparison.OrdinalIgnoreCase);
+            bool tagLeavesTypeToTitle = !(model.icaoType.Length > 0 && catalog.Doc8643.IsRecognized(model.icaoType))
+                && (modelSpecs.EffectiveIcao.Equals(remoteType, StringComparison.OrdinalIgnoreCase) || reference.IsStandInFor(request.IcaoType, modelSpecs.EffectiveIcao));
+            if (!exactTag && !tagLeavesTypeToTitle) return false;
+
+            bool remoteNamed = remote.MatchedHint.Length > 0, modelNamed = modelSpecs.MatchedHint.Length > 0;
+            bool sameRow = modelSpecs.Specs.Name == remote.Specs.Name || reference.IsMemberOfRow(modelSpecs.EffectiveIcao, remote.Specs.Name, request.IcaoType);
+            bool genericFallback = false;
+            int points;
+            string why;
+            if (remoteNamed && modelNamed && modelSpecs.MatchedHint.Equals(remote.MatchedHint, StringComparison.OrdinalIgnoreCase))
+            {
+                points = SameHintPoints;
+                why = $"same title hint '{remote.MatchedHint}' as the remote aircraft";
+            }
+            else if (sameRow)
+            {
+                points = 200;
+                why = $"same kind of aircraft ('{remote.Specs.Name}')";
+            }
+            else
+            {
+                points = RelatedTypePoints;
+                genericFallback = remoteNamed && !modelNamed;
+                why = genericFallback
+                    ? $"generic model: its title names nothing, the remote aircraft names '{remote.MatchedHint}' (last resort)"
+                    : $"another kind of aircraft ('{modelSpecs.Specs.Name}' vs '{remote.Specs.Name}')";
+            }
+
+            int before = score.AttributeScores.TryGetValue(MatchAttribute.IcaoType, out int current) ? current : 0;
+            score.Score += points - before;
+            score.AttributeScores[MatchAttribute.IcaoType] = points;
+            score.Contributions.Add($"'{request.IcaoType}' covers several aircraft: {why} ({(before > 0 ? $"type points {before} -> {points}" : $"+{points}")})");
+            return genericFallback;
+        }
+
+        /// <summary>The title words a model shares with the remote aircraft, when the requested designator covers several aircraft.</summary>
+        static void AddSharedTitleWordPoints(CandidateScore score, Model model, IReadOnlySet<string> remoteTokens, Dictionary<string, IReadOnlySet<string>> tokensByTitle)
+        {
+            if (!tokensByTitle.TryGetValue(model.title, out IReadOnlySet<string> modelTokens))
+            {
+                modelTokens = TitleTokens.Of(model.title);
+                tokensByTitle[model.title] = modelTokens;
+            }
+            int shared = TitleTokens.SharedCount(remoteTokens, modelTokens);
+            int points = TitleTokenBonus(shared);
+            if (points == 0) return;
+
+            score.Score += points;
+            score.Contributions.Add($"shared title words with the remote aircraft ({shared}, +{points})");
+        }
+
+        /// <summary>
         /// A model the simulator left untagged (no ICAO type) but whose title names the requested type - "S12-G: Passengers" for a Stemme S12 - is the
         /// aircraft itself; without this it would score nothing next to models that merely carry a tag. Type, class and WTC count at
         /// <see cref="TitleInferredTypeFactor"/>.
         /// </summary>
-        void AddTitleInferredIdentity(CandidateScore score, Model model, ResolvedSpecs modelSpecs, MatchRequest request, string remoteClass, string remoteWtc)
+        void AddTitleInferredIdentity(CandidateScore score, Model model, ResolvedSpecs modelSpecs, string remoteType, bool collapsedRequest, string remoteClass, string remoteWtc)
         {
-            if (model.icaoType.Length > 0 || request.IcaoType.Length == 0) return;
-            if (!modelSpecs.EffectiveIcao.Equals(request.IcaoType, StringComparison.OrdinalIgnoreCase)) return;
+            // a model without any tag is typed from its title; for a collapsed designator (GLID ...) so is one whose tag is no real designator ("JS3-15", "AS7")
+            // - the title is only the tie-breaker where the collapsed tag cannot tell the aircraft apart; elsewhere a tag is judged by itself and the physical data
+            if (remoteType.Length == 0) return;
+            if (model.icaoType.Length > 0 && (!collapsedRequest || catalog.Doc8643.IsRecognized(model.icaoType))) return;
+            if (!modelSpecs.EffectiveIcao.Equals(remoteType, StringComparison.OrdinalIgnoreCase)) return;
 
             int type = (int)Math.Round(200 * TitleInferredTypeFactor);
             score.Score += type;
             score.AttributeScores[MatchAttribute.IcaoType] = type;
-            score.Contributions.Add($"title names ICAO type '{request.IcaoType}' (title hint, untagged model, +{type})");
+            score.Contributions.Add($"title names ICAO type '{remoteType}' (title hint, model without a designator tag, +{type})");
 
-            if (catalog.Doc8643.TryGet(request.IcaoType, out var row))
+            if (catalog.Doc8643.TryGet(remoteType, out var row))
             {
                 if (remoteClass.Length == 3 && row.ClassCode == remoteClass && model.classCode.Length == 0)
                 {
