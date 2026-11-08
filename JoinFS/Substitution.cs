@@ -2106,6 +2106,8 @@ namespace JoinFS
         /// </summary>
         public bool Scan(bool interactive, string simulatorNameOverride = null)
         {
+            // counted from before the wait for the lock, so ScanRunning shows a scan that is queued as well as one that runs
+            System.Threading.Interlocked.Increment(ref scansInProgress);
             // one scan at a time; it owns the scan* fields and its working list until it ends
             System.Threading.Monitor.Enter(scanLock);
             try
@@ -2116,6 +2118,7 @@ namespace JoinFS
             {
                 scanWork = null;
                 System.Threading.Monitor.Exit(scanLock);
+                System.Threading.Interlocked.Decrement(ref scansInProgress);
                 // submissions from other threads that arrived during the scan
                 DrainPendingSubmits();
             }
@@ -2950,13 +2953,21 @@ namespace JoinFS
         public string[] ScannedAddOns => initialAddOns.Length > 0 ? initialAddOns.Split('|') : [];
         public string[] ScannedAdditionals => initialAdditionals.Length > 0 ? initialAdditionals.Split('|') : [];
 
+        /// <summary>Scans that have entered <see cref="Scan"/> and not left it: the one on connection, a manual one</summary>
+        int scansInProgress;
+
         /// <summary>
-        /// True while a scan started by the user is running, and while FS2024 is still listing its models afterwards
+        /// True while a scan is running, whoever started it (the user, or the scan on connection), and while FS2024 is still
+        /// listing its models afterwards
         /// </summary>
         public bool ScanRunning
         {
             get
             {
+                if (System.Threading.Volatile.Read(ref scansInProgress) > 0)
+                {
+                    return true;
+                }
 #if FS2024
                 if (main.sim != null && main.sim.requestModelListInProgress)
                 {

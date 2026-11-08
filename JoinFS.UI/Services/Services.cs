@@ -200,6 +200,9 @@ public interface IModelCatalog
     /// <summary>How the models stand, in a line for the Model Matching tab: how many are known, or that a scan is running.</summary>
     string ScanStatus { get; }
 
+    /// <summary>A scan of the simulator's models is running (the one on connection included). The shell says so in its notice.</summary>
+    bool IsScanning => false;
+
     /// <summary>The file that lists the models the simulator has, or null when it has not been written yet.</summary>
     string? KnownModelsFile();
 

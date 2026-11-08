@@ -129,7 +129,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     {
         get
         {
-            string?[] lines = [Simulator.Detail, Network.Detail];
+            string?[] lines = [Simulator.Detail, ScanNotice, Network.Detail];
             string text = string.Join(Environment.NewLine, lines.Where(l => l is not null));
             return text.Length == 0 ? null : text;
         }
@@ -137,17 +137,38 @@ public sealed partial class MainViewModel : ObservableObject, IShell
 
     public bool HasNotice => Notice is not null;
 
-    /// <summary>True when the notice is about something that went wrong, false when it only says an attempt is slow.</summary>
+    /// <summary>True when the notice is about something that went wrong, false when it only says an attempt is slow or work is going on.</summary>
     public bool NoticeIsProblem => Simulator.DetailIsProblem || Network.DetailIsProblem;
+
+    // A scan of the models takes many seconds, and the automatic join waits for it, so the notice tells what is going on.
+    // It goes by itself when the scan ends; the dismiss button hides it until then.
+    private bool _scanning;
+    private bool _scanDismissed;
+
+    private string? ScanNotice => _scanning && !_scanDismissed ? Loc.T("Scanning for models...") : null;
+
+    private void FollowScan()
+    {
+        bool scanning = _services.Models.IsScanning;
+        if (scanning == _scanning)
+            return;
+
+        _scanning = scanning;
+        _scanDismissed = false;
+        RaiseNoticeChanged();
+    }
 
     private void OnConnectionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(ConnectionViewModel.Detail))
-        {
-            OnPropertyChanged(nameof(Notice));
-            OnPropertyChanged(nameof(HasNotice));
-            OnPropertyChanged(nameof(NoticeIsProblem));
-        }
+            RaiseNoticeChanged();
+    }
+
+    private void RaiseNoticeChanged()
+    {
+        OnPropertyChanged(nameof(Notice));
+        OnPropertyChanged(nameof(HasNotice));
+        OnPropertyChanged(nameof(NoticeIsProblem));
     }
 
     [RelayCommand]
@@ -155,6 +176,8 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     {
         Simulator.DismissDetail();
         Network.DismissDetail();
+        _scanDismissed = true;
+        RaiseNoticeChanged();
     }
 
     public HomeViewModel Home { get; }
@@ -278,6 +301,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Simulator.Sync(_services.Simulator.State);
         Network.Sync(_services.Network.State);
         FlightPlanLoad.Sync(_services.SimBrief.State);
+        FollowScan();
         ShowPasswordRequest();
         ShowAppMessage();
         OfferPluginInstall();

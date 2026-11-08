@@ -294,6 +294,48 @@ public class ScanTests
 
         Assert.Equal("Scanning for models...", main.ModelMatching.ScanStatus);
     }
+
+    // ---- the notice while a scan runs (the scan on connection takes many seconds)
+
+    [Fact]
+    public void A_running_scan_shows_in_the_notice_and_goes_when_it_ends()
+    {
+        StatusCatalog catalog = new(new FakeModelCatalog());
+        AppServices services = FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true, Nickname = "Me" }) with { Models = catalog };
+        MainViewModel main = new(services);
+        main.Poll();
+        Assert.False(main.HasNotice);
+
+        catalog.IsScanning = true;
+        main.Poll();
+        Assert.True(main.HasNotice);
+        Assert.False(main.NoticeIsProblem); // work going on, not a failure
+        Assert.Equal("Scanning for models...", main.Notice);
+
+        catalog.IsScanning = false;
+        main.Poll();
+        Assert.False(main.HasNotice);
+    }
+
+    [Fact]
+    public void Dismissing_the_scan_notice_hides_it_until_the_next_scan()
+    {
+        StatusCatalog catalog = new(new FakeModelCatalog()) { IsScanning = true };
+        AppServices services = FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true, Nickname = "Me" }) with { Models = catalog };
+        MainViewModel main = new(services);
+        main.Poll();
+        Assert.True(main.HasNotice);
+
+        main.DismissNoticeCommand.Execute(null);
+        main.Poll();
+        Assert.False(main.HasNotice);
+
+        catalog.IsScanning = false;
+        main.Poll();
+        catalog.IsScanning = true;
+        main.Poll();
+        Assert.True(main.HasNotice);
+    }
 }
 
 /// <summary>A platform that answers the folder dialog.</summary>
@@ -314,6 +356,7 @@ internal sealed class StatusCatalog(IModelCatalog inner) : IModelCatalog
     public string Status { get; set; } = "";
 
     public string ScanStatus => Status;
+    public bool IsScanning { get; set; }
     public IReadOnlyList<ModelRule> GetRules() => inner.GetRules();
     public bool HasModels => inner.HasModels;
     public IReadOnlyList<string> GetTypes(string filter) => inner.GetTypes(filter);

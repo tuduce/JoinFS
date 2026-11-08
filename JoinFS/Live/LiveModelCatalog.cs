@@ -24,6 +24,8 @@ namespace JoinFS.Live
 
         public bool HasModels => main.substitution != null && main.substitution.models.Count > 0;
 
+        public bool IsScanning => main.substitution?.ScanRunning ?? false;
+
         public string ScanStatus
         {
             get
