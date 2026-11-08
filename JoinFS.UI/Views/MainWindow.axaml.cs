@@ -28,6 +28,20 @@ public partial class MainWindow : Window
         InitializeComponent();
         _resizeTimer.Tick += (_, _) => StepResize();
         Opened += OnOpened;
+
+        // Tunnel, so it runs before the focused control: a Button turns any Enter, Alt+Enter included, into a click and would swallow it.
+        AddHandler(KeyDownEvent, OnAltEnter, RoutingStrategies.Tunnel);
+    }
+
+    // Alt+Enter expands or collapses the window, whatever has the focus, as in the simulators.
+    private void OnAltEnter(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || e.KeyModifiers != KeyModifiers.Alt || _viewModel?.ToggleExpandCommand is not { } command)
+            return;
+
+        if (command.CanExecute(null))
+            command.Execute(null);
+        e.Handled = true;
     }
 
     protected override void OnDataContextChanged(EventArgs e)
