@@ -27,6 +27,8 @@ namespace JoinFS
 
         /// <summary>A hub (or user) not heard from for this long is offline.</summary>
         public const double OFFLINE_TIME = 300.0;
+        /// <summary>Seconds between status polls of the online hubs.</summary>
+        const double ONLINE_POLL_TIME = 30.0;
 
         const float PENDING_HUB_EXPIRE_TIME = 172800.0f;
 
@@ -137,6 +139,7 @@ namespace JoinFS
         readonly ISessionLog log;
 
         readonly Timer hubsTimer = new(5.0);
+        readonly Timer onlinePollTimer = new(ONLINE_POLL_TIME);
         readonly Timer pendingHubsTimer = new(1800.0);
         readonly Timer userListTimer = new(2.0);
 
@@ -150,6 +153,7 @@ namespace JoinFS
 
         bool changed = false;
         int statusRequestCount = 0;
+        int onlinePollCount = 0;
         int userListRequestCount = 0;
         IPEndPoint submitHub;
 
@@ -301,6 +305,29 @@ namespace JoinFS
             }
         }
 
+        /// <summary>Ask every online hub for its status; one of them, in turn, also for its hub list.</summary>
+        void PollOnlineHubs()
+        {
+            int online = 0;
+            foreach (var hub in List)
+            {
+                if (hub.online && hub.nuid.Valid()) online++;
+            }
+            if (online == 0) return;
+
+            int listFrom = onlinePollCount++ % online;
+            StatusRequestUpdate plain = BuildStatusRequest(false);
+            StatusRequestUpdate withList = BuildStatusRequest(true);
+            int seen = 0;
+            foreach (var hub in List)
+            {
+                if (hub.online && hub.nuid.Valid())
+                {
+                    Poll(hub, seen++ == listFrom ? withList : plain);
+                }
+            }
+        }
+
         /// <summary>Poll hubs' status, drop dead hubs, save changes, retry pending hubs.</summary>
         public void DoWork()
         {
@@ -334,12 +361,18 @@ namespace JoinFS
                 }
                 else if (List.Count > 0)
                 {
-                    // then one hub per tick, in turn
+                    // then one offline hub per tick, in turn: the list can be long and most of it is gone
                     int index = statusRequestCount % List.Count;
-                    if (List[index].nuid.Valid())
+                    if (List[index].nuid.Valid() && List[index].online == false)
                     {
                         Poll(List[index], request);
                     }
+                }
+
+                // every online hub, however long the list is, so what the user sees is fresh
+                if (onlinePollTimer.Elapsed(now))
+                {
+                    PollOnlineHubs();
                 }
 
                 foreach (var hub in List)
