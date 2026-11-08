@@ -31,8 +31,7 @@
               <DataTemplate x:DataType="tvm:HubRowViewModel">
                 <Border Classes="row">
                   <StackPanel>
-                    <Button Classes="rowButton" Classes.ignored="{Binding IsIgnored}" Command="{Binding ToggleExpandedCommand}"
-                            AutomationProperties.Name="{Binding AutomationName}"
+                    <Button Classes="rowButton" Classes.ignored="{Binding IsIgnored}" Command="{Binding ToggleExpandedCommand}"                            AutomationProperties.Name="{Binding AutomationName}"
                             AutomationProperties.HelpText="{l:T 'Shows or hides the actions of this row'}">
                       <Grid ColumnDefinitions="16,*,90,60,70,90" ColumnSpacing="10" Margin="10,7">
                         <c:Icon Classes="chevron" Classes.open="{Binding IsExpanded}" Source="{DynamicResource IconChevron}" HorizontalAlignment="Left" VerticalAlignment="Center" />

@@ -89,6 +89,9 @@ public sealed partial class HubRowViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanJoinOrLeave))]
     private Task JoinAsync() => IsJoined ? _owner.LeaveAsync() : _owner.JoinAsync(this);
 
+    /// <summary>Double-click on the row: connect to this hub. Nothing when it cannot be joined, or the network is already in it (the Leave link is for that).</summary>
+    public Task JoinOnDoubleClickAsync() => !IsJoined && CanJoin ? _owner.JoinAsync(this) : Task.CompletedTask;
+
     [RelayCommand]
     private void ToggleSave() => _owner.SetSaved(this, !IsSaved);
 
