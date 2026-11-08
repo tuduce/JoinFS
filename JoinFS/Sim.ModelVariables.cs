@@ -26,7 +26,7 @@ namespace JoinFS
     public partial class Sim
     {
         /// <summary>
-        /// List of user defined variable sets for different models. Public: VariablesForm edits it
+        /// List of user defined variable sets for different models. Public: the Variables card edits it
         /// directly (through Main.SimCommand, since the sim thread owns it).
         /// </summary>
         public readonly ModelVariableStore modelVariableStore;

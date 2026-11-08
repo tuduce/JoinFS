@@ -26,7 +26,7 @@ namespace JoinFS
     public partial class Sim
     {
         /// <summary>
-        /// list of height adjustments (HeightForm), keyed by model - see HeightAdjustmentStore for
+        /// list of height adjustments (the Adjust Height card), keyed by model - see HeightAdjustmentStore for
         /// why it doesn't go through Main.SimCommand/PostToSim like everything else here.
         /// </summary>
         readonly HeightAdjustmentStore heightAdjustmentStore;

@@ -26,6 +26,8 @@ namespace JoinFS.Live
         // set while the user is being asked: the session that wants the password, and its end point
         string awaitingLabel = null;
         IPEndPoint awaitingEndPoint = null;
+        // the user has been told that the automatic reconnect was turned down
+        bool rejectionExplained = false;
 
         public LiveNetworkLink(Main main)
         {
@@ -73,7 +75,23 @@ namespace JoinFS.Live
             lock (main.conch)
             {
                 Network network = main.network;
-                if (network.Snapshot.State != SessionState.Connecting || network.Snapshot.JoinResult != JoinResult.PasswordRequired)
+                if (network.Snapshot.State != SessionState.Connecting)
+                {
+                    rejectionExplained = false;
+                    return;
+                }
+
+                ExplainRejectedCredentialsOnReconnect(network);
+
+                // there is no login dialog, and the attempt would otherwise hang until the user cancels it
+                if (network.Snapshot.JoinResult == JoinResult.LoginRequired)
+                {
+                    network.ScheduleLeave();
+                    main.ShowMessage("This hub asks for a login, which this version of JoinFS cannot do. Join a hub that does not ask for one.");
+                    return;
+                }
+
+                if (network.Snapshot.JoinResult != JoinResult.PasswordRequired)
                 {
                     return;
                 }
@@ -105,6 +123,22 @@ namespace JoinFS.Live
                 // nothing known: ask
                 awaitingEndPoint = endPoint;
                 awaitingLabel = lastJoinLabel ?? endPoint.ToString();
+            }
+        }
+
+        /// <summary>
+        /// The automatic reconnect replays the remembered credentials silently. When the hub turns them down, say why the user is asked
+        /// again, and do not retry the stored password, which is the one just rejected. The caller holds the lock.
+        /// </summary>
+        void ExplainRejectedCredentialsOnReconnect(Network network)
+        {
+            NetworkSnapshot snapshot = network.Snapshot;
+            bool rejected = snapshot.JoinResult != JoinResult.Accepted || snapshot.LoginResult != LoginResult.Accepted;
+            if (network.Reconnecting && rejected && !rejectionExplained)
+            {
+                rejectionExplained = true;
+                main.attempedUsedPassword = true;
+                main.ShowMessage(Resources.Strings.ReconnectCredentialsRejected);
             }
         }
 

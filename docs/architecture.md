@@ -44,8 +44,8 @@ its simulator. There is no central server: instances form a peer-to-peer mesh.
 
 ```mermaid
 graph TB
-    subgraph UI["UI thread (WinForms; absent in CONSOLE)"]
-        FORMS[Forms]
+    subgraph UI["UI thread (Avalonia; absent in CONSOLE)"]
+        FORMS[JoinFS.UI]
     end
     subgraph APP["App work thread - Main.DoWork, ~5 ms, under Main.conch"]
         NET[Network - session layer]
@@ -79,7 +79,7 @@ graph TB
   2. `euroscope.DoWork()`, `whazzup.DoWork()`, `notes.DoWork()`;
   3. in `CONSOLE` builds, the webhook and WebSocket services;
   4. queued `Main.EnqueueCommand` actions and `schedule*` flags.
-- **UI code** reads application state under `conch` from WinForms timers. Other threads ask for work
+- **UI code** reads application state under `conch` from its poll timers. Other threads ask for work
   by setting a `volatile schedule*` flag or calling `EnqueueCommand`.
 - **`Sim` and the `Recorder` run on their own thread** inside `SimService` (`JoinFS/SimService.cs`;
   design and history in `docs/sim/sim-thread-architecture.md`):
@@ -132,7 +132,7 @@ read it freely; writers publish new collections.
 | `Whazzup`, `Euroscope` | `Whazzup.cs`, `Euroscope.cs` | Export traffic and ATC to third-party tools. |
 | `WebSocketServer`, `WebhookService` | same names | `CONSOLE` only: live data for external tools. |
 | `XPlane`, `XPlaneLink` | `XPlane.cs`, `XPlaneLink.cs` | Bridge to the native X-Plane plugin (`JoinFS-XP`) over a local UDP link that uses the legacy header format. Runs on the app thread; not part of the network stack. |
-| Forms | `Forms/*` | WinForms UI, compiled out of `CONSOLE`. |
+| UI | `JoinFS.UI/`, `JoinFS/Live/` | Avalonia UI and its connection to the app, left out of `CONSOLE`. |
 
 Simulator variants are separate build configurations (`FS2024`, `FS2020`, `FSX`, `P3D`, `XPLANE`,
 `CONSOLE`) with preprocessor symbols. Nothing in the network stack depends on them: every variant
@@ -359,7 +359,7 @@ public interface IProtocolPlugin
 
 - **What a plugin gets from the core** (`IProtocolHost`): the transport, clock, local identity,
   peer directory, identity cache, relay budget, `Deliver`, `LinkChanged` and `Log`.
-- **What a plugin never sees:** `Main`, `Sim`, settings or forms.
+- **What a plugin never sees:** `Main`, `Sim`, settings or the UI.
 - **Optional** `IDescribesLinks`: gives the UI a per-peer link-state string.
 
 **`LegacyPlugin`** (`Net/Protocols/Legacy/`) — the frozen protocol every released version speaks
@@ -468,13 +468,13 @@ and knows nothing about wire formats. It is a small facade, `Network`, and eight
   `IAtcListener` by the adapter over `Euroscope`.
 - `IEndPointResolver` is implemented by `NetBootstrap`.
 
-`MainSessionHost` implements the app-facing ones over `Main`, the simulator, the recorder, the forms
+`MainSessionHost` implements the app-facing ones over `Main`, the simulator, the recorder
 and `Settings`. It is the only session file that knows them, and it looks up the subsystems created
 after the network (recorder, euroscope, notes, address book) when they're used. When one part learns
 something another acts on, it raises an event that `Network` wires up: `PeerTable.HubAnnounced`
 feeds `HubDirectory.SubmitHub`, and `HubDirectory.GlobalHubFound` triggers a join.
 
-**Sending** (called by `Sim`, `Notes` and forms):
+**Sending** (called by `Sim`, `Notes` and the UI):
 
 | Method | Sends |
 |---|---|
@@ -523,10 +523,10 @@ functions in `SimMessageMapper`.
    - `UserDirectory`: online announcements to hubs, and expiring users, every 60 s;
    - `HubDirectory`: status requests to hubs every 5 s, dropping dead hubs and saving `hubs.dat`;
    - `HubHost`: rebuilding this hub's user list every 10 s;
-   - `HubDirectory`: requesting hubs' user lists every 2 s while the aircraft or ATC window or
+   - `HubDirectory`: requesting hubs' user lists every 2 s while the Aircraft tab's "Include All Hub Aircraft" or
      Whazzup needs them.
 
-**What forms read:**
+**What the UI reads:**
 - session and transport state from `network.Snapshot`;
 - per-peer application info (nickname, ATC, version, simulator) from `network.Peers` (`Nodes` and the
   `GetNode*` helpers);

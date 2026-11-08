@@ -278,70 +278,14 @@ namespace JoinFS
 
         // ------------------------------------------------------------------ ISessionUi
 
-        public void SessionChanged(int refreshes)
-        {
-#if !SERVER && !CONSOLE
-            main.aircraftForm?.refresher.Schedule(refreshes);
-            main.objectsForm?.refresher.Schedule(refreshes);
-#endif
-#if !CONSOLE
-            main.sessionForm?.usersRefresher.Schedule(refreshes);
-#endif
-        }
+        /// <summary>The chat is always there to read, so joining a session asks for its history.</summary>
+        public bool CommsVisible => !main.settingsNoGui;
 
-        public void HubsChanged(int refreshes)
-        {
-#if !CONSOLE
-            main.hubsForm?.refresher.Schedule(refreshes);
-#endif
-        }
+        /// <summary>No view shows whether an address book entry is online.</summary>
+        public bool AddressBookVisible => false;
 
-        public bool CommsVisible
-        {
-            get
-            {
-#if !CONSOLE
-                return main.sessionForm != null && main.sessionForm.Visible;
-#else
-                return false;
-#endif
-            }
-        }
-
-        public void CommsChanged()
-        {
-#if !CONSOLE
-            if (main.sessionForm != null && main.mainForm != null && main.sessionForm.Visible)
-            {
-                main.mainForm.refreshComms = true;
-            }
-#endif
-        }
-
-        public bool AddressBookVisible
-        {
-            get
-            {
-#if !CONSOLE
-                return main.addressBookForm != null && main.addressBookForm.Visible;
-#else
-                return false;
-#endif
-            }
-        }
-
-        public bool ShowsGlobalUsers
-        {
-            get
-            {
-#if !SERVER && !CONSOLE
-                return main.aircraftForm != null && main.aircraftForm.Visible && Settings.Default.IncludeGlobalAircraft
-                    || main.atcForm != null && main.atcForm.Visible;
-#else
-                return false;
-#endif
-            }
-        }
+        /// <summary>The Aircraft tab lists the aircraft of every hub once its "Include All Hub Aircraft" is ticked.</summary>
+        public bool ShowsGlobalUsers => !main.settingsNoGui && Settings.Default.IncludeGlobalAircraft;
 
         public void ShowMessage(string message) => main.ShowMessage(message);
     }

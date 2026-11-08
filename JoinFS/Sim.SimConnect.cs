@@ -308,7 +308,7 @@ namespace JoinFS
                                         // hierarchy above, e.g. base_container-resolved config data, not the raw
                                         // unresolved SimConnect ATC MODEL some add-ons report) - always kept here,
                                         // separate from flightPlan.icaoType below, so a later "fetch fresh from
-                                        // the sim" (see FlightPlanForm's Clear button) has the accurate value to
+                                        // the sim" (see the Flight Plan tab's Clear button) has the accurate value to
                                         // read back rather than the raw constructor-time type or a stale one.
                                         aircraft.originalIcaoType = learnIcaoType.Length > 0 ? learnIcaoType : type;
                                         // fill in ICAO type/airline from the live-resolved data (learnIcaoType/
@@ -747,11 +747,6 @@ namespace JoinFS
             // load models for this version
             main.ScheduleSubstitutionLoad();
             main.ScheduleHeightAdjustmentLoad();
-            // refresh
-#if !SERVER && !CONSOLE
-            main.aircraftForm ?. refresher.Schedule(3);
-            main.objectsForm ?. refresher.Schedule(3);
-#endif
 
             // reset variable manager
             main.variableMgr.Reset();

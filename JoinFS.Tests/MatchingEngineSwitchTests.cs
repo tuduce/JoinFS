@@ -99,11 +99,10 @@ namespace JoinFS.Tests
         }
 
         [Fact]
-        public void The_parameter_is_listed_in_the_help_and_the_options_dialog_and_handled()
+        public void The_parameter_is_listed_in_the_help_and_handled()
         {
             Assert.Contains("case \"-classicmatching\":", File.ReadAllText(RepositoryFile("Program.cs")));
             Assert.Contains("--classicmatching", File.ReadAllText(RepositoryFile("Program.cs")));
-            Assert.Contains("--classicmatching", File.ReadAllText(RepositoryFile("Forms/OptionsForm.cs")));
         }
     }
 }

@@ -6,10 +6,6 @@
     "JoinFS, no simulator": {
       "commandName": "Project",
       "commandLineArgs": "-nosim"
-    },
-    "Old UI": {
-      "commandName": "Project",
-      "commandLineArgs": "-oldui"
     }
   }
 }

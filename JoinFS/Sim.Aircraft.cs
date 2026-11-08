@@ -35,7 +35,7 @@ namespace JoinFS
             /// <summary>
             /// ICAO type designator as first reported by the sim for this aircraft object, kept separate
             /// from flightPlan.icaoType (which the Flight Plan dialog's OK handler permanently overwrites
-            /// with whatever was typed) so a later "fetch fresh from the sim" (see FlightPlanForm's Clear
+            /// with whatever was typed) so a later "fetch fresh from the sim" (see the Flight Plan tab's Clear
             /// button) has something live to read back - same reasoning as originalCallsign.
             /// </summary>
             public string originalIcaoType = "";

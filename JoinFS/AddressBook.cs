@@ -2,9 +2,6 @@
 using System.Collections.Generic;
 using JoinFS.Net;
 using System.Net;
-#if !CONSOLE
-using System.Windows.Forms;
-#endif
 using System.IO;
 using System.Text;
 
@@ -150,10 +147,6 @@ namespace JoinFS
                     main.MonitorEvent("Loaded " + entries.Count + " entries from the address book");
                 }
 
-#if !CONSOLE
-                // update combo list
-                main.mainForm ?. RefreshComboList();
-#endif
             }
             catch (Exception ex)
             {

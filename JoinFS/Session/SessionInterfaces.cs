@@ -171,17 +171,14 @@ namespace JoinFS
         bool TryGetAirport(string code, out Main.Airport airport);
     }
 
-    /// <summary>The windows the session keeps up to date (none in CONSOLE builds).</summary>
+    /// <summary>What the session needs from the user interface (there is none in CONSOLE builds).</summary>
     public interface ISessionUi
     {
-        /// <summary>The session changed: refresh the aircraft, objects and users lists.</summary>
-        void SessionChanged(int refreshes);
-        void HubsChanged(int refreshes);
-        /// <summary>The comms window is open.</summary>
+        /// <summary>The chat can be read, so its history is worth asking for.</summary>
         bool CommsVisible { get; }
-        void CommsChanged();
+        /// <summary>The status of the address book entries is on show.</summary>
         bool AddressBookVisible { get; }
-        /// <summary>A window shows users from every hub (aircraft list with global aircraft, ATC list).</summary>
+        /// <summary>The user wants to see the users of every hub.</summary>
         bool ShowsGlobalUsers { get; }
         void ShowMessage(string message);
     }

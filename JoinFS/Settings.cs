@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.Win32;        //RegistryKey
-#if !CONSOLE
-using System.Windows.Forms;
-#endif
 using System.IO;              //Path
 
 namespace JoinFS

@@ -38,7 +38,7 @@ namespace JoinFS
 
             public string callsign = "";
             /// <summary>
-            /// True once callsign has been explicitly set via SimBrief import or manual FlightPlanForm
+            /// True once callsign has been explicitly set via SimBrief import or the Flight Plan tab
             /// entry - once true, SimConnect-derived defaults (the raw tail-number fallback, or the
             /// ATC-FLIGHT-NUMBER-based CallsignRules.Resolve synthesis) must never overwrite it again.
             /// </summary>
