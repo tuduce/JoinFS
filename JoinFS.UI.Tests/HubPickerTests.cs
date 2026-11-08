@@ -252,4 +252,26 @@ public class HubPickerTests
         Assert.Equal("AirSherpa", Book(rig).PickerText);
         window.Close();
     }
+
+    [AvaloniaTheory]
+    [InlineData(ConnectionState.Connecting)]
+    [InlineData(ConnectionState.Connected)]
+    public void The_box_is_inactive_with_a_tip_while_the_network_is_in_place(ConnectionState state)
+    {
+        Rig rig = new();
+        var (window, box, _) = Show(rig);
+        Assert.True(box.IsEnabled);
+        Assert.Null(rig.Main.HubPickerTip);
+
+        rig.Main.Network.SetState(state);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(box.IsEnabled);
+        Assert.False(string.IsNullOrEmpty(rig.Main.HubPickerTip));
+
+        rig.Main.Network.SetState(ConnectionState.Disconnected);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(box.IsEnabled);
+        Assert.Null(rig.Main.HubPickerTip);
+        window.Close();
+    }
 }

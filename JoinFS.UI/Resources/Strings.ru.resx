@@ -381,6 +381,9 @@
   <data name="Hub, mesh code or address" xml:space="preserve">
     <value>Хаб, код сети или адрес</value>
   </data>
+  <data name="To change the hub, disconnect the network first." xml:space="preserve">
+    <value>Чтобы сменить хаб, сначала отключите сеть.</value>
+  </data>
   <data name="Hub Mode (Public)" xml:space="preserve">
     <value>Режим хаба (публичный)</value>
   </data>

@@ -540,6 +540,23 @@
     <Setter Property="BorderThickness" Value="0" />
   </Style>
 
+  <!-- While the network is in place the picker shows the hub that was joined and cannot be changed. The theme's disabled look (a gray fill on the
+       text part only, gray text) is replaced by one for the whole box: it turns into an outline, a little lighter, with the text as it was. -->
+  <Style Selector="AutoCompleteBox.bare:disabled /template/ TextBox#PART_TextBox:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+  </Style>
+  <Style Selector="AutoCompleteBox.bare:disabled /template/ TextBox#PART_TextBox:disabled /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Border.hubPicker">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+  </Style>
+  <Style Selector="Border.hubPicker.inactive">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Opacity" Value="0.7" />
+  </Style>
+
   <Style Selector="CheckBox">
     <Setter Property="FontSize" Value="13" />
     <Setter Property="MinHeight" Value="22" />

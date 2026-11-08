@@ -162,7 +162,12 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     {
         if (e.PropertyName is nameof(ConnectionViewModel.Detail))
             RaiseNoticeChanged();
+        else if (sender == Network && e.PropertyName is nameof(ConnectionViewModel.IsDisconnected))
+            OnPropertyChanged(nameof(HubPickerTip));
     }
+
+    /// <summary>Why the hub picker is inactive: the network joined the hub that was picked, so another can only be picked after leaving it.</summary>
+    public string? HubPickerTip => Network.IsDisconnected ? null : Loc.T("To change the hub, disconnect the network first.");
 
     private void RaiseNoticeChanged()
     {

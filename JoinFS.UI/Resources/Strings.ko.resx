@@ -381,6 +381,9 @@
   <data name="Hub, mesh code or address" xml:space="preserve">
     <value>허브, 메시 코드 또는 주소</value>
   </data>
+  <data name="To change the hub, disconnect the network first." xml:space="preserve">
+    <value>허브를 변경하려면 먼저 네트워크 연결을 끊으세요.</value>
+  </data>
   <data name="Hub Mode (Public)" xml:space="preserve">
     <value>허브 모드(공개)</value>
   </data>

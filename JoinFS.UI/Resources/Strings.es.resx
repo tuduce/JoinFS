@@ -381,6 +381,9 @@
   <data name="Hub, mesh code or address" xml:space="preserve">
     <value>Hub, código de malla o dirección</value>
   </data>
+  <data name="To change the hub, disconnect the network first." xml:space="preserve">
+    <value>Para cambiar de hub, desconecta primero la red.</value>
+  </data>
   <data name="Hub Mode (Public)" xml:space="preserve">
     <value>Modo Hub (público)</value>
   </data>

@@ -6,11 +6,12 @@
              x:Class="JoinFS.UI.Views.HubPicker"
              x:DataType="vm:MainViewModel">
   <!-- The hub the Network button joins, picked from the address book. DataContext is the MainViewModel. -->
-  <Border Background="{DynamicResource SurfaceBrush}"
+  <Border Classes="hubPicker" Classes.inactive="{Binding !Network.IsDisconnected}"
           BorderBrush="{DynamicResource BorderButtonBrush}"
           BorderThickness="1"
           CornerRadius="8"
-          Padding="10,0">
+          Padding="10,0"
+          ToolTip.Tip="{Binding HubPickerTip}">
     <Grid ColumnDefinitions="Auto,*">
       <c:Icon Source="{DynamicResource IconHubs}" Width="13" Height="13" Margin="0,0,7,0"
               Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
@@ -20,6 +21,7 @@
                        ItemsSource="{Binding AddressBook.Entries}"
                        Text="{Binding AddressBook.PickerText, Mode=TwoWay}"
                        MinimumPrefixLength="0" FilterMode="Custom" IsTextCompletionEnabled="False"
+                       IsEnabled="{Binding Network.IsDisconnected}"
                        Watermark="{l:T 'Hub, mesh code or address'}"
                        VerticalAlignment="Center">
         <AutoCompleteBox.ItemTemplate>
