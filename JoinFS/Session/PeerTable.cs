@@ -166,7 +166,7 @@ namespace JoinFS
                 Guid = profile.Guid,
                 Hub = profile.Hub,
                 Atc = profile.Atc,
-                SimulatorConnected = simView.Available && simView.SimulatorConnected,
+                SimulatorConnected = (simView.Available && simView.SimulatorConnected) || profile.FeedFullRate,
                 AtcAirport = profile.AtcAirport,
                 AtcLevel = (byte)profile.AtcLevel,
                 AtcFrequency = (short)profile.AtcFrequency,
