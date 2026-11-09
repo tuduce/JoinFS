@@ -4,7 +4,7 @@ using Sub = JoinFS.Substitution;
 namespace JoinFS.Tests
 {
     /// <summary>
-    /// The new matching engine on the real embedded reference data (aircraft-specs.json, Doc8643, related types, airlines).
+    /// The new matching engine on the real embedded reference data (aircraft-specs.json, Doc8643, airlines).
     /// Scenario tests ported from the proof-of-concept (JoinFS-ModelMatcher-Test): each says what a pilot would expect to see.
     /// </summary>
     public class NewMatchingEngineTests
@@ -109,9 +109,9 @@ namespace JoinFS.Tests
         }
 
         [Fact]
-        public void A_related_type_with_the_right_airline_beats_the_exact_type_of_another_airline()
+        public void A_very_similar_airliner_with_the_right_airline_beats_the_exact_type_of_another_airline()
         {
-            // an A20N of South African Airways is wanted: the A320 of SAA (same family) beats the A20N of Lufthansa
+            // an A20N of South African Airways is wanted: the A320 of SAA (almost identical) beats the A20N of Lufthansa
             var (model, _, _) = Match(Create(MatchingEngine.New,
                 Airliner("Lufthansa A20N", "A20N", "L2J", "M", airline: "DLH"), Airliner("SAA A320", "A320", "L2J", "M", airline: "SAA")),
                 "A20N", airline: "SAA");
@@ -184,7 +184,6 @@ namespace JoinFS.Tests
         {
             Assert.True(MatchingData.Reference.Entries.Count >= 300);
             Assert.True(MatchingData.Doc8643.IsRecognized("B744"));
-            Assert.True(MatchingData.Related.AreRelated("A320", "A20N"));
             Assert.True(MatchingData.Airlines.IsKnownCode("DLH"));
         }
 

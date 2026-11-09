@@ -35,7 +35,7 @@ namespace JoinFS.Tests
             substitution.models = [.. models];
             substitution.RebuildTitleIndex();
             substitution.MakeIcaoIndex();
-            var matcher = new CombinedMatcher(new SubstitutionCatalog(substitution), ReferenceSpecs.FromJson(json), null, MatchingData.Airlines, MatchingData.Related);
+            var matcher = new CombinedMatcher(new SubstitutionCatalog(substitution), ReferenceSpecs.FromJson(json), null, MatchingData.Airlines);
             return matcher.Match(new MatchRequest(title, "", icao, "", "", "", false, Sub.TypeRole_Airliner, ""));
         }
 

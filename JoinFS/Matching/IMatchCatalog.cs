@@ -22,17 +22,15 @@ namespace JoinFS.Matching
         string RoleName(int role);
     }
 
-    /// <summary>The embedded reference data, read once: Doc8643, aircraft specs, related types and airlines.</summary>
+    /// <summary>The embedded reference data, read once: Doc8643, aircraft specs and airlines.</summary>
     public static class MatchingData
     {
         static readonly System.Lazy<Doc8643> doc8643 = new(() => Doc8643.FromLines(Lines(Properties.Resources_XPLANE.XPMP2_Doc8643)));
         static readonly System.Lazy<ReferenceSpecs> reference = new(() => ReferenceSpecs.FromBytes(Properties.Resources_XPLANE.Aircraft_Specs));
-        static readonly System.Lazy<RelatedTypes> related = new(() => RelatedTypes.FromLines(Lines(Properties.Resources_XPLANE.XPMP2_related)));
         static readonly System.Lazy<AirlineResolver> airlines = new(() => AirlineResolver.From(AirlineDirectory.Bundled));
 
         public static Doc8643 Doc8643 => doc8643.Value;
         public static ReferenceSpecs Reference => reference.Value;
-        public static RelatedTypes Related => related.Value;
         public static AirlineResolver Airlines => airlines.Value;
 
         /// <summary>The text lines of an embedded data file.</summary>

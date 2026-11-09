@@ -5,7 +5,7 @@ namespace JoinFS
     {
         /// <summary>The scorer JoinFS has always used (identity signals only)</summary>
         Classic = 0,
-        /// <summary>Identity signals + related types + physical similarity + plausibility gate (see JoinFS.Matching.CombinedMatcher)</summary>
+        /// <summary>Identity signals + physical similarity + livery-first for airliners + plausibility gate (see JoinFS.Matching.CombinedMatcher)</summary>
         New = 1
     }
 }

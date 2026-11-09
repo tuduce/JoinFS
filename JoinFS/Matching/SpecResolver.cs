@@ -11,6 +11,8 @@ namespace JoinFS.Matching
         public string EffectiveIcao = "";
         /// <summary>The title hint that picked the row of a folded designator (GLID ...); "" when no hint did (the generic default row) or the designator has one row</summary>
         public string MatchedHint = "";
+        /// <summary>True when nothing is known about the model but its class code and typerole (no reference data, no measured values): nothing can be compared</summary>
+        public bool CoarseOnly;
         public List<string> Notes = [];
     }
 
@@ -122,6 +124,7 @@ namespace JoinFS.Matching
             {
                 fallback = Coarse(model.classCode, model.typerole);
                 resolved.Notes.Add("No reference data: coarse values from class code / typerole.");
+                resolved.CoarseOnly = model.specs == null || model.specs.KnownFeatureCount == 0;
             }
 
             if (model.specs != null && model.specs.KnownFeatureCount > 0)

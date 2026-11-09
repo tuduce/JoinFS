@@ -34,7 +34,7 @@ namespace JoinFS.Tests
             substitution.models = [.. models];
             substitution.RebuildTitleIndex();
             substitution.MakeIcaoIndex();
-            var matcher = new CombinedMatcher(new SubstitutionCatalog(substitution), MatchingData.Reference, null, MatchingData.Airlines, MatchingData.Related);
+            var matcher = new CombinedMatcher(new SubstitutionCatalog(substitution), MatchingData.Reference, null, MatchingData.Airlines);
 
             var remote = scenario.GetProperty("remote");
             var result = matcher.Match(new MatchRequest(remote.GetProperty("title").GetString()!, "", remote.GetProperty("tag").GetString()!, "", "", "", false, Sub.TypeRole_Glider, ""));
