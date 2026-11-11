@@ -13,7 +13,8 @@ namespace JoinFS.UI.Views;
 public partial class MainWindow : Window
 {
     // Collapsed is the design's 376 wide panel, 10 shorter than its 190 (the version shares the row of the link, and the bottom margin is the 16 of the sides); expanded is min(1200, screen - 48) x min(760, screen - 48).
-    private const double CollapsedWidth = 376, CollapsedHeight = 180;
+    // With a flight plan loaded the collapsed view has a fourth node (a 16 wire and the 72 node), and the window is that much wider.
+    private const double BaseCollapsedWidth = 376, FlightPlanExtraWidth = 88, CollapsedHeight = 180;
     private const double ExpandedMaxWidth = 1200, ExpandedMaxHeight = 760;
     private const double ScreenMargin = 24;
     private const double StartMargin = 4; // the gap to the left and bottom edges of the work area at start
@@ -50,10 +51,26 @@ public partial class MainWindow : Window
         base.OnDataContextChanged(e);
 
         if (_viewModel is not null)
+        {
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            _viewModel.FlightPlanLoad.PropertyChanged -= OnFlightPlanLoadChanged;
+        }
         _viewModel = DataContext as MainViewModel;
         if (_viewModel is not null)
+        {
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+            _viewModel.FlightPlanLoad.PropertyChanged += OnFlightPlanLoadChanged;
+        }
+    }
+
+    private double CollapsedWidth =>
+        BaseCollapsedWidth + (_viewModel?.FlightPlanLoad.IsConnected == true ? FlightPlanExtraWidth : 0);
+
+    // A flight plan loaded or cleared while collapsed: the window grows or shrinks to the Flight Plan node.
+    private void OnFlightPlanLoadChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ConnectionViewModel.IsConnected) && _placed && _viewModel?.IsExpanded == false)
+            BeginResize(expanded: false);
     }
 
     private bool _closeConfirmed;
@@ -133,6 +150,8 @@ public partial class MainWindow : Window
 
     private void OnOpened(object? sender, EventArgs e)
     {
+        if (_viewModel?.IsExpanded != true)
+            Width = CollapsedWidth;
         PixelPoint anchor = StartAnchor();
         Position = new PixelPoint(anchor.X, anchor.Y - (int)(Height * RenderScaling));
         _lastAnchor = anchor;
@@ -182,12 +201,10 @@ public partial class MainWindow : Window
         _anchor = new PixelPoint(Position.X, Position.Y + (int)Math.Round(Height * scale));
 
         // The full view has to fit on the screen, so a window left near the top or the right edge is moved down or left as far as needed.
+        // The same for the collapsed window when it widens for the flight plan.
+        _anchor = new PixelPoint(Math.Min(_anchor.X, area.Right - (int)Math.Round(_toWidth * scale)), _anchor.Y);
         if (expanded)
-        {
-            _anchor = new PixelPoint(
-                Math.Min(_anchor.X, area.Right - (int)Math.Round(_toWidth * scale)),
-                Math.Max(_anchor.Y, area.Y + (int)Math.Round(_toHeight * scale)));
-        }
+            _anchor = new PixelPoint(_anchor.X, Math.Max(_anchor.Y, area.Y + (int)Math.Round(_toHeight * scale)));
 
         // Resizing by hand is only for the full view. Its minimum size would clamp a collapse partway,
         // so it is lifted for the animation and restored at the end.

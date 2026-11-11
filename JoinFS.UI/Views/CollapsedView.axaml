@@ -6,15 +6,8 @@
              x:Name="Root"
              x:Class="JoinFS.UI.Views.CollapsedView"
              x:DataType="vm:MainViewModel">
-  <UserControl.Styles>
-    <!-- With the flight plan loaded its node takes room from the hub picker. Opening the picker gives that room back for the moment,
-         over the Network node, so a hub is easy to pick. -->
-    <Style Selector="StackPanel.hub.plan.open">
-      <Setter Property="Grid.ColumnSpan" Value="3" />
-      <Setter Property="ZIndex" Value="1" />
-    </Style>
-  </UserControl.Styles>
-  <!-- The small view: Simulator → Hub → Network (→ Flight Plan, once one is loaded), and a link to open the full window. -->
+  <!-- The small view: Simulator → Hub → Network (→ Flight Plan, once one is loaded), and a link to open the full window.
+       The window widens by the Flight Plan node (MainWindow.FlightPlanExtraWidth), so the hub picker keeps its size. -->
   <StackPanel Margin="16" Spacing="12">
     <!-- The outer columns are wider than the 56px nodes so the centred labels ("Disconnected") stay inside the window. -->
     <Grid ColumnDefinitions="72,16,*,16,72,Auto">
@@ -22,7 +15,7 @@
                        Icon="{DynamicResource IconAircraft}" Title="{l:T 'Simulator'}" ButtonTip="{l:T 'Connect to simulator'}" />
       <Border Grid.Column="1" Classes="wire" />
 
-      <StackPanel Grid.Column="2" Classes="hub" Classes.plan="{Binding FlightPlanLoad.IsConnected}" Classes.open="{Binding #Picker.IsOpen}">
+      <StackPanel Grid.Column="2">
         <Panel Height="42">
           <v:HubPicker x:Name="Picker" Height="36" VerticalAlignment="Center" />
         </Panel>
