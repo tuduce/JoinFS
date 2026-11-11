@@ -384,6 +384,16 @@ public sealed class NoMapTiles : IMapTileSource
 public sealed class NoMessages : IMessageSource
 {
     public string? TakeMessage() => null;
+
+    /// <summary>The status the next poll will find, for a test to set.</summary>
+    public string? Status { get; set; }
+
+    public string? TakeStatus()
+    {
+        string? status = Status;
+        Status = null;
+        return status;
+    }
 }
 
 public sealed class FakeSimBriefClient(TimeSpan latency) : ISimBriefClient
@@ -649,7 +659,7 @@ public sealed class FakeUpdateChecker : IUpdateChecker
 
 public sealed class FakeXPlaneScanSource : IXPlaneScanSource
 {
-    public string SimFolder { get; private set; } = @"C:\X-Plane 12";
+    public string SimFolder { get; set; } = @"C:\X-Plane 12";
 
     /// <summary>The folders that were remembered without a scan, so a test can see them.</summary>
     public List<string> SavedFolders { get; } = [];
@@ -704,7 +714,7 @@ public static class FakeXPlaneInstalls
 public sealed class FakeModelScanSource : IModelScanSource
 {
     public string SimulatorName => "Microsoft Flight Simulator 2020";
-    public string SimFolder { get; private set; } = @"C:\Flight Simulator Packages";
+    public string SimFolder { get; set; } = @"C:\Flight Simulator Packages";
 
     /// <summary>The folders that were remembered without a scan, so a test can see them.</summary>
     public List<string> SavedFolders { get; } = [];

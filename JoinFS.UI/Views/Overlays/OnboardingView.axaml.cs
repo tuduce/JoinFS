@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Threading;
 using JoinFS.UI.ViewModels.Overlays;
 
@@ -10,7 +11,23 @@ public partial class OnboardingView : UserControl
 {
     private OnboardingViewModel? _viewModel;
 
-    public OnboardingView() => InitializeComponent();
+    public OnboardingView()
+    {
+        InitializeComponent();
+        HubList.DoubleTapped += (_, _) => Connect();
+        HubList.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter)
+                Connect();
+        };
+    }
+
+    // A double-click or Enter on a hub is the Connect button; it does nothing until a hub is picked.
+    private void Connect()
+    {
+        if (_viewModel?.ConnectCommand.CanExecute(null) == true)
+            _viewModel.ConnectCommand.Execute(null);
+    }
 
     protected override void OnDataContextChanged(EventArgs e)
     {
@@ -42,8 +59,8 @@ public partial class OnboardingView : UserControl
         {
             TextBox? box = _viewModel?.Step switch
             {
+                OnboardingStep.Welcome when _viewModel.UsesSimbrief => SimbriefBox,
                 OnboardingStep.Welcome => NicknameBox,
-                OnboardingStep.SimBrief when _viewModel.UsesSimbrief => SimbriefBox,
                 OnboardingStep.Simulator => FolderBox,
                 _ => null,
             };

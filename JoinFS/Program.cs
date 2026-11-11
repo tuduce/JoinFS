@@ -1578,6 +1578,11 @@ namespace JoinFS
         /// Show UI messages
         /// </summary>
         public volatile string scheduleShowMessage = null;
+
+        /// <summary>
+        /// A short line for the status strip that goes by itself (how many models a scan found). Not a message: nothing has to be read or answered.
+        /// </summary>
+        public volatile string scheduleShowStatus = null;
         public volatile bool scheduleAskPlugin = false;
 
         /// <summary>

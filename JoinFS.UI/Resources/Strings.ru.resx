@@ -234,6 +234,15 @@
   <data name="Create Your Own Mesh" xml:space="preserve">
     <value>Создать собственную сеть</value>
   </data>
+  <data name="Join a hub" xml:space="preserve">
+    <value>Присоединиться к хабу</value>
+  </data>
+  <data name="A hub brings pilots together. Pick one and press Connect, or double-click it. JoinFS connects to your simulator, scans its aircraft models and then joins the hub." xml:space="preserve">
+    <value>Хаб объединяет пилотов. Выберите один и нажмите «Подключить» или дважды щёлкните по нему. JoinFS подключится к вашему симулятору, просканирует модели самолётов и затем присоединится к хабу.</value>
+  </data>
+  <data name="No online hub found yet. It can take a few seconds. You can also skip this and join one later." xml:space="preserve">
+    <value>Онлайн-хабы пока не найдены. Это может занять несколько секунд. Вы также можете пропустить этот шаг и присоединиться позже.</value>
+  </data>
   <data name="Own mesh" xml:space="preserve">
     <value>Собственная сеть</value>
   </data>
@@ -459,9 +468,6 @@
   <data name="JoinFS did not find your simulator. Please choose its folder." xml:space="preserve">
     <value>JoinFS не нашёл ваш симулятор. Выберите его папку.</value>
   </data>
-  <data name="JoinFS found your simulator in this folder. Change it if that is not right." xml:space="preserve">
-    <value>JoinFS нашёл ваш симулятор в этой папке. Измените её, если это не так.</value>
-  </data>
   <data name="JoinFS reads which aircraft are installed in your simulator, so that it can show the aircraft of other pilots with a model you have. A scan can take a few minutes." xml:space="preserve">
     <value>JoinFS считывает, какие самолёты установлены в вашем симуляторе, чтобы показывать самолёты других пилотов с моделью, которая есть у вас. Поиск может занять несколько минут.</value>
   </data>
@@ -593,9 +599,6 @@
   </data>
   <data name="No models are known yet. Scan for models from Settings, Simulator." xml:space="preserve">
     <value>Модели пока неизвестны. Выполните поиск моделей в разделе «Настройки», «Симулятор».</value>
-  </data>
-  <data name="No simulator folder is set, so there is nothing to scan yet." xml:space="preserve">
-    <value>Папка симулятора не задана, поэтому искать пока нечего.</value>
   </data>
   <data name="No subfolders found" xml:space="preserve">
     <value>Подпапки не найдены</value>
@@ -779,9 +782,6 @@
   </data>
   <data name="Scan at launch" xml:space="preserve">
     <value>Сканировать при запуске</value>
-  </data>
-  <data name="Scan for aircraft models?" xml:space="preserve">
-    <value>Выполнить поиск моделей самолётов?</value>
   </data>
   <data name="Scan for models" xml:space="preserve">
     <value>Поиск моделей</value>
@@ -1056,9 +1056,6 @@
   <data name="Yes" xml:space="preserve">
     <value>Да</value>
   </data>
-  <data name="Yes, I use SimBrief" xml:space="preserve">
-    <value>Да, я использую SimBrief</value>
-  </data>
   <data name="You can change all of these settings later in the Settings tab." xml:space="preserve">
     <value>Все эти настройки можно изменить позже на вкладке «Настройки».</value>
   </data>
@@ -1070,9 +1067,6 @@
   </data>
   <data name="Your nickname is how other pilots see you: in the session list, in the chat and as the label above your aircraft in their simulator." xml:space="preserve">
     <value>Ник — это имя, под которым вас видят другие пилоты: в списке сессии, в чате и в виде метки над вашим самолётом в их симуляторе.</value>
-  </data>
-  <data name="Your simulator is not connected yet. The scan starts as soon as it connects." xml:space="preserve">
-    <value>Ваш симулятор ещё не подключён. Поиск начнётся, как только он подключится.</value>
   </data>
   <data name="Zoom in" xml:space="preserve">
     <value>Увеличить</value>

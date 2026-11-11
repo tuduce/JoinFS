@@ -1,4 +1,5 @@
 using JoinFS.UI.Models;
+using JoinFS.UI.Services;
 using JoinFS.UI.Services.Fake;
 using JoinFS.UI.ViewModels;
 using JoinFS.UI.ViewModels.Overlays;
@@ -109,16 +110,24 @@ public class ShellTests
         onboarding.NextCommand.Execute(null);
     }
 
-    /// <summary>Answers the first three steps the shortest way and stops on the one that asks about the scan.</summary>
-    private static OnboardingViewModel AtScanStep(Rig rig)
+    /// <summary>Answers the nickname and stops on the list of hubs.</summary>
+    private static OnboardingViewModel AtHubStep(Rig rig)
     {
         OnboardingViewModel onboarding = Onboarding(rig);
         onboarding.Nickname = "Maverick";
         Next(onboarding);
-        Next(onboarding);
-        Next(onboarding);
-        Assert.Equal(OnboardingStep.Models, onboarding.Step);
+        Assert.Equal(OnboardingStep.Hubs, onboarding.Step);
         return onboarding;
+    }
+
+    private static void Pick(OnboardingViewModel onboarding, string hub) =>
+        onboarding.SelectedHub = onboarding.Hubs.Single(h => h.Name == hub);
+
+    /// <summary>Polls as the app does, long enough for what waits to happen.</summary>
+    private static void PollFor(MainViewModel main, int polls)
+    {
+        for (int i = 0; i < polls; i++)
+            main.Poll();
     }
 
     [Fact]
@@ -142,26 +151,19 @@ public class ShellTests
     }
 
     [Fact]
-    public void The_steps_come_in_order_and_back_returns_to_the_one_before_with_the_answers_kept()
+    public void There_are_two_steps_when_the_simulator_was_found_and_back_returns_to_the_first_with_the_answers_kept()
     {
         Rig rig = new(onboarded: false);
         OnboardingViewModel onboarding = Onboarding(rig);
         Assert.False(onboarding.BackCommand.CanExecute(null));
-        Assert.Equal("Step 1 of 4", onboarding.StepText);
+        Assert.Equal("Step 1 of 2", onboarding.StepText);
 
         onboarding.Nickname = "Maverick";
         Next(onboarding);
-        Assert.Equal(OnboardingStep.SimBrief, onboarding.Step);
-        Assert.Equal("Step 2 of 4", onboarding.StepText);
+        Assert.Equal(OnboardingStep.Hubs, onboarding.Step);
+        Assert.Equal("Step 2 of 2", onboarding.StepText);
+        Assert.False(onboarding.NextCommand.CanExecute(null)); // the last step has its own buttons
 
-        Next(onboarding);
-        Assert.Equal(OnboardingStep.Simulator, onboarding.Step);
-        Next(onboarding);
-        Assert.Equal(OnboardingStep.Models, onboarding.Step);
-        Assert.False(onboarding.NextCommand.CanExecute(null)); // the last step has its own two buttons
-
-        onboarding.BackCommand.Execute(null);
-        onboarding.BackCommand.Execute(null);
         onboarding.BackCommand.Execute(null);
         Assert.Equal(OnboardingStep.Welcome, onboarding.Step);
         Assert.Equal("Maverick", onboarding.Nickname);
@@ -192,12 +194,10 @@ public class ShellTests
         OnboardingViewModel onboarding = Onboarding(rig);
         onboarding.Nickname = " Maverick ";
         Next(onboarding);
-        Next(onboarding);
-        Next(onboarding);
         Assert.False(rig.Settings.Onboarded);
         Assert.Equal("", rig.Settings.Nickname);
 
-        onboarding.SkipScanCommand.Execute(null);
+        onboarding.SkipCommand.Execute(null);
 
         Assert.Null(rig.Main.Overlay);
         Assert.True(rig.Settings.Onboarded);
@@ -207,75 +207,146 @@ public class ShellTests
     }
 
     [Fact]
-    public void The_simbrief_username_is_asked_only_of_a_user_of_simbrief_and_kept_only_then()
+    public void The_simbrief_username_is_asked_on_the_first_screen_only_of_a_user_of_simbrief_and_kept_only_then()
     {
         Rig no = new(onboarded: false);
         OnboardingViewModel a = Onboarding(no);
         a.Nickname = "Ace";
-        Next(a);
         Assert.False(a.UsesSimbrief);
-        Assert.True(a.NoSimbrief); // "no" is what is selected until the user says otherwise
-        a.UsesSimbrief = true;
-        a.SimbriefUsername = "typed-then-switched-off";
-        a.NoSimbrief = true;
+        Assert.True(a.NoSimbrief); // the link "Do you use SimBrief?" shows until it is clicked
+        a.UseSimbriefCommand.Execute(null);
+        Assert.True(a.UsesSimbrief);
+        a.SimbriefUsername = "typed-then-given-up";
+        a.DropSimbriefCommand.Execute(null);
         Assert.False(a.UsesSimbrief);
         Next(a);
-        Next(a);
-        a.SkipScanCommand.Execute(null);
+        a.SkipCommand.Execute(null);
         Assert.Null(no.Settings.SimbriefUsername);
 
         Rig yes = new(onboarded: false);
         OnboardingViewModel b = Onboarding(yes);
         b.Nickname = "Bob";
-        Next(b);
-        b.UsesSimbrief = true;
+        b.UseSimbriefCommand.Execute(null);
         Assert.False(b.NoSimbrief);
         Assert.False(b.NextCommand.CanExecute(null)); // yes, but no name yet
         b.SimbriefUsername = " HBTDXnav ";
         Next(b);
-        Next(b);
-        b.SkipScanCommand.Execute(null);
+        b.SkipCommand.Execute(null);
         Assert.Equal("HBTDXnav", yes.Settings.SimbriefUsername);
     }
 
     [Fact]
-    public void The_simulator_step_shows_the_folder_that_is_known_and_what_it_is_asked_for()
+    public void Finishing_with_a_simbrief_username_fetches_the_flight_plan()
     {
         Rig rig = new(onboarded: false);
         OnboardingViewModel onboarding = Onboarding(rig);
+        onboarding.Nickname = "Bob";
+        onboarding.UseSimbriefCommand.Execute(null);
+        onboarding.SimbriefUsername = "HBTDXnav";
+        Next(onboarding);
+        Assert.Equal("", rig.Main.FlightPlan.From);
 
-        Assert.Equal(@"C:\Flight Simulator Packages", onboarding.Folder);
-        Assert.Equal("JoinFS found your simulator in this folder. Change it if that is not right.", onboarding.FolderIntro);
-        Assert.True(onboarding.HasFolderHint);
-        Assert.Equal(rig.Services.ModelScan.FolderPrompt, onboarding.FolderHint);
-        Assert.False(onboarding.HasFolderError);
+        onboarding.SkipCommand.Execute(null);
+
+        Assert.Equal("LSZH", rig.Main.FlightPlan.From);
+        Assert.Equal("LSGG", rig.Main.FlightPlan.To);
     }
 
     [Fact]
-    public void A_folder_the_user_chose_is_remembered_and_one_that_was_known_is_left_alone()
+    public void The_simulator_folder_is_not_asked_when_the_simulator_was_found_and_the_models_are_scanned_without_asking()
     {
-        Rig kept = new(onboarded: false);
-        AtScanStep(kept).SkipScanCommand.Execute(null);
-        Assert.Empty(((FakeModelScanSource)kept.Services.ModelScan).SavedFolders);
+        Rig rig = new(onboarded: false);
+        rig.Main.Simulator.ConnectAsync().GetAwaiter().GetResult();
+        OnboardingViewModel onboarding = AtHubStep(rig);
+        Assert.Equal(@"C:\Flight Simulator Packages", onboarding.Folder);
 
-        Rig changed = new(onboarded: false);
-        OnboardingViewModel onboarding = Onboarding(changed);
+        onboarding.SkipCommand.Execute(null);
+
+        FakeModelScanSource source = (FakeModelScanSource)rig.Services.ModelScan;
+        (string folder, IReadOnlyList<string> subfolders, IReadOnlyList<string> addOns, IReadOnlyList<string> additional) = Assert.Single(source.Scans);
+        Assert.Equal(@"C:\Flight Simulator Packages", folder);
+        Assert.Equal(["Airplanes"], subfolders);
+        Assert.Equal(["Aerosoft CRJ"], addOns);
+        Assert.Equal([@"D:\Community"], additional);
+        Assert.Empty(source.SavedFolders); // the known folder is left alone
+        Assert.False(rig.Settings.ModelScanOnConnect);
+    }
+
+    [Fact]
+    public void Scanning_before_the_simulator_connects_is_left_to_the_connection()
+    {
+        Rig rig = new(onboarded: false);
+
+        AtHubStep(rig).SkipCommand.Execute(null);
+
+        Assert.Empty(((FakeModelScanSource)rig.Services.ModelScan).Scans);
+        Assert.True(rig.Settings.ModelScanOnConnect);
+    }
+
+    [Fact]
+    public void X_plane_scans_its_folder_at_once_because_it_needs_no_connection()
+    {
+        Rig rig = new(onboarded: false, xplaneBuild: true);
+
+        AtHubStep(rig).SkipCommand.Execute(null);
+
+        FakeXPlaneScanSource source = (FakeXPlaneScanSource)rig.Services.XPlaneScan;
+        (string folder, IReadOnlyList<string> aircraftFolders, IReadOnlyList<string> unlinked) = Assert.Single(source.Scans);
+        Assert.Equal(@"C:\X-Plane 12", folder);
+        Assert.Empty(aircraftFolders); // none named means all of them, also those installed later
+        Assert.Empty(unlinked);
+        Assert.False(rig.Settings.ModelScanOnConnect);
+    }
+
+    [Fact]
+    public void The_folder_is_asked_between_the_nickname_and_the_hubs_only_when_the_simulator_was_not_found()
+    {
+        Rig rig = new(onboarded: false, simulatorFound: false);
+        OnboardingViewModel onboarding = Onboarding(rig);
+        Assert.Equal("Step 1 of 3", onboarding.StepText);
         onboarding.Nickname = "Maverick";
+
         Next(onboarding);
-        Next(onboarding);
+        Assert.Equal(OnboardingStep.Simulator, onboarding.Step);
+        Assert.Equal("Step 2 of 3", onboarding.StepText);
+        Assert.True(onboarding.HasFolderHint);
+        Assert.Equal(rig.Services.ModelScan.FolderPrompt, onboarding.FolderHint);
+
         onboarding.Folder = @" D:\MSFS\Packages ";
         Next(onboarding);
-        onboarding.SkipScanCommand.Execute(null);
+        Assert.Equal(OnboardingStep.Hubs, onboarding.Step);
+        Assert.Equal("Step 3 of 3", onboarding.StepText);
+        onboarding.BackCommand.Execute(null);
+        Assert.Equal(OnboardingStep.Simulator, onboarding.Step);
+        Next(onboarding);
 
-        FakeModelScanSource source = (FakeModelScanSource)changed.Services.ModelScan;
+        onboarding.SkipCommand.Execute(null);
+
+        FakeModelScanSource source = (FakeModelScanSource)rig.Services.ModelScan;
         Assert.Equal([@"D:\MSFS\Packages"], source.SavedFolders);
-        Assert.Empty(source.Scans);
+        Assert.True(rig.Settings.ModelScanOnConnect); // the simulator is not connected: the scan waits for it
+    }
+
+    [Fact]
+    public void Without_a_simulator_folder_there_is_nothing_to_scan_but_the_user_can_still_finish()
+    {
+        Rig rig = new(onboarded: false, simulatorFound: false);
+        OnboardingViewModel onboarding = Onboarding(rig);
+        onboarding.Nickname = "Maverick";
+        Next(onboarding);
+        Next(onboarding); // the folder left empty
+        onboarding.SkipCommand.Execute(null);
+
+        Assert.True(rig.Settings.Onboarded);
+        Assert.Empty(((FakeModelScanSource)rig.Services.ModelScan).SavedFolders);
+        Assert.Empty(((FakeModelScanSource)rig.Services.ModelScan).Scans);
+        Assert.False(rig.Settings.ModelScanOnConnect);
     }
 
     [Fact]
     public async Task Browse_puts_the_folder_that_was_picked_in_the_box()
     {
-        Rig rig = new(onboarded: false);
+        Rig rig = new(onboarded: false, simulatorFound: false);
         rig.Platform.PickedFolder = @"E:\Sims\Packages";
 
         await Onboarding(rig).BrowseCommand.ExecuteAsync(null);
@@ -286,14 +357,13 @@ public class ShellTests
     [Fact]
     public void X_plane_refuses_a_folder_that_is_not_an_installation_and_needs_no_hint_about_which_folder()
     {
-        Rig rig = new(onboarded: false, xplaneBuild: true);
+        Rig rig = new(onboarded: false, xplaneBuild: true, simulatorFound: false);
         ((FakeXPlaneScanSource)rig.Services.XPlaneScan).InvalidFolders.Add(@"D:\Documents");
         OnboardingViewModel onboarding = Onboarding(rig);
         onboarding.Nickname = "Maverick";
         Next(onboarding);
-        Next(onboarding);
 
-        Assert.Equal(@"C:\X-Plane 12", onboarding.Folder);
+        Assert.Equal(OnboardingStep.Simulator, onboarding.Step);
         Assert.False(onboarding.HasFolderHint);
 
         onboarding.Folder = @"D:\Documents";
@@ -307,90 +377,183 @@ public class ShellTests
     }
 
     [Fact]
-    public async Task Scanning_with_the_simulator_connected_scans_with_the_choices_that_are_saved_and_compacts_the_window()
+    public void The_hub_step_lists_the_online_hubs_the_busiest_first_and_leaves_out_offline_and_ignored_ones()
+    {
+        Rig rig = new(onboarded: false);
+        OnboardingViewModel onboarding = AtHubStep(rig);
+
+        Assert.Equal(
+            ["Planet FsHub", "AirSherpa", "DigitalThemePark", "swiss and europe", "Aidan's Hub", "Flight Unlimited Network"],
+            onboarding.Hubs.Select(h => h.Name));
+        Assert.True(onboarding.HasHubs);
+        Assert.Null(onboarding.SelectedHub);
+        Assert.False(onboarding.ConnectCommand.CanExecute(null)); // nothing picked
+    }
+
+    [Fact]
+    public void The_hub_list_sorts_by_the_column_that_is_clicked_and_keeps_the_pick()
+    {
+        Rig rig = new(onboarded: false);
+        OnboardingViewModel onboarding = AtHubStep(rig);
+        Pick(onboarding, "AirSherpa");
+        Assert.Equal("Users ↓", onboarding.UsersColumn.Header); // the busiest first to begin with
+
+        onboarding.NameColumn.SortCommand.Execute(null);
+        Assert.Equal(
+            ["Aidan's Hub", "AirSherpa", "DigitalThemePark", "Flight Unlimited Network", "Planet FsHub", "swiss and europe"],
+            onboarding.Hubs.Select(h => h.Name));
+        Assert.Equal("Name ↑", onboarding.NameColumn.Header);
+        Assert.Equal("Users", onboarding.UsersColumn.Header);
+
+        onboarding.NameColumn.SortCommand.Execute(null);
+        Assert.Equal("swiss and europe", onboarding.Hubs[0].Name);
+
+        onboarding.AircraftColumn.SortCommand.Execute(null); // counts begin with the highest
+        Assert.Equal(["Planet FsHub", "AirSherpa", "DigitalThemePark", "swiss and europe"], onboarding.Hubs.Take(4).Select(h => h.Name));
+
+        onboarding.StatusColumn.SortCommand.Execute(null);
+        Assert.Equal(onboarding.Hubs.Select(h => h.Status).Order(StringComparer.CurrentCulture), onboarding.Hubs.Select(h => h.Status));
+
+        Assert.Equal("AirSherpa", onboarding.SelectedHub?.Name);
+        onboarding.Refresh(); // the sort holds when the list is read again
+        Assert.Equal(onboarding.Hubs.Select(h => h.Status).Order(StringComparer.CurrentCulture), onboarding.Hubs.Select(h => h.Status));
+    }
+
+    [Fact]
+    public void A_hub_picked_in_the_list_keeps_the_pick_when_the_list_is_read_again()
+    {
+        Rig rig = new(onboarded: false);
+        OnboardingViewModel onboarding = AtHubStep(rig);
+        Pick(onboarding, "AirSherpa");
+        OnboardingHubRow row = onboarding.SelectedHub!;
+
+        onboarding.Refresh();
+
+        Assert.Same(row, onboarding.SelectedHub);
+        Assert.True(onboarding.ConnectCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void Connect_finishes_the_card_and_picks_the_hub_in_the_address_book()
+    {
+        Rig rig = new(onboarded: false);
+        OnboardingViewModel onboarding = AtHubStep(rig);
+        Pick(onboarding, "AirSherpa");
+
+        onboarding.ConnectCommand.Execute(null);
+
+        Assert.Null(rig.Main.Overlay);
+        Assert.True(rig.Settings.Onboarded);
+        Assert.False(rig.Main.IsExpanded);
+        Assert.Equal("AirSherpa", rig.Main.AddressBook.Selected?.Name);
+        Assert.Contains(rig.Main.AddressBook.Entries, e => e.Name == "AirSherpa");
+    }
+
+    [Fact]
+    public async Task The_hub_is_joined_after_the_simulator_is_connected_and_the_models_are_scanned()
     {
         Rig rig = new(onboarded: false);
         await rig.Main.Simulator.ConnectAsync();
-        OnboardingViewModel onboarding = AtScanStep(rig);
-        Assert.False(onboarding.ScanWaitsForSimulator);
+        OnboardingViewModel onboarding = AtHubStep(rig);
+        Pick(onboarding, "AirSherpa");
 
-        onboarding.ScanCommand.Execute(null);
+        onboarding.ConnectCommand.Execute(null);
 
-        FakeModelScanSource source = (FakeModelScanSource)rig.Services.ModelScan;
-        (string folder, IReadOnlyList<string> subfolders, IReadOnlyList<string> addOns, IReadOnlyList<string> additional) = Assert.Single(source.Scans);
-        Assert.Equal(@"C:\Flight Simulator Packages", folder);
-        Assert.Equal(["Airplanes"], subfolders);
-        Assert.Equal(["Aerosoft CRJ"], addOns);
-        Assert.Equal([@"D:\Community"], additional);
-        Assert.False(rig.Settings.ModelScanOnConnect);
-        Assert.True(rig.Settings.Onboarded);
-        Assert.Null(rig.Main.Overlay);
-        Assert.False(rig.Main.IsExpanded);
+        // the scan was asked for as the card closed; the network waits a moment for it
+        Assert.Single(((FakeModelScanSource)rig.Services.ModelScan).Scans);
+        Assert.True(rig.Main.Network.IsDisconnected);
+        PollFor(rig.Main, 20);
+        Assert.True(rig.Main.Network.IsConnected);
+        Assert.Equal("AirSherpa", rig.Main.JoinedHubName);
     }
 
     [Fact]
-    public void Scanning_before_the_simulator_connects_is_left_to_the_connection()
+    public void With_the_simulator_not_connected_the_hub_is_left_to_the_automatic_join_of_the_app()
     {
         Rig rig = new(onboarded: false);
-        OnboardingViewModel onboarding = AtScanStep(rig);
-        Assert.True(onboarding.ScanWaitsForSimulator);
+        OnboardingViewModel onboarding = AtHubStep(rig);
+        Pick(onboarding, "AirSherpa");
 
-        onboarding.ScanCommand.Execute(null);
+        onboarding.ConnectCommand.Execute(null);
+        PollFor(rig.Main, 20);
 
-        Assert.Empty(((FakeModelScanSource)rig.Services.ModelScan).Scans);
-        Assert.True(rig.Settings.ModelScanOnConnect);
-        Assert.False(rig.Main.IsExpanded);
+        Assert.True(rig.Main.Network.IsDisconnected); // joined by the app when the simulator connects, from the pick that was saved
+        Assert.Equal("AirSherpa", rig.Main.AddressBook.Selected?.Name);
     }
 
     [Fact]
-    public void Not_now_scans_nothing_and_still_finishes()
+    public void Not_now_joins_no_hub()
     {
         Rig rig = new(onboarded: false);
-        OnboardingViewModel onboarding = AtScanStep(rig);
+        rig.Main.Simulator.ConnectAsync().GetAwaiter().GetResult();
+        OnboardingViewModel onboarding = AtHubStep(rig);
+        Pick(onboarding, "AirSherpa");
 
-        onboarding.SkipScanCommand.Execute(null);
+        onboarding.SkipCommand.Execute(null);
+        PollFor(rig.Main, 20);
 
-        Assert.Empty(((FakeModelScanSource)rig.Services.ModelScan).Scans);
-        Assert.False(rig.Settings.ModelScanOnConnect);
-        Assert.True(rig.Settings.Onboarded);
-        Assert.Null(rig.Main.Overlay);
-        Assert.False(rig.Main.IsExpanded);
+        Assert.True(rig.Main.Network.IsDisconnected);
     }
 
     [Fact]
-    public void X_plane_scans_its_folder_at_once_because_it_needs_no_connection()
-    {
-        Rig rig = new(onboarded: false, xplaneBuild: true);
-        OnboardingViewModel onboarding = AtScanStep(rig);
-        Assert.False(onboarding.ScanWaitsForSimulator);
-
-        onboarding.ScanCommand.Execute(null);
-
-        FakeXPlaneScanSource source = (FakeXPlaneScanSource)rig.Services.XPlaneScan;
-        (string folder, IReadOnlyList<string> aircraftFolders, IReadOnlyList<string> unlinked) = Assert.Single(source.Scans);
-        Assert.Equal(@"C:\X-Plane 12", folder);
-        Assert.Empty(aircraftFolders); // none named means all of them, also those installed later
-        Assert.Empty(unlinked);
-        Assert.False(rig.Settings.ModelScanOnConnect);
-    }
-
-    [Fact]
-    public void Without_a_simulator_folder_there_is_nothing_to_scan_but_the_user_can_still_finish()
+    public void The_hub_list_follows_the_directory_while_the_card_is_open()
     {
         Rig rig = new(onboarded: false);
-        OnboardingViewModel onboarding = Onboarding(rig);
-        onboarding.Nickname = "Maverick";
-        Next(onboarding);
-        Next(onboarding);
-        onboarding.Folder = "  ";
-        Next(onboarding);
+        OnboardingViewModel onboarding = AtHubStep(rig);
+        rig.Services.Hubs.SetIgnored("AirSherpa", true);
+        Assert.Contains(onboarding.Hubs, h => h.Name == "AirSherpa");
 
-        Assert.True(onboarding.HasNoFolderToScan);
-        Assert.False(onboarding.ScanCommand.CanExecute(null));
-        onboarding.SkipScanCommand.Execute(null);
+        PollFor(rig.Main, 4); // the live lists are read every fourth poll
 
-        Assert.True(rig.Settings.Onboarded);
-        Assert.Empty(((FakeModelScanSource)rig.Services.ModelScan).SavedFolders);
+        Assert.DoesNotContain(onboarding.Hubs, h => h.Name == "AirSherpa");
+    }
+
+    // --- Status strip ---
+
+    [Fact]
+    public void What_the_app_reports_without_a_question_shows_in_the_strip_for_five_seconds_and_not_as_a_card()
+    {
+        ManualTime time = new();
+        NoMessages messages = new();
+        MainViewModel main = new(FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true, Nickname = "Me" }) with { Messages = messages }, time);
+        Assert.False(main.HasNotice);
+
+        messages.Status = "Found 120 models";
+        main.Poll();
+
+        Assert.Equal("Found 120 models", main.Notice);
+        Assert.True(main.HasNotice);
+        Assert.False(main.NoticeIsProblem);
+        Assert.IsNotType<MessageViewModel>(main.Overlay); // the fakes may offer an update card, but the count is no message
+
+        time.Advance(TimeSpan.FromSeconds(4.9));
+        main.Poll();
+        Assert.True(main.HasNotice);
+
+        time.Advance(TimeSpan.FromSeconds(0.2));
+        main.Poll();
+        Assert.False(main.HasNotice);
+        Assert.Null(main.Notice);
+    }
+
+    [Fact]
+    public void A_newer_status_replaces_the_one_showing_and_starts_the_five_seconds_again_and_dismiss_clears_it()
+    {
+        ManualTime time = new();
+        NoMessages messages = new();
+        MainViewModel main = new(FakeServices.Create(TimeSpan.Zero, new UserSettings { Onboarded = true, Nickname = "Me" }) with { Messages = messages }, time);
+        messages.Status = "Found 120 models";
+        main.Poll();
+        time.Advance(TimeSpan.FromSeconds(4));
+        messages.Status = "Found 121 models";
+        main.Poll();
+        time.Advance(TimeSpan.FromSeconds(4));
+        main.Poll();
+        Assert.Equal("Found 121 models", main.Notice);
+
+        main.DismissNoticeCommand.Execute(null);
+
+        Assert.False(main.HasNotice);
     }
 
     // --- About ---

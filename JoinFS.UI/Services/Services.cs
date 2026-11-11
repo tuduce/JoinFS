@@ -706,6 +706,12 @@ public interface IMessageSource
 {
     /// <summary>The message waiting to be shown, or null. Asking takes it: it is returned once.</summary>
     string? TakeMessage();
+
+    /// <summary>
+    /// A short line for the status strip, or null: what happened that needs no answer (a scan found 120 models). Asking takes it. The strip
+    /// shows it for a few seconds.
+    /// </summary>
+    string? TakeStatus() => null;
 }
 
 /// <summary>Everything the view models need from the outside. Built once at startup.</summary>

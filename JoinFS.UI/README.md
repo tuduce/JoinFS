@@ -82,10 +82,14 @@ session is left and a message says why. When an automatic reconnect is turned do
 This is the user interface of every configuration except CONSOLE (which has none), and its libraries are part of what the installers
 ship. The WinForms forms are gone.
 
-The onboarding card replaces the old `InitialSetupForm`. It floats over the expanded window (a new user starts expanded) and walks through
-four steps: nickname, SimBrief, the simulator folder JoinFS knows (changeable), and whether to scan for models. The shell compacts the
-window when it is done. A scan with SimConnect needs the simulator, so before it connects "scan" only sets "Scan for models when the
-simulator connects". Nothing is saved before the last step.
+The onboarding card replaces the old `InitialSetupForm`. It floats over the expanded window (a new user starts expanded) and has two
+steps: the nickname (with the link "Do you use SimBrief?", which asks for the username on the same screen), and a list of the online hubs,
+to connect to one with the Connect button or a double-click ("Not now" joins none). A step for the simulator folder comes between them
+only when JoinFS did not find the simulator. There is no question about the models: they are scanned as the card closes (a scan with
+SimConnect needs the simulator, so before it connects the scan only sets "Scan for models when the simulator connects"). Then the shell
+compacts the window, fetches the SimBrief plan if there is a username, and picks the hub in the address book. A hub is joined only after the
+simulator is connected and the scan is done, the way the automatic join of a later launch waits; if the simulator is not connected yet when the
+card closes, that automatic join takes the saved pick when it connects. Nothing is saved before the card closes.
 
 ## Languages
 

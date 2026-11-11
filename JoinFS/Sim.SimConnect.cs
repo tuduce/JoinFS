@@ -814,7 +814,7 @@ namespace JoinFS
                         // check for models scanned
                         if (main.substitution.models.Count > 0)
                         {
-                            main.scheduleShowMessage = Resources.Strings.FoundPrefix + " " + main.substitution.models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
+                            main.scheduleShowStatus = Resources.Strings.FoundPrefix + " " + main.substitution.models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
                         }
                         else
                         {

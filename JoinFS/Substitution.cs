@@ -2781,7 +2781,7 @@ namespace JoinFS
                             {
                                 if (models.Count > 0)
                                 {
-                                    main.scheduleShowMessage = Resources.Strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
+                                    main.scheduleShowStatus = Resources.Strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
                                 }
                                 else
                                 {
@@ -2866,14 +2866,18 @@ namespace JoinFS
                     // check for models scanned
                     if (models.Count > 0)
                     {
-                        main.scheduleShowMessage = Resources.Strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
+                        string found = Resources.Strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
 #if XPLANE
-                        // X-Plane only loads CSL packages at start-up
+                        // X-Plane only loads CSL packages at start-up: that has to be read, so it stays a message
                         if (main.settingsGenerateCsl)
                         {
-                            main.scheduleShowMessage += Environment.NewLine + Environment.NewLine + Resources.Strings.RestartXPlaneHint;
+                            main.scheduleShowMessage = found + Environment.NewLine + Environment.NewLine + Resources.Strings.RestartXPlaneHint;
                         }
+                        else
 #endif
+                        {
+                            main.scheduleShowStatus = found;
+                        }
                     }
                     else
                     {

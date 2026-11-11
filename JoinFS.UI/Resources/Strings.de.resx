@@ -234,6 +234,15 @@
   <data name="Create Your Own Mesh" xml:space="preserve">
     <value>Eigenes Mesh erstellen</value>
   </data>
+  <data name="Join a hub" xml:space="preserve">
+    <value>Einem Hub beitreten</value>
+  </data>
+  <data name="A hub brings pilots together. Pick one and press Connect, or double-click it. JoinFS connects to your simulator, scans its aircraft models and then joins the hub." xml:space="preserve">
+    <value>Ein Hub bringt Piloten zusammen. Wählen Sie einen aus und klicken Sie auf Verbinden, oder doppelklicken Sie ihn. JoinFS verbindet sich mit Ihrem Simulator, durchsucht dessen Flugzeugmodelle und tritt dann dem Hub bei.</value>
+  </data>
+  <data name="No online hub found yet. It can take a few seconds. You can also skip this and join one later." xml:space="preserve">
+    <value>Noch kein Hub online gefunden. Das kann einige Sekunden dauern. Sie können dies auch überspringen und später einem Hub beitreten.</value>
+  </data>
   <data name="Own mesh" xml:space="preserve">
     <value>Eigenes Mesh</value>
   </data>
@@ -459,9 +468,6 @@
   <data name="JoinFS did not find your simulator. Please choose its folder." xml:space="preserve">
     <value>JoinFS hat Ihren Simulator nicht gefunden. Bitte wählen Sie seinen Ordner.</value>
   </data>
-  <data name="JoinFS found your simulator in this folder. Change it if that is not right." xml:space="preserve">
-    <value>JoinFS hat Ihren Simulator in diesem Ordner gefunden. Ändern Sie ihn, falls das nicht stimmt.</value>
-  </data>
   <data name="JoinFS reads which aircraft are installed in your simulator, so that it can show the aircraft of other pilots with a model you have. A scan can take a few minutes." xml:space="preserve">
     <value>JoinFS liest, welche Flugzeuge in Ihrem Simulator installiert sind, damit es die Flugzeuge anderer Piloten mit einem Modell zeigen kann, das Sie besitzen. Ein Scan kann einige Minuten dauern.</value>
   </data>
@@ -593,9 +599,6 @@
   </data>
   <data name="No models are known yet. Scan for models from Settings, Simulator." xml:space="preserve">
     <value>Es sind noch keine Modelle bekannt. Suchen Sie unter Einstellungen, Simulator nach Modellen.</value>
-  </data>
-  <data name="No simulator folder is set, so there is nothing to scan yet." xml:space="preserve">
-    <value>Es ist kein Simulatorordner festgelegt, daher gibt es noch nichts zu scannen.</value>
   </data>
   <data name="No subfolders found" xml:space="preserve">
     <value>Keine Unterordner gefunden</value>
@@ -779,9 +782,6 @@
   </data>
   <data name="Scan at launch" xml:space="preserve">
     <value>Beim Start scannen</value>
-  </data>
-  <data name="Scan for aircraft models?" xml:space="preserve">
-    <value>Flugzeugmodelle scannen?</value>
   </data>
   <data name="Scan for models" xml:space="preserve">
     <value>Modelle scannen</value>
@@ -1056,9 +1056,6 @@
   <data name="Yes" xml:space="preserve">
     <value>Ja</value>
   </data>
-  <data name="Yes, I use SimBrief" xml:space="preserve">
-    <value>Ja, ich verwende SimBrief</value>
-  </data>
   <data name="You can change all of these settings later in the Settings tab." xml:space="preserve">
     <value>Alle diese Einstellungen können Sie später im Tab Einstellungen ändern.</value>
   </data>
@@ -1070,9 +1067,6 @@
   </data>
   <data name="Your nickname is how other pilots see you: in the session list, in the chat and as the label above your aircraft in their simulator." xml:space="preserve">
     <value>Ihr Spitzname ist der Name, unter dem andere Piloten Sie sehen: in der Sitzungsliste, im Chat und als Beschriftung über Ihrem Flugzeug in deren Simulator.</value>
-  </data>
-  <data name="Your simulator is not connected yet. The scan starts as soon as it connects." xml:space="preserve">
-    <value>Ihr Simulator ist noch nicht verbunden. Der Scan startet, sobald er sich verbindet.</value>
   </data>
   <data name="Zoom in" xml:space="preserve">
     <value>Vergrößern</value>

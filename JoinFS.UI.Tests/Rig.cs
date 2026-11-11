@@ -8,11 +8,17 @@ namespace JoinFS.UI.Tests;
 /// <summary>A shell on fake services with zero latency, so a connect finishes the moment it is awaited.</summary>
 public sealed class Rig
 {
-    public Rig(bool onboarded = true, UserSettings? settings = null, bool xplaneBuild = false)
+    /// <param name="simulatorFound">False for a simulator whose folder JoinFS did not find by itself.</param>
+    public Rig(bool onboarded = true, UserSettings? settings = null, bool xplaneBuild = false, bool simulatorFound = true)
     {
         Settings = settings ?? new UserSettings { Onboarded = onboarded, Nickname = onboarded ? "HB-TDX" : "" };
         Platform = new NullPlatform();
         Services = FakeServices.Create(TimeSpan.Zero, Settings, Platform, xplaneBuild);
+        if (!simulatorFound)
+        {
+            ((FakeModelScanSource)Services.ModelScan).SimFolder = "";
+            ((FakeXPlaneScanSource)Services.XPlaneScan).SimFolder = "";
+        }
         Main = new MainViewModel(Services);
     }
 

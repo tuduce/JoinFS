@@ -198,7 +198,7 @@ public class RenderTests
 
         OnboardingViewModel onboarding = (OnboardingViewModel)main.Overlay!;
         onboarding.Nickname = "Maverick";
-        onboarding.UsesSimbrief = true; // the longest SimBrief step
+        onboarding.UsesSimbrief = true; // the longest first screen
         foreach (OnboardingStep step in Enum.GetValues<OnboardingStep>())
         {
             onboarding.Step = step;
@@ -395,7 +395,7 @@ public class RenderTests
 
         (string Name, OverlayViewModel Overlay)[] overlays =
         [
-            ("onboarding", new OnboardingViewModel(main.Profile, rig.Services.ModelScan, rig.Services.XPlaneScan, false, () => false, rig.Platform, () => { })),
+            ("onboarding", new OnboardingViewModel(main.Profile, rig.Services.ModelScan, rig.Services.XPlaneScan, rig.Services.Hubs, false, () => false, rig.Platform, _ => { })),
             ("password", new PasswordPromptViewModel("Aidan's Hub", _ => Task.CompletedTask)),
             ("simbrief", new SimbriefPromptViewModel(_ => Task.CompletedTask)),
             ("substitute", new SubstituteViewModel(new JoinFS.UI.Models.ModelTarget("GC1a Swift (Factory)"), new JoinFS.UI.Models.ModelChoice("GC1a Swift - factory", "Factory"), rig.Services.Models)),
@@ -477,9 +477,7 @@ public class RenderTests
         OnboardingViewModel onboarding = (OnboardingViewModel)main.Overlay!;
         onboarding.Nickname = "Maverick";
         onboarding.NextCommand.Execute(null);
-        onboarding.NextCommand.Execute(null);
-        onboarding.NextCommand.Execute(null);
-        onboarding.SkipScanCommand.Execute(null);
+        onboarding.SkipCommand.Execute(null);
         Settle();
 
         Assert.False(main.IsOverlayOpen);
