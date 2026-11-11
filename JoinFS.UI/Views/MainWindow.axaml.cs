@@ -16,7 +16,7 @@ public partial class MainWindow : Window
     private const double CollapsedWidth = 376, CollapsedHeight = 180;
     private const double ExpandedMaxWidth = 1200, ExpandedMaxHeight = 760;
     private const double ScreenMargin = 24;
-    private const double StartMargin = 12; // the gap to the left and bottom edges of the work area at start
+    private const double StartMargin = 4; // the gap to the left and bottom edges of the work area at start
     private static readonly TimeSpan ResizeDuration = TimeSpan.FromMilliseconds(380);
 
     private readonly DispatcherTimer _resizeTimer = new() { Interval = TimeSpan.FromMilliseconds(8) };
@@ -79,14 +79,71 @@ public partial class MainWindow : Window
         }
     }
 
+    // Where the user left the window, or the bottom-left of the screen, close to its edge. The window is placed by its bottom-left
+    // corner, so it grows up and to the right. A saved corner on a screen that is gone is dropped.
+    private PixelPoint StartAnchor()
+    {
+        double scale = RenderScaling;
+        if (_viewModel?.Profile.WindowAnchor is { } saved)
+        {
+            PixelPoint inside = new(saved.X, saved.Y - 1);
+            foreach (Avalonia.Platform.Screen screen in Screens.All)
+            {
+                PixelRect area = screen.WorkingArea;
+                if (area.Contains(inside))
+                {
+                    // keep the whole collapsed panel on that screen
+                    return new PixelPoint(
+                        Math.Min(saved.X, area.Right - (int)(Width * scale)),
+                        Math.Max(saved.Y, area.Y + (int)(Height * scale)));
+                }
+            }
+        }
+
+        PixelRect primary = (Screens.ScreenFromWindow(this) ?? Screens.Primary)?.WorkingArea ?? new PixelRect(0, 0, 1920, 1080);
+        return new PixelPoint(primary.X + (int)(StartMargin * scale), primary.Bottom - (int)(StartMargin * scale));
+    }
+
+    private bool _placed;
+    private PixelPoint _lastAnchor;
+    private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
+
+    // The user moved or resized the window by hand: remember where its bottom-left corner is, once the movement has settled.
+    private void NoteMoved()
+    {
+        if (!_placed || _resizeTimer.IsEnabled || WindowState != WindowState.Normal)
+            return;
+
+        double scale = RenderScaling;
+        PixelPoint anchor = new(Position.X, Position.Y + (int)Math.Round(Height * scale));
+        if (anchor == _lastAnchor)
+            return;
+
+        _lastAnchor = anchor;
+        _saveTimer.Stop();
+        _saveTimer.Start();
+    }
+
+    private void SavePlacement()
+    {
+        _saveTimer.Stop();
+        _viewModel?.Profile.SaveWindowAnchor(_lastAnchor.X, _lastAnchor.Y);
+    }
+
     private void OnOpened(object? sender, EventArgs e)
     {
-        // Start in the bottom-left of the screen, like the design.
-        PixelRect area = (Screens.ScreenFromWindow(this) ?? Screens.Primary)?.WorkingArea ?? new PixelRect(0, 0, 1920, 1080);
-        double scale = RenderScaling;
-        Position = new PixelPoint(
-            area.X + (int)(StartMargin * scale),
-            area.Bottom - (int)((Height + StartMargin) * scale));
+        PixelPoint anchor = StartAnchor();
+        Position = new PixelPoint(anchor.X, anchor.Y - (int)(Height * RenderScaling));
+        _lastAnchor = anchor;
+        _placed = true;
+        _saveTimer.Tick += (_, _) => SavePlacement();
+        PositionChanged += (_, _) => NoteMoved();
+        SizeChanged += (_, _) => NoteMoved();
+        Closed += (_, _) =>
+        {
+            if (_saveTimer.IsEnabled)
+                SavePlacement();
+        };
 
         // A first run starts expanded, for the welcome card; the window grows from its corner like any expand.
         if (_viewModel?.IsExpanded == true)
@@ -121,7 +178,15 @@ public partial class MainWindow : Window
         _fromHeight = Height;
         _toWidth = expanded ? Math.Min(ExpandedMaxWidth, area.Width / scale - 2 * ScreenMargin) : CollapsedWidth;
         _toHeight = expanded ? Math.Min(ExpandedMaxHeight, area.Height / scale - 2 * ScreenMargin) : CollapsedHeight;
-        _anchor = new PixelPoint(Position.X, Position.Y + (int)(Height * scale));
+        _anchor = new PixelPoint(Position.X, Position.Y + (int)Math.Round(Height * scale));
+
+        // The full view has to fit on the screen, so a window left near the top or the right edge is moved down or left as far as needed.
+        if (expanded)
+        {
+            _anchor = new PixelPoint(
+                Math.Min(_anchor.X, area.Right - (int)Math.Round(_toWidth * scale)),
+                Math.Max(_anchor.Y, area.Y + (int)Math.Round(_toHeight * scale)));
+        }
 
         // Resizing by hand is only for the full view. Its minimum size would clamp a collapse partway,
         // so it is lifted for the animation and restored at the end.
@@ -139,7 +204,7 @@ public partial class MainWindow : Window
 
         Width = _fromWidth + (_toWidth - _fromWidth) * eased;
         Height = _fromHeight + (_toHeight - _fromHeight) * eased;
-        Position = new PixelPoint(_anchor.X, _anchor.Y - (int)(Height * RenderScaling));
+        Position = new PixelPoint(_anchor.X, _anchor.Y - (int)Math.Round(Height * RenderScaling));
 
         if (t >= 1)
         {

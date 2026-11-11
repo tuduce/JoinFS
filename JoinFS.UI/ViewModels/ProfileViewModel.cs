@@ -119,5 +119,16 @@ public sealed partial class ProfileViewModel : ObservableObject
         OnPropertyChanged(nameof(Onboarded));
     }
 
+    /// <summary>The bottom-left corner of the window as the user left it, in screen pixels, or null if it was never moved.</summary>
+    public (int X, int Y)? WindowAnchor =>
+        _settings.WindowLeft is { } x && _settings.WindowBottom is { } y ? (x, y) : null;
+
+    public void SaveWindowAnchor(int x, int y)
+    {
+        _settings.WindowLeft = x;
+        _settings.WindowBottom = y;
+        Save();
+    }
+
     private void Save() => _store.Save(_settings);
 }

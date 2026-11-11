@@ -519,6 +519,10 @@ public sealed class UserSettings
     public string Nickname { get; set; } = "";
     public string? SimbriefUsername { get; set; }
 
+    /// <summary>Where the user left the window: its bottom-left corner in screen pixels, or null before it was ever moved.</summary>
+    public int? WindowLeft { get; set; }
+    public int? WindowBottom { get; set; }
+
     // The broadcast options shared by Settings → Simulator and the Objects tab.
     public bool BroadcastTacpack { get; set; }
     public bool BroadcastEverything { get; set; }
