@@ -218,7 +218,8 @@ public partial class MainWindow : Window
     private void StepResize()
     {
         double t = Math.Min(1, (DateTime.UtcNow - _resizeStart) / ResizeDuration);
-        double eased = _easing.Ease(t);
+        // the spline only comes near 1 at the end; the window must end exactly on its size, or the layout rounds it a pixel up
+        double eased = t >= 1 ? 1 : _easing.Ease(t);
 
         Width = _fromWidth + (_toWidth - _fromWidth) * eased;
         Height = _fromHeight + (_toHeight - _fromHeight) * eased;

@@ -65,6 +65,19 @@ public class RenderTests
         return (window, rig.Main, rig);
     }
 
+    /// <summary>Lets the animated resize run until the window has the width exactly, as the last step sets it: a width still on its way would size the layout a pixel off.</summary>
+    private static async Task WaitForWidth(Window window, double width)
+    {
+        // awaiting hands the thread back to the UI's loop, which runs the timer of the resize
+        for (int tries = 0; Math.Abs(window.Width - width) > 1e-6 && tries < 200; tries++)
+        {
+            Settle();
+            await Task.Delay(10);
+        }
+        Settle();
+        Assert.Equal(width, window.Width, 1);
+    }
+
     private static void Settle()
     {
         Dispatcher.UIThread.RunJobs();
@@ -113,7 +126,7 @@ public class RenderTests
     }
 
     [AvaloniaFact]
-    public void The_collapsed_window_shows_a_loaded_flight_plan_with_its_airports_and_gives_the_hub_picker_room_when_it_opens()
+    public async Task The_collapsed_window_shows_a_loaded_flight_plan_with_its_airports_and_widens_for_it_so_the_hub_picker_keeps_its_size()
     {
         Problems problems = new();
         Logger.Sink = problems;
@@ -121,25 +134,29 @@ public class RenderTests
         CollapsedView view = Find<CollapsedView>(window);
         AutoCompleteBox combo = view.GetVisualDescendants().OfType<AutoCompleteBox>().First();
         double closed = combo.Bounds.Width;
+        double narrowWindow = window.Width;
 
         main.FlightPlan.From = "LSZH";
         main.FlightPlan.To = "LSGG";
         main.FlightPlanLoad.SetState(ConnectionState.Connected);
-        Settle();
+        await WaitForWidth(window, narrowWindow + 88); // the window grows by the node, animated
         Snapshot(window, "collapsed-flight-plan");
 
         ConnectorNode plan = view.GetVisualDescendants().OfType<ConnectorNode>().Last();
         Assert.True(plan.IsEffectivelyVisible);
         Assert.Contains(plan.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "LSZH-LSGG");
-        double narrow = combo.Bounds.Width;
-        Assert.True(narrow < closed, $"{narrow} vs {closed}");
+        Assert.Equal(closed, combo.Bounds.Width, 1);
 
+        // opening the list changes nothing, and a cleared plan gives the window back
         combo.IsDropDownOpen = true;
         Settle();
         Assert.Equal(closed, combo.Bounds.Width, 1);
         combo.IsDropDownOpen = false;
         Settle();
-        Assert.Equal(narrow, combo.Bounds.Width, 1);
+
+        main.FlightPlanLoad.SetState(ConnectionState.Disconnected);
+        await WaitForWidth(window, narrowWindow);
+        Assert.Equal(closed, combo.Bounds.Width, 1);
 
         // expanding and collapsing again, with the list open and the plan loaded
         combo.IsDropDownOpen = true;
