@@ -37,7 +37,10 @@
           </Button>
           <Button Grid.Column="1" Classes="transport" Classes.on="{Binding IsPlaying}"
                   Command="{Binding TogglePlayCommand}" ToolTip.Tip="{Binding Hints.PlayTip}" AutomationProperties.Name="{l:T 'Play'}">
-            <c:Icon Source="{DynamicResource IconPlay}" Width="12" Height="12" />
+            <Panel>
+              <c:Icon Source="{DynamicResource IconPlay}" Width="12" Height="12" IsVisible="{Binding !IsPlaying}" />
+              <c:Icon Source="{DynamicResource IconPause}" Width="12" Height="12" IsVisible="{Binding IsPlaying}" />
+            </Panel>
           </Button>
           <Button Grid.Column="2" Classes="transport" Command="{Binding StopCommand}" ToolTip.Tip="{Binding Hints.StopTip}" AutomationProperties.Name="{l:T 'Stop'}">
             <c:Icon Source="{DynamicResource IconStop}" Width="11" Height="11" />
