@@ -79,7 +79,7 @@
     <value>Aufzunehmende Flugzeuge</value>
   </data>
   <data name="Aircraft tracked" xml:space="preserve">
-    <value>Verfolgte Flugzeuge</value>
+    <value>Flugzeuge</value>
   </data>
   <data name="Allow Cockpit Entry" xml:space="preserve">
     <value>Cockpit betreten</value>
@@ -541,7 +541,7 @@
     <value>Modelle mit zugewiesenen nicht standardmäßigen Variablendateien.</value>
   </data>
   <data name="Monitor" xml:space="preserve">
-    <value>Monitor</value>
+    <value>Protokoll</value>
   </data>
   <data name="Name" xml:space="preserve">
     <value>Name</value>
