@@ -294,8 +294,8 @@
   <data name="Expand or collapse" xml:space="preserve">
     <value>Uitvouwen of samenvouwen</value>
   </data>
-  <data name="Expand/collapse" xml:space="preserve">
-    <value>Uitvouwen/samenvouwen</value>
+  <data name="Expand/collapse (Alt+Enter)" xml:space="preserve">
+    <value>Uitvouwen/samenvouwen (Alt+Enter)</value>
   </data>
   <data name="Explain Match: {0}" xml:space="preserve">
     <value>Overeenkomst uitleggen: {0}</value>

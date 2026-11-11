@@ -294,8 +294,8 @@
   <data name="Expand or collapse" xml:space="preserve">
     <value>Espandi o comprimi</value>
   </data>
-  <data name="Expand/collapse" xml:space="preserve">
-    <value>Espandi/comprimi</value>
+  <data name="Expand/collapse (Alt+Enter)" xml:space="preserve">
+    <value>Espandi/comprimi (Alt+Enter)</value>
   </data>
   <data name="Explain Match: {0}" xml:space="preserve">
     <value>Spiega corrispondenza: {0}</value>

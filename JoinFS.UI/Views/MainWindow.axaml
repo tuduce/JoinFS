@@ -62,7 +62,7 @@
                          Stroke="{DynamicResource SurfaceBrush}" StrokeThickness="1.5" />
               </Panel>
             </Button>
-            <Button Classes="ghost" Command="{Binding ToggleExpandCommand}" ToolTip.Tip="{l:T 'Expand/collapse'}" AutomationProperties.Name="{l:T 'Expand or collapse'}">
+            <Button Classes="ghost" Command="{Binding ToggleExpandCommand}" ToolTip.Tip="{l:T 'Expand/collapse (Alt+Enter)'}" AutomationProperties.Name="{l:T 'Expand or collapse'}">
               <c:Icon Source="{DynamicResource IconExpand}" Width="14" Height="14" />
             </Button>
             <Button Classes="ghost" Click="OnMinimizeClick" ToolTip.Tip="{l:T 'Minimize'}" AutomationProperties.Name="{l:T 'Minimize'}">
