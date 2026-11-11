@@ -28,6 +28,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         _resizeTimer.Tick += (_, _) => StepResize();
         Opened += OnOpened;
+        InstallSnapLayouts();
 
         // Tunnel, so it runs before the focused control: a Button turns any Enter, Alt+Enter included, into a click and would swallow it.
         AddHandler(KeyDownEvent, OnAltEnter, RoutingStrategies.Tunnel);
