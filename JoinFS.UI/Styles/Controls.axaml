@@ -172,6 +172,17 @@
     <Setter Property="Foreground" Value="{DynamicResource ButtonDisabledTextBrush}" />
   </Style>
 
+  <!-- Primary, done: green, for a button whose action is in force (the mesh was created). -->
+  <Style Selector="Button.primary.positive">
+    <Setter Property="Background" Value="{DynamicResource PositiveBrush}" />
+  </Style>
+  <Style Selector="Button.primary.positive:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource PositiveBrush}" />
+  </Style>
+  <Style Selector="Button.primary.positive:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource PositiveBrush}" />
+  </Style>
+
   <!-- Link: a blue text button, used for row actions and "Open ..." links. -->
   <Style Selector="Button.link">
     <Setter Property="Background" Value="Transparent" />

@@ -22,6 +22,9 @@ public interface IShell
     /// <summary>The name of the hub the network is connected to, or null when disconnected or on a mesh of its own.</summary>
     string? JoinedHubName { get; }
 
+    /// <summary>True while the network is connected to a mesh of its own, which <see cref="CreateMeshAsync"/> started.</summary>
+    bool OnOwnMesh { get; }
+
     /// <summary>Disconnects the network from its hub. Nothing else is joined; the user connects again when they want to.</summary>
     Task LeaveAsync();
 

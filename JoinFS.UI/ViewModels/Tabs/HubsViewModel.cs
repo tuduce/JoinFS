@@ -174,6 +174,13 @@ public sealed partial class HubsViewModel : ObservableObject
         MeshCode = _network.MeshCode;
     }
 
+    /// <summary>True while the network is connected to the mesh created here: the Create button then says so.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CreateLabel))]
+    private bool _onOwnMesh;
+
+    public string CreateLabel => Loc.T(OnOwnMesh ? "Mesh created" : "Create");
+
     [RelayCommand]
     private async Task CreateMeshAsync()
     {
@@ -201,6 +208,7 @@ public sealed partial class HubsViewModel : ObservableObject
     /// <summary>Marks the row of the hub the network is connected to, so its Join link reads Leave.</summary>
     public void SyncJoined()
     {
+        OnOwnMesh = _shell.OnOwnMesh;
         string? joined = _shell.JoinedHubName;
         foreach (HubRowViewModel row in _rowsById.Values)
             row.IsJoined = joined is not null && string.Equals(row.Name, joined, StringComparison.OrdinalIgnoreCase);

@@ -79,7 +79,7 @@
                   BorderThickness="1" CornerRadius="8" Padding="16,8">
             <TextBlock Text="{Binding MeshCode}" Classes="mono" FontSize="16" FontWeight="SemiBold" LetterSpacing="1" />
           </Border>
-          <Button Classes="primary" Command="{Binding CreateMeshCommand}" Content="{l:T 'Create'}" VerticalAlignment="Center" />
+          <Button Classes="primary" Classes.positive="{Binding OnOwnMesh}" Command="{Binding CreateMeshCommand}" Content="{Binding CreateLabel}" VerticalAlignment="Center" />
         </StackPanel>
       </Border>
     </StackPanel>

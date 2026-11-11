@@ -234,6 +234,12 @@
   <data name="Create Your Own Mesh" xml:space="preserve">
     <value>Создать собственную сеть</value>
   </data>
+  <data name="Own mesh" xml:space="preserve">
+    <value>Собственная сеть</value>
+  </data>
+  <data name="Mesh created" xml:space="preserve">
+    <value>Сеть создана</value>
+  </data>
   <data name="cruise" xml:space="preserve">
     <value>крейсерская</value>
   </data>

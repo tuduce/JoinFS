@@ -234,6 +234,12 @@
   <data name="Create Your Own Mesh" xml:space="preserve">
     <value>Créer votre propre maillage</value>
   </data>
+  <data name="Own mesh" xml:space="preserve">
+    <value>Maillage propre</value>
+  </data>
+  <data name="Mesh created" xml:space="preserve">
+    <value>Maillage créé</value>
+  </data>
   <data name="cruise" xml:space="preserve">
     <value>croisière</value>
   </data>

@@ -595,6 +595,8 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     // True from the moment a mesh of our own was asked for until a hub is joined again: the picker's hub is not what is connected then.
     private bool _onOwnMesh;
 
+    public bool OnOwnMesh => Network.IsConnected && _onOwnMesh;
+
     public string? JoinedHubName =>
         Network.IsConnected && !_onOwnMesh ? AddressBook.TransientLabel ?? AddressBook.Selected?.Name : null;
 
@@ -611,8 +613,8 @@ public sealed partial class MainViewModel : ObservableObject, IShell
             return null;
 
         _onOwnMesh = true;
-        // A mesh of your own is not a hub of the directory: the picker goes back to its pick.
-        ClearJoinedHubLabel();
+        // A mesh of your own is not a hub of the directory: the picker says so, in place of a hub's name, until the network leaves it.
+        ShowJoinedHubLabel(Loc.T("Own mesh"));
 
         string? code = null;
         _networkAction = async ct => code = await _services.Network.CreateMeshAsync(ct);

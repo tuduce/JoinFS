@@ -119,13 +119,34 @@ public class JoinedHubLabelTests
     }
 
     [Fact]
-    public async Task Creating_a_mesh_is_not_joining_a_hub_so_the_label_goes()
+    public async Task Creating_a_mesh_replaces_the_hubs_name_with_Own_mesh()
     {
         Rig rig = new();
         await NotInTheBook(rig).JoinCommand.ExecuteAsync(null);
 
         await rig.Main.CreateMeshAsync();
+        rig.Main.Poll();
 
+        Assert.Equal("Own mesh", rig.Main.AddressBook.TransientLabel);
+        Assert.Equal("Own mesh", rig.Main.AddressBook.PickerText);
+    }
+
+    [Fact]
+    public async Task The_Create_button_says_the_mesh_is_created_until_the_network_leaves_it()
+    {
+        Rig rig = new();
+        Assert.False(rig.Main.Hubs.OnOwnMesh);
+        Assert.Equal("Create", rig.Main.Hubs.CreateLabel);
+
+        await rig.Main.CreateMeshAsync();
+        rig.Main.Poll();
+        Assert.True(rig.Main.Hubs.OnOwnMesh);
+        Assert.Equal("Mesh created", rig.Main.Hubs.CreateLabel);
+
+        await rig.Main.LeaveAsync();
+        rig.Main.Poll();
+        Assert.False(rig.Main.Hubs.OnOwnMesh);
+        Assert.Equal("Create", rig.Main.Hubs.CreateLabel);
         Assert.Null(rig.Main.AddressBook.TransientLabel);
     }
 

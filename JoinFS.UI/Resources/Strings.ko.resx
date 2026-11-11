@@ -234,6 +234,12 @@
   <data name="Create Your Own Mesh" xml:space="preserve">
     <value>나만의 메시 만들기</value>
   </data>
+  <data name="Own mesh" xml:space="preserve">
+    <value>내 메시</value>
+  </data>
+  <data name="Mesh created" xml:space="preserve">
+    <value>메시 생성됨</value>
+  </data>
   <data name="cruise" xml:space="preserve">
     <value>순항</value>
   </data>

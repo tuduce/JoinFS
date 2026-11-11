@@ -234,6 +234,12 @@
   <data name="Create Your Own Mesh" xml:space="preserve">
     <value>Maak uw eigen mesh</value>
   </data>
+  <data name="Own mesh" xml:space="preserve">
+    <value>Eigen mesh</value>
+  </data>
+  <data name="Mesh created" xml:space="preserve">
+    <value>Mesh gemaakt</value>
+  </data>
   <data name="cruise" xml:space="preserve">
     <value>kruis</value>
   </data>
