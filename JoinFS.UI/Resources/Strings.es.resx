@@ -1218,4 +1218,10 @@
   <data name="Use installed CSL packages (linked, not copied):" xml:space="preserve">
     <value>Usar paquetes CSL instalados (enlazados, no copiados):</value>
   </data>
+  <data name="Red: the simulator refused to create this aircraft." xml:space="preserve">
+    <value>Rojo: el simulador se negó a crear esta aeronave.</value>
+  </data>
+  <data name="Orange: more than {0} nm away." xml:space="preserve">
+    <value>Naranja: a más de {0} nm.</value>
+  </data>
 </root>

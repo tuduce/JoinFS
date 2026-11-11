@@ -69,11 +69,20 @@ public sealed partial class AircraftRowViewModel : ObservableObject
         ? $"{(Info.SpeedKnots / 667.0).ToString("N2", CultureInfo.CurrentCulture)} M"
         : $"{Info.SpeedKnots.ToString("N0", CultureInfo.CurrentCulture)} kt";
 
+    /// <summary>Beyond this many nautical miles an aircraft is flagged as far away.</summary>
+    internal const int FarNm = 3000;
+
     /// <summary>Far-away aircraft are flagged in orange.</summary>
-    public bool IsFar => Info.DistanceNm > 3000 && !IsFailed;
+    public bool IsFar => Info.DistanceNm > FarNm && !IsFailed;
 
     /// <summary>The simulator refused the aircraft: its distance is red.</summary>
     public bool IsFailed => Info.Link == AircraftLinkState.Failed;
+
+    internal static string FailedLegend => Loc.T("Red: the simulator refused to create this aircraft.");
+    internal static string FarLegend => Loc.F("Orange: more than {0} nm away.", FarNm);
+
+    /// <summary>Why the distance has a colour, for its tooltip; null when it has none (no tooltip then).</summary>
+    public string? DistanceTip => IsFailed ? FailedLegend : IsFar ? FarLegend : null;
 
     public string Squawk => Info.Squawk;
     public string Bearing => Info.Bearing is { } b ? $"{b.ToString("D3", CultureInfo.InvariantCulture)}°" : "-";
@@ -89,7 +98,7 @@ public sealed partial class AircraftRowViewModel : ObservableObject
 
     /// <summary>What a screen reader says for the row: the cells with their column names, which only the header shows on screen.</summary>
     public string AutomationName =>
-        $"{Callsign}, {Loc.T("Owner")} {Owner}, {Loc.T("Distance")} {Distance}, {Loc.T("Heading")} {Heading}, {Loc.T("Altitude")} {Altitude}, {GroundSpeed}, {Model}";
+        $"{Callsign}, {Loc.T("Owner")} {Owner}, {Loc.T("Distance")} {Distance}{(DistanceTip is { } tip ? " (" + tip.TrimEnd('.') + ")" : "")}, {Loc.T("Heading")} {Heading}, {Loc.T("Altitude")} {Altitude}, {GroundSpeed}, {Model}";
 
     [ObservableProperty]
     private bool _isExpanded;
@@ -200,6 +209,9 @@ public sealed partial class AircraftViewModel : ObservableObject
     public SortColumn CallsignColumn { get; }
     public SortColumn OwnerColumn { get; }
     public SortColumn DistanceColumn { get; }
+
+    /// <summary>The tooltip of the Distance header: what each colour of the column means.</summary>
+    public string DistanceLegend => AircraftRowViewModel.FailedLegend + Environment.NewLine + AircraftRowViewModel.FarLegend;
     public SortColumn HeadingColumn { get; }
     public SortColumn AltitudeColumn { get; }
     public SortColumn GroundSpeedColumn { get; }

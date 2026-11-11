@@ -1218,4 +1218,10 @@
   <data name="Use installed CSL packages (linked, not copied):" xml:space="preserve">
     <value>설치된 CSL 패키지 사용(복사하지 않고 링크):</value>
   </data>
+  <data name="Red: the simulator refused to create this aircraft." xml:space="preserve">
+    <value>빨간색: 시뮬레이터가 이 항공기의 생성을 거부했습니다.</value>
+  </data>
+  <data name="Orange: more than {0} nm away." xml:space="preserve">
+    <value>주황색: {0} nm보다 멀리 있습니다.</value>
+  </data>
 </root>
