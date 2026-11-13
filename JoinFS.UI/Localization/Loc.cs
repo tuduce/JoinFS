@@ -4,7 +4,7 @@ using System.Resources;
 namespace JoinFS.UI.Localization;
 
 /// <summary>
-/// Looks up the text the UI shows. The English text is the key: <c>Loc.T("Open full view")</c> returns the
+/// Looks up the text the UI shows. The English text is the key: <c>Loc.T("Load flight plan?")</c> returns the
 /// translation in <c>Resources/Strings.&lt;lang&gt;.resx</c>, or the English itself when the language has none, so a missing
 /// translation shows English and never an error. The language is the operating system's, as the old forms' was, unless
 /// <see cref="Culture"/> is set (the <c>--lang</c> switch does).

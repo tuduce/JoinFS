@@ -4,9 +4,6 @@ using System.Collections.Generic;
 using System.Net;
 using System.IO;
 using System.Linq;
-#if !CONSOLE
-using System.Windows.Forms;
-#endif
 using System.Globalization;
 using JoinFS.Properties;
 using System.Runtime.CompilerServices;
@@ -459,35 +456,6 @@ namespace JoinFS
         static void WriteResource(string folder, string fileName, byte[] data)
         {
             File.WriteAllBytes(Path.Combine(folder, fileName), data);
-        }
-
-        /// <summary>
-        /// Install the X-Plane plugin UI
-        /// </summary>
-        public void InstallPluginUI()
-        {
-#if XPLANE
-            // ask to install X-Plane plugin
-            if (MessageBox.Show(Resources.Strings.InstallPlugin, Main.Name, MessageBoxButtons.YesNo) == DialogResult.Yes)
-            {
-                // close simulator
-                main.SimCommand(sim => sim.Close());
-                // use the known folder, only ask when none is valid
-                string folder = FindKnownInstallFolder();
-                if (folder == null)
-                {
-                    // show dialog for installing plugin
-                    XPlaneForm xplaneForm = new XPlaneForm(main, GuessInstallFolder());
-                    // open dialog
-                    if (xplaneForm.ShowDialog() != DialogResult.OK)
-                    {
-                        return;
-                    }
-                    folder = xplaneForm.GetFolder();
-                }
-                InstallPluginAndScan(folder);
-            }
-#endif
         }
 
 #if XPLANE

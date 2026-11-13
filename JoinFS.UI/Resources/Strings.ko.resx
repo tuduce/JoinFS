@@ -168,6 +168,9 @@
   <data name="Circle of activity: {0} nm" xml:space="preserve">
     <value>활동 반경: {0} nm</value>
   </data>
+  <data name="Aircraft and objects from the network are added to your simulator only inside this radius around you." xml:space="preserve">
+    <value>네트워크의 항공기와 오브젝트는 내 주변 이 반경 안에서만 시뮬레이터에 추가됩니다.</value>
+  </data>
   <data name="Clear" xml:space="preserve">
     <value>지우기</value>
   </data>
@@ -234,6 +237,21 @@
   <data name="Create Your Own Mesh" xml:space="preserve">
     <value>나만의 메시 만들기</value>
   </data>
+  <data name="Join a hub" xml:space="preserve">
+    <value>허브 참가</value>
+  </data>
+  <data name="A hub brings pilots together. Pick one and press Connect, or double-click it. JoinFS connects to your simulator, scans its aircraft models and then joins the hub." xml:space="preserve">
+    <value>허브는 조종사들이 모이는 곳입니다. 하나를 선택하고 연결을 누르거나 더블클릭하세요. JoinFS는 시뮬레이터에 연결하고, 항공기 모델을 검색한 다음 허브에 참가합니다.</value>
+  </data>
+  <data name="No online hub found yet. It can take a few seconds. You can also skip this and join one later." xml:space="preserve">
+    <value>아직 온라인 허브를 찾지 못했습니다. 몇 초 걸릴 수 있습니다. 이 단계를 건너뛰고 나중에 참가할 수도 있습니다.</value>
+  </data>
+  <data name="Own mesh" xml:space="preserve">
+    <value>내 메시</value>
+  </data>
+  <data name="Mesh created" xml:space="preserve">
+    <value>메시 생성됨</value>
+  </data>
   <data name="cruise" xml:space="preserve">
     <value>순항</value>
   </data>
@@ -294,8 +312,8 @@
   <data name="Expand or collapse" xml:space="preserve">
     <value>확장 또는 축소</value>
   </data>
-  <data name="Expand/collapse" xml:space="preserve">
-    <value>확장/축소</value>
+  <data name="Expand/collapse (Alt+Enter)" xml:space="preserve">
+    <value>확장/축소 (Alt+Enter)</value>
   </data>
   <data name="Explain Match: {0}" xml:space="preserve">
     <value>일치 설명: {0}</value>
@@ -339,6 +357,9 @@
   <data name="Follow distance: {0} m" xml:space="preserve">
     <value>따라가기 거리: {0} m</value>
   </data>
+  <data name="How far behind another aircraft you are placed when you choose Follow in the Aircraft tab." xml:space="preserve">
+    <value>항공기 탭에서 따라가기를 선택했을 때 다른 항공기 뒤에 배치되는 거리입니다.</value>
+  </data>
   <data name="FPS: {0}" xml:space="preserve">
     <value>FPS: {0}</value>
   </data>
@@ -377,6 +398,12 @@
   </data>
   <data name="Hub" xml:space="preserve">
     <value>허브</value>
+  </data>
+  <data name="Hub, mesh code or address" xml:space="preserve">
+    <value>허브, 메시 코드 또는 주소</value>
+  </data>
+  <data name="To change the hub, disconnect the network first." xml:space="preserve">
+    <value>허브를 변경하려면 먼저 네트워크 연결을 끊으세요.</value>
   </data>
   <data name="Hub Mode (Public)" xml:space="preserve">
     <value>허브 모드(공개)</value>
@@ -446,9 +473,6 @@
   </data>
   <data name="JoinFS did not find your simulator. Please choose its folder." xml:space="preserve">
     <value>JoinFS가 시뮬레이터를 찾지 못했습니다. 시뮬레이터 폴더를 선택해 주세요.</value>
-  </data>
-  <data name="JoinFS found your simulator in this folder. Change it if that is not right." xml:space="preserve">
-    <value>JoinFS가 이 폴더에서 시뮬레이터를 찾았습니다. 맞지 않으면 변경하세요.</value>
   </data>
   <data name="JoinFS reads which aircraft are installed in your simulator, so that it can show the aircraft of other pilots with a model you have. A scan can take a few minutes." xml:space="preserve">
     <value>JoinFS는 시뮬레이터에 설치된 항공기를 읽어, 다른 파일럿의 항공기를 내가 가진 모델로 표시할 수 있게 합니다. 스캔에는 몇 분이 걸릴 수 있습니다.</value>
@@ -582,9 +606,6 @@
   <data name="No models are known yet. Scan for models from Settings, Simulator." xml:space="preserve">
     <value>아직 알려진 모델이 없습니다. 설정, 시뮬레이터에서 모델을 스캔하세요.</value>
   </data>
-  <data name="No simulator folder is set, so there is nothing to scan yet." xml:space="preserve">
-    <value>시뮬레이터 폴더가 설정되지 않아 아직 스캔할 항목이 없습니다.</value>
-  </data>
   <data name="No subfolders found" xml:space="preserve">
     <value>하위 폴더를 찾을 수 없음</value>
   </data>
@@ -630,8 +651,11 @@
   <data name="Online" xml:space="preserve">
     <value>온라인</value>
   </data>
-  <data name="Open full view" xml:space="preserve">
-    <value>전체 보기 열기</value>
+  <data name="Load flight plan?" xml:space="preserve">
+    <value>비행 계획을 불러올까요?</value>
+  </data>
+  <data name="File plan" xml:space="preserve">
+    <value>계획 제출</value>
   </data>
   <data name="Open known-models list" xml:space="preserve">
     <value>알려진 모델 목록 열기</value>
@@ -768,10 +792,7 @@
   <data name="Scan at launch" xml:space="preserve">
     <value>시작 시 스캔</value>
   </data>
-  <data name="Scan for aircraft models?" xml:space="preserve">
-    <value>항공기 모델을 스캔할까요?</value>
-  </data>
-  <data name="Scan for models" xml:space="preserve">
+  <data name="Scan for Models" xml:space="preserve">
     <value>모델 스캔</value>
   </data>
   <data name="Scanning for models..." xml:space="preserve">
@@ -1044,9 +1065,6 @@
   <data name="Yes" xml:space="preserve">
     <value>예</value>
   </data>
-  <data name="Yes, I use SimBrief" xml:space="preserve">
-    <value>예, SimBrief를 사용합니다</value>
-  </data>
   <data name="You can change all of these settings later in the Settings tab." xml:space="preserve">
     <value>이 모든 설정은 나중에 설정 탭에서 변경할 수 있습니다.</value>
   </data>
@@ -1058,9 +1076,6 @@
   </data>
   <data name="Your nickname is how other pilots see you: in the session list, in the chat and as the label above your aircraft in their simulator." xml:space="preserve">
     <value>닉네임은 다른 파일럿에게 보이는 이름입니다. 세션 목록, 채팅, 그리고 상대방 시뮬레이터에서 내 항공기 위의 라벨로 표시됩니다.</value>
-  </data>
-  <data name="Your simulator is not connected yet. The scan starts as soon as it connects." xml:space="preserve">
-    <value>시뮬레이터가 아직 연결되지 않았습니다. 연결되는 즉시 스캔이 시작됩니다.</value>
   </data>
   <data name="Zoom in" xml:space="preserve">
     <value>확대</value>
@@ -1211,5 +1226,11 @@
   </data>
   <data name="Use installed CSL packages (linked, not copied):" xml:space="preserve">
     <value>설치된 CSL 패키지 사용(복사하지 않고 링크):</value>
+  </data>
+  <data name="Red: the simulator refused to create this aircraft." xml:space="preserve">
+    <value>빨간색: 시뮬레이터가 이 항공기의 생성을 거부했습니다.</value>
+  </data>
+  <data name="Orange: more than {0} nm away." xml:space="preserve">
+    <value>주황색: {0} nm보다 멀리 있습니다.</value>
   </data>
 </root>

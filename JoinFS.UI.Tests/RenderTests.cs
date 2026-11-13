@@ -65,6 +65,19 @@ public class RenderTests
         return (window, rig.Main, rig);
     }
 
+    /// <summary>Lets the animated resize run until the window has the width exactly, as the last step sets it: a width still on its way would size the layout a pixel off.</summary>
+    private static async Task WaitForWidth(Window window, double width)
+    {
+        // awaiting hands the thread back to the UI's loop, which runs the timer of the resize
+        for (int tries = 0; Math.Abs(window.Width - width) > 1e-6 && tries < 200; tries++)
+        {
+            Settle();
+            await Task.Delay(10);
+        }
+        Settle();
+        Assert.Equal(width, window.Width, 1);
+    }
+
     private static void Settle()
     {
         Dispatcher.UIThread.RunJobs();
@@ -113,6 +126,51 @@ public class RenderTests
     }
 
     [AvaloniaFact]
+    public async Task The_collapsed_window_shows_a_loaded_flight_plan_with_its_airports_and_widens_for_it_so_the_hub_picker_keeps_its_size()
+    {
+        Problems problems = new();
+        Logger.Sink = problems;
+        var (window, main, _) = Open(expanded: false);
+        CollapsedView view = Find<CollapsedView>(window);
+        AutoCompleteBox combo = view.GetVisualDescendants().OfType<AutoCompleteBox>().First();
+        double closed = combo.Bounds.Width;
+        double narrowWindow = window.Width;
+
+        main.FlightPlan.From = "LSZH";
+        main.FlightPlan.To = "LSGG";
+        main.FlightPlanLoad.SetState(ConnectionState.Connected);
+        await WaitForWidth(window, narrowWindow + 88); // the window grows by the node, animated
+        Snapshot(window, "collapsed-flight-plan");
+
+        ConnectorNode plan = view.GetVisualDescendants().OfType<ConnectorNode>().Last();
+        Assert.True(plan.IsEffectivelyVisible);
+        Assert.Contains(plan.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "LSZH-LSGG");
+        Assert.Equal(closed, combo.Bounds.Width, 1);
+
+        // opening the list changes nothing, and a cleared plan gives the window back
+        combo.IsDropDownOpen = true;
+        Settle();
+        Assert.Equal(closed, combo.Bounds.Width, 1);
+        combo.IsDropDownOpen = false;
+        Settle();
+
+        main.FlightPlanLoad.SetState(ConnectionState.Disconnected);
+        await WaitForWidth(window, narrowWindow);
+        Assert.Equal(closed, combo.Bounds.Width, 1);
+
+        // expanding and collapsing again, with the list open and the plan loaded
+        combo.IsDropDownOpen = true;
+        Settle();
+        main.IsExpanded = true;
+        Settle();
+        main.IsExpanded = false;
+        Settle();
+
+        Assert.Empty(problems.Messages);
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void The_collapsed_window_has_the_same_margin_below_its_last_row_as_at_its_sides()
     {
         var (window, _, _) = Open(expanded: false);
@@ -129,6 +187,28 @@ public class RenderTests
     }
 
     [AvaloniaFact]
+    public void A_click_on_the_flight_plan_bubble_opens_the_full_view_on_the_Flight_Plan_tab_from_both_windows()
+    {
+        var (window, main, _) = Open(expanded: false);
+        main.FlightPlanLoad.SetState(ConnectionState.Connected);
+        Settle();
+
+        // the compact window: its Flight Plan node is the last one
+        ConnectorNode plan = Find<CollapsedView>(window).GetVisualDescendants().OfType<ConnectorNode>().Last();
+        plan.GetVisualDescendants().OfType<Button>().First().Command!.Execute(null);
+        Assert.True(main.IsExpanded);
+        Assert.Equal(TabId.FlightPlan, main.SelectedTab);
+
+        // the full window, from another tab
+        main.GoTo(TabId.Home);
+        Settle();
+        ConnectorNode full = Find<ExpandedView>(window).GetVisualDescendants().OfType<ConnectorNode>().Last();
+        full.GetVisualDescendants().OfType<Button>().First().Command!.Execute(null);
+        Assert.Equal(TabId.FlightPlan, main.SelectedTab);
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void The_onboarding_card_floats_in_the_middle_of_the_expanded_window_on_every_step()
     {
         var (window, main, _) = Open(expanded: false, onboarded: false);
@@ -140,7 +220,7 @@ public class RenderTests
 
         OnboardingViewModel onboarding = (OnboardingViewModel)main.Overlay!;
         onboarding.Nickname = "Maverick";
-        onboarding.UsesSimbrief = true; // the longest SimBrief step
+        onboarding.UsesSimbrief = true; // the longest first screen
         foreach (OnboardingStep step in Enum.GetValues<OnboardingStep>())
         {
             onboarding.Step = step;
@@ -337,7 +417,7 @@ public class RenderTests
 
         (string Name, OverlayViewModel Overlay)[] overlays =
         [
-            ("onboarding", new OnboardingViewModel(main.Profile, rig.Services.ModelScan, rig.Services.XPlaneScan, false, () => false, rig.Platform, () => { })),
+            ("onboarding", new OnboardingViewModel(main.Profile, rig.Services.ModelScan, rig.Services.XPlaneScan, rig.Services.Hubs, false, () => false, rig.Platform, _ => { })),
             ("password", new PasswordPromptViewModel("Aidan's Hub", _ => Task.CompletedTask)),
             ("simbrief", new SimbriefPromptViewModel(_ => Task.CompletedTask)),
             ("substitute", new SubstituteViewModel(new JoinFS.UI.Models.ModelTarget("GC1a Swift (Factory)"), new JoinFS.UI.Models.ModelChoice("GC1a Swift - factory", "Factory"), rig.Services.Models)),
@@ -394,10 +474,9 @@ public class RenderTests
         Settle();
         Snapshot(window, "picker-joined-hub");
 
-        ComboBox picker = window.GetVisualDescendants().OfType<ComboBox>().First(c => c.IsEffectivelyVisible);
-        Assert.Equal("Flight Unlimited Network", picker.PlaceholderText);
-        Assert.Null(picker.SelectedItem);
-        Assert.DoesNotContain(picker.Items.Cast<object>(), i => i is JoinFS.UI.ViewModels.AddressBookRow { Name: "Flight Unlimited Network" });
+        AutoCompleteBox picker = window.GetVisualDescendants().OfType<AutoCompleteBox>().First(c => c.IsEffectivelyVisible);
+        Assert.Equal("Flight Unlimited Network", picker.Text);
+        Assert.DoesNotContain(picker.ItemsSource!.Cast<object>(), i => i is JoinFS.UI.ViewModels.AddressBookRow { Name: "Flight Unlimited Network" });
 
         main.IsExpanded = false;
         Settle();
@@ -420,9 +499,7 @@ public class RenderTests
         OnboardingViewModel onboarding = (OnboardingViewModel)main.Overlay!;
         onboarding.Nickname = "Maverick";
         onboarding.NextCommand.Execute(null);
-        onboarding.NextCommand.Execute(null);
-        onboarding.NextCommand.Execute(null);
-        onboarding.SkipScanCommand.Execute(null);
+        onboarding.SkipCommand.Execute(null);
         Settle();
 
         Assert.False(main.IsOverlayOpen);

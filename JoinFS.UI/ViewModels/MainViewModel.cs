@@ -15,6 +15,7 @@ namespace JoinFS.UI.ViewModels;
 public sealed partial class MainViewModel : ObservableObject, IShell
 {
     private readonly AppServices _services;
+    private readonly TimeProvider _time;
 
     // The next Network connect, set by whoever asks for it (Join, hub row, Create mesh).
     private Func<CancellationToken, Task> _networkAction = _ => Task.CompletedTask;
@@ -23,6 +24,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     public MainViewModel(AppServices services, TimeProvider? time = null)
     {
         _services = services;
+        _time = time ?? TimeProvider.System;
 
         Hints = new ShortcutHints();
         Profile = new ProfileViewModel(services.Settings);
@@ -105,8 +107,8 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         if (!Profile.Onboarded)
         {
             IsExpanded = true;
-            ShowOverlay(new OnboardingViewModel(Profile, services.ModelScan, services.XPlaneScan, services.App.IsXPlaneBuild,
-                () => Simulator.IsConnected, services.Platform, () => IsExpanded = false));
+            ShowOverlay(new OnboardingViewModel(Profile, services.ModelScan, services.XPlaneScan, services.Hubs, services.App.IsXPlaneBuild,
+                () => Simulator.IsConnected, services.Platform, OnOnboarded));
         }
     }
 
@@ -129,7 +131,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     {
         get
         {
-            string?[] lines = [Simulator.Detail, Network.Detail];
+            string?[] lines = [Simulator.Detail, ScanNotice, _status, Network.Detail];
             string text = string.Join(Environment.NewLine, lines.Where(l => l is not null));
             return text.Length == 0 ? null : text;
         }
@@ -137,17 +139,63 @@ public sealed partial class MainViewModel : ObservableObject, IShell
 
     public bool HasNotice => Notice is not null;
 
-    /// <summary>True when the notice is about something that went wrong, false when it only says an attempt is slow.</summary>
+    /// <summary>True when the notice is about something that went wrong, false when it only says an attempt is slow or work is going on.</summary>
     public bool NoticeIsProblem => Simulator.DetailIsProblem || Network.DetailIsProblem;
+
+    // A scan of the models takes many seconds, and the automatic join waits for it, so the notice tells what is going on.
+    // It goes by itself when the scan ends; the dismiss button hides it until then.
+    private bool _scanning;
+    private bool _scanDismissed;
+
+    // What the app said that needs no answer (a scan found 120 models): shown in the strip, and gone after StatusSeconds.
+    private const int StatusSeconds = 5;
+    private string? _status;
+    private DateTimeOffset _statusUntil;
+
+    private void FollowStatus()
+    {
+        if (_services.Messages.TakeStatus() is { Length: > 0 } status)
+        {
+            _status = status;
+            _statusUntil = _time.GetUtcNow().AddSeconds(StatusSeconds);
+            RaiseNoticeChanged();
+        }
+        else if (_status is not null && _time.GetUtcNow() >= _statusUntil)
+        {
+            _status = null;
+            RaiseNoticeChanged();
+        }
+    }
+
+    private string? ScanNotice => _scanning && !_scanDismissed ? Loc.T("Scanning for models...") : null;
+
+    private void FollowScan()
+    {
+        bool scanning = _services.Models.IsScanning;
+        if (scanning == _scanning)
+            return;
+
+        _scanning = scanning;
+        _scanDismissed = false;
+        RaiseNoticeChanged();
+    }
 
     private void OnConnectionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(ConnectionViewModel.Detail))
-        {
-            OnPropertyChanged(nameof(Notice));
-            OnPropertyChanged(nameof(HasNotice));
-            OnPropertyChanged(nameof(NoticeIsProblem));
-        }
+            RaiseNoticeChanged();
+        else if (sender == Network && e.PropertyName is nameof(ConnectionViewModel.IsDisconnected))
+            OnPropertyChanged(nameof(HubPickerTip));
+    }
+
+    /// <summary>Why the hub picker is inactive: the network joined the hub that was picked, so another can only be picked after leaving it.</summary>
+    public string? HubPickerTip => Network.IsDisconnected ? null : Loc.T("To change the hub, disconnect the network first.");
+
+    private void RaiseNoticeChanged()
+    {
+        OnPropertyChanged(nameof(Notice));
+        OnPropertyChanged(nameof(HasNotice));
+        OnPropertyChanged(nameof(NoticeIsProblem));
     }
 
     [RelayCommand]
@@ -155,6 +203,9 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     {
         Simulator.DismissDetail();
         Network.DismissDetail();
+        _scanDismissed = true;
+        _status = null;
+        RaiseNoticeChanged();
     }
 
     public HomeViewModel Home { get; }
@@ -263,6 +314,62 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     }
     private int _polls;
 
+    // ---- after the first-run card
+
+    // The hub the new user picked, to join once the simulator is connected and the models are scanned, as the automatic join of a
+    // later launch does. Null when none is waiting.
+    private AddressBookEntry? _firstHub;
+    private int _firstHubPolls;
+
+    // About two seconds: a scan that was just asked for has begun by then, so "not scanning" means it is done.
+    private const int FirstHubSettlePolls = 8;
+
+    /// <summary>
+    /// The card is done: the window compacts, the SimBrief plan is fetched when there is a username, and the hub picked is remembered as the
+    /// one the strip joins and the next launch joins by itself. The simulator connects and the models scan by themselves (the scan was asked
+    /// for as the card closed), so the hub is joined later, from <see cref="Poll"/>.
+    /// </summary>
+    private void OnOnboarded(HubInfo? hub)
+    {
+        IsExpanded = false;
+
+        if (Profile.HasSimbriefUsername)
+            _ = FlightPlanLoad.ConnectAsync();
+
+        if (hub is null)
+            return;
+
+        // In the address book and picked, so it is what the Network button joins and what a later launch joins on its own.
+        _services.Hubs.SetSaved(hub.Id, true);
+        AddressBook.Reload();
+        if (!AddressBook.Select(hub.Name))
+            return;
+
+        // With the simulator not connected yet the app's own join takes the hub when it connects; only a simulator that is already
+        // connected has passed that moment.
+        if (_services.App.IsXPlaneBuild || Simulator.IsConnected)
+        {
+            _firstHub = new AddressBookEntry(hub.Name, hub.Address, RequiresPassword: hub.Status == HubStatus.Password);
+            _firstHubPolls = 0;
+        }
+    }
+
+    private void JoinFirstHubWhenReady()
+    {
+        if (_firstHub is null || ++_firstHubPolls < FirstHubSettlePolls)
+            return;
+        if (!_services.App.IsXPlaneBuild && !Simulator.IsConnected)
+            return;
+        if (_services.Models.IsScanning)
+            return;
+
+        AddressBookEntry hub = _firstHub;
+        _firstHub = null;
+        // the app's own join may have been quicker
+        if (Network.IsDisconnected)
+            _ = JoinAsync(hub);
+    }
+
     // The live lists are re-read once a second (every fourth poll) and only while they are on screen.
     private const int LiveListEvery = 4;
 
@@ -278,11 +385,14 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Simulator.Sync(_services.Simulator.State);
         Network.Sync(_services.Network.State);
         FlightPlanLoad.Sync(_services.SimBrief.State);
+        FollowScan();
+        FollowStatus();
         ShowPasswordRequest();
         ShowAppMessage();
         OfferPluginInstall();
         AnnounceUpdate();
         FollowJoinedHubLabel();
+        JoinFirstHubWhenReady();
         Hubs.SyncJoined();
         FollowChat();
 
@@ -291,7 +401,10 @@ public sealed partial class MainViewModel : ObservableObject, IShell
             Recorder.Refresh();
 
         if (++_polls % LiveListEvery == 0)
+        {
             RefreshVisibleTab();
+            (Overlay as OnboardingViewModel)?.Refresh();
+        }
     }
 
     /// <summary>
@@ -526,13 +639,17 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     [RelayCommand]
     private void OpenChat() => GoTo(TabId.Chat);
 
+    /// <summary>What a click on the strip's Flight Plan bubble does: open the full view on the Flight Plan tab.</summary>
+    [RelayCommand]
+    private void OpenFlightPlan() => GoTo(TabId.FlightPlan);
+
     [RelayCommand]
     private void OpenAbout() =>
         ShowOverlay(new AboutViewModel(_services.App, _services.Updates.CheckForUpdate(), _services.Platform));
 
-    /// <summary>What the strip's Network button does while disconnected: join the hub picked in the strip.</summary>
+    /// <summary>What the strip's Network button does while disconnected: join what the picker says, a pick or text typed in it.</summary>
     private Task JoinSelectedAsync() =>
-        AddressBook.EffectiveSelection is { } selected ? JoinAsync(selected.Entry) : Task.CompletedTask;
+        AddressBook.JoinTarget is { } target ? JoinAsync(target) : Task.CompletedTask;
 
     // --- IShell ---
 
@@ -566,6 +683,8 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     // True from the moment a mesh of our own was asked for until a hub is joined again: the picker's hub is not what is connected then.
     private bool _onOwnMesh;
 
+    public bool OnOwnMesh => Network.IsConnected && _onOwnMesh;
+
     public string? JoinedHubName =>
         Network.IsConnected && !_onOwnMesh ? AddressBook.TransientLabel ?? AddressBook.Selected?.Name : null;
 
@@ -582,8 +701,8 @@ public sealed partial class MainViewModel : ObservableObject, IShell
             return null;
 
         _onOwnMesh = true;
-        // A mesh of your own is not a hub of the directory: the picker goes back to its pick.
-        ClearJoinedHubLabel();
+        // A mesh of your own is not a hub of the directory: the picker says so, in place of a hub's name, until the network leaves it.
+        ShowJoinedHubLabel(Loc.T("Own mesh"));
 
         string? code = null;
         _networkAction = async ct => code = await _services.Network.CreateMeshAsync(ct);

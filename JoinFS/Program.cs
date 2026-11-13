@@ -1,14 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-#if !CONSOLE
-using System.Windows.Forms;
-#endif
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using System.IO;
-using System.Drawing;
 using System.Net;
 using System.Configuration;
 using System.Globalization;
@@ -121,13 +117,8 @@ namespace JoinFS
         public bool settingsWhazzupPublic = false;
         public float settingsWhazzupDelay = 1.0f;
         public bool settingsMultiObjects = false;
-        public bool settingsMinimized = false;
         public bool settingsNoGui = false;
 
-        /// <summary>
-        /// Start the Avalonia UI, the default, and not the WinForms forms (-oldui). Builds with NEWUI only; the others always open the forms.
-        /// </summary>
-        public bool settingsNewUi = true;
         /// <summary>
         /// Language of the Avalonia UI (-lang de), instead of the system's
         /// </summary>
@@ -580,11 +571,6 @@ namespace JoinFS
                                 Settings.Default.LowBandwidth = true;
                                 break;
 
-                            case "-minimize":
-                                // minimize
-                                settingsMinimized = true;
-                                break;
-
                             case "-global":
                                 doGlobal = true;
                                 break;
@@ -623,15 +609,6 @@ namespace JoinFS
 
                             case "-nogui":
                                 settingsNoGui = true;
-                                break;
-
-                            case "-newui":
-                                // the default; accepted so that scripts written when it had to be asked for keep working
-                                settingsNewUi = true;
-                                break;
-
-                            case "-oldui":
-                                settingsNewUi = false;
                                 break;
 
                             case "-lang":
@@ -845,12 +822,10 @@ namespace JoinFS
                                 Console.WriteLine("  --whazzup              " + Resources.Strings.Tip_Whazzup);
                                 Console.WriteLine("  --whazzup-public       " + Resources.Strings.Tip_WhazzupGlobal);
                                 Console.WriteLine("  --whazzupdelay <sec>   " + Resources.Strings.Options_WhazzupDelay);
-                                Console.WriteLine("  --minimize             " + Resources.Strings.Options_Minimize);
                                 Console.WriteLine("  --background           " + Resources.Strings.Options_Background);
                                 Console.WriteLine("  --backgrounddelay <ms> Idle delay of the --background shutdown poll (default 100, 0 to spin)");
                                 Console.WriteLine("  --nosim                " + Resources.Strings.Options_NoSim);
                                 Console.WriteLine("  --nogui                " + Resources.Strings.Options_NoGui);
-                                Console.WriteLine("  --oldui                Open the old forms instead of the new user interface");
                                 Console.WriteLine("  --multiobjects         " + Resources.Strings.Tip_MultiObjects);
                                 Console.WriteLine("  --simfolder \"<folder>\" " + Resources.Strings.Options_SimFolder);
                                 Console.WriteLine("  --scan                 " + Resources.Strings.ScanForModels);
@@ -1005,48 +980,25 @@ namespace JoinFS
                 // try to resolve the simulator folder from the simulator's own recorded
                 // install location before ever asking the user - see SimPathDetector
 #if FS2020
-                if (substitution.EnsureFoldersConfigured("Microsoft Flight Simulator 2020", out string fs2020SimName) == false)
-                {
-                    scheduleSimFolderPrompt = true;
-                    pendingSimFolderName = fs2020SimName;
-                }
+                substitution.EnsureFoldersConfigured("Microsoft Flight Simulator 2020", out _);
                 // no eager scan here - the FS2020 addons list isn't loaded until the sim connects
 #elif FS2024
-                if (substitution.EnsureFoldersConfigured("Microsoft Flight Simulator 2024", out string fs2024SimName) == false)
-                {
-                    scheduleSimFolderPrompt = true;
-                    pendingSimFolderName = fs2024SimName;
-                }
+                substitution.EnsureFoldersConfigured("Microsoft Flight Simulator 2024", out _);
                 // no eager scan here - FS2024 community models come from a live SimConnect request
 #elif FSX
                 if (substitution.EnsureFoldersConfigured("Microsoft Flight Simulator X", out string fsxSimName))
                 {
                     substitution.Scan(false, fsxSimName);
                 }
-                else
-                {
-                    scheduleSimFolderPrompt = true;
-                    pendingSimFolderName = fsxSimName;
-                }
 #elif P3D
                 if (substitution.EnsureFoldersConfigured("Prepar3D v5", out string p3dSimName))
                 {
                     substitution.Scan(false, p3dSimName);
                 }
-                else
-                {
-                    scheduleSimFolderPrompt = true;
-                    pendingSimFolderName = p3dSimName;
-                }
 #elif XPLANE
                 if (substitution.EnsureFoldersConfigured("X-Plane", out string xplaneSimName))
                 {
                     substitution.Scan(false, xplaneSimName);
-                }
-                else
-                {
-                    scheduleSimFolderPrompt = true;
-                    pendingSimFolderName = xplaneSimName;
                 }
 #endif
 #endif
@@ -1297,8 +1249,29 @@ namespace JoinFS
         /// </summary>
         public void ScheduleSubstitutionLoad()
         {
+            substitutionLoaded = false;
             scheduleSubstitutionLoad = true;
         }
+
+        /// <summary>
+        /// The substitution load of the current simulator connection has run to its end
+        /// </summary>
+        volatile bool substitutionLoaded = false;
+
+        /// <summary>
+        /// The simulator went away: its models must be loaded again before anything waits on them
+        /// </summary>
+        public void ForgetSubstitutionLoaded()
+        {
+            substitutionLoaded = false;
+        }
+
+        /// <summary>
+        /// The models of the simulator are loaded, scanned (when the scan on connection is set) and matched (any thread).
+        /// Whatever needs the models, like the automatic join of the network, waits for this.
+        /// </summary>
+        public bool ModelsReady => substitutionLoaded && !scheduleSubstitutionLoad && !substitutionLoadRunning
+            && !scheduleSubstitutionMatch && !(substitution?.ScanRunning ?? false);
 
         /// <summary>
         /// Schedule substitution load
@@ -1350,7 +1323,7 @@ namespace JoinFS
 
         /// <summary>
         /// A UI command for the simulator: run <paramref name="command"/> on the sim thread, then
-        /// publish a new snapshot and refresh the windows that show it. Does nothing without a sim.
+        /// publish a new snapshot. Does nothing without a sim.
         /// </summary>
         public void SimCommand(Action<Sim> command)
         {
@@ -1360,11 +1333,6 @@ namespace JoinFS
             {
                 command(target);
                 target.MarkViewDirty();
-#if !SERVER && !CONSOLE
-                // twice: the first may run before the new snapshot is published
-                aircraftForm?.refresher.Schedule(2);
-                objectsForm?.refresher.Schedule(2);
-#endif
             });
         }
 
@@ -1462,13 +1430,15 @@ namespace JoinFS
                             }
                             finally
                             {
+                                // Load() calls Scan() when settingsScan is true, and Scan() calls Match()
+                                // If Scan() was not called, we need to call Match() to load matching data from file
+                                if (!settingsScan)
+                                {
+                                    scheduleSubstitutionMatch = true;
+                                }
+                                // both before the running flag drops, so ModelsReady never sees a gap
+                                substitutionLoaded = true;
                                 substitutionLoadRunning = false;
-                            }
-                            // Load() calls Scan() when settingsScan is true, and Scan() calls Match()
-                            // If Scan() was not called, we need to call Match() to load matching data from file
-                            if (!settingsScan)
-                            {
-                                scheduleSubstitutionMatch = true;
                             }
                         });
                     }
@@ -1608,14 +1578,12 @@ namespace JoinFS
         /// Show UI messages
         /// </summary>
         public volatile string scheduleShowMessage = null;
-        public volatile bool scheduleAskSimConnect = false;
-        public volatile bool scheduleNickname = false;
-        public volatile bool scheduleLogin = false;
-        public volatile bool scheduleFlightPlan = false;
-        public volatile bool scheduleScanForModels = false;
+
+        /// <summary>
+        /// A short line for the status strip that goes by itself (how many models a scan found). Not a message: nothing has to be read or answered.
+        /// </summary>
+        public volatile string scheduleShowStatus = null;
         public volatile bool scheduleAskPlugin = false;
-        public volatile bool scheduleSimFolderPrompt = false;
-        public volatile string pendingSimFolderName = null;
 
         /// <summary>
         /// Show message to the user
@@ -1697,194 +1665,22 @@ namespace JoinFS
 
 #endregion
 
-#region Forms
-
-
-#if !CONSOLE
         /// <summary>
-        /// global font
+        /// The first run with a user interface: X-Plane offers to install its plugin
         /// </summary>
-        public Font dataFont = new("Verdana", 9.0f);
-
-        /// <summary>
-        /// application icon
-        /// </summary>
-        public Icon icon = null;
-
-        /// <summary>
-        /// Forms
-        /// </summary>
-        public MainForm mainForm = null;
-        public HubsForm hubsForm = null;
-        public AddressBookForm addressBookForm = null;
-#if !SERVER
-        public AtcForm atcForm = null;
-        public AircraftForm aircraftForm = null;
-        public ObjectsForm objectsForm = null;
-        public MatchingForm matchingForm = null;
-#endif
-        public SessionForm sessionForm = null;
-        public RecorderForm recorderForm = null;
-        public MonitorForm monitorForm = null;
-        public ShortcutsForm shortcutsForm = null;
-        public OptionsForm optionsForm = null;
-
-        /// <summary>
-        /// Open all forms
-        /// </summary>
-        public void OpenForms()
+        public void HandleFirstRun()
         {
-            try
-            {
-                // load application icon
-                icon = Properties.Resources.App;
-            }
-            catch (Exception ex)
-            {
-                ShowMessage("ERROR - Failed to load application icon - " + ex.Message);
-            }
-
-#if EVAL
-            // show message
-            MessageBox.Show("For evaluation purposes only", Application.ProductName);
-#endif
-
-            // check for first run
             if (Settings.Default.FirstRun)
             {
-                // no longer first run
                 Settings.Default.FirstRun = false;
-
-                // check for no simulator option
+#if XPLANE
                 if (settingsNoSim == false)
                 {
-#if XPLANE
-                    // install plugin
                     scheduleAskPlugin = true;
-#endif
-                    // install SimConnect
-                    // scheduleAskSimConnect = true;
                 }
-            }
-
-            // create forms
-            addressBookForm = new AddressBookForm(this);
-#if !SERVER
-            aircraftForm = new AircraftForm(this);
-            objectsForm = new ObjectsForm(this);
-            atcForm = new AtcForm(this);
-            matchingForm = new MatchingForm(this);
 #endif
-            recorderForm = new RecorderForm(this);
-            sessionForm = new SessionForm(this);
-            monitorForm = new MonitorForm(this);
-            shortcutsForm = new ShortcutsForm(this);
-            optionsForm = new OptionsForm(this);
-#if !NO_HUBS
-            hubsForm = new HubsForm(this);
-#endif
-            mainForm = new MainForm(this);
-
-            mainForm.Show();
-
-#if !NO_HUBS
-            // hide hubs initially
-            if (Settings.Default.HubsFormOpen)
-            {
-                hubsForm.Show();
-            }
-            else
-            {
-                hubsForm.Hide();
-            }
-#endif
-            if (Settings.Default.BookmarksFormOpen)
-            {
-                addressBookForm.Show();
-            }
-            else
-            {
-                addressBookForm.Hide();
-            }
-#if !SERVER
-            if (Settings.Default.AircraftFormOpen)
-            {
-                aircraftForm.Show();
-            }
-            else
-            {
-                aircraftForm.Hide();
-            }
-            if (Settings.Default.ObjectsFormOpen)
-            {
-                objectsForm.Show();
-            }
-            else
-            {
-                objectsForm.Hide();
-            }
-            if (Settings.Default.AtcFormOpen)
-            {
-                atcForm.Show();
-            }
-            else
-            {
-                atcForm.Hide();
-            }
-            if (Settings.Default.MatchingFormOpen)
-            {
-                matchingForm.Show();
-            }
-            else
-            {
-                matchingForm.Hide();
-            }
-#endif
-            if (Settings.Default.RecorderFormOpen)
-            {
-                recorderForm.Show();
-            }
-            else
-            {
-                recorderForm.Hide();
-            }
-            if (Settings.Default.SessionFormOpen)
-            {
-                sessionForm.Show();
-            }
-            else
-            {
-                sessionForm.Hide();
-            }
-            if (Settings.Default.MonitorFormOpen)
-            {
-                monitorForm.Show();
-            }
-            else
-            {
-                monitorForm.Hide();
-            }
-            if (Settings.Default.ShortcutsFormOpen)
-            {
-                shortcutsForm.Show();
-            }
-            else
-            {
-                shortcutsForm.Hide();
-            }
-            if (Settings.Default.OptionsFormOpen)
-            {
-                optionsForm.Show();
-            }
-            else
-            {
-                optionsForm.Hide();
             }
         }
-
-#endif
-
-#endregion
 
         /// <summary>
         /// Already attempted a used password
@@ -1903,10 +1699,6 @@ namespace JoinFS
             attempedUsedPassword = false;
             // send out a request for the end point
             network.ScheduleJoinUser(uuid);
-#if !CONSOLE
-            // update window
-            mainForm ?. RefreshNetwork();
-#endif
         }
 
         /// <summary>
@@ -1921,10 +1713,6 @@ namespace JoinFS
             attempedUsedPassword = false;
             // join session
             network.ScheduleJoin(endPoint, 0);
-#if !CONSOLE
-            // update window
-            mainForm ?. RefreshNetwork();
-#endif
         }
 
         /// <summary>
@@ -1933,14 +1721,6 @@ namespace JoinFS
         /// <param name="addressText"></param>
         public void Join(string addressText)
         {
-#if !CONSOLE
-            // refresh join box
-            if (mainForm != null)
-            {
-                mainForm.refreshJoinCombo = true;
-            }
-#endif
-
             // check for hub mode
             if (settingsHub)
             {
@@ -1969,10 +1749,6 @@ namespace JoinFS
                 network.ScheduleLeave();
                 // schedule join
                 network.ScheduleJoinGlobal();
-#if !CONSOLE
-                // update window
-                mainForm ?. RefreshNetwork();
-#endif
                 // finished
                 return;
             }
@@ -2447,11 +2223,11 @@ namespace JoinFS
             Main main = new();
 
             // log any unhandled exception before the process dies, instead of silently vanishing with
-            // no trace at all - confirmed no handler existed before this. Covers three distinct ways an
-            // exception can otherwise go unlogged: a genuinely fatal unhandled exception on any thread,
-            // one escaping WinForms' UI message loop, and one from a fire-and-forget Task.Run that's
-            // never awaited/observed (which, unlike the other two, doesn't even crash the process by
-            // default - it just silently disappears).
+            // no trace at all - confirmed no handler existed before this. Covers two distinct ways an
+            // exception can otherwise go unlogged: a genuinely fatal unhandled exception on any thread, and
+            // one from a fire-and-forget Task.Run that's never awaited/observed (which, unlike the first,
+            // doesn't even crash the process by default - it just silently disappears). The UI thread's
+            // are logged by UiHost.
             AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
             {
                 main.MonitorEvent("FATAL unhandled exception (terminating=" + e.IsTerminating + "): " + (e.ExceptionObject as Exception)?.ToString());
@@ -2461,12 +2237,6 @@ namespace JoinFS
                 main.MonitorEvent("Unobserved background task exception: " + e.Exception);
                 e.SetObserved();
             };
-#if !CONSOLE
-            Application.ThreadException += (sender, e) =>
-            {
-                main.MonitorEvent("Unhandled UI thread exception: " + e.Exception);
-            };
-#endif
 
             // check for gui
             if (main.settingsNoGui)
@@ -2504,25 +2274,12 @@ namespace JoinFS
 #endif
                 }
             }
-#if NEWUI
-            else if (main.settingsNewUi && main.shutdown == null)
-            {
-                // launch the new gui, on this thread, in place of the forms. Until every service is wired
-                // (see Live/), the ones that are not run on JoinFS.UI's fakes.
-                JoinFS.Live.NewUiLauncher.Run(main);
-            }
-#endif
 #if !CONSOLE
             else if (main.shutdown == null)
             {
-                // launch gui
-                Application.EnableVisualStyles();
-#if NET6_0_OR_GREATER
-                // Application.SetHighDpiMode(HighDpiMode.SystemAware);
-#endif
-                Application.SetCompatibleTextRenderingDefault(false);
-                main.OpenForms();
-                Application.Run(main.mainForm);
+                main.HandleFirstRun();
+                // the user interface, on this thread; returns when its window is closed
+                JoinFS.Live.NewUiLauncher.Run(main);
             }
 #endif
 

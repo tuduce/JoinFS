@@ -8,7 +8,7 @@ namespace JoinFS.Live
 {
     /// <summary>
     /// The keyboard shortcuts, kept in the same Settings.Default as the old Shortcuts window, so the old and new UI see each other's
-    /// choices. The keys are asked of the system with <see cref="Shortcut"/>, as MainForm does, so they work while the simulator has the focus.
+    /// choices. The keys are asked of the system with <see cref="Shortcut"/>, so they work while the simulator has the focus.
     /// </summary>
     class LiveShortcutSource : IShortcutSource
     {

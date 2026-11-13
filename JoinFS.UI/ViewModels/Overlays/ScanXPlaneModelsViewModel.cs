@@ -67,7 +67,7 @@ public sealed partial class ScanXPlaneModelsViewModel : OverlayViewModel
         SelectedInstall = FindInstall(_xplaneFolder);
     }
 
-    public override string Title => Loc.T("Scan for models");
+    public override string Title => Loc.T("Scan for Models");
 
     [ObservableProperty]
     private string _xplaneFolder;

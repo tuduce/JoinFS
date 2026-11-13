@@ -135,11 +135,6 @@ namespace JoinFS
             // load models for this version
             main.ScheduleSubstitutionLoad();
             main.ScheduleHeightAdjustmentLoad();
-            // refresh
-#if !SERVER && !CONSOLE
-            main.aircraftForm ?. refresher.Schedule(3);
-            main.objectsForm ?. refresher.Schedule(3);
-#endif
 
             // reset variable manager
             main.variableMgr.Reset();

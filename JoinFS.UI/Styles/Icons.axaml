@@ -40,6 +40,7 @@
   <c:IconData x:Key="IconSave" StrokeWidth="1.3"
               Stroke="M4 3H14A1 1 0 0 1 15 4V14A1 1 0 0 1 14 15H4A1 1 0 0 1 3 14V4A1 1 0 0 1 4 3ZM5.5 10H12.5V14H5.5Z" Fill="M6 3H12V7H6Z" />
   <c:IconData x:Key="IconPlay" Fill="M4 2L16 9L4 16Z" />
+  <c:IconData x:Key="IconPause" Fill="M4 2H7.5V16H4ZM10.5 2H14V16H10.5Z" />
   <c:IconData x:Key="IconStop" Fill="M3 3H15V15H3Z" />
   <c:IconData x:Key="IconOverdub" StrokeWidth="1.4" Stroke="M7.3 11.5A4.2 4.2 0 1 0 15.7 11.5A4.2 4.2 0 1 0 7.3 11.5Z"
               Fill="M2.8 7A4.2 4.2 0 1 0 11.2 7A4.2 4.2 0 1 0 2.8 7Z" />

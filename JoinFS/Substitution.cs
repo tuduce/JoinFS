@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-#if !CONSOLE
-using System.Windows.Forms;
-#endif
 using System.IO;
 using System.Globalization;
 using System.Linq;
@@ -891,7 +888,7 @@ namespace JoinFS
         ///
         /// Returns a resolution note alongside the resolved type, formatted "&lt;Reason&gt;:&lt;declaredValue&gt;"
         /// (empty when the declared value needed no correction) so callers can explain what happened and
-        /// why - see LearnIcaoFromLiveObject/Model.icaoResolutionNote and MatchExplainForm's use of it. The
+        /// why - see LearnIcaoFromLiveObject/Model.icaoResolutionNote and Explain Match's use of it. The
         /// reason gets a "Blank" suffix when icao_type_designator wasn't merely wrong but entirely absent -
         /// there's nothing invalid to report in that case, just nothing declared, so the wording differs.
         /// </summary>
@@ -1331,10 +1328,6 @@ namespace JoinFS
                 // in-one-aircraft.cfg packages that never had a livery.cfg at all (still very common
                 // among freeware/community add-ons). Fall back to a lazily-built title->folder index
                 // instead of giving up, since the real aircraft.cfg is still on disk somewhere.
-                if (LogOnce(liveryFolderDiagLogged, "<blank:" + modelTitle + ">"))
-                {
-                    main.MonitorEvent("DIAG: LIVERY FOLDER was blank/not reported by SimConnect for model '" + modelTitle + "' - trying the title->folder index instead.");
-                }
             }
             else
             {
@@ -1346,15 +1339,7 @@ namespace JoinFS
                 {
                     main.MonitorEvent("Error resolving LIVERY FOLDER '" + liveryFolder + "': " + ex.Message);
                 }
-
-                if (resolvedFolder == null && LogOnce(liveryFolderDiagLogged, liveryFolder))
-                {
-                    main.MonitorEvent("DIAG: could not resolve LIVERY FOLDER '" + liveryFolder + "' to an existing directory (tried as-is, relative to the configured sim folder '" + simFolder + "', and by leaf folder name) - trying the title->folder index instead.");
-                }
-                else if (resolvedFolder != null && LogOnce(liveryFolderDiagLogged, liveryFolder))
-                {
-                    main.MonitorEvent("DIAG: LIVERY FOLDER '" + liveryFolder + "' resolved to '" + resolvedFolder + "'.");
-                }
+                // An unresolved folder is normal: FS2024 streams most liveries, so there is none on disk.
             }
 
             if (resolvedFolder == null)
@@ -1365,10 +1350,6 @@ namespace JoinFS
                 if (titles == null || titles.TryGetValue(modelTitle, out resolvedFolder) == false)
                 {
                     return false;
-                }
-                if (LogOnce(liveryFolderDiagLogged, "<titleindex:" + modelTitle + ">"))
-                {
-                    main.MonitorEvent("DIAG: title->folder index resolved model '" + modelTitle + "' to '" + resolvedFolder + "'.");
                 }
             }
 
@@ -1490,12 +1471,6 @@ namespace JoinFS
                 if (value.Length > 0) yield return value;
             }
         }
-
-        /// <summary>
-        /// Distinct raw LIVERY FOLDER values already logged once (success or failure), so the
-        /// diagnostic doesn't repeat on every single spawn of the same model within a session.
-        /// </summary>
-        readonly HashSet<string> liveryFolderDiagLogged = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Resolve SimConnect's LIVERY FOLDER value to an existing directory. The exact format this
@@ -2032,6 +2007,14 @@ namespace JoinFS
         {
             // Scan() can run on a thread-pool thread, and SimConnect may only be called from the
             // sim thread, so hand the request to it
+#if FS2024
+            // the listing is under way from here on, not only once the sim thread got to the request: ScanRunning
+            // must not show a gap in which whatever waits for the scan (ModelsReady) would go ahead
+            if (main.sim != null)
+            {
+                main.sim.requestModelListInProgress = true;
+            }
+#endif
             main.PostToSim(() => main.sim?.RequestSimulatorModels());
         }
 
@@ -2120,6 +2103,8 @@ namespace JoinFS
         /// </summary>
         public bool Scan(bool interactive, string simulatorNameOverride = null)
         {
+            // counted from before the wait for the lock, so ScanRunning shows a scan that is queued as well as one that runs
+            System.Threading.Interlocked.Increment(ref scansInProgress);
             // one scan at a time; it owns the scan* fields and its working list until it ends
             System.Threading.Monitor.Enter(scanLock);
             try
@@ -2130,6 +2115,7 @@ namespace JoinFS
             {
                 scanWork = null;
                 System.Threading.Monitor.Exit(scanLock);
+                System.Threading.Interlocked.Decrement(ref scansInProgress);
                 // submissions from other threads that arrived during the scan
                 DrainPendingSubmits();
             }
@@ -2190,11 +2176,6 @@ namespace JoinFS
                 // message
                 main.MonitorEvent("Starting model scan...");
                 lastBanExclusionCount = 0;
-
-#if !CONSOLE
-                // busy
-                Cursor.Current = Cursors.WaitCursor;
-#endif
 
                 // check for valid sim folder
                 if (simFolder.Length == 0)
@@ -2768,7 +2749,7 @@ namespace JoinFS
                         // TryReadConfigFromLiveryFolder would otherwise trigger it lazily and stall that
                         // thread instead. This only actually runs off the main/UI thread when Scan() got
                         // here via the auto-on-connect path (main.ScheduleSubstitutionLoad() -> Task.Run,
-                        // Program.cs) - a manual "Scan For Models" (ScanUI() -> Scan(true)) still runs this
+                        // Program.cs) - a manual "Scan For Models" (Scan(true)) still runs this
                         // (and the rest of Scan()'s own file walk, pre-existing behavior) on the UI thread,
                         // same as it already could before this change for a large install.
                         BuildTitleFolderIndexIfNeeded();
@@ -2800,7 +2781,7 @@ namespace JoinFS
                             {
                                 if (models.Count > 0)
                                 {
-                                    main.scheduleShowMessage = Resources.Strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
+                                    main.scheduleShowStatus = Resources.Strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
                                 }
                                 else
                                 {
@@ -2832,10 +2813,6 @@ namespace JoinFS
 
                 }
 
-#if !CONSOLE
-                // no longer busy
-                Cursor.Current = Cursors.Default;
-#endif
                 // finished
                 return true;
             }
@@ -2845,7 +2822,7 @@ namespace JoinFS
         }
 
         /// <summary>Guards against a second manual "Scan For Models" click firing an overlapping
-        /// background Scan() while one triggered by ScanUI() is already in flight.</summary>
+        /// background Scan() while a manual one is already in flight.</summary>
         volatile bool manualScanRunning = false;
 
         /// <summary>
@@ -2889,14 +2866,18 @@ namespace JoinFS
                     // check for models scanned
                     if (models.Count > 0)
                     {
-                        main.scheduleShowMessage = Resources.Strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
+                        string found = Resources.Strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
 #if XPLANE
-                        // X-Plane only loads CSL packages at start-up
+                        // X-Plane only loads CSL packages at start-up: that has to be read, so it stays a message
                         if (main.settingsGenerateCsl)
                         {
-                            main.scheduleShowMessage += Environment.NewLine + Environment.NewLine + Resources.Strings.RestartXPlaneHint;
+                            main.scheduleShowMessage = found + Environment.NewLine + Environment.NewLine + Resources.Strings.RestartXPlaneHint;
                         }
+                        else
 #endif
+                        {
+                            main.scheduleShowStatus = found;
+                        }
                     }
                     else
                     {
@@ -2920,7 +2901,7 @@ namespace JoinFS
         }
 
         /// <summary>
-        /// Remember where to look and scan there (any thread): what ScanUI does with the choices of its dialog, for another way of asking
+        /// Remember where to look and scan there (any thread): with the choices of the scan card
         /// </summary>
         /// <param name="folder">The simulator's folder</param>
         /// <param name="subfolders">The folders under it to scan</param>
@@ -2964,13 +2945,21 @@ namespace JoinFS
         public string[] ScannedAddOns => initialAddOns.Length > 0 ? initialAddOns.Split('|') : [];
         public string[] ScannedAdditionals => initialAdditionals.Length > 0 ? initialAdditionals.Split('|') : [];
 
+        /// <summary>Scans that have entered <see cref="Scan"/> and not left it: the one on connection, a manual one</summary>
+        int scansInProgress;
+
         /// <summary>
-        /// True while a scan started by the user is running, and while FS2024 is still listing its models afterwards
+        /// True while a scan is running, whoever started it (the user, or the scan on connection), and while FS2024 is still
+        /// listing its models afterwards
         /// </summary>
         public bool ScanRunning
         {
             get
             {
+                if (System.Threading.Volatile.Read(ref scansInProgress) > 0)
+                {
+                    return true;
+                }
 #if FS2024
                 if (main.sim != null && main.sim.requestModelListInProgress)
                 {
@@ -2979,128 +2968,6 @@ namespace JoinFS
 #endif
                 return manualScanRunning;
             }
-        }
-
-        /// <summary>
-        /// Scan simulator folders for models
-        /// </summary>
-        public bool ScanUI()
-        {
-#if !SERVER && !CONSOLE
-
-#if XPLANE
-            if (main.sim != null)
-            {
-                // show dialog for choosing match model
-                ScanForm_XPLANE scanForm = new ScanForm_XPLANE(main, simFolder, initialScanFolders);
-#elif SIMCONNECT
-            // check if simulator is not connected
-            if (main.sim != null && main.sim.Connected)
-            {
-                // show dialog for choosing match model
-                ScanForm scanForm = new(main, simFolder, initialScanFolders, initialAddOns, initialAdditionals);
-#endif
-
-                // open dialog
-                switch (scanForm.ShowDialog())
-                {
-                    case System.Windows.Forms.DialogResult.OK:
-                        {
-                            // get simfolder
-                            simFolder = CleanSimFolder(scanForm.GetFolder());
-
-                            // saved scan folders
-                            initialScanFolders = "";
-                            initialAddOns = "";
-                            initialAdditionals = "";
-
-                            // for each scan folder
-                            foreach (string folder in scanForm.scanFolders)
-                            {
-#if XPLANE
-                                // every folder ticked is saved as "all" (empty), so aircraft folders
-                                // installed later are scanned without a visit to this dialog
-                                if (scanForm.AllFoldersSelected())
-                                {
-                                    break;
-                                }
-#endif
-                                // check if folder exists
-                                if (scanForm.folderList.Contains(folder))
-                                {
-                                    // if not first folder
-                                    if (initialScanFolders.Length > 0)
-                                    {
-                                        // add seperator
-                                        initialScanFolders += '|';
-                                    }
-                                    // add folder
-                                    initialScanFolders += folder;
-                                }
-                            }
-
-#if !XPLANE
-                            // for each addon
-                            for (int index = 0; index < scanForm.addOns.Count && index < scanForm.addOnsSelected.Length; index++)
-                            {
-                                // check if add is selected
-                                if (scanForm.addOnsSelected[index])
-                                {
-                                    // if not first addon
-                                    if (initialAddOns.Length > 0)
-                                    {
-                                        // add seperator
-                                        initialAddOns += '|';
-                                    }
-                                    // add addon
-                                    initialAddOns += scanForm.addOns[index];
-                                }
-                            }
-
-                            // for each additional folder
-                            foreach (var folder in scanForm.GetAdditionals())
-                            {
-                                // check for folder
-                                if (folder.Length > 0)
-                                {
-                                    // if not first folder
-                                    if (initialAdditionals.Length > 0)
-                                    {
-                                        // add seperator
-                                        initialAdditionals += '|';
-                                    }
-                                    // add folder to list
-                                    initialAdditionals += folder;
-                                }
-                            }
-#endif
-
-                            // save folders
-                            SaveFolders();
-
-#if XPLANE
-                            // warning message
-                            if (Settings.Default.GenerateCsl == false || MessageBox.Show(Resources.Strings.GenerateCslWarning, Main.Name, MessageBoxButtons.OKCancel) == DialogResult.OK)
-#else
-                            if (true)
-#endif
-                            {
-                                StartScanOrAskPlugin();
-                            }
-                        }
-                        break;
-                }
-
-                return true;
-            }
-            else
-            {
-                // no simulator connected
-                main.ShowMessage(Resources.Strings.ScanWarning);
-            }
-
-#endif // !SERVER
-            return false;
         }
 
         /// <summary>
@@ -3516,11 +3383,6 @@ namespace JoinFS
                 main.MonitorEvent("Unable to load substitutions because a simulator is not connected.");
             }
 
-            // refresh
-#if !SERVER && !CONSOLE
-            main.matchingForm ?. refresher.Schedule();
-            main.aircraftForm ?. refresher.Schedule(3);
-#endif
 
             // choose defaults
             ChooseDefaults();
@@ -3571,10 +3433,6 @@ namespace JoinFS
                 main.MonitorEvent("Unable to save substitutions because a simulator is not connected.");
             }
 
-#if !SERVER && !CONSOLE
-            // refresh
-            main.matchingForm ?. refresher.Schedule();
-#endif
         }
 
         /// <summary>
@@ -3652,10 +3510,6 @@ namespace JoinFS
                 main.MonitorEvent("Unable to load model masquerading because a simulator is not connected.");
             }
 
-#if !SERVER && !CONSOLE
-            // refresh
-            main.aircraftForm ?. refresher.Schedule(3);
-#endif
         }
 
         /// <summary>
@@ -3773,7 +3627,7 @@ namespace JoinFS
             string foldersFile = Path.Combine(main.storagePath, "folders - " + resolvedSimulatorName + ".txt");
             // check if already configured with a real folder (whether from a previous run,
             // or manually) - a file can exist but still have a blank first line, e.g. from an
-            // earlier ScanForm session the user opened and left empty, or an older version
+            // earlier scan the user opened and left empty, or an older version
             // that created the file before a folder was ever chosen. Treat that the same as
             // "not configured" so detection still gets a chance to fill it in.
             if (File.Exists(foldersFile) && FoldersFileHasFolder(foldersFile))
@@ -4152,13 +4006,6 @@ namespace JoinFS
             if (main.sim != null && main.sim.Connected)
 #endif
             {
-                // check for no models
-                if (models.Count == 0)
-                {
-                    // scan for models request
-                    main.scheduleScanForModels = true;
-                }
-
                 // load matching
                 LoadMatches();
                 // load masquerades
@@ -4203,10 +4050,6 @@ namespace JoinFS
             MakeIcaoIndex();
             RebuildTitleIndex();
 
-#if !SERVER && !CONSOLE
-            main.matchingForm ?. refresher.Schedule();
-            main.aircraftForm ?. refresher.Schedule();
-#endif
         }
 
         /// <summary>
@@ -4318,10 +4161,6 @@ namespace JoinFS
                 }
             });
 
-#if !SERVER && !CONSOLE
-            // refresh
-            main.aircraftForm ?. refresher.Schedule();
-#endif
         }
 
         /// <summary>
@@ -4453,134 +4292,6 @@ namespace JoinFS
                 }
             }
             return found;
-        }
-
-        /// <summary>
-        /// Edit an existing match
-        /// </summary>
-        /// <param name="modelTitle"></param>
-        /// <param name="typerole"></param>
-        /// <returns></returns>
-#if FS2024
-        public bool EditMatch(string modelTitle, string modelVariation, int typerole)
-#else
-        public bool EditMatch(string modelTitle, int typerole)
-#endif
-        {
-#if !SERVER && !CONSOLE
-            // check for some models
-            if (models.Count > 0)
-            {
-                try
-                {
-                    // show dialog for choosing match model
-#if FS2024
-                    SubstitutionForm substitutionForm = new(main, modelTitle, modelVariation, typerole);
-#else
-                    SubstitutionForm substitutionForm = new SubstitutionForm(main, modelTitle, typerole);
-#endif
-                    switch (substitutionForm.ShowDialog())
-                    {
-                        case System.Windows.Forms.DialogResult.OK:
-                            lock (writeLock)
-                            {
-                                // find replace with model
-#if FS2024
-                                Model model = GetModel(substitutionForm.GetWithModel(), substitutionForm.GetWithVariation());
-#else
-                                Model model = GetModel(substitutionForm.GetWithModel());
-#endif
-                                if (model != null)
-                                {
-                                    SetMatch(substitutionForm.GetReplaceModel(), model);
-                                    // refresh
-                                    main.aircraftForm ?. refresher.Schedule(2);
-                                }
-                            }
-                            return true;
-
-                        case System.Windows.Forms.DialogResult.No:
-                            ClearMatch(modelTitle);
-                            // refresh
-                            main.aircraftForm ?. refresher.Schedule(2);
-                            return true;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    main.ShowMessage(ex.Message);
-                }
-
-                return false;
-            }
-            else
-            {
-                MessageBox.Show(Resources.Strings.MatchingForm_EmptyModelList, Main.Name + ": Model Matching");
-            }
-#endif
-                                return false;
-        }
-
-        /// <summary>
-        /// Edit an existing masquerade
-        /// </summary>
-        /// <param name="modelTitle"></param>
-        /// <param name="typerole"></param>
-        /// <returns></returns>
-#if FS2024
-        public bool EditMasquerade(string modelTitle, string modelVariation, int typerole)
-#else
-        public bool EditMasquerade(string modelTitle, int typerole)
-#endif
-        {
-#if !SERVER && !CONSOLE
-            // check for some models
-            if (models.Count > 0)
-            {
-                try
-                {
-                    // show dialog for choosing match model
-#if FS2024
-                    SubstitutionForm substitutionForm = new(main, modelTitle, modelVariation, typerole);
-#else
-                    SubstitutionForm substitutionForm = new SubstitutionForm(main, modelTitle, typerole);
-#endif
-                    switch (substitutionForm.ShowDialog())
-                    {
-                        case System.Windows.Forms.DialogResult.OK:
-                            lock (writeLock)
-                            {
-                                // find replace with model
-#if FS2024
-                                Model model = GetModel(substitutionForm.GetWithModel(), substitutionForm.GetWithVariation());
-#else
-                                Model model = GetModel(substitutionForm.GetWithModel());
-#endif
-                                if (model != null)
-                                {
-                                    SetMasquerade(modelTitle, model);
-                                }
-                            }
-                            return true;
-
-                        case System.Windows.Forms.DialogResult.No:
-                            ClearMasquerade(modelTitle);
-                            return true;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    main.ShowMessage(ex.Message);
-                }
-
-                return false;
-            }
-            else
-            {
-                MessageBox.Show(Resources.Strings.MatchingForm_EmptyModelList, Main.Name + ": Model Masquerading");
-            }
-#endif
-                                return false;
         }
 
         /// <summary>

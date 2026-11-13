@@ -19,7 +19,7 @@
           <Grid ColumnDefinitions="110,110,90,80,80,60,*">
             <Button Grid.Column="0" Classes="th" Command="{Binding CallsignColumn.SortCommand}" Content="{Binding CallsignColumn.Header}" />
             <Button Grid.Column="1" Classes="th" Command="{Binding OwnerColumn.SortCommand}" Content="{Binding OwnerColumn.Header}" />
-            <Button Grid.Column="2" Classes="th" Command="{Binding DistanceColumn.SortCommand}" Content="{Binding DistanceColumn.Header}" />
+            <Button Grid.Column="2" Classes="th" Command="{Binding DistanceColumn.SortCommand}" Content="{Binding DistanceColumn.Header}" ToolTip.Tip="{Binding DistanceLegend}" />
             <Button Grid.Column="3" Classes="th" Command="{Binding HeadingColumn.SortCommand}" Content="{Binding HeadingColumn.Header}" />
             <Button Grid.Column="4" Classes="th" Command="{Binding AltitudeColumn.SortCommand}" Content="{Binding AltitudeColumn.Header}" />
             <Button Grid.Column="5" Classes="th" Command="{Binding GroundSpeedColumn.SortCommand}" Content="{Binding GroundSpeedColumn.Header}" />
@@ -40,7 +40,7 @@
                         <c:Icon Classes="chevron" Classes.open="{Binding IsExpanded}" Source="{DynamicResource IconChevron}" HorizontalAlignment="Left" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="1" Text="{Binding Callsign}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Grid.Column="2" Text="{Binding Owner}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="3" Text="{Binding Distance}" Classes.far="{Binding IsFar}" Classes.failed="{Binding IsFailed}" />
+                        <TextBlock Grid.Column="3" Text="{Binding Distance}" ToolTip.Tip="{Binding DistanceTip}" Classes.far="{Binding IsFar}" Classes.failed="{Binding IsFailed}" />
                         <TextBlock Grid.Column="4" Text="{Binding Heading}" />
                         <TextBlock Grid.Column="5" Text="{Binding Altitude}" />
                         <TextBlock Grid.Column="6" Text="{Binding GroundSpeed}" TextTrimming="CharacterEllipsis" />

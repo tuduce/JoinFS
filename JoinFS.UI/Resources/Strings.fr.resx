@@ -168,6 +168,9 @@
   <data name="Circle of activity: {0} nm" xml:space="preserve">
     <value>Cercle d'activité : {0} nm</value>
   </data>
+  <data name="Aircraft and objects from the network are added to your simulator only inside this radius around you." xml:space="preserve">
+    <value>Les appareils et objets du réseau ne sont ajoutés à votre simulateur que dans ce rayon autour de vous.</value>
+  </data>
   <data name="Clear" xml:space="preserve">
     <value>Effacer</value>
   </data>
@@ -234,6 +237,21 @@
   <data name="Create Your Own Mesh" xml:space="preserve">
     <value>Créer votre propre maillage</value>
   </data>
+  <data name="Join a hub" xml:space="preserve">
+    <value>Rejoindre un hub</value>
+  </data>
+  <data name="A hub brings pilots together. Pick one and press Connect, or double-click it. JoinFS connects to your simulator, scans its aircraft models and then joins the hub." xml:space="preserve">
+    <value>Un hub réunit des pilotes. Choisissez-en un et appuyez sur Connecter, ou double-cliquez dessus. JoinFS se connecte à votre simulateur, analyse ses modèles d'avion puis rejoint le hub.</value>
+  </data>
+  <data name="No online hub found yet. It can take a few seconds. You can also skip this and join one later." xml:space="preserve">
+    <value>Aucun hub en ligne trouvé pour le moment. Cela peut prendre quelques secondes. Vous pouvez aussi passer cette étape et en rejoindre un plus tard.</value>
+  </data>
+  <data name="Own mesh" xml:space="preserve">
+    <value>Maillage propre</value>
+  </data>
+  <data name="Mesh created" xml:space="preserve">
+    <value>Maillage créé</value>
+  </data>
   <data name="cruise" xml:space="preserve">
     <value>croisière</value>
   </data>
@@ -294,8 +312,8 @@
   <data name="Expand or collapse" xml:space="preserve">
     <value>Agrandir ou réduire</value>
   </data>
-  <data name="Expand/collapse" xml:space="preserve">
-    <value>Agrandir/réduire</value>
+  <data name="Expand/collapse (Alt+Enter)" xml:space="preserve">
+    <value>Agrandir/réduire (Alt+Enter)</value>
   </data>
   <data name="Explain Match: {0}" xml:space="preserve">
     <value>Expliquer la correspondance : {0}</value>
@@ -339,6 +357,9 @@
   <data name="Follow distance: {0} m" xml:space="preserve">
     <value>Distance de suivi : {0} m</value>
   </data>
+  <data name="How far behind another aircraft you are placed when you choose Follow in the Aircraft tab." xml:space="preserve">
+    <value>À quelle distance derrière un autre appareil vous êtes placé quand vous choisissez Suivre dans l'onglet Appareil.</value>
+  </data>
   <data name="FPS: {0}" xml:space="preserve">
     <value>FPS : {0}</value>
   </data>
@@ -377,6 +398,12 @@
   </data>
   <data name="Hub" xml:space="preserve">
     <value>Hub</value>
+  </data>
+  <data name="Hub, mesh code or address" xml:space="preserve">
+    <value>Hub, code de maillage ou adresse</value>
+  </data>
+  <data name="To change the hub, disconnect the network first." xml:space="preserve">
+    <value>Pour changer de hub, déconnectez d'abord le réseau.</value>
   </data>
   <data name="Hub Mode (Public)" xml:space="preserve">
     <value>Mode Hub (public)</value>
@@ -446,9 +473,6 @@
   </data>
   <data name="JoinFS did not find your simulator. Please choose its folder." xml:space="preserve">
     <value>JoinFS n'a pas trouvé votre simulateur. Veuillez choisir son dossier.</value>
-  </data>
-  <data name="JoinFS found your simulator in this folder. Change it if that is not right." xml:space="preserve">
-    <value>JoinFS a trouvé votre simulateur dans ce dossier. Modifiez-le si ce n'est pas le bon.</value>
   </data>
   <data name="JoinFS reads which aircraft are installed in your simulator, so that it can show the aircraft of other pilots with a model you have. A scan can take a few minutes." xml:space="preserve">
     <value>JoinFS lit quels avions sont installés dans votre simulateur afin de pouvoir afficher les avions des autres pilotes avec un modèle que vous possédez. Une analyse peut prendre quelques minutes.</value>
@@ -582,9 +606,6 @@
   <data name="No models are known yet. Scan for models from Settings, Simulator." xml:space="preserve">
     <value>Aucun modèle n'est encore connu. Analysez les modèles depuis Réglages, Simulateur.</value>
   </data>
-  <data name="No simulator folder is set, so there is nothing to scan yet." xml:space="preserve">
-    <value>Aucun dossier du simulateur n'est défini, il n'y a donc encore rien à analyser.</value>
-  </data>
   <data name="No subfolders found" xml:space="preserve">
     <value>Aucun sous-dossier trouvé</value>
   </data>
@@ -630,8 +651,11 @@
   <data name="Online" xml:space="preserve">
     <value>En ligne</value>
   </data>
-  <data name="Open full view" xml:space="preserve">
-    <value>Ouvrir la vue complète</value>
+  <data name="Load flight plan?" xml:space="preserve">
+    <value>Charger un plan de vol ?</value>
+  </data>
+  <data name="File plan" xml:space="preserve">
+    <value>Déposer le plan</value>
   </data>
   <data name="Open known-models list" xml:space="preserve">
     <value>Ouvrir la liste des modèles connus</value>
@@ -768,10 +792,7 @@
   <data name="Scan at launch" xml:space="preserve">
     <value>Analyser au démarrage</value>
   </data>
-  <data name="Scan for aircraft models?" xml:space="preserve">
-    <value>Analyser les modèles d'avions ?</value>
-  </data>
-  <data name="Scan for models" xml:space="preserve">
+  <data name="Scan for Models" xml:space="preserve">
     <value>Analyser les modèles</value>
   </data>
   <data name="Scanning for models..." xml:space="preserve">
@@ -1044,9 +1065,6 @@
   <data name="Yes" xml:space="preserve">
     <value>Oui</value>
   </data>
-  <data name="Yes, I use SimBrief" xml:space="preserve">
-    <value>Oui, j'utilise SimBrief</value>
-  </data>
   <data name="You can change all of these settings later in the Settings tab." xml:space="preserve">
     <value>Vous pouvez modifier tous ces réglages plus tard dans l'onglet Réglages.</value>
   </data>
@@ -1058,9 +1076,6 @@
   </data>
   <data name="Your nickname is how other pilots see you: in the session list, in the chat and as the label above your aircraft in their simulator." xml:space="preserve">
     <value>Votre surnom est le nom sous lequel les autres pilotes vous voient : dans la liste de la session, dans le chat et comme étiquette au-dessus de votre avion dans leur simulateur.</value>
-  </data>
-  <data name="Your simulator is not connected yet. The scan starts as soon as it connects." xml:space="preserve">
-    <value>Votre simulateur n'est pas encore connecté. L'analyse démarre dès qu'il se connecte.</value>
   </data>
   <data name="Zoom in" xml:space="preserve">
     <value>Zoom avant</value>
@@ -1211,5 +1226,11 @@
   </data>
   <data name="Use installed CSL packages (linked, not copied):" xml:space="preserve">
     <value>Utiliser les paquets CSL installés (liés, non copiés) :</value>
+  </data>
+  <data name="Red: the simulator refused to create this aircraft." xml:space="preserve">
+    <value>Rouge : le simulateur a refusé de créer cet aéronef.</value>
+  </data>
+  <data name="Orange: more than {0} nm away." xml:space="preserve">
+    <value>Orange : à plus de {0} nm.</value>
   </data>
 </root>

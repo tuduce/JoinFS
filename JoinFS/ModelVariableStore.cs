@@ -6,7 +6,7 @@ namespace JoinFS
 {
     /// <summary>
     /// Per-model list of user-selected variable-set files ("variables.txt"), with a type-role-based
-    /// default list for models that have none. VariablesForm mutates this through Main.SimCommand,
+    /// default list for models that have none. The Variables card mutates this through Main.SimCommand,
     /// which is why AddFiles/RemoveFileAt (not the raw list) are the mutation API - the sim thread is
     /// still the one calling them, this just keeps the "ensure default, then edit, then persist"
     /// sequence in one place instead of at each Forms call site.
@@ -294,7 +294,7 @@ namespace JoinFS
 
         /// <summary>
         /// Add files to a model's set - creating it from the type-role default first if it has none
-        /// yet - and persist. Called from VariablesForm through Main.SimCommand.
+        /// yet - and persist. Called from the Variables card through Main.SimCommand.
         /// </summary>
         public void AddFiles(string title, IEnumerable<string> added)
         {
@@ -309,7 +309,7 @@ namespace JoinFS
 
         /// <summary>
         /// Remove one file from a model's set - creating it from the type-role default first if it
-        /// has none yet - and persist. Called from VariablesForm through Main.SimCommand.
+        /// has none yet - and persist. Called from the Variables card through Main.SimCommand.
         /// </summary>
         public void RemoveFileAt(string title, int index)
         {

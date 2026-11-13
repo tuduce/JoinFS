@@ -129,17 +129,17 @@ public class LocalizationTests
         try
         {
             Loc.Culture = CultureInfo.GetCultureInfo("de");
-            Assert.Equal("Vollansicht öffnen", Loc.T("Open full view"));
+            Assert.Equal("Flugplan laden?", Loc.T("Load flight plan?"));
             Assert.Equal("Version 26.6.0", Loc.F("Version {0}", "26.6.0"));
             Assert.Equal("Aktivitätskreis: 50 nm", Loc.F("Circle of activity: {0} nm", 50));
 
             // a regional variant uses the language's texts
             Loc.Culture = CultureInfo.GetCultureInfo("pt-BR");
-            Assert.Equal("Abrir visualização completa", Loc.T("Open full view"));
+            Assert.Equal("Carregar plano de voo?", Loc.T("Load flight plan?"));
 
             // a language the UI has no texts for shows English
             Loc.Culture = CultureInfo.GetCultureInfo("ja");
-            Assert.Equal("Open full view", Loc.T("Open full view"));
+            Assert.Equal("Load flight plan?", Loc.T("Load flight plan?"));
         }
         finally
         {
@@ -176,9 +176,9 @@ public class LocalizationTests
             string[] texts = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "").ToArray();
             Assert.Contains("Симулятор", texts);
             Assert.Contains("Сеть", texts);
-            Assert.Contains("Открыть полный вид", texts);
+            Assert.Contains("Загрузить план полёта?", texts);
             Assert.Contains("Отключено", texts);
-            Assert.DoesNotContain("Open full view", texts);
+            Assert.DoesNotContain("Load flight plan?", texts);
         }
         finally
         {

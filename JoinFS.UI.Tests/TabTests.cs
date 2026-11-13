@@ -461,6 +461,25 @@ public class AircraftAndObjectsTests
     }
 
     [Fact]
+    public void The_distance_explains_its_colour_in_a_tooltip_and_the_header_lists_both()
+    {
+        AircraftViewModel aircraft = new Rig().Main.Aircraft;
+
+        Assert.Null(aircraft.Rows.Single(r => r.Callsign == "9H-WDR").DistanceTip);
+
+        AircraftRowViewModel far = aircraft.Rows.Single(r => r.Callsign == "ASXGS");
+        Assert.Contains("3", far.DistanceTip);
+        Assert.StartsWith("Orange", far.DistanceTip);
+        Assert.Contains("(" + far.DistanceTip!.TrimEnd('.') + ")", far.AutomationName);
+
+        far.Update(far.Info with { Link = AircraftLinkState.Failed });
+        Assert.StartsWith("Red", far.DistanceTip);
+
+        Assert.Contains("Red", aircraft.DistanceLegend);
+        Assert.Contains("Orange", aircraft.DistanceLegend);
+    }
+
+    [Fact]
     public void Values_that_are_not_known_show_as_a_dash_and_sort_before_the_known_ones()
     {
         AircraftRowViewModel row = new Rig().Main.Aircraft.Rows[0];
@@ -1421,7 +1440,7 @@ public class FlightPlanTests
         Assert.Equal("HBTDXnav", rig.Settings.SimbriefUsername);
         Assert.Equal("LSZH DCT KLO DCT LSGG", plan.Route);
         Assert.Equal("Imported from SimBrief", plan.Remarks);
-        Assert.True(rig.Main.FlightPlanLoad.IsConnected);
+        Assert.True(rig.Main.FlightPlanLoad.IsDisconnected); // shown only, not filed until Save
 
         plan.ImportFromSimbriefCommand.Execute(null);
         Assert.Null(rig.Main.Overlay); // never asked again
@@ -1924,6 +1943,7 @@ public sealed class NullShell : IShell
     public void ShowOverlay(OverlayViewModel overlay) { }
     public Task JoinAsync(AddressBookEntry hub) => Task.CompletedTask;
     public string? JoinedHubName => null;
+    public bool OnOwnMesh => false;
     public Task LeaveAsync() => Task.CompletedTask;
     public Task<string?> CreateMeshAsync() => Task.FromResult<string?>(null);
 }

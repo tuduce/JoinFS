@@ -15,7 +15,6 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'FS2024-Debug' ">
 	  <OutputType>WinExe</OutputType>
 	  <TargetFramework>net8.0-windows</TargetFramework>
-	  <UseWindowsForms>true</UseWindowsForms>
 	<PlatformTarget>x64</PlatformTarget>
     <DefineConstants>DEBUG;TRACE;FS2024;X64;SIMCONNECT</DefineConstants>
     <OutputPath>bin\FS2024-Debug\</OutputPath>
@@ -25,7 +24,6 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'FS2024' ">
 	  <OutputType>WinExe</OutputType>
 	  <TargetFramework>net8.0-windows</TargetFramework>
-	  <UseWindowsForms>true</UseWindowsForms>
 	  <PlatformTarget>x64</PlatformTarget>
     <DefineConstants>TRACE;FS2024;X64;SIMCONNECT</DefineConstants>
     <Optimize>true</Optimize>
@@ -36,7 +34,7 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'FS2020-Debug' ">
 	  <OutputType>WinExe</OutputType>
 	  <TargetFramework>net8.0-windows</TargetFramework>
-	  <UseWindowsForms>true</UseWindowsForms><PlatformTarget>x64</PlatformTarget>
+		  <PlatformTarget>x64</PlatformTarget>
     <DefineConstants>DEBUG;TRACE;FS2020;X64;SIMCONNECT</DefineConstants>
     <OutputPath>bin\FS2020-Debug\</OutputPath>
   </PropertyGroup>
@@ -45,7 +43,6 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'FS2020' ">
 	  <OutputType>WinExe</OutputType>
 	  <TargetFramework>net8.0-windows</TargetFramework>
-	  <UseWindowsForms>true</UseWindowsForms>
 	  <PlatformTarget>x64</PlatformTarget>
     <DefineConstants>TRACE;FS2020;X64;SIMCONNECT</DefineConstants>
     <Optimize>true</Optimize>
@@ -56,7 +53,6 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'FSX-Debug' ">
 	  <OutputType>WinExe</OutputType>
 	  <TargetFramework>net8.0-windows</TargetFramework>
-	  <UseWindowsForms>true</UseWindowsForms>
 	  <PlatformTarget>x86</PlatformTarget>
     <DefineConstants>DEBUG;TRACE;FSX;SIMCONNECT</DefineConstants>
     <OutputPath>bin\FSX-Debug\</OutputPath>
@@ -66,7 +62,6 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'FSX' ">
 	  <OutputType>WinExe</OutputType>
 	  <TargetFramework>net8.0-windows</TargetFramework>
-	  <UseWindowsForms>true</UseWindowsForms>
 	  <PlatformTarget>x86</PlatformTarget>
     <DefineConstants>TRACE;FSX;SIMCONNECT</DefineConstants>
     <Optimize>true</Optimize>
@@ -77,7 +72,6 @@
 	<PropertyGroup Condition=" '$(Configuration)' == 'P3D-Debug' ">
 		<OutputType>WinExe</OutputType>
 		<TargetFramework>net8.0-windows</TargetFramework>
-		<UseWindowsForms>true</UseWindowsForms>
 		<PlatformTarget>x86</PlatformTarget>
 		<DefineConstants>DEBUG;TRACE;P3D;SIMCONNECT</DefineConstants>
 		<OutputPath>bin\P3D-Debug\</OutputPath>
@@ -87,7 +81,6 @@
 	<PropertyGroup Condition=" '$(Configuration)' == 'P3D' ">
 		<OutputType>WinExe</OutputType>
 		<TargetFramework>net8.0-windows</TargetFramework>
-		<UseWindowsForms>true</UseWindowsForms>
 		<PlatformTarget>x86</PlatformTarget>
 		<DefineConstants>TRACE;P3D;SIMCONNECT</DefineConstants>
 		<Optimize>true</Optimize>
@@ -98,7 +91,6 @@
 	<PropertyGroup Condition=" '$(Configuration)' == 'XPLANE-Debug' ">
 		<OutputType>WinExe</OutputType>
 		<TargetFramework>net8.0-windows</TargetFramework>
-		<UseWindowsForms>true</UseWindowsForms>
 		<PlatformTarget>x64</PlatformTarget>
 		<DefineConstants>DEBUG;TRACE;XPLANE;X64</DefineConstants>
 		<OutputPath>bin\XPLANE-Debug\</OutputPath>
@@ -108,7 +100,6 @@
 	<PropertyGroup Condition=" '$(Configuration)' == 'XPLANE' ">
 		<OutputType>WinExe</OutputType>
 		<TargetFramework>net8.0-windows</TargetFramework>
-		<UseWindowsForms>true</UseWindowsForms>
 		<PlatformTarget>x64</PlatformTarget>
 		<DefineConstants>TRACE;XPLANE;X64</DefineConstants>
 		<Optimize>true</Optimize>
@@ -119,7 +110,6 @@
 	<PropertyGroup Condition=" '$(Configuration)' == 'CONSOLE-Debug' ">
 		<OutputType>Exe</OutputType>
 		<TargetFramework>net8.0</TargetFramework>
-		<UseWindowsForms>false</UseWindowsForms>
 		<PlatformTarget>ARM64</PlatformTarget>
 		<DefineConstants>DEBUG;TRACE;CONSOLE</DefineConstants>
 		<OutputPath>bin\CONSOLE-Debug\</OutputPath>
@@ -129,10 +119,8 @@
 	<PropertyGroup Condition=" '$(Configuration)' == 'CONSOLE' ">
 		<OutputType>Exe</OutputType>
 		<TargetFramework>net8.0</TargetFramework>
-		<UseWindowsForms>false</UseWindowsForms>
 		<PlatformTarget>ARM64</PlatformTarget>
 		<TargetFramework>net8.0</TargetFramework>
-		<UseWindowsForms>false</UseWindowsForms>
 		<DefineConstants>TRACE;CONSOLE</DefineConstants>
 		<Optimize>true</Optimize>
 		<OutputPath>bin\CONSOLE\</OutputPath>
@@ -202,16 +190,12 @@
 	<ItemGroup>
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<PackageReference Include="DnsClient" Version="1.8.0" />
+		<PackageReference Include="System.Resources.Extensions" Version="8.0.0" />
+		<PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
 	</ItemGroup>
 
 	<!-- CONSOLE references -->
 	<ItemGroup Condition=" '$(Configuration)' == 'CONSOLE-Debug' OR '$(Configuration)' == 'CONSOLE' ">
-		<PackageReference Include="System.Resources.Extensions" Version="8.0.0" />
-		<PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
-		<Compile Remove="Forms\**" />
-		<Compile Remove="Properties\Resources.*" />
-		<EmbeddedResource Remove="Forms\**" />
-		<None Remove="Forms\**" />
 		<None Include="libs\CONSOLE\Old-Readme.txt">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<Link>Old-Readme.txt</Link>
@@ -233,10 +217,6 @@
     <EmbeddedResource Update="Properties\Resources-XPLANE.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources-XPLANE.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-    <EmbeddedResource Update="Properties\Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
     <EmbeddedResource Update="Resources\Strings.de.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -270,11 +250,6 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources-XPLANE.resx</DependentUpon>
     </Compile>
-    <Compile Update="Properties\Resources.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Resources.resx</DependentUpon>
-    </Compile>
     <Compile Update="Properties\Settings.Designer.cs">
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <AutoGen>True</AutoGen>
@@ -307,25 +282,18 @@
     <None Include="Installer\ShortcutsDlg.wxs" />
   </ItemGroup>
 
-  <!-- The Avalonia UI (JoinFS.UI), the default user interface; -oldui starts the WinForms forms instead. In every configuration but
-       CONSOLE, which has no UI. Build without it (and without the Avalonia libraries) with -p:NewUi=false. -->
-  <PropertyGroup>
-    <NewUi Condition=" '$(NewUi)' == '' ">true</NewUi>
-    <NewUi Condition=" '$(NewUi)' != 'true' OR '$(Configuration)' == 'CONSOLE' OR '$(Configuration)' == 'CONSOLE-Debug' ">false</NewUi>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(NewUi)' == 'true' ">
-    <DefineConstants>$(DefineConstants);NEWUI</DefineConstants>
-  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\JoinFS.Messages\JoinFS.Messages.csproj" />
     <ProjectReference Include="..\JoinFS.Crypto\JoinFS.Crypto.csproj" />
     <ProjectReference Include="..\JoinFS.Recording.Format\JoinFS.Recording.Format.csproj" />
     <ProjectReference Include="..\JoinFS.Recording\JoinFS.Recording.csproj" />
   </ItemGroup>
-  <ItemGroup Condition=" '$(NewUi)' == 'true' ">
+
+  <!-- The user interface (JoinFS.UI, wired up in Live/). In every configuration but CONSOLE, which has none. -->
+  <ItemGroup Condition=" '$(Configuration)' != 'CONSOLE' AND '$(Configuration)' != 'CONSOLE-Debug' ">
     <ProjectReference Include="..\JoinFS.UI\JoinFS.UI.csproj" />
   </ItemGroup>
-  <ItemGroup Condition=" '$(NewUi)' != 'true' ">
+  <ItemGroup Condition=" '$(Configuration)' == 'CONSOLE' OR '$(Configuration)' == 'CONSOLE-Debug' ">
     <Compile Remove="Live\**" />
   </ItemGroup>
 

@@ -92,10 +92,7 @@ namespace JoinFS
             checkConnectionTimer.Reset();
             // clear model matching
             main.ScheduleSubstitutionClear();
-            // refresh
 #if !SERVER && !CONSOLE
-            main.aircraftForm ?. refresher.Schedule();
-            main.objectsForm ?. refresher.Schedule();
             // show message
             main.MonitorEvent("Disconnected from simulator");
 #endif
@@ -140,8 +137,6 @@ namespace JoinFS
                 }
                 catch (System.IO.FileNotFoundException)
                 {
-                    // simconnect message
-                    main.scheduleAskSimConnect = true;
                     main.MonitorEvent("SimConnect not installed.");
                     simconnect = null;
                 }

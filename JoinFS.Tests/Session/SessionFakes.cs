@@ -109,16 +109,10 @@ namespace JoinFS.Tests.Session
 
     sealed class FakeUi : ISessionUi
     {
-        public int SessionRefreshes;
-        public int HubRefreshes;
-        public int CommsChanges;
         public bool CommsVisible { get; set; }
         public bool AddressBookVisible { get; set; }
         public bool ShowsGlobalUsers { get; set; }
         public readonly List<string> Messages = [];
-        public void SessionChanged(int refreshes) => SessionRefreshes += refreshes;
-        public void HubsChanged(int refreshes) => HubRefreshes += refreshes;
-        public void CommsChanged() => CommsChanges++;
         public void ShowMessage(string message) => Messages.Add(message);
     }
 

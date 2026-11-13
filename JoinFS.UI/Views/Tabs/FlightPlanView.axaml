@@ -9,6 +9,14 @@
 
       <Border Classes="card" Padding="20">
         <StackPanel Spacing="14">
+          <StackPanel Orientation="Horizontal" Spacing="14">
+            <Button Classes="link strong" Command="{Binding ImportFromSimbriefCommand}" Content="{l:T 'Import from SimBrief'}" />
+            <TextBlock Text="{Binding SimbriefUsername, StringFormat='({0})'}" Classes="label" VerticalAlignment="Center"
+                       IsVisible="{Binding HasSimbriefUsername}" />
+            <TextBlock Text="{Binding Status}" Classes="label" VerticalAlignment="Center"
+                       IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+
           <Grid ColumnDefinitions="*,*,*" ColumnSpacing="14">
             <StackPanel Grid.Column="0" Spacing="5">
               <TextBlock Text="{l:T 'Callsign'}" Classes="label" />
@@ -48,15 +56,9 @@
             <TextBox Text="{Binding Remarks}" />
           </StackPanel>
 
-          <StackPanel Orientation="Horizontal" Spacing="14">
-            <Button Classes="link strong" Command="{Binding ImportFromSimbriefCommand}" Content="{l:T 'Import from SimBrief'}" />
-            <TextBlock Text="{Binding Status}" Classes="label" VerticalAlignment="Center"
-                       IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-          </StackPanel>
-
           <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,4,0,0">
             <Button Grid.Column="0" Command="{Binding ClearCommand}" Content="{l:T 'Clear'}" Padding="18,9" CornerRadius="8" />
-            <Button Grid.Column="2" Classes="primary" Command="{Binding SaveCommand}" Content="{l:T 'Save'}" Padding="22,9" CornerRadius="8" />
+            <Button Grid.Column="2" Classes="primary" Command="{Binding SaveCommand}" Content="{l:T 'File plan'}" Padding="22,9" CornerRadius="8" />
           </Grid>
         </StackPanel>
       </Border>

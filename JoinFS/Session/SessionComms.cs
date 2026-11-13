@@ -98,7 +98,6 @@ namespace JoinFS
                     store.ProcessCommsNote(ref guid, user.Nickname, user.Callsign, note.NoteId, note.Age, note.Channel, note.Text);
                 }
             }
-            ui.CommsChanged();
         }
     }
 }

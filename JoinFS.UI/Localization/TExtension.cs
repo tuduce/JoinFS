@@ -3,7 +3,7 @@ using Avalonia.Markup.Xaml;
 namespace JoinFS.UI.Localization;
 
 /// <summary>
-/// XAML's <c>{l:T 'Open full view'}</c>: the translation of the English text, see <see cref="Loc"/>.
+/// XAML's <c>{l:T 'Load flight plan?'}</c>: the translation of the English text, see <see cref="Loc"/>.
 /// <c>Upper=True</c> shows it in capitals, for headings, so they share the translation of the plain word.
 /// </summary>
 public sealed class TExtension(string english) : MarkupExtension

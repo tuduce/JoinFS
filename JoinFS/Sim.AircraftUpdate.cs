@@ -101,7 +101,7 @@ namespace JoinFS
                         trustPlatformElevation = false;
                     }
                     // ground is forwarded to the local sim's placement whenever the sender reports on-ground, for
-                    // any aircraft type - see helicopters-on-elevated-platforms feature. heightAdjustmentCm (HeightForm
+                    // any aircraft type - see helicopters-on-elevated-platforms feature. heightAdjustmentCm (the Adjust Height card
                     // - a manual, cosmetic per-model correction for a mesh/gear-reference-point offset) does not gate
                     // this: a large negative adjustment can still produce ground-penetration jitter, but that's the
                     // sim's own generic terrain-penetration correction fighting an altitude pushed below the actual

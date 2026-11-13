@@ -7,9 +7,9 @@ using JoinFS.Properties;
 namespace JoinFS
 {
     /// <summary>
-    /// Per-model, per-simulator height adjustments (HeightForm), persisted to a "heights - &lt;sim
+    /// Per-model, per-simulator height adjustments (the Adjust Height card), persisted to a "heights - &lt;sim
     /// name&gt;.txt" file. Concurrent: the sim thread applies adjustments while the UI edits them
-    /// directly, off the sim thread (HeightForm, AircraftForm) - so this uses a ConcurrentDictionary
+    /// directly, off the sim thread (the UI) - so this uses a ConcurrentDictionary
     /// rather than the usual Main.SimCommand/PostToSim marshalling.
     /// </summary>
     public sealed class HeightAdjustmentStore
@@ -147,10 +147,6 @@ namespace JoinFS
                 main.MonitorEvent("Unable to load height adjustments because a simulator is not connected.");
             }
 
-#if !SERVER && !CONSOLE
-            // refresh
-            main.aircraftForm ?. refresher.Schedule();
-#endif
         }
 
         /// <summary>

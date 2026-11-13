@@ -168,6 +168,9 @@
   <data name="Circle of activity: {0} nm" xml:space="preserve">
     <value>Радиус активности: {0} nm</value>
   </data>
+  <data name="Aircraft and objects from the network are added to your simulator only inside this radius around you." xml:space="preserve">
+    <value>Самолёты и объекты из сети добавляются в ваш симулятор только в пределах этого радиуса вокруг вас.</value>
+  </data>
   <data name="Clear" xml:space="preserve">
     <value>Очистить</value>
   </data>
@@ -234,6 +237,21 @@
   <data name="Create Your Own Mesh" xml:space="preserve">
     <value>Создать собственную сеть</value>
   </data>
+  <data name="Join a hub" xml:space="preserve">
+    <value>Присоединиться к хабу</value>
+  </data>
+  <data name="A hub brings pilots together. Pick one and press Connect, or double-click it. JoinFS connects to your simulator, scans its aircraft models and then joins the hub." xml:space="preserve">
+    <value>Хаб объединяет пилотов. Выберите один и нажмите «Подключить» или дважды щёлкните по нему. JoinFS подключится к вашему симулятору, просканирует модели самолётов и затем присоединится к хабу.</value>
+  </data>
+  <data name="No online hub found yet. It can take a few seconds. You can also skip this and join one later." xml:space="preserve">
+    <value>Онлайн-хабы пока не найдены. Это может занять несколько секунд. Вы также можете пропустить этот шаг и присоединиться позже.</value>
+  </data>
+  <data name="Own mesh" xml:space="preserve">
+    <value>Собственная сеть</value>
+  </data>
+  <data name="Mesh created" xml:space="preserve">
+    <value>Сеть создана</value>
+  </data>
   <data name="cruise" xml:space="preserve">
     <value>крейсерская</value>
   </data>
@@ -294,8 +312,8 @@
   <data name="Expand or collapse" xml:space="preserve">
     <value>Развернуть или свернуть</value>
   </data>
-  <data name="Expand/collapse" xml:space="preserve">
-    <value>Развернуть/свернуть</value>
+  <data name="Expand/collapse (Alt+Enter)" xml:space="preserve">
+    <value>Развернуть/свернуть (Alt+Enter)</value>
   </data>
   <data name="Explain Match: {0}" xml:space="preserve">
     <value>Объяснение соответствия: {0}</value>
@@ -339,6 +357,9 @@
   <data name="Follow distance: {0} m" xml:space="preserve">
     <value>Дистанция следования: {0} m</value>
   </data>
+  <data name="How far behind another aircraft you are placed when you choose Follow in the Aircraft tab." xml:space="preserve">
+    <value>На каком расстоянии позади другого самолёта вы окажетесь, выбрав «Следовать» на вкладке «Самолёт».</value>
+  </data>
   <data name="FPS: {0}" xml:space="preserve">
     <value>FPS: {0}</value>
   </data>
@@ -377,6 +398,12 @@
   </data>
   <data name="Hub" xml:space="preserve">
     <value>Хаб</value>
+  </data>
+  <data name="Hub, mesh code or address" xml:space="preserve">
+    <value>Хаб, код сети или адрес</value>
+  </data>
+  <data name="To change the hub, disconnect the network first." xml:space="preserve">
+    <value>Чтобы сменить хаб, сначала отключите сеть.</value>
   </data>
   <data name="Hub Mode (Public)" xml:space="preserve">
     <value>Режим хаба (публичный)</value>
@@ -446,9 +473,6 @@
   </data>
   <data name="JoinFS did not find your simulator. Please choose its folder." xml:space="preserve">
     <value>JoinFS не нашёл ваш симулятор. Выберите его папку.</value>
-  </data>
-  <data name="JoinFS found your simulator in this folder. Change it if that is not right." xml:space="preserve">
-    <value>JoinFS нашёл ваш симулятор в этой папке. Измените её, если это не так.</value>
   </data>
   <data name="JoinFS reads which aircraft are installed in your simulator, so that it can show the aircraft of other pilots with a model you have. A scan can take a few minutes." xml:space="preserve">
     <value>JoinFS считывает, какие самолёты установлены в вашем симуляторе, чтобы показывать самолёты других пилотов с моделью, которая есть у вас. Поиск может занять несколько минут.</value>
@@ -582,9 +606,6 @@
   <data name="No models are known yet. Scan for models from Settings, Simulator." xml:space="preserve">
     <value>Модели пока неизвестны. Выполните поиск моделей в разделе «Настройки», «Симулятор».</value>
   </data>
-  <data name="No simulator folder is set, so there is nothing to scan yet." xml:space="preserve">
-    <value>Папка симулятора не задана, поэтому искать пока нечего.</value>
-  </data>
   <data name="No subfolders found" xml:space="preserve">
     <value>Подпапки не найдены</value>
   </data>
@@ -630,8 +651,11 @@
   <data name="Online" xml:space="preserve">
     <value>В сети</value>
   </data>
-  <data name="Open full view" xml:space="preserve">
-    <value>Открыть полный вид</value>
+  <data name="Load flight plan?" xml:space="preserve">
+    <value>Загрузить план полёта?</value>
+  </data>
+  <data name="File plan" xml:space="preserve">
+    <value>Подать план</value>
   </data>
   <data name="Open known-models list" xml:space="preserve">
     <value>Открыть список известных моделей</value>
@@ -768,10 +792,7 @@
   <data name="Scan at launch" xml:space="preserve">
     <value>Сканировать при запуске</value>
   </data>
-  <data name="Scan for aircraft models?" xml:space="preserve">
-    <value>Выполнить поиск моделей самолётов?</value>
-  </data>
-  <data name="Scan for models" xml:space="preserve">
+  <data name="Scan for Models" xml:space="preserve">
     <value>Поиск моделей</value>
   </data>
   <data name="Scanning for models..." xml:space="preserve">
@@ -1044,9 +1065,6 @@
   <data name="Yes" xml:space="preserve">
     <value>Да</value>
   </data>
-  <data name="Yes, I use SimBrief" xml:space="preserve">
-    <value>Да, я использую SimBrief</value>
-  </data>
   <data name="You can change all of these settings later in the Settings tab." xml:space="preserve">
     <value>Все эти настройки можно изменить позже на вкладке «Настройки».</value>
   </data>
@@ -1058,9 +1076,6 @@
   </data>
   <data name="Your nickname is how other pilots see you: in the session list, in the chat and as the label above your aircraft in their simulator." xml:space="preserve">
     <value>Ник — это имя, под которым вас видят другие пилоты: в списке сессии, в чате и в виде метки над вашим самолётом в их симуляторе.</value>
-  </data>
-  <data name="Your simulator is not connected yet. The scan starts as soon as it connects." xml:space="preserve">
-    <value>Ваш симулятор ещё не подключён. Поиск начнётся, как только он подключится.</value>
   </data>
   <data name="Zoom in" xml:space="preserve">
     <value>Увеличить</value>
@@ -1211,5 +1226,11 @@
   </data>
   <data name="Use installed CSL packages (linked, not copied):" xml:space="preserve">
     <value>Использовать установленные пакеты CSL (ссылки, без копирования):</value>
+  </data>
+  <data name="Red: the simulator refused to create this aircraft." xml:space="preserve">
+    <value>Красный: симулятор отказался создавать этот самолёт.</value>
+  </data>
+  <data name="Orange: more than {0} nm away." xml:space="preserve">
+    <value>Оранжевый: дальше {0} nm.</value>
   </data>
 </root>

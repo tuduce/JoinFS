@@ -200,6 +200,9 @@ public interface IModelCatalog
     /// <summary>How the models stand, in a line for the Model Matching tab: how many are known, or that a scan is running.</summary>
     string ScanStatus { get; }
 
+    /// <summary>A scan of the simulator's models is running (the one on connection included). The shell says so in its notice.</summary>
+    bool IsScanning => false;
+
     /// <summary>The file that lists the models the simulator has, or null when it has not been written yet.</summary>
     string? KnownModelsFile();
 
@@ -516,6 +519,10 @@ public sealed class UserSettings
     public string Nickname { get; set; } = "";
     public string? SimbriefUsername { get; set; }
 
+    /// <summary>Where the user left the window: its bottom-left corner in screen pixels, or null before it was ever moved.</summary>
+    public int? WindowLeft { get; set; }
+    public int? WindowBottom { get; set; }
+
     // The broadcast options shared by Settings → Simulator and the Objects tab.
     public bool BroadcastTacpack { get; set; }
     public bool BroadcastEverything { get; set; }
@@ -699,6 +706,12 @@ public interface IMessageSource
 {
     /// <summary>The message waiting to be shown, or null. Asking takes it: it is returned once.</summary>
     string? TakeMessage();
+
+    /// <summary>
+    /// A short line for the status strip, or null: what happened that needs no answer (a scan found 120 models). Asking takes it. The strip
+    /// shows it for a few seconds.
+    /// </summary>
+    string? TakeStatus() => null;
 }
 
 /// <summary>Everything the view models need from the outside. Built once at startup.</summary>

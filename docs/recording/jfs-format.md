@@ -296,7 +296,7 @@ Generalizing from network-protocol.md §11.3 and the findings above:
 | Recording data model, writer, reader, playback interpolation | `JoinFS/Recorder.cs` |
 | Shared struct wire format (`ObjectPositionVelocity`, `AircraftPosition`, integer/float/string8 variable dictionaries) also used by the network protocol | `JoinFS/Sim.cs` (`Sim.Write`/`Sim.Read` overloads) |
 | Model-substitution `TypeRole_*` constants | `JoinFS/Substitution.cs` |
-| Recorder UI, file open/save/append dialogs (`.jfs` filter) | `JoinFS/Forms/RecorderForm.cs` |
-| `SaveRecording()` (the actual `FileStream`/`BinaryWriter` creation) | `JoinFS/Forms/MainForm.cs` |
+| Recorder UI, file open/save/append | `JoinFS.UI/ViewModels/Tabs/RecorderViewModel.cs`, `JoinFS/Live/LiveRecorderSource.cs` |
+| Saving (`SaveJfs2`; `.jfs` is no longer written) | `JoinFS/Recorder.cs` |
 | Independent reference reader for `.jfs` files, useful for spotting divergence from the in-app reader (see §7.1) | `RecordingXRay/RecordingReader.cs` |
 | Variable-hash → human-readable-name lookup (mirrors `Variables.cs`) | `RecordingXRay/VariableLookup.cs` |

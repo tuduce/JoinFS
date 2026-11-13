@@ -172,6 +172,17 @@
     <Setter Property="Foreground" Value="{DynamicResource ButtonDisabledTextBrush}" />
   </Style>
 
+  <!-- Primary, done: green, for a button whose action is in force (the mesh was created). -->
+  <Style Selector="Button.primary.positive">
+    <Setter Property="Background" Value="{DynamicResource PositiveBrush}" />
+  </Style>
+  <Style Selector="Button.primary.positive:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource PositiveBrush}" />
+  </Style>
+  <Style Selector="Button.primary.positive:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource PositiveBrush}" />
+  </Style>
+
   <!-- Link: a blue text button, used for row actions and "Open ..." links. -->
   <Style Selector="Button.link">
     <Setter Property="Background" Value="Transparent" />
@@ -521,6 +532,40 @@
   </Style>
   <Style Selector="ComboBox.bare:pointerover /template/ Border#Background, ComboBox.bare:focus-visible /template/ Border#Background">
     <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <!-- The same for the hub picker's box, where the user can also type: the text box inside draws nothing of its own, in any state. -->
+  <Style Selector="AutoCompleteBox.bare">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="MinHeight" Value="34" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+  </Style>
+  <Style Selector="AutoCompleteBox.bare /template/ TextBox#PART_TextBox">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="34" />
+  </Style>
+  <Style Selector="AutoCompleteBox.bare /template/ TextBox#PART_TextBox:pointerover /template/ Border#PART_BorderElement, AutoCompleteBox.bare /template/ TextBox#PART_TextBox:focus /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+
+  <!-- While the network is in place the picker shows the hub that was joined and cannot be changed. The theme's disabled look (a gray fill on the
+       text part only, gray text) is replaced by one for the whole box: it turns into an outline, a little lighter, with the text as it was. -->
+  <Style Selector="AutoCompleteBox.bare:disabled /template/ TextBox#PART_TextBox:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+  </Style>
+  <Style Selector="AutoCompleteBox.bare:disabled /template/ TextBox#PART_TextBox:disabled /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Border.hubPicker">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+  </Style>
+  <Style Selector="Border.hubPicker.inactive">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Opacity" Value="0.7" />
   </Style>
 
   <Style Selector="CheckBox">

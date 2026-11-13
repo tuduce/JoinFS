@@ -100,7 +100,7 @@ namespace JoinFS.Net
     public static class PeerLinkStateExtensions
     {
         /// <summary>The one place that decides the human-readable label for each state, so the GUI
-        /// (SessionForm) and the CONSOLE monitor dump (Main.MonitorSessionDetails) can't drift.</summary>
+        /// (the Session tab) and the CONSOLE monitor dump (Main.MonitorSessionDetails) can't drift.</summary>
         public static string ToDisplay(this PeerLinkState state) => state switch
         {
             PeerLinkState.Negotiated => "JFP2",

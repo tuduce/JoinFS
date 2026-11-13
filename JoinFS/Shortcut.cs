@@ -5,7 +5,7 @@ namespace JoinFS
 {
     /// <summary>
     /// A global keyboard shortcut: Ctrl, Shift and Alt in any mix, and a letter A-Z. It is polled with GetAsyncKeyState, so it works while the
-    /// simulator has the focus. Both the forms (MainForm) and the new UI (Live/LiveShortcutSource) use it.
+    /// simulator has the focus. The UI (Live/LiveShortcutSource) uses it.
     /// </summary>
     public class Shortcut
     {

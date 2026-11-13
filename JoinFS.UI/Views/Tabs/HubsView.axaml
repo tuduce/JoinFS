@@ -31,8 +31,7 @@
               <DataTemplate x:DataType="tvm:HubRowViewModel">
                 <Border Classes="row">
                   <StackPanel>
-                    <Button Classes="rowButton" Classes.ignored="{Binding IsIgnored}" Command="{Binding ToggleExpandedCommand}"
-                            AutomationProperties.Name="{Binding AutomationName}"
+                    <Button Classes="rowButton" Classes.ignored="{Binding IsIgnored}" Command="{Binding ToggleExpandedCommand}"                            AutomationProperties.Name="{Binding AutomationName}"
                             AutomationProperties.HelpText="{l:T 'Shows or hides the actions of this row'}">
                       <Grid ColumnDefinitions="16,*,90,60,70,90" ColumnSpacing="10" Margin="10,7">
                         <c:Icon Classes="chevron" Classes.open="{Binding IsExpanded}" Source="{DynamicResource IconChevron}" HorizontalAlignment="Left" VerticalAlignment="Center" />
@@ -80,7 +79,7 @@
                   BorderThickness="1" CornerRadius="8" Padding="16,8">
             <TextBlock Text="{Binding MeshCode}" Classes="mono" FontSize="16" FontWeight="SemiBold" LetterSpacing="1" />
           </Border>
-          <Button Classes="primary" Command="{Binding CreateMeshCommand}" Content="{l:T 'Create'}" VerticalAlignment="Center" />
+          <Button Classes="primary" Classes.positive="{Binding OnOwnMesh}" Command="{Binding CreateMeshCommand}" Content="{Binding CreateLabel}" VerticalAlignment="Center" />
         </StackPanel>
       </Border>
     </StackPanel>

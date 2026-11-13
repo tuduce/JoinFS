@@ -6,9 +6,9 @@
              x:DataType="ovm:OnboardingViewModel">
   <!-- First run: a card over the expanded window that asks one thing at a time. The shell compacts the window when it is done. -->
   <c:ModalCard Width="480" Title="{Binding Title}" ShowClose="False">
-    <Panel MinHeight="250">
+    <Panel MinHeight="300">
 
-      <!-- 1. Welcome and nickname -->
+      <!-- 1. Welcome, nickname and SimBrief -->
       <StackPanel Spacing="10" IsVisible="{Binding IsWelcome}">
         <TextBlock Text="{l:T 'Welcome aboard! JoinFS lets you fly together with other pilots, whatever simulator each of you uses. A few short steps and you are ready to fly.'}"
                    TextWrapping="Wrap" />
@@ -21,31 +21,24 @@
         <TextBlock Text="{l:T 'Your nickname is how other pilots see you: in the session list, in the chat and as the label above your aircraft in their simulator.'}"
                    Classes="label" TextWrapping="Wrap" />
         <TextBlock Text="{l:T 'At least 2 characters.'}" Classes="label" />
-      </StackPanel>
 
-      <!-- 2. SimBrief -->
-      <StackPanel Spacing="10" IsVisible="{Binding IsSimbrief}">
-        <TextBlock Text="{l:T 'Do you use SimBrief?'}" FontWeight="SemiBold" />
         <TextBlock Text="{l:T 'SimBrief is an online flight planner. With your SimBrief username, JoinFS can load your flight plan into the Flight Plan tab.'}"
-                   Classes="label" TextWrapping="Wrap" />
-        <StackPanel Spacing="2">
-          <RadioButton GroupName="Simbrief" IsChecked="{Binding UsesSimbrief}" Content="{l:T 'Yes, I use SimBrief'}" />
-          <RadioButton GroupName="Simbrief" IsChecked="{Binding NoSimbrief}" Content="{l:T 'No, I don\'t'}" />
-        </StackPanel>
+                   Classes="label" TextWrapping="Wrap" Margin="0,10,0,0" />
+        <Button Classes="link" Command="{Binding UseSimbriefCommand}" Content="{l:T 'Do you use SimBrief?'}" IsVisible="{Binding NoSimbrief}" />
         <StackPanel Spacing="6" IsVisible="{Binding UsesSimbrief}">
-          <TextBlock Text="{l:T 'SimBrief username'}" Classes="label" />
           <TextBox x:Name="SimbriefBox" Text="{Binding SimbriefUsername}" Watermark="{l:T 'SimBrief username'}">
             <TextBox.KeyBindings>
               <KeyBinding Gesture="Enter" Command="{Binding NextCommand}" />
             </TextBox.KeyBindings>
           </TextBox>
+          <Button Classes="link" Command="{Binding DropSimbriefCommand}" Content="{l:T 'No, I don\'t'}" />
         </StackPanel>
       </StackPanel>
 
-      <!-- 3. The simulator folder -->
+      <!-- 2. The simulator folder, only when JoinFS did not find the simulator -->
       <StackPanel Spacing="10" IsVisible="{Binding IsSimulator}">
         <TextBlock Text="{l:T 'Where is your simulator?'}" FontWeight="SemiBold" />
-        <TextBlock Text="{Binding FolderIntro}" TextWrapping="Wrap" />
+        <TextBlock Text="{l:T 'JoinFS did not find your simulator. Please choose its folder.'}" TextWrapping="Wrap" />
         <TextBlock Text="{Binding FolderHint}" IsVisible="{Binding HasFolderHint}" Classes="label" TextWrapping="Wrap" />
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
           <TextBox x:Name="FolderBox" Classes="mono" FontSize="12.5" Text="{Binding Folder}">
@@ -57,33 +50,59 @@
         </Grid>
         <TextBlock Text="{Binding FolderError}" IsVisible="{Binding HasFolderError}"
                    Foreground="{DynamicResource DangerTextBrush}" FontSize="12.5" TextWrapping="Wrap" />
+        <TextBlock Text="{l:T 'JoinFS reads which aircraft are installed in your simulator, so that it can show the aircraft of other pilots with a model you have. A scan can take a few minutes.'}"
+                   Classes="label" TextWrapping="Wrap" />
       </StackPanel>
 
-      <!-- 4. Scan for models -->
-      <StackPanel Spacing="10" IsVisible="{Binding IsModels}">
-        <TextBlock Text="{l:T 'Scan for aircraft models?'}" FontWeight="SemiBold" />
-        <TextBlock Text="{l:T 'JoinFS reads which aircraft are installed in your simulator, so that it can show the aircraft of other pilots with a model you have. A scan can take a few minutes.'}"
+      <!-- 3. The hubs -->
+      <StackPanel Spacing="10" IsVisible="{Binding IsHubs}">
+        <TextBlock Text="{l:T 'Join a hub'}" FontWeight="SemiBold" />
+        <TextBlock Text="{l:T 'A hub brings pilots together. Pick one and press Connect, or double-click it. JoinFS connects to your simulator, scans its aircraft models and then joins the hub.'}"
                    TextWrapping="Wrap" />
-        <TextBlock Text="{l:T 'Your simulator is not connected yet. The scan starts as soon as it connects.'}"
-                   IsVisible="{Binding ScanWaitsForSimulator}" Classes="label" TextWrapping="Wrap" />
-        <TextBlock Text="{l:T 'No simulator folder is set, so there is nothing to scan yet.'}"
-                   IsVisible="{Binding HasNoFolderToScan}" Foreground="{DynamicResource DangerTextBrush}" FontSize="12.5" TextWrapping="Wrap" />
+        <Border Classes="card">
+          <StackPanel>
+            <Border Classes="tableHeader" Padding="12,6">
+              <Grid ColumnDefinitions="*,90,60,70" ColumnSpacing="10">
+                <Button Grid.Column="0" Classes="th" Command="{Binding NameColumn.SortCommand}" Content="{Binding NameColumn.Header}" />
+                <Button Grid.Column="1" Classes="th" Command="{Binding StatusColumn.SortCommand}" Content="{Binding StatusColumn.Header}" />
+                <Button Grid.Column="2" Classes="th" Command="{Binding UsersColumn.SortCommand}" Content="{Binding UsersColumn.Header}" />
+                <Button Grid.Column="3" Classes="th" Command="{Binding AircraftColumn.SortCommand}" Content="{Binding AircraftColumn.Header}" />
+              </Grid>
+            </Border>
+            <ListBox x:Name="HubList" ItemsSource="{Binding Hubs}" SelectedItem="{Binding SelectedHub}"
+                     Background="Transparent" Padding="0" MaxHeight="190">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="ovm:OnboardingHubRow">
+                  <Grid ColumnDefinitions="*,90,60,70" ColumnSpacing="10">
+                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Classes="status" Text="{Binding Status}"
+                               Classes.online="{Binding IsOnline}" Classes.global="{Binding IsGlobal}" Classes.password="{Binding IsPassword}" />
+                    <TextBlock Grid.Column="2" Text="{Binding Users}" />
+                    <TextBlock Grid.Column="3" Text="{Binding Aircraft}" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock Text="{l:T 'No online hub found yet. It can take a few seconds. You can also skip this and join one later.'}"
+                       IsVisible="{Binding !HasHubs}" Classes="label" TextWrapping="Wrap" Margin="12,10" />
+          </StackPanel>
+        </Border>
         <TextBlock Text="{l:T 'You can change all of these settings later in the Settings tab.'}"
-                   Classes="label" TextWrapping="Wrap" Margin="0,8,0,0" />
+                   Classes="label" TextWrapping="Wrap" Margin="0,4,0,0" />
       </StackPanel>
     </Panel>
 
     <c:ModalCard.Footer>
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock Text="{Binding StepText}" Classes="label" VerticalAlignment="Center" />
-        <StackPanel Grid.Column="1" Classes="footer" IsVisible="{Binding !IsModels}">
+        <StackPanel Grid.Column="1" Classes="footer" IsVisible="{Binding !IsHubs}">
           <Button Command="{Binding BackCommand}" Content="{l:T 'Back'}" Padding="18,8" IsVisible="{Binding CanGoBack}" />
           <Button Classes="primary" Command="{Binding NextCommand}" Content="{l:T 'Next'}" />
         </StackPanel>
-        <StackPanel Grid.Column="1" Classes="footer" IsVisible="{Binding IsModels}">
+        <StackPanel Grid.Column="1" Classes="footer" IsVisible="{Binding IsHubs}">
           <Button Command="{Binding BackCommand}" Content="{l:T 'Back'}" Padding="18,8" />
-          <Button Command="{Binding SkipScanCommand}" Content="{l:T 'Not now'}" Padding="18,8" />
-          <Button Classes="primary" Command="{Binding ScanCommand}" Content="{l:T 'Scan for models'}" />
+          <Button Command="{Binding SkipCommand}" Content="{l:T 'Not now'}" Padding="18,8" />
+          <Button Classes="primary" Command="{Binding ConnectCommand}" Content="{l:T 'Connect'}" />
         </StackPanel>
       </Grid>
     </c:ModalCard.Footer>

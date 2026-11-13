@@ -107,7 +107,6 @@ namespace JoinFS
                 false
 #endif
             );
-            host.HubsChanged(5);
 
             service.Start();
         }
@@ -312,7 +311,6 @@ namespace JoinFS
             host.Event("Gave up reconnecting to '" + AddressCodec.EncodeIP(joinEndPoint.ToString())
                 + "' after " + (int)(RECONNECT_MAX_S / 60) + " minutes");
             host.ShowMessage(string.Format(Resources.Strings.ReconnectGaveUp, (int)(RECONNECT_MAX_S / 60)));
-            host.SessionChanged(1);
         }
 
         volatile IPEndPoint scheduleJoin = null;
@@ -465,7 +463,6 @@ namespace JoinFS
                 host.Event("Joining '" + AddressCodec.EncodeIP(endPoint.ToString()) + "'");
 #endif
                 service.Post(start);
-                host.SessionChanged(5);
             }
             catch (Exception ex)
             {
@@ -516,7 +513,6 @@ namespace JoinFS
             if (Snapshot.State != SessionState.Unconnected)
             {
                 host.Event("Left the session");
-                host.SessionChanged(1);
             }
             ResetSession();
         }
@@ -542,7 +538,6 @@ namespace JoinFS
                 string folder = host.DocumentsPath;
                 service.Post(core => core.Mesh.Create(globalSession, passwordHash, loginRequired: false, folder));
                 host.Event(globalSession ? "Joined global session" : "Created session");
-                host.SessionChanged(5);
             }
             catch (Exception ex)
             {

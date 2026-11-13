@@ -141,11 +141,6 @@ namespace JoinFS
                     // delay variable broadcast
                     userAircraft.variableStartTime = main.ElapsedTime + 6.0;
 
-                    // refresh
-#if !SERVER && !CONSOLE
-                    main.aircraftForm ?. refresher.Schedule();
-                    main.objectsForm ?. refresher.Schedule();
-#endif
 
                     // entered
                     return true;
@@ -194,11 +189,6 @@ namespace JoinFS
                 // remove aircraft
                 RemoveObjectFromList(aircraft);
 
-                // refresh
-#if !SERVER && !CONSOLE
-                main.aircraftForm ?. refresher.Schedule();
-                main.objectsForm ?. refresher.Schedule();
-#endif
             }
         }
 

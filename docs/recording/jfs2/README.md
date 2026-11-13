@@ -106,8 +106,7 @@ Format library notes:
 - **Recovery.** At start-up the Avalonia UI offers each leftover file in `Working/` (newest first): Recover, Delete, or later. A file another
   JoinFS is writing is skipped. Reading an overdub's file reads the file its `base` names first, then lays the overdub's tracks over it at
   their own times; a base that is gone or unreadable is reported and the overdub plays alone. A recovered recording owns its file and the
-  working files under it (`Recorder.WorkingFileChain`), is unsaved until saved, and Save removes them all. The WinForms UI neither asks nor
-  offers; its leftovers are offered by the Avalonia UI at the next start.
+  working files under it (`Recorder.WorkingFileChain`), is unsaved until saved, and Save removes them all.
 - **Reading damaged files** (`Jfs2Scene`, spec 8.2). After a lost chunk, or a chunk whose records stop parsing, nothing is applied until the
   next keyframe, whose snapshot restores the state. A record that does not decode marks its track unreliable, and the next keyframe's
   snapshot heals that track alone; a track whose track-open or identity was never read is healed the same way.
@@ -142,8 +141,7 @@ From the design or the spec, all known, none silent:
    string instead (`Sim.SimConnect.cs` `ResolveObjectInfoType` strips the same junk from live objects).
 10. **`convert` lives in the app** (`JoinFS -convert`), not in the `jfs2` tool as design section 8 says: it was built while the importer still
     lived in the app. The importer is standalone now, so it could move.
-11. **The WinForms recorder** does not show damage warnings, does not ask about unsaved recordings, and does not offer recovery. It goes away
-    with the WinForms UI.
+11. Done: the WinForms recorder, which showed no damage warnings and offered no recovery, went with the WinForms UI.
 12. Done in slice 3: a trim at the start puts the state at the cut first. Left: the position at the cut is the latest one before it, moved
     to 0 (at most one sample early), not one interpolated at the cut.
 13. Done after stage 6: RecordingXRay shows identity changes as frames of their own (`IdentityFrame`, kind "Identity"), with the

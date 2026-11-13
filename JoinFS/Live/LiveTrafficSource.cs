@@ -147,12 +147,6 @@ namespace JoinFS.Live
             return list;
         }
 
-        /// <summary>
-        /// What names an aircraft to the UI, stable for as long as the aircraft is there: its owner and net id on the network, its sim id otherwise.
-        /// </summary>
-        static string IdOf(Sim.Aircraft aircraft) =>
-            aircraft.ownerNuid.Valid() ? "net:" + aircraft.ownerNuid + "/" + aircraft.netId : "sim:" + aircraft.simId;
-
         AircraftInfo Describe(Sim.Aircraft aircraft, SimSnapshot view, Sim.Pos userPosition)
         {
             Sim.Pos position = aircraft.Position;
@@ -627,10 +621,13 @@ namespace JoinFS.Live
         }
 
         /// <summary>
-        /// What names an object to the UI: its owner and net id on the network, its sim id otherwise.
+        /// What names an aircraft or object to the UI, stable for as long as it is there: its owner and net id on the network, the recorder's own
+        /// id for a recorded one (its sim id stays unset until the simulator has created it, so several would share one), its sim id otherwise.
         /// </summary>
         static string IdOf(Sim.Obj obj) =>
-            obj.ownerNuid.Valid() ? "net:" + obj.ownerNuid + "/" + obj.netId : "sim:" + obj.simId;
+            obj.ownerNuid.Valid() ? "net:" + obj.ownerNuid + "/" + obj.netId
+            : obj.owner == Sim.Obj.Owner.Recorder ? "rec:" + obj.netId
+            : "sim:" + obj.simId;
 
         /// <summary>
         /// The owner, as the old Objects list named it

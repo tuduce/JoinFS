@@ -298,17 +298,6 @@ namespace JoinFS
                 userNotesList[main.guid].commsList.Add(noteId, new CommsNote(main.ElapsedTime, channel, text, expireTime));
                 // send note message
                 main.network.Comms.SendCommsNoteMessage(main.guid, nickname, callsign, noteId, 0.0f, channel, text);
-#if !CONSOLE
-                // check for comms window
-                if (main.sessionForm != null && main.sessionForm.Visible)
-                {
-                    // refresh
-                    if (main.mainForm != null)
-                    {
-                        main.mainForm.refreshComms = true;
-                    }
-                }
-#endif
             }
         }
 
@@ -341,17 +330,6 @@ namespace JoinFS
                     main.network.Comms.SendCommsNoteMessage(guid, nickname, callsign, noteId, age, channel, text);
                 }
             }
-#if !CONSOLE
-            // check for comms window
-            if (main.sessionForm != null && main.sessionForm.Visible)
-            {
-                // refresh
-                if (main.mainForm != null)
-                {
-                    main.mainForm.refreshComms = true;
-                }
-            }
-#endif
         }
     }
 }
