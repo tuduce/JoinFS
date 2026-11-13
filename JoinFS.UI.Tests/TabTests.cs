@@ -1440,7 +1440,7 @@ public class FlightPlanTests
         Assert.Equal("HBTDXnav", rig.Settings.SimbriefUsername);
         Assert.Equal("LSZH DCT KLO DCT LSGG", plan.Route);
         Assert.Equal("Imported from SimBrief", plan.Remarks);
-        Assert.True(rig.Main.FlightPlanLoad.IsConnected);
+        Assert.True(rig.Main.FlightPlanLoad.IsDisconnected); // shown only, not filed until Save
 
         plan.ImportFromSimbriefCommand.Execute(null);
         Assert.Null(rig.Main.Overlay); // never asked again

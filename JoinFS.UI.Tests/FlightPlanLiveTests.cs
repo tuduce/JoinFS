@@ -188,6 +188,19 @@ public class FlightPlanLiveTests
     }
 
     [Fact]
+    public async Task The_tabs_link_leaves_the_strips_button_not_loaded_until_the_plan_is_saved()
+    {
+        (MainViewModel main, _, _) = Open();
+
+        await main.FlightPlan.ImportFromSimbriefCommand.ExecuteAsync(null);
+        Assert.True(main.FlightPlanLoad.IsDisconnected);
+        Assert.True(main.FlightPlan.HasUnsavedEdits);
+
+        main.FlightPlan.SaveCommand.Execute(null);
+        Assert.True(main.FlightPlanLoad.IsConnected);
+    }
+
+    [Fact]
     public async Task Saving_an_imported_plan_keeps_the_strips_button_loaded()
     {
         (MainViewModel main, _, _) = Open();

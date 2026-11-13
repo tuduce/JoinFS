@@ -72,7 +72,7 @@ public sealed partial class FlightPlanViewModel : ObservableObject
     [ObservableProperty]
     private string _status = "";
 
-    /// <summary>Raised after a successful import, so the strip's flight-plan button can show "Loaded".</summary>
+    /// <summary>Raised after a successful import that was committed (the strip's button), so that button can show "Loaded". A shown-only import does not raise it.</summary>
     public event EventHandler? Imported;
 
     /// <summary>Raised after Save, with whether the plan saved is a filled one (true) or a cleared one (false).</summary>
@@ -153,7 +153,9 @@ public sealed partial class FlightPlanViewModel : ObservableObject
         // committed, the plan is already the live one; otherwise it waits for Save
         Apply(fetched with { Callsign = string.IsNullOrEmpty(fetched.Callsign) ? Callsign : fetched.Callsign }, asBaseline: commit);
         Status = Loc.F("Imported {0} → {1}", fetched.From, fetched.To);
-        Imported?.Invoke(this, EventArgs.Empty);
+        // only a committed import makes the plan the user's (and the strip's button "Loaded"); a shown one waits for Save
+        if (commit)
+            Imported?.Invoke(this, EventArgs.Empty);
     }
 
     private void UpdateUnsavedEdits() => HasUnsavedEdits = ToData() != _baseline;

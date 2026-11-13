@@ -25,6 +25,9 @@ namespace JoinFS.Live
         // A filled plan has been saved from the tab since the last Reset. Only the UI thread touches it.
         bool planSaved;
 
+        // The last fetch was only shown on the tab and not filed: the button must not read "loaded" for it until Save.
+        volatile bool fetchOnlyShown;
+
         public LiveFlightPlanSource(Main main)
         {
             this.main = main;
@@ -117,7 +120,7 @@ namespace JoinFS.Live
                     case Sim.SimBriefFetchState.Fetching:
                         return ConnectionState.Connecting;
                     case Sim.SimBriefFetchState.Success:
-                        return ConnectionState.Connected;
+                        return fetchOnlyShown && !planSaved ? ConnectionState.Disconnected : ConnectionState.Connected;
                     default:
                         // a plan saved from the tab is loaded as much as one fetched; otherwise not asked yet, or asked and
                         // nothing found: the button reads "not loaded"
@@ -129,6 +132,7 @@ namespace JoinFS.Live
         public void Reset()
         {
             planSaved = false;
+            fetchOnlyShown = false;
             if (main.sim != null && main.sim.simBriefFetchState != Sim.SimBriefFetchState.Fetching)
             {
                 main.sim.simBriefFetchState = Sim.SimBriefFetchState.NotTriggered;
@@ -149,6 +153,7 @@ namespace JoinFS.Live
                 return null;
             }
 
+            fetchOnlyShown = !commit;
             if (commit)
             {
                 // the strip's button commits and sends at once, there is no Save to wait for
