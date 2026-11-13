@@ -14,10 +14,14 @@ namespace JoinFS
         public class Set
         {
             /// <summary>
-            /// Delay time when changing a variable value
+            /// How long network updates of a variable are held off after the simulator itself
+            /// changed it (not after our own writes, see <see cref="PendingWrites{T}"/>).
+            /// MASTER: our own aircraft, so a shared-cockpit peer does not undo our switch before
+            /// it has seen it. SLAVE: an injected aircraft, where the network is the authority and
+            /// the hold only limits how fast we fight a model script that changes the value.
             /// </summary>
             public const double MASTER_DELAY = 5.0;
-            public const double SLAVE_DELAY = 3.0;
+            public const double SLAVE_DELAY = 1.0;
 
             /// <summary>
             /// List of simconnect bundle requests - one per variable file, each covering every
@@ -61,6 +65,35 @@ namespace JoinFS
             public static int MergeDeclaredBits(int incoming, int current, int declared)
             {
                 return (incoming & declared) | (current & ~declared);
+            }
+
+            /// <summary>
+            /// Writes to the simulator waiting for their echo
+            /// </summary>
+            readonly PendingWrites<int> pendingIntegers;
+            readonly PendingWrites<float> pendingFloats;
+            readonly PendingWrites<string> pendingString8s;
+
+            /// <summary>
+            /// Same integer value; a bitfield compares only its declared bits
+            /// </summary>
+            bool IntegersMatch(uint vuid, int a, int b)
+            {
+                return declaredBits.TryGetValue(vuid, out int declared) ? ((a ^ b) & declared) == 0 : a == b;
+            }
+
+            /// <summary>
+            /// Same float value, within what survives the trip through the simulator
+            /// (an event carries value * scalar as an integer)
+            /// </summary>
+            bool FloatsMatch(uint vuid, float a, float b)
+            {
+                double tolerance = 0.001;
+                if (variableMgr.definitions.TryGetValue(vuid, out Definition definition) && definition.scEventName.Length > 0 && definition.scEventScalar != 0.0)
+                {
+                    tolerance = Math.Max(tolerance, 2.0 / Math.Abs(definition.scEventScalar));
+                }
+                return Math.Abs(a - b) <= tolerance;
             }
 
             /// <summary>
@@ -174,6 +207,9 @@ namespace JoinFS
                 this.variableMgr = main.variableMgr;
                 this.simId = simId;
                 this.injected = injected;
+                pendingIntegers = new(IntegersMatch);
+                pendingFloats = new(FloatsMatch);
+                pendingString8s = new((vuid, a, b) => a == b);
                 // for each file
                 foreach (var file in files)
                 {
@@ -393,8 +429,12 @@ namespace JoinFS
                         // check if value has changed
                         if (integers.ContainsKey(vuid) == false || value != integers[vuid])
                         {
-                            // temporarily block updates
-                            startTimes[vuid] = main.ElapsedTime + DelayTime;
+                            // hold off network updates only when the simulator itself changed the value:
+                            // not for the echo of our own write, nor for bits of a bitfield we do not sync
+                            if (pendingIntegers.IsEcho(vuid, value) == false && (integers.TryGetValue(vuid, out int previous) == false || IntegersMatch(vuid, value, previous) == false))
+                            {
+                                startTimes[vuid] = main.ElapsedTime + DelayTime;
+                            }
                             // check for mask
                             if (definition.mask != 0)
                             {
@@ -460,8 +500,11 @@ namespace JoinFS
                         // check if value has changed
                         if (floats.ContainsKey(vuid) == false || Math.Abs(value - floats[vuid]) > 0.001f)
                         {
-                            // temporarily block updates
-                            startTimes[vuid] = main.ElapsedTime + DelayTime;
+                            // hold off network updates only when the simulator itself changed the value
+                            if (pendingFloats.IsEcho(vuid, value) == false)
+                            {
+                                startTimes[vuid] = main.ElapsedTime + DelayTime;
+                            }
 
 #if XPLANE || CONSOLE
                             // get dataref name
@@ -499,8 +542,11 @@ namespace JoinFS
                         // check if value has changed
                         if (string8s.ContainsKey(vuid) == false || value != string8s[vuid])
                         {
-                            // temporarily block updates
-                            startTimes[vuid] = main.ElapsedTime + DelayTime;
+                            // hold off network updates only when the simulator itself changed the value
+                            if (pendingString8s.IsEcho(vuid, value) == false)
+                            {
+                                startTimes[vuid] = main.ElapsedTime + DelayTime;
+                            }
 #if XPLANE || CONSOLE
                             // get dataref name
                             string name = definition.drName;
@@ -548,18 +594,21 @@ namespace JoinFS
                             // check for newer value
                             if (startTimes.ContainsKey(vuid) == false || startTimes[vuid] < main.ElapsedTime)
                             {
-                                // check if value is different
-                                if (integers.ContainsKey(vuid) == false || value != integers[vuid])
+                                // check if value is different, and not already written and on its way to the sim
+                                if ((integers.ContainsKey(vuid) == false || value != integers[vuid]) && pendingIntegers.InFlight(vuid, value, main.ElapsedTime) == false)
                                 {
                                     // check if sim connected
                                     if (main.sim != null && main.sim.Connected && simId != uint.MaxValue)
                                     {
+                                        // did we write the value to the sim
+                                        bool written = false;
 #if XPLANE || CONSOLE
                                         // check for valid dataref
                                         if (definition.drName.Length > 0)
                                         {
                                             // update x-plane
                                             main.sim ?. xplane.UpdateInteger(simId, vuid, value);
+                                            written = true;
                                             // monitor
                                             main.MonitorVariables("UPDATE VARIABLE - OBJECT:" + simId + " - " + definition.drName + " = " + value);
                                         }
@@ -581,12 +630,14 @@ namespace JoinFS
                                                     // smoke off
                                                     main.sim?.DoSimEvent(simId, Sim.Event.SMOKE_OFF, (uint)definition.smokeIndex);
                                                 }
+                                                written = true;
                                             }
                                             // check for event
                                             else if (definition.scEventName.Length > 0)
                                             {
                                                 // event update
                                                 main.sim?.DoSimEvent(simId, definition, (uint)ConvertToSimConnect(definition.scUnits, (int)(value * definition.scEventScalar)));
+                                                written = true;
                                             }
                                             else if (definition.scName.Length > 0)
                                             {
@@ -596,6 +647,7 @@ namespace JoinFS
                                                     value = ConvertToSimConnect(definition.scUnits, value)
                                                 };
                                                 main.sim?.UpdateVariable(definition.scDefinition, simId, data);
+                                                written = true;
                                             }
                                             // monitor
                                             main.MonitorVariables("UPDATE VARIABLE - OBJECT:" + simId + " - " + definition.scName + " = " + value);
@@ -608,8 +660,16 @@ namespace JoinFS
                                             main.MonitorVariables("UPDATE VARIABLE - OBJECT:" + simId + " - " + definition.scName + "(" + definition.mask + ") = " + value);
                                         }
 #endif
-                                        // temporarily block updates
-                                        startTimes[vuid] = main.ElapsedTime + DelayTime;
+                                        if (written)
+                                        {
+                                            // wait for the echo instead of holding the variable
+                                            pendingIntegers.Written(vuid, value, main.ElapsedTime);
+                                        }
+                                        else
+                                        {
+                                            // nothing went to the sim (a mask bit): hold as before
+                                            startTimes[vuid] = main.ElapsedTime + DelayTime;
+                                        }
                                     }
                                     // sim not connected
                                     else
@@ -676,18 +736,21 @@ namespace JoinFS
                                 // check for newer value
                                 if (startTimes.ContainsKey(vuid) == false || startTimes[vuid] < main.ElapsedTime)
                                 {
-                                    // check if value is different
-                                    if (floats.ContainsKey(vuid) == false || Math.Abs(value - floats[vuid]) > 0.001f)
+                                    // check if value is different, and not already written and on its way to the sim
+                                    if ((floats.ContainsKey(vuid) == false || Math.Abs(value - floats[vuid]) > 0.001f) && pendingFloats.InFlight(vuid, value, main.ElapsedTime) == false)
                                     {
                                         // check if sim connected
                                         if (main.sim != null && main.sim.Connected && simId != uint.MaxValue)
                                         {
+                                            // did we write the value to the sim
+                                            bool written = false;
 #if XPLANE || CONSOLE
                                             // check for valid dataref
                                             if (definition.drName.Length > 0)
                                             {
                                                 // update x-plane
                                                 main.sim.xplane.UpdateFloat(simId, vuid, value);
+                                                written = true;
                                                 // monitor
                                                 main.MonitorVariables("UPDATE VARIABLE - OBJECT:" + simId + " - " + definition.drName + " = " + value);
                                             }
@@ -704,6 +767,7 @@ namespace JoinFS
                                                     {
                                                         // event update
                                                         main.sim?.DoSimEvent(simId, definition, scaledValue);
+                                                        written = true;
                                                         // monitor
                                                         main.MonitorVariables("UPDATE VARIABLE - OBJECT:" + simId + " - " + definition.scName + " = " + value);
                                                     }
@@ -716,6 +780,7 @@ namespace JoinFS
                                                         value = value
                                                     };
                                                     main.sim?.UpdateVariable(definition.scDefinition, simId, data);
+                                                    written = true;
                                                     // monitor
                                                     main.MonitorVariables("UPDATE VARIABLE - OBJECT:" + simId + " - " + definition.scName + " = " + value);
                                                 }
@@ -725,8 +790,16 @@ namespace JoinFS
                                                 main.MonitorEvent("ERROR - Unexpected variable type - " + definition.drName + " - " + definition.scName);
                                             }
 #endif
-                                            // temporarily block updates
-                                            startTimes[vuid] = main.ElapsedTime + delayTime;
+                                            if (written)
+                                            {
+                                                // wait for the echo instead of holding the variable
+                                                pendingFloats.Written(vuid, value, main.ElapsedTime);
+                                            }
+                                            else
+                                            {
+                                                // nothing went to the sim: hold as before
+                                                startTimes[vuid] = main.ElapsedTime + delayTime;
+                                            }
                                         }
                                         // sim not connected
                                         else
@@ -774,18 +847,21 @@ namespace JoinFS
                                 // check for newer value
                                 if (startTimes.ContainsKey(vuid) == false || startTimes[vuid] < main.ElapsedTime)
                                 {
-                                    // check if value is different
-                                    if (string8s.ContainsKey(vuid) == false || value != string8s[vuid])
+                                    // check if value is different, and not already written and on its way to the sim
+                                    if ((string8s.ContainsKey(vuid) == false || value != string8s[vuid]) && pendingString8s.InFlight(vuid, value, main.ElapsedTime) == false)
                                     {
                                         // check if sim connected
                                         if (main.sim != null && main.sim.Connected && simId != uint.MaxValue)
                                         {
+                                            // did we write the value to the sim
+                                            bool written = false;
 #if XPLANE || CONSOLE
                                             // check for valid dataref
                                             if (definition.drName.Length > 0)
                                             {
                                                 // update x-plane
                                                 main.sim.xplane.UpdateString8(simId, vuid, value);
+                                                written = true;
                                                 // monitor
                                                 main.MonitorVariables("UPDATE VARIABLE - OBJECT:" + simId + " - " + definition.drName + " = " + value);
                                             }
@@ -799,6 +875,7 @@ namespace JoinFS
                                                     value = value
                                                 };
                                                 main.sim.UpdateVariable(definition.scDefinition, simId, data);
+                                                written = true;
                                                 // monitor
                                                 main.MonitorVariables("UPDATE VARIABLE - OBJECT:" + simId + " - " + definition.scName + " = " + value);
                                             }
@@ -807,8 +884,16 @@ namespace JoinFS
                                                 main.MonitorEvent("ERROR - Unexpected variable type - " + definition.drName + " - " + definition.scName);
                                             }
 #endif
-                                            // temporarily block updates
-                                            startTimes[vuid] = main.ElapsedTime + delayTime;
+                                            if (written)
+                                            {
+                                                // wait for the echo instead of holding the variable
+                                                pendingString8s.Written(vuid, value, main.ElapsedTime);
+                                            }
+                                            else
+                                            {
+                                                // nothing went to the sim: hold as before
+                                                startTimes[vuid] = main.ElapsedTime + delayTime;
+                                            }
                                         }
                                         // sim not connected
                                         else
