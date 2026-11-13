@@ -48,6 +48,22 @@ namespace JoinFS
             public Dictionary<uint, double> startTimes = [];
 
             /// <summary>
+            /// For each bitfield variable (e.g. LIGHT STATES), the bits this set's files declare
+            /// with "mask:N". Only these bits are taken from the network; the others stay as the
+            /// simulator has them, because another variable may own them (Plane.txt drives the
+            /// strobe through LIGHT STROBE, not LIGHT STATES bit 4).
+            /// </summary>
+            readonly Dictionary<uint, int> declaredBits = [];
+
+            /// <summary>
+            /// Take the declared bits from the incoming bitfield and keep the rest from the current one
+            /// </summary>
+            public static int MergeDeclaredBits(int incoming, int current, int declared)
+            {
+                return (incoming & declared) | (current & ~declared);
+            }
+
+            /// <summary>
             /// Copy of the values for a snapshot (<see cref="Sim.Obj.CloneView"/>). Read it only:
             /// changes go to the live set, on the sim thread.
             /// </summary>
@@ -214,9 +230,14 @@ namespace JoinFS
                 // initialize start time for every declared variable, regardless of simulator state
                 foreach (var vuid in vuids)
                 {
-                    if (variableMgr.definitions.ContainsKey(vuid))
+                    if (variableMgr.definitions.TryGetValue(vuid, out Definition definition))
                     {
                         startTimes[vuid] = 0.0;
+                        // remember which bits of the parent bitfield this file declares
+                        if (definition.mask != 0)
+                        {
+                            declaredBits[definition.maskVuid] = (declaredBits.TryGetValue(definition.maskVuid, out int bits) ? bits : 0) | definition.mask;
+                        }
                     }
                 }
 
@@ -518,6 +539,12 @@ namespace JoinFS
                         // reject any shared cockpit updates intended for pilot only
                         if (main.sim == null || main.sim.Connected == false || UserAircraft && (definition.pilot == false || main.sim.userAircraft.remoteFlightControl) || injected && definition.injected)
                         {
+                            // bitfield: take only the declared bits, so it cannot fight a variable that owns another bit
+                            if (declaredBits.TryGetValue(vuid, out int declared))
+                            {
+                                value = MergeDeclaredBits(value, integers.TryGetValue(vuid, out int current) ? current : 0, declared);
+                            }
+
                             // check for newer value
                             if (startTimes.ContainsKey(vuid) == false || startTimes[vuid] < main.ElapsedTime)
                             {
