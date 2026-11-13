@@ -847,6 +847,13 @@ namespace JoinFS
             
         }
 
+        /// <summary>
+        /// Frames skipped between variable reads: every 8th frame, about 4-8 Hz at 30-60 fps.
+        /// Variables are broadcast every 0.2 s, so reading much faster gains nothing. (Was
+        /// PERIOD.SECOND with interval 1, i.e. every other second.)
+        /// </summary>
+        const uint VariableReadFrameInterval = 7;
+
         public void RequestVariable(Enum scRequest, Enum scDefinition, uint simId)
         {
             if (!OnOwnerThread(() => RequestVariable(scRequest, scDefinition, simId))) return;
@@ -854,8 +861,8 @@ namespace JoinFS
             {
                 try
                 {
-                    // request updates
-                    sc.RequestDataOnSimObject(scRequest, scDefinition, simId, SIMCONNECT_PERIOD.SECOND, SIMCONNECT_DATA_REQUEST_FLAG.CHANGED, 0, 1, 0);
+                    // request updates; CHANGED keeps an unchanged bundle off the wire
+                    sc.RequestDataOnSimObject(scRequest, scDefinition, simId, SIMCONNECT_PERIOD.VISUAL_FRAME, SIMCONNECT_DATA_REQUEST_FLAG.CHANGED, 0, VariableReadFrameInterval, 0);
                 }
                 catch (COMException ex)
                 {
