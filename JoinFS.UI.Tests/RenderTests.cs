@@ -187,6 +187,28 @@ public class RenderTests
     }
 
     [AvaloniaFact]
+    public void A_click_on_the_flight_plan_bubble_opens_the_full_view_on_the_Flight_Plan_tab_from_both_windows()
+    {
+        var (window, main, _) = Open(expanded: false);
+        main.FlightPlanLoad.SetState(ConnectionState.Connected);
+        Settle();
+
+        // the compact window: its Flight Plan node is the last one
+        ConnectorNode plan = Find<CollapsedView>(window).GetVisualDescendants().OfType<ConnectorNode>().Last();
+        plan.GetVisualDescendants().OfType<Button>().First().Command!.Execute(null);
+        Assert.True(main.IsExpanded);
+        Assert.Equal(TabId.FlightPlan, main.SelectedTab);
+
+        // the full window, from another tab
+        main.GoTo(TabId.Home);
+        Settle();
+        ConnectorNode full = Find<ExpandedView>(window).GetVisualDescendants().OfType<ConnectorNode>().Last();
+        full.GetVisualDescendants().OfType<Button>().First().Command!.Execute(null);
+        Assert.Equal(TabId.FlightPlan, main.SelectedTab);
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void The_onboarding_card_floats_in_the_middle_of_the_expanded_window_on_every_step()
     {
         var (window, main, _) = Open(expanded: false, onboarded: false);

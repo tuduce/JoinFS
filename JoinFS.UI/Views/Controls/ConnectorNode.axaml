@@ -10,7 +10,6 @@
     <Button x:Name="NodeButton" Classes="connector"
             Classes.connecting="{Binding IsConnecting}"
             Classes.connected="{Binding IsConnected}"
-            Command="{Binding ToggleCommand}"
             HorizontalAlignment="Center">
       <c:Icon x:Name="NodeIcon" Width="18" Height="18" />
     </Button>

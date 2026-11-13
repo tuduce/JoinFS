@@ -30,7 +30,8 @@
       <Grid Grid.Column="5" ColumnDefinitions="16,72" IsVisible="{Binding FlightPlanLoad.IsConnected}">
         <Border Classes="wire" Width="16" />
         <c:ConnectorNode Grid.Column="1" DataContext="{Binding FlightPlanLoad}" HorizontalAlignment="Center"
-                         Icon="{DynamicResource IconFlightPlan}" Title="{l:T 'Flight Plan'}" ButtonTip="{l:T 'Fetch flight plan from Simbrief'}"
+                         Icon="{DynamicResource IconFlightPlan}" Title="{l:T 'Flight Plan'}" ButtonTip="{l:T 'Flight Plan'}"
+                         ClickCommand="{Binding ((vm:MainViewModel)DataContext).OpenFlightPlanCommand, ElementName=Root}"
                          StateText="{Binding ((vm:MainViewModel)DataContext).FlightPlan.Airports, ElementName=Root}" />
       </Grid>
     </Grid>

@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using JoinFS.UI.ViewModels;
@@ -18,9 +19,19 @@ public partial class ConnectorNode : UserControl
     public static readonly StyledProperty<string?> StateTextProperty =
         AvaloniaProperty.Register<ConnectorNode, string?>(nameof(StateText));
 
+    public static readonly StyledProperty<ICommand?> ClickCommandProperty =
+        AvaloniaProperty.Register<ConnectorNode, ICommand?>(nameof(ClickCommand));
+
     private ConnectionViewModel? _connection;
 
     public ConnectorNode() => InitializeComponent();
+
+    /// <summary>What a click does in place of the connection's own toggle, when it is set.</summary>
+    public ICommand? ClickCommand
+    {
+        get => GetValue(ClickCommandProperty);
+        set => SetValue(ClickCommandProperty, value);
+    }
 
     public IconData? Icon
     {
@@ -58,6 +69,8 @@ public partial class ConnectorNode : UserControl
             TitleText.Text = Title;
         else if (change.Property == ButtonTipProperty)
             UpdateTip();
+        else if (change.Property == ClickCommandProperty)
+            UpdateCommand();
         else if (change.Property == StateTextProperty)
         {
             bool set = !string.IsNullOrEmpty(StateText);
@@ -76,8 +89,12 @@ public partial class ConnectorNode : UserControl
         _connection = DataContext as ConnectionViewModel;
         if (_connection is not null)
             _connection.PropertyChanged += OnConnectionChanged;
+        UpdateCommand();
         UpdateTip();
     }
+
+    // A click toggles the connection, unless the node was given something else to do.
+    private void UpdateCommand() => NodeButton.Command = ClickCommand ?? _connection?.ToggleCommand;
 
     private void OnConnectionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {

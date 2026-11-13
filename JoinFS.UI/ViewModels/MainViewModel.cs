@@ -639,6 +639,10 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     [RelayCommand]
     private void OpenChat() => GoTo(TabId.Chat);
 
+    /// <summary>What a click on the strip's Flight Plan bubble does: open the full view on the Flight Plan tab.</summary>
+    [RelayCommand]
+    private void OpenFlightPlan() => GoTo(TabId.FlightPlan);
+
     [RelayCommand]
     private void OpenAbout() =>
         ShowOverlay(new AboutViewModel(_services.App, _services.Updates.CheckForUpdate(), _services.Platform));
