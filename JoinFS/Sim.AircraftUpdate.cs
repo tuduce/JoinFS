@@ -69,36 +69,18 @@ namespace JoinFS
                     // simulated aircraft (a reference implementation, swift/pilotclient, registers it exclusively on its own-aircraft
                     // data definition, never for AI-injected traffic), and for an injected object with a persistent mismatch it never
                     // resolved, producing a continuous engage/fail/revoke/re-engage cycle each update - visible as jitter, since each
-                    // flip snaps between the raw sender altitude and the corrected blended altitude. senderIndicatesElevation below
-                    // is the mitigation for the false-positive case that mechanism was trying to solve instead: it requires the
-                    // sender's own reading (self-consistent, immune to cross-install bare-terrain datum noise, unlike the cross-
-                    // install mismatch check alone) to itself indicate real elevation before trust engages.
+                    // flip snaps between the raw sender altitude and the corrected blended altitude. ElevatedPlatformTrust's gear
+                    // height test is the mitigation for the false-positive case that mechanism was trying to solve instead: it
+                    // requires the sender's own reading (self-consistent, immune to cross-install bare-terrain datum noise, unlike
+                    // the cross-install mismatch check alone) to itself show the gear well above the terrain before trust engages.
                     double mismatchCm = 0.0;
-                    double senderHeight = double.NaN;
-                    bool trustPlatformElevation = aircraft.trustingPlatformElevation;
+                    double senderGearHeight = double.NaN;
+                    bool trustPlatformElevation = false;
                     if (main.settingsElevatedPlatformRecognition && aircraft.SimValid)
                     {
-                        senderHeight = aircraftPosition.altitude - aircraftPosition.elevation;
-                        double localHeight = aircraftPosition.altitude - aircraft.simPosition.elevation;
-                        mismatchCm = Math.Abs(localHeight - senderHeight) * 100.0;
-
-                        bool nearGround = aircraftPosition.ground != 0 || senderHeight < 50.0;
-                        bool senderIndicatesElevation = senderHeight * 100.0 >= main.settingsElevatedPlatformThreshold;
-                        double releaseThreshold = main.settingsElevatedPlatformThreshold * 0.5;
-
-                        if (nearGround && senderIndicatesElevation && mismatchCm >= main.settingsElevatedPlatformThreshold)
-                        {
-                            trustPlatformElevation = true;
-                        }
-                        else if (nearGround == false || mismatchCm < releaseThreshold)
-                        {
-                            trustPlatformElevation = false;
-                        }
-                        // else: still near ground with a mismatch inside the hysteresis band - keep the previous decision
-                    }
-                    else
-                    {
-                        trustPlatformElevation = false;
+                        trustPlatformElevation = ElevatedPlatformTrust.Decide(aircraft.trustingPlatformElevation, aircraftPosition.ground != 0,
+                            aircraftPosition.altitude, aircraftPosition.elevation, aircraftPosition.staticCgToGround * 0.3048,
+                            aircraft.simPosition.elevation, main.settingsElevatedPlatformThreshold, out mismatchCm, out senderGearHeight);
                     }
                     // ground is forwarded to the local sim's placement whenever the sender reports on-ground, for
                     // any aircraft type - see helicopters-on-elevated-platforms feature. heightAdjustmentCm (the Adjust Height card
@@ -129,7 +111,7 @@ namespace JoinFS
 
                     if (trustPlatformElevation != aircraft.trustingPlatformElevation || trustPlatformGround != aircraft.trustingPlatformGround)
                     {
-                        main.MonitorNetwork("ElevatedPlatform '" + aircraft.flightPlan.callsign + "' mismatch=" + mismatchCm.ToString("F0") + "cm threshold=" + main.settingsElevatedPlatformThreshold + "cm senderHeight=" + (double.IsNaN(senderHeight) ? "n/a" : (senderHeight * 100.0).ToString("F0") + "cm") + " elevationTrust=" + trustPlatformElevation + " groundTrust=" + trustPlatformGround + " rawGround=" + rawGround);
+                        main.MonitorNetwork("ElevatedPlatform '" + aircraft.flightPlan.callsign + "' mismatch=" + mismatchCm.ToString("F0") + "cm threshold=" + main.settingsElevatedPlatformThreshold + "cm senderGearHeight=" + (double.IsNaN(senderGearHeight) ? "n/a" : (senderGearHeight * 100.0).ToString("F0") + "cm") + " elevationTrust=" + trustPlatformElevation + " groundTrust=" + trustPlatformGround + " rawGround=" + rawGround);
                     }
                     // TEMPORARY diagnostic (ground-jitter/model-mismatch investigation) - fires every tick
                     // (throttled to ~5/sec, not just on trust-state change) so the raw received values can be
