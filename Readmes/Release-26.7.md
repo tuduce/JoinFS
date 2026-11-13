@@ -7,6 +7,7 @@
 
 ## Bug Fixes
 
+- A taildragger (e.g. a Spitfire) taxiing on a runway could keep snapping from its tail-down attitude to level, on one part of the runway only. Where the two simulators' terrain differed by more than the elevated-platform threshold, the aircraft was taken to be on an elevated platform and lost its ground correction.
 
 
 ## Limitations
