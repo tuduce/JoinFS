@@ -645,8 +645,8 @@
   <data name="Online" xml:space="preserve">
     <value>В сети</value>
   </data>
-  <data name="Open full view" xml:space="preserve">
-    <value>Открыть полный вид</value>
+  <data name="Load flight plan?" xml:space="preserve">
+    <value>Загрузить план полёта?</value>
   </data>
   <data name="Open known-models list" xml:space="preserve">
     <value>Открыть список известных моделей</value>

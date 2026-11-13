@@ -83,7 +83,8 @@
           <Border Grid.Column="5" Classes="wire" />
           <c:ConnectorNode Grid.Column="6" DataContext="{Binding FlightPlanLoad}"
                            Icon="{DynamicResource IconFlightPlan}" Title="{l:T 'Flight Plan'}" ButtonTip="{l:T 'Flight Plan'}"
-                           ClickCommand="{Binding ((vm:MainViewModel)DataContext).OpenFlightPlanCommand, ElementName=Root}" />
+                           ClickCommand="{Binding ((vm:MainViewModel)DataContext).OpenFlightPlanCommand, ElementName=Root}"
+                           StateText="{Binding ((vm:MainViewModel)DataContext).FlightPlan.Airports, ElementName=Root}" />
         </Grid>
       </Border>
 
