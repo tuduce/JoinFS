@@ -648,6 +648,9 @@
   <data name="Load flight plan?" xml:space="preserve">
     <value>Flugplan laden?</value>
   </data>
+  <data name="File plan" xml:space="preserve">
+    <value>Flugplan aufgeben</value>
+  </data>
   <data name="Open known-models list" xml:space="preserve">
     <value>Bekannte Modellliste öffnen</value>
   </data>

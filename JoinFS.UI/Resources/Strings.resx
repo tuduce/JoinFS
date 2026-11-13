@@ -648,6 +648,9 @@
   <data name="Load flight plan?" xml:space="preserve">
     <value>Load flight plan?</value>
   </data>
+  <data name="File plan" xml:space="preserve">
+    <value>File plan</value>
+  </data>
   <data name="Open known-models list" xml:space="preserve">
     <value>Open known-models list</value>
   </data>

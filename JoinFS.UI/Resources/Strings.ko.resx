@@ -648,6 +648,9 @@
   <data name="Load flight plan?" xml:space="preserve">
     <value>비행 계획을 불러올까요?</value>
   </data>
+  <data name="File plan" xml:space="preserve">
+    <value>계획 제출</value>
+  </data>
   <data name="Open known-models list" xml:space="preserve">
     <value>알려진 모델 목록 열기</value>
   </data>

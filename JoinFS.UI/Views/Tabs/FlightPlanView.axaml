@@ -58,7 +58,7 @@
 
           <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,4,0,0">
             <Button Grid.Column="0" Command="{Binding ClearCommand}" Content="{l:T 'Clear'}" Padding="18,9" CornerRadius="8" />
-            <Button Grid.Column="2" Classes="primary" Command="{Binding SaveCommand}" Content="{l:T 'Save'}" Padding="22,9" CornerRadius="8" />
+            <Button Grid.Column="2" Classes="primary" Command="{Binding SaveCommand}" Content="{l:T 'File plan'}" Padding="22,9" CornerRadius="8" />
           </Grid>
         </StackPanel>
       </Border>
