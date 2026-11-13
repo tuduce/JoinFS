@@ -168,6 +168,9 @@
   <data name="Circle of activity: {0} nm" xml:space="preserve">
     <value>Cercle d'activité : {0} nm</value>
   </data>
+  <data name="Aircraft and objects from the network are added to your simulator only inside this radius around you." xml:space="preserve">
+    <value>Les appareils et objets du réseau ne sont ajoutés à votre simulateur que dans ce rayon autour de vous.</value>
+  </data>
   <data name="Clear" xml:space="preserve">
     <value>Effacer</value>
   </data>
@@ -353,6 +356,9 @@
   </data>
   <data name="Follow distance: {0} m" xml:space="preserve">
     <value>Distance de suivi : {0} m</value>
+  </data>
+  <data name="How far behind another aircraft you are placed when you choose Follow in the Aircraft tab." xml:space="preserve">
+    <value>À quelle distance derrière un autre appareil vous êtes placé quand vous choisissez Suivre dans l'onglet Appareil.</value>
   </data>
   <data name="FPS: {0}" xml:space="preserve">
     <value>FPS : {0}</value>
@@ -786,7 +792,7 @@
   <data name="Scan at launch" xml:space="preserve">
     <value>Analyser au démarrage</value>
   </data>
-  <data name="Scan for models" xml:space="preserve">
+  <data name="Scan for Models" xml:space="preserve">
     <value>Analyser les modèles</value>
   </data>
   <data name="Scanning for models..." xml:space="preserve">

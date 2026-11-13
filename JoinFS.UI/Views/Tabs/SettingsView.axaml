@@ -59,10 +59,14 @@
 
                   <StackPanel Spacing="6">
                     <TextBlock Text="{Binding CircleLabel}" Classes="label" />
+                    <TextBlock Text="{l:T 'Aircraft and objects from the network are added to your simulator only inside this radius around you.'}"
+                               FontSize="12" Foreground="{DynamicResource Muted2Brush}" TextWrapping="Wrap" />
                     <Slider Minimum="2" Maximum="600" Value="{Binding CircleOfActivityNm}" />
                   </StackPanel>
                   <StackPanel Spacing="6">
                     <TextBlock Text="{Binding FollowLabel}" Classes="label" />
+                    <TextBlock Text="{l:T 'How far behind another aircraft you are placed when you choose Follow in the Aircraft tab.'}"
+                               FontSize="12" Foreground="{DynamicResource Muted2Brush}" TextWrapping="Wrap" />
                     <Slider Minimum="20" Maximum="1000" Value="{Binding FollowDistanceM}" />
                   </StackPanel>
 
@@ -198,7 +202,7 @@
               <Panel DataContext="{Binding Models}">
                 <StackPanel x:DataType="tvm:ModelsSettingsViewModel" Spacing="14">
                   <StackPanel Spacing="6">
-                    <TextBlock Text="{l:T 'Scan for models'}" FontSize="13.5" FontWeight="SemiBold" />
+                    <TextBlock Text="{l:T 'Scan for Models'}" FontSize="13.5" FontWeight="SemiBold" />
                     <TextBlock Text="{l:T 'Builds the list of aircraft models JoinFS can substitute during a flight.'}" Classes="label" TextWrapping="Wrap" Margin="0,0,0,6" />
                     <CheckBox IsChecked="{Binding Profile.ModelScanOnConnect}" Content="{l:T 'Model scan on connect'}" Margin="0,0,0,6" />
                     <CheckBox IsChecked="{Binding Profile.BroadcastTacpack}" Content="{l:T 'Auto broadcast VRS TacPack'}" Margin="0,0,0,6" />

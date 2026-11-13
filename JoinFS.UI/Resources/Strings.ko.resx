@@ -168,6 +168,9 @@
   <data name="Circle of activity: {0} nm" xml:space="preserve">
     <value>활동 반경: {0} nm</value>
   </data>
+  <data name="Aircraft and objects from the network are added to your simulator only inside this radius around you." xml:space="preserve">
+    <value>네트워크의 항공기와 오브젝트는 내 주변 이 반경 안에서만 시뮬레이터에 추가됩니다.</value>
+  </data>
   <data name="Clear" xml:space="preserve">
     <value>지우기</value>
   </data>
@@ -353,6 +356,9 @@
   </data>
   <data name="Follow distance: {0} m" xml:space="preserve">
     <value>따라가기 거리: {0} m</value>
+  </data>
+  <data name="How far behind another aircraft you are placed when you choose Follow in the Aircraft tab." xml:space="preserve">
+    <value>항공기 탭에서 따라가기를 선택했을 때 다른 항공기 뒤에 배치되는 거리입니다.</value>
   </data>
   <data name="FPS: {0}" xml:space="preserve">
     <value>FPS: {0}</value>
@@ -786,7 +792,7 @@
   <data name="Scan at launch" xml:space="preserve">
     <value>시작 시 스캔</value>
   </data>
-  <data name="Scan for models" xml:space="preserve">
+  <data name="Scan for Models" xml:space="preserve">
     <value>모델 스캔</value>
   </data>
   <data name="Scanning for models..." xml:space="preserve">
