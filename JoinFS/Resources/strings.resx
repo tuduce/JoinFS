@@ -507,6 +507,15 @@
   <data name="MaxInstances" xml:space="preserve">
     <value>JoinFS is already running on this system</value>
   </data>
+  <data name="WriteDenied" xml:space="preserve">
+    <value>Windows refused the write. If the folder's permissions are fine, Controlled folder access or an antivirus is probably blocking JoinFS: allow JoinFS in Windows Security (Virus &amp; threat protection, Ransomware protection) or in your antivirus.</value>
+  </data>
+  <data name="StartupFailed" xml:space="preserve">
+    <value>JoinFS could not start.</value>
+  </data>
+  <data name="LogFolder" xml:space="preserve">
+    <value>The log in {0} has the details.</value>
+  </data>
   <data name="Options_NoSim" xml:space="preserve">
     <value>Do not connect to the simulator at launch.</value>
   </data>

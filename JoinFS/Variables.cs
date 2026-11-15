@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
+using System.Linq;
 using JoinFS.Net;
 
 namespace JoinFS
@@ -162,527 +163,460 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                main.ShowMessage(ex.Message);
+                main.ShowMessage(Main.FileErrorMessage(ex));
             }
 
-            // writer
-            StreamWriter writer = null;
-
-            // get plane variables
-            string filename = Path.Combine(path, "Plane.txt");
-            try
-            {
-                writer = File.CreateText(filename);
-                writer.WriteLine("INTEGER|sim/cockpit/electrical/battery_on|ELECTRICAL MASTER BATTERY|bool|TOGGLE_MASTER_BATTERY|INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit/electrical/nav_lights_on|LIGHT STATES|mask:0||INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit/electrical/beacon_lights_on|LIGHT STATES|mask:1||INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit/electrical/landing_lights_on|LIGHT STATES|mask:2||INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit/electrical/taxi_light_on|LIGHT STATES|mask:3||INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit/electrical/strobe_lights_on|LIGHT STROBE|bool|STROBES_SET|INJECTED");
-                writer.WriteLine("INTEGER||LIGHT STATES|mask:5||INJECTED");
-                writer.WriteLine("INTEGER||LIGHT STATES|mask:6||INJECTED");
-                writer.WriteLine("INTEGER||LIGHT STATES|mask:7||INJECTED");
-                writer.WriteLine("INTEGER||LIGHT STATES|mask:8||INJECTED");
-                writer.WriteLine("INTEGER||LIGHT STATES|mask:9||INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel/controls/parkbrake|BRAKE PARKING POSITION|bool|PARKING_BRAKES*16383");
-                writer.WriteLine("FLOAT|sim/flightmodel/controls/l_brake_add|BRAKE LEFT POSITION|position|AXIS_LEFT_BRAKE_SET*16383|PILOT");
-                writer.WriteLine("FLOAT|sim/flightmodel/controls/r_brake_add|BRAKE RIGHT POSITION|position|AXIS_RIGHT_BRAKE_SET*16383|PILOT");
-                writer.WriteLine("INTEGER|sim/cockpit2/controls/gear_handle_down|GEAR HANDLE POSITION|bool||INJECTED");
-                writer.WriteLine("FLOAT|sim/flightmodel/controls/flaprat|FLAPS HANDLE PERCENT|percent over 100|FLAPS_SET*16383|INJECTED");
-                writer.WriteLine("FLOAT|sim/flightmodel/controls/canopy_ratio|CANOPY OPEN|percent over 100||INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit/gyros/psi_vac_ind_degm|PLANE HEADING DEGREES GYRO|degrees");
-                writer.WriteLine("INTEGER|sim/cockpit/misc/barometer_setting*0.029536|KOHLSMAN SETTING MB|millibars|KOHLSMAN_SET*16");
-                writer.WriteLine("INTEGER|sim/cockpit/switches/pitot_heat_on|PITOT HEAT|bool|PITOT_HEAT_SET");
-                writer.WriteLine("INTEGER|sim/cockpit2/switches/avionics_power_on|AVIONICS MASTER SWITCH|bool|AVIONICS_MASTER_SET");
-                writer.WriteLine("INTEGER|sim/cockpit/radios/nav1_obs_degm|NAV OBS:1|degrees|VOR1_SET");
-                writer.WriteLine("INTEGER|sim/cockpit/radios/nav2_obs_degm|NAV OBS:2|degrees|VOR2_SET");
-                writer.WriteLine("INTEGER|sim/cockpit2/radios/actuators/audio_selection_com1|COM TRANSMIT:1|bool|COM1_TRANSMIT_SELECT");
-                writer.WriteLine("INTEGER|sim/cockpit2/radios/actuators/audio_selection_com2|COM TRANSMIT:2|bool|COM2_TRANSMIT_SELECT");
-                writer.WriteLine("INTEGER|sim/cockpit/radios/transponder_code|TRANSPONDER CODE:1|bco16|XPNDR_SET");
-                writer.WriteLine("FLOAT|sim/cockpit2/radios/actuators/com1_frequency_hz_833*1000|COM ACTIVE FREQUENCY:1|MHz|COM_RADIO_SET");
-                writer.WriteLine("FLOAT|sim/cockpit2/radios/actuators/com2_frequency_hz_833*1000|COM ACTIVE FREQUENCY:2|MHz|COM2_RADIO_SET");
-                writer.WriteLine("FLOAT|sim/cockpit/radios/nav1_freq_hz|NAV ACTIVE FREQUENCY:1|MHz|NAV1_RADIO_SET");
-                writer.WriteLine("FLOAT|sim/cockpit/radios/nav2_freq_hz|NAV ACTIVE FREQUENCY:2|MHz|NAV2_RADIO_SET");
-                writer.WriteLine("FLOAT|sim/cockpit2/radios/actuators/com1_standby_frequency_hz_833*1000|COM STANDBY FREQUENCY:1|MHz|COM_STBY_RADIO_SET");
-                writer.WriteLine("FLOAT|sim/cockpit2/radios/actuators/com2_standby_frequency_hz_833*1000|COM STANDBY FREQUENCY:2|MHz|COM2_STBY_RADIO_SET");
-                writer.WriteLine("FLOAT|sim/cockpit/radios/nav1_stdby_freq_hz|NAV STANDBY FREQUENCY:1|MHz|NAV1_STBY_SET");
-                writer.WriteLine("FLOAT|sim/cockpit/radios/nav2_stdby_freq_hz|NAV STANDBY FREQUENCY:2|MHz|NAV2_STBY_SET");
-                writer.WriteLine("INTEGER|sim/cockpit/radios/adf1_freq_hz|ADF ACTIVE FREQUENCY:1|frequency adf bcd32|ADF_COMPLETE_SET");
-                // writer.WriteLine("INTEGER|sim/cockpit/radios/adf2_freq_hz|ADF ACTIVE FREQUENCY:2|frequency adf bcd32");
-                // writer.WriteLine("INTEGER||AI TRAFFIC ISIFR|bool");
-                // writer.WriteLine("STRING8||AI TRAFFIC FROMAIRPORT|");
-                // writer.WriteLine("STRING8||AI TRAFFIC TOAIRPORT|");
-                writer.WriteLine("INTEGER|sim/cockpit/autopilot/autopilot_mode|AUTOPILOT MASTER|bool");
-                writer.WriteLine("INTEGER||AUTOPILOT HEADING LOCK|bool|AP_PANEL_HEADING_HOLD");
-                writer.WriteLine("INTEGER|sim/cockpit/autopilot/heading_mag|AUTOPILOT HEADING LOCK DIR|degrees|HEADING_BUG_SET");
-                writer.WriteLine("INTEGER||AUTOPILOT ALTITUDE LOCK|bool|AP_PANEL_ALTITUDE_HOLD");
-                writer.WriteLine("INTEGER|sim/cockpit/autopilot/altitude|AUTOPILOT ALTITUDE LOCK VAR|feet|AP_ALT_VAR_SET_ENGLISH");
-                writer.WriteLine("INTEGER|sim/cockpit/autopilot/vertical_velocity|AUTOPILOT VERTICAL HOLD VAR|feet/minute|AP_VS_VAR_SET_ENGLISH");
-                writer.WriteLine("INTEGER||AUTOPILOT AIRSPEED HOLD|bool|AP_AIRSPEED_HOLD");
-                writer.WriteLine("INTEGER|sim/cockpit/autopilot/airspeed|AUTOPILOT AIRSPEED HOLD VAR|knots|AP_SPD_VAR_SET");
-                writer.WriteLine("INTEGER||AUTOPILOT ATTITUDE HOLD|bool|AP_ATT_HOLD");
-                writer.WriteLine("INTEGER||AUTOPILOT APPROACH HOLD|bool|AP_APR_HOLD");
-                writer.WriteLine("INTEGER||AUTOPILOT BACKCOURSE HOLD|bool|AP_BC_HOLD");
-                writer.WriteLine("INTEGER||AUTOPILOT NAV1 LOCK|bool|AP_NAV1_HOLD");
-                writer.WriteLine("INTEGER||AUTOPILOT THROTTLE ARM|bool|AUTO_THROTTLE_ARM");
-                writer.WriteLine("INTEGER|sim/cockpit/switches/DME_radio_selector|SELECTED DME|number|TOGGLE_DME");
-                //writer.WriteLine("INTEGER|sim/flightmodel/position/indicated_airspeed|AIRSPEED INDICATED|knots");
-                //writer.WriteLine("INTEGER|sim/flightmodel/misc/h_ind|INDICATED ALTITUDE|feet");
-                //writer.WriteLine("INTEGER|sim/flightmodel/position/vh_ind_fpm|VERTICAL SPEED|feet per second");
-                //writer.WriteLine("INTEGER|sim/flightmodel/misc/turnrate_roll|TURN INDICATOR RATE|radians per second");
-                //writer.WriteLine("INTEGER|sim/flightmodel/misc/slip|TURN COORDINATOR BALL|position");
+            // the built-in variable files (users may read them; a file that cannot be written is not fatal, #214)
+            WriteDefaultFile("Plane.txt",
+            [
+                "INTEGER|sim/cockpit/electrical/battery_on|ELECTRICAL MASTER BATTERY|bool|TOGGLE_MASTER_BATTERY|INJECTED",
+                "INTEGER|sim/cockpit/electrical/nav_lights_on|LIGHT STATES|mask:0||INJECTED",
+                "INTEGER|sim/cockpit/electrical/beacon_lights_on|LIGHT STATES|mask:1||INJECTED",
+                "INTEGER|sim/cockpit/electrical/landing_lights_on|LIGHT STATES|mask:2||INJECTED",
+                "INTEGER|sim/cockpit/electrical/taxi_light_on|LIGHT STATES|mask:3||INJECTED",
+                "INTEGER|sim/cockpit/electrical/strobe_lights_on|LIGHT STROBE|bool|STROBES_SET|INJECTED",
+                "INTEGER||LIGHT STATES|mask:5||INJECTED",
+                "INTEGER||LIGHT STATES|mask:6||INJECTED",
+                "INTEGER||LIGHT STATES|mask:7||INJECTED",
+                "INTEGER||LIGHT STATES|mask:8||INJECTED",
+                "INTEGER||LIGHT STATES|mask:9||INJECTED",
+                "INTEGER|sim/flightmodel/controls/parkbrake|BRAKE PARKING POSITION|bool|PARKING_BRAKES*16383",
+                "FLOAT|sim/flightmodel/controls/l_brake_add|BRAKE LEFT POSITION|position|AXIS_LEFT_BRAKE_SET*16383|PILOT",
+                "FLOAT|sim/flightmodel/controls/r_brake_add|BRAKE RIGHT POSITION|position|AXIS_RIGHT_BRAKE_SET*16383|PILOT",
+                "INTEGER|sim/cockpit2/controls/gear_handle_down|GEAR HANDLE POSITION|bool||INJECTED",
+                "FLOAT|sim/flightmodel/controls/flaprat|FLAPS HANDLE PERCENT|percent over 100|FLAPS_SET*16383|INJECTED",
+                "FLOAT|sim/flightmodel/controls/canopy_ratio|CANOPY OPEN|percent over 100||INJECTED",
+                "INTEGER|sim/cockpit/gyros/psi_vac_ind_degm|PLANE HEADING DEGREES GYRO|degrees",
+                "INTEGER|sim/cockpit/misc/barometer_setting*0.029536|KOHLSMAN SETTING MB|millibars|KOHLSMAN_SET*16",
+                "INTEGER|sim/cockpit/switches/pitot_heat_on|PITOT HEAT|bool|PITOT_HEAT_SET",
+                "INTEGER|sim/cockpit2/switches/avionics_power_on|AVIONICS MASTER SWITCH|bool|AVIONICS_MASTER_SET",
+                "INTEGER|sim/cockpit/radios/nav1_obs_degm|NAV OBS:1|degrees|VOR1_SET",
+                "INTEGER|sim/cockpit/radios/nav2_obs_degm|NAV OBS:2|degrees|VOR2_SET",
+                "INTEGER|sim/cockpit2/radios/actuators/audio_selection_com1|COM TRANSMIT:1|bool|COM1_TRANSMIT_SELECT",
+                "INTEGER|sim/cockpit2/radios/actuators/audio_selection_com2|COM TRANSMIT:2|bool|COM2_TRANSMIT_SELECT",
+                "INTEGER|sim/cockpit/radios/transponder_code|TRANSPONDER CODE:1|bco16|XPNDR_SET",
+                "FLOAT|sim/cockpit2/radios/actuators/com1_frequency_hz_833*1000|COM ACTIVE FREQUENCY:1|MHz|COM_RADIO_SET",
+                "FLOAT|sim/cockpit2/radios/actuators/com2_frequency_hz_833*1000|COM ACTIVE FREQUENCY:2|MHz|COM2_RADIO_SET",
+                "FLOAT|sim/cockpit/radios/nav1_freq_hz|NAV ACTIVE FREQUENCY:1|MHz|NAV1_RADIO_SET",
+                "FLOAT|sim/cockpit/radios/nav2_freq_hz|NAV ACTIVE FREQUENCY:2|MHz|NAV2_RADIO_SET",
+                "FLOAT|sim/cockpit2/radios/actuators/com1_standby_frequency_hz_833*1000|COM STANDBY FREQUENCY:1|MHz|COM_STBY_RADIO_SET",
+                "FLOAT|sim/cockpit2/radios/actuators/com2_standby_frequency_hz_833*1000|COM STANDBY FREQUENCY:2|MHz|COM2_STBY_RADIO_SET",
+                "FLOAT|sim/cockpit/radios/nav1_stdby_freq_hz|NAV STANDBY FREQUENCY:1|MHz|NAV1_STBY_SET",
+                "FLOAT|sim/cockpit/radios/nav2_stdby_freq_hz|NAV STANDBY FREQUENCY:2|MHz|NAV2_STBY_SET",
+                "INTEGER|sim/cockpit/radios/adf1_freq_hz|ADF ACTIVE FREQUENCY:1|frequency adf bcd32|ADF_COMPLETE_SET",
+                // "INTEGER|sim/cockpit/radios/adf2_freq_hz|ADF ACTIVE FREQUENCY:2|frequency adf bcd32",
+                // "INTEGER||AI TRAFFIC ISIFR|bool",
+                // "STRING8||AI TRAFFIC FROMAIRPORT|",
+                // "STRING8||AI TRAFFIC TOAIRPORT|",
+                "INTEGER|sim/cockpit/autopilot/autopilot_mode|AUTOPILOT MASTER|bool",
+                "INTEGER||AUTOPILOT HEADING LOCK|bool|AP_PANEL_HEADING_HOLD",
+                "INTEGER|sim/cockpit/autopilot/heading_mag|AUTOPILOT HEADING LOCK DIR|degrees|HEADING_BUG_SET",
+                "INTEGER||AUTOPILOT ALTITUDE LOCK|bool|AP_PANEL_ALTITUDE_HOLD",
+                "INTEGER|sim/cockpit/autopilot/altitude|AUTOPILOT ALTITUDE LOCK VAR|feet|AP_ALT_VAR_SET_ENGLISH",
+                "INTEGER|sim/cockpit/autopilot/vertical_velocity|AUTOPILOT VERTICAL HOLD VAR|feet/minute|AP_VS_VAR_SET_ENGLISH",
+                "INTEGER||AUTOPILOT AIRSPEED HOLD|bool|AP_AIRSPEED_HOLD",
+                "INTEGER|sim/cockpit/autopilot/airspeed|AUTOPILOT AIRSPEED HOLD VAR|knots|AP_SPD_VAR_SET",
+                "INTEGER||AUTOPILOT ATTITUDE HOLD|bool|AP_ATT_HOLD",
+                "INTEGER||AUTOPILOT APPROACH HOLD|bool|AP_APR_HOLD",
+                "INTEGER||AUTOPILOT BACKCOURSE HOLD|bool|AP_BC_HOLD",
+                "INTEGER||AUTOPILOT NAV1 LOCK|bool|AP_NAV1_HOLD",
+                "INTEGER||AUTOPILOT THROTTLE ARM|bool|AUTO_THROTTLE_ARM",
+                "INTEGER|sim/cockpit/switches/DME_radio_selector|SELECTED DME|number|TOGGLE_DME",
+                // "INTEGER|sim/flightmodel/position/indicated_airspeed|AIRSPEED INDICATED|knots",
+                // "INTEGER|sim/flightmodel/misc/h_ind|INDICATED ALTITUDE|feet",
+                // "INTEGER|sim/flightmodel/position/vh_ind_fpm|VERTICAL SPEED|feet per second",
+                // "INTEGER|sim/flightmodel/misc/turnrate_roll|TURN INDICATOR RATE|radians per second",
+                // "INTEGER|sim/flightmodel/misc/slip|TURN COORDINATOR BALL|position",
                 // ELEVATOR TRIM PCT EX1
-                writer.WriteLine("FLOAT|sim/flightmodel2/controls/elevator_trim|ELEVATOR TRIM PCT|position|ELEVATOR_TRIM_SET*16383|INJECTED");
+                "FLOAT|sim/flightmodel2/controls/elevator_trim|ELEVATOR TRIM PCT|position|ELEVATOR_TRIM_SET*16383|INJECTED",
                 // event AILERON_TRIM_SET_EX1 is *16383
                 // event AILERON_TRIM_SET is *100
-                writer.WriteLine("FLOAT|sim/flightmodel2/controls/aileron_trim|AILERON TRIM PCT|position|AILERON_TRIM_SET*100|INJECTED");
-                writer.WriteLine("FLOAT|sim/flightmodel2/controls/rudder_trim|RUDDER TRIM PCT|position|RUDDER_TRIM_SET*100|INJECTED");
-                writer.WriteLine("INTEGER||SMOKE ENABLE|bool||INJECTED");
-                writer.WriteLine("FLOAT||FUEL TANK CENTER QUANTITY|gallons||PILOT");
-                writer.WriteLine("FLOAT||FUEL TANK CENTER2 QUANTITY|gallons||PILOT");
-                writer.WriteLine("FLOAT||FUEL TANK CENTER3 QUANTITY|gallons||PILOT");
-                writer.WriteLine("FLOAT||FUEL TANK LEFT MAIN QUANTITY|gallons||PILOT");
-                writer.WriteLine("FLOAT||FUEL TANK LEFT AUX QUANTITY|gallons||PILOT");
-                writer.WriteLine("FLOAT||FUEL TANK LEFT TIP QUANTITY|gallons||PILOT");
-                writer.WriteLine("FLOAT||FUEL TANK RIGHT MAIN QUANTITY|gallons||PILOT");
-                writer.WriteLine("FLOAT||FUEL TANK RIGHT AUX QUANTITY|gallons||PILOT");
-                writer.WriteLine("FLOAT||FUEL TANK RIGHT TIP QUANTITY|gallons||PILOT");
-                writer.WriteLine("FLOAT||FUEL TANK EXTERNAL1 QUANTITY|gallons||PILOT");
-                writer.WriteLine("FLOAT||FUEL TANK EXTERNAL2 QUANTITY|gallons||PILOT");
-                writer.WriteLine("INTEGER||PAYLOAD STATION WEIGHT:1|pounds|");
-                writer.WriteLine("INTEGER||PAYLOAD STATION WEIGHT:2|pounds|");
-                writer.WriteLine("INTEGER||PAYLOAD STATION WEIGHT:3|pounds|");
-                writer.WriteLine("INTEGER||PAYLOAD STATION WEIGHT:4|pounds|");
-                writer.WriteLine("INTEGER||LIGHT POTENTIOMETER:19|percent|LIGHT_POTENTIOMETER_19_SET|INJECTED");
-                writer.WriteLine("INTEGER||LIGHT POTENTIOMETER:20|percent|LIGHT_POTENTIOMETER_20_SET|INJECTED");
-                writer.WriteLine("INTEGER||LIGHT POTENTIOMETER:2|percent|LIGHT_POTENTIOMETER_2_SET|INJECTED");
-                writer.WriteLine("INTEGER||LIGHT POTENTIOMETER:3|percent|LIGHT_POTENTIOMETER_3_SET|INJECTED");
-                writer.WriteLine("INTEGER||LIGHT POTENTIOMETER:24|percent|LIGHT_POTENTIOMETER_24_SET|INJECTED");
-                writer.WriteLine("FLOAT|sim/flightmodel/controls/lsplrdef|SPOILERS HANDLE POSITION|percent over 100|SPOILERS_SET*16383|INJECTED");
-                //writer.WriteLine("FLOAT|sim/flightmodel/controls/tailhook_ratio|TAILHOOK POSITION|position|SET_TAIL_HOOK_HANDLE*16383");
-                //writer.WriteLine("FLOAT||FOLDING WING LEFT PERCENT|position");
-                //writer.WriteLine("FLOAT||FOLDING WING RIGHT PERCENT|position");
-                //writer.WriteLine("FLOAT||FOLDING WING HANDLE POSITION|bool|SET_WING_FOLD");
-            }
-            catch (Exception ex)
-            {
-                // message
-                main.ShowMessage(ex.Message);
-            }
-            finally
-            {
-                // close writer
-                writer?.Close();
-            }
+                "FLOAT|sim/flightmodel2/controls/aileron_trim|AILERON TRIM PCT|position|AILERON_TRIM_SET*100|INJECTED",
+                "FLOAT|sim/flightmodel2/controls/rudder_trim|RUDDER TRIM PCT|position|RUDDER_TRIM_SET*100|INJECTED",
+                "INTEGER||SMOKE ENABLE|bool||INJECTED",
+                "FLOAT||FUEL TANK CENTER QUANTITY|gallons||PILOT",
+                "FLOAT||FUEL TANK CENTER2 QUANTITY|gallons||PILOT",
+                "FLOAT||FUEL TANK CENTER3 QUANTITY|gallons||PILOT",
+                "FLOAT||FUEL TANK LEFT MAIN QUANTITY|gallons||PILOT",
+                "FLOAT||FUEL TANK LEFT AUX QUANTITY|gallons||PILOT",
+                "FLOAT||FUEL TANK LEFT TIP QUANTITY|gallons||PILOT",
+                "FLOAT||FUEL TANK RIGHT MAIN QUANTITY|gallons||PILOT",
+                "FLOAT||FUEL TANK RIGHT AUX QUANTITY|gallons||PILOT",
+                "FLOAT||FUEL TANK RIGHT TIP QUANTITY|gallons||PILOT",
+                "FLOAT||FUEL TANK EXTERNAL1 QUANTITY|gallons||PILOT",
+                "FLOAT||FUEL TANK EXTERNAL2 QUANTITY|gallons||PILOT",
+                "INTEGER||PAYLOAD STATION WEIGHT:1|pounds|",
+                "INTEGER||PAYLOAD STATION WEIGHT:2|pounds|",
+                "INTEGER||PAYLOAD STATION WEIGHT:3|pounds|",
+                "INTEGER||PAYLOAD STATION WEIGHT:4|pounds|",
+                "INTEGER||LIGHT POTENTIOMETER:19|percent|LIGHT_POTENTIOMETER_19_SET|INJECTED",
+                "INTEGER||LIGHT POTENTIOMETER:20|percent|LIGHT_POTENTIOMETER_20_SET|INJECTED",
+                "INTEGER||LIGHT POTENTIOMETER:2|percent|LIGHT_POTENTIOMETER_2_SET|INJECTED",
+                "INTEGER||LIGHT POTENTIOMETER:3|percent|LIGHT_POTENTIOMETER_3_SET|INJECTED",
+                "INTEGER||LIGHT POTENTIOMETER:24|percent|LIGHT_POTENTIOMETER_24_SET|INJECTED",
+                "FLOAT|sim/flightmodel/controls/lsplrdef|SPOILERS HANDLE POSITION|percent over 100|SPOILERS_SET*16383|INJECTED",
+                // "FLOAT|sim/flightmodel/controls/tailhook_ratio|TAILHOOK POSITION|position|SET_TAIL_HOOK_HANDLE*16383",
+                // "FLOAT||FOLDING WING LEFT PERCENT|position",
+                // "FLOAT||FOLDING WING RIGHT PERCENT|position",
+                // "FLOAT||FOLDING WING HANDLE POSITION|bool|SET_WING_FOLD",
+            ]);
 
-            // get rotorcraft variables
-            filename = Path.Combine(path, "Rotorcraft.txt");
+            WriteDefaultFile("Rotorcraft.txt",
+            [
+                "INTEGER|sim/cockpit/electrical/battery_on|ELECTRICAL MASTER BATTERY|bool|TOGGLE_MASTER_BATTERY|INJECTED",
+                "INTEGER|sim/cockpit/electrical/nav_lights_on|LIGHT STATES|mask:0||INJECTED",
+                "INTEGER|sim/cockpit/electrical/beacon_lights_on|LIGHT STATES|mask:1||INJECTED",
+                "INTEGER|sim/cockpit/electrical/landing_lights_on|LIGHT STATES|mask:2||INJECTED",
+                "INTEGER|sim/cockpit/electrical/taxi_light_on|LIGHT STATES|mask:3||INJECTED",
+                "INTEGER|sim/cockpit/electrical/strobe_lights_on|LIGHT STATES|mask:4||INJECTED",
+                "INTEGER||LIGHT STATES|mask:5||INJECTED",
+                "INTEGER||LIGHT STATES|mask:6||INJECTED",
+                "INTEGER||LIGHT STATES|mask:7||INJECTED",
+                "INTEGER||LIGHT STATES|mask:8||INJECTED",
+                "INTEGER||LIGHT STATES|mask:9||INJECTED",
+                "INTEGER|sim/flightmodel/controls/parkbrake|BRAKE PARKING POSITION|bool|PARKING_BRAKES*16383",
+                "INTEGER|sim/cockpit2/controls/gear_handle_down|GEAR HANDLE POSITION|bool|GEAR_SET|INJECTED",
+                "FLOAT|sim/flightmodel/controls/flaprat|FLAPS HANDLE PERCENT|percent over 100|FLAPS_SET*16383|INJECTED",
+                "FLOAT|sim/flightmodel/controls/canopy_ratio|CANOPY OPEN|percent over 100||INJECTED",
+                "INTEGER|sim/cockpit/gyros/psi_vac_ind_degm|PLANE HEADING DEGREES GYRO|degrees",
+                "INTEGER|sim/cockpit/misc/barometer_setting*0.029536|KOHLSMAN SETTING MB|millibars|KOHLSMAN_SET*16",
+                "INTEGER|sim/cockpit/switches/pitot_heat_on|PITOT HEAT|bool|PITOT_HEAT_SET",
+                "INTEGER|sim/cockpit2/switches/avionics_power_on|AVIONICS MASTER SWITCH|bool|AVIONICS_MASTER_SET",
+                "INTEGER|sim/cockpit/radios/nav1_obs_degm|NAV OBS:1|degrees|VOR1_SET",
+                "INTEGER|sim/cockpit/radios/nav2_obs_degm|NAV OBS:2|degrees|VOR2_SET",
+                "INTEGER|sim/cockpit2/radios/actuators/audio_selection_com1|COM TRANSMIT:1|bool|COM1_TRANSMIT_SELECT",
+                "INTEGER|sim/cockpit2/radios/actuators/audio_selection_com2|COM TRANSMIT:2|bool|COM2_TRANSMIT_SELECT",
+                "INTEGER|sim/cockpit/radios/transponder_code|TRANSPONDER CODE:1|bco16|XPNDR_SET",
+                "FLOAT|sim/cockpit/radios/com1_freq_hz|COM ACTIVE FREQUENCY:1|MHz|COM_RADIO_SET",
+                "FLOAT|sim/cockpit/radios/com2_freq_hz|COM ACTIVE FREQUENCY:2|MHz|COM2_RADIO_SET",
+                "FLOAT|sim/cockpit/radios/nav1_freq_hz|NAV ACTIVE FREQUENCY:1|MHz|NAV1_RADIO_SET",
+                "FLOAT|sim/cockpit/radios/nav2_freq_hz|NAV ACTIVE FREQUENCY:2|MHz|NAV2_RADIO_SET",
+                "FLOAT|sim/cockpit/radios/com1_stdby_freq_hz|COM STANDBY FREQUENCY:1|MHz|COM_STBY_RADIO_SET",
+                "FLOAT|sim/cockpit/radios/com2_stdby_freq_hz|COM STANDBY FREQUENCY:2|MHz|COM2_STBY_RADIO_SET",
+                "FLOAT|sim/cockpit/radios/nav1_stdby_freq_hz|NAV STANDBY FREQUENCY:1|MHz|NAV1_STBY_SET",
+                "FLOAT|sim/cockpit/radios/nav2_stdby_freq_hz|NAV STANDBY FREQUENCY:2|MHz|NAV2_STBY_SET",
+                "INTEGER|sim/cockpit/radios/adf1_freq_hz|ADF ACTIVE FREQUENCY:1|frequency adf bcd32|ADF_COMPLETE_SET",
+                // "INTEGER|sim/cockpit/radios/adf2_freq_hz|ADF ACTIVE FREQUENCY:2|frequency adf bcd32",
+                "INTEGER||AI TRAFFIC ISIFR|bool",
+                "STRING8||AI TRAFFIC FROMAIRPORT|",
+                "STRING8||AI TRAFFIC TOAIRPORT|",
+                "INTEGER|sim/cockpit/autopilot/autopilot_mode|AUTOPILOT MASTER|bool",
+                "INTEGER||AUTOPILOT HEADING LOCK|bool|AP_PANEL_HEADING_HOLD",
+                "INTEGER|sim/cockpit/autopilot/heading_mag|AUTOPILOT HEADING LOCK DIR|degrees|HEADING_BUG_SET",
+                "INTEGER||AUTOPILOT ALTITUDE LOCK|bool|AP_PANEL_ALTITUDE_HOLD",
+                "INTEGER|sim/cockpit/autopilot/altitude|AUTOPILOT ALTITUDE LOCK VAR|feet|AP_ALT_VAR_SET_ENGLISH",
+                "INTEGER|sim/cockpit/autopilot/vertical_velocity|AUTOPILOT VERTICAL HOLD VAR|feet/minute|AP_VS_VAR_SET_ENGLISH",
+                "INTEGER||AUTOPILOT AIRSPEED HOLD|bool|AP_AIRSPEED_HOLD",
+                "INTEGER|sim/cockpit/autopilot/airspeed|AUTOPILOT AIRSPEED HOLD VAR|knots|AP_SPD_VAR_SET",
+                "INTEGER||AUTOPILOT ATTITUDE HOLD|bool|AP_ATT_HOLD",
+                "INTEGER||AUTOPILOT APPROACH HOLD|bool|AP_APR_HOLD",
+                "INTEGER||AUTOPILOT BACKCOURSE HOLD|bool|AP_BC_HOLD",
+                "INTEGER||AUTOPILOT NAV1 LOCK|bool|AP_NAV1_HOLD",
+                "INTEGER||AUTOPILOT THROTTLE ARM|bool|AUTO_THROTTLE_ARM",
+                "INTEGER|sim/cockpit/switches/DME_radio_selector|SELECTED DME|number|TOGGLE_DME",
+                // "INTEGER|sim/flightmodel/position/indicated_airspeed|AIRSPEED INDICATED|knots",
+                // "INTEGER|sim/flightmodel/misc/h_ind|INDICATED ALTITUDE|feet",
+                // "INTEGER|sim/flightmodel/position/vh_ind_fpm|VERTICAL SPEED|feet per second",
+                // "INTEGER|sim/flightmodel/misc/turnrate_roll|TURN INDICATOR RATE|radians per second",
+                // "INTEGER|sim/flightmodel/misc/slip|TURN COORDINATOR BALL|position",
+                "FLOAT|sim/cockpit2/switches/rotor_brake_ratio|ROTOR BRAKE HANDLE POS|position|ROTOR_BRAKE",
+                "INTEGER|sim/cockpit2/switches/clutch_engage|ROTOR CLUTCH SWITCH POS|bool|ROTOR_CLUTCH_SWITCH_SET",
+                "INTEGER|sim/cockpit2/engine/actuators/governor_on|ROTOR GOV SWITCH POS|bool|ROTOR_GOV_SWITCH_SET",
+                "FLOAT||ROTOR LATERAL TRIM PCT|position|ROTOR_LATERAL_TRIM_SET*16383",
+            ]);
+
+            WriteDefaultFile("SingleProp.txt",
+            [
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|GENERAL ENG COMBUSTION:1|bool||PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:0|GENERAL ENG THROTTLE LEVER POSITION:1|position|THROTTLE1_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:0|GENERAL ENG MIXTURE LEVER POSITION:1|position|MIXTURE1_SET*16383|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/prop_ratio:0|GENERAL ENG PROPELLER LEVER POSITION:1|position|PROP_PITCH1_SET*16383|PILOT|INJECTED",
+                "INTEGER|sim/cockpit2/engine/actuators/primer_on:0|RECIP ENG PRIMER:1|bool",
+                "FLOAT|sim/cockpit2/switches/alternate_static_air_ratio:0|RECIP ENG ALTERNATE AIR POSITION:1|position",
+                "INTEGER||RECIP ENG LEFT MAGNETO:1|bool",
+                "INTEGER||RECIP ENG RIGHT MAGNETO:1|bool",
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|RECIP ENG FUEL AVAILABLE:1|bool||PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:0|RECIP ENG FUEL FLOW:1|kilograms per second||PILOT",
+                "INTEGER||RECIP ENG FUEL TANKS USED:1|mask||PILOT",
+                "INTEGER|sim/cockpit2/engine/actuators/prop_rotation_speed_rad_sec:0*9.549|PROP RPM:1|rpm||PILOT|INJECTED",
+                "INTEGER|sim/cockpit2/electrical/generator_on:0|GENERAL ENG MASTER ALTERNATOR:1|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:0|GENERAL ENG FUEL PUMP SWITCH:1|bool",
+                "INTEGER|sim/cockpit/engine/igniters_on:0|GENERAL ENG STARTER:1|bool",
+                "INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:0|GENERAL ENG ANTI ICE POSITION:1|bool|ANTI_ICE_SET_ENG1",
+                "INTEGER|sim/cockpit2/fuel/fuel_tank_selector:0||",
+                "INTEGER||PROP FEATHER SWITCH:1|bool",
+            ]);
+
+            WriteDefaultFile("TwinProp.txt",
+            [
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|GENERAL ENG COMBUSTION:1|bool||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:1|GENERAL ENG COMBUSTION:2|bool||PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:0|GENERAL ENG THROTTLE LEVER POSITION:1|position|THROTTLE1_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:1|GENERAL ENG THROTTLE LEVER POSITION:2|position|THROTTLE2_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:0|GENERAL ENG MIXTURE LEVER POSITION:1|position|MIXTURE1_SET*16383|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:1|GENERAL ENG MIXTURE LEVER POSITION:2|position|MIXTURE2_SET*16383|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/prop_ratio:0|GENERAL ENG PROPELLER LEVER POSITION:1|position|PROP_PITCH1_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/prop_ratio:1|GENERAL ENG PROPELLER LEVER POSITION:2|position|PROP_PITCH2_SET*16383|PILOT|INJECTED",
+                "INTEGER|sim/cockpit2/engine/actuators/primer_on:0|RECIP ENG PRIMER:1|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/primer_on:1|RECIP ENG PRIMER:2|bool",
+                "FLOAT|sim/cockpit2/switches/alternate_static_air_ratio:0|RECIP ENG ALTERNATE AIR POSITION:1|position",
+                "FLOAT|sim/cockpit2/switches/alternate_static_air_ratio:1|RECIP ENG ALTERNATE AIR POSITION:2|position",
+                "INTEGER||RECIP ENG LEFT MAGNETO:1|bool",
+                "INTEGER||RECIP ENG LEFT MAGNETO:2|bool",
+                "INTEGER||RECIP ENG RIGHT MAGNETO:1|bool",
+                "INTEGER||RECIP ENG RIGHT MAGNETO:2|bool",
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|RECIP ENG FUEL AVAILABLE:1|bool||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:1|RECIP ENG FUEL AVAILABLE:2|bool||PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:0|RECIP ENG FUEL FLOW:1|kilograms per second||PILOT",
+                "FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:1|RECIP ENG FUEL FLOW:2|kilograms per second||PILOT",
+                "INTEGER||RECIP ENG FUEL TANKS USED:1|mask||PILOT",
+                "INTEGER||RECIP ENG FUEL TANKS USED:2|mask||PILOT",
+                "INTEGER|sim/cockpit2/engine/actuators/prop_rotation_speed_rad_sec:0*9.549|PROP RPM:1|rpm||PILOT|INJECTED",
+                "INTEGER|sim/cockpit2/engine/actuators/prop_rotation_speed_rad_sec:1*9.549|PROP RPM:2|rpm||PILOT|INJECTED",
+                "INTEGER|sim/cockpit2/electrical/generator_on:0|GENERAL ENG MASTER ALTERNATOR:1|bool",
+                "INTEGER|sim/cockpit2/electrical/generator_on:1|GENERAL ENG MASTER ALTERNATOR:2|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:0|GENERAL ENG FUEL PUMP SWITCH:1|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:1|GENERAL ENG FUEL PUMP SWITCH:2|bool",
+                "INTEGER|sim/cockpit/engine/igniters_on:0|GENERAL ENG STARTER:1|bool",
+                "INTEGER|sim/cockpit/engine/igniters_on:1|GENERAL ENG STARTER:2|bool",
+                "INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:0|GENERAL ENG ANTI ICE POSITION:1|bool|ANTI_ICE_SET_ENG1",
+                "INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:1|GENERAL ENG ANTI ICE POSITION:2|bool|ANTI_ICE_SET_ENG2",
+                "INTEGER||RECIP ENG FUEL TANK SELECTOR:1|enum",
+                "INTEGER||RECIP ENG FUEL TANK SELECTOR:2|enum",
+                "INTEGER|sim/cockpit2/fuel/fuel_tank_selector:0||",
+                "INTEGER|sim/cockpit2/fuel/fuel_tank_selector:1||",
+                "INTEGER||PROP FEATHER SWITCH:1|bool",
+                "INTEGER||PROP FEATHER SWITCH:2|bool",
+            ]);
+
+            WriteDefaultFile("QuadProp.txt",
+            [
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|GENERAL ENG COMBUSTION:1|bool||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:1|GENERAL ENG COMBUSTION:2|bool||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:2|GENERAL ENG COMBUSTION:3|bool||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:3|GENERAL ENG COMBUSTION:4|bool||PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:0|GENERAL ENG THROTTLE LEVER POSITION:1|position|THROTTLE1_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:1|GENERAL ENG THROTTLE LEVER POSITION:2|position|THROTTLE2_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:2|GENERAL ENG THROTTLE LEVER POSITION:3|position|THROTTLE3_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:3|GENERAL ENG THROTTLE LEVER POSITION:4|position|THROTTLE4_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:0|GENERAL ENG MIXTURE LEVER POSITION:1|position|MIXTURE1_SET*16383|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:1|GENERAL ENG MIXTURE LEVER POSITION:2|position|MIXTURE2_SET*16383|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:2|GENERAL ENG MIXTURE LEVER POSITION:3|position|MIXTURE3_SET*16383|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:3|GENERAL ENG MIXTURE LEVER POSITION:4|position|MIXTURE4_SET*16383|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/prop_ratio:0|GENERAL ENG PROPELLER LEVER POSITION:1|position|PROP_PITCH1_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/prop_ratio:1|GENERAL ENG PROPELLER LEVER POSITION:2|position|PROP_PITCH2_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/prop_ratio:2|GENERAL ENG PROPELLER LEVER POSITION:3|position|PROP_PITCH3_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/prop_ratio:3|GENERAL ENG PROPELLER LEVER POSITION:4|position|PROP_PITCH4_SET*16383|PILOT|INJECTED",
+                "INTEGER|sim/cockpit2/engine/actuators/primer_on:0|RECIP ENG PRIMER:1|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/primer_on:1|RECIP ENG PRIMER:2|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/primer_on:2|RECIP ENG PRIMER:3|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/primer_on:3|RECIP ENG PRIMER:4|bool",
+                "FLOAT|sim/cockpit2/switches/alternate_static_air_ratio:0|RECIP ENG ALTERNATE AIR POSITION:1|position",
+                "FLOAT|sim/cockpit2/switches/alternate_static_air_ratio:1|RECIP ENG ALTERNATE AIR POSITION:2|position",
+                "FLOAT|sim/cockpit2/switches/alternate_static_air_ratio:2|RECIP ENG ALTERNATE AIR POSITION:3|position",
+                "FLOAT|sim/cockpit2/switches/alternate_static_air_ratio:3|RECIP ENG ALTERNATE AIR POSITION:4|position",
+                "INTEGER||RECIP ENG LEFT MAGNETO:1|bool",
+                "INTEGER||RECIP ENG LEFT MAGNETO:2|bool",
+                "INTEGER||RECIP ENG LEFT MAGNETO:3|bool",
+                "INTEGER||RECIP ENG LEFT MAGNETO:4|bool",
+                "INTEGER||RECIP ENG RIGHT MAGNETO:1|bool",
+                "INTEGER||RECIP ENG RIGHT MAGNETO:2|bool",
+                "INTEGER||RECIP ENG RIGHT MAGNETO:3|bool",
+                "INTEGER||RECIP ENG RIGHT MAGNETO:4|bool",
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|RECIP ENG FUEL AVAILABLE:1|bool||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:1|RECIP ENG FUEL AVAILABLE:2|bool||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:2|RECIP ENG FUEL AVAILABLE:3|bool||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:3|RECIP ENG FUEL AVAILABLE:4|bool||PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:0|RECIP ENG FUEL FLOW:1|kilograms per second||PILOT",
+                "FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:1|RECIP ENG FUEL FLOW:2|kilograms per second||PILOT",
+                "FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:2|RECIP ENG FUEL FLOW:3|kilograms per second||PILOT",
+                "FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:3|RECIP ENG FUEL FLOW:4|kilograms per second||PILOT",
+                "INTEGER||RECIP ENG FUEL TANKS USED:1|mask||PILOT",
+                "INTEGER||RECIP ENG FUEL TANKS USED:2|mask||PILOT",
+                "INTEGER||RECIP ENG FUEL TANKS USED:3|mask||PILOT",
+                "INTEGER||RECIP ENG FUEL TANKS USED:4|mask||PILOT",
+                "INTEGER|sim/cockpit2/engine/actuators/prop_rotation_speed_rad_sec:0*9.549|PROP RPM:1|rpm||PILOT|INJECTED",
+                "INTEGER|sim/cockpit2/engine/actuators/prop_rotation_speed_rad_sec:1*9.549|PROP RPM:2|rpm||PILOT|INJECTED",
+                "INTEGER|sim/cockpit2/engine/actuators/prop_rotation_speed_rad_sec:2*9.549|PROP RPM:3|rpm||PILOT|INJECTED",
+                "INTEGER|sim/cockpit2/engine/actuators/prop_rotation_speed_rad_sec:3*9.549|PROP RPM:4|rpm||PILOT|INJECTED",
+                "INTEGER|sim/cockpit2/electrical/generator_on:0|GENERAL ENG MASTER ALTERNATOR:1|bool",
+                "INTEGER|sim/cockpit2/electrical/generator_on:1|GENERAL ENG MASTER ALTERNATOR:2|bool",
+                "INTEGER|sim/cockpit2/electrical/generator_on:2|GENERAL ENG MASTER ALTERNATOR:3|bool",
+                "INTEGER|sim/cockpit2/electrical/generator_on:3|GENERAL ENG MASTER ALTERNATOR:4|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:0|GENERAL ENG FUEL PUMP SWITCH:1|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:1|GENERAL ENG FUEL PUMP SWITCH:2|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:2|GENERAL ENG FUEL PUMP SWITCH:3|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:3|GENERAL ENG FUEL PUMP SWITCH:4|bool",
+                "INTEGER|sim/cockpit/engine/igniters_on:0|GENERAL ENG STARTER:1|bool",
+                "INTEGER|sim/cockpit/engine/igniters_on:1|GENERAL ENG STARTER:2|bool",
+                "INTEGER|sim/cockpit/engine/igniters_on:2|GENERAL ENG STARTER:3|bool",
+                "INTEGER|sim/cockpit/engine/igniters_on:3|GENERAL ENG STARTER:4|bool",
+                "INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:0|GENERAL ENG ANTI ICE POSITION:1|bool|ANTI_ICE_SET_ENG1",
+                "INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:1|GENERAL ENG ANTI ICE POSITION:2|bool|ANTI_ICE_SET_ENG2",
+                "INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:2|GENERAL ENG ANTI ICE POSITION:3|bool|ANTI_ICE_SET_ENG3",
+                "INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:3|GENERAL ENG ANTI ICE POSITION:4|bool|ANTI_ICE_SET_ENG4",
+                "INTEGER||RECIP ENG FUEL TANK SELECTOR:1|enum",
+                "INTEGER||RECIP ENG FUEL TANK SELECTOR:2|enum",
+                "INTEGER||RECIP ENG FUEL TANK SELECTOR:3|enum",
+                "INTEGER||RECIP ENG FUEL TANK SELECTOR:4|enum",
+                "INTEGER|sim/cockpit2/fuel/fuel_tank_selector:0||",
+                "INTEGER|sim/cockpit2/fuel/fuel_tank_selector:1||",
+                "INTEGER|sim/cockpit2/fuel/fuel_tank_selector:2||",
+                "INTEGER|sim/cockpit2/fuel/fuel_tank_selector:3||",
+                "INTEGER||PROP FEATHER SWITCH:1|bool",
+                "INTEGER||PROP FEATHER SWITCH:2|bool",
+                "INTEGER||PROP FEATHER SWITCH:3|bool",
+                "INTEGER||PROP FEATHER SWITCH:4|bool",
+            ]);
+
+            WriteDefaultFile("SingleTurbine.txt",
+            [
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|GENERAL ENG COMBUSTION:1|bool||PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:0|GENERAL ENG THROTTLE LEVER POSITION:1|position|THROTTLE1_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:0|GENERAL ENG MIXTURE LEVER POSITION:1|position|MIXTURE1_SET*16383|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/N1_percent:0|TURB ENG N1:1|percent||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/N2_percent:0|TURB ENG N2:1|percent||PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:0|TURB ENG CORRECTED FF:1|kilograms per second||PILOT",
+                "INTEGER|sim/flightmodel2/engines/ITT_deg_C:0|TURB ENG ITT:1|degrees||PILOT",
+                "INTEGER|sim/cockpit2/electrical/generator_on:0|GENERAL ENG MASTER ALTERNATOR:1|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:0|GENERAL ENG FUEL PUMP SWITCH:1|bool",
+                "INTEGER|sim/cockpit/engine/igniters_on:0|GENERAL ENG STARTER:1|bool",
+                "INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:0|GENERAL ENG ANTI ICE POSITION:1|bool|ANTI_ICE_SET_ENG1",
+                "INTEGER||TURB ENG TANK SELECTOR:1|enum",
+                "INTEGER|sim/cockpit2/fuel/fuel_tank_selector:0||",
+                "INTEGER|sim/cockpit2/engine/actuators/afterburner_enabled:0|TURB ENG AFTERBURNER:1|bool",
+            ]);
+
+            WriteDefaultFile("TwinTurbine.txt",
+            [
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|GENERAL ENG COMBUSTION:1|bool||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:1|GENERAL ENG COMBUSTION:2|bool||PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:0|GENERAL ENG THROTTLE LEVER POSITION:1|position|THROTTLE1_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:1|GENERAL ENG THROTTLE LEVER POSITION:2|position|THROTTLE2_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:0|GENERAL ENG MIXTURE LEVER POSITION:1|position|MIXTURE1_SET*16383|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:1|GENERAL ENG MIXTURE LEVER POSITION:2|position|MIXTURE2_SET*16383|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/N1_percent:0|TURB ENG N1:1|percent||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/N1_percent:1|TURB ENG N1:2|percent||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/N2_percent:0|TURB ENG N2:1|percent||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/N2_percent:1|TURB ENG N2:2|percent||PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:0|TURB ENG CORRECTED FF:1|kilograms per second||PILOT",
+                "FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:1|TURB ENG CORRECTED FF:2|kilograms per second||PILOT",
+                "INTEGER|sim/flightmodel2/engines/ITT_deg_C:0|TURB ENG ITT:1|degrees||PILOT",
+                "INTEGER|sim/flightmodel2/engines/ITT_deg_C:1|TURB ENG ITT:2|degrees||PILOT",
+                "INTEGER|sim/cockpit2/electrical/generator_on:0|GENERAL ENG MASTER ALTERNATOR:1|bool",
+                "INTEGER|sim/cockpit2/electrical/generator_on:1|GENERAL ENG MASTER ALTERNATOR:2|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:0|GENERAL ENG FUEL PUMP SWITCH:1|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:1|GENERAL ENG FUEL PUMP SWITCH:2|bool",
+                "INTEGER|sim/cockpit/engine/igniters_on:0|GENERAL ENG STARTER:1|bool",
+                "INTEGER|sim/cockpit/engine/igniters_on:1|GENERAL ENG STARTER:2|bool",
+                "INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:0|GENERAL ENG ANTI ICE POSITION:1|bool|ANTI_ICE_SET_ENG1",
+                "INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:1|GENERAL ENG ANTI ICE POSITION:2|bool|ANTI_ICE_SET_ENG2",
+                "INTEGER||TURB ENG TANK SELECTOR:1|enum",
+                "INTEGER||TURB ENG TANK SELECTOR:2|enum",
+                "INTEGER|sim/cockpit2/fuel/fuel_tank_selector:0||",
+                "INTEGER|sim/cockpit2/fuel/fuel_tank_selector:1||",
+                "INTEGER|sim/cockpit2/engine/actuators/afterburner_enabled:0|TURB ENG AFTERBURNER:1|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/afterburner_enabled:1|TURB ENG AFTERBURNER:2|bool",
+            ]);
+
+            WriteDefaultFile("QuadTurbine.txt",
+            [
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|GENERAL ENG COMBUSTION:1|bool||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:1|GENERAL ENG COMBUSTION:2|bool||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:2|GENERAL ENG COMBUSTION:3|bool||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:3|GENERAL ENG COMBUSTION:4|bool||PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:0|GENERAL ENG THROTTLE LEVER POSITION:1|position|THROTTLE1_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:1|GENERAL ENG THROTTLE LEVER POSITION:2|position|THROTTLE2_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:2|GENERAL ENG THROTTLE LEVER POSITION:3|position|THROTTLE3_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:3|GENERAL ENG THROTTLE LEVER POSITION:4|position|THROTTLE4_SET*16383|PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:0|GENERAL ENG MIXTURE LEVER POSITION:1|position|MIXTURE1_SET*16383|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:1|GENERAL ENG MIXTURE LEVER POSITION:2|position|MIXTURE2_SET*16383|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:2|GENERAL ENG MIXTURE LEVER POSITION:3|position|MIXTURE3_SET*16383|INJECTED",
+                "FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:3|GENERAL ENG MIXTURE LEVER POSITION:4|position|MIXTURE4_SET*16383|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/N1_percent:0|TURB ENG N1:1|percent||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/N1_percent:1|TURB ENG N1:2|percent||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/N1_percent:2|TURB ENG N1:3|percent||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/N1_percent:3|TURB ENG N1:4|percent||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/N2_percent:0|TURB ENG N2:1|percent||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/N2_percent:1|TURB ENG N2:2|percent||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/N2_percent:2|TURB ENG N2:3|percent||PILOT|INJECTED",
+                "INTEGER|sim/flightmodel2/engines/N2_percent:3|TURB ENG N2:4|percent||PILOT|INJECTED",
+                "FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:0|TURB ENG CORRECTED FF:1|kilograms per second||PILOT",
+                "FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:1|TURB ENG CORRECTED FF:2|kilograms per second||PILOT",
+                "FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:2|TURB ENG CORRECTED FF:3|kilograms per second||PILOT",
+                "FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:3|TURB ENG CORRECTED FF:4|kilograms per second||PILOT",
+                "INTEGER|sim/flightmodel2/engines/ITT_deg_C:0|TURB ENG ITT:1|degrees||PILOT",
+                "INTEGER|sim/flightmodel2/engines/ITT_deg_C:1|TURB ENG ITT:2|degrees||PILOT",
+                "INTEGER|sim/flightmodel2/engines/ITT_deg_C:2|TURB ENG ITT:3|degrees||PILOT",
+                "INTEGER|sim/flightmodel2/engines/ITT_deg_C:3|TURB ENG ITT:4|degrees||PILOT",
+                "INTEGER|sim/cockpit2/electrical/generator_on:0|GENERAL ENG MASTER ALTERNATOR:1|bool",
+                "INTEGER|sim/cockpit2/electrical/generator_on:1|GENERAL ENG MASTER ALTERNATOR:2|bool",
+                "INTEGER|sim/cockpit2/electrical/generator_on:2|GENERAL ENG MASTER ALTERNATOR:3|bool",
+                "INTEGER|sim/cockpit2/electrical/generator_on:3|GENERAL ENG MASTER ALTERNATOR:4|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:0|GENERAL ENG FUEL PUMP SWITCH:1|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:1|GENERAL ENG FUEL PUMP SWITCH:2|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:2|GENERAL ENG FUEL PUMP SWITCH:3|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:3|GENERAL ENG FUEL PUMP SWITCH:4|bool",
+                "INTEGER|sim/cockpit/engine/igniters_on:0|GENERAL ENG STARTER:1|bool",
+                "INTEGER|sim/cockpit/engine/igniters_on:1|GENERAL ENG STARTER:2|bool",
+                "INTEGER|sim/cockpit/engine/igniters_on:2|GENERAL ENG STARTER:3|bool",
+                "INTEGER|sim/cockpit/engine/igniters_on:3|GENERAL ENG STARTER:4|bool",
+                "INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:0|GENERAL ENG ANTI ICE POSITION:1|bool|ANTI_ICE_SET_ENG1",
+                "INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:1|GENERAL ENG ANTI ICE POSITION:2|bool|ANTI_ICE_SET_ENG2",
+                "INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:2|GENERAL ENG ANTI ICE POSITION:3|bool|ANTI_ICE_SET_ENG3",
+                "INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:3|GENERAL ENG ANTI ICE POSITION:4|bool|ANTI_ICE_SET_ENG4",
+                "INTEGER||TURB ENG TANK SELECTOR:1|enum",
+                "INTEGER||TURB ENG TANK SELECTOR:2|enum",
+                "INTEGER||TURB ENG TANK SELECTOR:3|enum",
+                "INTEGER||TURB ENG TANK SELECTOR:4|enum",
+                "INTEGER|sim/cockpit2/fuel/fuel_tank_selector:0||",
+                "INTEGER|sim/cockpit2/fuel/fuel_tank_selector:1||",
+                "INTEGER|sim/cockpit2/fuel/fuel_tank_selector:2||",
+                "INTEGER|sim/cockpit2/fuel/fuel_tank_selector:3||",
+                "INTEGER|sim/cockpit2/engine/actuators/afterburner_enabled:0|TURB ENG AFTERBURNER:1|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/afterburner_enabled:1|TURB ENG AFTERBURNER:2|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/afterburner_enabled:2|TURB ENG AFTERBURNER:3|bool",
+                "INTEGER|sim/cockpit2/engine/actuators/afterburner_enabled:3|TURB ENG AFTERBURNER:4|bool",
+            ]);
+        }
+
+        /// <summary>
+        /// Write one of the built-in variable files. A failure is reported and never escapes (before #214 one stopped the
+        /// start): JoinFS goes on with whatever the folder holds.
+        /// </summary>
+        void WriteDefaultFile(string name, string[] lines)
+        {
             try
             {
-                writer = File.CreateText(filename);
-                writer.WriteLine("INTEGER|sim/cockpit/electrical/battery_on|ELECTRICAL MASTER BATTERY|bool|TOGGLE_MASTER_BATTERY|INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit/electrical/nav_lights_on|LIGHT STATES|mask:0||INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit/electrical/beacon_lights_on|LIGHT STATES|mask:1||INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit/electrical/landing_lights_on|LIGHT STATES|mask:2||INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit/electrical/taxi_light_on|LIGHT STATES|mask:3||INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit/electrical/strobe_lights_on|LIGHT STATES|mask:4||INJECTED");
-                writer.WriteLine("INTEGER||LIGHT STATES|mask:5||INJECTED");
-                writer.WriteLine("INTEGER||LIGHT STATES|mask:6||INJECTED");
-                writer.WriteLine("INTEGER||LIGHT STATES|mask:7||INJECTED");
-                writer.WriteLine("INTEGER||LIGHT STATES|mask:8||INJECTED");
-                writer.WriteLine("INTEGER||LIGHT STATES|mask:9||INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel/controls/parkbrake|BRAKE PARKING POSITION|bool|PARKING_BRAKES*16383");
-                writer.WriteLine("INTEGER|sim/cockpit2/controls/gear_handle_down|GEAR HANDLE POSITION|bool|GEAR_SET|INJECTED");
-                writer.WriteLine("FLOAT|sim/flightmodel/controls/flaprat|FLAPS HANDLE PERCENT|percent over 100|FLAPS_SET*16383|INJECTED");
-                writer.WriteLine("FLOAT|sim/flightmodel/controls/canopy_ratio|CANOPY OPEN|percent over 100||INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit/gyros/psi_vac_ind_degm|PLANE HEADING DEGREES GYRO|degrees");
-                writer.WriteLine("INTEGER|sim/cockpit/misc/barometer_setting*0.029536|KOHLSMAN SETTING MB|millibars|KOHLSMAN_SET*16");
-                writer.WriteLine("INTEGER|sim/cockpit/switches/pitot_heat_on|PITOT HEAT|bool|PITOT_HEAT_SET");
-                writer.WriteLine("INTEGER|sim/cockpit2/switches/avionics_power_on|AVIONICS MASTER SWITCH|bool|AVIONICS_MASTER_SET");
-                writer.WriteLine("INTEGER|sim/cockpit/radios/nav1_obs_degm|NAV OBS:1|degrees|VOR1_SET");
-                writer.WriteLine("INTEGER|sim/cockpit/radios/nav2_obs_degm|NAV OBS:2|degrees|VOR2_SET");
-                writer.WriteLine("INTEGER|sim/cockpit2/radios/actuators/audio_selection_com1|COM TRANSMIT:1|bool|COM1_TRANSMIT_SELECT");
-                writer.WriteLine("INTEGER|sim/cockpit2/radios/actuators/audio_selection_com2|COM TRANSMIT:2|bool|COM2_TRANSMIT_SELECT");
-                writer.WriteLine("INTEGER|sim/cockpit/radios/transponder_code|TRANSPONDER CODE:1|bco16|XPNDR_SET");
-                writer.WriteLine("FLOAT|sim/cockpit/radios/com1_freq_hz|COM ACTIVE FREQUENCY:1|MHz|COM_RADIO_SET");
-                writer.WriteLine("FLOAT|sim/cockpit/radios/com2_freq_hz|COM ACTIVE FREQUENCY:2|MHz|COM2_RADIO_SET");
-                writer.WriteLine("FLOAT|sim/cockpit/radios/nav1_freq_hz|NAV ACTIVE FREQUENCY:1|MHz|NAV1_RADIO_SET");
-                writer.WriteLine("FLOAT|sim/cockpit/radios/nav2_freq_hz|NAV ACTIVE FREQUENCY:2|MHz|NAV2_RADIO_SET");
-                writer.WriteLine("FLOAT|sim/cockpit/radios/com1_stdby_freq_hz|COM STANDBY FREQUENCY:1|MHz|COM_STBY_RADIO_SET");
-                writer.WriteLine("FLOAT|sim/cockpit/radios/com2_stdby_freq_hz|COM STANDBY FREQUENCY:2|MHz|COM2_STBY_RADIO_SET");
-                writer.WriteLine("FLOAT|sim/cockpit/radios/nav1_stdby_freq_hz|NAV STANDBY FREQUENCY:1|MHz|NAV1_STBY_SET");
-                writer.WriteLine("FLOAT|sim/cockpit/radios/nav2_stdby_freq_hz|NAV STANDBY FREQUENCY:2|MHz|NAV2_STBY_SET");
-                writer.WriteLine("INTEGER|sim/cockpit/radios/adf1_freq_hz|ADF ACTIVE FREQUENCY:1|frequency adf bcd32|ADF_COMPLETE_SET");
-                //writer.WriteLine("INTEGER|sim/cockpit/radios/adf2_freq_hz|ADF ACTIVE FREQUENCY:2|frequency adf bcd32");
-                writer.WriteLine("INTEGER||AI TRAFFIC ISIFR|bool");
-                writer.WriteLine("STRING8||AI TRAFFIC FROMAIRPORT|");
-                writer.WriteLine("STRING8||AI TRAFFIC TOAIRPORT|");
-                writer.WriteLine("INTEGER|sim/cockpit/autopilot/autopilot_mode|AUTOPILOT MASTER|bool");
-                writer.WriteLine("INTEGER||AUTOPILOT HEADING LOCK|bool|AP_PANEL_HEADING_HOLD");
-                writer.WriteLine("INTEGER|sim/cockpit/autopilot/heading_mag|AUTOPILOT HEADING LOCK DIR|degrees|HEADING_BUG_SET");
-                writer.WriteLine("INTEGER||AUTOPILOT ALTITUDE LOCK|bool|AP_PANEL_ALTITUDE_HOLD");
-                writer.WriteLine("INTEGER|sim/cockpit/autopilot/altitude|AUTOPILOT ALTITUDE LOCK VAR|feet|AP_ALT_VAR_SET_ENGLISH");
-                writer.WriteLine("INTEGER|sim/cockpit/autopilot/vertical_velocity|AUTOPILOT VERTICAL HOLD VAR|feet/minute|AP_VS_VAR_SET_ENGLISH");
-                writer.WriteLine("INTEGER||AUTOPILOT AIRSPEED HOLD|bool|AP_AIRSPEED_HOLD");
-                writer.WriteLine("INTEGER|sim/cockpit/autopilot/airspeed|AUTOPILOT AIRSPEED HOLD VAR|knots|AP_SPD_VAR_SET");
-                writer.WriteLine("INTEGER||AUTOPILOT ATTITUDE HOLD|bool|AP_ATT_HOLD");
-                writer.WriteLine("INTEGER||AUTOPILOT APPROACH HOLD|bool|AP_APR_HOLD");
-                writer.WriteLine("INTEGER||AUTOPILOT BACKCOURSE HOLD|bool|AP_BC_HOLD");
-                writer.WriteLine("INTEGER||AUTOPILOT NAV1 LOCK|bool|AP_NAV1_HOLD");
-                writer.WriteLine("INTEGER||AUTOPILOT THROTTLE ARM|bool|AUTO_THROTTLE_ARM");
-                writer.WriteLine("INTEGER|sim/cockpit/switches/DME_radio_selector|SELECTED DME|number|TOGGLE_DME");
-                //                    writer.WriteLine("INTEGER|sim/flightmodel/position/indicated_airspeed|AIRSPEED INDICATED|knots");
-                //                    writer.WriteLine("INTEGER|sim/flightmodel/misc/h_ind|INDICATED ALTITUDE|feet");
-                //                  writer.WriteLine("INTEGER|sim/flightmodel/position/vh_ind_fpm|VERTICAL SPEED|feet per second");
-                //                    writer.WriteLine("INTEGER|sim/flightmodel/misc/turnrate_roll|TURN INDICATOR RATE|radians per second");
-                //                    writer.WriteLine("INTEGER|sim/flightmodel/misc/slip|TURN COORDINATOR BALL|position");
-                writer.WriteLine("FLOAT|sim/cockpit2/switches/rotor_brake_ratio|ROTOR BRAKE HANDLE POS|position|ROTOR_BRAKE");
-                writer.WriteLine("INTEGER|sim/cockpit2/switches/clutch_engage|ROTOR CLUTCH SWITCH POS|bool|ROTOR_CLUTCH_SWITCH_SET");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/governor_on|ROTOR GOV SWITCH POS|bool|ROTOR_GOV_SWITCH_SET");
-                writer.WriteLine("FLOAT||ROTOR LATERAL TRIM PCT|position|ROTOR_LATERAL_TRIM_SET*16383");
+                WriteIfChanged(Path.Combine(path, name), string.Concat(lines.Select(line => line + Environment.NewLine)));
             }
             catch (Exception ex)
             {
-                // message
-                main.ShowMessage(ex.Message);
+                main.ShowMessage(Main.FileErrorMessage(ex));
             }
-            finally
-            {
-                // close writer
-                writer?.Close();
-            }
+        }
 
-            // get rotorcraft variables
-            filename = Path.Combine(path, "SingleProp.txt");
+        /// <summary>
+        /// Write a file unless it already holds exactly this text, so the usual start writes nothing. The text goes to a
+        /// temporary file first: a write that Windows refuses half-way (Controlled folder access or an antivirus, #214)
+        /// leaves the old file whole. Throws when the write fails.
+        /// </summary>
+        /// <returns>True when the file was written</returns>
+        internal static bool WriteIfChanged(string filename, string content)
+        {
+            if (File.Exists(filename) && File.ReadAllText(filename) == content) return false;
+            string temp = filename + ".tmp";
             try
             {
-                writer = File.CreateText(filename);
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|GENERAL ENG COMBUSTION:1|bool||PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:0|GENERAL ENG THROTTLE LEVER POSITION:1|position|THROTTLE1_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:0|GENERAL ENG MIXTURE LEVER POSITION:1|position|MIXTURE1_SET*16383|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/prop_ratio:0|GENERAL ENG PROPELLER LEVER POSITION:1|position|PROP_PITCH1_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/primer_on:0|RECIP ENG PRIMER:1|bool");
-                writer.WriteLine("FLOAT|sim/cockpit2/switches/alternate_static_air_ratio:0|RECIP ENG ALTERNATE AIR POSITION:1|position");
-                writer.WriteLine("INTEGER||RECIP ENG LEFT MAGNETO:1|bool");
-                writer.WriteLine("INTEGER||RECIP ENG RIGHT MAGNETO:1|bool");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|RECIP ENG FUEL AVAILABLE:1|bool||PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:0|RECIP ENG FUEL FLOW:1|kilograms per second||PILOT");
-                writer.WriteLine("INTEGER||RECIP ENG FUEL TANKS USED:1|mask||PILOT");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/prop_rotation_speed_rad_sec:0*9.549|PROP RPM:1|rpm||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit2/electrical/generator_on:0|GENERAL ENG MASTER ALTERNATOR:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:0|GENERAL ENG FUEL PUMP SWITCH:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit/engine/igniters_on:0|GENERAL ENG STARTER:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:0|GENERAL ENG ANTI ICE POSITION:1|bool|ANTI_ICE_SET_ENG1");
-                writer.WriteLine("INTEGER|sim/cockpit2/fuel/fuel_tank_selector:0||");
-                writer.WriteLine("INTEGER||PROP FEATHER SWITCH:1|bool");
+                File.WriteAllText(temp, content);
+                File.Move(temp, filename, true);
             }
-            catch (Exception ex)
+            catch
             {
-                // message
-                main.ShowMessage(ex.Message);
+                try { File.Delete(temp); } catch { }
+                throw;
             }
-            finally
-            {
-                // close writer
-                writer?.Close();
-            }
-
-            // get rotorcraft variables
-            filename = Path.Combine(path, "TwinProp.txt");
-            try
-            {
-                writer = File.CreateText(filename);
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|GENERAL ENG COMBUSTION:1|bool||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:1|GENERAL ENG COMBUSTION:2|bool||PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:0|GENERAL ENG THROTTLE LEVER POSITION:1|position|THROTTLE1_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:1|GENERAL ENG THROTTLE LEVER POSITION:2|position|THROTTLE2_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:0|GENERAL ENG MIXTURE LEVER POSITION:1|position|MIXTURE1_SET*16383|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:1|GENERAL ENG MIXTURE LEVER POSITION:2|position|MIXTURE2_SET*16383|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/prop_ratio:0|GENERAL ENG PROPELLER LEVER POSITION:1|position|PROP_PITCH1_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/prop_ratio:1|GENERAL ENG PROPELLER LEVER POSITION:2|position|PROP_PITCH2_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/primer_on:0|RECIP ENG PRIMER:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/primer_on:1|RECIP ENG PRIMER:2|bool");
-                writer.WriteLine("FLOAT|sim/cockpit2/switches/alternate_static_air_ratio:0|RECIP ENG ALTERNATE AIR POSITION:1|position");
-                writer.WriteLine("FLOAT|sim/cockpit2/switches/alternate_static_air_ratio:1|RECIP ENG ALTERNATE AIR POSITION:2|position");
-                writer.WriteLine("INTEGER||RECIP ENG LEFT MAGNETO:1|bool");
-                writer.WriteLine("INTEGER||RECIP ENG LEFT MAGNETO:2|bool");
-                writer.WriteLine("INTEGER||RECIP ENG RIGHT MAGNETO:1|bool");
-                writer.WriteLine("INTEGER||RECIP ENG RIGHT MAGNETO:2|bool");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|RECIP ENG FUEL AVAILABLE:1|bool||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:1|RECIP ENG FUEL AVAILABLE:2|bool||PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:0|RECIP ENG FUEL FLOW:1|kilograms per second||PILOT");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:1|RECIP ENG FUEL FLOW:2|kilograms per second||PILOT");
-                writer.WriteLine("INTEGER||RECIP ENG FUEL TANKS USED:1|mask||PILOT");
-                writer.WriteLine("INTEGER||RECIP ENG FUEL TANKS USED:2|mask||PILOT");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/prop_rotation_speed_rad_sec:0*9.549|PROP RPM:1|rpm||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/prop_rotation_speed_rad_sec:1*9.549|PROP RPM:2|rpm||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit2/electrical/generator_on:0|GENERAL ENG MASTER ALTERNATOR:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/electrical/generator_on:1|GENERAL ENG MASTER ALTERNATOR:2|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:0|GENERAL ENG FUEL PUMP SWITCH:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:1|GENERAL ENG FUEL PUMP SWITCH:2|bool");
-                writer.WriteLine("INTEGER|sim/cockpit/engine/igniters_on:0|GENERAL ENG STARTER:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit/engine/igniters_on:1|GENERAL ENG STARTER:2|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:0|GENERAL ENG ANTI ICE POSITION:1|bool|ANTI_ICE_SET_ENG1");
-                writer.WriteLine("INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:1|GENERAL ENG ANTI ICE POSITION:2|bool|ANTI_ICE_SET_ENG2");
-                writer.WriteLine("INTEGER||RECIP ENG FUEL TANK SELECTOR:1|enum");
-                writer.WriteLine("INTEGER||RECIP ENG FUEL TANK SELECTOR:2|enum");
-                writer.WriteLine("INTEGER|sim/cockpit2/fuel/fuel_tank_selector:0||");
-                writer.WriteLine("INTEGER|sim/cockpit2/fuel/fuel_tank_selector:1||");
-                writer.WriteLine("INTEGER||PROP FEATHER SWITCH:1|bool");
-                writer.WriteLine("INTEGER||PROP FEATHER SWITCH:2|bool");
-            }
-            catch (Exception ex)
-            {
-                // message
-                main.ShowMessage(ex.Message);
-            }
-            finally
-            {
-                // close writer
-                writer?.Close();
-            }
-
-            // get rotorcraft variables
-            filename = Path.Combine(path, "QuadProp.txt");
-            try
-            {
-                writer = File.CreateText(filename);
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|GENERAL ENG COMBUSTION:1|bool||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:1|GENERAL ENG COMBUSTION:2|bool||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:2|GENERAL ENG COMBUSTION:3|bool||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:3|GENERAL ENG COMBUSTION:4|bool||PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:0|GENERAL ENG THROTTLE LEVER POSITION:1|position|THROTTLE1_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:1|GENERAL ENG THROTTLE LEVER POSITION:2|position|THROTTLE2_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:2|GENERAL ENG THROTTLE LEVER POSITION:3|position|THROTTLE3_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:3|GENERAL ENG THROTTLE LEVER POSITION:4|position|THROTTLE4_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:0|GENERAL ENG MIXTURE LEVER POSITION:1|position|MIXTURE1_SET*16383|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:1|GENERAL ENG MIXTURE LEVER POSITION:2|position|MIXTURE2_SET*16383|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:2|GENERAL ENG MIXTURE LEVER POSITION:3|position|MIXTURE3_SET*16383|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:3|GENERAL ENG MIXTURE LEVER POSITION:4|position|MIXTURE4_SET*16383|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/prop_ratio:0|GENERAL ENG PROPELLER LEVER POSITION:1|position|PROP_PITCH1_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/prop_ratio:1|GENERAL ENG PROPELLER LEVER POSITION:2|position|PROP_PITCH2_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/prop_ratio:2|GENERAL ENG PROPELLER LEVER POSITION:3|position|PROP_PITCH3_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/prop_ratio:3|GENERAL ENG PROPELLER LEVER POSITION:4|position|PROP_PITCH4_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/primer_on:0|RECIP ENG PRIMER:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/primer_on:1|RECIP ENG PRIMER:2|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/primer_on:2|RECIP ENG PRIMER:3|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/primer_on:3|RECIP ENG PRIMER:4|bool");
-                writer.WriteLine("FLOAT|sim/cockpit2/switches/alternate_static_air_ratio:0|RECIP ENG ALTERNATE AIR POSITION:1|position");
-                writer.WriteLine("FLOAT|sim/cockpit2/switches/alternate_static_air_ratio:1|RECIP ENG ALTERNATE AIR POSITION:2|position");
-                writer.WriteLine("FLOAT|sim/cockpit2/switches/alternate_static_air_ratio:2|RECIP ENG ALTERNATE AIR POSITION:3|position");
-                writer.WriteLine("FLOAT|sim/cockpit2/switches/alternate_static_air_ratio:3|RECIP ENG ALTERNATE AIR POSITION:4|position");
-                writer.WriteLine("INTEGER||RECIP ENG LEFT MAGNETO:1|bool");
-                writer.WriteLine("INTEGER||RECIP ENG LEFT MAGNETO:2|bool");
-                writer.WriteLine("INTEGER||RECIP ENG LEFT MAGNETO:3|bool");
-                writer.WriteLine("INTEGER||RECIP ENG LEFT MAGNETO:4|bool");
-                writer.WriteLine("INTEGER||RECIP ENG RIGHT MAGNETO:1|bool");
-                writer.WriteLine("INTEGER||RECIP ENG RIGHT MAGNETO:2|bool");
-                writer.WriteLine("INTEGER||RECIP ENG RIGHT MAGNETO:3|bool");
-                writer.WriteLine("INTEGER||RECIP ENG RIGHT MAGNETO:4|bool");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|RECIP ENG FUEL AVAILABLE:1|bool||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:1|RECIP ENG FUEL AVAILABLE:2|bool||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:2|RECIP ENG FUEL AVAILABLE:3|bool||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:3|RECIP ENG FUEL AVAILABLE:4|bool||PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:0|RECIP ENG FUEL FLOW:1|kilograms per second||PILOT");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:1|RECIP ENG FUEL FLOW:2|kilograms per second||PILOT");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:2|RECIP ENG FUEL FLOW:3|kilograms per second||PILOT");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:3|RECIP ENG FUEL FLOW:4|kilograms per second||PILOT");
-                writer.WriteLine("INTEGER||RECIP ENG FUEL TANKS USED:1|mask||PILOT");
-                writer.WriteLine("INTEGER||RECIP ENG FUEL TANKS USED:2|mask||PILOT");
-                writer.WriteLine("INTEGER||RECIP ENG FUEL TANKS USED:3|mask||PILOT");
-                writer.WriteLine("INTEGER||RECIP ENG FUEL TANKS USED:4|mask||PILOT");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/prop_rotation_speed_rad_sec:0*9.549|PROP RPM:1|rpm||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/prop_rotation_speed_rad_sec:1*9.549|PROP RPM:2|rpm||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/prop_rotation_speed_rad_sec:2*9.549|PROP RPM:3|rpm||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/prop_rotation_speed_rad_sec:3*9.549|PROP RPM:4|rpm||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/cockpit2/electrical/generator_on:0|GENERAL ENG MASTER ALTERNATOR:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/electrical/generator_on:1|GENERAL ENG MASTER ALTERNATOR:2|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/electrical/generator_on:2|GENERAL ENG MASTER ALTERNATOR:3|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/electrical/generator_on:3|GENERAL ENG MASTER ALTERNATOR:4|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:0|GENERAL ENG FUEL PUMP SWITCH:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:1|GENERAL ENG FUEL PUMP SWITCH:2|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:2|GENERAL ENG FUEL PUMP SWITCH:3|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:3|GENERAL ENG FUEL PUMP SWITCH:4|bool");
-                writer.WriteLine("INTEGER|sim/cockpit/engine/igniters_on:0|GENERAL ENG STARTER:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit/engine/igniters_on:1|GENERAL ENG STARTER:2|bool");
-                writer.WriteLine("INTEGER|sim/cockpit/engine/igniters_on:2|GENERAL ENG STARTER:3|bool");
-                writer.WriteLine("INTEGER|sim/cockpit/engine/igniters_on:3|GENERAL ENG STARTER:4|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:0|GENERAL ENG ANTI ICE POSITION:1|bool|ANTI_ICE_SET_ENG1");
-                writer.WriteLine("INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:1|GENERAL ENG ANTI ICE POSITION:2|bool|ANTI_ICE_SET_ENG2");
-                writer.WriteLine("INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:2|GENERAL ENG ANTI ICE POSITION:3|bool|ANTI_ICE_SET_ENG3");
-                writer.WriteLine("INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:3|GENERAL ENG ANTI ICE POSITION:4|bool|ANTI_ICE_SET_ENG4");
-                writer.WriteLine("INTEGER||RECIP ENG FUEL TANK SELECTOR:1|enum");
-                writer.WriteLine("INTEGER||RECIP ENG FUEL TANK SELECTOR:2|enum");
-                writer.WriteLine("INTEGER||RECIP ENG FUEL TANK SELECTOR:3|enum");
-                writer.WriteLine("INTEGER||RECIP ENG FUEL TANK SELECTOR:4|enum");
-                writer.WriteLine("INTEGER|sim/cockpit2/fuel/fuel_tank_selector:0||");
-                writer.WriteLine("INTEGER|sim/cockpit2/fuel/fuel_tank_selector:1||");
-                writer.WriteLine("INTEGER|sim/cockpit2/fuel/fuel_tank_selector:2||");
-                writer.WriteLine("INTEGER|sim/cockpit2/fuel/fuel_tank_selector:3||");
-                writer.WriteLine("INTEGER||PROP FEATHER SWITCH:1|bool");
-                writer.WriteLine("INTEGER||PROP FEATHER SWITCH:2|bool");
-                writer.WriteLine("INTEGER||PROP FEATHER SWITCH:3|bool");
-                writer.WriteLine("INTEGER||PROP FEATHER SWITCH:4|bool");
-            }
-            catch (Exception ex)
-            {
-                // message
-                main.ShowMessage(ex.Message);
-            }
-            finally
-            {
-                // close writer
-                writer?.Close();
-            }
-
-            // get rotorcraft variables
-            filename = Path.Combine(path, "SingleTurbine.txt");
-            try
-            {
-                writer = File.CreateText(filename);
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|GENERAL ENG COMBUSTION:1|bool||PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:0|GENERAL ENG THROTTLE LEVER POSITION:1|position|THROTTLE1_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:0|GENERAL ENG MIXTURE LEVER POSITION:1|position|MIXTURE1_SET*16383|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/N1_percent:0|TURB ENG N1:1|percent||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/N2_percent:0|TURB ENG N2:1|percent||PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:0|TURB ENG CORRECTED FF:1|kilograms per second||PILOT");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/ITT_deg_C:0|TURB ENG ITT:1|degrees||PILOT");
-                writer.WriteLine("INTEGER|sim/cockpit2/electrical/generator_on:0|GENERAL ENG MASTER ALTERNATOR:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:0|GENERAL ENG FUEL PUMP SWITCH:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit/engine/igniters_on:0|GENERAL ENG STARTER:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:0|GENERAL ENG ANTI ICE POSITION:1|bool|ANTI_ICE_SET_ENG1");
-                writer.WriteLine("INTEGER||TURB ENG TANK SELECTOR:1|enum");
-                writer.WriteLine("INTEGER|sim/cockpit2/fuel/fuel_tank_selector:0||");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/afterburner_enabled:0|TURB ENG AFTERBURNER:1|bool");
-            }
-            catch (Exception ex)
-            {
-                // message
-                main.ShowMessage(ex.Message);
-            }
-            finally
-            {
-                // close writer
-                writer?.Close();
-            }
-
-            // get rotorcraft variables
-            filename = Path.Combine(path, "TwinTurbine.txt");
-            try
-            {
-                writer = File.CreateText(filename);
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|GENERAL ENG COMBUSTION:1|bool||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:1|GENERAL ENG COMBUSTION:2|bool||PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:0|GENERAL ENG THROTTLE LEVER POSITION:1|position|THROTTLE1_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:1|GENERAL ENG THROTTLE LEVER POSITION:2|position|THROTTLE2_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:0|GENERAL ENG MIXTURE LEVER POSITION:1|position|MIXTURE1_SET*16383|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:1|GENERAL ENG MIXTURE LEVER POSITION:2|position|MIXTURE2_SET*16383|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/N1_percent:0|TURB ENG N1:1|percent||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/N1_percent:1|TURB ENG N1:2|percent||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/N2_percent:0|TURB ENG N2:1|percent||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/N2_percent:1|TURB ENG N2:2|percent||PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:0|TURB ENG CORRECTED FF:1|kilograms per second||PILOT");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:1|TURB ENG CORRECTED FF:2|kilograms per second||PILOT");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/ITT_deg_C:0|TURB ENG ITT:1|degrees||PILOT");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/ITT_deg_C:1|TURB ENG ITT:2|degrees||PILOT");
-                writer.WriteLine("INTEGER|sim/cockpit2/electrical/generator_on:0|GENERAL ENG MASTER ALTERNATOR:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/electrical/generator_on:1|GENERAL ENG MASTER ALTERNATOR:2|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:0|GENERAL ENG FUEL PUMP SWITCH:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:1|GENERAL ENG FUEL PUMP SWITCH:2|bool");
-                writer.WriteLine("INTEGER|sim/cockpit/engine/igniters_on:0|GENERAL ENG STARTER:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit/engine/igniters_on:1|GENERAL ENG STARTER:2|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:0|GENERAL ENG ANTI ICE POSITION:1|bool|ANTI_ICE_SET_ENG1");
-                writer.WriteLine("INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:1|GENERAL ENG ANTI ICE POSITION:2|bool|ANTI_ICE_SET_ENG2");
-                writer.WriteLine("INTEGER||TURB ENG TANK SELECTOR:1|enum");
-                writer.WriteLine("INTEGER||TURB ENG TANK SELECTOR:2|enum");
-                writer.WriteLine("INTEGER|sim/cockpit2/fuel/fuel_tank_selector:0||");
-                writer.WriteLine("INTEGER|sim/cockpit2/fuel/fuel_tank_selector:1||");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/afterburner_enabled:0|TURB ENG AFTERBURNER:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/afterburner_enabled:1|TURB ENG AFTERBURNER:2|bool");
-            }
-            catch (Exception ex)
-            {
-                // message
-                main.ShowMessage(ex.Message);
-            }
-            finally
-            {
-                // close writer
-                writer?.Close();
-            }
-
-            // get rotorcraft variables
-            filename = Path.Combine(path, "QuadTurbine.txt");
-            try
-            {
-                writer = File.CreateText(filename);
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:0|GENERAL ENG COMBUSTION:1|bool||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:1|GENERAL ENG COMBUSTION:2|bool||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:2|GENERAL ENG COMBUSTION:3|bool||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/has_fuel_flow_after_mixture:3|GENERAL ENG COMBUSTION:4|bool||PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:0|GENERAL ENG THROTTLE LEVER POSITION:1|position|THROTTLE1_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:1|GENERAL ENG THROTTLE LEVER POSITION:2|position|THROTTLE2_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:2|GENERAL ENG THROTTLE LEVER POSITION:3|position|THROTTLE3_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/throttle_ratio:3|GENERAL ENG THROTTLE LEVER POSITION:4|position|THROTTLE4_SET*16383|PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:0|GENERAL ENG MIXTURE LEVER POSITION:1|position|MIXTURE1_SET*16383|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:1|GENERAL ENG MIXTURE LEVER POSITION:2|position|MIXTURE2_SET*16383|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:2|GENERAL ENG MIXTURE LEVER POSITION:3|position|MIXTURE3_SET*16383|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/actuators/mixture_ratio:3|GENERAL ENG MIXTURE LEVER POSITION:4|position|MIXTURE4_SET*16383|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/N1_percent:0|TURB ENG N1:1|percent||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/N1_percent:1|TURB ENG N1:2|percent||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/N1_percent:2|TURB ENG N1:3|percent||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/N1_percent:3|TURB ENG N1:4|percent||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/N2_percent:0|TURB ENG N2:1|percent||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/N2_percent:1|TURB ENG N2:2|percent||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/N2_percent:2|TURB ENG N2:3|percent||PILOT|INJECTED");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/N2_percent:3|TURB ENG N2:4|percent||PILOT|INJECTED");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:0|TURB ENG CORRECTED FF:1|kilograms per second||PILOT");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:1|TURB ENG CORRECTED FF:2|kilograms per second||PILOT");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:2|TURB ENG CORRECTED FF:3|kilograms per second||PILOT");
-                writer.WriteLine("FLOAT|sim/cockpit2/engine/indicators/fuel_flow_kg_sec:3|TURB ENG CORRECTED FF:4|kilograms per second||PILOT");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/ITT_deg_C:0|TURB ENG ITT:1|degrees||PILOT");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/ITT_deg_C:1|TURB ENG ITT:2|degrees||PILOT");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/ITT_deg_C:2|TURB ENG ITT:3|degrees||PILOT");
-                writer.WriteLine("INTEGER|sim/flightmodel2/engines/ITT_deg_C:3|TURB ENG ITT:4|degrees||PILOT");
-                writer.WriteLine("INTEGER|sim/cockpit2/electrical/generator_on:0|GENERAL ENG MASTER ALTERNATOR:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/electrical/generator_on:1|GENERAL ENG MASTER ALTERNATOR:2|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/electrical/generator_on:2|GENERAL ENG MASTER ALTERNATOR:3|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/electrical/generator_on:3|GENERAL ENG MASTER ALTERNATOR:4|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:0|GENERAL ENG FUEL PUMP SWITCH:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:1|GENERAL ENG FUEL PUMP SWITCH:2|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:2|GENERAL ENG FUEL PUMP SWITCH:3|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/fuel_pump_on:3|GENERAL ENG FUEL PUMP SWITCH:4|bool");
-                writer.WriteLine("INTEGER|sim/cockpit/engine/igniters_on:0|GENERAL ENG STARTER:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit/engine/igniters_on:1|GENERAL ENG STARTER:2|bool");
-                writer.WriteLine("INTEGER|sim/cockpit/engine/igniters_on:2|GENERAL ENG STARTER:3|bool");
-                writer.WriteLine("INTEGER|sim/cockpit/engine/igniters_on:3|GENERAL ENG STARTER:4|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:0|GENERAL ENG ANTI ICE POSITION:1|bool|ANTI_ICE_SET_ENG1");
-                writer.WriteLine("INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:1|GENERAL ENG ANTI ICE POSITION:2|bool|ANTI_ICE_SET_ENG2");
-                writer.WriteLine("INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:2|GENERAL ENG ANTI ICE POSITION:3|bool|ANTI_ICE_SET_ENG3");
-                writer.WriteLine("INTEGER|sim/cockpit2/ice/cowling_thermal_anti_ice_per_engine:3|GENERAL ENG ANTI ICE POSITION:4|bool|ANTI_ICE_SET_ENG4");
-                writer.WriteLine("INTEGER||TURB ENG TANK SELECTOR:1|enum");
-                writer.WriteLine("INTEGER||TURB ENG TANK SELECTOR:2|enum");
-                writer.WriteLine("INTEGER||TURB ENG TANK SELECTOR:3|enum");
-                writer.WriteLine("INTEGER||TURB ENG TANK SELECTOR:4|enum");
-                writer.WriteLine("INTEGER|sim/cockpit2/fuel/fuel_tank_selector:0||");
-                writer.WriteLine("INTEGER|sim/cockpit2/fuel/fuel_tank_selector:1||");
-                writer.WriteLine("INTEGER|sim/cockpit2/fuel/fuel_tank_selector:2||");
-                writer.WriteLine("INTEGER|sim/cockpit2/fuel/fuel_tank_selector:3||");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/afterburner_enabled:0|TURB ENG AFTERBURNER:1|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/afterburner_enabled:1|TURB ENG AFTERBURNER:2|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/afterburner_enabled:2|TURB ENG AFTERBURNER:3|bool");
-                writer.WriteLine("INTEGER|sim/cockpit2/engine/actuators/afterburner_enabled:3|TURB ENG AFTERBURNER:4|bool");
-            }
-            catch (Exception ex)
-            {
-                // message
-                main.ShowMessage(ex.Message);
-            }
-            finally
-            {
-                // close writer
-                writer?.Close();
-            }
+            return true;
         }
 
         /// <summary>

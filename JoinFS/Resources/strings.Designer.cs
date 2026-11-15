@@ -581,7 +581,34 @@ namespace JoinFS.Resources {
                 return ResourceManager.GetString("MaxInstances", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Windows refused the write. If the folder&apos;s permissions are fine, Controlled folder access or an antivirus is probably blocking JoinFS ....
+        /// </summary>
+        internal static string WriteDenied {
+            get {
+                return ResourceManager.GetString("WriteDenied", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to JoinFS could not start..
+        /// </summary>
+        internal static string StartupFailed {
+            get {
+                return ResourceManager.GetString("StartupFailed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The log in {0} has the details..
+        /// </summary>
+        internal static string LogFolder {
+            get {
+                return ResourceManager.GetString("LogFolder", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Model list is empty for this simulator. Would you like to scan for models now?.
         /// </summary>

@@ -195,6 +195,11 @@ namespace JoinFS
         public string shutdown = null;
 
         /// <summary>
+        /// Why the start failed, when it did: the window never opens, so Main shows it in a message box
+        /// </summary>
+        public string startupError = null;
+
+        /// <summary>
         /// Multithreading lock object
         /// </summary>
         public object conch = new();
@@ -920,7 +925,7 @@ namespace JoinFS
                 }
                 catch (Exception ex)
                 {
-                    ShowMessage(ex.Message);
+                    ShowMessage(FileErrorMessage(ex));
                 }
 
                 // read guid
@@ -1153,7 +1158,9 @@ namespace JoinFS
             }
             catch (Exception ex)
             {
-                shutdown = "ERROR - " + ex.Message;
+                MonitorEvent("Startup failed: " + ex);
+                startupError = FileErrorMessage(ex);
+                shutdown = "ERROR - " + startupError;
             }
         }
 
@@ -1597,6 +1604,16 @@ namespace JoinFS
             // check if not showing message
             // schedule message
             scheduleShowMessage ??= message;
+        }
+
+        /// <summary>
+        /// The message for a failed file or folder operation. Windows refuses a write in Documents with "access denied"
+        /// also when the permissions are fine, if Controlled folder access or an antivirus blocks JoinFS (#214), so that
+        /// case says where to look.
+        /// </summary>
+        public static string FileErrorMessage(Exception ex)
+        {
+            return ex is UnauthorizedAccessException ? ex.Message + Environment.NewLine + Environment.NewLine + Resources.Strings.WriteDenied : ex.Message;
         }
 
 #region Airport
@@ -2202,6 +2219,11 @@ namespace JoinFS
 #if !CONSOLE
         [System.Runtime.InteropServices.DllImport("kernel32.dll")]
         static extern bool AttachConsole(int processId);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
+
+        const uint MB_ICONERROR = 0x10;
 #endif
 
         /// <summary>
@@ -2280,6 +2302,12 @@ namespace JoinFS
                 main.HandleFirstRun();
                 // the user interface, on this thread; returns when its window is closed
                 JoinFS.Live.NewUiLauncher.Run(main);
+            }
+            else if (main.startupError != null)
+            {
+                // without this the process just vanishes, and the error is only in the log (#214)
+                MessageBoxW(IntPtr.Zero, Resources.Strings.StartupFailed + Environment.NewLine + Environment.NewLine + main.startupError
+                    + Environment.NewLine + Environment.NewLine + string.Format(Resources.Strings.LogFolder, main.storagePath), "JoinFS", MB_ICONERROR);
             }
 #endif
 
