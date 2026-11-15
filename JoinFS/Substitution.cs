@@ -2921,7 +2921,7 @@ namespace JoinFS
 
         /// <summary>
         /// Scan in the background. X-Plane needs the JoinFS plugin in the folder first (e.g. the other X-Plane version has none):
-        /// the plugin is asked for instead, and installing it runs the generating scan afterwards.
+        /// the plugin is installed instead (asked for only when that fails), and installing it runs the generating scan afterwards.
         /// </summary>
         /// <returns>False when a scan is already running</returns>
         bool StartScanOrAskPlugin()
@@ -2929,7 +2929,14 @@ namespace JoinFS
 #if XPLANE
             if (XPlaneCslFolder.IsPluginInstalled(simFolder) == false)
             {
-                main.scheduleAskPlugin = true;
+                if (main.sim?.xplane != null)
+                {
+                    main.sim.xplane.InstallPluginOrAsk(simFolder);
+                }
+                else
+                {
+                    main.scheduleAskPlugin = true;
+                }
                 return true;
             }
 #endif

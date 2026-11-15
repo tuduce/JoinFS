@@ -1683,7 +1683,8 @@ namespace JoinFS
 #endregion
 
         /// <summary>
-        /// The first run with a user interface: X-Plane offers to install its plugin
+        /// The first run with a user interface: X-Plane installs its plugin into the X-Plane folder it finds, and asks only when it
+        /// finds none or the install fails
         /// </summary>
         public void HandleFirstRun()
         {
@@ -1693,7 +1694,14 @@ namespace JoinFS
 #if XPLANE
                 if (settingsNoSim == false)
                 {
-                    scheduleAskPlugin = true;
+                    if (sim?.xplane != null)
+                    {
+                        sim.xplane.InstallPluginOrAsk();
+                    }
+                    else
+                    {
+                        scheduleAskPlugin = true;
+                    }
                 }
 #endif
             }

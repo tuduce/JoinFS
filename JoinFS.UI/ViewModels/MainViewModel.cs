@@ -331,8 +331,8 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     /// </summary>
     private void OnOnboarded(HubInfo? hub)
     {
-        // The XPLANE build asks for its plugin first (asked for at the first run, or by the scan the card just started), over the full
-        // view, which has room for the card; the window compacts once it is answered.
+        // The XPLANE build asks for its plugin first when it could not install it by itself (at the first run, or for the scan the card
+        // just started), over the full view, which has room for the card; the window compacts once it is answered.
         if (_services.App.IsXPlaneBuild && _services.XPlanePlugin.TakeInstallRequest())
         {
             var offer = new InstallXPlanePluginViewModel(_services.XPlanePlugin, _services.Platform);
@@ -607,8 +607,8 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     }
 
     /// <summary>
-    /// The XPLANE build asks for the plugin when none (or an outdated one) is found, on a first run, and after a scan of an X-Plane folder
-    /// without it. Like a message, it waits while another card is open.
+    /// The XPLANE build asks for the plugin when it needs one (none or an outdated one is found, a first run, a scan of an X-Plane folder
+    /// without it) and could not install it by itself. Like a message, it waits while another card is open.
     /// </summary>
     private void OfferPluginInstall()
     {

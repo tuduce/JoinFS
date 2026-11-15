@@ -7,6 +7,7 @@ using System.Linq;
 using System.Globalization;
 using JoinFS.Properties;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 namespace JoinFS
 {
@@ -496,6 +497,52 @@ namespace JoinFS
             UseInstallForScan(folder);
             return true;
         }
+
+        readonly XPlanePluginAutoInstall autoInstall = new();
+
+        /// <summary>
+        /// JoinFS needs the plugin (the first run, a plugin of another version answered, a scan of a folder without it): install it by
+        /// itself into <paramref name="folder"/>, else the known X-Plane folder, and scan, once per folder and run. The install card is
+        /// offered only when no X-Plane folder is known or the install failed. Any thread; the install runs in the background.
+        /// </summary>
+        public void InstallPluginOrAsk(string folder = null)
+        {
+            folder = XPlaneInstallLocator.NormalizeFolder(folder ?? FindKnownInstallFolder());
+            if (folder != null && XPlaneInstallLocator.IsValidInstall(folder) == false)
+            {
+                folder = null;
+            }
+
+            switch (autoInstall.Decide(folder))
+            {
+                case XPlanePluginAutoInstall.Action.Install:
+                    main.MonitorEvent("X-Plane plugin: installing into '" + folder + "'");
+                    Task.Run(() =>
+                    {
+                        bool installed = false;
+                        try
+                        {
+                            installed = InstallPluginAndScan(folder);
+                        }
+                        catch (Exception ex)
+                        {
+                            main.MonitorEvent("X-Plane plugin: install failed: " + ex.Message);
+                        }
+                        finally
+                        {
+                            autoInstall.Done(folder, installed);
+                            if (installed == false)
+                            {
+                                main.scheduleAskPlugin = true;
+                            }
+                        }
+                    });
+                    break;
+                case XPlanePluginAutoInstall.Action.Ask:
+                    main.scheduleAskPlugin = true;
+                    break;
+            }
+        }
 #endif
 
         /// <summary>
@@ -559,7 +606,11 @@ namespace JoinFS
                     // message
                     main.MonitorEvent("Incorrect X-Plane plugin detected");
                     // install plugin
+#if XPLANE
+                    InstallPluginOrAsk();
+#else
                     main.scheduleAskPlugin = true;
+#endif
                 }
                 else
                 {

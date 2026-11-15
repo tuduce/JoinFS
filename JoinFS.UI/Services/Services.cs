@@ -486,7 +486,10 @@ public interface IXPlanePluginInstaller : IXPlaneInstalls
     /// <summary>The folder to start from: the X-Plane folder in use, else the best guess, or empty.</summary>
     string SavedFolder { get; }
 
-    /// <summary>True once when the app wants the install card shown: no plugin or an outdated one was found, or this is the first run.</summary>
+    /// <summary>
+    /// True once when the app wants the install card shown: the plugin is needed (no plugin or an outdated one was found, or this is the
+    /// first run) and the app could not install it by itself, because it knows no X-Plane folder or the install failed.
+    /// </summary>
     bool TakeInstallRequest();
 
     /// <summary>Installs the plugin and scans the folder. Fails with a message when the folder is no X-Plane folder.</summary>
