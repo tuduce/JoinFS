@@ -2868,16 +2868,14 @@ namespace JoinFS
                     {
                         string found = Resources.Strings.FoundPrefix + " " + models.Count.ToString() + " " + Resources.Strings.FoundSuffix;
 #if XPLANE
-                        // X-Plane only loads CSL packages at start-up: that has to be read, so it stays a message
-                        if (main.settingsGenerateCsl)
+                        // X-Plane only loads CSL packages at start-up: a running X-Plane needs a restart for the new ones
+                        if (main.settingsGenerateCsl && main.sim?.View.Connected == true)
                         {
-                            main.scheduleShowMessage = found + Environment.NewLine + Environment.NewLine + Resources.Strings.RestartXPlaneHint;
+                            found += Environment.NewLine + Resources.Strings.RestartXPlaneHint;
                         }
-                        else
 #endif
-                        {
-                            main.scheduleShowStatus = found;
-                        }
+                        // the count is shown in the strip for a few seconds, as for the other simulators
+                        main.scheduleShowStatus = found;
                     }
                     else
                     {
@@ -3021,13 +3019,13 @@ namespace JoinFS
         /// <returns></returns>
         public string MakeModelsFilename()
         {
-            return main.storagePath + Path.DirectorySeparatorChar + "models - " + (main.sim != null ? main.sim.GetSimulatorName() : "null") + ".txt";
+            return main.storagePath + Path.DirectorySeparatorChar + "models - " + (main.sim != null ? main.sim.GetStorageName() : "null") + ".txt";
         }
 
         /// <summary>The cache of measured model data that sits next to the models file (the models file format itself is unchanged).</summary>
         public string MakeSpecsFilename()
         {
-            return main.storagePath + Path.DirectorySeparatorChar + "specs - " + (main.sim != null ? main.sim.GetSimulatorName() : "null") + ".txt";
+            return main.storagePath + Path.DirectorySeparatorChar + "specs - " + (main.sim != null ? main.sim.GetStorageName() : "null") + ".txt";
         }
 
         /// <summary>Give the loaded models the measured data stored by the last save; a missing or damaged file just means nothing is attached.</summary>
@@ -3069,7 +3067,7 @@ namespace JoinFS
         /// <returns></returns>
         public string MakeMatchingFilename()
         {
-            return main.storagePath + Path.DirectorySeparatorChar + "matching - " + (main.sim != null ? main.sim.GetSimulatorName() : "null") + ".txt";
+            return main.storagePath + Path.DirectorySeparatorChar + "matching - " + (main.sim != null ? main.sim.GetStorageName() : "null") + ".txt";
         }
 
         /// <summary>
@@ -3078,7 +3076,7 @@ namespace JoinFS
         /// <returns></returns>
         public string MakeMasqueradingFilename()
         {
-            return main.storagePath + Path.DirectorySeparatorChar + "masquerading - " + (main.sim != null ? main.sim.GetSimulatorName() : "null") + ".txt";
+            return main.storagePath + Path.DirectorySeparatorChar + "masquerading - " + (main.sim != null ? main.sim.GetStorageName() : "null") + ".txt";
         }
 
         /// <summary>
@@ -3568,7 +3566,7 @@ namespace JoinFS
             if (main.sim != null && main.sim.Connected)
 #endif
             {
-                WriteFoldersFile(main.sim.GetSimulatorName());
+                WriteFoldersFile(main.sim.GetStorageName());
             }
         }
 
@@ -3753,7 +3751,7 @@ namespace JoinFS
 #endif
             {
                 // folders file
-                string foldersFile = Path.Combine(main.storagePath, "folders - " + main.sim.GetSimulatorName() + ".txt");
+                string foldersFile = Path.Combine(main.storagePath, "folders - " + main.sim.GetStorageName() + ".txt");
                 // check if folder exists
                 if (File.Exists(foldersFile))
                 {
@@ -3771,10 +3769,10 @@ namespace JoinFS
                 {
 #if !CONSOLE
                     // read old settings
-                    simFolder = CleanSimFolder(OldSettings.ReadString("SimFolder - " + main.sim.GetSimulatorName(), OldSettings.ReadString("SimFolder")));
-                    initialScanFolders = OldSettings.ReadString("ScanFolders - " + main.sim.GetSimulatorName(), OldSettings.ReadString("ScanFolders"));
-                    initialAddOns = OldSettings.ReadString("AddOns - " + main.sim.GetSimulatorName(), "Asobo Standard");
-                    initialAdditionals = OldSettings.ReadString("ScanAdditionals - " + main.sim.GetSimulatorName(), OldSettings.ReadString("ScanAdditionals"));
+                    simFolder = CleanSimFolder(OldSettings.ReadString("SimFolder - " + main.sim.GetStorageName(), OldSettings.ReadString("SimFolder")));
+                    initialScanFolders = OldSettings.ReadString("ScanFolders - " + main.sim.GetStorageName(), OldSettings.ReadString("ScanFolders"));
+                    initialAddOns = OldSettings.ReadString("AddOns - " + main.sim.GetStorageName(), "Asobo Standard");
+                    initialAdditionals = OldSettings.ReadString("ScanAdditionals - " + main.sim.GetStorageName(), OldSettings.ReadString("ScanAdditionals"));
 #endif
 
                     // save folders
@@ -3790,7 +3788,7 @@ namespace JoinFS
             if (main.sim != null && main.sim.Connected)
             {
                 // type classifiers file
-                string typeClassifiersFile = Path.Combine(main.storagePath, "typeclassifiers - " + main.sim.GetSimulatorName() + ".txt");
+                string typeClassifiersFile = Path.Combine(main.storagePath, "typeclassifiers - " + main.sim.GetStorageName() + ".txt");
                 // download the file if it does not exist
                 if (File.Exists(typeClassifiersFile) == false)
                 {
@@ -3904,7 +3902,7 @@ namespace JoinFS
 #endif
             {
                 // ban list file
-                string banListFile = Path.Combine(main.storagePath, "bannedModels - " + main.sim.GetSimulatorName() + ".txt");
+                string banListFile = Path.Combine(main.storagePath, "bannedModels - " + main.sim.GetStorageName() + ".txt");
                 // download the file if it does not exist
                 if (File.Exists(banListFile) == false)
                 {
@@ -3948,6 +3946,37 @@ namespace JoinFS
             }
         }
 
+#if XPLANE || CONSOLE
+        /// <summary>
+        /// The X-Plane builds used to name their files after the display name, "Not Connected" while the plugin was not
+        /// connected - which is when the models are scanned. Give such files the X-Plane name; when both exist the newer wins.
+        /// </summary>
+        void AdoptNotConnectedFiles()
+        {
+            string storageName = main.sim.GetStorageName();
+            string notConnected = Resources.Strings.NotConnected;
+            if (storageName == notConnected) return;
+
+            foreach (string kind in new[] { "models", "specs", "folders", "matching", "masquerading", "bannedModels", "heights" })
+            {
+                string from = Path.Combine(main.storagePath, kind + " - " + notConnected + ".txt");
+                string to = Path.Combine(main.storagePath, kind + " - " + storageName + ".txt");
+                try
+                {
+                    if (File.Exists(from) && (!File.Exists(to) || File.GetLastWriteTimeUtc(from) > File.GetLastWriteTimeUtc(to)))
+                    {
+                        File.Move(from, to, true);
+                        main.MonitorEvent("Renamed '" + Path.GetFileName(from) + "' to '" + Path.GetFileName(to) + "'");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    main.MonitorEvent("Could not rename '" + Path.GetFileName(from) + "': " + ex.Message);
+                }
+            }
+        }
+#endif
+
         /// <summary>
         /// Load model matching
         /// </summary>
@@ -3962,6 +3991,9 @@ namespace JoinFS
             if (main.sim != null && main.sim.Connected)
 #endif
             {
+#if XPLANE || CONSOLE
+                AdoptNotConnectedFiles();
+#endif
                 // load folders
                 LoadFolders();
                 // load ICAO Doc8643 reference data (needed by LoadModels() to derive classCode/typerole)

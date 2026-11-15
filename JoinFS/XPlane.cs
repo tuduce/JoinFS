@@ -467,7 +467,7 @@ namespace JoinFS
         {
             if (string.Equals(main.substitution.simFolder, folder, StringComparison.OrdinalIgnoreCase) == false)
             {
-                main.substitution.SaveManualFolder(main.sim.GetSimulatorName(), folder);
+                main.substitution.SaveManualFolder(main.sim.GetStorageName(), folder);
             }
             // nothing but the default C172 exists yet, so always generate the CSL packages
             main.substitution.StartBackgroundScan(true);

@@ -325,13 +325,24 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     private const int FirstHubSettlePolls = 8;
 
     /// <summary>
-    /// The card is done: the window compacts, the SimBrief plan is fetched when there is a username, and the hub picked is remembered as the
+    /// The card is done: the window compacts (in the XPLANE build after the plugin question, when there is one), the SimBrief plan is fetched when there is a username, and the hub picked is remembered as the
     /// one the strip joins and the next launch joins by itself. The simulator connects and the models scan by themselves (the scan was asked
     /// for as the card closed), so the hub is joined later, from <see cref="Poll"/>.
     /// </summary>
     private void OnOnboarded(HubInfo? hub)
     {
-        IsExpanded = false;
+        // The XPLANE build asks for its plugin first (asked for at the first run, or by the scan the card just started), over the full
+        // view, which has room for the card; the window compacts once it is answered.
+        if (_services.App.IsXPlaneBuild && _services.XPlanePlugin.TakeInstallRequest())
+        {
+            var offer = new InstallXPlanePluginViewModel(_services.XPlanePlugin, _services.Platform);
+            offer.CloseRequested += (_, _) => IsExpanded = false;
+            ShowOverlay(offer);
+        }
+        else
+        {
+            IsExpanded = false;
+        }
 
         if (Profile.HasSimbriefUsername)
             _ = FlightPlanLoad.ConnectAsync();

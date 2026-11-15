@@ -207,6 +207,28 @@ public class ShellTests
     }
 
     [Fact]
+    public void The_xplane_plugin_is_asked_for_over_the_expanded_window_and_the_window_compacts_once_it_is_answered()
+    {
+        Rig rig = new(onboarded: false, xplaneBuild: true);
+        ((FakeXPlanePluginInstaller)rig.Services.XPlanePlugin).InstallRequested = true; // the first run asks for it
+        OnboardingViewModel onboarding = Onboarding(rig);
+        onboarding.Nickname = "Maverick";
+        Next(onboarding);
+        rig.Main.Poll(); // the request waits while the first-run card is open
+        Assert.Same(onboarding, rig.Main.Overlay);
+
+        onboarding.SkipCommand.Execute(null);
+
+        InstallXPlanePluginViewModel install = Assert.IsType<InstallXPlanePluginViewModel>(rig.Main.Overlay);
+        Assert.True(rig.Main.IsExpanded);
+
+        install.Close();
+
+        Assert.Null(rig.Main.Overlay);
+        Assert.False(rig.Main.IsExpanded);
+    }
+
+    [Fact]
     public void The_simbrief_username_is_asked_on_the_first_screen_only_of_a_user_of_simbrief_and_kept_only_then()
     {
         Rig no = new(onboarded: false);

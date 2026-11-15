@@ -339,6 +339,21 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// The simulator's name in the names of its per-simulator files (models, specs, folders, matching...).
+        /// X-Plane's models are scanned and the plugin installed with the simulator stopped, so the X-Plane builds
+        /// name these files "X-Plane" whether or not the plugin is connected; <see cref="GetSimulatorName"/> stays
+        /// the name shown to the user, "Not connected" until the plugin connects.
+        /// </summary>
+        public string GetStorageName()
+        {
+#if XPLANE || CONSOLE
+            return main.settingsXplane ? "X-Plane" : Resources.Strings.NotConnected;
+#else
+            return GetSimulatorName();
+#endif
+        }
+
+        /// <summary>
         /// Get simulator version
         /// </summary>
         /// <returns></returns>
@@ -366,7 +381,7 @@ namespace JoinFS
             this.main = main;
 
             // per-model/per-simulator stores
-            heightAdjustmentStore = new HeightAdjustmentStore(main, () => Connected, GetSimulatorName);
+            heightAdjustmentStore = new HeightAdjustmentStore(main, () => Connected, GetStorageName);
             modelVariableStore = new ModelVariableStore(main);
 
 #if XPLANE || CONSOLE
