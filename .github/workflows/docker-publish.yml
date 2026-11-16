@@ -3,6 +3,9 @@ name: Docker Publish
 on:
   push:
     tags: ['v*']
+  # Manual run: pick the release tag as the ref (gh workflow run docker-publish.yml --ref v26.7).
+  # Needed because a release created by build-test.yml with GITHUB_TOKEN does not trigger the tag push.
+  workflow_dispatch:
 
 jobs:
   docker:
