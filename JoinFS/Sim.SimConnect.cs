@@ -94,8 +94,6 @@ namespace JoinFS
 #endif
         }
 
-        readonly UserAircraftTracker userAircraftTracker = new();
-
         /// <summary>
         /// The ATC flight number of the user's aircraft, with an IATA-style prefix mapped to ICAO
         /// (CallsignRules.NormalizeIataPrefix). Logs when a mapping actually happened.
@@ -141,34 +139,15 @@ namespace JoinFS
 #endif
             var raw = new UserAircraftInfo(info.type, info.model, info.callsign, info.flightNumber, airline, livery, liveryFolder,
                 info.isUser != 0, info.category, info.engineType, info.numEngines);
+            ResolvedAircraftIdentity before = userAircraftTracker.Current;
             if (userAircraftTracker.Check(raw, _ => ResolveUserAircraft(info, aircraft.typerole), out ResolvedAircraftIdentity identity))
             {
-                RefreshUserFlightPlanFromSim(aircraft, identity);
+                RefreshUserFlightPlanFromSim(aircraft, before, identity);
             }
-        }
-
-        /// <summary>
-        /// Applies a changed identity to the user's aircraft: the flight plan, then a re-match of the livery, which reads
-        /// the airline and registration. The next position message carries the new identity to other clients.
-        /// A detected change is a new flight, so the callsign returns to auto-tracking and SimBrief is re-fetched if enabled.
-        /// </summary>
-        void RefreshUserFlightPlanFromSim(Aircraft aircraft, ResolvedAircraftIdentity identity)
-        {
-            identity.ApplyTo(aircraft.flightPlan);
-            UpdateObject(aircraft, aircraft.ownerModel, aircraft.ownerLivery, identity.IcaoType, identity.IcaoAirline,
-                aircraft.ownerClassCode, aircraft.ownerWtc, aircraft.ownerClassCodeConfirmed, aircraft.typerole);
-#if !CONSOLE
-            bool autoImport = Settings.Default.SimBriefAutoImport && string.IsNullOrWhiteSpace(Settings.Default.SimBriefUsername) == false;
-#else
-            bool autoImport = false;
-#endif
-            main.MonitorEvent("Own aircraft changed - refreshed callsign '" + identity.Callsign + "', airline '" + identity.IcaoAirline + "', type '" + identity.IcaoType + "' from the sim" + (autoImport ? ", re-fetching SimBrief" : ""));
-#if !CONSOLE
-            if (autoImport)
+            else if (before == null)
             {
-                _ = RefreshUserFlightPlanFromSimBriefAsync();
+                CheckUserAircraftFirstSeen(aircraft, identity);
             }
-#endif
         }
 
         public void ProcessSimObjectData(uint objectId, uint requestId, object data)

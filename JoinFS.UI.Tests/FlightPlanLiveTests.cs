@@ -24,6 +24,20 @@ internal sealed class ScriptedSimBrief : ISimBriefClient
         Commits.Add(commit);
         return Task.FromResult(Answer);
     }
+
+    /// <summary>The type the simulator reports; empty: none, so nothing is asked.</summary>
+    public string SimAircraftType { get; set; } = "";
+
+    /// <summary>As the live app: a committed plan for another type is only made the user's when the pilot says so.</summary>
+    public async Task<FlightPlanData?> FetchAsync(string username, bool commit, Func<FlightPlanData, Task<bool>> confirmOtherType, CancellationToken cancellationToken)
+    {
+        if (commit && Answer is { } plan && SimAircraftType.Length > 0 && !string.Equals(plan.Type, SimAircraftType, StringComparison.OrdinalIgnoreCase)
+            && !await confirmOtherType(plan))
+        {
+            return null;
+        }
+        return await FetchAsync(username, commit, cancellationToken);
+    }
 }
 
 /// <summary>A flight plan store whose plan a test can change behind the tab's back, as the simulator does.</summary>
@@ -69,6 +83,79 @@ public class FlightPlanLiveTests
         await main.FlightPlan.ImportFromSimbriefCommand.ExecuteAsync(null);
 
         Assert.Equal([true, false], simBrief.Commits);
+    }
+
+    [Fact]
+    public void Only_a_plan_with_nothing_in_it_goes_back_to_the_simulators_identity()
+    {
+        // Clear: nothing at all
+        Assert.True(new FlightPlanData("", "", "VFR", "", "", "", "", "").IsCleared);
+        // a callsign or type typed in without a route is the user's own and is kept
+        Assert.False(new FlightPlanData("DLH123", "", "VFR", "", "", "", "", "").IsCleared);
+        Assert.False(new FlightPlanData("", "A20N", "VFR", "", "", "", "", "").IsCleared);
+        Assert.True(new FlightPlanData("DLH123", "A20N", "VFR", "", "", "", "", "").IsBlank);
+        // a route is never cleared
+        Assert.False(new FlightPlanData("", "", "VFR", "EDDF", "", "", "", "").IsCleared);
+    }
+
+    [Fact]
+    public async Task The_strips_button_asks_before_loading_a_plan_for_another_type_and_Enter_loads_it()
+    {
+        (MainViewModel main, ScriptedSimBrief simBrief, _) = Open();
+        simBrief.SimAircraftType = "A20N";
+
+        Task load = main.FlightPlanLoad.ToggleCommand.ExecuteAsync(null);
+        ConfirmViewModel ask = Assert.IsType<ConfirmViewModel>(main.Overlay);
+        Assert.Contains("A320", ask.Message);
+        Assert.Contains("A20N", ask.Message);
+        ask.YesCommand.Execute(null);
+        await load;
+
+        Assert.Equal([true], simBrief.Commits);
+        Assert.Equal("EDDF", main.FlightPlan.From);
+    }
+
+    [Fact]
+    public async Task Escape_keeps_the_plan_and_says_why_it_was_not_loaded()
+    {
+        (MainViewModel main, ScriptedSimBrief simBrief, MovingFlightPlanStore store) = Open();
+        store.Plan = new FlightPlanData("D-AINA", "A20N", "VFR", "", "", "", "", "");
+        main.FlightPlan.Refresh();
+        simBrief.SimAircraftType = "A20N";
+
+        Task load = main.FlightPlanLoad.ToggleCommand.ExecuteAsync(null);
+        ConfirmViewModel ask = Assert.IsType<ConfirmViewModel>(main.Overlay);
+        ask.CloseCommand.Execute(null);
+        await load;
+
+        Assert.Empty(simBrief.Commits);
+        Assert.Equal("", main.FlightPlan.From);
+        Assert.Equal("Not loaded: the SimBrief plan is for A320, the simulator reports A20N.", main.FlightPlan.Status);
+    }
+
+    [Fact]
+    public async Task A_plan_of_the_aircrafts_type_loads_without_asking()
+    {
+        (MainViewModel main, ScriptedSimBrief simBrief, _) = Open();
+        simBrief.SimAircraftType = "a320";
+
+        await main.FlightPlanLoad.ToggleCommand.ExecuteAsync(null);
+
+        Assert.IsNotType<ConfirmViewModel>(main.Overlay);
+        Assert.Equal([true], simBrief.Commits);
+    }
+
+    [Fact]
+    public async Task The_tabs_link_does_not_ask_but_says_the_plan_is_for_another_type()
+    {
+        (MainViewModel main, ScriptedSimBrief simBrief, _) = Open();
+        simBrief.SimAircraftType = "A20N";
+
+        await main.FlightPlan.ImportFromSimbriefCommand.ExecuteAsync(null);
+
+        Assert.IsNotType<ConfirmViewModel>(main.Overlay);
+        Assert.Equal("Imported EDDF → EGLL - The SimBrief plan is for A320, the simulator reports A20N.", main.FlightPlan.Status);
+        Assert.True(main.FlightPlan.HasUnsavedEdits);
     }
 
     [Fact]
@@ -269,19 +356,22 @@ public class FlightPlanLiveTests
     }
 
     [Fact]
-    public void Clear_forgets_the_fetch_and_is_kept_until_saved()
+    public void Clear_forgets_the_fetch_and_saves_the_aircrafts_own_plan_at_once()
     {
         (MainViewModel main, ScriptedSimBrief simBrief, MovingFlightPlanStore store) = Open();
+        store.OwnCallsign = "HB-OWN";
         store.Plan = new FlightPlanData("DLH123", "A320", "IFR", "EDDF", "EGLL", "", "ANEKI", "");
         main.FlightPlan.Refresh();
 
         main.FlightPlan.ClearCommand.Execute(null);
-        main.FlightPlan.Refresh(); // the live plan is still the old one, but the cleared fields are not thrown away
 
         Assert.Equal(1, simBrief.Resets);
+        // saved without Save: a blank plan, which the app fills with the aircraft's own callsign
+        Assert.True(store.Saved[^1].IsBlank);
         Assert.Equal("", main.FlightPlan.From);
-        Assert.Equal("EDDF", store.Plan.From);
-        Assert.Empty(store.Saved);
+        Assert.Equal("HB-OWN", main.FlightPlan.Callsign);
+        Assert.False(main.FlightPlan.HasUnsavedEdits);
+        Assert.True(main.FlightPlanLoad.IsDisconnected);
     }
 
     [Fact]

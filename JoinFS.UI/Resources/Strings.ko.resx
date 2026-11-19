@@ -1233,4 +1233,19 @@
   <data name="Orange: more than {0} nm away." xml:space="preserve">
     <value>주황색: {0} nm보다 멀리 있습니다.</value>
   </data>
+  <data name="Other aircraft type" xml:space="preserve">
+    <value>다른 항공기 기종</value>
+  </data>
+  <data name="The SimBrief plan is for {0}, the simulator reports {1}. Load it anyway?" xml:space="preserve">
+    <value>SimBrief 계획은 {0}용이지만 시뮬레이터는 {1}입니다. 그래도 불러올까요?</value>
+  </data>
+  <data name="The SimBrief plan is for {0}, the simulator reports {1}." xml:space="preserve">
+    <value>SimBrief 계획은 {0}용이지만 시뮬레이터는 {1}입니다.</value>
+  </data>
+  <data name="Not loaded: the SimBrief plan is for {0}, the simulator reports {1}." xml:space="preserve">
+    <value>불러오지 않음: SimBrief 계획은 {0}용이지만 시뮬레이터는 {1}입니다.</value>
+  </data>
+  <data name="Load" xml:space="preserve">
+    <value>불러오기</value>
+  </data>
 </root>

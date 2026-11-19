@@ -1233,4 +1233,19 @@
   <data name="Orange: more than {0} nm away." xml:space="preserve">
     <value>Orange: mehr als {0} nm entfernt.</value>
   </data>
+  <data name="Other aircraft type" xml:space="preserve">
+    <value>Anderer Flugzeugtyp</value>
+  </data>
+  <data name="The SimBrief plan is for {0}, the simulator reports {1}. Load it anyway?" xml:space="preserve">
+    <value>Der SimBrief-Plan ist für {0}, der Simulator meldet {1}. Trotzdem laden?</value>
+  </data>
+  <data name="The SimBrief plan is for {0}, the simulator reports {1}." xml:space="preserve">
+    <value>Der SimBrief-Plan ist für {0}, der Simulator meldet {1}.</value>
+  </data>
+  <data name="Not loaded: the SimBrief plan is for {0}, the simulator reports {1}." xml:space="preserve">
+    <value>Nicht geladen: Der SimBrief-Plan ist für {0}, der Simulator meldet {1}.</value>
+  </data>
+  <data name="Load" xml:space="preserve">
+    <value>Laden</value>
+  </data>
 </root>

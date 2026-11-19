@@ -259,6 +259,17 @@ public interface ISimBriefClient : IConnectionLink
     /// </summary>
     Task<FlightPlanData?> FetchAsync(string username, bool commit, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// As <see cref="FetchAsync(string, bool, CancellationToken)"/>, but a committed plan made for another aircraft type than the
+    /// simulator reports is only made the user's when <paramref name="confirmOtherType"/> says yes; otherwise nothing changes and
+    /// null is returned.
+    /// </summary>
+    Task<FlightPlanData?> FetchAsync(string username, bool commit, Func<FlightPlanData, Task<bool>> confirmOtherType, CancellationToken cancellationToken) =>
+        FetchAsync(username, commit, cancellationToken);
+
+    /// <summary>The ICAO type the simulator reports for the user's aircraft, empty while it reports none.</summary>
+    string SimAircraftType => "";
+
     /// <summary>Forgets the last fetch: the strip's button goes back to "not loaded". The plan itself stays.</summary>
     void Reset();
 }

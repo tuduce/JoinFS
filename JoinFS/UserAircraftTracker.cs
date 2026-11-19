@@ -22,6 +22,32 @@ namespace JoinFS
             plan.registration = Registration;
             plan.flightNumber = FlightNumber;
         }
+
+        /// <summary>
+        /// The identity of the user's X-Plane aircraft. <paramref name="flightId"/> is the Mode-S flight ID X-Plane
+        /// transmits (sim/cockpit2/radios/actuators/flight_id): airline + flight number like KLM511, or the registration.
+        /// <paramref name="tailNumber"/> is acf_tailnum, empty from a plugin that sends only one of the two.
+        /// </summary>
+        public static ResolvedAircraftIdentity FromXPlane(string icaoType, string flightId, string tailNumber)
+        {
+            string id = flightId?.Trim() ?? "";
+            string tail = tailNumber?.Trim() ?? "";
+            string callsign = id.Length > 0 ? id : tail;
+            string airline = CallsignRules.DeriveIcaoAirline(callsign, AirlineDirectory.Bundled);
+            // an older plugin sends the tail number as the callsign only
+            if (tail.Length == 0 && airline.Length == 0)
+            {
+                tail = callsign;
+            }
+            return new ResolvedAircraftIdentity(callsign, icaoType?.Trim() ?? "", airline, tail, airline.Length > 0 ? callsign : "");
+        }
+
+        /// <summary>
+        /// Whether going from <paramref name="before"/> to <paramref name="after"/> is a new flight - another aircraft
+        /// type, so the route of the previous one is gone - rather than a new callsign or registration for the same one.
+        /// </summary>
+        public static bool IsNewFlight(ResolvedAircraftIdentity before, ResolvedAircraftIdentity after) =>
+            before == null || !string.Equals(before.IcaoType?.Trim(), after.IcaoType?.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -33,6 +59,9 @@ namespace JoinFS
     {
         UserAircraftInfo lastRaw;
         ResolvedAircraftIdentity lastResolved;
+
+        /// <summary>The identity last resolved from the sim, null before the first</summary>
+        public ResolvedAircraftIdentity Current => lastResolved;
 
         /// <returns>true when the resolved identity changed since the previous different raw data.</returns>
         public bool Check(UserAircraftInfo raw, Func<UserAircraftInfo, ResolvedAircraftIdentity> resolve, out ResolvedAircraftIdentity identity)

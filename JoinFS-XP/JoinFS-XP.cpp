@@ -201,6 +201,8 @@ struct UserAircraft
 	
 	// model references
 	XPLMDataRef dr_callsign;
+	// Mode-S flight ID: airline + flight number (KLM511) or the registration, as entered in the FMC / ATC setup; NULL before X-Plane 12
+	XPLMDataRef dr_flightId;
 	XPLMDataRef dr_icaoType;
 
     // position references
@@ -678,6 +680,7 @@ static void InitUserAircraft(UserAircraft& aircraft)
     aircraft.Init();
 
 	aircraft.dr_callsign = GetDataRef("sim/aircraft/view/acf_tailnum");
+	aircraft.dr_flightId = XPLMFindDataRef("sim/cockpit2/radios/actuators/flight_id");
 	aircraft.dr_icaoType = GetDataRef("sim/aircraft/view/acf_ICAO");
 	aircraft.dr_override_position = GetDataRef("sim/operation/override/override_planepath");
     aircraft.dr_override_control = GetDataRef("sim/operation/override/override_flightcontrol");
@@ -1899,8 +1902,26 @@ static float DoModel(float elapsed, float elapsedLoop, int counter, void*)
         msg.user = 1;
         msg.plane = 1;
 		msg.livery = (dr_livery != NULL) ? XPLMGetDatai(dr_livery) : 0;
-		msg.nickname[0] = '\0';
-		XPLMGetDatab(userAircraft.dr_callsign, msg.callsign, 0, Link::MAX_CALLSIGN_LENGTH);
+		// the callsign is the flight ID X-Plane transmits (airline + flight number, or the registration), falling
+		// back to the tail number; the tail number itself goes in the nickname, which the user aircraft has no use for
+		static char tailNumber[Link::MAX_CALLSIGN_LENGTH];
+		memset(tailNumber, 0, sizeof(tailNumber));
+		XPLMGetDatab(userAircraft.dr_callsign, tailNumber, 0, Link::MAX_CALLSIGN_LENGTH - 1);
+		memset(msg.nickname, 0, sizeof(msg.nickname));
+		strScpy(msg.nickname, tailNumber, sizeof(msg.nickname));
+		memset(msg.callsign, 0, sizeof(msg.callsign));
+		if (userAircraft.dr_flightId != NULL)
+		{
+			// byte[8], up to 7 characters
+			XPLMGetDatab(userAircraft.dr_flightId, msg.callsign, 0, 8);
+			msg.callsign[8] = '\0';
+			// drop trailing blanks
+			for (int i = 7; i >= 0 && (msg.callsign[i] == ' ' || msg.callsign[i] == '\0'); i--) msg.callsign[i] = '\0';
+		}
+		if (msg.callsign[0] == '\0' || msg.callsign[0] == ' ')
+		{
+			strScpy(msg.callsign, tailNumber, sizeof(msg.callsign));
+		}
 		strcpy_s(msg.model, Link::MAX_MODEL_LENGTH, path);
 		XPLMGetDatab(userAircraft.dr_icaoType, msg.icaoType, 0, Link::MAX_ICAOTYPE_LENGTH);
 		// send user position

@@ -123,7 +123,8 @@ namespace JoinFS
         /// Model update callback
         /// </summary>
         /// <param name="?"></param>
-        public delegate void ModelNotify(uint simId, bool user, bool plane, string callsign, string model, string icaoType);
+        /// <param name="tailNumber">acf_tailnum of the user's aircraft (the nickname slot), empty from older plugins</param>
+        public delegate void ModelNotify(uint simId, bool user, bool plane, string callsign, string model, string icaoType, string tailNumber);
         public ModelNotify modelNotify;
 
         /// <summary>
@@ -724,7 +725,8 @@ namespace JoinFS
                                     string type = (names.Length > 1) ? names[names.Length - 2] : icaoType;
 
                                     // check for notification
-                                    modelNotify ?. Invoke(IndexToSimId(index), user, plane, callsign, type, icaoType);
+                                    // the user's aircraft sends its tail number in the nickname, the flight ID as the callsign
+                                    modelNotify ?. Invoke(IndexToSimId(index), user, plane, callsign, type, icaoType, user ? nickname : "");
                                 }
                             }
                             catch (Exception ex)
