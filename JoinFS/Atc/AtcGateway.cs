@@ -25,7 +25,8 @@ namespace JoinFS
     /// The FSD server as the ATC client sees it (plan §4.1): login, the local station and the answers given as
     /// <c>SERVER</c>. It runs on the app thread, never blocks and reaches the client only through
     /// <see cref="IFsdConnection"/>, so a test drives it with fakes. Stage 2 is the login and the <c>SERVER</c> row of
-    /// §4.3; the traffic, the mesh and the other rows come in later stages.
+    /// §4.3; stage 4 adds the traffic (<see cref="AtcTrafficFeed"/>) and the aircraft row; the mesh and the other rows
+    /// come in later stages.
     /// </summary>
     public sealed class AtcGateway : IFsdHandler
     {
@@ -48,15 +49,18 @@ namespace JoinFS
         }
 
         readonly Action<string> log;
+        readonly AtcTrafficFeed feed;
         readonly List<Client> clients = new List<Client>();
         Client main;
         long nextHeartbeatMs = long.MinValue;
         bool shutdown;
 
         /// <param name="log">Where monitor and log lines go (<c>Main.MonitorEvent</c>).</param>
-        public AtcGateway(Action<string> log)
+        /// <param name="traffic">The aircraft of the session (stage 4); null serves none.</param>
+        public AtcGateway(Action<string> log, IAtcTraffic traffic = null)
         {
             this.log = log ?? (_ => { });
+            if (traffic != null) feed = new AtcTrafficFeed(traffic);
         }
 
         /// <summary>The station that is logged in on this instance, or null. Replaced, never changed.</summary>
@@ -135,6 +139,7 @@ namespace JoinFS
                 case FsdVerb.Ping:
                 case FsdVerb.ClientQuery:
                     if (line.To == Server) AnswerServer(client, line);
+                    else if (line.Verb == FsdVerb.ClientQuery) AnswerAircraft(client, line);
                     break;
                 // everything else is a row of §4.3 that a later stage serves
             }
@@ -149,9 +154,15 @@ namespace JoinFS
                 return;
             }
             if (nextHeartbeatMs == long.MinValue) nextHeartbeatMs = nowMs + HeartbeatIntervalMs;
-            if (nowMs < nextHeartbeatMs) return;
-            nextHeartbeatMs = nowMs + HeartbeatIntervalMs;
-            Send(main, new FsdLine("#DL", Server, "*", "0", "0"));
+            if (nowMs >= nextHeartbeatMs)
+            {
+                nextHeartbeatMs = nowMs + HeartbeatIntervalMs;
+                Send(main, new FsdLine("#DL", Server, "*", "0", "0"));
+            }
+
+            // traffic goes to a logged-in client only (§4.7)
+            Client station = main;
+            feed?.Tick(nowMs, line => Send(station, line));
         }
 
         /// <summary>Close every connection and log the station off. The gateway takes no more connections.</summary>
@@ -196,6 +207,7 @@ namespace JoinFS
 
             client.IsStation = true;
             main = client;
+            feed?.Reset();
             Station = new AtcStationInfo(add.Callsign, add.RealName, add.Rating, FsdFacility.Observer, 0, 0, 0, 0, false);
             log("ATC station " + add.Callsign + " logged in");
 
@@ -240,6 +252,7 @@ namespace JoinFS
             log("ATC station " + Station.Callsign + " logged off (" + why + ")");
             main = null;
             Station = null;
+            feed?.Reset();
         }
 
         // ---- answers given as SERVER (§4.3 first row) ----
@@ -265,11 +278,30 @@ namespace JoinFS
                     Send(client, FsdQuery.Response(Server, asker, "IP", client.Connection.RemoteAddress).ToLine());
                     break;
                 case "FP":
-                    // the aircraft of the session are served from stage 4 on
                     string aircraft = query.Payload.Length > 0 ? query.Payload[0] : "";
-                    Send(client, FsdError.Create(asker, FsdErrorCode.NoFlightPlan, aircraft, "No flight plan").ToLine());
+                    if (feed != null && feed.TryFind(aircraft, out AtcAircraft found))
+                        Send(client, AtcTrafficFeed.FlightPlanFor(aircraft, asker, found));
+                    else
+                        Send(client, FsdError.Create(asker, FsdErrorCode.NoFlightPlan, aircraft, "No flight plan").ToLine());
                     break;
             }
+        }
+
+        // ---- queries addressed to an aircraft (§4.3, the aircraft row) ----
+
+        /// <summary>
+        /// <c>$CQ</c> RN and FP to an aircraft's callsign are answered here from the mesh data. Anything else, and a
+        /// callsign that is no aircraft, is dropped (the rows of a later stage serve the other callsigns).
+        /// </summary>
+        void AnswerAircraft(Client client, FsdLine line)
+        {
+            if (feed == null || !FsdQuery.TryParse(line, out FsdQuery query) || query.IsResponse) return;
+            if (query.Type != "RN" && query.Type != "FP") return;
+            if (!feed.TryFind(query.To, out AtcAircraft aircraft)) return;
+
+            Send(client, query.Type == "RN"
+                ? AtcTrafficFeed.RealNameFor(query.To, query.From, aircraft)
+                : AtcTrafficFeed.FlightPlanFor(query.To, query.From, aircraft));
         }
 
         // ---- helpers ----

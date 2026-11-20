@@ -220,6 +220,27 @@ aircraft, the user's own, the recorder's):
 While a station is online the node reports "simulator connected" to its peers
 (`ILocalProfile.FeedFullRate`), so pilots send it positions at the full rate with no simulator.
 
+**Traffic (stage 4).** `AtcTrafficFeed` (`JoinFS/Atc/`) owns what has been sent: the aircraft known to the client, with the
+callsign and the `$FP` text sent for each. `AtcGateway.Tick` runs it once a second (`AtcTrafficFeed.IntervalMs`, R2's one
+constant) for a logged-in client only; a login or logoff resets it, so a new client gets everything again. Rules the stage added:
+- An aircraft is `IAtcTraffic`'s `AtcAircraft` (a value copy); `SimViewTraffic` builds the list from `Sim.View`. Its key is
+  (owner, object id): the owner is the node's 8 wire bytes as a little-endian number (this node's own id for the user's aircraft,
+  so every node computes the same name), `ulong.MaxValue` for the recorder's.
+- Per tick, in this order: `#DP` for an aircraft whose assigned callsign changed, `#DP` for one gone 5 s, then for every aircraft
+  the `@` and, when it is new or its `$FP` text changed, the `$FP`. The `@` comes first because the target exists from its
+  first `@` (no `#AP` is sent). An unsolicited `$FP` is addressed to `*A`; the answer to a query to the asker.
+- `$FP` mapping (`AtcFlightPlans`): rules `I`/`V`/`S`/`D` from the text (empty is `V`); equipment = the ICAO type; speed from
+  `N0450`, `450` or `K0833` (Mach and text are 0); departure, destination and alternate in upper case; cruise level as typed;
+  remarks and route as typed. A colon or control character is replaced by a space in every field except the route (the last
+  field keeps its colons). Times, time en route and fuel are empty or 0.
+- `@`: mode `N`, rating 1, squawk from `transponder code:1` read as BCD (0x1200 is 1200; a digit above 7 gives 0000), altitude
+  and ground speed rounded, pressure correction 0. Ground speed is the horizontal part of `netVelocity` (as the WebSocket feed).
+  Attitude: JoinFS pitch is nose down positive, so it is negated for `FsdPitchBankHeading`; bank is taken as SimConnect's
+  `PLANE BANK DEGREES` (left wing down positive) and negated. Unverified: change it in `SimViewTraffic` only (§4.6).
+- Queries (§4.3): `$CQ ..:SERVER:FP:<callsign>` and `$CQ <callsign>:FP` answer with the `$FP`; `$CQ <callsign>:RN` answers
+  `$CR <callsign>:<asker>:RN:<owner's nickname>::1`. The callsign is the assigned FSD one. An unknown aircraft gets `$ER 008`
+  from `SERVER` and nothing otherwise.
+
 ### 4.8 Settings and switches
 
 | Name | Default | Meaning |
@@ -563,7 +584,7 @@ hold.
 | 1 FSD library | done, 2026-11-20 | Two additions of §4.8; no deviation from the row. |
 | 2 Listener and login | done, 2026-11-20 | Built and tested against the fake client and over real loopback TCP; **R1 is still open: EuroScope itself was not available, so "stays connected for 10 minutes" is the owner's evening check** (`euroscope-setup.md` §4 and §5). Deviations: (1) no `$DI` on connect (§4.2 rule 1 rewritten, evidence in `euroscope-setup.md`); (2) added the post-login welcome and capability exchange and the 30 s `#DL` keep-alive, copied in behaviour from the bridge; (3) `$CQ ..:SERVER:FP` answers `$ER 008` until stage 4 serves aircraft; (4) a second station gets `$ER 003`, the same callsign `$ER 001`; (5) the station is `AtcStationInfo` (`AtcGateway.Station`), which stage 3 turns into `LocalAtc`; no event yet. Nothing deferred to another row. |
 | 3 ATC presence | done, 2026-11-20 | Stage 2's EuroScope evening check passed (owner: stays connected, tests ok), so R1 is closed. Built as the row says; additions in §4.1 ("`LocalAtc` (stage 3)"): `PeerTable.SendPeerInfoToAll`, `ILocalProfile.AtcCallsign`, `Main.TryGetLocalAtcPosition`, and the hub's own user list shows the whole callsign. Deviations: (1) the removal line of the `euroscope.txt` export now uses the callsign it exported, since `LocalAtc` is already inactive by then; (2) not tested: `Whazzup`'s line, `Euroscope`, `Sim` and `MainSessionHost` need `Main`, so they are covered by the evening check only; (3) `FS2024` (release) could not link while `JoinFS-FS2024` was running, its code compiled and FS2024-Debug builds in the tests. Nothing deferred to another row. R8 found. |
-| 4 Traffic | open | |
+| 4 Traffic | done, 2026-11-20 | Built as the row says; details in §4.7 ("Stage 4"). **The row's Check is the owner's evening test** (EuroScope with no simulator, JoinFS in a session with Pia; also open: whether EuroScope accepts a target that starts with `@` and no `#AP`, and the bank sign, §4.6). Deviations: (1) the traffic is the session's aircraft, the user's own and the recorder's; the simulator's own AI aircraft that are not broadcast are left out (the row's set, read as §4.7's parenthesis says); (2) a changed callsign (the pilot edits it, or a collision is resolved differently) sends `#DP` for the old name before the new one appears; (3) not tested: `SimViewTraffic` beyond its squawk conversion (it needs a `Sim` snapshot), so the owner id, the nickname, the ground speed and the attitude signs are covered by the evening check only; (4) `FS2024` (release) could not link while `JoinFS-FS2024` was running (file locked), its code compiled and FS2024-Debug builds in the tests. Nothing deferred to another row. |
 | 5 Settings card | open | |
 | 6 Wire | open | |
 | 7 Stations | open | |

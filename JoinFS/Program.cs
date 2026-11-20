@@ -1363,7 +1363,13 @@ namespace JoinFS
         /// </summary>
         void StartAtcFsd()
         {
-            var gateway = new AtcGateway(MonitorEvent);
+            uint vuidSquawk = VariableMgr.CreateVuid("transponder code:1");
+            var traffic = new SimViewTraffic(
+                () => sim?.View,
+                () => network?.LocalId ?? default,
+                nuid => network?.Peers.GetNodeName(nuid) ?? "",
+                aircraft => aircraft.variableSet?.GetInteger(vuidSquawk) ?? 0);
+            var gateway = new AtcGateway(MonitorEvent, traffic);
             var listener = new FsdListener(gateway, EnqueueCommand, MonitorEvent);
             if (listener.Start(settingsAtcFsdPort))
             {
