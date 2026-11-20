@@ -91,6 +91,9 @@ namespace JoinFS
         public Monitor monitor;
         public Euroscope euroscope;
         public Whazzup whazzup;
+        /// <summary>The FSD server for the ATC client on this PC; null while the listener is off</summary>
+        public AtcGateway atcGateway;
+        FsdListener atcListener;
         public Notes notes;
         public Stats stats;
         public VariableMgr variableMgr;
@@ -114,6 +117,9 @@ namespace JoinFS
         public int settingsHubRelays = MeshManager.DefaultRelayBudget;
         public string settingsPassword = "";
         public bool settingsWhazzup = false;
+        /// <summary>Let an ATC client on this PC connect (setting AtcFsd or -fsd), docs/ATC/atc-fsd-plan.md D3</summary>
+        public bool settingsAtcFsd = false;
+        public ushort settingsAtcFsdPort = DEFAULT_ATC_FSD_PORT;
         public bool settingsWhazzupPublic = false;
         public float settingsWhazzupDelay = 1.0f;
         public bool settingsMultiObjects = false;
@@ -241,6 +247,8 @@ namespace JoinFS
             }
 
             // close systems
+            atcListener?.Dispose();
+            atcGateway?.Shutdown();
             if (network != null)
             {
                 // leave session and stop the network thread
@@ -302,6 +310,8 @@ namespace JoinFS
                 settingsPassword = Settings.Default.Password;
                 settingsWhazzup = Settings.Default.Whazzup;
                 settingsWhazzupPublic = Settings.Default.WhazzupGlobal;
+                settingsAtcFsd = Settings.Default.AtcFsd;
+                settingsAtcFsdPort = Settings.Default.AtcFsdPort;
                 settingsMultiObjects = Settings.Default.MultipleObjectsEveryone;
                 settingsIpv6 = Settings.Default.Ipv6;
                 settingsJfp2Only = Settings.Default.Jfp2Only;
@@ -580,6 +590,16 @@ namespace JoinFS
                                 doGlobal = true;
                                 break;
 
+                            case "-fsd":
+                                // let an ATC client connect, on the port that may follow
+                                settingsAtcFsd = true;
+                                if (index + 1 < args.Length && ushort.TryParse(args[index + 1], NumberStyles.None, CultureInfo.InvariantCulture, out ushort fsdPort) && fsdPort > 0)
+                                {
+                                    settingsAtcFsdPort = fsdPort;
+                                    index++;
+                                }
+                                break;
+
                             case "-whazzup":
                                 settingsWhazzup = true;
                                 break;
@@ -824,6 +844,7 @@ namespace JoinFS
                                 Console.WriteLine("  --atc                  " + Resources.Strings.Options_Atc);
                                 Console.WriteLine("  --airport <code>       " + Resources.Strings.Options_Airport);
                                 Console.WriteLine("  --lowbandwidth         " + Resources.Strings.Tip_LowBandwidth);
+                                Console.WriteLine("  --fsd [port]           " + Resources.Strings.Tip_AtcFsd);
                                 Console.WriteLine("  --whazzup              " + Resources.Strings.Tip_Whazzup);
                                 Console.WriteLine("  --whazzup-public       " + Resources.Strings.Tip_WhazzupGlobal);
                                 Console.WriteLine("  --whazzupdelay <sec>   " + Resources.Strings.Options_WhazzupDelay);
@@ -1011,6 +1032,10 @@ namespace JoinFS
                 addressBook = new AddressBook(this);
                 euroscope = new Euroscope(this);
                 whazzup = new Whazzup(this);
+                if (settingsAtcFsd)
+                {
+                    StartAtcFsd();
+                }
                 notes = new Notes(this);
                 stats = new Stats();
                 variableMgr = new VariableMgr(this);
@@ -1320,6 +1345,27 @@ namespace JoinFS
             scheduleHeightAdjustmentSave = true;
         }
 
+        /// <summary>The port an ATC client connects to, unless set</summary>
+        public const ushort DEFAULT_ATC_FSD_PORT = 6809;
+
+        /// <summary>
+        /// Start the listener for the ATC client on this PC and the gateway behind it. Nothing exists before this runs (D3).
+        /// </summary>
+        void StartAtcFsd()
+        {
+            var gateway = new AtcGateway(MonitorEvent);
+            var listener = new FsdListener(gateway, EnqueueCommand, MonitorEvent);
+            if (listener.Start(settingsAtcFsdPort))
+            {
+                atcGateway = gateway;
+                atcListener = listener;
+            }
+            else
+            {
+                listener.Dispose();
+            }
+        }
+
         private readonly ConcurrentQueue<Action> _commandQueue = new();
 
         // Call this helper method instead of setting 'schedule* = true'
@@ -1389,6 +1435,7 @@ namespace JoinFS
                     network.DoWork();
                     euroscope.DoWork();
                     whazzup.DoWork();
+                    atcGateway?.Tick((long)(ElapsedTime * 1000.0));
                     notes.DoWork();
 #if CONSOLE
                     webhookService?.DoWork();

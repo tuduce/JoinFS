@@ -281,6 +281,12 @@
     <Setting Name="WhazzupGlobal" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
+    <Setting Name="AtcFsd" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="AtcFsdPort" Type="System.UInt16" Scope="User">
+      <Value Profile="(Default)">6809</Value>
+    </Setting>
     <Setting Name="Global" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>

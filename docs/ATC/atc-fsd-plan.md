@@ -91,7 +91,11 @@ Rules that follow from the thread model (`docs/architecture.md` §2):
 
 ### 4.2 The client's connection
 
-1. On accept, the gateway sends `$DI`. The client sends `$ID`, then `#AA`.
+1. On accept, the gateway sends nothing: the client speaks first, `$ID` then `#AA`. (Stage 2: the working
+   `joinfs-euroscope-bridge` sends no `$DI`, because EuroScope rejects a server that announces "VATSIM FSD". If the
+   evening check shows EuroScope needs a greeting, add one in `AtcGateway.OnConnected`; see `euroscope-setup.md` §4.)
+   After `#AA` the gateway sends a welcome `#TM` and the capability exchange (`$CQ ..:CAPS`, `$CR ..:ATC`, `$CR ..:CAPS`,
+   `$CR ..:IP`), and every 30 s a keep-alive `#DLSERVER:*:0:0`; all three as the bridge does.
 2. `#AA` is accepted when the callsign is valid, no station is logged in on this instance, and no
    station of the session has the callsign. Otherwise `$ER` and the connection is closed. CID,
    password and token are ignored; the rating is taken as sent.
@@ -543,7 +547,7 @@ hold.
 | Stage | State | Notes |
 |---|---|---|
 | 1 FSD library | done, 2026-11-20 | Two additions of §4.8; no deviation from the row. |
-| 2 Listener and login | open | |
+| 2 Listener and login | done, 2026-11-20 | Built and tested against the fake client and over real loopback TCP; **R1 is still open: EuroScope itself was not available, so "stays connected for 10 minutes" is the owner's evening check** (`euroscope-setup.md` §4 and §5). Deviations: (1) no `$DI` on connect (§4.2 rule 1 rewritten, evidence in `euroscope-setup.md`); (2) added the post-login welcome and capability exchange and the 30 s `#DL` keep-alive, copied in behaviour from the bridge; (3) `$CQ ..:SERVER:FP` answers `$ER 008` until stage 4 serves aircraft; (4) a second station gets `$ER 003`, the same callsign `$ER 001`; (5) the station is `AtcStationInfo` (`AtcGateway.Station`), which stage 3 turns into `LocalAtc`; no event yet. Nothing deferred to another row. |
 | 3 ATC presence | open | |
 | 4 Traffic | open | |
 | 5 Settings card | open | |
@@ -572,7 +576,7 @@ Rules for a session (the same as for every staged work in this repository):
 
 | # | Risk or question | Handling |
 |---|---|---|
-| R1 | What EuroScope needs to accept the server (stage 2). | Settled in stage 2 against the real client; the bridge shows it is possible. |
+| R1 | What EuroScope needs to accept the server (stage 2). | Stage 2 copies the bridge's observable behaviour (no `$DI`, post-login capability exchange); to be confirmed against the real client in the evening check, results into `euroscope-setup.md` §5. |
 | R2 | The position rate. `@` once a second is far more often than VATSIM's five seconds. | Stage 4's check; the interval is one constant. |
 | R3 | A late-joining controller learning existing tracks relies on the clients (`WH`/`IH`), as on VATSIM. | Stage 8's check. If it fails, the owner decides between a replay by the tracking node and living with it; no stage adds state on its own. |
 | R4 | A hub of an older build does not pass the two classes. | Release notes; controllers with a direct link are unaffected. |

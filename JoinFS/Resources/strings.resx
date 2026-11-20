@@ -447,6 +447,9 @@
   <data name="Tip_Whazzup" xml:space="preserve">
     <value>Update the file 'whazzup.txt' with aircraft data to use in your own online maps</value>
   </data>
+  <data name="Tip_AtcFsd" xml:space="preserve">
+    <value>Let an ATC client (EuroScope) on this PC connect and log in as a controller; the optional port defaults to 6809</value>
+  </data>
   <data name="Tip_WhazzupAI" xml:space="preserve">
     <value>Include all AI aircraft in the 'whazzup.txt' file</value>
   </data>

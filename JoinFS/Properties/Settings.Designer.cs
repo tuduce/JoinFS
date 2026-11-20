@@ -1138,6 +1138,30 @@ namespace JoinFS.Properties {
                 this["WhazzupGlobal"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool AtcFsd {
+            get {
+                return ((bool)(this["AtcFsd"]));
+            }
+            set {
+                this["AtcFsd"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("6809")]
+        public ushort AtcFsdPort {
+            get {
+                return ((ushort)(this["AtcFsdPort"]));
+            }
+            set {
+                this["AtcFsdPort"] = value;
+            }
+        }
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]

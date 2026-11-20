@@ -1672,6 +1672,15 @@ namespace JoinFS.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Let an ATC client (EuroScope) on this PC connect and log in as a controller; the optional port defaults to 6809.
+        /// </summary>
+        internal static string Tip_AtcFsd {
+            get {
+                return ResourceManager.GetString("Tip_AtcFsd", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Include all AI aircraft in the &apos;whazzup.txt&apos; file.
         /// </summary>
         internal static string Tip_WhazzupAI {
