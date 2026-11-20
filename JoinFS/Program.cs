@@ -94,6 +94,15 @@ namespace JoinFS
         /// <summary>The FSD server for the ATC client on this PC; null while the listener is off</summary>
         public AtcGateway atcGateway;
         FsdListener atcListener;
+
+        /// <summary>
+        /// This node's ATC presence: the logged-in station, else the manual ATC settings, else inactive. Replaced as a
+        /// whole by <see cref="RefreshLocalAtc"/> on the app thread, so any thread reads it without a lock.
+        /// </summary>
+        public LocalAtc LocalAtc => localAtc;
+        volatile LocalAtc localAtc = LocalAtc.Inactive;
+        AtcStationInfo localAtcStation;
+
         public Notes notes;
         public Stats stats;
         public VariableMgr variableMgr;
@@ -1036,6 +1045,7 @@ namespace JoinFS
                 {
                     StartAtcFsd();
                 }
+                RefreshLocalAtc();
                 notes = new Notes(this);
                 stats = new Stats();
                 variableMgr = new VariableMgr(this);
@@ -1366,6 +1376,48 @@ namespace JoinFS
             }
         }
 
+        /// <summary>
+        /// Work out <see cref="LocalAtc"/> again, from the station and the manual ATC settings (docs/ATC/atc-fsd-plan.md, stage 3).
+        /// The work loop calls it when the station changes; call it after changing the manual settings. App thread (or startup).
+        /// A change a peer can see goes out as a <c>PeerInfo</c> at once.
+        /// </summary>
+        public void RefreshLocalAtc()
+        {
+            AtcStationInfo station = atcGateway?.Station;
+            LocalAtc next = LocalAtc.Resolve(station, settingsAtc, settingsAtcAirport, Settings.Default.AtcLevel, Settings.Default.AtcFrequency);
+            LocalAtc before = localAtc;
+            localAtcStation = station;
+            if (next == before) return;
+            localAtc = next;
+            if (!next.SamePresenceAs(before))
+            {
+                network?.Peers.SendPeerInfoToAll();
+            }
+        }
+
+        /// <summary>
+        /// Where this node's controller is, in degrees: the station's own position, else its airport's. False when neither is known.
+        /// </summary>
+        public bool TryGetLocalAtcPosition(out double latitude, out double longitude)
+        {
+            LocalAtc atc = localAtc;
+            if (atc.HasPosition)
+            {
+                latitude = Math.Min(90.0, Math.Max(-90.0, atc.Latitude));
+                longitude = Math.Min(180.0, Math.Max(-180.0, atc.Longitude));
+                return true;
+            }
+            if (airportList.TryGetValue(atc.Airport, out Airport airport))
+            {
+                latitude = Math.Min(90.0, Math.Max(-90.0, airport.latitude));
+                longitude = Math.Min(180.0, Math.Max(-180.0, airport.longitude));
+                return true;
+            }
+            latitude = 0.0;
+            longitude = 0.0;
+            return false;
+        }
+
         private readonly ConcurrentQueue<Action> _commandQueue = new();
 
         // Call this helper method instead of setting 'schedule* = true'
@@ -1436,6 +1488,7 @@ namespace JoinFS
                     euroscope.DoWork();
                     whazzup.DoWork();
                     atcGateway?.Tick((long)(ElapsedTime * 1000.0));
+                    if (!ReferenceEquals(atcGateway?.Station, localAtcStation)) RefreshLocalAtc();
                     notes.DoWork();
 #if CONSOLE
                     webhookService?.DoWork();

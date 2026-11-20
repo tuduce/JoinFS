@@ -133,19 +133,29 @@ namespace JoinFS
         /// <summary>Our PeerInfo to every node, every 5 s.</summary>
         public void DoWork()
         {
-            if (peerInfoTimer.Elapsed(clock.Now) && session.Connected)
+            if (peerInfoTimer.Elapsed(clock.Now))
             {
-                try
+                SendPeerInfoToAll();
+            }
+        }
+
+        /// <summary>Our PeerInfo to every node now (this node's ATC presence changed), while in a session.</summary>
+        public void SendPeerInfoToAll()
+        {
+            if (!session.Connected)
+            {
+                return;
+            }
+            try
+            {
+                foreach (PeerSnapshot peer in session.Snapshot.PeerList)
                 {
-                    foreach (PeerSnapshot peer in session.Snapshot.PeerList)
-                    {
-                        SendPeerInfo(peer.Id);
-                    }
+                    SendPeerInfo(peer.Id);
                 }
-                catch (Exception ex)
-                {
-                    log.Event("Failed to write SharedData message: " + ex.Message);
-                }
+            }
+            catch (Exception ex)
+            {
+                log.Event("Failed to write SharedData message: " + ex.Message);
             }
         }
 
@@ -266,7 +276,8 @@ namespace JoinFS
         {
             if (GetNodeAtc(nuid, out string airport, out int level))
             {
-                return Atc.MakeAtcCallsign(airport, level);
+                // this node's controller shows its whole callsign; another node only tells airport and level
+                return nuid.Invalid() ? profile.AtcCallsign : Atc.MakeAtcCallsign(airport, level);
             }
             return simView.FindUserAircraft(nuid)?.flightPlan.callsign ?? "";
         }
@@ -352,9 +363,9 @@ namespace JoinFS
 
         public string GetLocalCallsign()
         {
-            if (GetNodeAtc(new NodeId(), out string airport, out int level))
+            if (GetNodeAtc(new NodeId(), out _, out _))
             {
-                return Atc.MakeAtcCallsign(airport, level);
+                return profile.AtcCallsign;
             }
             return simView.UserCallsign;
         }

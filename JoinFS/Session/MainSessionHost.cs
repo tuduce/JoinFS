@@ -35,17 +35,19 @@ namespace JoinFS
         public uint Uuid => main.uuid;
         public string Nickname => main.settingsNickname;
         public bool Hub => main.settingsHub;
-        public bool FeedFullRate => main.settingsFeedFullRate;
+        // an ATC client on this PC needs every aircraft at the full rate, simulator or not (plan §4.7)
+        public bool FeedFullRate => main.settingsFeedFullRate || main.LocalAtc.StationOnline;
         public string HubName => main.settingsHubName;
         public string HubAbout => main.settingsHubAbout;
         public string HubVoip => main.settingsHubVoip;
         public string HubEvent => main.settingsHubEvent;
         public int HubRelays => main.settingsHubRelays;
         public string HubDomain => main.settingsHubDomain;
-        public bool Atc => main.settingsAtc;
-        public string AtcAirport => main.settingsAtcAirport;
-        public int AtcLevel => Settings.Default.AtcLevel;
-        public int AtcFrequency => Settings.Default.AtcFrequency;
+        public bool Atc => main.LocalAtc.Active;
+        public string AtcCallsign => main.LocalAtc.Callsign;
+        public string AtcAirport => main.LocalAtc.Airport;
+        public int AtcLevel => main.LocalAtc.Level;
+        public int AtcFrequency => main.LocalAtc.Frequency;
         public int ActivityCircle => main.settingsActivityCircle;
         public string MyIp => Settings.Default.MyIp;
         public bool MultipleObjects => main.settingsMultiObjects;

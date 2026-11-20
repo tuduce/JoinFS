@@ -64,6 +64,8 @@ namespace JoinFS
         int HubRelays { get; }
         string HubDomain { get; }
         bool Atc { get; }
+        /// <summary>The whole callsign of this node's controller position (<c>EDDM_N_TWR</c>); empty without one.</summary>
+        string AtcCallsign { get; }
         string AtcAirport { get; }
         int AtcLevel { get; }
         int AtcFrequency { get; }

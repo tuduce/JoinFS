@@ -73,6 +73,9 @@ namespace JoinFS.Tests.Session
         public int HubRelays { get; set; } = MeshManager.DefaultRelayBudget;
         public string HubDomain { get; set; } = "";
         public bool Atc { get; set; }
+        /// <summary>Airport plus level unless a test sets a whole callsign (a station's, <c>EDDM_N_TWR</c>).</summary>
+        public string AtcCallsign { get => atcCallsign ?? JoinFS.Atc.MakeAtcCallsign(AtcAirport, AtcLevel); set => atcCallsign = value; }
+        string atcCallsign;
         public string AtcAirport { get; set; } = "";
         public int AtcLevel { get; set; } = 2;
         public int AtcFrequency { get; set; } = 22800;
@@ -183,7 +186,8 @@ namespace JoinFS.Tests.Session
         public Sim.Aircraft UserAircraft => null;
         public Sim.Aircraft FindUserAircraft(NodeId owner) => null;
         public void CountObjects(out ushort planes, out ushort helicopters, out ushort boats, out ushort vehicles) { planes = 1; helicopters = 2; boats = 3; vehicles = 4; }
-        public bool TryGetAirport(string code, out Main.Airport airport) { airport = default; return false; }
+        public readonly Dictionary<string, Main.Airport> Airports = [];
+        public bool TryGetAirport(string code, out Main.Airport airport) => Airports.TryGetValue(code, out airport);
     }
 
     /// <summary>The session's parts wired to fakes the way Network wires them to the app.</summary>

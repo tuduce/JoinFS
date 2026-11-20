@@ -45,6 +45,11 @@ namespace JoinFS
         bool localAtc = false;
 
         /// <summary>
+        /// The local ATC as it was exported, for the line that removes it
+        /// </summary>
+        LocalAtc exportedAtc = LocalAtc.Inactive;
+
+        /// <summary>
         /// Vuids
         /// </summary>
         uint vuidSquawk;
@@ -58,7 +63,7 @@ namespace JoinFS
             if (main.ElapsedTime > updateTime)
             {
                 // check if euroscope enabled
-                if (main.settingsAtc && Settings.Default.Euroscope)
+                if (main.LocalAtc.Active && Settings.Default.Euroscope)
                 {
                     // update
                     Update();
@@ -152,43 +157,40 @@ namespace JoinFS
                     }
 
                     // check for adding local ATC
-                    if (localAtc == false && main.settingsAtc)
+                    LocalAtc current = main.LocalAtc;
+                    if (localAtc == false && current.Active)
                     {
                         // get airport
-                        string airport = main.settingsAtcAirport;
-                        // check if airport is listed
-                        if (main.airportList.ContainsKey(airport))
+                        string airport = current.Airport;
+                        // the station's own position, else the airport's when that is listed
+                        if (main.TryGetLocalAtcPosition(out double latitude, out double longitude))
                         {
-                            // convert to radians
-                            double latitude = Math.Min(90.0, Math.Max(-90.0, main.airportList[airport].latitude));
-                            double longitude = Math.Min(180.0, Math.Max(-180.0, main.airportList[airport].longitude));
                             // empty line
                             newSample.lines.Add("");
                             // write time
                             newSample.lines.Add("[" + DateTime.UtcNow.ToString("HH:mm:ss") + " <<<2 " + airport + "]");
                             // write ATC
-                            newSample.lines.Add("%" + airport + ":" + Settings.Default.AtcFrequency + ":6:0:3:" + latitude + ":" + longitude + ":5");
+                            newSample.lines.Add("%" + airport + ":" + current.Frequency + ":6:0:3:" + latitude + ":" + longitude + ":5");
                         }
                         else
                         {
                             // warning
                             main.MonitorEvent("Unknown airport code, " + airport);
                         }
-                        // update flag
+                        // update flag, and what was exported, for the removal
                         localAtc = true;
+                        exportedAtc = current;
                     }
 
                     // check for removing local ATC
-                    if (localAtc && main.settingsAtc == false)
+                    if (localAtc && current.Active == false)
                     {
-                        // get airport
-                        string airport = main.settingsAtcAirport;
                         // empty line
                         newSample.lines.Add("");
                         // write time
                         newSample.lines.Add("[" + DateTime.UtcNow.ToString("HH:mm:ss") + " >>>> *A]");
                         // write ATC
-                        newSample.lines.Add("#DA" + JoinFS.Atc.MakeAtcCallsign(airport, Settings.Default.AtcLevel) + ":" + airport);
+                        newSample.lines.Add("#DA" + exportedAtc.Callsign + ":" + exportedAtc.Airport);
                         // update flag
                         localAtc = false;
                     }

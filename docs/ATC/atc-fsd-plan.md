@@ -89,6 +89,20 @@ Rules that follow from the thread model (`docs/architecture.md` §2):
 - Aircraft are read from the `Sim.View` snapshot, never from `sim.objectList`.
 - Messages go out through `INetworkOutbox`, like every other session part.
 
+**`LocalAtc` (stage 3).** `LocalAtc.Resolve(station, manual settings)` in `JoinFS/Atc/LocalAtc.cs` is a pure function;
+`Main.RefreshLocalAtc()` calls it when `AtcGateway.Station` changes (checked every `DoWork` tick by reference) and
+after the manual settings change, publishes the result in `Main.LocalAtc`, and sends a `PeerInfo` to every node at once
+when a peer would see a difference (`SamePresenceAs`: active, airport, level, frequency, station online; the
+station's position alone is not one). Rules the stage added:
+- An online station decides, even an observer: an observer is not active and does *not* fall back to manual mode.
+- A station that has not sent its first `%` yet is online but not active (its facility and frequency are unknown).
+- `StationOnline` (any main station logged in, observer included) drives `FeedFullRate`; `Active` drives `Atc`.
+- `ILocalProfile.AtcCallsign` is the whole callsign. The local controller shows it in `GetLocalCallsign`, the live
+  session list and the hub's own user list; another node still shows airport plus level until stage 7.
+- `Main.TryGetLocalAtcPosition` gives the station's own position, else the airport's; `Sim` (activity circle),
+  `Whazzup` and `Euroscope` use it. The hub's own user list still takes the airport's position (it needs an airport
+  it lists), so it ignores the station's.
+
 ### 4.2 The client's connection
 
 1. On accept, the gateway sends nothing: the client speaks first, `$ID` then `#AA`. (Stage 2: the working
@@ -548,7 +562,7 @@ hold.
 |---|---|---|
 | 1 FSD library | done, 2026-11-20 | Two additions of §4.8; no deviation from the row. |
 | 2 Listener and login | done, 2026-11-20 | Built and tested against the fake client and over real loopback TCP; **R1 is still open: EuroScope itself was not available, so "stays connected for 10 minutes" is the owner's evening check** (`euroscope-setup.md` §4 and §5). Deviations: (1) no `$DI` on connect (§4.2 rule 1 rewritten, evidence in `euroscope-setup.md`); (2) added the post-login welcome and capability exchange and the 30 s `#DL` keep-alive, copied in behaviour from the bridge; (3) `$CQ ..:SERVER:FP` answers `$ER 008` until stage 4 serves aircraft; (4) a second station gets `$ER 003`, the same callsign `$ER 001`; (5) the station is `AtcStationInfo` (`AtcGateway.Station`), which stage 3 turns into `LocalAtc`; no event yet. Nothing deferred to another row. |
-| 3 ATC presence | open | |
+| 3 ATC presence | done, 2026-11-20 | Stage 2's EuroScope evening check passed (owner: stays connected, tests ok), so R1 is closed. Built as the row says; additions in §4.1 ("`LocalAtc` (stage 3)"): `PeerTable.SendPeerInfoToAll`, `ILocalProfile.AtcCallsign`, `Main.TryGetLocalAtcPosition`, and the hub's own user list shows the whole callsign. Deviations: (1) the removal line of the `euroscope.txt` export now uses the callsign it exported, since `LocalAtc` is already inactive by then; (2) not tested: `Whazzup`'s line, `Euroscope`, `Sim` and `MainSessionHost` need `Main`, so they are covered by the evening check only; (3) `FS2024` (release) could not link while `JoinFS-FS2024` was running, its code compiled and FS2024-Debug builds in the tests. Nothing deferred to another row. R8 found. |
 | 4 Traffic | open | |
 | 5 Settings card | open | |
 | 6 Wire | open | |
@@ -583,5 +597,6 @@ Rules for a session (the same as for every staged work in this repository):
 | R5 | No authentication in the mesh: any member may log in as any free callsign. | Accepted; the session's password is the gate. |
 | R6 | A line over 1,000 bytes (a long `$AM` route) is not relayed. | Logged. Segments exist in JFP2 (§7.5) if it turns out to matter. |
 | R7 | X-Plane's transponder datarefs are unverified and the variant is hard to test. | Stage 9 adds them only when verified; otherwise X-Plane pilots show as mode C. |
+| R8 | `PeerInfo` carries the frequency as a signed 16 bit field (frozen wire), so a frequency above 132.767 MHz (field value above 32767) arrives negative at every peer, as it already did in manual mode. | Found in stage 3, not fixed: the legacy `PeerInfo` is frozen. Stage 7's `AtcStation` carries kHz as u32, so JoinFS peers get it right from then on; legacy peers keep the old limit. |
 | Q1 | EuroScope on a second PC (D4)? | Ask again when a controller needs it. |
 | Q2 | Station events for the TeamSpeak stack and the web map, and text between controllers and pilots. | Next plans; `AtcSession`'s station table is what they would read. |

@@ -138,7 +138,7 @@ namespace JoinFS
             Sim.Aircraft aircraft = sim.UserAircraft;
             if (profile.Atc && profile.AtcAirport.Length > 0)
             {
-                AddController(profile.Guid, profile.Nickname, profile.AtcAirport, profile.AtcLevel, profile.AtcFrequency, profile.ActivityCircle);
+                AddController(profile.Guid, profile.Nickname, profile.AtcAirport, profile.AtcLevel, profile.AtcFrequency, profile.ActivityCircle, profile.AtcCallsign);
             }
             else
             {
@@ -159,7 +159,8 @@ namespace JoinFS
             }
         }
 
-        void AddController(Guid guid, string nickname, string airportCode, int level, int frequency, int range)
+        /// <param name="callsign">The controller's whole callsign when known (this node's); otherwise airport and level make one.</param>
+        void AddController(Guid guid, string nickname, string airportCode, int level, int frequency, int range, string callsign = null)
         {
             if (sim.TryGetAirport(airportCode, out Main.Airport airport))
             {
@@ -167,7 +168,7 @@ namespace JoinFS
                 double longitude = Math.Min(180.0, Math.Max(-180.0, airport.longitude));
                 Sim.FlightPlan flightPlan = new()
                 {
-                    callsign = Atc.MakeAtcCallsign(airportCode, level),
+                    callsign = string.IsNullOrEmpty(callsign) ? Atc.MakeAtcCallsign(airportCode, level) : callsign,
                     departure = airportCode
                 };
                 LocalUsers.Add(new HubDirectory.HubUser(guid, true, nickname, frequency, latitude, longitude, 0.0, null, flightPlan, 0, level, range, true, 0));
