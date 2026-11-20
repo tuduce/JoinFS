@@ -131,14 +131,22 @@ namespace JoinFS
             public bool trustingPlatformElevation = false;
             /// <summary>True whenever this object's on-ground state is trusted from the network and forwarded to the local sim's placement of the object, for any aircraft type - independent of trustingPlatformElevation. Always requires the sender to actually report on-ground, so the local sim is never told an airborne aircraft is resting on the ground. See helicopters-on-elevated-platforms feature.</summary>
             public bool trustingPlatformGround = false;
-            /// <summary>Debounce state for trustingPlatformGround - see ground-jitter-on-spawn fix. Unlike trustingPlatformElevation (a continuous mismatch distance, smoothed via engage/release thresholds), the sender's raw "SIM ON GROUND" bit has no magnitude to apply a threshold band to - it's just noisy right after an object is created/spawned (physics still settling onto the ground). Debouncing by time instead: the raw flag must hold its current value for GroundTrustDebounceSeconds before trustingPlatformGround is allowed to follow it, so a flicker during the settle window doesn't repeatedly retarget smoothedGroundClearanceCorrection.</summary>
+            /// <summary>Debounce state for trustingPlatformGround - see ground-jitter-on-spawn fix. Unlike trustingPlatformElevation (a continuous mismatch distance, smoothed via engage/release thresholds), the sender's raw "SIM ON GROUND" bit has no magnitude to apply a threshold band to - it's just noisy right after an object is created/spawned (physics still settling onto the ground). Debouncing by time instead: the raw flag must hold its current value for GroundTrustDebounceSeconds before trustingPlatformGround is allowed to follow it, so a flicker during the settle window doesn't repeatedly switch the ground phase (GroundPlacement).</summary>
             public bool pendingGroundFlag = false;
             /// <summary>Net time (sender's clock) at which pendingGroundFlag last changed - see pendingGroundFlag. NaN before the first sample.</summary>
             public double pendingGroundFlagSince = double.NaN;
             /// <summary>Low-pass-filtered local-vs-remote terrain elevation offset used by the near-ground altitude blend in UpdateAircraft. NaN when not currently tracking (out of blend range, or no sample taken yet). The "GROUND ALTITUDE" probe feeding both sides has tick-to-tick noise; blending by the raw offset every update showed up as the aircraft jittering in height while sitting on/taxiing on ordinary ground.</summary>
             public double smoothedElevationOffset = double.NaN;
-            /// <summary>Low-pass-filtered ground-clearance correction (own substitute clearance minus sender's) applied in UpdateAircraft - see ground-jitter-on-model-mismatch fix. NaN when not yet sampled. Smoothed for the same reason as smoothedElevationOffset: trustPlatformGround (and the sender's own reported on-ground flag it comes from) can flicker tick-to-tick, and applying the raw target value directly would snap the substitute's altitude instantly between "as if it were the original aircraft" and "properly grounded" every time that single flag flips - visible as a sharp jitter rather than the flag's own noise being smoothed away first.</summary>
-            public double smoothedGroundClearanceCorrection = double.NaN;
+            /// <summary>How far the object is in its ground phase, 1 on ordinary ground down to 0 in the air (see GroundPlacement.Ramp). NaN before the first update.</summary>
+            public double groundWeight = double.NaN;
+            /// <summary>Local time groundWeight was last moved, NaN before the first update</summary>
+            public double groundWeightTime = double.NaN;
+            /// <summary>The last placement state written to the ground log, null before the first</summary>
+            public GroundPlacement.State? groundLogState = null;
+            /// <summary>The last CG height source written to the ground log</summary>
+            public GroundPlacement.CgSource groundLogCgSource = GroundPlacement.CgSource.Sim;
+            /// <summary>Whether the sim is told the object is on the ground (SimConnect "SIM ON GROUND"): on the ground, unless an Adjust Height value makes JoinFS drive its height, as the sim would push a lowered model back up</summary>
+            public bool groundToSim = false;
             /// <summary>TEMPORARY - throttle for the diagnostic RawPos/RawPosRelay traces in UpdateAircraft (both keyed by the sender's netTime), ground-jitter/model-mismatch investigation. Remove this field and its log lines once diagnosed.</summary>
             public double nextRawDiagLogTime = 0.0;
             /// <summary>TEMPORARY - throttle for the diagnostic RawPosSend trace in ProcessAircraftPosition, keyed by local simTime - kept separate from nextRawDiagLogTime because that one is keyed by the unrelated netTime clock; sharing one field let whichever diagnostic ran first starve the other. Remove this field and its log line once diagnosed.</summary>
