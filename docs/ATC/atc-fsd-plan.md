@@ -187,6 +187,9 @@ Controllers with a direct link are not affected; the release notes say hubs must
   3. if two aircraft have the same result: the one with the lowest (owner `NodeId`, object id)
      keeps it, each other one gets the result cut to 8 characters plus two hex digits of that hash.
 
+- **The packing of pitch, bank and heading** (`FsdPitchBankHeading`): the document gives the 10-bit layout but not the signs. Pitch and bank are written negated, as FSD's own code does, so a nose-up pitch of 0.35 degrees is the step 1023; the document's example `4290776072` reads that way. Stage 4's check against EuroScope confirms it; if a tag shows the aircraft banked the wrong way, change the sign in that one class.
+- **Aircraft callsign collisions** (§4.6 rule 3): a suffixed name that is already in use (another aircraft's name, or another suffixed one) gets the next hash value, in the order of (owner, object id), so every node still computes the same names.
+
 ### 4.7 What the client is told about traffic
 
 For every `Sim.Aircraft` in `Sim.View.Objects` (the set `Euroscope.cs` uses today: the session's
@@ -539,7 +542,7 @@ hold.
 
 | Stage | State | Notes |
 |---|---|---|
-| 1 FSD library | open | |
+| 1 FSD library | done, 2026-11-20 | Two additions of §4.8; no deviation from the row. |
 | 2 Listener and login | open | |
 | 3 ATC presence | open | |
 | 4 Traffic | open | |
