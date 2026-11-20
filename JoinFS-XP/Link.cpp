@@ -40,7 +40,7 @@ char buffer[MAXLINE];
 struct sockaddr_in servaddr, clientAddress;
 
 
-static const short DATA_VERSION = 21023;
+static const short DATA_VERSION = 21024;
 static const short PORT = 7472;
 
 

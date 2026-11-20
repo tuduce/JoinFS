@@ -95,8 +95,7 @@ namespace JoinFS
                     // there's no magnitude here to apply a band to - SIM ON GROUND is a single bit, and it can
                     // flicker for a moment right after an object is created/injected while its physics settles onto
                     // the ground. Require it to hold its current value for GroundTrustDebounceSeconds before
-                    // trustPlatformGround follows it, instead of retargeting smoothedGroundClearanceCorrection on
-                    // every flicker.
+                    // trustPlatformGround follows it, instead of switching the ground phase on every flicker.
                     bool rawGround = aircraftPosition.ground != 0;
                     if (rawGround != aircraft.pendingGroundFlag || double.IsNaN(aircraft.pendingGroundFlagSince))
                     {
@@ -134,45 +133,28 @@ namespace JoinFS
                     aircraft.trustingPlatformElevation = trustPlatformElevation;
                     aircraft.trustingPlatformGround = trustPlatformGround;
 
-                    // ground the substitute using its own STATIC CG TO GROUND, not the sender's - see
-                    // ground-jitter-on-model-mismatch fix. Strictly gated on the sender's own reported
-                    // on-ground state: an airborne aircraft must never be pulled toward a ground-relative
-                    // correction, regardless of how close to the ground it might numerically appear. When
-                    // on-ground, the sender's reported altitude corresponds to their own gear resting on the
-                    // real terrain (terrainElevation ~= altitude - senderClearance); re-deriving that same
-                    // terrain point but adding back the *substitute's own* clearance places the substitute's
-                    // gear on that same terrain point, regardless of whether the substitute is bigger or
-                    // smaller than the original aircraft - no matter which model the matcher happened to
-                    // pick. This is independent of, and complementary to, the ElevationCorrection bare-
-                    // terrain-datum blend below (that one compensates for cross-install terrain-mesh noise,
-                    // not model geometry). Requires both sides' clearance to be known (not NaN - an older
-                    // peer pre-dating this field, or a not-yet-settled local poll, falls back to no
-                    // correction rather than attempting a wrong one) and the local aircraft to have received
-                    // at least one live SimConnect update of its own (SimValid).
-                    //
-                    // The target correction is low-pass filtered (same 0.15 factor/pattern as
-                    // smoothedElevationOffset below) rather than applied raw: trustPlatformGround comes
-                    // straight from the sender's own single-bit on-ground flag, which can flicker tick-to-
-                    // tick (e.g. suspension/contact noise while parked or taxiing) - applying the full
-                    // correction the instant it flips would snap the substitute's altitude abruptly between
-                    // "as if it were the original aircraft" and "properly grounded" every time that one flag
-                    // toggles, which is itself a visible jitter of exactly the size of the geometry gap
-                    // between the two aircraft.
-                    double targetGroundClearanceCorrection = 0.0;
-                    if (trustPlatformGround && aircraft.SimValid)
-                    {
-                        double senderClearance = aircraftPosition.staticCgToGround * 0.3048;
-                        double localClearance = aircraft.simPosition.staticCgToGround;
-                        if (double.IsNaN(senderClearance) == false && double.IsNaN(localClearance) == false)
-                        {
-                            targetGroundClearanceCorrection = localClearance - senderClearance;
-                        }
-                    }
-                    aircraft.smoothedGroundClearanceCorrection = double.IsNaN(aircraft.smoothedGroundClearanceCorrection)
-                        ? targetGroundClearanceCorrection
-                        : aircraft.smoothedGroundClearanceCorrection + (targetGroundClearanceCorrection - aircraft.smoothedGroundClearanceCorrection) * 0.15;
-                    aircraftPosition.altitude += (float)aircraft.smoothedGroundClearanceCorrection;
+                    // ground phase: the sender is on ordinary ground (debounced ground flag, no elevated platform).
+                    // There the height comes from local values only - see GroundPlacement. The weight ramps
+                    // between ground and airborne height by time, so touchdown and lift-off show no step.
+                    bool groundPhase = trustPlatformGround && trustPlatformElevation == false && Settings.Default.ElevationCorrection;
+                    double placementNow = main.ElapsedTime;
+                    double placementDt = double.IsNaN(aircraft.groundWeightTime) ? 0.0 : placementNow - aircraft.groundWeightTime;
+                    aircraft.groundWeightTime = placementNow;
+                    aircraft.groundWeight = GroundPlacement.Ramp(aircraft.groundWeight, groundPhase, placementDt);
+                    // the Adjust Height card - a per-model correction of the shown model's own ground height,
+                    // applied on the ground only (ramped with the weight), never on an elevated platform
+                    double adjustment = trustPlatformElevation ? 0.0 : heightAdjustmentCm * 0.01;
+                    // tell the sim the object is on the ground, so it settles it on its own contact points -
+                    // unless an adjustment makes JoinFS drive the height: the sim would push a lowered model
+                    // back up onto the contact points that make it hover
+                    aircraft.groundToSim = trustPlatformGround && (adjustment == 0.0 || trustPlatformElevation);
 
+#if XPLANE || CONSOLE
+                    // the plugin places it: it probes the local ground under the shown model every frame and
+                    // knows the CSL's vertical offset, and blends the mesh difference in itself
+                    bool xplaneLocalGround = groundPhase;
+                    float xplaneGroundOffset = (float)adjustment;
+#else
                     // check if correction is enabled and local height is valid
                     if (Settings.Default.ElevationCorrection && aircraft.SimValid && trustPlatformElevation == false)
                     {
@@ -205,8 +187,19 @@ namespace JoinFS
                         }
                     }
 
-                    // height adjustment
-                    aircraftPosition.altitude += heightAdjustmentCm * 0.01f;
+                    // the local ground under the shown model and its own CG height (STATIC CG TO GROUND of the
+                    // object in the local sim). Only while the object is where the aircraft is: its GROUND
+                    // ALTITUDE is the terrain where it already stands, which is the wrong place right after a
+                    // spawn or a far reset
+                    double localGround = Settings.Default.ElevationCorrection && aircraft.SimValid &&
+                        HorizontalDistance(aircraft.simPosition, ref aircraftPosition) < LocalGroundRadius
+                        ? aircraft.simPosition.elevation : double.NaN;
+                    double cgHeight = GroundPlacement.CgHeight(aircraft.simPosition.staticCgToGround, aircraft.ownerClassCode, out GroundPlacement.CgSource cgSource);
+                    GroundPlacement.Result placement = GroundPlacement.Place(aircraftPosition.altitude, aircraft.groundWeight, localGround, cgHeight, cgSource,
+                        adjustment, trustPlatformElevation);
+                    aircraftPosition.altitude = placement.Altitude;
+                    LogGroundPlacement(aircraft, placement, localGround, adjustment);
+#endif
 
                     // save old orientation
                     aircraft.oldEuler = aircraft.netPosition.angles.Clone();
@@ -221,7 +214,7 @@ namespace JoinFS
 #if XPLANE || CONSOLE
                     // update simulator
                     xplane.UpdateAircraft(aircraft.simId, aircraft.user, main.network.Peers.GetNodeName(aircraft.ownerNuid), aircraft.flightPlan.callsign, aircraft.subModel, aircraft.flightPlan.icaoType);
-                    xplane.UpdateAircraft(aircraft.simId, (float)aircraft.distance, netTime, aircraftPosition);
+                    xplane.UpdateAircraft(aircraft.simId, (float)aircraft.distance, netTime, aircraftPosition, xplaneLocalGround, xplaneGroundOffset);
 #endif
                 }
 

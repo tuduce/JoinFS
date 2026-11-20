@@ -46,7 +46,9 @@ namespace JoinFS
         /// <summary>
         /// X-Plane connection version
         /// </summary>
-        const short DATA_VERSION = 21023;
+        // 21024: AIRCRAFT_POSITION carries the user aircraft's measured CG height above the ground (plugin to app)
+        // and the ground placement of a remote aircraft (app to plugin)
+        const short DATA_VERSION = 21024;
 
         /// <summary>
         /// X-Plane version
@@ -748,6 +750,11 @@ namespace JoinFS
                                         // read position
                                         Sim.AircraftPosition position = new Sim.AircraftPosition();
                                         JfsFrames.Read(dataVersion, reader, ref position);
+                                        // the user aircraft's CG height above the ground, measured by the plugin while
+                                        // on the ground, metres; NaN until it has been on the ground. Sent on as its
+                                        // STATIC CG TO GROUND (feet), as the MSFS builds send theirs
+                                        float clearance = reader.ReadSingle();
+                                        position.staticCgToGround = float.IsNaN(clearance) ? float.NaN : clearance / 0.3048f;
                                         // read plane state
                                         position.latitude *= Math.PI / 180.0;
                                         position.longitude *= Math.PI / 180.0;
@@ -1091,7 +1098,9 @@ namespace JoinFS
         /// <param name="distance"></param>
         /// <param name="simId"></param>
         /// <returns></returns>
-        public void UpdateAircraft(uint simId, float distance, double netTime, Sim.AircraftPosition position)
+        /// <param name="localGround">The aircraft is in its ground phase: the plugin places it on the local ground under the shown model</param>
+        /// <param name="groundOffset">The Adjust Height value for the shown model, metres, applied in the ground phase</param>
+        public void UpdateAircraft(uint simId, float distance, double netTime, Sim.AircraftPosition position, bool localGround, float groundOffset)
         {
             if (IsOpen)
             {
@@ -1126,6 +1135,11 @@ namespace JoinFS
                     message.Write(netTime);
                     // write position
                     JfsFrames.Write(message, ref position);
+                    // the user aircraft's CG height, only sent by the plugin
+                    message.Write(float.NaN);
+                    // ground placement: 0x01 place on the local ground
+                    message.Write((byte)(localGround ? 0x01 : 0x00));
+                    message.Write(groundOffset);
                     // send message
                     link.Send(pluginEndPoint);
                 }
