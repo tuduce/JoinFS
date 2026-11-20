@@ -72,13 +72,20 @@ namespace JoinFS
 
         /// <summary>
         /// Whether a SimBrief plan made for <paramref name="planIcaoType"/> fits the aircraft the sim reports as
-        /// <paramref name="aircraftIcaoType"/>. Either one unknown: it fits, since nothing can be compared.
+        /// <paramref name="aircraftIcaoType"/>. Either one unknown: it fits, since nothing can be compared. Add-ons do not
+        /// always report the exact ICAO designator (the FlyByWire A380X reports A380 for SimBrief's A388, an A400M
+        /// "A400M" for A400), so the same type family fits: both share their first three characters (A380/A388,
+        /// A400/A400M, B737/B738). EC45 and A388 do not.
         /// </summary>
         public static bool SimBriefPlanFitsAircraft(string planIcaoType, string aircraftIcaoType)
         {
-            string plan = planIcaoType?.Trim() ?? "";
-            string aircraft = aircraftIcaoType?.Trim() ?? "";
-            return plan.Length == 0 || aircraft.Length == 0 || string.Equals(plan, aircraft, StringComparison.OrdinalIgnoreCase);
+            string plan = planIcaoType?.Trim().ToUpperInvariant() ?? "";
+            string aircraft = aircraftIcaoType?.Trim().ToUpperInvariant() ?? "";
+            if (plan.Length == 0 || aircraft.Length == 0 || plan == aircraft)
+            {
+                return true;
+            }
+            return plan.Length >= 3 && aircraft.Length >= 3 && string.CompareOrdinal(plan, 0, aircraft, 0, 3) == 0;
         }
 
         /// <summary>

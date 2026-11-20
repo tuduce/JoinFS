@@ -47,6 +47,8 @@ namespace JoinFS.Live
         volatile SimSnapshot snapshotAtApply;
         volatile bool filedApplied;
 
+        public int Resets => main.sim?.userFlightPlanResets ?? 0;
+
         public FlightPlanData Load()
         {
             SimSnapshot view = main.sim?.View;

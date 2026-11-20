@@ -245,6 +245,12 @@ public interface IFlightPlanStore
 {
     FlightPlanData Load();
     void Save(FlightPlanData plan);
+
+    /// <summary>
+    /// Counts the times the simulator reset the plan for another aircraft type (a new flight). A change means edits not yet
+    /// saved belong to the previous aircraft. Zero for a store whose plan the simulator never resets.
+    /// </summary>
+    int Resets => 0;
 }
 
 /// <summary>

@@ -87,11 +87,22 @@ public sealed partial class FlightPlanViewModel : ObservableObject
             UpdateUnsavedEdits();
     }
 
-    /// <summary>Reads the live plan again, unless the user is in the middle of editing it.</summary>
+    // IFlightPlanStore.Resets when the fields were last made equal to the live plan
+    private int _resetsSeen;
+
+    /// <summary>
+    /// Reads the live plan again, unless the user is in the middle of editing it. Another aircraft type in the simulator is a
+    /// new flight: the plan was cleared for it, and edits not yet saved for the previous aircraft go with it.
+    /// </summary>
     public void Refresh()
     {
-        if (!HasUnsavedEdits)
+        bool newFlight = _store.Resets != _resetsSeen;
+        if (newFlight || !HasUnsavedEdits)
+        {
+            if (newFlight)
+                Status = "";
             Apply(_store.Load());
+        }
     }
 
     /// <summary>
@@ -218,7 +229,10 @@ public sealed partial class FlightPlanViewModel : ObservableObject
         }
 
         if (asBaseline)
+        {
             _baseline = plan;
+            _resetsSeen = _store.Resets;
+        }
         UpdateUnsavedEdits();
     }
 }

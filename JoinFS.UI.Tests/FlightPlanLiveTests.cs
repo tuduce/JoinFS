@@ -49,6 +49,9 @@ internal sealed class MovingFlightPlanStore : IFlightPlanStore
     /// <summary>What a blank callsign becomes when saved: the aircraft's own, as in the live app.</summary>
     public string OwnCallsign { get; set; } = "";
 
+    /// <summary>As the simulator counts its resets for another aircraft type</summary>
+    public int Resets { get; set; }
+
     public FlightPlanData Load() => Plan;
 
     public void Save(FlightPlanData plan)
@@ -339,6 +342,41 @@ public class FlightPlanLiveTests
         store.Plan = store.Plan with { Route = "LATER" };
         main.FlightPlan.Refresh();
         Assert.Equal("LATER", main.FlightPlan.Route);
+    }
+
+    [Fact]
+    public async Task Another_aircraft_type_clears_an_imported_plan_not_yet_saved()
+    {
+        (MainViewModel main, _, MovingFlightPlanStore store) = Open();
+        await main.FlightPlan.ImportFromSimbriefCommand.ExecuteAsync(null); // shown, waiting for Save
+        Assert.True(main.FlightPlan.HasUnsavedEdits);
+
+        // the pilot switched to a C172: the simulator cleared the plan for the new flight
+        store.Plan = new("D-EJOE", "C172", "VFR", "", "", "", "", "");
+        store.Resets++;
+        main.FlightPlan.Refresh();
+
+        Assert.Equal("D-EJOE", main.FlightPlan.Callsign);
+        Assert.Equal("", main.FlightPlan.From);
+        Assert.Equal("", main.FlightPlan.Route);
+        Assert.Equal("", main.FlightPlan.Airports);
+        Assert.False(main.FlightPlan.HasUnsavedEdits);
+    }
+
+    [Fact]
+    public void The_strip_shows_the_live_route_also_when_the_tab_is_not_on_screen()
+    {
+        (MainViewModel main, _, MovingFlightPlanStore store) = Open();
+        store.Plan = store.Plan with { From = "EHAM", To = "EDDS" };
+        main.Poll();
+        Assert.Equal("EHAM-EDDS", main.FlightPlan.Airports);
+
+        // another aircraft: the route was cleared in the simulator
+        store.Plan = new("D-EJOE", "C172", "VFR", "", "", "", "", "");
+        store.Resets++;
+        main.Poll();
+
+        Assert.Equal("", main.FlightPlan.Airports);
     }
 
     [Fact]

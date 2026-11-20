@@ -9,6 +9,13 @@ namespace JoinFS.Tests
         // the latest OFP is from the previous aircraft (seen: an H145 plan kept for an A320neo)
         [InlineData("EC45", "A20N", false)]
         [InlineData("A320", "A20N", false)]
+        // seen: an A388 plan kept for an A400M and an EC45
+        [InlineData("A388", "A400M", false)]
+        [InlineData("A388", "EC45", false)]
+        // add-ons that report a type of the family, not the exact designator (FlyByWire A380X: A380)
+        [InlineData("A388", "A380", true)]
+        [InlineData("A400", "A400M", true)]
+        [InlineData("B738", "B737", true)]
         // nothing to compare: as before, the plan is applied
         [InlineData("", "A20N", true)]
         [InlineData("EC45", "", true)]
