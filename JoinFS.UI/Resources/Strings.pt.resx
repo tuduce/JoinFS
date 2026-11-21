@@ -1233,4 +1233,28 @@
   <data name="Orange: more than {0} nm away." xml:space="preserve">
     <value>Laranja: a mais de {0} nm.</value>
   </data>
+  <data name="ATC" xml:space="preserve">
+    <value>ATC</value>
+  </data>
+  <data name="Let an ATC program on this PC, such as EuroScope, connect to JoinFS." xml:space="preserve">
+    <value>Permite que um programa de ATC neste PC, como o EuroScope, se conecte ao JoinFS.</value>
+  </data>
+  <data name="Enable ATC client connection" xml:space="preserve">
+    <value>Ativar a conexão do cliente ATC</value>
+  </data>
+  <data name="Port" xml:space="preserve">
+    <value>Porta</value>
+  </data>
+  <data name="Listening on port {0}" xml:space="preserve">
+    <value>Escutando na porta {0}</value>
+  </data>
+  <data name="Connected as {0}" xml:space="preserve">
+    <value>Conectado como {0}</value>
+  </data>
+  <data name="Connected as {0} {1}" xml:space="preserve">
+    <value>Conectado como {0} {1}</value>
+  </data>
+  <data name="Cannot listen on port {0}. Another program may be using it." xml:space="preserve">
+    <value>Não é possível escutar na porta {0}. Talvez outro programa a esteja usando.</value>
+  </data>
 </root>

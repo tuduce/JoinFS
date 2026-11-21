@@ -6,14 +6,19 @@ change if it fails, and section 5 is where to record what was found.
 
 ## 1. Turn the listener on
 
-The listener is off by default and nothing listens while it is off (decision D3). Turn it on for one run:
+The listener is off by default and nothing listens while it is off (decision D3). Turn it on in **Settings → ATC**
+(tick "Enable ATC client connection"; the port is 6809 unless you change it). It starts at once and the card says
+"Listening on port 6809", then "Connected as EDDM_TWR 118.700" once EuroScope has logged in. Unticking it closes the port
+and disconnects EuroScope. The choice is saved and survives a restart.
+
+Or turn it on for one run only:
 
 ```
 JoinFS-FS2024.exe -fsd            (port 6809)
 JoinFS-FS2024.exe -fsd 6810       (another port)
 ```
 
-or set `AtcFsd` (and `AtcFsdPort`) in the user settings; the settings card comes in stage 5. On the CONSOLE build use
+or set `AtcFsd` (and `AtcFsdPort`) in the user settings. On the CONSOLE build, which has no window, use
 `--fsd`. The monitor and the log show:
 
 ```

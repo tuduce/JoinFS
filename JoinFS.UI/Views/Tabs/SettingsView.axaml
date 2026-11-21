@@ -344,6 +344,36 @@
 
         <TextBlock Classes="caps" Text="{l:T 'ADVANCED'}" Margin="2,10,0,0" />
 
+        <!-- ATC -->
+        <Border Classes="card" Tag="{Binding Atc}">
+          <StackPanel>
+            <Button Classes="accordion" Command="{Binding Atc.ToggleCommand}">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Atc.Title}" FontSize="14" FontWeight="SemiBold" />
+                <c:Icon Grid.Column="1" Classes="chevron" Classes.open="{Binding Atc.IsOpen}" Source="{DynamicResource IconChevron}" />
+              </Grid>
+            </Button>
+            <Border IsVisible="{Binding Atc.IsOpen}"
+                    BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="18,14,18,18">
+              <Panel DataContext="{Binding Atc}">
+                <StackPanel x:DataType="tvm:AtcSettingsViewModel" Spacing="12">
+                  <TextBlock Text="{l:T 'Let an ATC program on this PC, such as EuroScope, connect to JoinFS.'}" Classes="label" TextWrapping="Wrap" />
+                  <CheckBox IsChecked="{Binding Enabled}" Content="{l:T 'Enable ATC client connection'}" />
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="{l:T 'Port'}" Classes="label" VerticalAlignment="Center" />
+                    <!-- The listener is restarted when the port is saved, so it is saved when the box loses focus, not at every key. -->
+                    <TextBox Classes="compact mono" Width="90" Text="{Binding Port, UpdateSourceTrigger=LostFocus}" />
+                  </StackPanel>
+                  <TextBlock Text="{Binding PortError}" IsVisible="{Binding PortError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                             Classes="label" Foreground="{DynamicResource DangerBrush}" />
+                  <TextBlock Text="{Binding StatusText}" IsVisible="{Binding IsNotFailed}" Classes="mono" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding StatusText}" IsVisible="{Binding IsFailed}" Classes="label" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Panel>
+            </Border>
+          </StackPanel>
+        </Border>
+
         <!-- Hub Mode -->
         <Border Classes="card" Tag="{Binding HubMode}">
           <StackPanel>

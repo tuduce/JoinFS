@@ -50,7 +50,7 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Chat = new ChatViewModel(services.Chat);
         Monitor = new MonitorViewModel(services.Monitor, services.Platform);
         Settings = new SettingsViewModel(Profile, AddressBook, services.Preferences, services.Variables, services.Models, services.XPlanePlugin, services.XPlaneScan, services.ModelScan, this, services.Platform, () => Simulator.IsConnected, services.App.IsXPlaneBuild,
-            services.Shortcuts, ApplyShortcuts);
+            services.Shortcuts, ApplyShortcuts, services.Atc);
         ApplyShortcuts(services.Shortcuts.Load());
 
         // the map follows the choice in Settings → User Interface
@@ -499,6 +499,8 @@ public sealed partial class MainViewModel : ObservableObject, IShell
                 // The files are asked of the simulator, so only while the card that lists them is open.
                 if (Settings.Variables.IsOpen)
                     Settings.Variables.Refresh();
+                if (Settings.Atc.IsOpen)
+                    Settings.Atc.Refresh();
                 break;
             case TabId.Objects:
                 Objects.Refresh();

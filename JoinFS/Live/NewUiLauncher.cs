@@ -43,6 +43,7 @@ namespace JoinFS.Live
                 XPlanePlugin = new LiveXPlanePluginInstaller(main),
                 Messages = new LiveMessageSource(main),
                 Shortcuts = new LiveShortcutSource(),
+                Atc = new LiveAtcStatusSource(main),
                 MapTiles = new MapTileProvider(style => style == MapStyle.Watercolor
                     ? new WatercolorTileSource(userAgent, System.IO.Path.Combine(main.storagePath, "map-tiles-watercolor"))
                     : new OsmTileSource(userAgent, System.IO.Path.Combine(main.storagePath, "map-tiles"))),

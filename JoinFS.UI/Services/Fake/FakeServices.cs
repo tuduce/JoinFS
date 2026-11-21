@@ -37,7 +37,15 @@ public static class FakeServices
         ModelScan: new FakeModelScanSource(),
         MapTiles: new MapTileProvider(_ => new NoMapTiles()),
         Messages: new NoMessages(),
-        Shortcuts: new FakeShortcutSource());
+        Shortcuts: new FakeShortcutSource(),
+        Atc: new FakeAtcStatusSource());
+}
+
+/// <summary>An ATC client that is never connected; the status is whatever a test sets.</summary>
+public sealed class FakeAtcStatusSource : IAtcStatusSource
+{
+    public AtcClientStatus Status { get; set; } = AtcClientStatus.Off;
+    public AtcClientStatus Read() => Status;
 }
 
 public sealed class FakeSimulatorLink(TimeSpan latency) : ISimulatorLink

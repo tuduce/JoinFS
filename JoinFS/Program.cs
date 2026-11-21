@@ -1363,6 +1363,7 @@ namespace JoinFS
         /// </summary>
         void StartAtcFsd()
         {
+            atcFsdFailed = false;
             uint vuidSquawk = VariableMgr.CreateVuid("transponder code:1");
             var traffic = new SimViewTraffic(
                 () => sim?.View,
@@ -1379,7 +1380,41 @@ namespace JoinFS
             else
             {
                 listener.Dispose();
+                atcFsdFailed = true;
             }
+        }
+
+        /// <summary>The listener was asked for and could not be opened (the port is in use). Read under <see cref="conch"/>.</summary>
+        bool atcFsdFailed;
+
+        /// <summary>The port the ATC client listener is open on, or 0 while it is off. Read under <see cref="conch"/>.</summary>
+        public int AtcFsdPort => atcListener?.Port ?? 0;
+
+        /// <summary>See <see cref="atcFsdFailed"/>.</summary>
+        public bool AtcFsdFailed => atcFsdFailed;
+
+        /// <summary>
+        /// Turn the ATC client connection on or off, or move it to another port, while JoinFS runs (the settings card, plan stage 5).
+        /// Off closes the port and disconnects the client; the station goes with it. App thread only: the UI posts it with
+        /// <see cref="EnqueueCommand"/>.
+        /// </summary>
+        public void SetAtcFsd(bool enabled, ushort port)
+        {
+            settingsAtcFsd = enabled;
+            settingsAtcFsdPort = port;
+
+            atcListener?.Dispose();
+            atcListener = null;
+            atcGateway?.Shutdown();
+            atcGateway = null;
+            atcFsdFailed = false;
+
+            if (enabled)
+            {
+                StartAtcFsd();
+            }
+            // the station is gone (or never was): LocalAtc goes back to the manual settings, and peers are told
+            RefreshLocalAtc();
         }
 
         /// <summary>
