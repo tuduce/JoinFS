@@ -59,6 +59,7 @@ namespace JoinFS
         /// <summary>The remote stations the client has been told of, by callsign, as last sent.</summary>
         readonly Dictionary<string, AtcRemoteStation> told = new Dictionary<string, AtcRemoteStation>();
         Client main;
+        Client atis;
         long nextHeartbeatMs = long.MinValue;
         long nextRemotePositionMs = long.MinValue;
         bool shutdown;
@@ -83,6 +84,16 @@ namespace JoinFS
         /// <summary>The station that is logged in on this instance, or null. Replaced, never changed.</summary>
         public AtcStationInfo Station { get; private set; }
 
+        /// <summary>The ATIS station of this instance (<c>*_ATIS</c>, a second connection while the main station is online; slot 1), or null.</summary>
+        public AtcStationInfo AtisStation { get; private set; }
+
+        /// <summary>A callsign ending in <c>_ATIS</c>: the one a second connection of the same controller may log in with (D5).</summary>
+        public static bool IsAtisCallsign(string callsign) => callsign != null && callsign.Length > "_ATIS".Length && callsign.EndsWith("_ATIS", StringComparison.Ordinal);
+
+        AtcStationInfo StationOf(Client client) => client == main ? Station : client == atis ? AtisStation : null;
+
+        Client OtherOf(Client client) => client == main ? atis : client == atis ? main : null;
+
         /// <summary>How many connections are open, logged in or not.</summary>
         public int ConnectionCount => clients.Count;
 
@@ -104,7 +115,7 @@ namespace JoinFS
             Client client = Find(connection);
             if (client == null) return;
             clients.Remove(client);
-            if (client == main) LogOff(client, "connection closed");
+            if (client == main || client == atis) LogOff(client, "connection closed");
             else log("ATC client from " + connection.RemoteAddress + " disconnected");
         }
 
@@ -186,6 +197,7 @@ namespace JoinFS
             {
                 nextHeartbeatMs = nowMs + HeartbeatIntervalMs;
                 Send(main, new FsdLine("#DL", Server, "*", "0", "0"));
+                if (atis != null) Send(atis, new FsdLine("#DL", Server, "*", "0", "0"));
             }
 
             // traffic goes to a logged-in client only (§4.7)
@@ -208,7 +220,7 @@ namespace JoinFS
             clients.Clear();
             foreach (Client client in open)
             {
-                if (client == main) LogOff(client, "JoinFS closing");
+                if (client == main || client == atis) LogOff(client, "JoinFS closing");
                 client.Connection.Close();
             }
         }
@@ -227,6 +239,18 @@ namespace JoinFS
             {
                 Refuse(client, FsdError.Create(add.Callsign, FsdErrorCode.CallsignInvalid, add.Callsign, "Invalid callsign"),
                     "invalid callsign '" + add.Callsign + "'");
+                return;
+            }
+
+            if (main != null && atis == null && IsAtisCallsign(add.Callsign) && add.Callsign != Station.Callsign)
+            {
+                if (mesh != null && mesh.CallsignInUse(add.Callsign))
+                {
+                    Refuse(client, FsdError.Create(add.Callsign, FsdErrorCode.CallsignInUse, add.Callsign, "Callsign in use"),
+                        add.Callsign + " is already logged in on another node of the session");
+                    return;
+                }
+                LoginAtis(client, add);
                 return;
             }
 
@@ -255,14 +279,7 @@ namespace JoinFS
             Station = new AtcStationInfo(add.Callsign, add.RealName, add.Rating, FsdFacility.Observer, 0, 0, 0, 0, false);
             log("ATC station " + add.Callsign + " logged in");
 
-            // what the client waits for before it shows "connected" (found in the joinfs-euroscope-bridge, not verified
-            // against EuroScope: docs/ATC/euroscope-setup.md): a welcome, then the capabilities exchange
-            string callsign = add.Callsign;
-            Send(client, new FsdTextMessage { From = "server", To = callsign, Message = "JoinFS ATC gateway" }.ToLine());
-            Send(client, FsdQuery.Query(Server, callsign, "CAPS").ToLine());
-            Send(client, FsdQuery.Response(Server, callsign, "ATC", Station.IsController ? "Y" : "N", callsign).ToLine());
-            Send(client, FsdQuery.Response(Server, callsign, "CAPS", "ATCINFO=1", "SECPOS=1").ToLine());
-            Send(client, FsdQuery.Response(Server, callsign, "IP", client.Connection.RemoteAddress).ToLine());
+            Welcome(client, Station);
 
             // the stations that are already there
             if (mesh != null)
@@ -271,14 +288,42 @@ namespace JoinFS
             }
         }
 
+        /// <summary>
+        /// The second connection of the controller, <c>*_ATIS</c> (D5, stage 10): the station of slot 1. It needs no traffic and no
+        /// list of the other stations; it only speaks for the ATIS and gets the lines addressed to it.
+        /// </summary>
+        void LoginAtis(Client client, FsdAddAtc add)
+        {
+            client.IsStation = true;
+            atis = client;
+            AtisStation = new AtcStationInfo(add.Callsign, add.RealName, add.Rating, FsdFacility.Observer, 0, 0, 0, 0, false);
+            log("ATC station " + add.Callsign + " logged in (ATIS of " + Station.Callsign + ")");
+            Welcome(client, AtisStation);
+        }
+
+        /// <summary>
+        /// What the client waits for before it shows "connected" (found in the joinfs-euroscope-bridge, not verified
+        /// against EuroScope: docs/ATC/euroscope-setup.md): a welcome, then the capabilities exchange.
+        /// </summary>
+        void Welcome(Client client, AtcStationInfo station)
+        {
+            string callsign = station.Callsign;
+            Send(client, new FsdTextMessage { From = "server", To = callsign, Message = "JoinFS ATC gateway" }.ToLine());
+            Send(client, FsdQuery.Query(Server, callsign, "CAPS").ToLine());
+            Send(client, FsdQuery.Response(Server, callsign, "ATC", station.IsController ? "Y" : "N", callsign).ToLine());
+            Send(client, FsdQuery.Response(Server, callsign, "CAPS", "ATCINFO=1", "SECPOS=1").ToLine());
+            Send(client, FsdQuery.Response(Server, callsign, "IP", client.Connection.RemoteAddress).ToLine());
+        }
+
         void UpdatePosition(Client client, FsdLine line)
         {
-            if (client != main || !FsdAtcPosition.TryParse(line, out FsdAtcPosition position)) return;
-            if (position.Callsign != Station.Callsign) return;
+            AtcStationInfo before = StationOf(client);
+            if (before == null || !FsdAtcPosition.TryParse(line, out FsdAtcPosition position)) return;
+            if (position.Callsign != before.Callsign) return;
 
-            AtcStationInfo before = Station;
+            int slot = client == main ? 0 : 1;
             int frequency = position.FrequenciesKhz.Count > 0 ? position.FrequenciesKhz[0] : 0;
-            Station = before with
+            AtcStationInfo after = before with
             {
                 Rating = position.Rating,
                 Facility = position.Facility,
@@ -288,19 +333,36 @@ namespace JoinFS
                 Longitude = position.Longitude,
                 PositionKnown = true,
             };
-            mesh?.SetLocalStation(0, Station);
+            if (slot == 0) Station = after; else AtisStation = after;
+            mesh?.SetLocalStation(slot, after);
 
             if (!before.PositionKnown || before.FrequencyKhz != frequency || before.Facility != position.Facility)
             {
                 string tuned = frequency > 0 ? " on " + FsdFrequency.ToMegahertz(frequency) : "";
-                log("ATC station " + Station.Callsign + " is " + position.Facility + tuned);
+                log("ATC station " + after.Callsign + " is " + position.Facility + tuned);
             }
         }
 
         void LogOff(Client client, string why)
         {
+            if (client == atis && atis != null)
+            {
+                log("ATC station " + AtisStation.Callsign + " logged off (" + why + ")");
+                atis = null;
+                AtisStation = null;
+                mesh?.SetLocalStation(1, null);
+                return;
+            }
             if (client != main) return;
             log("ATC station " + Station.Callsign + " logged off (" + why + ")");
+            if (atis != null)
+            {
+                // the ATIS ends with the main station (D5)
+                Client second = atis;
+                clients.Remove(second);
+                LogOff(second, "main station " + Station.Callsign + " logged off");
+                second.Connection.Close();
+            }
             main = null;
             Station = null;
             feed?.Reset();
@@ -324,6 +386,13 @@ namespace JoinFS
         /// <summary>The same callsign is logged in on a node with a lower id (§4.6): this client loses it.</summary>
         void OnLocalStationLost(int slot, string callsign)
         {
+            if (slot == 1)
+            {
+                if (atis != null && AtisStation.Callsign == callsign)
+                    Refuse(atis, FsdError.Create(callsign, FsdErrorCode.CallsignInUse, callsign, "Callsign in use"),
+                        callsign + " is also logged in on another node of the session, whose id is lower");
+                return;
+            }
             if (slot != 0 || main == null || Station.Callsign != callsign) return;
             Refuse(main, FsdError.Create(callsign, FsdErrorCode.CallsignInUse, callsign, "Callsign in use"),
                 callsign + " is also logged in on another node of the session, whose id is lower");
@@ -370,7 +439,8 @@ namespace JoinFS
             {
                 case "ATC":
                     string asked = query.Payload.Length > 0 ? query.Payload[0] : "";
-                    bool controller = main != null && Station.Callsign == asked && Station.IsController;
+                    bool controller = (main != null && Station.Callsign == asked && Station.IsController)
+                        || (atis != null && AtisStation.Callsign == asked && AtisStation.IsController);
                     Send(client, FsdQuery.Response(Server, asker, "ATC", controller ? "Y" : "N", asked).ToLine());
                     break;
                 case "IP":
@@ -403,7 +473,16 @@ namespace JoinFS
                 mesh?.RelayToAll(text);
                 return;
             }
-            if (line.To == Station.Callsign || line.To == FsdRelayPolicy.AllPilots) return; // to itself, or to the pilots (out of scope)
+            AtcStationInfo own = StationOf(client);
+            if (line.To == own.Callsign || line.To == FsdRelayPolicy.AllPilots) return; // to itself, or to the pilots (out of scope)
+
+            // the other connection of this instance (main <-> ATIS): delivered here
+            Client other = OtherOf(client);
+            if (other != null && line.To == StationOf(other).Callsign)
+            {
+                other.Connection.Send(text);
+                return;
+            }
 
             if (mesh != null && mesh.Relay(text, line.To) != AtcRelayResult.NoSuchStation) return;
 
@@ -430,7 +509,8 @@ namespace JoinFS
         void OnLineReceived(string text)
         {
             if (main == null || !FsdLine.TryParse(text, out FsdLine line)) return;
-            if (FsdRelayPolicy.Classify(line.To) == FsdAddressKind.Group || line.To == Station.Callsign) main.Connection.Send(text);
+            if (atis != null && line.To == AtisStation.Callsign) atis.Connection.Send(text);
+            else if (FsdRelayPolicy.Classify(line.To) == FsdAddressKind.Group || line.To == Station.Callsign) main.Connection.Send(text);
         }
 
         // ---- helpers ----
