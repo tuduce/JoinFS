@@ -455,6 +455,7 @@ and knows nothing about wire formats. It is a small facade, `Network`, and eight
 | `UserDirectory` | online users by uuid; the uuid helpers | `Online`, `UserNuidRequest`/`UserNuid`; `Status` (address book) |
 | `HubHost` | this hub's own user list (`LocalUsers`) | `StatusRequest`, `UserListRequest`, `UserPositionsRequest` |
 | `SessionComms` | how many new peers to ask for comms history | `CommsRequest`, `Notes` |
+| `AtcSession` | the controller stations of the other nodes (one per callsign, soft state: 35 s), this node's own station and when to repeat it (every 10 s); the crossing-login rule | `AtcStation`; peer joined, established, left. Tells `AtcGateway` (through `IAtcMesh`) and `PeerTable` |
 
 **How the parts reach the rest of the app.** Through narrow interfaces
 (`Session/SessionInterfaces.cs`), not through `Main`:
@@ -517,7 +518,8 @@ functions in `SimMessageMapper`.
    scheduled `PeerInfo`.
 3. `NetBootstrap`: apply the downloaded my-IP and ban list; refresh the my-IP every 3 hours on a hub;
    reset the DNS cache daily. The seed hubs go to `HubDirectory.SubmitHub`.
-4. `PeerTable`: `PeerInfo` to every peer every 5 s.
+4. `PeerTable`: `PeerInfo` to every peer every 5 s. `AtcSession`: expire silent stations, repeat our own every 10 s, raise the
+   events of the changes since the last tick.
 5. `UserDirectory`: address-book status checks while the address book is open.
 6. Unless the build has no hubs:
    - `UserDirectory`: online announcements to hubs, and expiring users, every 60 s;
@@ -625,6 +627,7 @@ builds depend on them.
 | `Legacy/XPlaneLinkTests` | The X-Plane link framing matches what the native plugin expects. |
 | `Session/SimIngestTests` | The identity cache, filtering, shared cockpit, variables, events, flight plans and weather; and end to end, a position crossing the in-memory mesh over legacy or JFP2 reaches the simulator with the same identity. |
 | `Session/PeerTableTests` | What `PeerInfo` changes and reports (ATC, nickname, becoming a hub), what we share with whom, periodic and scheduled `PeerInfo`, name fallbacks. |
+| `Session/AtcSessionTests`, `Net/AtcStationMeshTests` | The station table: sending on change, to a new member and every 10 s; expiry, member left, logoff notice, crossing logins, divided positions; and two gateways with fake clients over a `TestMesh` (behind a hub, a dead node, a taken callsign). |
 | `Session/DirectoryTests` | Hub discovery and caps per address, hub users, `hubs.dat` save/load, user lookup by uuid across hubs, online-user expiry, the address book, status replies. |
 
 `Net/TestMesh` runs any number of `NetworkCore` nodes on an `InMemoryNetwork` with a `ManualClock`.

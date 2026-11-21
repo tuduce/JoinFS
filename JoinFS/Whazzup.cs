@@ -276,8 +276,15 @@ namespace JoinFS
                                     latitude = Math.Min(90.0, Math.Max(-90.0, main.airportList[node.Value.atcAirport].latitude));
                                     longitude = Math.Min(180.0, Math.Max(-180.0, main.airportList[node.Value.atcAirport].longitude));
                                 }
+                                // a controller of this build also gives its whole callsign and where it is (stage 7)
+                                AtcRemoteStation station = node.Value.atcStation;
+                                if (station != null && node.Value.atcCallsign.Length > 0)
+                                {
+                                    latitude = station.Latitude;
+                                    longitude = station.Longitude;
+                                }
                                 // write client entry for ATC
-                                clientList.Add(WriteClient(true, Atc.MakeAtcCallsign(node.Value.atcAirport, node.Value.atcLevel), node.Value.nickname, node.Value.atcFrequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, node.Value.atcLevel, node.Value.activityCircle, true, 0));
+                                clientList.Add(WriteClient(true, node.Value.atcCallsign.Length > 0 ? node.Value.atcCallsign : Atc.MakeAtcCallsign(node.Value.atcAirport, node.Value.atcLevel),node.Value.nickname, node.Value.atcFrequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, node.Value.atcLevel, node.Value.activityCircle, true, 0));
                             }
                         }
                     }

@@ -98,7 +98,7 @@ station's position alone is not one). Rules the stage added:
 - A station that has not sent its first `%` yet is online but not active (its facility and frequency are unknown).
 - `StationOnline` (any main station logged in, observer included) drives `FeedFullRate`; `Active` drives `Atc`.
 - `ILocalProfile.AtcCallsign` is the whole callsign. The local controller shows it in `GetLocalCallsign`, the live
-  session list and the hub's own user list; another node still shows airport plus level until stage 7.
+  session list and the hub's own user list; another node shows airport plus level for an older build, and (from stage 7) the whole callsign for a build that announced a station.
 - `Main.TryGetLocalAtcPosition` gives the station's own position, else the airport's; `Sim` (activity circle),
   `Whazzup` and `Euroscope` use it. The hub's own user list still takes the airport's position (it needs an airport
   it lists), so it ignores the station's.
@@ -241,6 +241,32 @@ constant) for a logged-in client only; a login or logoff resets it, so a new cli
   `$CR <callsign>:<asker>:RN:<owner's nickname>::1`. The callsign is the assigned FSD one. An unknown aircraft gets `$ER 008`
   from `SERVER` and nothing otherwise.
 
+### 4.7a Stations across the mesh (stage 7)
+
+`AtcSession` (`JoinFS/Session/AtcSession.cs`, `Network.Atc`) is the station table of Â§4.1; the gateway reaches it only through `IAtcMesh`
+(`Stations`, `CallsignInUse`, `SetLocalStation`, and the events `StationChanged`, `StationGone`, `LocalStationLost`). `AtcRemoteStation`
+is an immutable record of what a node announced; an equal record raises nothing, so the repeat every 10 s is silent. Rules the stage added:
+- **Announced from the first `%`.** A station is sent (`SetLocalStation`) once its client has sent its first `%`, not at `#AA`: before that its
+  facility, frequency and position are unknown. Until then it is not on the mesh, and a crossing login (below) is decided when it appears.
+- **Events are deferred.** `Reconcile` works out the changes and queues the events; `AtcSession.DoWork` (every app tick, after the drain) raises
+  them. A handler may therefore call back into the mesh (the gateway's lost-callsign handler logs its station off) without re-entering it.
+- **Sending** (D7): on change, to a member that was just established (`OnPeerEstablished`, to that node alone), every 10 s while a station is
+  online, and a logoff once with `Online` clear and the callsign it had. Nothing is sent outside a session.
+- **Receiving**: a message counts only from a member of the session (`OnPeerJoined`/`OnPeerLeft`; not this node, slot 0 or 1 only). A callsign
+  that is not `FsdCallsign.IsValidStation`, a facility above 6 and a frequency outside 100.000 to 199.999 MHz (kept as none) are dropped or
+  cleaned; a name has its colons and control characters replaced by spaces, since it goes into an FSD line. Expiry (35 s), logoff and
+  member-left drop the station.
+- **One station per callsign** (Â§4.6, generalised): among all announcements of one callsign the lowest (`NodeId` as the little-endian number of
+  its 8 wire bytes, then slot) is the station; the others stay in the table, hidden, and show when it goes (a handover is a `StationGone` of the
+  first and a `StationChanged` of the second). A local station that loses is dropped, announced as logged off and raised as `LocalStationLost`;
+  one that wins hides the other, which gives way when it hears this node. `CallsignInUse` looks at the whole table, hidden ones included.
+- **The gateway** tells a logged-in client what the mesh holds: after the login's capability exchange, `#AA` and `%` for each station; later
+  `#AA` + `%` for a new one, `%` for a change, `#DA` for one that goes; `%` for every station again every 15 s (`RemotePositionIntervalMs`). It
+  keeps what it told (`told`), so an event for something the login already sent is not repeated. The `#AA` is `FsdAddAtc` with CID `0`, no
+  token and revision `100`: unverified against EuroScope (the evening check). A login whose callsign is in the table gets `$ER 001` and is closed.
+- **`PeerTable`** (`OnAtcStation`, `OnAtcStationGone`; wired in `Network`): a node's main station (slot 0, not an observer) gives `Node.atcCallsign`
+  (the whole callsign, used by `GetNodeCallsign`, the hub's user list and Whazzup, which also takes the station's position) and the frequency in
+  full (`kHz - 100000`; R8 is fixed between builds that have it). A later `PeerInfo` does not take them back.
 ### 4.8 Settings and switches
 
 | Name | Default | Meaning |
@@ -593,7 +619,7 @@ hold.
 | 4 Traffic | done, 2026-11-20 | Built as the row says; details in §4.7 ("Stage 4"). **The row's Check is the owner's evening test** (EuroScope with no simulator, JoinFS in a session with Pia; also open: whether EuroScope accepts a target that starts with `@` and no `#AP`, and the bank sign, §4.6). Deviations: (1) the traffic is the session's aircraft, the user's own and the recorder's; the simulator's own AI aircraft that are not broadcast are left out (the row's set, read as §4.7's parenthesis says); (2) a changed callsign (the pilot edits it, or a collision is resolved differently) sends `#DP` for the old name before the new one appears; (3) not tested: `SimViewTraffic` beyond its squawk conversion (it needs a `Sim` snapshot), so the owner id, the nickname, the ground speed and the attitude signs are covered by the evening check only; (4) `FS2024` (release) could not link while `JoinFS-FS2024` was running (file locked), its code compiled and FS2024-Debug builds in the tests. Nothing deferred to another row. |
 | 5 Settings card | done, 2026-11-21 | Built as the row says; the switch, port and status are in `JoinFS.UI` (`AtcSettingsViewModel`, `IAtcStatusSource`) and `JoinFS/Live/` (`LiveAtcStatusSource`, `LivePreferencesStore`, `Main.SetAtcFsd`); `JoinFS.UI/README.md` has the service row. **The row's Check is the owner's evening test** (switch on: EuroScope connects; off: disconnected and the port closed; the choice survives a restart; a fresh install has it off). Deviations: (1) a fourth state, "failed" (the switch is on and the port could not be opened, e.g. in use), shown in red, because "listening" would be untrue; (2) the card sits under "Advanced", before Hub Mode; (3) the card shows the saved setting, so a listener started for one run with `-fsd` shows "Listening on port N" in the status line while the switch reads off, and touching the switch restarts it; (4) not tested: `LiveAtcStatusSource`, `LivePreferencesStore` and `Main.SetAtcFsd` need `Main` (the view model and its three states are tested in `JoinFS.UI.Tests/AtcSettingsTests.cs`); (5) `FS2024` (release) could not link while `JoinFS-FS2024` was running (file locked), its code compiled in FS2020 and FS2024-Debug builds in the tests; (6) `AtcGateway.Shutdown` logs "logged off (JoinFS closing)" also when the switch is turned off (the gateway is not to be touched in this stage). Nothing deferred to another row. |
 | 6 Wire | done, 2026-11-21 | Built as the row says; classes 23 (`AtcStation`, not guaranteed) and 24 (`AtcRelay`, guaranteed), codecs in `JoinFS.Messages/Codecs/AtcCodecs.cs`, `protocol.md` §9.9 and A.19. Nothing sends them yet. Deviations: (1) **the goldens**: `Edition2HelloGoldenTests` keeps its bytes (its own rule: a new class appends in a new golden), by building its Hello from `Jfp2Profile.Default` without the two classes; the Hello with them is the new `AtcHelloGoldenTests` (A.19, 32 offers); `Jfp2WireCharacterizationTests`, `ProfileTests` and the 1,200-byte test were updated on purpose; the legacy fixtures are untouched; (2) `MessageKind.AtcStation` and `AtcRelay` sit before the mesh kinds, which renumbers those in-process (the enum is never on a wire or stored); (3) the `AtcRelay` codec cuts a line over 1,000 bytes like any text, which would break the FSD line, so **stage 8's sender must check the size and not send** (R6: log it); (4) the dissector (`joinfs.lua`) was extended but not run (no Wireshark here); (5) `FS2024` (release) could not link while `JoinFS-FS2024` was running (file locked), FS2024-Debug builds in the tests and the other four configurations build. Nothing deferred to another row, except the sender's size check in stage 8. |
-| 7 Stations | open | |
+| 7 Stations | done, 2026-11-21 | Built as the row says; details in Â§4.7a. **The row's Check is the owner's evening test** (two EuroScope instances: lists, frequency change, killing a JoinFS, a taken callsign, the divided tower; also open: whether EuroScope accepts the forwarded `#AA`, Â§4.7a). Deviations: (1) a station is announced from its first `%`, not from `#AA` (Â§4.7a); (2) the events are queued and raised from `AtcSession.DoWork`, not inside the call that caused them; (3) the crossing rule is applied to any two nodes with one callsign, not only to the local one, and a handover raises a gone and a changed; (4) `IAtcMesh` has no relay send: stage 8 adds it with the sender (the row said "left unimplemented"); (5) added: `PeerTable.OnAtcStation*`, `Node.atcCallsign` and `atcStation`, and the callsign in `HubHost` and `Whazzup` (the row's "UI lists agree"); R8 is fixed for nodes that announce a station; (6) `AtcGateway` takes the mesh as an optional third argument, and `Main.StartAtcFsd` shuts a gateway down when its listener fails, so its subscriptions go; (7) slot 1 (ATIS) is carried by the table but nothing in the gateway sets it before stage 10; (8) not tested: the wiring in `Network` and `Main.StartAtcFsd` (they need `Main`); the `TestMesh` scenarios use the real core but call the session part the way `Network` does; (9) a release build of one configuration failed once with a locked `obj` DLL (Avalonia step) and passed on the repeat; all six configurations build. Nothing deferred to another row. |
 | 8 Controller to controller | open | |
 | 9 Transponder | open | |
 | 10 ATIS | open | |

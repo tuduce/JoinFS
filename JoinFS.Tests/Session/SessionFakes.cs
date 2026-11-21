@@ -209,6 +209,7 @@ namespace JoinFS.Tests.Session
         public readonly HubDirectory Hubs;
         public readonly UserDirectory Users;
         public readonly HubHost Host;
+        public readonly AtcSession Stations;
 
         public SessionRig()
         {
@@ -218,7 +219,10 @@ namespace JoinFS.Tests.Session
             Hubs = new HubDirectory(Outbox, Session, Profile, Policy, EndPoints, Ui, Clock, Log);
             Users = new UserDirectory(Outbox, Session, Profile, Hubs, EndPoints, Ui, Clock, Log);
             Host = new HubHost(Outbox, Session, Profile, Sim, Peers, Hubs, Users, Clock, Log);
+            Stations = new AtcSession(Outbox, Session, Clock, Log);
             Peers.HubAnnounced += Hubs.SubmitHub;
+            Stations.StationChanged += Peers.OnAtcStation;
+            Stations.StationGone += Peers.OnAtcStationGone;
         }
 
         /// <summary>Metadata of a message from <paramref name="sender"/> at its default endpoint.</summary>

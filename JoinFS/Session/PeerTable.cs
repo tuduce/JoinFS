@@ -25,6 +25,10 @@ namespace JoinFS
             public string atcAirport = "";
             public int atcLevel = 2;
             public int atcFrequency = 22800;
+            /// <summary>The whole callsign of the controller's station (<c>EDDM_N_TWR</c>) when the node announced one (stage 7); empty otherwise.</summary>
+            public string atcCallsign = "";
+            /// <summary>The main station the node announced, or null.</summary>
+            public AtcRemoteStation atcStation;
             public byte activityCircle = 40;
             public string version = "";
             public string simulator = "";
@@ -221,6 +225,43 @@ namespace JoinFS
             node.version = info.Version;
             node.simulator = info.Simulator;
             node.simulatorConnected = info.SimulatorConnected;
+            ApplyStation(node);
+        }
+
+        // ------------------------------------------------------------------ stations (stage 7)
+
+        /// <summary>A node's main station came online or changed: it says what the node's <see cref="PeerInfo"/> only hints at.</summary>
+        public void OnAtcStation(AtcRemoteStation station)
+        {
+            if (station.Slot != 0 || !Nodes.TryGetValue(station.Node, out Node node)) return;
+            node.atcStation = station;
+            ApplyStation(node);
+        }
+
+        public void OnAtcStationGone(AtcRemoteStation station)
+        {
+            if (station.Slot != 0 || !Nodes.TryGetValue(station.Node, out Node node)) return;
+            node.atcStation = null;
+            node.atcCallsign = "";
+        }
+
+        /// <summary>
+        /// A station gives the whole callsign and the frequency in full: <see cref="PeerInfo"/> has airport, level and a signed
+        /// 16 bit frequency, which turns one above 132.767 MHz negative (R8). An observer is no controller, so it gives nothing.
+        /// </summary>
+        static void ApplyStation(Node node)
+        {
+            AtcRemoteStation station = node.atcStation;
+            if (station == null || station.Facility == Fsd.FsdFacility.Observer)
+            {
+                node.atcCallsign = "";
+                return;
+            }
+            node.atcCallsign = station.Callsign;
+            if (station.FrequencyKhz > 0)
+            {
+                node.atcFrequency = station.FrequencyKhz - Fsd.FsdFrequency.MinKhz;
+            }
         }
 
         // ------------------------------------------------------------------ queries
@@ -276,8 +317,9 @@ namespace JoinFS
         {
             if (GetNodeAtc(nuid, out string airport, out int level))
             {
-                // this node's controller shows its whole callsign; another node only tells airport and level
-                return nuid.Invalid() ? profile.AtcCallsign : Atc.MakeAtcCallsign(airport, level);
+                // a controller of this build shows its whole callsign; an older build only tells airport and level
+                if (nuid.Invalid()) return profile.AtcCallsign;
+                return Nodes.TryGetValue(nuid, out Node node) && node.atcCallsign.Length > 0 ? node.atcCallsign : Atc.MakeAtcCallsign(airport, level);
             }
             return simView.FindUserAircraft(nuid)?.flightPlan.callsign ?? "";
         }

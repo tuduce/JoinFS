@@ -25,8 +25,8 @@ namespace JoinFS
     /// The FSD server as the ATC client sees it (plan §4.1): login, the local station and the answers given as
     /// <c>SERVER</c>. It runs on the app thread, never blocks and reaches the client only through
     /// <see cref="IFsdConnection"/>, so a test drives it with fakes. Stage 2 is the login and the <c>SERVER</c> row of
-    /// §4.3; stage 4 adds the traffic (<see cref="AtcTrafficFeed"/>) and the aircraft row; the mesh and the other rows
-    /// come in later stages.
+    /// §4.3; stage 4 adds the traffic (<see cref="AtcTrafficFeed"/>) and the aircraft row; stage 7 the stations of the
+    /// other nodes (<see cref="IAtcMesh"/>); the other rows come in later stages.
     /// </summary>
     public sealed class AtcGateway : IFsdHandler
     {
@@ -39,6 +39,9 @@ namespace JoinFS
         /// <summary>FSD lines are bytes of one code page; Latin-1 keeps every byte the client sent.</summary>
         public static readonly Encoding Wire = Encoding.Latin1;
 
+        /// <summary>How often the client gets the position of each remote station again, ms (a client sends its own <c>%</c> every 15 s).</summary>
+        public const long RemotePositionIntervalMs = 15000;
+
         const string Server = "SERVER";
 
         sealed class Client
@@ -50,17 +53,30 @@ namespace JoinFS
 
         readonly Action<string> log;
         readonly AtcTrafficFeed feed;
+        readonly IAtcMesh mesh;
         readonly List<Client> clients = new List<Client>();
+
+        /// <summary>The remote stations the client has been told of, by callsign, as last sent.</summary>
+        readonly Dictionary<string, AtcRemoteStation> told = new Dictionary<string, AtcRemoteStation>();
         Client main;
         long nextHeartbeatMs = long.MinValue;
+        long nextRemotePositionMs = long.MinValue;
         bool shutdown;
 
         /// <param name="log">Where monitor and log lines go (<c>Main.MonitorEvent</c>).</param>
         /// <param name="traffic">The aircraft of the session (stage 4); null serves none.</param>
-        public AtcGateway(Action<string> log, IAtcTraffic traffic = null)
+        /// <param name="mesh">The stations of the other nodes, and the way this node's reaches them (stage 7); null is a node on its own.</param>
+        public AtcGateway(Action<string> log, IAtcTraffic traffic = null, IAtcMesh mesh = null)
         {
             this.log = log ?? (_ => { });
             if (traffic != null) feed = new AtcTrafficFeed(traffic);
+            this.mesh = mesh;
+            if (mesh != null)
+            {
+                mesh.StationChanged += OnRemoteStationChanged;
+                mesh.StationGone += OnRemoteStationGone;
+                mesh.LocalStationLost += OnLocalStationLost;
+            }
         }
 
         /// <summary>The station that is logged in on this instance, or null. Replaced, never changed.</summary>
@@ -151,9 +167,16 @@ namespace JoinFS
             if (main == null)
             {
                 nextHeartbeatMs = long.MinValue;
+                nextRemotePositionMs = long.MinValue;
                 return;
             }
             if (nextHeartbeatMs == long.MinValue) nextHeartbeatMs = nowMs + HeartbeatIntervalMs;
+            if (nextRemotePositionMs == long.MinValue) nextRemotePositionMs = nowMs + RemotePositionIntervalMs;
+            if (nowMs >= nextRemotePositionMs)
+            {
+                nextRemotePositionMs = nowMs + RemotePositionIntervalMs;
+                foreach (AtcRemoteStation remote in told.Values) Send(main, PositionLine(remote));
+            }
             if (nowMs >= nextHeartbeatMs)
             {
                 nextHeartbeatMs = nowMs + HeartbeatIntervalMs;
@@ -169,6 +192,12 @@ namespace JoinFS
         public void Shutdown()
         {
             shutdown = true;
+            if (mesh != null)
+            {
+                mesh.StationChanged -= OnRemoteStationChanged;
+                mesh.StationGone -= OnRemoteStationGone;
+                mesh.LocalStationLost -= OnLocalStationLost;
+            }
             Client[] open = clients.ToArray();
             clients.Clear();
             foreach (Client client in open)
@@ -205,9 +234,18 @@ namespace JoinFS
                 return;
             }
 
+            if (mesh != null && mesh.CallsignInUse(add.Callsign))
+            {
+                // a station of another node has it (§4.6)
+                Refuse(client, FsdError.Create(add.Callsign, FsdErrorCode.CallsignInUse, add.Callsign, "Callsign in use"),
+                    add.Callsign + " is already logged in on another node of the session");
+                return;
+            }
+
             client.IsStation = true;
             main = client;
             feed?.Reset();
+            told.Clear();
             Station = new AtcStationInfo(add.Callsign, add.RealName, add.Rating, FsdFacility.Observer, 0, 0, 0, 0, false);
             log("ATC station " + add.Callsign + " logged in");
 
@@ -219,6 +257,12 @@ namespace JoinFS
             Send(client, FsdQuery.Response(Server, callsign, "ATC", Station.IsController ? "Y" : "N", callsign).ToLine());
             Send(client, FsdQuery.Response(Server, callsign, "CAPS", "ATCINFO=1", "SECPOS=1").ToLine());
             Send(client, FsdQuery.Response(Server, callsign, "IP", client.Connection.RemoteAddress).ToLine());
+
+            // the stations that are already there
+            if (mesh != null)
+            {
+                foreach (AtcRemoteStation station in mesh.Stations) TellStation(station);
+            }
         }
 
         void UpdatePosition(Client client, FsdLine line)
@@ -238,6 +282,7 @@ namespace JoinFS
                 Longitude = position.Longitude,
                 PositionKnown = true,
             };
+            mesh?.SetLocalStation(0, Station);
 
             if (!before.PositionKnown || before.FrequencyKhz != frequency || before.Facility != position.Facility)
             {
@@ -253,6 +298,54 @@ namespace JoinFS
             main = null;
             Station = null;
             feed?.Reset();
+            told.Clear();
+            mesh?.SetLocalStation(0, null);
+        }
+
+        // ---- the stations of other nodes (§4.2: what the client is told of them) ----
+
+        void OnRemoteStationChanged(AtcRemoteStation station)
+        {
+            if (main != null) TellStation(station);
+        }
+
+        void OnRemoteStationGone(AtcRemoteStation station)
+        {
+            if (main == null || !told.Remove(station.Callsign)) return;
+            Send(main, FsdDelete.Atc(station.Callsign).ToLine());
+        }
+
+        /// <summary>The same callsign is logged in on a node with a lower id (§4.6): this client loses it.</summary>
+        void OnLocalStationLost(int slot, string callsign)
+        {
+            if (slot != 0 || main == null || Station.Callsign != callsign) return;
+            Refuse(main, FsdError.Create(callsign, FsdErrorCode.CallsignInUse, callsign, "Callsign in use"),
+                callsign + " is also logged in on another node of the session, whose id is lower");
+        }
+
+        /// <summary>A new station gets <c>#AA</c> and <c>%</c>; one the client knows only its <c>%</c>. What was told already is not told again.</summary>
+        void TellStation(AtcRemoteStation station)
+        {
+            bool known = told.TryGetValue(station.Callsign, out AtcRemoteStation sent);
+            if (known && sent == station) return;
+            told[station.Callsign] = station;
+            if (!known)
+            {
+                Send(main, new FsdAddAtc { Callsign = station.Callsign, RealName = station.Name, Cid = "0", Rating = station.Rating, ProtocolRevision = "100" }.ToLine());
+                log("ATC station " + station.Callsign + " is on the session");
+            }
+            Send(main, PositionLine(station));
+        }
+
+        static FsdLine PositionLine(AtcRemoteStation station)
+        {
+            var position = new FsdAtcPosition
+            {
+                Callsign = station.Callsign, Facility = station.Facility, VisibilityRange = station.Visibility,
+                Rating = station.Rating, Latitude = station.Latitude, Longitude = station.Longitude,
+            };
+            if (station.FrequencyKhz > 0) position.FrequenciesKhz.Add(station.FrequencyKhz);
+            return position.ToLine();
         }
 
         // ---- answers given as SERVER (§4.3 first row) ----

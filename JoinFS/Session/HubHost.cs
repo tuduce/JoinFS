@@ -150,7 +150,7 @@ namespace JoinFS
             {
                 if (node.Value.atc && node.Value.atcAirport.Length > 0)
                 {
-                    AddController(node.Value.guid, node.Value.nickname, node.Value.atcAirport, node.Value.atcLevel, node.Value.atcFrequency, node.Value.activityCircle);
+                    AddController(node.Value.guid, node.Value.nickname, node.Value.atcAirport, node.Value.atcLevel, node.Value.atcFrequency, node.Value.activityCircle, node.Value.atcCallsign);
                 }
                 else
                 {

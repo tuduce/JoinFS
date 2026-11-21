@@ -1370,7 +1370,7 @@ namespace JoinFS
                 () => network?.LocalId ?? default,
                 nuid => network?.Peers.GetNodeName(nuid) ?? "",
                 aircraft => aircraft.variableSet?.GetInteger(vuidSquawk) ?? 0);
-            var gateway = new AtcGateway(MonitorEvent, traffic);
+            var gateway = new AtcGateway(MonitorEvent, traffic, network?.Atc);
             var listener = new FsdListener(gateway, EnqueueCommand, MonitorEvent);
             if (listener.Start(settingsAtcFsdPort))
             {
@@ -1380,6 +1380,7 @@ namespace JoinFS
             else
             {
                 listener.Dispose();
+                gateway.Shutdown();
                 atcFsdFailed = true;
             }
         }
