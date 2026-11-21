@@ -21,6 +21,9 @@ namespace JoinFS
         /// <summary>The pilot rating of an aircraft: 1, as the euroscope.txt export wrote it.</summary>
         const int PilotRating = 1;
 
+        /// <summary>Ident (<c>Y</c>) is kept for this long after it was last seen, ms: the simulator holds it for 18 s, but the sample may miss it.</summary>
+        public const long IdentHoldMs = 5000;
+
         /// <summary>Where an unsolicited <c>$FP</c> goes: every controller.</summary>
         const string AllControllers = "*A";
 
@@ -29,6 +32,7 @@ namespace JoinFS
             public string Callsign;
             public string Plan;
             public long LastSeenMs;
+            public long LastIdentMs = long.MinValue;
         }
 
         readonly IAtcTraffic traffic;
@@ -91,13 +95,18 @@ namespace JoinFS
                 var key = (a.Owner, a.ObjectId);
                 if (!seen.Add(key)) continue;
 
-                send(Position(a, names[i]).ToLine());
+                bool isNew = !known.TryGetValue(key, out Entry entry);
+                if (isNew) known[key] = entry = new Entry { Callsign = names[i] };
+                if (a.Ident) entry.LastIdentMs = nowMs;
+                bool identHeld = entry.LastIdentMs != long.MinValue && nowMs - entry.LastIdentMs < IdentHoldMs;
+
+                send(Position(a, names[i], ModeLetter(a.TransponderState, identHeld)).ToLine());
 
                 FsdLine plan = AtcFlightPlans.ToFsd(names[i], AllControllers, a.Plan).ToLine();
                 string planText = plan.ToString();
-                if (!known.TryGetValue(key, out Entry entry))
+                if (isNew)
                 {
-                    known[key] = entry = new Entry { Callsign = names[i], Plan = planText };
+                    entry.Plan = planText;
                     send(plan);
                 }
                 else if (entry.Plan != planText)
@@ -137,9 +146,16 @@ namespace JoinFS
             return FsdQuery.Response(callsign, asker, "RN", name, "", PilotRating.ToString()).ToLine();
         }
 
-        static FsdPosition Position(AtcAircraft a, string callsign) => new FsdPosition
+        /// <summary>The mode letter of <c>@</c> (§4.7): ident <c>Y</c>; off or standby <c>S</c>; otherwise, and when the state is unknown, <c>N</c>.</summary>
+        public static char ModeLetter(int transponderState, bool identHeld)
         {
-            Mode = 'N',
+            if (identHeld) return 'Y';
+            return transponderState == 0 || transponderState == 1 ? 'S' : 'N';
+        }
+
+        static FsdPosition Position(AtcAircraft a, string callsign, char mode) => new FsdPosition
+        {
+            Mode = mode,
             Callsign = callsign,
             Squawk = a.Squawk,
             Rating = PilotRating,

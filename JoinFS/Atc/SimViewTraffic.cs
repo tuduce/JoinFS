@@ -21,17 +21,22 @@ namespace JoinFS
         readonly Func<NodeId> localId;
         readonly Func<NodeId, string> nickname;
         readonly Func<Sim.Aircraft, int> squawkOf;
+        readonly Func<Sim.Aircraft, (int State, bool Ident)> transponderOf;
 
         /// <param name="view">The latest snapshot (<c>Main.sim.View</c>).</param>
         /// <param name="localId">This node's id.</param>
         /// <param name="nickname">A node's nickname; the invalid id is this node.</param>
         /// <param name="squawkOf">The aircraft's transponder code as the simulator variable holds it (BCD: 0x1200 is the code 1200).</param>
-        public SimViewTraffic(Func<SimSnapshot> view, Func<NodeId> localId, Func<NodeId, string> nickname, Func<Sim.Aircraft, int> squawkOf)
+        /// <param name="transponderOf">The aircraft's transponder state (<see cref="AtcAircraft.StateUnknown"/> when its node does not
+        /// send it) and ident; absent means every aircraft is unknown.</param>
+        public SimViewTraffic(Func<SimSnapshot> view, Func<NodeId> localId, Func<NodeId, string> nickname, Func<Sim.Aircraft, int> squawkOf,
+            Func<Sim.Aircraft, (int State, bool Ident)> transponderOf = null)
         {
             this.view = view;
             this.localId = localId;
             this.nickname = nickname;
             this.squawkOf = squawkOf;
+            this.transponderOf = transponderOf;
         }
 
         public IReadOnlyList<AtcAircraft> Aircraft
@@ -64,6 +69,8 @@ namespace JoinFS
                         aircraft.netVelocity.linear.x * aircraft.netVelocity.linear.x +
                         aircraft.netVelocity.linear.z * aircraft.netVelocity.linear.z) * MetresPerSecondToKnots;
 
+                    (int state, bool ident) = transponderOf?.Invoke(aircraft) ?? (AtcAircraft.StateUnknown, false);
+
                     list.Add(new AtcAircraft(
                         owner, aircraft.netId, aircraft.flightPlan?.callsign ?? "",
                         nickname(aircraft.owner == Sim.Obj.Owner.Network ? aircraft.ownerNuid : default) ?? "",
@@ -73,7 +80,7 @@ namespace JoinFS
                         // JoinFS holds pitch nose down positive, and bank as the simulator's PLANE BANK DEGREES (left wing down positive)
                         Finite(-position.angles.x * (180.0 / Math.PI)), Finite(-position.angles.z * (180.0 / Math.PI)),
                         Heading(position.angles.y),
-                        Plan(aircraft.flightPlan)));
+                        Plan(aircraft.flightPlan), state, ident));
                 }
                 return list;
             }

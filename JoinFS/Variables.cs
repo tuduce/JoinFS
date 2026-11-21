@@ -195,6 +195,13 @@ namespace JoinFS
                 "INTEGER|sim/cockpit2/radios/actuators/audio_selection_com1|COM TRANSMIT:1|bool|COM1_TRANSMIT_SELECT",
                 "INTEGER|sim/cockpit2/radios/actuators/audio_selection_com2|COM TRANSMIT:2|bool|COM2_TRANSMIT_SELECT",
                 "INTEGER|sim/cockpit/radios/transponder_code|TRANSPONDER CODE:1|bco16|XPNDR_SET",
+#if FS2020 || FS2024
+                // read only, for the ATC client's mode letter (docs/ATC/atc-fsd-plan.md stage 9); MSFS SDK: state is an enum
+                // 0 off, 1 standby, 2 test, 3 on, 4 alt, 5 ground; ident is a bool that falls by itself after 18 s.
+                // No dataref: X-Plane's names are unverified (R7), and FSX and P3D are not known to have them.
+                "INTEGER||TRANSPONDER STATE:1|enum",
+                "INTEGER||TRANSPONDER IDENT:1|bool",
+#endif
                 "FLOAT|sim/cockpit2/radios/actuators/com1_frequency_hz_833*1000|COM ACTIVE FREQUENCY:1|MHz|COM_RADIO_SET",
                 "FLOAT|sim/cockpit2/radios/actuators/com2_frequency_hz_833*1000|COM ACTIVE FREQUENCY:2|MHz|COM2_RADIO_SET",
                 "FLOAT|sim/cockpit/radios/nav1_freq_hz|NAV ACTIVE FREQUENCY:1|MHz|NAV1_RADIO_SET",
@@ -287,6 +294,10 @@ namespace JoinFS
                 "INTEGER|sim/cockpit2/radios/actuators/audio_selection_com1|COM TRANSMIT:1|bool|COM1_TRANSMIT_SELECT",
                 "INTEGER|sim/cockpit2/radios/actuators/audio_selection_com2|COM TRANSMIT:2|bool|COM2_TRANSMIT_SELECT",
                 "INTEGER|sim/cockpit/radios/transponder_code|TRANSPONDER CODE:1|bco16|XPNDR_SET",
+#if FS2020 || FS2024
+                "INTEGER||TRANSPONDER STATE:1|enum",
+                "INTEGER||TRANSPONDER IDENT:1|bool",
+#endif
                 "FLOAT|sim/cockpit/radios/com1_freq_hz|COM ACTIVE FREQUENCY:1|MHz|COM_RADIO_SET",
                 "FLOAT|sim/cockpit/radios/com2_freq_hz|COM ACTIVE FREQUENCY:2|MHz|COM2_RADIO_SET",
                 "FLOAT|sim/cockpit/radios/nav1_freq_hz|NAV ACTIVE FREQUENCY:1|MHz|NAV1_RADIO_SET",

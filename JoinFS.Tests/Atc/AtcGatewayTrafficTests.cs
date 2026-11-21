@@ -26,8 +26,9 @@ namespace JoinFS.Tests.Atc
         }
 
         static AtcAircraft Aircraft(ulong owner, ulong id, string callsign, double latitude = 48.1, double longitude = 11.5,
-            int squawk = 1200, AtcFlightPlanData? plan = null, string nickname = "Pia") =>
-            new(owner, id, callsign, nickname, squawk, latitude, longitude, 1500.4, 120.4, 0, 0, 90, plan ?? Plan);
+            int squawk = 1200, AtcFlightPlanData? plan = null, string nickname = "Pia",
+            int state = AtcAircraft.StateUnknown, bool ident = false) =>
+            new(owner, id, callsign, nickname, squawk, latitude, longitude, 1500.4, 120.4, 0, 0, 90, plan ?? Plan, state, ident);
 
         FakeFsdConnection LogIn()
         {
@@ -75,6 +76,80 @@ namespace JoinFS.Tests.Atc
             Assert.Equal("@N:DLH123:1200:1:48.10000:11.50000:1500:120:1024:0", connection.Sent[0]);
             Assert.Equal("$FPDLH123:*A:I:A320:450:EDDM:::FL350:EDDF:0:0:0:0:EDDS:RMK/TEST:ANORA T104 TOBAK", connection.Sent[1]);
             Assert.Equal(2, connection.Sent.Count);
+        }
+
+        // stage 9: the mode letter of '@' comes from the transponder state and ident
+
+        [Theory]
+        [InlineData(AtcAircraft.StateUnknown, 'N')] // a node that sends no state (Olaf): mode C
+        [InlineData(0, 'S')]                         // off
+        [InlineData(1, 'S')]                         // standby
+        [InlineData(2, 'N')]                         // test
+        [InlineData(3, 'N')]                         // on
+        [InlineData(4, 'N')]                         // alt
+        [InlineData(5, 'N')]                         // ground
+        public void TheModeLetter_FollowsTheTransponderState(int state, char mode)
+        {
+            FakeFsdConnection connection = LogIn();
+            traffic.List.Add(Aircraft(1, 1, "DLH123", state: state));
+
+            Tick(connection);
+
+            Assert.StartsWith($"@{mode}:DLH123:", Positions(connection).Single());
+        }
+
+        [Fact]
+        public void Ident_IsShown_AndHeldForFiveSecondsAfterItWasLastSeen()
+        {
+            FakeFsdConnection connection = LogIn();
+            traffic.List.Add(Aircraft(1, 1, "DLH123", state: 4, ident: true));
+            Tick(connection);
+            Assert.StartsWith("@Y:", Positions(connection).Single());
+
+            // the simulator's ident is over, but the last sighting is held
+            traffic.List[0] = Aircraft(1, 1, "DLH123", state: 4);
+            for (int i = 0; i < 4; i++)
+            {
+                connection.Clear();
+                Tick(connection, 1000);
+                Assert.StartsWith("@Y:", Positions(connection).Single());
+            }
+
+            connection.Clear();
+            Tick(connection, 1000);
+            Assert.StartsWith("@N:", Positions(connection).Single());
+        }
+
+        [Fact]
+        public void IdentSeenAgain_RestartsTheHold()
+        {
+            FakeFsdConnection connection = LogIn();
+            traffic.List.Add(Aircraft(1, 1, "DLH123", state: 4, ident: true));
+            Tick(connection);
+            traffic.List[0] = Aircraft(1, 1, "DLH123", state: 4);
+            Tick(connection, 3000);
+            traffic.List[0] = Aircraft(1, 1, "DLH123", state: 4, ident: true);
+            Tick(connection, 1000);
+            traffic.List[0] = Aircraft(1, 1, "DLH123", state: 4);
+
+            connection.Clear();
+            Tick(connection, 4000);
+
+            Assert.StartsWith("@Y:", Positions(connection).Single());
+        }
+
+        [Fact]
+        public void Ident_WinsOverStandby_AndOnlyTheIdentAircraftIsMarked()
+        {
+            FakeFsdConnection connection = LogIn();
+            traffic.List.Add(Aircraft(1, 1, "DLH123", state: 1, ident: true));
+            traffic.List.Add(Aircraft(2, 1, "BAW456", state: 4));
+
+            Tick(connection);
+
+            List<string> positions = Positions(connection);
+            Assert.Contains(positions, p => p.StartsWith("@Y:DLH123:"));
+            Assert.Contains(positions, p => p.StartsWith("@N:BAW456:"));
         }
 
         [Fact]
