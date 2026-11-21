@@ -32,6 +32,8 @@ ATC client from 127.0.0.1 refused: <why>
 
 It listens on the loopback addresses only (D4): a client on another PC cannot connect.
 
+This is the only way to be a controller. The old ATC mode (the airport, level and frequency settings, `-atc`, `-airport`, the `euroscope.txt` export and the `joinfs-euroscope-bridge` program) was removed in stage 12; `-atc` and `-airport` are still accepted, do nothing and log a line that names `-fsd`.
+
 ## 2. EuroScope
 
 The bridge's README sets EuroScope up as a connection to a private server, not to VATSIM: in the connection settings

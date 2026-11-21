@@ -8,9 +8,9 @@ namespace JoinFS
     /// <summary>
     /// The application as the network session's parts see it: the one place in JoinFS/Session that
     /// knows about Main, the simulator, the recorder, the forms and Settings. Subsystems created
-    /// after the network (recorder, euroscope, notes, address book) are looked up when used.
+    /// after the network (recorder, notes, address book) are looked up when used.
     /// </summary>
-    sealed class MainSessionHost : ILocalProfile, ISimSink, ISimView, ISessionUi, ISessionLog, IClock, IAtcListener
+    sealed class MainSessionHost : ILocalProfile, ISimSink, ISimView, ISessionUi, ISessionLog, IClock
     {
         readonly Main main;
 
@@ -59,12 +59,6 @@ namespace JoinFS
         public string StoragePath => main.storagePath;
         public string DocumentsPath => main.documentsPath;
         public List<AddressBook.AddressBookEntry> AddressBook => main.addressBook?.entries ?? [];
-
-        // ------------------------------------------------------------------ IAtcListener
-
-        public void AddAtc(string airport, int level, int frequency) => main.euroscope?.AddAtc(airport, level, frequency);
-
-        public void RemoveAtc(string airport, int level, int frequency) => main.euroscope?.RemoveAtc(airport, level, frequency);
 
         // ------------------------------------------------------------------ ISimView
         // Read from the sim thread's snapshot (Sim.View): this runs on the app thread.

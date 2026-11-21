@@ -81,7 +81,7 @@ namespace JoinFS
             service.AddPlugin(new Jfp2Plugin((ushort)System.Diagnostics.Stopwatch.GetTimestamp(), Main.Version + " " + Main.Name));
 
             Bootstrap = new NetBootstrap(service, host, main.settingsLocalAddress, Settings.Default.MyIp, host.Now);
-            Peers = new PeerTable(service, this, host, host, host, main.log, host, host, host);
+            Peers = new PeerTable(service, this, host, host, host, main.log, host, host);
             simIngest = new SimIngest(host, this, host, main.log, Peers, service, host);
             SimSender = new SimSender(service, this, host);
             Hubs = new HubDirectory(service, this, host, main.log, Bootstrap, host, host, host);

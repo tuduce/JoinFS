@@ -18,7 +18,7 @@ namespace JoinFS
         /// <summary>An aircraft missing from the traffic for this long is deleted, ms.</summary>
         public const long GoneAfterMs = 5000;
 
-        /// <summary>The pilot rating of an aircraft: 1, as the euroscope.txt export wrote it.</summary>
+        /// <summary>The pilot rating of an aircraft: 1, a plain pilot.</summary>
         const int PilotRating = 1;
 
         /// <summary>Ident (<c>Y</c>) is kept for this long after it was last seen, ms: the simulator holds it for 18 s, but the sample may miss it.</summary>

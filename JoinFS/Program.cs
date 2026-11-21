@@ -89,14 +89,13 @@ namespace JoinFS
         public AddressBook addressBook;
         public Log log;
         public Monitor monitor;
-        public Euroscope euroscope;
         public Whazzup whazzup;
         /// <summary>The FSD server for the ATC client on this PC; null while the listener is off</summary>
         public AtcGateway atcGateway;
         FsdListener atcListener;
 
         /// <summary>
-        /// This node's ATC presence: the logged-in station, else the manual ATC settings, else inactive. Replaced as a
+        /// This node's ATC presence: the logged-in station, else inactive. Replaced as a
         /// whole by <see cref="RefreshLocalAtc"/> on the app thread, so any thread reads it without a lock.
         /// </summary>
         public LocalAtc LocalAtc => localAtc;
@@ -115,8 +114,6 @@ namespace JoinFS
         public string settingsNickname = "";
         public bool settingsConnectOnLaunch = false;
         public int settingsActivityCircle = DEFAULT_ACTIVITY_CIRCLE;
-        public bool settingsAtc = false;
-        public string settingsAtcAirport = "";
         public bool settingsHub = false;
         public string settingsHubDomain = "";
         public string settingsHubName = "";
@@ -128,6 +125,8 @@ namespace JoinFS
         public bool settingsWhazzup = false;
         /// <summary>Let an ATC client on this PC connect (setting AtcFsd or -fsd), docs/ATC/atc-fsd-plan.md D3</summary>
         public bool settingsAtcFsd = false;
+        /// <summary>The command line had <c>-atc</c> or <c>-airport</c>: logged once at startup</summary>
+        bool oldAtcArgument = false;
         public ushort settingsAtcFsdPort = DEFAULT_ATC_FSD_PORT;
         public bool settingsWhazzupPublic = false;
         public float settingsWhazzupDelay = 1.0f;
@@ -308,8 +307,6 @@ namespace JoinFS
                 settingsNickname = Settings.Default.Nickname;
                 settingsConnectOnLaunch = Settings.Default.ConnectOnLaunch;
                 settingsActivityCircle = Settings.Default.ActivityCircle;
-                settingsAtc = Settings.Default.Atc;
-                settingsAtcAirport = Settings.Default.AtcAirport.ToUpper();
                 settingsHub = Settings.Default.Hub;
                 settingsHubDomain = Settings.Default.HubAddress;
                 settingsHubName = Settings.Default.HubName;
@@ -570,19 +567,14 @@ namespace JoinFS
                                 break;
 
                             case "-atc":
-                                // enable ATC mode
-                                settingsAtc = true;
+                                // the old manual ATC mode is gone (docs/ATC/atc-fsd-plan.md D11): accepted and ignored, with a log line
+                                oldAtcArgument = true;
                                 break;
 
                             case "-airport":
-                                // next parameter
+                                oldAtcArgument = true;
+                                // its value is skipped too
                                 index++;
-                                // check for parameter
-                                if (index < args.Length)
-                                {
-                                    // write airport
-                                    settingsAtcAirport = args[index][..Math.Min(4, args[index].Length)].ToUpper();
-                                }
                                 break;
 
                             case "-autobroadcast":
@@ -850,8 +842,6 @@ namespace JoinFS
                                 Console.WriteLine("  --loop                 " + Resources.Strings.Tip_Loop);
                                 Console.WriteLine("  --activitycircle <nm>  " + Resources.Strings.Options_ActivityCircle);
                                 Console.WriteLine("  --follow <nm>          " + Resources.Strings.Options_Follow);
-                                Console.WriteLine("  --atc                  " + Resources.Strings.Options_Atc);
-                                Console.WriteLine("  --airport <code>       " + Resources.Strings.Options_Airport);
                                 Console.WriteLine("  --lowbandwidth         " + Resources.Strings.Tip_LowBandwidth);
                                 Console.WriteLine("  --fsd [port]           " + Resources.Strings.Tip_AtcFsd);
                                 Console.WriteLine("  --whazzup              " + Resources.Strings.Tip_Whazzup);
@@ -1039,13 +1029,16 @@ namespace JoinFS
 #endif
                 recorder = new Recorder(this);
                 addressBook = new AddressBook(this);
-                euroscope = new Euroscope(this);
                 whazzup = new Whazzup(this);
                 if (settingsAtcFsd)
                 {
                     StartAtcFsd();
                 }
                 RefreshLocalAtc();
+                if (oldAtcArgument)
+                {
+                    MonitorEvent("The command-line options -atc and -airport no longer do anything: to control, log in with an ATC client (for example EuroScope) and start JoinFS with -fsd or turn on the ATC client connection in Settings");
+                }
                 notes = new Notes(this);
                 stats = new Stats();
                 variableMgr = new VariableMgr(this);
@@ -1429,19 +1422,19 @@ namespace JoinFS
             {
                 StartAtcFsd();
             }
-            // the station is gone (or never was): LocalAtc goes back to the manual settings, and peers are told
+            // the station is gone (or never was): LocalAtc goes back to inactive, and peers are told
             RefreshLocalAtc();
         }
 
         /// <summary>
-        /// Work out <see cref="LocalAtc"/> again, from the station and the manual ATC settings (docs/ATC/atc-fsd-plan.md, stage 3).
-        /// The work loop calls it when the station changes; call it after changing the manual settings. App thread (or startup).
+        /// Work out <see cref="LocalAtc"/> again, from the station (docs/ATC/atc-fsd-plan.md, stage 3).
+        /// The work loop calls it when the station changes. App thread (or startup).
         /// A change a peer can see goes out as a <c>PeerInfo</c> at once.
         /// </summary>
         public void RefreshLocalAtc()
         {
             AtcStationInfo station = atcGateway?.Station;
-            LocalAtc next = LocalAtc.Resolve(station, settingsAtc, settingsAtcAirport, Settings.Default.AtcLevel, Settings.Default.AtcFrequency);
+            LocalAtc next = LocalAtc.Resolve(station);
             LocalAtc before = localAtc;
             localAtcStation = station;
             if (next == before) return;
@@ -1542,7 +1535,6 @@ namespace JoinFS
                 {
                     // Sim and the Recorder run on the sim thread (SimService)
                     network.DoWork();
-                    euroscope.DoWork();
                     whazzup.DoWork();
                     atcGateway?.Tick((long)(ElapsedTime * 1000.0));
                     if (!ReferenceEquals(atcGateway?.Station, localAtcStation)) RefreshLocalAtc();

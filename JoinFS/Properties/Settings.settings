@@ -17,9 +17,6 @@
     <Setting Name="Nickname" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
-    <Setting Name="AtcAirport" Type="System.String" Scope="User">
-      <Value Profile="(Default)" />
-    </Setting>
     <Setting Name="SimBriefUsername" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
@@ -164,15 +161,6 @@
     <Setting Name="SortAtcColumn" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">0</Value>
     </Setting>
-    <Setting Name="Euroscope" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
-    </Setting>
-    <Setting Name="AtcFrequency" Type="System.Int32" Scope="User">
-      <Value Profile="(Default)">22800</Value>
-    </Setting>
-    <Setting Name="AtcLevel" Type="System.Int32" Scope="User">
-      <Value Profile="(Default)">2</Value>
-    </Setting>
     <Setting Name="ListIgnoredHubs" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
@@ -268,9 +256,6 @@
     </Setting>
     <Setting Name="ActivityCircle" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">40</Value>
-    </Setting>
-    <Setting Name="Atc" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
     </Setting>
     <Setting Name="Hub" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>

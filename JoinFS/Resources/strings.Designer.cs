@@ -124,24 +124,6 @@ namespace JoinFS.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ATC Mode is enabled. This allows aircraft to be visible on radar, but has an adverse effect on the smooth movement of aircraft..
-        /// </summary>
-        internal static string AtcModeEnabled {
-            get {
-                return ResourceManager.GetString("AtcModeEnabled", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to With ATC mode enabled, network aircraft will be visible on the default radar. However, some aircraft may act in a strange manner while ATC mode is enabled..
-        /// </summary>
-        internal static string AtcWarning {
-            get {
-                return ResourceManager.GetString("AtcWarning", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Patreon.
         /// </summary>
         internal static string BecomeAPatron {
@@ -709,24 +691,6 @@ namespace JoinFS.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Specifies the airport this ATC is controlling from. For example, &apos;EGLL&apos;..
-        /// </summary>
-        internal static string Options_Airport {
-            get {
-                return ResourceManager.GetString("Options_Airport", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Enable ATC mode. Other users will see you marked as ATC..
-        /// </summary>
-        internal static string Options_Atc {
-            get {
-                return ResourceManager.GetString("Options_Atc", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to For JoinFS-CONSOLE, run as a background task with no keyboard input..
         /// </summary>
         internal static string Options_Background {
@@ -1159,29 +1123,11 @@ namespace JoinFS.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The ICAO code for the airport you are controlling.
-        /// </summary>
-        internal static string Tip_Airport {
-            get {
-                return ResourceManager.GetString("Tip_Airport", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Keep the JoinFS windows in the foreground.
         /// </summary>
         internal static string Tip_AlwaysOnTop {
             get {
                 return ResourceManager.GetString("Tip_AlwaysOnTop", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Let others know that you are providing ATC coverage at an airport or region.
-        /// </summary>
-        internal static string Tip_ATC {
-            get {
-                return ResourceManager.GetString("Tip_ATC", resourceCulture);
             }
         }
         
@@ -1249,29 +1195,11 @@ namespace JoinFS.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Update the file &apos;euroscope.txt&apos; with current aircraft data for showing in Euroscope.
-        /// </summary>
-        internal static string Tip_Euroscope {
-            get {
-                return ResourceManager.GetString("Tip_Euroscope", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Set the distance you want your aircraft to be moved behind another aircraft. See View|Aircraft, &apos;Follow&apos; option.
         /// </summary>
         internal static string Tip_Follow {
             get {
                 return ResourceManager.GetString("Tip_Follow", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The radio frequency you are controlling on.
-        /// </summary>
-        internal static string Tip_Frequency {
-            get {
-                return ResourceManager.GetString("Tip_Frequency", resourceCulture);
             }
         }
         
@@ -1389,15 +1317,6 @@ namespace JoinFS.Resources {
         internal static string Tip_LabelColour {
             get {
                 return ResourceManager.GetString("Tip_LabelColour", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The ATC level at which you are controlling.
-        /// </summary>
-        internal static string Tip_Level {
-            get {
-                return ResourceManager.GetString("Tip_Level", resourceCulture);
             }
         }
         

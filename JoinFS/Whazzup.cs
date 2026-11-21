@@ -77,7 +77,7 @@ namespace JoinFS
         /// </summary>
         public void DoWork()
         {
-            // update euroscope
+            // update the whazzup file
             if (main.ElapsedTime > updateTime)
             {
                 // next update
@@ -173,7 +173,7 @@ namespace JoinFS
         List<string> clientList = [];
 
         /// <summary>
-        /// Update Euroscope file
+        /// Update the whazzup file
         /// </summary>
         void Update()
         {

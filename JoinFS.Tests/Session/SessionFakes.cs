@@ -103,13 +103,6 @@ namespace JoinFS.Tests.Session
         public bool MultipleObjects(NodeId nuid) => MultipleObjectNodes.Contains(nuid);
     }
 
-    sealed class FakeAtc : IAtcListener
-    {
-        public readonly List<string> Calls = [];
-        public void AddAtc(string airport, int level, int frequency) => Calls.Add("add " + airport + " " + level + " " + frequency);
-        public void RemoveAtc(string airport, int level, int frequency) => Calls.Add("remove " + airport + " " + level + " " + frequency);
-    }
-
     sealed class FakeUi : ISessionUi
     {
         public bool CommsVisible { get; set; }
@@ -198,7 +191,6 @@ namespace JoinFS.Tests.Session
         public readonly FakeProfile Profile = new();
         public readonly FakeSim Sim = new();
         public readonly FakePolicy Policy = new();
-        public readonly FakeAtc Atc = new();
         public readonly FakeUi Ui = new();
         public readonly ManualClock Clock = new();
         public readonly FakeLog Log = new();
@@ -214,7 +206,7 @@ namespace JoinFS.Tests.Session
         public SessionRig()
         {
             Clock.Advance(1000);
-            Peers = new PeerTable(Outbox, Session, Profile, Sim, Sim, Policy, Atc, Clock, Log);
+            Peers = new PeerTable(Outbox, Session, Profile, Sim, Sim, Policy, Clock, Log);
             Ingest = new SimIngest(Sim, Session, Profile, Policy, Peers, Outbox, Log);
             Hubs = new HubDirectory(Outbox, Session, Profile, Policy, EndPoints, Ui, Clock, Log);
             Users = new UserDirectory(Outbox, Session, Profile, Hubs, EndPoints, Ui, Clock, Log);

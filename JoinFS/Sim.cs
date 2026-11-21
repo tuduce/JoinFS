@@ -902,15 +902,6 @@ namespace JoinFS
                             obj.takeControl = false;
                             // take control of the object
                             simconnect.ReleaseControl(obj.simId, Requests.RELEASE_AI);
-
-                            // check for aircraft and ATC mode
-                            if (obj is Aircraft && main.settingsAtc)
-                            {
-                                // set waypoint
-                                simconnect.SetWaypoint(obj.simId);
-                                // update ATC ID
-                                SetAtcId(obj as Aircraft);
-                            }
                         }
 
 //                        // check for no aerobatics

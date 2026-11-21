@@ -32,14 +32,12 @@ namespace JoinFS.Tests.Session
             PeerTable.Node node = rig.Peers.Nodes[Peer];
             Assert.Equal(("Bob", true, "26.6", "MSFS", (byte)60), (node.nickname, node.atc, node.version, node.simulator, node.activityCircle));
             Assert.Equal(Peer, Assert.Single(rig.Sim.NicknameChanges));
-            Assert.Equal("add EDDF 3 12345", Assert.Single(rig.Atc.Calls));
             // it became a hub: the directory checks it
             Assert.Single(rig.Outbox.Messages<StatusRequestUpdate>());
 
             // stops controlling; nickname and hub unchanged
             rig.Peers.Handle(SessionRig.From(Peer), Info("Bob", hub: true));
             Assert.Single(rig.Sim.NicknameChanges);
-            Assert.Equal("remove EDDF 3 12345", rig.Atc.Calls[1]);
             Assert.Single(rig.Outbox.Messages<StatusRequestUpdate>());
         }
 

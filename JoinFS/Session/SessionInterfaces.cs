@@ -94,13 +94,6 @@ namespace JoinFS
         bool MultipleObjects(NodeId nuid);
     }
 
-    /// <summary>Told when a node starts or stops controlling (Euroscope).</summary>
-    public interface IAtcListener
-    {
-        void AddAtc(string airport, int level, int frequency);
-        void RemoveAtc(string airport, int level, int frequency);
-    }
-
     /// <summary>
     /// What network data does to the simulator and the recorder. Every method is a no-op when no
     /// simulator is running.

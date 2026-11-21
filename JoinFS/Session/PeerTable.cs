@@ -61,7 +61,6 @@ namespace JoinFS
         readonly ISimView simView;
         readonly ISimSink sim;
         readonly IPeerPolicy policy;
-        readonly IAtcListener atc;
         readonly IClock clock;
         readonly ISessionLog log;
 
@@ -70,7 +69,7 @@ namespace JoinFS
         /// <summary>A PeerInfo to send on the next tick (e.g. after changing cockpit sharing in the UI).</summary>
         NodeId schedulePeerInfo = new();
 
-        public PeerTable(INetworkOutbox outbox, ISessionState session, ILocalProfile profile, ISimView simView, ISimSink sim, IPeerPolicy policy, IAtcListener atc, IClock clock, ISessionLog log)
+        public PeerTable(INetworkOutbox outbox, ISessionState session, ILocalProfile profile, ISimView simView, ISimSink sim, IPeerPolicy policy, IClock clock, ISessionLog log)
         {
             this.outbox = outbox;
             this.session = session;
@@ -78,7 +77,6 @@ namespace JoinFS
             this.simView = simView;
             this.sim = sim;
             this.policy = policy;
-            this.atc = atc;
             this.clock = clock;
             this.log = log;
             // first periodic PeerInfo after one interval
@@ -209,17 +207,9 @@ namespace JoinFS
                 HubAnnounced?.Invoke(meta.EndPoint);
             }
             node.hub = info.Hub;
-            if (node.atc && info.Atc == false)
-            {
-                atc.RemoveAtc(node.atcAirport, node.atcLevel, node.atcFrequency);
-            }
             node.atcAirport = info.AtcAirport;
             node.atcLevel = info.AtcLevel;
             node.atcFrequency = info.AtcFrequency;
-            if (node.atc == false && info.Atc)
-            {
-                atc.AddAtc(node.atcAirport, node.atcLevel, node.atcFrequency);
-            }
             node.atc = info.Atc;
             node.activityCircle = info.ActivityCircle;
             node.version = info.Version;

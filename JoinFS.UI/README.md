@@ -114,7 +114,6 @@ Old things the new UI does not take over.
 |---|---|---|
 | cleanup | **Early update.** Early updates no longer exist: remove the setting | `Settings.settings` |
 | cleanup | **Settings of the old windows.** Nothing reads the `Colour{Active,Waiting,Inactive}*` indicator colours, the `*FormOpen` flags and the window positions any more: remove them | `Settings.settings` |
-| review | **ATC mode** (airport, level, frequency, Euroscope). `-atc` and `-airport` still work and the settings are still read, but no screen edits them. It goes in stage 12 of `docs/ATC/atc-fsd-plan.md`, which replaces it with a station that an ATC client logs in. The Settings "ATC" card (stage 5) is only the switch and port of that client connection | JoinFS.UI |
 | review | **Reset settings.** Does the new UI need one? | JoinFS.UI |
 | review | **Tick a skipped aircraft again** in the Recorder's "Loaded recording" list, so it joins playback once more. Postponed: it has to start again at the right point of the take. Until then an unticked aircraft stays out until the recording is loaded again | `RecorderViewModel.cs` (`LoadedAircraftViewModel`) |
 

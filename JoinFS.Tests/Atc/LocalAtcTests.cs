@@ -14,7 +14,7 @@ namespace JoinFS.Tests.Atc
             new(callsign, "Carla", 4, facility, 50, khz, 48.35377, 11.78609, positionKnown);
 
         static LocalAtc FromStation(string callsign, FsdFacility facility, int khz = 128550) =>
-            LocalAtc.Resolve(Station(callsign, facility, khz), false, "", 2, 22800);
+            LocalAtc.Resolve(Station(callsign, facility, khz));
 
         // ---- the mapping from a station
 
@@ -77,7 +77,7 @@ namespace JoinFS.Tests.Atc
         [Fact]
         public void BeforeTheFirstPositionReport_TheStationIsOnlineButNotYetActive()
         {
-            LocalAtc atc = LocalAtc.Resolve(Station("EDDM_TWR", FsdFacility.Observer, 0, positionKnown: false), false, "", 2, 22800);
+            LocalAtc atc = LocalAtc.Resolve(Station("EDDM_TWR", FsdFacility.Observer, 0, positionKnown: false));
 
             Assert.False(atc.Active);
             Assert.True(atc.StationOnline);
@@ -103,45 +103,22 @@ namespace JoinFS.Tests.Atc
             Assert.Equal((48.35377, 11.78609), (atc.Latitude, atc.Longitude));
         }
 
-        // ---- the manual ATC mode, which stage 12 removes
+        // ---- no station
 
         [Fact]
-        public void ManualMode_GivesWhatItGaveBefore()
+        public void NoStation_IsInactive()
         {
-            LocalAtc atc = LocalAtc.Resolve(null, true, "EDDF", 3, 22800);
+            LocalAtc atc = LocalAtc.Resolve(null);
 
-            Assert.Equal(("EDDF_APP", "EDDF", 3, 22800), (atc.Callsign, atc.Airport, atc.Level, atc.Frequency));
-            Assert.True(atc.Active);
+            Assert.False(atc.Active);
             Assert.False(atc.StationOnline);
-            Assert.False(atc.HasPosition); // the airport's position is looked up by the readers
-        }
-
-        [Fact]
-        public void ManualModeOff_StillCarriesTheSettings_AsItAlwaysDid()
-        {
-            LocalAtc atc = LocalAtc.Resolve(null, false, "EDDF", 2, 22800);
-
-            Assert.False(atc.Active);
-            Assert.Equal(("EDDF", 2, 22800), (atc.Airport, atc.Level, atc.Frequency));
-        }
-
-        [Fact]
-        public void NothingAtAll_IsInactive()
-        {
-            LocalAtc atc = LocalAtc.Resolve(null, false, null, 2, 22800);
-
-            Assert.False(atc.Active);
             Assert.Equal("", atc.Callsign);
         }
 
         [Fact]
-        public void AnOnlineStation_DecidesOverTheManualSettings()
+        public void AnObserver_DoesNotMakeTheNodeAController()
         {
-            LocalAtc controller = LocalAtc.Resolve(Station("EDDM_TWR", FsdFacility.Tower), true, "EDDF", 3, 22800);
-            Assert.Equal(("EDDM_TWR", 2), (controller.Callsign, controller.Level));
-
-            // an observer does not fall back to manual mode
-            LocalAtc observer = LocalAtc.Resolve(Station("EDDM_OBS", FsdFacility.Observer), true, "EDDF", 3, 22800);
+            LocalAtc observer = LocalAtc.Resolve(Station("EDDM_OBS", FsdFacility.Observer));
             Assert.False(observer.Active);
         }
 
@@ -173,16 +150,16 @@ namespace JoinFS.Tests.Atc
             gateway.OnLine(connection, "#AAEDDM_N_TWR:SERVER:Carla:1234567:token:4:100");
 
             // logged in, no position yet
-            LocalAtc waiting = LocalAtc.Resolve(gateway.Station, false, "", 2, 22800);
+            LocalAtc waiting = LocalAtc.Resolve(gateway.Station);
             Assert.True(waiting.StationOnline);
             Assert.False(waiting.Active);
 
             gateway.OnLine(connection, "%EDDM_N_TWR:18700:4:50:4:48.35377:11.78609:0");
-            LocalAtc online = LocalAtc.Resolve(gateway.Station, false, "", 2, 22800);
+            LocalAtc online = LocalAtc.Resolve(gateway.Station);
             Assert.Equal(("EDDM_N_TWR", "EDDM", 2, 18700, true), (online.Callsign, online.Airport, online.Level, online.Frequency, online.Active));
 
             gateway.OnLine(connection, "#DAEDDM_N_TWR:SERVER:1234567");
-            LocalAtc gone = LocalAtc.Resolve(gateway.Station, false, "", 2, 22800);
+            LocalAtc gone = LocalAtc.Resolve(gateway.Station);
             Assert.False(gone.Active);
             Assert.False(gone.StationOnline);
         }
