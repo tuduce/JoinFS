@@ -278,14 +278,15 @@ namespace JoinFS.Tests.Atc
         }
 
         [Fact]
-        public void AnUnknownAircraft_GetsNoFlightPlanError_OrNothing()
+        public void AnUnknownAircraft_GetsNoFlightPlanError_AndNoSuchCallsign()
         {
             FakeFsdConnection connection = LogIn();
 
             gateway.OnLine(connection, "$CQEDDM_TWR:SERVER:FP:NOBODY");
             gateway.OnLine(connection, "$CQEDDM_TWR:NOBODY:RN");
 
-            Assert.Equal(["$ERSERVER:EDDM_TWR:008:NOBODY:No flight plan"], connection.Sent);
+            // the second line is the unknown row of §4.3 (stage 8)
+            Assert.Equal(["$ERSERVER:EDDM_TWR:008:NOBODY:No flight plan", "$ERSERVER:EDDM_TWR:007:NOBODY:No such callsign"], connection.Sent);
         }
 
         [Fact]

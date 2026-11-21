@@ -43,6 +43,47 @@ namespace JoinFS
 
         /// <summary>Two nodes logged in with one callsign and the other node's id is lower (§4.6): this node's station of the slot is gone.</summary>
         event Action<int, string> LocalStationLost;
+
+        /// <summary>
+        /// Send a line of this node's client to the node of the station <paramref name="toCallsign"/> (stage 8, §4.3 row 2).
+        /// <see cref="AtcRelayResult.NoSuchStation"/> when no other node has it, so the gateway can look further.
+        /// </summary>
+        AtcRelayResult Relay(string line, string toCallsign);
+
+        /// <summary>Send a line of this node's client to every other node that has an online station (a group address, §4.3 row 4).</summary>
+        void RelayToAll(string line);
+
+        /// <summary>A line another node's client sent, checked by §4.4: the gateway writes it to its client. Raised inside the handling of the message, on the app thread.</summary>
+        event Action<string> LineReceived;
+    }
+
+    /// <summary>What <see cref="IAtcMesh.Relay"/> did with a line.</summary>
+    public enum AtcRelayResult
+    {
+        /// <summary>Sent to the node of the station.</summary>
+        Sent,
+        /// <summary>No other node has a station with that callsign; nothing was sent.</summary>
+        NoSuchStation,
+        /// <summary>The station exists but the line may not be sent (too long, a control character, a landline); counted and logged.</summary>
+        Refused,
+    }
+
+    /// <summary>Why a relayed line was not sent or not delivered (the counters of <see cref="AtcSession"/>).</summary>
+    public enum AtcRelayDrop
+    {
+        /// <summary>Over <see cref="FsdRelayPolicy.MaxLineBytes"/> (R6): not sent, logged.</summary>
+        TooLong,
+        ControlCharacter,
+        VerbNotRelayed,
+        Landline,
+        /// <summary>Not an FSD line.</summary>
+        Malformed,
+        /// <summary>Its <c>From</c> is not an online station the origin node announced (§4.4).</summary>
+        UnknownSender,
+        /// <summary>This instance has no online station (§4.4).</summary>
+        NoLocalStation,
+        /// <summary>The origin is not a member of the session, or is this node.</summary>
+        NotAMember,
     }
 
     /// <summary>
@@ -85,6 +126,13 @@ namespace JoinFS
         readonly List<Action> pending = new();
         double nextSend;
 
+        /// <summary>How often the relay counters are written to the monitor when they changed, seconds.</summary>
+        public const double CounterIntervalS = 60.0;
+
+        readonly int[] dropped = new int[Enum.GetValues<AtcRelayDrop>().Length];
+        double nextCounterLog;
+        string lastCounterText = "";
+
         public AtcSession(INetworkOutbox outbox, ISessionState session, IClock clock, ISessionLog log)
         {
             this.outbox = outbox;
@@ -96,6 +144,16 @@ namespace JoinFS
         public event Action<AtcRemoteStation> StationChanged;
         public event Action<AtcRemoteStation> StationGone;
         public event Action<int, string> LocalStationLost;
+        public event Action<string> LineReceived;
+
+        /// <summary>Lines sent to other nodes since the start (one per target node).</summary>
+        public int RelayedOut { get; private set; }
+
+        /// <summary>Lines received from other nodes and passed to the gateway.</summary>
+        public int RelayedIn { get; private set; }
+
+        /// <summary>Lines dropped for <paramref name="reason"/>, sent or received.</summary>
+        public int Dropped(AtcRelayDrop reason) => dropped[(int)reason];
 
         public IReadOnlyList<AtcRemoteStation> Stations => new List<AtcRemoteStation>(published.Values);
 
@@ -218,6 +276,118 @@ namespace JoinFS
             return clean.ToString();
         }
 
+        public void Handle(in MessageMeta meta, in AtcRelay message)
+        {
+            NodeId from = meta.Sender;
+            string line = message.Line ?? "";
+            if (from == session.LocalId || !members.Contains(from))
+            {
+                Drop(AtcRelayDrop.NotAMember, "from " + from, line);
+                return;
+            }
+            if (Refusal(line) is AtcRelayDrop refused)
+            {
+                Drop(refused, "from " + from, line);
+                return;
+            }
+            // a node speaks only for its own station (§4.4)
+            FsdLine.TryParse(line, out FsdLine parsed);
+            if (!AnnouncedBy(from, parsed.From))
+            {
+                Drop(AtcRelayDrop.UnknownSender, "from " + from + " as " + parsed.From, line);
+                return;
+            }
+            if (local[0] == null && local[1] == null)
+            {
+                Drop(AtcRelayDrop.NoLocalStation, "from " + from, line);
+                return;
+            }
+            RelayedIn++;
+            LineReceived?.Invoke(line);
+        }
+
+        bool AnnouncedBy(NodeId node, string callsign)
+        {
+            for (int slot = 0; slot < Slots; slot++)
+            {
+                if (table.TryGetValue((node, slot), out Entry entry) && entry.Station.Callsign == callsign) return true;
+            }
+            return false;
+        }
+
+        // ------------------------------------------------------------------ outgoing lines of the client
+
+        public AtcRelayResult Relay(string line, string toCallsign)
+        {
+            if (!published.TryGetValue(toCallsign, out AtcRemoteStation station)) return AtcRelayResult.NoSuchStation;
+            return Send(line, station.Node) ? AtcRelayResult.Sent : AtcRelayResult.Refused;
+        }
+
+        public void RelayToAll(string line)
+        {
+            var nodes = new HashSet<NodeId>();
+            foreach (AtcRemoteStation station in published.Values) nodes.Add(station.Node);
+            if (nodes.Count == 0) return;
+            // a line that may not be sent is counted once, not once per node
+            if (Refusal(line) is AtcRelayDrop refused)
+            {
+                Drop(refused, "to all stations", line);
+                return;
+            }
+            foreach (NodeId node in nodes) Send(line, node);
+        }
+
+        /// <summary>One guaranteed unicast to <paramref name="node"/>, unless the line may not be sent.</summary>
+        bool Send(string line, NodeId node)
+        {
+            if (Refusal(line) is AtcRelayDrop refused)
+            {
+                Drop(refused, "to " + node, line);
+                return false;
+            }
+            outbox.SendTo(node, new AtcRelay { Line = line }, guaranteed: true);
+            RelayedOut++;
+            return true;
+        }
+
+        /// <summary>The checks on a line that need nothing but the line (§4.3, §4.4); null when it may cross the mesh.</summary>
+        static AtcRelayDrop? Refusal(string line)
+        {
+            if (!string.IsNullOrEmpty(line) && Encoding.UTF8.GetByteCount(line) > FsdRelayPolicy.MaxLineBytes) return AtcRelayDrop.TooLong;
+            switch (FsdRelayPolicy.Check(line))
+            {
+                case FsdRelayRefusal.None: return null;
+                case FsdRelayRefusal.ControlCharacter: return AtcRelayDrop.ControlCharacter;
+                case FsdRelayRefusal.VerbNotRelayed: return AtcRelayDrop.VerbNotRelayed;
+                case FsdRelayRefusal.Landline: return AtcRelayDrop.Landline;
+                default: return AtcRelayDrop.Malformed;
+            }
+        }
+
+        void Drop(AtcRelayDrop reason, string where, string line)
+        {
+            dropped[(int)reason]++;
+            var head = new StringBuilder();
+            foreach (char c in line.Length > 40 ? line.Substring(0, 40) + "..." : line) head.Append(c < ' ' || c == 0x7f ? '?' : c);
+            // an over-long line is a loss the controller notices (R6): always shown. The others are noise unless the monitor is on.
+            string text = "ATC line dropped (" + reason + ") " + where + ": " + head;
+            if (reason == AtcRelayDrop.TooLong) log.Event(text);
+            else log.Network(text);
+        }
+
+        /// <summary>The counters as one line for the monitor, empty when nothing was relayed or dropped.</summary>
+        public string CounterText()
+        {
+            var text = new StringBuilder();
+            if (RelayedOut > 0 || RelayedIn > 0) text.Append("sent " + RelayedOut + ", received " + RelayedIn);
+            foreach (AtcRelayDrop reason in Enum.GetValues<AtcRelayDrop>())
+            {
+                if (dropped[(int)reason] == 0) continue;
+                text.Append(text.Length == 0 ? "dropped " : ", dropped ").Append(reason).Append(' ').Append(dropped[(int)reason]);
+            }
+            return text.Length == 0 ? "" : "ATC lines: " + text;
+        }
+
         // ------------------------------------------------------------------ work
 
         /// <summary>Expire silent stations, repeat our own, and deliver the events the changes since the last call raised. Every app tick.</summary>
@@ -242,6 +412,17 @@ namespace JoinFS
                 for (int slot = 0; slot < Slots; slot++)
                 {
                     if (local[slot] != null) Broadcast(Describe(slot, local[slot], true));
+                }
+            }
+
+            if (now >= nextCounterLog)
+            {
+                nextCounterLog = now + CounterIntervalS;
+                string counters = CounterText();
+                if (counters != lastCounterText)
+                {
+                    lastCounterText = counters;
+                    log.Network(counters);
                 }
             }
 

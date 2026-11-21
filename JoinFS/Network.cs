@@ -631,5 +631,6 @@ namespace JoinFS
         public void Handle(in MessageMeta meta, in NotesBundle message) => Comms.Handle(meta, message);
 
         public void Handle(in MessageMeta meta, in AtcStation message) => Atc.Handle(meta, message);
+        public void Handle(in MessageMeta meta, in AtcRelay message) => Atc.Handle(meta, message);
     }
 }

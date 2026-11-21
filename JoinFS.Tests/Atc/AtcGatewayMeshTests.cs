@@ -16,9 +16,24 @@ namespace JoinFS.Tests.Atc
         public event Action<AtcRemoteStation>? StationChanged;
         public event Action<AtcRemoteStation>? StationGone;
         public event Action<int, string>? LocalStationLost;
+        public event Action<string>? LineReceived;
+
+        /// <summary>The lines the gateway handed over: (callsign, line) for a station, ("*", line) for every station.</summary>
+        public readonly List<(string To, string Line)> Relayed = [];
+
+        public AtcRelayResult Relay(string line, string toCallsign)
+        {
+            if (!stations.Any(s => s.Callsign == toCallsign)) return AtcRelayResult.NoSuchStation;
+            Relayed.Add((toCallsign, line));
+            return AtcRelayResult.Sent;
+        }
+
+        public void RelayToAll(string line) => Relayed.Add(("*", line));
+
+        public void Receive(string line) => LineReceived?.Invoke(line);
 
         public int Subscribers => (StationChanged?.GetInvocationList().Length ?? 0) + (StationGone?.GetInvocationList().Length ?? 0)
-            + (LocalStationLost?.GetInvocationList().Length ?? 0);
+            + (LocalStationLost?.GetInvocationList().Length ?? 0) + (LineReceived?.GetInvocationList().Length ?? 0);
 
         public void Come(AtcRemoteStation station)
         {

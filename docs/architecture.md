@@ -455,7 +455,7 @@ and knows nothing about wire formats. It is a small facade, `Network`, and eight
 | `UserDirectory` | online users by uuid; the uuid helpers | `Online`, `UserNuidRequest`/`UserNuid`; `Status` (address book) |
 | `HubHost` | this hub's own user list (`LocalUsers`) | `StatusRequest`, `UserListRequest`, `UserPositionsRequest` |
 | `SessionComms` | how many new peers to ask for comms history | `CommsRequest`, `Notes` |
-| `AtcSession` | the controller stations of the other nodes (one per callsign, soft state: 35 s), this node's own station and when to repeat it (every 10 s); the crossing-login rule | `AtcStation`; peer joined, established, left. Tells `AtcGateway` (through `IAtcMesh`) and `PeerTable` |
+| `AtcSession` | the controller stations of the other nodes (one per callsign, soft state: 35 s), this node's own station and when to repeat it (every 10 s); the crossing-login rule; the relay counters (lines sent, received, dropped with the reason) | `AtcStation`, `AtcRelay`; peer joined, established, left. Sends the client's lines to the nodes of their stations, checks incoming lines (plan §4.4). Tells `AtcGateway` (through `IAtcMesh`) and `PeerTable` |
 
 **How the parts reach the rest of the app.** Through narrow interfaces
 (`Session/SessionInterfaces.cs`), not through `Main`:
@@ -627,7 +627,7 @@ builds depend on them.
 | `Legacy/XPlaneLinkTests` | The X-Plane link framing matches what the native plugin expects. |
 | `Session/SimIngestTests` | The identity cache, filtering, shared cockpit, variables, events, flight plans and weather; and end to end, a position crossing the in-memory mesh over legacy or JFP2 reaches the simulator with the same identity. |
 | `Session/PeerTableTests` | What `PeerInfo` changes and reports (ATC, nickname, becoming a hub), what we share with whom, periodic and scheduled `PeerInfo`, name fallbacks. |
-| `Session/AtcSessionTests`, `Net/AtcStationMeshTests` | The station table: sending on change, to a new member and every 10 s; expiry, member left, logoff notice, crossing logins, divided positions; and two gateways with fake clients over a `TestMesh` (behind a hub, a dead node, a taken callsign). |
+| `Session/AtcSessionTests`, `Session/AtcSessionRelayTests`, `Net/AtcStationMeshTests`, `Atc/AtcGatewayRoutingTests` | The station table: sending on change, to a new member and every 10 s; expiry, member left, logoff notice, crossing logins, divided positions; relaying a line (one guaranteed unicast per node, the size limit, the checks of plan §4.4, the counters); gateway routing per row of plan §4.3; and gateways with fake clients over a `TestMesh` (behind a hub, a dead node, a taken callsign, a handoff between three stations). |
 | `Session/DirectoryTests` | Hub discovery and caps per address, hub users, `hubs.dat` save/load, user lookup by uuid across hubs, online-user expiry, the address book, status replies. |
 
 `Net/TestMesh` runs any number of `NetworkCore` nodes on an `InMemoryNetwork` with a `ManualClock`.

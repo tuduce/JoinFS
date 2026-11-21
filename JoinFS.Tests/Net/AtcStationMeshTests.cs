@@ -85,6 +85,7 @@ namespace JoinFS.Tests.Net
                 {
                     var (meta, message) = Node.Received[received];
                     if (message is AtcStation station) Session.Handle(meta, station);
+                    else if (message is AtcRelay relay) Session.Handle(meta, relay);
                 }
                 Session.DoWork();
                 Gateway.Tick((long)(nowSeconds * 1000));
@@ -245,6 +246,116 @@ namespace JoinFS.Tests.Net
 
             Assert.Empty(carla.Session.Stations);
             Assert.Contains("#DAEDDM_APP:", carlasClient.Sent);
+        }
+
+        // ---- the story of stage 8
+
+        /// <summary>What a client was sent besides the station list and the keep-alive.</summary>
+        static List<string> Lines(FakeFsdConnection client) =>
+            client.Sent.Where(l => !l.StartsWith("%") && !l.StartsWith("#AA") && !l.StartsWith("#DA") && !l.StartsWith("#DL")).ToList();
+
+        [Fact]
+        public void ThreeControllers_PlayAHandoff_AndEachClientGetsExactlyTheLinesMeantForIt()
+        {
+            var rig = new Rig();
+            Controller carla = rig.Join("198.51.100.2");
+            Controller ben = rig.Join("192.0.2.3");
+            Controller sam = rig.Join("192.0.2.4", relayedFrom: carla); // Sam and Carla only reach each other through the hub
+            FakeFsdConnection carlas = carla.LogIn("EDDM_TWR", "Carla", 118_700);
+            FakeFsdConnection bens = ben.LogIn("EDDM_APP", "Ben", 119_150, facility: 5);
+            FakeFsdConnection sams = sam.LogIn("EDDM_GND", "Sam", 121_700, facility: 3);
+            rig.Run(3);
+            foreach (FakeFsdConnection client in new[] { carlas, bens, sams }) client.Clear();
+
+            void Play(Controller controller, FakeFsdConnection client, string line)
+            {
+                controller.Gateway.OnLine(client, line);
+                rig.Run(1);
+            }
+
+            // Carla tracks DLH4TK and sets her data: all controllers hear it, she does not
+            Play(carla, carlas, "$CQEDDM_TWR:@94835:IT:DLH4TK");
+            Play(carla, carlas, "#PCEDDM_TWR:@94835:CCP:TA:DLH4TK:5000");
+            Play(carla, carlas, "#PCEDDM_TWR:@94835:CCP:SC:DLH4TK:ABC");
+            string[] data = ["$CQEDDM_TWR:@94835:IT:DLH4TK", "#PCEDDM_TWR:@94835:CCP:TA:DLH4TK:5000", "#PCEDDM_TWR:@94835:CCP:SC:DLH4TK:ABC"];
+            Assert.Equal(data, Lines(bens));
+            Assert.Equal(data, Lines(sams));
+            Assert.Empty(Lines(carlas));
+            foreach (FakeFsdConnection client in new[] { carlas, bens, sams }) client.Clear();
+
+            // she hands it to Ben: only Ben gets it
+            Play(carla, carlas, "$HOEDDM_TWR:EDDM_APP:DLH4TK");
+            Assert.Equal(["$HOEDDM_TWR:EDDM_APP:DLH4TK"], Lines(bens));
+            Assert.Empty(Lines(sams));
+            Assert.Empty(Lines(carlas));
+
+            // he accepts: only Carla gets that, and the track is announced to the others
+            Play(ben, bens, "$HAEDDM_APP:EDDM_TWR:DLH4TK");
+            Play(ben, bens, "$CQEDDM_APP:@94835:IT:DLH4TK");
+            Assert.Equal(["$HAEDDM_APP:EDDM_TWR:DLH4TK", "$CQEDDM_APP:@94835:IT:DLH4TK"], Lines(carlas));
+            Assert.Equal(["$CQEDDM_APP:@94835:IT:DLH4TK"], Lines(sams));
+            foreach (FakeFsdConnection client in new[] { carlas, bens, sams }) client.Clear();
+
+            // the ATC chat reaches the others, a private line only its station
+            Play(ben, bens, "#TMEDDM_APP:@49999:good evening: all");
+            Assert.Equal(["#TMEDDM_APP:@49999:good evening: all"], Lines(carlas));
+            Assert.Equal(["#TMEDDM_APP:@49999:good evening: all"], Lines(sams));
+            Assert.Empty(Lines(bens));
+            foreach (FakeFsdConnection client in new[] { carlas, bens, sams }) client.Clear();
+
+            Play(carla, carlas, "#TMEDDM_TWR:EDDM_GND:psst");
+            Assert.Equal(["#TMEDDM_TWR:EDDM_GND:psst"], Lines(sams));
+            Assert.Empty(Lines(bens));
+            Assert.Empty(Lines(carlas));
+
+            // a station that is not there
+            Play(carla, carlas, "#TMEDDM_TWR:EDDM_DEL:anyone");
+            Assert.Equal(["$ERSERVER:EDDM_TWR:007:EDDM_DEL:No such callsign"], Lines(carlas));
+            Assert.Empty(Lines(bens));
+            Assert.Equal(8, carla.Session.RelayedOut); // three group lines to two nodes, the handoff and the private line
+        }
+
+        [Fact]
+        public void ANodeCannotSpeakForAnotherNodesStation()
+        {
+            var rig = new Rig();
+            Controller carla = rig.Join("198.51.100.2");
+            Controller ben = rig.Join("192.0.2.3");
+            Controller sam = rig.Join("192.0.2.4");
+            FakeFsdConnection carlas = carla.LogIn("EDDM_TWR", "Carla", 118_700);
+            FakeFsdConnection bens = ben.LogIn("EDDM_APP", "Ben", 119_150, facility: 5);
+            FakeFsdConnection sams = sam.LogIn("EDDM_GND", "Sam", 121_700, facility: 3);
+            rig.Run(3);
+            foreach (FakeFsdConnection client in new[] { carlas, bens, sams }) client.Clear();
+
+            // Ben's client claims to be Carla
+            ben.Gateway.OnLine(bens, "$HOEDDM_TWR:EDDM_GND:DLH4TK");
+            ben.Gateway.OnLine(bens, "#TMEDDM_TWR:@49999:I am the tower");
+            rig.Run(2);
+
+            Assert.Empty(Lines(sams));
+            Assert.Empty(Lines(carlas));
+            Assert.Equal(2, sam.Session.Dropped(AtcRelayDrop.UnknownSender));
+            Assert.Equal(1, carla.Session.Dropped(AtcRelayDrop.UnknownSender));
+        }
+
+        [Fact]
+        public void ALineOverTheLimit_IsNotSent_OnTheMesh()
+        {
+            var rig = new Rig();
+            Controller carla = rig.Join("198.51.100.2");
+            Controller ben = rig.Join("192.0.2.3");
+            FakeFsdConnection carlas = carla.LogIn("EDDM_TWR", "Carla", 118_700);
+            FakeFsdConnection bens = ben.LogIn("EDDM_APP", "Ben", 119_150, facility: 5);
+            rig.Run(3);
+            bens.Clear();
+
+            carla.Gateway.OnLine(carlas, "#TMEDDM_TWR:EDDM_APP:" + new string('R', 1100));
+            carla.Gateway.OnLine(carlas, "#TMEDDM_TWR:EDDM_APP:short");
+            rig.Run(2);
+
+            Assert.Equal(["#TMEDDM_TWR:EDDM_APP:short"], Lines(bens));
+            Assert.Equal(1, carla.Session.Dropped(AtcRelayDrop.TooLong));
         }
     }
 }

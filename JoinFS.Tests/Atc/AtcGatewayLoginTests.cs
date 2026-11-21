@@ -305,14 +305,14 @@ namespace JoinFS.Tests.Atc
         }
 
         [Fact]
-        public void APingToAnotherCallsign_IsNotAnswered()
+        public void APingToAnotherCallsign_IsNotAnsweredAsServer_ButIsAnUnknownCallsign()
         {
             FakeFsdConnection connection = LogIn();
             connection.Clear();
 
             gateway.OnLine(connection, "$PIEDDM_TWR:EDDM_APP:1736029820");
 
-            Assert.Empty(connection.Sent);
+            Assert.Equal(["$ERSERVER:EDDM_TWR:007:EDDM_APP:No such callsign"], connection.Sent);
         }
 
         [Fact]

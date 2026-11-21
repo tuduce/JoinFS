@@ -26,7 +26,7 @@ namespace JoinFS
     /// <c>SERVER</c>. It runs on the app thread, never blocks and reaches the client only through
     /// <see cref="IFsdConnection"/>, so a test drives it with fakes. Stage 2 is the login and the <c>SERVER</c> row of
     /// §4.3; stage 4 adds the traffic (<see cref="AtcTrafficFeed"/>) and the aircraft row; stage 7 the stations of the
-    /// other nodes (<see cref="IAtcMesh"/>); the other rows come in later stages.
+    /// other nodes (<see cref="IAtcMesh"/>); stage 8 routes a client's other lines (stations, groups, the unknown row); the rest comes in later stages.
     /// </summary>
     public sealed class AtcGateway : IFsdHandler
     {
@@ -76,6 +76,7 @@ namespace JoinFS
                 mesh.StationChanged += OnRemoteStationChanged;
                 mesh.StationGone += OnRemoteStationGone;
                 mesh.LocalStationLost += OnLocalStationLost;
+                mesh.LineReceived += OnLineReceived;
             }
         }
 
@@ -152,12 +153,16 @@ namespace JoinFS
                     LogOff(client, "#DA");
                     client.Connection.Close();
                     break;
-                case FsdVerb.Ping:
-                case FsdVerb.ClientQuery:
-                    if (line.To == Server) AnswerServer(client, line);
-                    else if (line.Verb == FsdVerb.ClientQuery) AnswerAircraft(client, line);
+                default:
+                    if (line.To == Server)
+                    {
+                        if (line.Verb == FsdVerb.Ping || line.Verb == FsdVerb.ClientQuery) AnswerServer(client, line);
+                    }
+                    else
+                    {
+                        Route(client, line, text);
+                    }
                     break;
-                // everything else is a row of §4.3 that a later stage serves
             }
         }
 
@@ -197,6 +202,7 @@ namespace JoinFS
                 mesh.StationChanged -= OnRemoteStationChanged;
                 mesh.StationGone -= OnRemoteStationGone;
                 mesh.LocalStationLost -= OnLocalStationLost;
+                mesh.LineReceived -= OnLineReceived;
             }
             Client[] open = clients.ToArray();
             clients.Clear();
@@ -380,21 +386,51 @@ namespace JoinFS
             }
         }
 
-        // ---- queries addressed to an aircraft (§4.3, the aircraft row) ----
+        // ---- where a line to someone else goes (§4.3, the rows after SERVER) ----
 
         /// <summary>
-        /// <c>$CQ</c> RN and FP to an aircraft's callsign are answered here from the mesh data. Anything else, and a
-        /// callsign that is no aircraft, is dropped (the rows of a later stage serve the other callsigns).
+        /// A line of the logged-in client that is not for <c>SERVER</c>. Only the verbs of §4.3 go anywhere; the rest is
+        /// ignored. A group address goes to every node that has a station (pilots receive nothing); the callsign of a
+        /// station of another node goes to that node; an aircraft's callsign is answered here (<c>$CQ</c> RN and FP;
+        /// anything else to an aircraft is dropped); any other callsign gets <c>$ER</c> "no such callsign".
         /// </summary>
-        void AnswerAircraft(Client client, FsdLine line)
+        void Route(Client client, FsdLine line, string text)
         {
-            if (feed == null || !FsdQuery.TryParse(line, out FsdQuery query) || query.IsResponse) return;
+            if (!FsdRelayPolicy.IsRelayedVerb(line.Verb)) return;
+
+            if (FsdRelayPolicy.Classify(line.To) == FsdAddressKind.Group)
+            {
+                mesh?.RelayToAll(text);
+                return;
+            }
+            if (line.To == Station.Callsign || line.To == FsdRelayPolicy.AllPilots) return; // to itself, or to the pilots (out of scope)
+
+            if (mesh != null && mesh.Relay(text, line.To) != AtcRelayResult.NoSuchStation) return;
+
+            if (feed != null && feed.TryFind(line.To, out AtcAircraft aircraft))
+            {
+                AnswerAircraft(client, line, aircraft);
+                return;
+            }
+            Send(client, FsdError.Create(line.From, FsdErrorCode.NoSuchCallsign, line.To, "No such callsign").ToLine());
+        }
+
+        /// <summary><c>$CQ</c> RN and FP to an aircraft's callsign are answered here from the mesh data; anything else is dropped.</summary>
+        void AnswerAircraft(Client client, FsdLine line, AtcAircraft aircraft)
+        {
+            if (!FsdQuery.TryParse(line, out FsdQuery query) || query.IsResponse) return;
             if (query.Type != "RN" && query.Type != "FP") return;
-            if (!feed.TryFind(query.To, out AtcAircraft aircraft)) return;
 
             Send(client, query.Type == "RN"
                 ? AtcTrafficFeed.RealNameFor(query.To, query.From, aircraft)
                 : AtcTrafficFeed.FlightPlanFor(query.To, query.From, aircraft));
+        }
+
+        /// <summary>A line another node's client sent to a station of this node (already checked by <see cref="AtcSession"/>, §4.4). Written to the client, never interpreted.</summary>
+        void OnLineReceived(string text)
+        {
+            if (main == null || !FsdLine.TryParse(text, out FsdLine line)) return;
+            if (FsdRelayPolicy.Classify(line.To) == FsdAddressKind.Group || line.To == Station.Callsign) main.Connection.Send(text);
         }
 
         // ---- helpers ----
