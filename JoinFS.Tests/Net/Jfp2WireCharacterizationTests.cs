@@ -55,12 +55,13 @@ namespace JoinFS.Tests.Net
             Assert.Equal(
                 "08 00 " +                                         // Internal, class Hello
                 "0202" + "0100000000000000" + "0000" + "00" +      // ProtoMajor 2..2, the Segments capability (stage 10), SelfAssignedId (zeroed), Result
-                "1E00" +                                           // thirty offers, application classes at [1, 1], in this order:
+                "2000" +                                           // thirty-two offers, application classes at [1, 1], in this order:
                 "00070101" + "00080101" + "00010101" + "00020101" + "00000101" + // Status, StatusRequest, Identity, VariableSync, Position
                 "00030101" + "00040101" + "00050101" + "00060101" + "00090101" + // Event, FlightPlan, Notes, Weather, WeatherReply
                 "000A0101" + "000B0101" + "000C0101" + "000D0101" +              // the directory of stage 9: HubList, UserListRequest, HubUser, UserPositionsRequest,
                 "000E0101" + "000F0101" + "00100101" + "00110101" +              // UserPositions, Online, UserLookup, UserLookupAnswer
                 "00120101" + "00130101" + "00140101" + "00150101" + "00160101" + // stage 10: ObjectPosition, RemoveObject, PeerInfo, CommsRequest, NotesHistory
+                "00170101" + "00180101" +                          // the ATC clients (ATC stage 6, appended last): AtcStation, AtcRelay
                 "01020101" + "01030102" + "01040102" +             // internal classes (partition 1) of stage 4: Join, JoinResult (versions 1 and 2 since stage 8), MemberList (versions 1 and 2 since stage 7)
                 "01050102" + "01060101" +                          // and of stage 5: MemberAnnounce (versions 1 and 2), MemberLeave
                 "01070101" + "01080101" +                          // and of stage 6: RouteQuery, RouteAnswer

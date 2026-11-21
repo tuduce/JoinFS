@@ -162,12 +162,14 @@ therefore shows which builds speak JFP2, which is the data the legacy retirement
 
 ## 4. Offers in this build
 
-Thirty offers, from the plugin's profile (`Jfp2Profile.Default`), in its order: the application classes 0 to 9 at
+Thirty-two offers, from the plugin's profile (`Jfp2Profile.Default`), in its order: the application classes 0 to 9 at
 [1, 1] (Status, StatusRequest, Identity, VariableSync, Position, Event, FlightPlan, Notes, Weather, WeatherReply),
-then 10 to 22 at [1, 1] (the directory, ObjectPosition, RemoveObject, PeerInfo, CommsRequest, NotesHistory), then the
+then 10 to 22 at [1, 1] (the directory, ObjectPosition, RemoveObject, PeerInfo, CommsRequest, NotesHistory), then 23 and 24
+at [1, 1] (AtcStation, AtcRelay, for the ATC clients; legacy never carries them), then the
 internal classes Join [1, 1], JoinResult [1, 2], MemberList [1, 2], MemberAnnounce [1, 2], MemberLeave, RouteQuery,
 RouteAnswer [1, 1]; the capability Segments (bit 0). The order is visible in Hello, so a new class is appended last.
-`Edition2HelloGoldenTests` pins the whole Hello (`protocol.md` Appendix A.18).
+`Edition2HelloGoldenTests` pins the whole Hello of the build before the ATC classes (`protocol.md` Appendix A.18) and
+`AtcHelloGoldenTests` the one with them (A.19); a later class appends to the Hello in a new golden again.
 
 ## 5. Adding a class or a schema version
 
@@ -208,7 +210,7 @@ dotnet test JoinFS.Tests/JoinFS.Tests.csproj -c FS2024-Debug -p:Platform=x64
 | Golden bytes | `Jfp2/HandshakeGoldenTests` | Hello, HelloAck, HelloAck with the observed endpoint (`protocol.md` Appendix A). Never regenerate to make a test pass. |
 | Join | `Net/Jfp2JoinTests` | The join on `TestMesh` with no legacy plugin (create, join, passwords, the list, loss, liveness), members coming and going (announce, leave, crash, rejoin), JFP2 first with the legacy fallback, the JFP2-only mesh (the tracer bullet, roadmap item 12), the bodies, and the bytes of `protocol.md` Appendix A.6 to A.10 |
 | Golden bytes, admission | `Jfp2/AdmissionGoldenTests` | The Hello that asks, the Hello that echoes the cookie, the `Result` 2 HelloAck (`protocol.md` Appendix A.3 to A.5). Beside the 26.6 goldens, which stay as they are. |
-| Golden bytes, candidates and the whole Hello | `Jfp2/CandidatesGoldenTests`, `Jfp2/Edition2HelloGoldenTests` | The Hello with candidates, MemberAnnounce version 2 (A.13, A.14), and the complete Hello of edition 2: 30 offers, Segments, both names, candidates (A.18). Never regenerate. |
+| Golden bytes, candidates and the whole Hello | `Jfp2/CandidatesGoldenTests`, `Jfp2/Edition2HelloGoldenTests`, `Jfp2/AtcHelloGoldenTests` | The Hello with candidates, MemberAnnounce version 2 (A.13, A.14), the complete Hello of edition 2: 30 offers, Segments, both names, candidates (A.18), and the same with the two ATC classes, 32 offers (A.19). Never regenerate. |
 | Admission | `Net/Jfp2AdmissionTests` | Challenge, non-member sessions, limits and rate |
 | Mixed sessions | `Net/Jfp2MixedSessionTests` | H, A and W (release 1 and legacy) with `TestMesh.Partition`; RouteQuery chains; the pulse proxy; the relay budget |
 | IPv6 | `Net/Jfp2IPv6Tests`, `Jfp2IPv6OnlyTests`, `DualStackHarnessTests`, `UdpTransportTests` | S1, S3, S5 to S8, S13, S14 of the plan; dial lists; the alias |

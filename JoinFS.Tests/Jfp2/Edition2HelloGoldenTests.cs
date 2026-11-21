@@ -14,7 +14,8 @@ namespace JoinFS.Tests.Jfp2
     /// and a key, the build and the candidates. The Hello of 26.6 (<see cref="HandshakeGoldenTests"/>) is untouched, and
     /// the parts of this Hello are pinned one by one in <see cref="AdmissionGoldenTests"/> and <see cref="CandidatesGoldenTests"/>.
     /// What a release sends is a permanent part of the specification: a new class, tag or capability appends to this
-    /// Hello in a new golden and never changes these bytes. NEVER change them to make a test pass.
+    /// Hello in a new golden and never changes these bytes. NEVER change them to make a test pass. The two ATC classes
+    /// (stage 6 of atc-fsd) are appended in <see cref="AtcHelloGoldenTests"/>; this Hello is the one of a build without them.
     /// </summary>
     public class Edition2HelloGoldenTests
     {
@@ -38,6 +39,9 @@ namespace JoinFS.Tests.Jfp2
             "13 06 20 01 0D B8 00 00 00 00 00 00 00 00 00 00 00 01 E0 17" +
             "07 04 CB 00 71 01 E0 17";
 
+        /// <summary>The profile of the build this Hello was taken from: <see cref="Jfp2Profile.Default"/> before the ATC classes were appended.</summary>
+        internal static readonly Jfp2Profile Edition2Profile = Jfp2Profile.Default.Without(MessageClasses.AtcStation).Without(MessageClasses.AtcRelay);
+
         static byte[] Bytes(string hex) => Convert.FromHexString(hex.Replace(" ", ""));
 
         static readonly IPEndPoint[] Candidates = [IPEndPoint.Parse("[2001:db8::1]:6112"), IPEndPoint.Parse("203.0.113.1:6112")];
@@ -54,8 +58,8 @@ namespace JoinFS.Tests.Jfp2
         static HandshakeMessage Hello() => new()
         {
             ProtoMajorMin = 2, ProtoMajorMax = 2, SelfAssignedId = 0x1234,
-            Capabilities = Jfp2Profile.Default.Capabilities,
-            Offers = [.. Jfp2Profile.Default.Offers],
+            Capabilities = Edition2Profile.Capabilities,
+            Offers = [.. Edition2Profile.Offers],
             Names = [NodeId.FromLegacy(0xCB007101, 6112, 20), NodeId.ReadFrom(Bytes("0211223344556677"))],
             Build = "26.6.0 JoinFS-FS2024",
             Candidates = [.. Candidates],
@@ -72,7 +76,8 @@ namespace JoinFS.Tests.Jfp2
             Assert.True(Envelope.TryReadFrom(datagram, out _, out int header, out _));
             HandshakeMessage hello = HandshakeMessage.Deserialize(datagram.AsSpan(header));
             Assert.Equal(Jfp2Capabilities.Segments, hello.Capabilities);
-            Assert.Equal(Jfp2Profile.Default.Offers.Count, hello.Offers.Count);
+            Assert.Equal(30, hello.Offers.Count);
+            Assert.Equal(Edition2Profile.Offers.Count, hello.Offers.Count);
             Assert.Equal(2, hello.Names.Count);
             Assert.Equal(Candidates, hello.Candidates);
             Assert.Empty(hello.Extensions);

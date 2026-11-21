@@ -90,7 +90,9 @@ namespace JoinFS.Net.Jfp2
             ClassDescriptor.Plain(MessageClasses.RemoveObject, guaranteed: true, new RemoveObjectV1Codec()),
             ClassDescriptor.Plain(MessageClasses.PeerInfo, guaranteed: false, new PeerInfoV1Codec()),
             ClassDescriptor.Plain(MessageClasses.CommsRequest, guaranteed: true, new CommsRequestV1Codec()),
-            ClassDescriptor.Large(MessageClasses.NotesHistory, new NotesHistoryV1Codec()))
+            ClassDescriptor.Large(MessageClasses.NotesHistory, new NotesHistoryV1Codec()),
+            ClassDescriptor.Plain(MessageClasses.AtcStation, guaranteed: false, new AtcStationV1Codec()),
+            ClassDescriptor.Plain(MessageClasses.AtcRelay, guaranteed: true, new AtcRelayV1Codec()))
             .WithInternalOffers(MembershipClasses)
             .WithCapabilities(Jfp2Capabilities.Segments);
 

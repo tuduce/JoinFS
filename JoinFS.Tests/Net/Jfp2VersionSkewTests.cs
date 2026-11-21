@@ -182,6 +182,126 @@ namespace JoinFS.Tests.Net
             Assert.Equal(1, Jfp2Of(b).VersionFor(hub.Id, MessageKind.Notes));
         }
 
+        // ------------------------------------------------ the ATC classes (stage 6 of atc-fsd)
+
+        /// <summary>An older build: one that has neither ATC class (23, 24).</summary>
+        static readonly Jfp2Profile NoAtc = Jfp2Profile.Default.Without(MessageClasses.AtcStation).Without(MessageClasses.AtcRelay);
+
+        static AtcStation Station() => new() { Slot = 0, Online = true, Facility = 4, Frequency = 118_700, Callsign = "EDDM_TWR", Name = "Carla" };
+
+        /// <summary>Application datagrams of a class one node sent another.</summary>
+        static int Sent(TestMesh mesh, TestNode from, TestNode to, byte messageClass) =>
+            mesh.Network.Log.Count(d => d.From.Equals(from.EndPoint) && d.To.Equals(to.EndPoint) && d.Data[0] == Envelope.Magic
+                && (d.Data[2] & (byte)EnvelopeFlags.Internal) == 0 && d.Data[7] == messageClass);
+
+        /// <summary>
+        /// A build with the ATC classes, one without them and one that speaks legacy only, in one session: the classes go
+        /// to the first and to nobody else, legacy never carries them, and everything else still flows.
+        /// </summary>
+        [Fact]
+        public void AtcClasses_GoOnlyToABuildThatHasThem_AndNothingElseBreaks()
+        {
+            var mesh = new TestMesh();
+            TestNode hub = Node(mesh, "203.0.113.1", Jfp2Profile.Default);
+            TestNode newer = Node(mesh, "198.51.100.2", Jfp2Profile.Default);
+            TestNode older = Node(mesh, "192.0.2.3", NoAtc);
+            TestNode legacyOnly = mesh.Add("192.0.2.4", 6112, new LegacyPlugin());
+            hub.Core.Mesh.Create(false, 0, false, "");
+            foreach (TestNode node in new[] { newer, older, legacyOnly }) node.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(25);
+
+            Assert.Equal("JFP2", hub.Core.Route(newer.Id, MessageKind.AtcStation)!.Name);
+            Assert.Equal("JFP2", hub.Core.Route(newer.Id, MessageKind.AtcRelay)!.Name);
+            Assert.Equal("JFP2", newer.Core.Route(hub.Id, MessageKind.AtcRelay)!.Name);
+            foreach (TestNode node in new[] { older, legacyOnly })
+            {
+                Assert.Null(hub.Core.Route(node.Id, MessageKind.AtcStation));
+                Assert.Null(hub.Core.Route(node.Id, MessageKind.AtcRelay));
+            }
+            Assert.Null(older.Core.Route(hub.Id, MessageKind.AtcRelay));
+            Assert.Equal(0, Jfp2Of(hub).VersionFor(older.Id, MessageKind.AtcStation));
+            Assert.Equal(1, Jfp2Of(hub).VersionFor(newer.Id, MessageKind.AtcStation));
+            Assert.Equal("JFP2", hub.Core.Route(older.Id, MessageKind.Position)!.Name); // the rest of the older build's link is as before
+
+            mesh.Network.Log.Clear();
+            hub.Core.Broadcast(Station(), false);
+            hub.Core.SendTo(older.Id, new AtcRelay { Line = "#TMEDDM_TWR:EDDM_APP:hi" }, true);
+            hub.Core.SendTo(legacyOnly.Id, new AtcRelay { Line = "#TMEDDM_TWR:EDDM_APP:hi" }, true);
+            hub.Core.SendTo(newer.Id, new AtcRelay { Line = "#TMEDDM_TWR:EDDM_APP:hi" }, true);
+            SendPosition(hub, older, 1, 10);
+            SendPosition(hub, legacyOnly, 1, 11);
+            hub.Core.SendTo(older.Id, Note("still works"), true);
+            mesh.Run(2);
+
+            Assert.Equal("Carla", Assert.Single(newer.Messages<AtcStation>()).Name);
+            Assert.Equal("#TMEDDM_TWR:EDDM_APP:hi", Assert.Single(newer.Messages<AtcRelay>()).Line);
+            Assert.Empty(older.Messages<AtcStation>());
+            Assert.Empty(older.Messages<AtcRelay>());
+            Assert.Empty(legacyOnly.Messages<AtcStation>());
+            Assert.Empty(legacyOnly.Messages<AtcRelay>());
+            Assert.Equal(0, Sent(mesh, hub, older, MessageClasses.AtcStation) + Sent(mesh, hub, older, MessageClasses.AtcRelay));
+            Assert.Equal(0, Jfp2Of(hub).GuaranteedPendingCount); // nothing waits for an acknowledgement that cannot come
+            Assert.Equal(10, Assert.Single(older.Messages<PositionUpdate>()).Latitude);
+            Assert.Equal(11, Assert.Single(legacyOnly.Messages<PositionUpdate>()).Latitude);
+            Assert.Equal("still works", Assert.Single(older.Messages<NotesBundle>()).Users[0].Notes[0].Text);
+        }
+
+        /// <summary>
+        /// Two builds with the classes that reach each other through a hub that lacks them: the hop does not agree them, so
+        /// the senders do not send, and the traffic that is agreed (Event) passes through the same hub.
+        /// </summary>
+        [Fact]
+        public void AtcClasses_ThroughARelayThatLacksThem_AreNotSent_AndOtherTrafficPasses()
+        {
+            var mesh = new TestMesh();
+            TestNode hub = Node(mesh, "203.0.113.1", NoAtc);
+            TestNode a = Node(mesh, "198.51.100.2", Jfp2Profile.Default);
+            TestNode b = Node(mesh, "192.0.2.3", Jfp2Profile.Default);
+            mesh.Partition(a, b); // they can only reach each other through the hub
+            hub.Core.Mesh.Create(false, 0, false, "");
+            a.Core.Mesh.Join(hub.EndPoint, 0);
+            b.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(25);
+            Assert.Equal(hub.Id, Jfp2Of(a).NextHopNode(b.Id));
+
+            mesh.Network.Log.Clear();
+            a.Core.SendTo(b.Id, Station(), false);
+            a.Core.SendTo(b.Id, new AtcRelay { Line = "$HOEDDM_TWR:EDDM_APP:DLH4TK" }, true);
+            a.Core.SendTo(b.Id, new EventUpdate { ObjectId = 1, EventId = 5 }, true);
+            mesh.Run(2);
+
+            Assert.Equal(0, Sent(mesh, a, hub, MessageClasses.AtcStation) + Sent(mesh, a, hub, MessageClasses.AtcRelay));
+            Assert.Empty(b.Messages<AtcStation>());
+            Assert.Empty(b.Messages<AtcRelay>());
+            Assert.Equal(5u, Assert.Single(b.Messages<EventUpdate>()).EventId);
+            Assert.Equal(0, Jfp2Of(a).GuaranteedPendingCount);
+        }
+
+        /// <summary>The classes cross a relay that has them: they arrive from their origin, and the guaranteed line is acknowledged.</summary>
+        [Fact]
+        public void AtcClasses_ThroughARelayThatHasThem_ArriveFromTheirOrigin()
+        {
+            var mesh = new TestMesh();
+            TestNode hub = Node(mesh, "203.0.113.1", Jfp2Profile.Default);
+            TestNode a = Node(mesh, "198.51.100.2", Jfp2Profile.Default);
+            TestNode b = Node(mesh, "192.0.2.3", Jfp2Profile.Default);
+            mesh.Partition(a, b);
+            hub.Core.Mesh.Create(false, 0, false, "");
+            a.Core.Mesh.Join(hub.EndPoint, 0);
+            b.Core.Mesh.Join(hub.EndPoint, 0);
+            mesh.Run(25);
+
+            a.Core.SendTo(b.Id, Station(), false);
+            a.Core.SendTo(b.Id, new AtcRelay { Line = "$HOEDDM_TWR:EDDM_APP:DLH4TK" }, true);
+            mesh.Run(2);
+
+            var (stationMeta, station) = Assert.Single(b.MessagesWithMeta<AtcStation>());
+            Assert.Equal(("EDDM_TWR", a.Id, true), (station.Callsign, stationMeta.Sender, stationMeta.Forwarded));
+            var (relayMeta, relay) = Assert.Single(b.MessagesWithMeta<AtcRelay>());
+            Assert.Equal(("$HOEDDM_TWR:EDDM_APP:DLH4TK", a.Id, true), (relay.Line, relayMeta.Sender, relayMeta.Forwarded));
+            Assert.Equal(0, Jfp2Of(a).GuaranteedPendingCount);
+        }
+
         // ------------------------------------------------ guaranteed ids through a translating relay (spec §4.4)
 
         /// <summary>

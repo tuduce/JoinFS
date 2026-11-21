@@ -45,6 +45,10 @@ namespace JoinFS.Net
         CommsRequest,
         Notes,
 
+        // ---- ATC clients (docs/ATC/atc-fsd-plan.md §4.5); JFP2 only
+        AtcStation,
+        AtcRelay,
+
         // ---- mesh (membership, liveness, routing) - handled by the core's MeshManager
         Join,
         JoinReply,
