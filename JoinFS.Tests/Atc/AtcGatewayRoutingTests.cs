@@ -149,7 +149,6 @@ namespace JoinFS.Tests.Atc
 
         [Theory]
         [InlineData("$FPEDDM_TWR:*A:I:A320:450:EDDM:0:0:FL350:EDDF:1:0:2:0:EDDS::")]
-        [InlineData("$AMEDDM_TWR:SERVER:DLH4TK:I:A320")]
         [InlineData("#SBEDDM_TWR:EDDM_APP:PIR:x")]
         [InlineData("$!!EDDM_TWR:EDDM_APP:hello")]
         [InlineData("$ZREDDM_TWR:SERVER:abc")]

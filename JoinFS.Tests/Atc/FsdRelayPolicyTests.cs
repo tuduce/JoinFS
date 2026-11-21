@@ -14,6 +14,7 @@ namespace JoinFS.Tests.Fsd
         [InlineData("#TMSAN_GND:@49999:Yo SAN_TWR")]
         [InlineData("$PIN172SP:N7938C:1736029820")]
         [InlineData("$PON7938C:N172SP:1736029820")]
+        [InlineData("$AMA:B:C:I:C172:100:EDDM:::3500:EDNX:0:25:0:0::X:Y")]
         public void RelayedLines(string text)
         {
             Assert.Equal(FsdRelayRefusal.None, FsdRelayPolicy.Check(text));
@@ -25,14 +26,12 @@ namespace JoinFS.Tests.Fsd
         [InlineData("%EDDM_TWR:28550:4:50:3:48.35:11.78:0")]
         [InlineData("@N:DLH4TK:2000:1:48.1:11.7:1500:120:0:0")]
         [InlineData("$FPA:B:I:C172:100:EDDM:::3500:EDNX:0:25:0:0::X:Y")]
-        [InlineData("$AMA:B:C:I:C172:100:EDDM:::3500:EDNX:0:25:0:0::X:Y")]
         [InlineData("$!!ABC_SUP:N505GS:Refusing")]
         [InlineData("$ZCN7938C:SERVER:0123456789abcdef")]
         [InlineData("$ZRSERVER:N7938C:4d87482917dc9c2395bd2df151835734")]
         [InlineData("#SBN7938C:DAL625:PIR")]
         public void LinesThatAreNotRelayed(string text)
         {
-            // $AM joins the list in stage 11
             Assert.Equal(FsdRelayRefusal.VerbNotRelayed, FsdRelayPolicy.Check(text));
         }
 

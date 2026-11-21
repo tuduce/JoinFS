@@ -164,6 +164,9 @@ namespace JoinFS
                     LogOff(client, "#DA");
                     client.Connection.Close();
                     break;
+                case FsdVerb.FlightPlanAmendment:
+                    Amend(client, line);
+                    break;
                 default:
                     if (line.To == Server)
                     {
@@ -449,7 +452,7 @@ namespace JoinFS
                 case "FP":
                     string aircraft = query.Payload.Length > 0 ? query.Payload[0] : "";
                     if (feed != null && feed.TryFind(aircraft, out AtcAircraft found))
-                        Send(client, AtcTrafficFeed.FlightPlanFor(aircraft, asker, found));
+                        Send(client, feed.FlightPlanFor(aircraft, asker, found));
                     else
                         Send(client, FsdError.Create(asker, FsdErrorCode.NoFlightPlan, aircraft, "No flight plan").ToLine());
                     break;
@@ -502,13 +505,38 @@ namespace JoinFS
 
             Send(client, query.Type == "RN"
                 ? AtcTrafficFeed.RealNameFor(query.To, query.From, aircraft)
-                : AtcTrafficFeed.FlightPlanFor(query.To, query.From, aircraft));
+                : feed.FlightPlanFor(query.To, query.From, aircraft));
+        }
+
+        /// <summary>The fields up to the alternate airport must be there: a cut-off line would blank the rest of the plan.</summary>
+        const int AmendmentMinFields = 16;
+
+        static bool TryParseAmendment(FsdLine line, out FsdFlightPlan amendment)
+        {
+            amendment = null;
+            return line.Fields.Count >= AmendmentMinFields && FsdFlightPlan.TryParse(line, out amendment);
+        }
+
+        /// <summary>
+        /// A controller's <c>$AM</c> (stage 11): kept here, and sent to every station node addressed to all controllers as the
+        /// protocol broadcasts it (EuroScope sends it to <c>SERVER</c>), from this client's own callsign, which is what the
+        /// receivers check (§4.4). A line that does not parse is ignored. The pilot's own plan is never changed.
+        /// </summary>
+        void Amend(Client client, FsdLine line)
+        {
+            AtcStationInfo own = StationOf(client);
+            if (own == null || !TryParseAmendment(line, out FsdFlightPlan amendment)) return;
+            amendment.From = own.Callsign;
+            amendment.To = FsdRelayPolicy.AllControllers;
+            feed?.Amend(amendment);
+            mesh?.RelayToAll(amendment.ToLine().ToString());
         }
 
         /// <summary>A line another node's client sent to a station of this node (already checked by <see cref="AtcSession"/>, §4.4). Written to the client, never interpreted.</summary>
         void OnLineReceived(string text)
         {
             if (main == null || !FsdLine.TryParse(text, out FsdLine line)) return;
+            if (line.Verb == FsdVerb.FlightPlanAmendment && TryParseAmendment(line, out FsdFlightPlan amendment)) feed?.Amend(amendment);
             if (atis != null && line.To == AtisStation.Callsign) atis.Connection.Send(text);
             else if (FsdRelayPolicy.Classify(line.To) == FsdAddressKind.Group || line.To == Station.Callsign) main.Connection.Send(text);
         }

@@ -144,6 +144,18 @@ namespace JoinFS.Tests.Session
         }
 
         [Fact]
+        public void AFlightPlanAmendmentFromTheOriginsStation_IsDelivered()
+        {
+            Station(Ben, "EDDM_APP");
+            rig.Stations.SetLocalStation(0, Local());
+
+            Receive(Ben, "$AMEDDM_APP:@94835:DLH4TK:I:A320:450:EDDM:::FL360:EDDF:1:0:2:0:EDDS::DIRECT");
+
+            Assert.Equal(["$AMEDDM_APP:@94835:DLH4TK:I:A320:450:EDDM:::FL360:EDDF:1:0:2:0:EDDS::DIRECT"], received);
+            Assert.Equal(0, rig.Stations.Dropped(AtcRelayDrop.VerbNotRelayed));
+        }
+
+        [Fact]
         public void ALineWhoseVerbIsNotInTheList_IsDropped()
         {
             Station(Ben, "EDDM_APP");

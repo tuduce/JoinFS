@@ -143,8 +143,8 @@ The gateway looks at the verb and the `To` field.
 | an aircraft's callsign | `$CQ` RN and FP are answered here from the mesh data. Anything else is dropped. |
 | anything else | `$ER` "no such callsign". |
 
-Only these verbs are ever relayed: `$CQ`, `$CR`, `#PC`, `$HO`, `$HA`, `#TM`, `$PI`, `$PO`, and from
-stage 11 `$AM`. `#AA`, `#DA` and `%` are never relayed: they become `AtcStation`. `$!!`, `$ZC`,
+Only these verbs are ever relayed: `$CQ`, `$CR`, `#PC`, `$HO`, `$HA`, `#TM`, `$PI`, `$PO`, and (stage 11)
+`$AM`, which is handled as §4.7c says, whatever its `To`. `#AA`, `#DA` and `%` are never relayed: they become `AtcStation`. `$!!`, `$ZC`,
 `$ZR` and `#PC` landline types are dropped.
 
 ### 4.4 A line arriving from the mesh
@@ -314,6 +314,24 @@ is an immutable record of what a node announced; an equal record raises nothing,
 - **Counters** (`RelayedOut`, `RelayedIn`, `Dropped(AtcRelayDrop)`): `TooLong`, `ControlCharacter`, `VerbNotRelayed`, `Landline`, `Malformed`,
   `UnknownSender`, `NoLocalStation`, `NotAMember`. Every 60 s, when they changed, one line goes to the network monitor
   (`ATC lines: sent 8, received 3, dropped UnknownSender 1`).
+
+### 4.7c Flight plan amendments (stage 11)
+
+- **Sending.** A `$AM` from a logged-in client (EuroScope addresses it to `SERVER`; any `To` is treated the same) is parsed
+  (`FsdFlightPlan`; a line with fewer than 16 fields, or with a number that is not one, is ignored, so a cut-off line cannot blank a
+  plan). The gateway keeps it and sends it with `RelayToAll`, rebuilt as `$AM<own callsign>:@94835:<aircraft>:...`: the protocol
+  broadcasts an amendment to `@94835`, and the receiving node only delivers group addresses and its own callsign (§4.4). The sender gets
+  no echo. `AtcSession` needed no change: the verb joined `FsdRelayPolicy.IsRelayedVerb`, so §4.4's checks (sender is a station the
+  origin announced, a station is online here) apply as for any relayed line.
+- **Receiving.** The line is kept and then written to the client unchanged, like any relayed line.
+- **Keeping** (`AtcTrafficFeed.Amend`): the last amendment per aircraft, found by the amendment's callsign (the assigned FSD callsign, the
+  same on every node), keyed by (owner, object id), with the text of the pilot's plan it was made against. An amendment for an aircraft this
+  node does not know is delivered and not kept. **Using:** `$CQ ..:SERVER:FP:<aircraft>` and `$CQ <aircraft>:FP` answer with the amended
+  plan as a `$FP` from the aircraft (`AtcTrafficFeed.FlightPlanFor`, now an instance method).
+- **Forgetting:** when the pilot's own plan text changes (checked when it is asked for and in the feed's tick, which then sends the pilot's new
+  plan as a `$FP` as before), when the aircraft is deleted (gone 5 s, or its callsign changed), and when the client logs off or a new one logs
+  in (`Reset`). The pilot's own plan is never written to.
+- **Limit (D9):** a controller who logs in later gets the pilot's plan, not the amendment; an amendment is not replayed.
 
 ### 4.8 Settings and switches
 
@@ -671,7 +689,7 @@ hold.
 | 8 Controller to controller | done, 2026-11-21 | Built as the row says; details in §4.7b. **The row's Check is the owner's evening test with two EuroScope instances** (track, drop, temporary altitude, scratchpad, assigned squawk, handoff accepted and refused, ATC chat, private chat; then the late joiner of R3: Carla tracks two aircraft, Ben connects afterwards and must see them as tracked by Carla; if he does not, stop and report, nothing in JoinFS holds track state). Deviations: (1) `IAtcMesh` got `Relay`, `RelayToAll` and `LineReceived` here (stage 7 left the relay send out); (2) the unknown row (`$ER` 007) replaces the earlier "dropped" for a ping to a callsign that is neither station nor aircraft and for `$CQ` to an unknown aircraft: two stage 2 and 4 tests were changed on purpose; (3) `@94836` (pilots) is ignored, no `$ER`; a verb that is not relayed is ignored in the gateway without a count; the counters (§4.7b) cover what `AtcSession` refuses or receives; (4) "counters in the monitor" is one line to the network monitor every 60 s when they changed, plus a line per dropped line (an over-long one on the event line, R6), not a monitor panel; (5) the gateway does not check `From` of the client's lines, the receiving node does (§4.4); (6) not tested: `Network.Handle(AtcRelay)` (needs `Main`); the `TestMesh` scenarios call the session part the way `Network` does; (7) the row "the other connection of this instance" of §4.3 stays for stage 10. (8) the XPLANE build failed once with a locked `obj` DLL (Avalonia step, as in stage 7) and passed on the repeat; all six configurations build. Nothing deferred to another row except (7). |
 | 9 Transponder | done, 2026-11-21 | Built as the row says; details in §4.7 ("Transponder mode and ident"). **The row's Check is the owner's evening test** (Pia in MSFS presses IDENT: the tag flashes at Carla's within two seconds; standby shows as standby; Olaf's aircraft shows as mode C). Deviations: (1) the mode letter follows FSD's three letters (`Y` ident, `N` mode C, `S` mode A) and not the row's "standby or off `S`, otherwise `N`": mode A ("on", no altitude) is `S`, so `N` means a mode C aircraft; test counts as standby; (2) **X-Plane is included** (R7 is closed): the datarefs were verified by the owner from the DataRefs reference (`transponder_mode` enum, `transponder_id` bool, read only). The state enums of MSFS and X-Plane differ from 2 up, so X-Plane has its own dataref-only variable and `SimViewTraffic` normalises both to `AtcTransponder` (§4.7); the plugin and `DATA_VERSION` are untouched; (3) **FSX and P3D are left out**: the `#if !FSX && !P3D` is because neither SDK has `TRANSPONDER STATE` or `TRANSPONDER IDENT` (both Simulation Variables references read in full); an FSX or P3D build drops the variables it receives, so its ATC client shows every aircraft as mode C, as before; (4) `VariableMgr.Set.TryGetInteger` added, to tell a value never received from 0; (5) not tested: the wiring in `Main.StartAtcFsd` (needs `Main`), that MSFS and X-Plane accept the lines (`VariableMgr` needs `Main`) and that the X-Plane link delivers the dataref-only variables: all the evening check, X-Plane when a tester has it; all six configurations build. Nothing deferred to another row. |
 | 10 ATIS | done, 2026-11-21 | Built as the row says; details in §4.2 ("The ATIS connection"). **The row's Check is the owner's evening test with two EuroScope instances** (Ben's ATIS appears at Carla's with letter and text, and goes when Ben disconnects). Deviations: (1) an `_ATIS` login while **no** main station is online is not refused: the first login is always the main station (D5), so it becomes the main (a controller who runs only an ATIS works); the row's "no main station" refusal case is therefore the main-station case; (2) `AtcSession` needed nothing: slot 1 was already carried, expired and relayed, and the stage 7 and 8 tests cover its end; (3) added: the keep-alive goes to the ATIS connection too (not asked, harmless), and `$CQ SERVER ATC` is answered Y for the ATIS callsign; (4) open for the evening check: whether EuroScope sends its ATIS connection as a second TCP connection with `#AA` of the `_ATIS` callsign to the same server (as the row assumes, from the FSD protocol), and what it sends in `%` (facility, frequency); (5) not tested: `Main` wiring (nothing changed there); all six configurations build (FS2020 and FSX failed once on the locked `obj` DLL, as before, and passed on the repeat). Nothing deferred to another row. |
-| 11 Amendments | open | |
+| 11 Amendments | done, 2026-11-21 | Built as the row says; details in §4.7c. **The row's Check is the owner's evening test with two EuroScope instances** (Carla amends `DLH4TK`'s cruise level, Ben sees the amended plan, Pia's Flight Plan tab is unchanged; also open: whether EuroScope sends `$AM` to `SERVER` as the protocol says and shows an amendment received as `$AM` to `@94835`). Deviations: (1) the relayed line is rebuilt with `To` = `@94835` and `From` = the client's own callsign (the row said "goes to every station node" and a line to `SERVER` would not be delivered by the receiver, §4.4); (2) a `$AM` with fewer than 16 fields or a bad number is ignored, not relayed (a cut-off line would blank the plan); (3) forgetting also happens when the client logs off or a new one logs in; (4) `AtcTrafficFeed.FlightPlanFor` is no longer static; (5) `AtcSession` needed no change beyond the policy's verb list; (6) not tested: `Main` wiring (nothing changed there), and that EuroScope accepts the line (evening check); all six configurations build (FS2024 failed twice on the locked `obj` DLL and passed after `dotnet build-server shutdown`). Nothing deferred to another row. |
 | 12 Removal | open | |
 
 Rules for a session (the same as for every staged work in this repository):

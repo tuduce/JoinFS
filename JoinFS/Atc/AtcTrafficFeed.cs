@@ -35,8 +35,16 @@ namespace JoinFS
             public long LastIdentMs = long.MinValue;
         }
 
+        /// <summary>A controller's amendment, and the pilot's plan text it was made against (it is dropped when that changes).</summary>
+        sealed class Amendment
+        {
+            public FsdFlightPlan Plan;
+            public string Base;
+        }
+
         readonly IAtcTraffic traffic;
         readonly Dictionary<(ulong, ulong), Entry> known = new Dictionary<(ulong, ulong), Entry>();
+        readonly Dictionary<(ulong, ulong), Amendment> amended = new Dictionary<(ulong, ulong), Amendment>();
         long nextMs = long.MinValue;
 
         public AtcTrafficFeed(IAtcTraffic traffic)
@@ -48,6 +56,7 @@ namespace JoinFS
         public void Reset()
         {
             known.Clear();
+            amended.Clear();
             nextMs = long.MinValue;
         }
 
@@ -70,6 +79,7 @@ namespace JoinFS
                 {
                     send(FsdDelete.Pilot(entry.Callsign).ToLine());
                     known.Remove(key);
+                    amended.Remove(key);
                 }
             }
             List<(ulong, ulong)> gone = null;
@@ -84,6 +94,7 @@ namespace JoinFS
                 {
                     send(FsdDelete.Pilot(known[key].Callsign).ToLine());
                     known.Remove(key);
+                    amended.Remove(key);
                 }
             }
 
@@ -112,6 +123,7 @@ namespace JoinFS
                 else if (entry.Plan != planText)
                 {
                     entry.Plan = planText;
+                    amended.Remove(key); // the pilot's own plan changed: the amendment no longer holds
                     send(plan);
                 }
                 entry.LastSeenMs = nowMs;
@@ -135,9 +147,48 @@ namespace JoinFS
             return false;
         }
 
-        /// <summary>The <c>$FP</c> of an aircraft found by <see cref="TryFind"/>, from the aircraft to the asker.</summary>
-        public static FsdLine FlightPlanFor(string callsign, string asker, AtcAircraft aircraft) =>
-            AtcFlightPlans.ToFsd(callsign, asker, aircraft.Plan).ToLine();
+        /// <summary>
+        /// The <c>$FP</c> of an aircraft found by <see cref="TryFind"/>, from the aircraft to the asker: the last amendment
+        /// of a controller when there is one that still holds, else the pilot's own plan (stage 11).
+        /// </summary>
+        public FsdLine FlightPlanFor(string callsign, string asker, AtcAircraft aircraft)
+        {
+            var key = (aircraft.Owner, aircraft.ObjectId);
+            if (amended.TryGetValue(key, out Amendment amendment))
+            {
+                if (amendment.Base == PlanText(callsign, aircraft))
+                {
+                    FsdFlightPlan plan = amendment.Plan;
+                    return new FsdFlightPlan
+                    {
+                        From = callsign, To = asker, Rules = plan.Rules, Equipment = plan.Equipment,
+                        TrueAirspeedKnots = plan.TrueAirspeedKnots, Departure = plan.Departure,
+                        EstimatedDepartureTime = plan.EstimatedDepartureTime, ActualDepartureTime = plan.ActualDepartureTime,
+                        CruiseAltitude = plan.CruiseAltitude, Destination = plan.Destination,
+                        HoursEnroute = plan.HoursEnroute, MinutesEnroute = plan.MinutesEnroute,
+                        HoursFuel = plan.HoursFuel, MinutesFuel = plan.MinutesFuel,
+                        Alternate = plan.Alternate, Remarks = plan.Remarks, Route = plan.Route,
+                    }.ToLine();
+                }
+                amended.Remove(key); // the pilot's own plan changed since
+            }
+            return AtcFlightPlans.ToFsd(callsign, asker, aircraft.Plan).ToLine();
+        }
+
+        /// <summary>
+        /// Keep a controller's amendment for the aircraft it names (by its FSD callsign), replacing the earlier one. It holds
+        /// until the pilot's own flight plan changes or the aircraft leaves. False when no aircraft of this node's view has that callsign.
+        /// </summary>
+        public bool Amend(FsdFlightPlan amendment)
+        {
+            if (!TryFind(amendment.Aircraft, out AtcAircraft aircraft)) return false;
+            amended[(aircraft.Owner, aircraft.ObjectId)] = new Amendment { Plan = amendment, Base = PlanText(amendment.Aircraft, aircraft) };
+            return true;
+        }
+
+        /// <summary>The pilot's plan as the feed compares it: the <c>$FP</c> text addressed to the controllers.</summary>
+        static string PlanText(string callsign, AtcAircraft aircraft) =>
+            AtcFlightPlans.ToFsd(callsign, AllControllers, aircraft.Plan).ToLine().ToString();
 
         /// <summary>The answer to <c>$CQ ..:RN</c>: the owner's nickname, no sector file, the pilot rating.</summary>
         public static FsdLine RealNameFor(string callsign, string asker, AtcAircraft aircraft)

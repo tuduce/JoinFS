@@ -46,11 +46,12 @@ namespace JoinFS.Fsd
         /// <summary>The ATC chat channel.</summary>
         public const string AtcChat = "@49999";
 
-        /// <summary>Is the verb one the mesh relays between controllers: <c>$CQ $CR #PC $HO $HA #TM $PI $PO</c>.</summary>
+        /// <summary>Is the verb one the mesh relays between controllers: <c>$CQ $CR #PC $HO $HA #TM $PI $PO $AM</c>.</summary>
         public static bool IsRelayedVerb(string verb)
         {
             switch (verb)
             {
+                case FsdVerb.FlightPlanAmendment:
                 case FsdVerb.ClientQuery:
                 case FsdVerb.ClientResponse:
                 case FsdVerb.ProController:
