@@ -27,7 +27,7 @@ namespace JoinFS.Tests.Atc
 
         static AtcAircraft Aircraft(ulong owner, ulong id, string callsign, double latitude = 48.1, double longitude = 11.5,
             int squawk = 1200, AtcFlightPlanData? plan = null, string nickname = "Pia",
-            int state = AtcAircraft.StateUnknown, bool ident = false) =>
+            AtcTransponder state = AtcTransponder.Unknown, bool ident = false) =>
             new(owner, id, callsign, nickname, squawk, latitude, longitude, 1500.4, 120.4, 0, 0, 90, plan ?? Plan, state, ident);
 
         FakeFsdConnection LogIn()
@@ -81,14 +81,11 @@ namespace JoinFS.Tests.Atc
         // stage 9: the mode letter of '@' comes from the transponder state and ident
 
         [Theory]
-        [InlineData(AtcAircraft.StateUnknown, 'N')] // a node that sends no state (Olaf): mode C
-        [InlineData(0, 'S')]                         // off
-        [InlineData(1, 'S')]                         // standby
-        [InlineData(2, 'N')]                         // test
-        [InlineData(3, 'N')]                         // on
-        [InlineData(4, 'N')]                         // alt
-        [InlineData(5, 'N')]                         // ground
-        public void TheModeLetter_FollowsTheTransponderState(int state, char mode)
+        [InlineData(AtcTransponder.Unknown, 'N')] // a node that sends no state (Olaf): mode C, as before stage 9
+        [InlineData(AtcTransponder.Standby, 'S')] // off, standby or test
+        [InlineData(AtcTransponder.ModeA, 'S')]   // on: the code but no altitude, FSD's "Mode A = S"
+        [InlineData(AtcTransponder.ModeC, 'N')]   // alt: the altitude is shown
+        public void TheModeLetter_FollowsTheTransponderMode(AtcTransponder state, char mode)
         {
             FakeFsdConnection connection = LogIn();
             traffic.List.Add(Aircraft(1, 1, "DLH123", state: state));
@@ -98,16 +95,51 @@ namespace JoinFS.Tests.Atc
             Assert.StartsWith($"@{mode}:DLH123:", Positions(connection).Single());
         }
 
+        // each simulator numbers its states differently; SimViewTraffic turns them into one mode
+
+        [Theory]
+        [InlineData(0, AtcTransponder.Standby)]  // off
+        [InlineData(1, AtcTransponder.Standby)]  // standby
+        [InlineData(2, AtcTransponder.Standby)]  // test
+        [InlineData(3, AtcTransponder.ModeA)]    // on
+        [InlineData(4, AtcTransponder.ModeC)]    // alt
+        [InlineData(5, AtcTransponder.ModeC)]    // ground
+        [InlineData(6, AtcTransponder.Unknown)]
+        [InlineData(-1, AtcTransponder.Unknown)]
+        public void TheMsfsStates_AreMapped(int state, AtcTransponder expected) =>
+            Assert.Equal(expected, SimViewTraffic.FromMsfs(state));
+
+        [Theory]
+        [InlineData(0, AtcTransponder.Standby)]  // off
+        [InlineData(1, AtcTransponder.Standby)]  // standby
+        [InlineData(2, AtcTransponder.ModeA)]    // on
+        [InlineData(3, AtcTransponder.ModeC)]    // alt
+        [InlineData(4, AtcTransponder.Standby)]  // test
+        [InlineData(5, AtcTransponder.ModeC)]    // GND (mode S)
+        [InlineData(6, AtcTransponder.ModeC)]    // ta only
+        [InlineData(7, AtcTransponder.ModeC)]    // ta/ra
+        [InlineData(8, AtcTransponder.Unknown)]
+        [InlineData(-1, AtcTransponder.Unknown)]
+        public void TheXPlaneStates_AreMapped(int state, AtcTransponder expected) =>
+            Assert.Equal(expected, SimViewTraffic.FromXPlane(state));
+
+        [Fact]
+        public void TheSameNumberMeansADifferentModeInEachSimulator()
+        {
+            // 3 is "on" (mode A) in MSFS and "alt" (mode C) in X-Plane
+            Assert.NotEqual(SimViewTraffic.FromMsfs(3), SimViewTraffic.FromXPlane(3));
+        }
+
         [Fact]
         public void Ident_IsShown_AndHeldForFiveSecondsAfterItWasLastSeen()
         {
             FakeFsdConnection connection = LogIn();
-            traffic.List.Add(Aircraft(1, 1, "DLH123", state: 4, ident: true));
+            traffic.List.Add(Aircraft(1, 1, "DLH123", state: AtcTransponder.ModeC, ident: true));
             Tick(connection);
             Assert.StartsWith("@Y:", Positions(connection).Single());
 
             // the simulator's ident is over, but the last sighting is held
-            traffic.List[0] = Aircraft(1, 1, "DLH123", state: 4);
+            traffic.List[0] = Aircraft(1, 1, "DLH123", state: AtcTransponder.ModeC);
             for (int i = 0; i < 4; i++)
             {
                 connection.Clear();
@@ -124,13 +156,13 @@ namespace JoinFS.Tests.Atc
         public void IdentSeenAgain_RestartsTheHold()
         {
             FakeFsdConnection connection = LogIn();
-            traffic.List.Add(Aircraft(1, 1, "DLH123", state: 4, ident: true));
+            traffic.List.Add(Aircraft(1, 1, "DLH123", state: AtcTransponder.ModeC, ident: true));
             Tick(connection);
-            traffic.List[0] = Aircraft(1, 1, "DLH123", state: 4);
+            traffic.List[0] = Aircraft(1, 1, "DLH123", state: AtcTransponder.ModeC);
             Tick(connection, 3000);
-            traffic.List[0] = Aircraft(1, 1, "DLH123", state: 4, ident: true);
+            traffic.List[0] = Aircraft(1, 1, "DLH123", state: AtcTransponder.ModeC, ident: true);
             Tick(connection, 1000);
-            traffic.List[0] = Aircraft(1, 1, "DLH123", state: 4);
+            traffic.List[0] = Aircraft(1, 1, "DLH123", state: AtcTransponder.ModeC);
 
             connection.Clear();
             Tick(connection, 4000);
@@ -142,8 +174,8 @@ namespace JoinFS.Tests.Atc
         public void Ident_WinsOverStandby_AndOnlyTheIdentAircraftIsMarked()
         {
             FakeFsdConnection connection = LogIn();
-            traffic.List.Add(Aircraft(1, 1, "DLH123", state: 1, ident: true));
-            traffic.List.Add(Aircraft(2, 1, "BAW456", state: 4));
+            traffic.List.Add(Aircraft(1, 1, "DLH123", state: AtcTransponder.Standby, ident: true));
+            traffic.List.Add(Aircraft(2, 1, "BAW456", state: AtcTransponder.ModeC));
 
             Tick(connection);
 

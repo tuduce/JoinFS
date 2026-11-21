@@ -24,17 +24,28 @@ namespace JoinFS
     /// <param name="Squawk">The transponder code as four decimal digits (1200 is the code 1200).</param>
     /// <param name="PitchDegrees">Nose up positive.</param>
     /// <param name="BankDegrees">Right wing down positive.</param>
-    /// <param name="TransponderState">The simulator's <c>TRANSPONDER STATE:1</c> (0 off, 1 standby, 2 test, 3 on, 4 alt, 5 ground),
-    /// or <see cref="AtcAircraft.StateUnknown"/> when the aircraft's node does not send it (§4.7, stage 9).</param>
-    /// <param name="Ident">The simulator's <c>TRANSPONDER IDENT:1</c>: the pilot pressed IDENT.</param>
+    /// <param name="Transponder">The transponder mode, the same whatever simulator the aircraft flies in (§4.7, stage 9).</param>
+    /// <param name="Ident">The pilot pressed IDENT.</param>
     public sealed record AtcAircraft(
         ulong Owner, ulong ObjectId, string FlightPlanCallsign, string Nickname, int Squawk,
         double Latitude, double Longitude, double AltitudeFeet, double GroundSpeedKnots,
         double PitchDegrees, double BankDegrees, double HeadingDegrees, AtcFlightPlanData Plan,
-        int TransponderState = AtcAircraft.StateUnknown, bool Ident = false)
+        AtcTransponder Transponder = AtcTransponder.Unknown, bool Ident = false);
+
+    /// <summary>
+    /// What an aircraft's transponder is doing, as far as a controller's scope cares. Each simulator numbers its own
+    /// states differently, so <see cref="SimViewTraffic"/> turns them into this before they leave it.
+    /// </summary>
+    public enum AtcTransponder
     {
-        /// <summary>No transponder state is known: the aircraft is shown as mode C.</summary>
-        public const int StateUnknown = -1;
+        /// <summary>The aircraft's node does not send a state (an older build, FSX, P3D): shown as mode C, as before stage 9.</summary>
+        Unknown,
+        /// <summary>Off, standby, or test: nothing is reported.</summary>
+        Standby,
+        /// <summary>On, mode A: the code but no altitude.</summary>
+        ModeA,
+        /// <summary>Alt, mode C: code and altitude. Also the Mode S states that report altitude (ground, TCAS).</summary>
+        ModeC,
     }
 
     /// <summary>

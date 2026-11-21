@@ -1365,8 +1365,10 @@ namespace JoinFS
         {
             atcFsdFailed = false;
             uint vuidSquawk = VariableMgr.CreateVuid("transponder code:1");
-            // stage 9: variables of the MSFS builds only (Variables.cs); a node that does not send them gives "unknown", shown as mode C
+            // stage 9 (Variables.cs): MSFS sends its state as "transponder state:1", X-Plane under its dataref name, because the two
+            // number the states differently; the ident is one variable. A node that sends none of them is "unknown", shown as mode C.
             uint vuidState = VariableMgr.CreateVuid("transponder state:1");
+            uint vuidXPlaneState = VariableMgr.CreateVuid("sim/cockpit/radios/transponder_mode");
             uint vuidIdent = VariableMgr.CreateVuid("transponder ident:1");
             var traffic = new SimViewTraffic(
                 () => sim?.View,
@@ -1376,9 +1378,12 @@ namespace JoinFS
                 aircraft =>
                 {
                     VariableMgr.Set variables = aircraft.variableSet;
-                    if (variables == null) return (AtcAircraft.StateUnknown, false);
-                    int state = variables.TryGetInteger(vuidState, out int value) ? value : AtcAircraft.StateUnknown;
-                    return (state, variables.GetInteger(vuidIdent) != 0);
+                    if (variables == null) return (AtcTransponder.Unknown, false);
+                    AtcTransponder mode =
+                        variables.TryGetInteger(vuidState, out int msfs) ? SimViewTraffic.FromMsfs(msfs) :
+                        variables.TryGetInteger(vuidXPlaneState, out int xplane) ? SimViewTraffic.FromXPlane(xplane) :
+                        AtcTransponder.Unknown;
+                    return (mode, variables.GetInteger(vuidIdent) != 0);
                 });
             var gateway = new AtcGateway(MonitorEvent, traffic, network?.Atc);
             var listener = new FsdListener(gateway, EnqueueCommand, MonitorEvent);

@@ -100,7 +100,7 @@ namespace JoinFS
                 if (a.Ident) entry.LastIdentMs = nowMs;
                 bool identHeld = entry.LastIdentMs != long.MinValue && nowMs - entry.LastIdentMs < IdentHoldMs;
 
-                send(Position(a, names[i], ModeLetter(a.TransponderState, identHeld)).ToLine());
+                send(Position(a, names[i], ModeLetter(a.Transponder, identHeld)).ToLine());
 
                 FsdLine plan = AtcFlightPlans.ToFsd(names[i], AllControllers, a.Plan).ToLine();
                 string planText = plan.ToString();
@@ -146,11 +146,14 @@ namespace JoinFS
             return FsdQuery.Response(callsign, asker, "RN", name, "", PilotRating.ToString()).ToLine();
         }
 
-        /// <summary>The mode letter of <c>@</c> (§4.7): ident <c>Y</c>; off or standby <c>S</c>; otherwise, and when the state is unknown, <c>N</c>.</summary>
-        public static char ModeLetter(int transponderState, bool identHeld)
+        /// <summary>
+        /// The mode letter of <c>@</c> (§4.7), as FSD names them: ident <c>Y</c>, mode C <c>N</c>, mode A and standby <c>S</c>.
+        /// An unknown mode is <c>N</c>, as it was before stage 9.
+        /// </summary>
+        public static char ModeLetter(AtcTransponder transponder, bool identHeld)
         {
             if (identHeld) return 'Y';
-            return transponderState == 0 || transponderState == 1 ? 'S' : 'N';
+            return transponder is AtcTransponder.Standby or AtcTransponder.ModeA ? 'S' : 'N';
         }
 
         static FsdPosition Position(AtcAircraft a, string callsign, char mode) => new FsdPosition

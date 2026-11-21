@@ -21,16 +21,16 @@ namespace JoinFS
         readonly Func<NodeId> localId;
         readonly Func<NodeId, string> nickname;
         readonly Func<Sim.Aircraft, int> squawkOf;
-        readonly Func<Sim.Aircraft, (int State, bool Ident)> transponderOf;
+        readonly Func<Sim.Aircraft, (AtcTransponder Mode, bool Ident)> transponderOf;
 
         /// <param name="view">The latest snapshot (<c>Main.sim.View</c>).</param>
         /// <param name="localId">This node's id.</param>
         /// <param name="nickname">A node's nickname; the invalid id is this node.</param>
         /// <param name="squawkOf">The aircraft's transponder code as the simulator variable holds it (BCD: 0x1200 is the code 1200).</param>
-        /// <param name="transponderOf">The aircraft's transponder state (<see cref="AtcAircraft.StateUnknown"/> when its node does not
+        /// <param name="transponderOf">The aircraft's transponder mode (<see cref="AtcTransponder.Unknown"/> when its node does not
         /// send it) and ident; absent means every aircraft is unknown.</param>
         public SimViewTraffic(Func<SimSnapshot> view, Func<NodeId> localId, Func<NodeId, string> nickname, Func<Sim.Aircraft, int> squawkOf,
-            Func<Sim.Aircraft, (int State, bool Ident)> transponderOf = null)
+            Func<Sim.Aircraft, (AtcTransponder Mode, bool Ident)> transponderOf = null)
         {
             this.view = view;
             this.localId = localId;
@@ -69,7 +69,7 @@ namespace JoinFS
                         aircraft.netVelocity.linear.x * aircraft.netVelocity.linear.x +
                         aircraft.netVelocity.linear.z * aircraft.netVelocity.linear.z) * MetresPerSecondToKnots;
 
-                    (int state, bool ident) = transponderOf?.Invoke(aircraft) ?? (AtcAircraft.StateUnknown, false);
+                    (AtcTransponder mode, bool ident) = transponderOf?.Invoke(aircraft) ?? (AtcTransponder.Unknown, false);
 
                     list.Add(new AtcAircraft(
                         owner, aircraft.netId, aircraft.flightPlan?.callsign ?? "",
@@ -80,11 +80,29 @@ namespace JoinFS
                         // JoinFS holds pitch nose down positive, and bank as the simulator's PLANE BANK DEGREES (left wing down positive)
                         Finite(-position.angles.x * (180.0 / Math.PI)), Finite(-position.angles.z * (180.0 / Math.PI)),
                         Heading(position.angles.y),
-                        Plan(aircraft.flightPlan), state, ident));
+                        Plan(aircraft.flightPlan), mode, ident));
                 }
                 return list;
             }
         }
+
+        /// <summary>MSFS <c>TRANSPONDER STATE:1</c>: 0 off, 1 standby, 2 test, 3 on, 4 alt, 5 ground.</summary>
+        public static AtcTransponder FromMsfs(int state) => state switch
+        {
+            0 or 1 or 2 => AtcTransponder.Standby,
+            3 => AtcTransponder.ModeA,
+            4 or 5 => AtcTransponder.ModeC,
+            _ => AtcTransponder.Unknown,
+        };
+
+        /// <summary>X-Plane <c>transponder_mode</c>: 0 off, 1 standby, 2 on (mode A), 3 alt (mode C), 4 test, 5 ground (mode S), 6 ta only, 7 ta/ra.</summary>
+        public static AtcTransponder FromXPlane(int state) => state switch
+        {
+            0 or 1 or 4 => AtcTransponder.Standby,
+            2 => AtcTransponder.ModeA,
+            3 or 5 or 6 or 7 => AtcTransponder.ModeC,
+            _ => AtcTransponder.Unknown,
+        };
 
         /// <summary>The code as four decimal digits from the BCD value; a value that is not a code (a digit above 7) is 0.</summary>
         public static int Squawk(int bcd)

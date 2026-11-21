@@ -195,12 +195,15 @@ namespace JoinFS
                 "INTEGER|sim/cockpit2/radios/actuators/audio_selection_com1|COM TRANSMIT:1|bool|COM1_TRANSMIT_SELECT",
                 "INTEGER|sim/cockpit2/radios/actuators/audio_selection_com2|COM TRANSMIT:2|bool|COM2_TRANSMIT_SELECT",
                 "INTEGER|sim/cockpit/radios/transponder_code|TRANSPONDER CODE:1|bco16|XPNDR_SET",
-#if FS2020 || FS2024
-                // read only, for the ATC client's mode letter (docs/ATC/atc-fsd-plan.md stage 9); MSFS SDK: state is an enum
-                // 0 off, 1 standby, 2 test, 3 on, 4 alt, 5 ground; ident is a bool that falls by itself after 18 s.
-                // No dataref: X-Plane's names are unverified (R7), and FSX and P3D are not known to have them.
+#if !FSX && !P3D
+                // read only, for the ATC client's mode letter (docs/ATC/atc-fsd-plan.md stage 9). Neither the FSX nor the P3D v5
+                // SDK has these two SimVars, so those builds leave them out. The two simulators number the transponder state
+                // differently (MSFS: 0 off, 1 standby, 2 test, 3 on, 4 alt, 5 ground; X-Plane: 0 off, 1 stdby, 2 on, 3 alt, 4 test,
+                // 5 GND, 6 ta_only, 7 ta/ra), so each has its own variable, told apart by its name; SimViewTraffic turns both into
+                // one mode. The ident is a bool in both (MSFS drops it itself after 18 s), so it is one variable with an alias.
                 "INTEGER||TRANSPONDER STATE:1|enum",
-                "INTEGER||TRANSPONDER IDENT:1|bool",
+                "INTEGER|sim/cockpit/radios/transponder_mode||enum",
+                "INTEGER|sim/cockpit/radios/transponder_id|TRANSPONDER IDENT:1|bool",
 #endif
                 "FLOAT|sim/cockpit2/radios/actuators/com1_frequency_hz_833*1000|COM ACTIVE FREQUENCY:1|MHz|COM_RADIO_SET",
                 "FLOAT|sim/cockpit2/radios/actuators/com2_frequency_hz_833*1000|COM ACTIVE FREQUENCY:2|MHz|COM2_RADIO_SET",
@@ -294,9 +297,10 @@ namespace JoinFS
                 "INTEGER|sim/cockpit2/radios/actuators/audio_selection_com1|COM TRANSMIT:1|bool|COM1_TRANSMIT_SELECT",
                 "INTEGER|sim/cockpit2/radios/actuators/audio_selection_com2|COM TRANSMIT:2|bool|COM2_TRANSMIT_SELECT",
                 "INTEGER|sim/cockpit/radios/transponder_code|TRANSPONDER CODE:1|bco16|XPNDR_SET",
-#if FS2020 || FS2024
+#if !FSX && !P3D
                 "INTEGER||TRANSPONDER STATE:1|enum",
-                "INTEGER||TRANSPONDER IDENT:1|bool",
+                "INTEGER|sim/cockpit/radios/transponder_mode||enum",
+                "INTEGER|sim/cockpit/radios/transponder_id|TRANSPONDER IDENT:1|bool",
 #endif
                 "FLOAT|sim/cockpit/radios/com1_freq_hz|COM ACTIVE FREQUENCY:1|MHz|COM_RADIO_SET",
                 "FLOAT|sim/cockpit/radios/com2_freq_hz|COM ACTIVE FREQUENCY:2|MHz|COM2_RADIO_SET",
