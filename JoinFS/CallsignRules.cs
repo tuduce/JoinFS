@@ -88,6 +88,38 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// The callsign of the user's own aircraft. MSFS 2024 puts the callsign the pilot enters into ATC AIRLINE
+        /// (<paramref name="atcAirline"/>, e.g. BAW388), which otherwise holds an airline name (EUROWINGS). In order:
+        /// ATC AIRLINE when it is a complete airline callsign; the airline with the flight number (<see cref="Resolve"/>);
+        /// the flight number when it is a complete airline callsign by itself; only then the tail number.
+        /// </summary>
+        public static string ResolveUser(string atcAirline, string icaoAirline, string flightNumber, string tailNumber, AirlineDirectory directory)
+        {
+            string entered = Normalize(atcAirline);
+            if (Classify(entered, directory) == CallsignKind.Airline)
+            {
+                return entered;
+            }
+            if (!string.IsNullOrEmpty(icaoAirline) && !string.IsNullOrEmpty(flightNumber))
+            {
+                return Resolve(icaoAirline, flightNumber, tailNumber);
+            }
+            string number = Normalize(flightNumber);
+            if (Classify(number, directory) == CallsignKind.Airline)
+            {
+                return number;
+            }
+            return tailNumber;
+        }
+
+        /// <summary>
+        /// A string the sim reports, without the zero-width spaces some aircraft put in an empty field - also when
+        /// they arrive read in the wrong code page (â€‹) - and without surrounding blanks
+        /// </summary>
+        public static string CleanSimText(string text) =>
+            (text ?? "").Replace("â€‹", "").Replace("​", "").Replace("﻿", "").Trim(' ', '\t');
+
+        /// <summary>
         /// Maps an IATA-style flight number (LH235) to its ICAO form (DLH235). Only airliners are considered, and only
         /// when the designator is an IATA code in the list. Order: configured airline, then (ambiguous codes only) a
         /// livery word that only one candidate carries, then the non-cargo candidate, then the first in list order.

@@ -165,6 +165,12 @@ public sealed record FlightPlanData(
 {
     /// <summary>No route fields filled: a cleared plan. The callsign, type and rules do not count, the aircraft has those anyway.</summary>
     public bool IsBlank => From.Length == 0 && To.Length == 0 && Route.Length == 0 && Remarks.Length == 0 && Altitude.Length == 0;
+
+    /// <summary>
+    /// Nothing filled at all, not even the callsign or type: the tab's Clear, which gives the plan back to the aircraft as the
+    /// simulator reports it. A plan with only a callsign or type typed in is the user's own and is kept as typed.
+    /// </summary>
+    public bool IsCleared => IsBlank && Callsign.Length == 0 && Type.Length == 0;
 }
 
 public sealed record UpdateInfo(string Version, string Url);

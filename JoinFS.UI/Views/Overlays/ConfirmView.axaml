@@ -11,7 +11,7 @@
         <Button Command="{Binding CloseCommand}" Content="{l:T 'Cancel'}" Padding="16,8" />
         <Button Command="{Binding NoCommand}" Content="{Binding NoText}" Padding="16,8"
                 IsVisible="{Binding NoText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-        <Button Classes="primary" Command="{Binding YesCommand}" Content="{Binding YesText}" Padding="18,8" />
+        <Button Classes="primary" Command="{Binding YesCommand}" Content="{Binding YesText}" Padding="18,8" IsDefault="True" />
       </StackPanel>
     </StackPanel>
   </Border>

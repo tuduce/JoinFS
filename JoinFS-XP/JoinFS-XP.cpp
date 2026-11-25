@@ -9,6 +9,7 @@
 #include <string>
 #include <inttypes.h>
 #include <math.h>
+#include <cmath>
 #include <stdint.h>
 
 #include <vector>
@@ -145,6 +146,14 @@ struct Position
 	double altitude;
 	XPLMProbeRef probe;
 
+	// ground placement (remote aircraft): in the ground phase it sits on the local ground under the shown
+	// model plus the CSL's vertical offset plus the Adjust Height value, in the air at the sender's altitude
+	bool localGround;
+	double groundOffset;
+	// 1 on the ground down to 0 in the air, ramped by time; negative before the first frame
+	double groundWeight;
+	double groundWeightTime;
+
 	void Reset()
 	{
 		netRealTime = netSimTime = netStateTime = simTime = 0.0;
@@ -165,6 +174,10 @@ struct Position
 		elevation = -1.0;
 		altitude = 0.0;
 		probe = NULL;
+		localGround = false;
+		groundOffset = 0.0;
+		groundWeight = -1.0;
+		groundWeightTime = 0.0;
 		Reset();
 	}
 
@@ -201,7 +214,13 @@ struct UserAircraft
 	
 	// model references
 	XPLMDataRef dr_callsign;
+	// Mode-S flight ID: airline + flight number (KLM511) or the registration, as entered in the FMC / ATC setup; NULL before X-Plane 12
+	XPLMDataRef dr_flightId;
 	XPLMDataRef dr_icaoType;
+
+	// on the ground (any wheel), and the reference point's measured height above the ground (metres, NaN until on the ground)
+	XPLMDataRef dr_onGround;
+	double clearance;
 
     // position references
     XPLMDataRef dr_override_position;
@@ -364,6 +383,7 @@ struct UserAircraft
 	void Init()
 	{
 		pos.Init();
+		clearance = NAN;
 		overrideFlightControl = false;
 		endOverrideTime = 0.0;
 	}
@@ -399,6 +419,25 @@ inline float GetTimeFragment()
 {
 	const float t = XPLMGetDataf(dr_time);
 	return std::fmod(t, PLANE_CIRCLE_TIME_S) / PLANE_CIRCLE_TIME_S;
+}
+
+// ground placement ramp, as GroundPlacement in the app: seconds from airborne to ground height after
+// touchdown, and from ground to airborne height after lift-off
+constexpr double LANDING_RAMP_S = 2.0;
+constexpr double CLIMB_OUT_RAMP_S = 10.0;
+// the ground under a remote aircraft is probed below this height above the sender's ground, metres
+constexpr double PLACEMENT_PROBE_HEIGHT = 500.0;
+
+/// Move the ground weight toward 1 (ground phase) or 0 (airborne) by time; a negative weight (the first frame) goes straight to the target
+static double RampGroundWeight(double weight, bool onGround, double dt)
+{
+	double target = onGround ? 1.0 : 0.0;
+	if (weight < 0.0)
+	{
+		return target;
+	}
+	if (dt < 0.0) dt = 0.0;
+	return onGround ? min(target, weight + dt / LANDING_RAMP_S) : max(target, weight - dt / CLIMB_OUT_RAMP_S);
 }
 
 // Injected Aircraft
@@ -461,7 +500,7 @@ struct InjectedAircraft : public Aircraft
 	/// Custom implementation for the virtual function providing updates values
 	virtual void UpdatePosition(float, int)
 	{
-		SetLocalLoc((float)pos.x, (float)pos.y, (float)pos.z);
+		SetLocalLoc((float)pos.x, (float)PlacedY(), (float)pos.z);
 		SetPitch((float)pos.p);
 		SetHeading((float)pos.h);
 		SetRoll((float)pos.b);
@@ -502,6 +541,48 @@ struct InjectedAircraft : public Aircraft
 		SetThrustReversRatio(0.0f);
 		SetReversDeployRatio(0.0f);
 		SetTouchDown(false);
+	}
+
+	/// The height to draw the model at (local Y). In the ground phase the shown model sits on the local
+	/// ground: the terrain under it plus the CSL's vertical offset (its wheels below its origin) plus the
+	/// Adjust Height value. In the air it is at the sender's altitude (pos.y, mesh corrected). The weight
+	/// ramps between the two by time, and the model never goes below the local ground.
+	double PlacedY()
+	{
+		double y = pos.y;
+		double t = GetTime();
+		double dt = pos.groundWeightTime > 0.0 ? t - pos.groundWeightTime : 0.0;
+		pos.groundWeightTime = t;
+		pos.groundWeight = RampGroundWeight(pos.groundWeight, pos.localGround, dt);
+
+		if (pos.groundWeight > 0.0 || pos.altitude - pos.elevation < PLACEMENT_PROBE_HEIGHT)
+		{
+			// check for probe
+			if (pos.probe == NULL)
+			{
+				// create probe
+				pos.probe = XPLMCreateProbe(xplm_ProbeY);
+			}
+			if (pos.probe != NULL)
+			{
+				XPLMProbeInfo_t info;
+				info.structSize = sizeof(info);
+				if (XPLMProbeTerrainXYZ(pos.probe, (float)pos.x, (float)pos.y, (float)pos.z, &info) == xplm_ProbeHitTerrain)
+				{
+					double vertOfs = GetVertOfs();
+					double w = pos.groundWeight;
+					double groundY = info.locationY + vertOfs + pos.groundOffset;
+					y = w * groundY + (1.0 - w) * pos.y;
+					// the adjustment counts as far as the weight applies it, so a hovering model can be lowered
+					double floorY = info.locationY + vertOfs + w * pos.groundOffset;
+					if (y < floorY)
+					{
+						y = floorY;
+					}
+				}
+			}
+		}
+		return y;
 	}
 
 	void UpdateLabel()
@@ -678,7 +759,9 @@ static void InitUserAircraft(UserAircraft& aircraft)
     aircraft.Init();
 
 	aircraft.dr_callsign = GetDataRef("sim/aircraft/view/acf_tailnum");
+	aircraft.dr_flightId = XPLMFindDataRef("sim/cockpit2/radios/actuators/flight_id");
 	aircraft.dr_icaoType = GetDataRef("sim/aircraft/view/acf_ICAO");
+	aircraft.dr_onGround = GetDataRef("sim/flightmodel/failures/onground_any");
 	aircraft.dr_override_position = GetDataRef("sim/operation/override/override_planepath");
     aircraft.dr_override_control = GetDataRef("sim/operation/override/override_flightcontrol");
     aircraft.dr_longitude = GetDataRef("sim/flightmodel/position/longitude");
@@ -1137,6 +1220,12 @@ void OnAircraftPosition(Link::AircraftPositionMsg& msg)
 			pos.elevation = msg.elevation;
 			pos.altitude = msg.altitude;
 			pos.ground = (msg.ground & 0x01) != 0;
+			// ground placement of a remote aircraft
+			if (msg.index != 0)
+			{
+				pos.localGround = (msg.placement & 0x01) != 0;
+				pos.groundOffset = std::isfinite(msg.groundOffset) ? msg.groundOffset : 0.0;
+			}
 
 			// update network time
 			pos.netStateTime = msg.netTime;
@@ -1899,8 +1988,26 @@ static float DoModel(float elapsed, float elapsedLoop, int counter, void*)
         msg.user = 1;
         msg.plane = 1;
 		msg.livery = (dr_livery != NULL) ? XPLMGetDatai(dr_livery) : 0;
-		msg.nickname[0] = '\0';
-		XPLMGetDatab(userAircraft.dr_callsign, msg.callsign, 0, Link::MAX_CALLSIGN_LENGTH);
+		// the callsign is the flight ID X-Plane transmits (airline + flight number, or the registration), falling
+		// back to the tail number; the tail number itself goes in the nickname, which the user aircraft has no use for
+		static char tailNumber[Link::MAX_CALLSIGN_LENGTH];
+		memset(tailNumber, 0, sizeof(tailNumber));
+		XPLMGetDatab(userAircraft.dr_callsign, tailNumber, 0, Link::MAX_CALLSIGN_LENGTH - 1);
+		memset(msg.nickname, 0, sizeof(msg.nickname));
+		strScpy(msg.nickname, tailNumber, sizeof(msg.nickname));
+		memset(msg.callsign, 0, sizeof(msg.callsign));
+		if (userAircraft.dr_flightId != NULL)
+		{
+			// byte[8], up to 7 characters
+			XPLMGetDatab(userAircraft.dr_flightId, msg.callsign, 0, 8);
+			msg.callsign[8] = '\0';
+			// drop trailing blanks
+			for (int i = 7; i >= 0 && (msg.callsign[i] == ' ' || msg.callsign[i] == '\0'); i--) msg.callsign[i] = '\0';
+		}
+		if (msg.callsign[0] == '\0' || msg.callsign[0] == ' ')
+		{
+			strScpy(msg.callsign, tailNumber, sizeof(msg.callsign));
+		}
 		strcpy_s(msg.model, Link::MAX_MODEL_LENGTH, path);
 		XPLMGetDatab(userAircraft.dr_icaoType, msg.icaoType, 0, Link::MAX_ICAOTYPE_LENGTH);
 		// send user position
@@ -1972,7 +2079,19 @@ static float DoAircraftPosition(float elapsed, float elapsedLoop, int counter, v
 
 		msg.elevation = (float)userAircraft.pos.elevation;
 		double height = msg.altitude - msg.elevation;
-		msg.ground = height < 1.0 ? 1 : 0;
+		// on the ground by X-Plane's own wheel contact - the altitude is the aircraft's reference point,
+		// which is more than a metre above the ground for most aircraft, so a parked airliner read as airborne
+		bool onGround = userAircraft.dr_onGround != NULL ? XPLMGetDatai(userAircraft.dr_onGround) != 0 : height < 1.0;
+		msg.ground = onGround ? 1 : 0;
+		// the reference point's height above the ground, measured while on the ground and kept in the air,
+		// sent on as this aircraft's STATIC CG TO GROUND
+		if (onGround && height > 0.0 && height < 20.0)
+		{
+			userAircraft.clearance = std::isnan(userAircraft.clearance) ? height : userAircraft.clearance + (height - userAircraft.clearance) * 0.1;
+		}
+		msg.clearance = (float)userAircraft.clearance;
+		msg.placement = 0;
+		msg.groundOffset = 0.0f;
 
 		// send user position
         Link::Send(msg);
@@ -2510,5 +2629,10 @@ PLUGIN_API void XPluginReceiveMessage(
 	int				inMessage,
 	void *			inParam)
 {
+	// another user aircraft: its reference point sits at another height above its wheels
+	if (inMessage == XPLM_MSG_PLANE_LOADED && inParam == 0)
+	{
+		userAircraft.clearance = NAN;
+	}
 }
 

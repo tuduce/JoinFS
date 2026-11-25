@@ -94,8 +94,6 @@ namespace JoinFS
 #endif
         }
 
-        readonly UserAircraftTracker userAircraftTracker = new();
-
         /// <summary>
         /// The ATC flight number of the user's aircraft, with an IATA-style prefix mapped to ICAO
         /// (CallsignRules.NormalizeIataPrefix). Logs when a mapping actually happened.
@@ -116,14 +114,27 @@ namespace JoinFS
             return result.Callsign;
         }
 
+        /// <summary>The callsign of the user's aircraft (CallsignRules.ResolveUser): the one entered in the sim before the tail number</summary>
+        static string UserCallsign(ObjectGetInfo info, string configuredAirline, string flightNumber, string tailNumber)
+        {
+#if FS2024
+            string atcAirline = info.airline;
+#else
+            string atcAirline = "";
+#endif
+            return CallsignRules.ResolveUser(atcAirline, configuredAirline, flightNumber, tailNumber, AirlineDirectory.Bundled);
+        }
+
         /// <summary>The callsign, airline, type and registration the user's aircraft is broadcast under, from the raw sim data.</summary>
         ResolvedAircraftIdentity ResolveUserAircraft(ObjectGetInfo info, int typerole)
         {
             ResolveObjectInfoType(info, out string type, out _, out string learnIcaoType, out _, out _, out _, out string configuredAirline);
-            string tailNumber = info.callsign.TrimStart(' ', '\t').TrimEnd(' ', '\t');
+            string tailNumber = CallsignRules.CleanSimText(info.callsign);
             string flightNumber = UserFlightNumber(info, configuredAirline, typerole);
-            string callsign = CallsignRules.Resolve(configuredAirline, flightNumber, tailNumber);
-            string icaoAirline = configuredAirline.Length > 0 ? configuredAirline : CallsignRules.DeriveIcaoAirline(callsign, AirlineDirectory.Bundled);
+            string callsign = UserCallsign(info, configuredAirline, flightNumber, tailNumber);
+            // the airline of the callsign flown - BAW388 entered on a Eurowings livery is a British Airways flight
+            string callsignAirline = CallsignRules.DeriveIcaoAirline(callsign, AirlineDirectory.Bundled);
+            string icaoAirline = callsignAirline.Length > 0 ? callsignAirline : configuredAirline;
             string icaoType = learnIcaoType.Length > 0 ? learnIcaoType : type;
             return new ResolvedAircraftIdentity(callsign, icaoType, icaoAirline, tailNumber, flightNumber);
         }
@@ -141,34 +152,15 @@ namespace JoinFS
 #endif
             var raw = new UserAircraftInfo(info.type, info.model, info.callsign, info.flightNumber, airline, livery, liveryFolder,
                 info.isUser != 0, info.category, info.engineType, info.numEngines);
+            ResolvedAircraftIdentity before = userAircraftTracker.Current;
             if (userAircraftTracker.Check(raw, _ => ResolveUserAircraft(info, aircraft.typerole), out ResolvedAircraftIdentity identity))
             {
-                RefreshUserFlightPlanFromSim(aircraft, identity);
+                RefreshUserFlightPlanFromSim(aircraft, before, identity);
             }
-        }
-
-        /// <summary>
-        /// Applies a changed identity to the user's aircraft: the flight plan, then a re-match of the livery, which reads
-        /// the airline and registration. The next position message carries the new identity to other clients.
-        /// A detected change is a new flight, so the callsign returns to auto-tracking and SimBrief is re-fetched if enabled.
-        /// </summary>
-        void RefreshUserFlightPlanFromSim(Aircraft aircraft, ResolvedAircraftIdentity identity)
-        {
-            identity.ApplyTo(aircraft.flightPlan);
-            UpdateObject(aircraft, aircraft.ownerModel, aircraft.ownerLivery, identity.IcaoType, identity.IcaoAirline,
-                aircraft.ownerClassCode, aircraft.ownerWtc, aircraft.ownerClassCodeConfirmed, aircraft.typerole);
-#if !CONSOLE
-            bool autoImport = Settings.Default.SimBriefAutoImport && string.IsNullOrWhiteSpace(Settings.Default.SimBriefUsername) == false;
-#else
-            bool autoImport = false;
-#endif
-            main.MonitorEvent("Own aircraft changed - refreshed callsign '" + identity.Callsign + "', airline '" + identity.IcaoAirline + "', type '" + identity.IcaoType + "' from the sim" + (autoImport ? ", re-fetching SimBrief" : ""));
-#if !CONSOLE
-            if (autoImport)
+            else if (before == null)
             {
-                _ = RefreshUserFlightPlanFromSimBriefAsync();
+                CheckUserAircraftFirstSeen(aircraft, identity);
             }
-#endif
         }
 
         public void ProcessSimObjectData(uint objectId, uint requestId, object data)
@@ -287,7 +279,7 @@ namespace JoinFS
                                         // aircraft
                                         Aircraft aircraft = obj as Aircraft;
                                         // ATC ID is a tail number, not a callsign
-                                        string tailNumber = callsign;
+                                        string tailNumber = obj.owner == Obj.Owner.Me ? CallsignRules.CleanSimText(info.callsign) : callsign;
                                         string flightNumber = obj.owner == Obj.Owner.Me
                                             ? UserFlightNumber(info, resolvedIcaoAirline, aircraft.typerole)
                                             : info.flightNumber.TrimStart(' ', '\t').TrimEnd(' ', '\t');
@@ -302,7 +294,16 @@ namespace JoinFS
                                         // holds even if the user explicitly cleared the field on purpose.
                                         if (aircraft.flightPlan.callsignSetByUser == false)
                                         {
-                                            aircraft.flightPlan.callsign = CallsignRules.Resolve(resolvedIcaoAirline, flightNumber, tailNumber);
+                                            // the user's own: the callsign entered in the sim before the tail number
+                                            aircraft.flightPlan.callsign = obj.owner == Obj.Owner.Me
+                                                ? UserCallsign(info, resolvedIcaoAirline, flightNumber, tailNumber)
+                                                : CallsignRules.Resolve(resolvedIcaoAirline, flightNumber, tailNumber);
+                                            // the airline of the callsign flown, not of the livery
+                                            string callsignAirline = obj.owner == Obj.Owner.Me ? CallsignRules.DeriveIcaoAirline(aircraft.flightPlan.callsign, AirlineDirectory.Bundled) : "";
+                                            if (callsignAirline.Length > 0)
+                                            {
+                                                aircraft.flightPlan.icaoAirline = callsignAirline;
+                                            }
                                         }
                                         // the aircraft's own live-resolved type (learnIcaoType - the confidence
                                         // hierarchy above, e.g. base_container-resolved config data, not the raw

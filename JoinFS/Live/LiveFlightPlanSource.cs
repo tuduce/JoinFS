@@ -24,6 +24,11 @@ namespace JoinFS.Live
 
         // A filled plan has been saved from the tab since the last Reset. Only the UI thread touches it.
         bool planSaved;
+        // Sim.userFlightPlanResets when the plan was saved: an aircraft change since then cleared it, so it is no longer loaded
+        int planSavedAtReset;
+
+        // the saved plan still counts: no aircraft change has cleared it since
+        bool PlanSaved => planSaved && main.sim != null && main.sim.userFlightPlanResets == planSavedAtReset;
 
         // The last fetch was only shown on the tab and not filed: the button must not read "loaded" for it until Save.
         volatile bool fetchOnlyShown;
@@ -35,9 +40,27 @@ namespace JoinFS.Live
 
         // ---- the plan
 
+        // The plan just filed, shown until the sim thread has applied it and published a snapshot that has it. Without it the
+        // tab would read the snapshot from before Save and show the old plan for a moment. Only the UI thread touches it.
+        FlightPlanData filed;
+        // The snapshot that was current when the sim thread applied the filed plan, and whether it has: any later one has it
+        volatile SimSnapshot snapshotAtApply;
+        volatile bool filedApplied;
+
+        public int Resets => main.sim?.userFlightPlanResets ?? 0;
+
         public FlightPlanData Load()
         {
-            Sim.FlightPlan plan = main.sim?.View?.UserFlightPlan;
+            SimSnapshot view = main.sim?.View;
+            if (filed != null)
+            {
+                if (!filedApplied || ReferenceEquals(view, snapshotAtApply))
+                {
+                    return filed;
+                }
+                filed = null;
+            }
+            Sim.FlightPlan plan = view?.UserFlightPlan;
             if (plan == null)
             {
                 return new FlightPlanData("", "", "VFR", "", "", "", "", "");
@@ -69,10 +92,38 @@ namespace JoinFS.Live
             else
             {
                 planSaved = true;
+                planSavedAtReset = main.sim.userFlightPlanResets;
             }
 
+            filed = data;
+            filedApplied = false;
             main.SimCommand(sim =>
             {
+                try
+                {
+                    Apply(sim, data, imported, registration, alternate, cleared);
+                }
+                finally
+                {
+                    // the snapshot published next has the plan
+                    snapshotAtApply = sim.View;
+                    filedApplied = true;
+                    sim.MarkViewDirty();
+                }
+            });
+        }
+
+        /// <summary>Makes <paramref name="data"/> the user's flight plan and sends it at once (sim thread)</summary>
+        void Apply(Sim sim, FlightPlanData data, bool imported, string registration, string alternate, bool cleared)
+        {
+            {
+                // Clear: the aircraft's own callsign, type, airline and registration as the sim reports them, sent at once.
+                // Only then - a callsign or type typed in without a route is the user's and must not be taken back.
+                if (data.IsCleared && sim.ResetUserFlightPlanFromSim())
+                {
+                    return;
+                }
+
                 Sim.FlightPlan target = sim.userFlightPlan;
 
                 // a blank callsign or type is the aircraft's own again, as the dialog's Clear gave it back
@@ -98,7 +149,12 @@ namespace JoinFS.Live
                 {
                     target.alternate = "";
                 }
-            });
+                // filed: the others get it now, not with the next periodic flight plan broadcast (every 5 s)
+                if (sim.userAircraft != null)
+                {
+                    main.network.SimSender.BroadcastFlightPlanUpdate(sim.userAircraft.netId, target);
+                }
+            }
         }
 
         static string Clip(string text, int length) => text.Length <= length ? text : text.Substring(0, length);
@@ -120,11 +176,11 @@ namespace JoinFS.Live
                     case Sim.SimBriefFetchState.Fetching:
                         return ConnectionState.Connecting;
                     case Sim.SimBriefFetchState.Success:
-                        return fetchOnlyShown && !planSaved ? ConnectionState.Disconnected : ConnectionState.Connected;
+                        return fetchOnlyShown && !PlanSaved ? ConnectionState.Disconnected : ConnectionState.Connected;
                     default:
-                        // a plan saved from the tab is loaded as much as one fetched; otherwise not asked yet, or asked and
-                        // nothing found: the button reads "not loaded"
-                        return planSaved ? ConnectionState.Connected : ConnectionState.Disconnected;
+                        // a plan saved from the tab is loaded as much as one fetched; otherwise not asked yet, asked and
+                        // nothing found, or cleared by an aircraft change: the button reads "not loaded"
+                        return PlanSaved ? ConnectionState.Connected : ConnectionState.Disconnected;
                 }
             }
         }
@@ -156,15 +212,7 @@ namespace JoinFS.Live
             fetchOnlyShown = !commit;
             if (commit)
             {
-                // the strip's button commits and sends at once, there is no Save to wait for
-                hasPending = false;
-                main.SimCommand(s =>
-                {
-                    if (s.userAircraft != null)
-                    {
-                        main.network.SimSender.BroadcastFlightPlanUpdate(s.userAircraft.netId, s.userFlightPlan);
-                    }
-                });
+                Committed();
             }
             else
             {
@@ -173,9 +221,55 @@ namespace JoinFS.Live
                 hasPending = true;
             }
 
-            return new FlightPlanData(
-                fetched.callsign, fetched.icaoType, fetched.rules, fetched.departure, fetched.destination,
-                fetched.altitude, fetched.route, fetched.remarks);
+            return ToData(fetched);
         }
+
+        public async Task<FlightPlanData> FetchAsync(string username, bool commit, Func<FlightPlanData, Task<bool>> confirmOtherType, CancellationToken cancellationToken)
+        {
+            Sim sim = main.sim;
+            if (!commit || confirmOtherType == null || sim == null)
+            {
+                return await FetchAsync(username, commit, cancellationToken);
+            }
+
+            // fetched first, made the user's only when it is for this aircraft or the pilot says so
+            Sim.SimBriefFetchState before = sim.simBriefFetchState;
+            Sim.FlightPlan fetched = await sim.FetchSimBriefAsync(username, apply: false);
+            if (fetched == null)
+            {
+                return null;
+            }
+            FlightPlanData data = ToData(fetched);
+            if (!Sim.SimBriefPlanFitsAircraft(fetched.icaoType, sim.SimReportedIcaoType) && !await confirmOtherType(data))
+            {
+                // declined: the plan and the button stay as they were
+                sim.simBriefFetchState = before;
+                return null;
+            }
+
+            await sim.ApplySimBriefAsync(fetched);
+            fetchOnlyShown = false;
+            Committed();
+            return data;
+        }
+
+        public string SimAircraftType => main.sim?.SimReportedIcaoType ?? "";
+
+        // the strip's button commits and sends at once, there is no Save to wait for
+        void Committed()
+        {
+            hasPending = false;
+            main.SimCommand(s =>
+            {
+                if (s.userAircraft != null)
+                {
+                    main.network.SimSender.BroadcastFlightPlanUpdate(s.userAircraft.netId, s.userFlightPlan);
+                }
+            });
+        }
+
+        static FlightPlanData ToData(Sim.FlightPlan fetched) => new(
+            fetched.callsign, fetched.icaoType, fetched.rules, fetched.departure, fetched.destination,
+            fetched.altitude, fetched.route, fetched.remarks);
     }
 }
