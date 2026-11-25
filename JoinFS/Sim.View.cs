@@ -30,6 +30,8 @@ namespace JoinFS
         public Sim.Obj TrackHeadingObject { get; init; }
         public Sim.Obj TrackBearingObject { get; init; }
         public Sim.FlightPlan UserFlightPlan { get; init; } = new();
+        /// <summary>The identity the sim last reported for the user's aircraft (immutable), null before the first</summary>
+        public ResolvedAircraftIdentity UserIdentity { get; init; }
 
         /// <summary>The weather observation waiting to be applied (null when none)</summary>
         public string CurrentMetar { get; init; }
@@ -83,6 +85,7 @@ namespace JoinFS
         double nextViewTime = 0.0;
         int viewObjectCount = -1;
         Aircraft viewUserAircraft;
+        ResolvedAircraftIdentity viewUserIdentity;
         bool viewConnected;
 
         /// <summary>The object is still in the list (sim thread): a command's object may have gone since it was posted</summary>
@@ -102,7 +105,9 @@ namespace JoinFS
         public bool PublishViewIfDue(double now, int mailboxDepth = 0, int mailboxPeak = 0, double mailboxMaxAge = 0.0)
         {
             bool connected = Connected;
-            if (viewDirty == false && now < nextViewTime && objectList.Count == viewObjectCount && userAircraft == viewUserAircraft && connected == viewConnected)
+            ResolvedAircraftIdentity userIdentity = userAircraftTracker.Current;
+            if (viewDirty == false && now < nextViewTime && objectList.Count == viewObjectCount && userAircraft == viewUserAircraft && connected == viewConnected
+                && userIdentity == viewUserIdentity)
             {
                 return false;
             }
@@ -110,6 +115,7 @@ namespace JoinFS
             nextViewTime = now + ViewInterval;
             viewObjectCount = objectList.Count;
             viewUserAircraft = userAircraft;
+            viewUserIdentity = userIdentity;
             viewConnected = connected;
 
             // copy every object, keeping references between them pointing at the copies
@@ -136,6 +142,7 @@ namespace JoinFS
                 TrackHeadingObject = CopyOf(trackHeadingObject),
                 TrackBearingObject = CopyOf(trackBearingObject),
                 UserFlightPlan = userFlightPlan.Clone(),
+                UserIdentity = userIdentity,
                 CurrentMetar = scheduleMetar,
 #if SIMCONNECT
                 FrameCount = frameCount,

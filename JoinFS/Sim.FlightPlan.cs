@@ -169,7 +169,7 @@ namespace JoinFS
             if (fitCurrentAircraft && requiredIcaoType == null)
             {
                 // the aircraft the sim reports now, after the fetch: null while it has not reported one
-                requiredIcaoType = userAircraftTracker.Current?.IcaoType;
+                requiredIcaoType = view.UserIdentity?.IcaoType;
             }
             if (ok && requiredIcaoType != null && SimBriefPlanFitsAircraft(fetched.icaoType, requiredIcaoType) == false)
             {

@@ -10,8 +10,8 @@ namespace JoinFS
     {
         readonly UserAircraftTracker userAircraftTracker = new();
 
-        /// <summary>The ICAO type the sim reports for the user's aircraft, empty before it has reported one. Any thread.</summary>
-        public string SimReportedIcaoType => userAircraftTracker.Current?.IcaoType ?? "";
+        /// <summary>The ICAO type the sim reports for the user's aircraft, empty before it has reported one. Any thread (reads <see cref="View"/>).</summary>
+        public string SimReportedIcaoType => view.UserIdentity?.IcaoType ?? "";
 
         /// <summary>
         /// The user's aircraft is seen for the first time. A plan already there for another type - a SimBrief OFP fetched at
