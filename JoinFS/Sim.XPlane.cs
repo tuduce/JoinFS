@@ -30,10 +30,19 @@ namespace JoinFS
         /// XPlane model notify
         /// </summary>
         /// <param name="model"></param>
-        void XPlaneModelUpdate(uint simId, bool user, bool plane, string callsign, string model, string icaoType)
+        void XPlaneModelUpdate(uint simId, bool user, bool plane, string callsign, string model, string icaoType, string tailNumber)
         {
             // trim callsign
             callsign = callsign.TrimStart(' ', '\t').TrimEnd(' ', '\t');
+            // the user's aircraft: the flight ID (airline + flight number, or the registration) and its tail number
+            ResolvedAircraftIdentity identity = null;
+            UserAircraftInfo raw = null;
+            if (user)
+            {
+                identity = ResolvedAircraftIdentity.FromXPlane(icaoType, callsign, tailNumber);
+                raw = new UserAircraftInfo(icaoType, model, tailNumber ?? "", callsign, "", "", "", true, "", 0, 0);
+                callsign = identity.Callsign;
+            }
             // get object
             Obj obj = objectList.Find(o => o.simId == simId);
             if (obj == null)
@@ -66,7 +75,24 @@ namespace JoinFS
                         // set flight plan
                         userAircraft.flightPlan = userFlightPlan;
                     }
-                    if (aircraft.flightPlan.callsignSetByUser == false)
+                    if (identity != null)
+                    {
+                        ResolvedAircraftIdentity before = userAircraftTracker.Current;
+                        if (userAircraftTracker.Check(raw, _ => identity, out _))
+                        {
+                            // listed again with another identity (the aircraft changed from plane to helicopter)
+                            RefreshUserFlightPlanFromSim(aircraft, before, identity);
+                        }
+                        else if (before == null && CheckUserAircraftFirstSeen(aircraft, identity))
+                        {
+                            // a plan for another type was there before the aircraft: reset from the sim
+                        }
+                        else if (aircraft.flightPlan.callsignSetByUser == false)
+                        {
+                            identity.ApplyTo(aircraft.flightPlan);
+                        }
+                    }
+                    else if (aircraft.flightPlan.callsignSetByUser == false)
                     {
                         aircraft.flightPlan.callsign = aircraft.originalCallsign;
                     }
@@ -102,6 +128,18 @@ namespace JoinFS
                 {
                     // aircraft
                     Aircraft aircraft = obj as Aircraft;
+                    if (identity != null)
+                    {
+                        // the user's aircraft: a new type, callsign or registration updates the flight plan and sends it
+                        aircraft.user = user;
+                        aircraft.originalCallsign = identity.Callsign;
+                        ResolvedAircraftIdentity before = userAircraftTracker.Current;
+                        if (userAircraftTracker.Check(raw, _ => identity, out _))
+                        {
+                            RefreshUserFlightPlanFromSim(aircraft, before, identity);
+                        }
+                        return;
+                    }
                     // check if callsign has changed
                     if (aircraft.originalCallsign.Equals(callsign) == false)
                     {

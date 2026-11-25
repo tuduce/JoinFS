@@ -87,20 +87,37 @@ public sealed partial class FlightPlanViewModel : ObservableObject
             UpdateUnsavedEdits();
     }
 
-    /// <summary>Reads the live plan again, unless the user is in the middle of editing it.</summary>
+    // IFlightPlanStore.Resets when the fields were last made equal to the live plan
+    private int _resetsSeen;
+
+    /// <summary>
+    /// Reads the live plan again, unless the user is in the middle of editing it. Another aircraft type in the simulator is a
+    /// new flight: the plan was cleared for it, and edits not yet saved for the previous aircraft go with it.
+    /// </summary>
     public void Refresh()
     {
-        if (!HasUnsavedEdits)
+        bool newFlight = _store.Resets != _resetsSeen;
+        if (newFlight || !HasUnsavedEdits)
+        {
+            if (newFlight)
+                Status = "";
             Apply(_store.Load());
+        }
     }
 
-    /// <summary>Clearing leaves the callsign and type blank too, and the rules back on VFR. It takes Save to make it the plan.</summary>
+    /// <summary>
+    /// Clearing makes the plan the aircraft's own at once: the route goes, the callsign and type are filled in from the
+    /// simulator, and the plan is saved and sent - no Save needed. The fields then show it as it was stored.
+    /// </summary>
     [RelayCommand]
     private void Clear()
     {
-        Apply(new FlightPlanData("", "", "VFR", "", "", "", "", ""), asBaseline: false);
+        FlightPlanData blank = new("", "", "VFR", "", "", "", "", "");
         Status = "";
+        _store.Save(blank);
         _simBrief.Reset();
+        Apply(_store.Load());
+        Saved?.Invoke(this, false);
     }
 
     /// <summary>Makes the fields the user's plan. The plan is then read back: the live app fills what was left blank.</summary>
@@ -141,11 +158,23 @@ public sealed partial class FlightPlanViewModel : ObservableObject
     private async Task PerformImportAsync(bool commit)
     {
         Status = "";
-        FlightPlanData? fetched = await _simBrief.FetchAsync(_profile.SimbriefUsername, commit, CancellationToken.None);
+        FlightPlanData? declined = null;
+        // the strip's button loads at once: a plan for another aircraft type than the simulator reports is asked about first
+        FlightPlanData? fetched = commit
+            ? await _simBrief.FetchAsync(_profile.SimbriefUsername, commit: true, async plan =>
+            {
+                if (await ConfirmOtherTypeAsync(plan))
+                    return true;
+                declined = plan;
+                return false;
+            }, CancellationToken.None)
+            : await _simBrief.FetchAsync(_profile.SimbriefUsername, commit: false, CancellationToken.None);
         if (fetched is null)
         {
-            // What is shown stays: a failed import never blanks the plan.
-            Status = Loc.T("SimBrief has no flight plan for this user.");
+            // What is shown stays: a failed or declined import never blanks the plan.
+            Status = declined is null
+                ? Loc.T("SimBrief has no flight plan for this user.")
+                : Loc.F("Not loaded: the SimBrief plan is for {0}, the simulator reports {1}.", declined.Type, _simBrief.SimAircraftType);
             return;
         }
 
@@ -153,9 +182,28 @@ public sealed partial class FlightPlanViewModel : ObservableObject
         // committed, the plan is already the live one; otherwise it waits for Save
         Apply(fetched with { Callsign = string.IsNullOrEmpty(fetched.Callsign) ? Callsign : fetched.Callsign }, asBaseline: commit);
         Status = Loc.F("Imported {0} → {1}", fetched.From, fetched.To);
+        // shown on the tab, it waits for Save: a word is enough when it is for another aircraft
+        if (IsForOtherType(fetched))
+            Status += " - " + Loc.F("The SimBrief plan is for {0}, the simulator reports {1}.", fetched.Type, _simBrief.SimAircraftType);
         // only a committed import makes the plan the user's (and the strip's button "Loaded"); a shown one waits for Save
         if (commit)
             Imported?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Enter loads it, Esc keeps the plan as it is.</summary>
+    private async Task<bool> ConfirmOtherTypeAsync(FlightPlanData plan)
+    {
+        ConfirmViewModel ask = new(Loc.T("Other aircraft type"),
+            Loc.F("The SimBrief plan is for {0}, the simulator reports {1}. Load it anyway?", plan.Type, _simBrief.SimAircraftType), Loc.T("Load"), "");
+        _shell.ShowOverlay(ask);
+        return await ask.Result == ConfirmChoice.Yes;
+    }
+
+    /// <summary>Both types known and different. Either one unknown: nothing to compare.</summary>
+    private bool IsForOtherType(FlightPlanData plan)
+    {
+        string planType = plan.Type.Trim(), simType = _simBrief.SimAircraftType.Trim();
+        return planType.Length > 0 && simType.Length > 0 && !string.Equals(planType, simType, StringComparison.OrdinalIgnoreCase);
     }
 
     private void UpdateUnsavedEdits() => HasUnsavedEdits = ToData() != _baseline;
@@ -181,7 +229,10 @@ public sealed partial class FlightPlanViewModel : ObservableObject
         }
 
         if (asBaseline)
+        {
             _baseline = plan;
+            _resetsSeen = _store.Resets;
+        }
         UpdateUnsavedEdits();
     }
 }

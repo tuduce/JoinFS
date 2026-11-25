@@ -398,7 +398,7 @@ namespace JoinFS
                 // helicopters-on-elevated-platforms feature)
                 ObjectPositionUpdate update = new(ref position)
                 {
-                    ground = obj.trustingPlatformGround ? 1 : 0
+                    ground = obj.groundToSim ? 1 : 0
                 };
                 simconnect.SetData(Definitions.OBJECT_POSITION_UPDATE, obj.simId, update);
                 // update stored position

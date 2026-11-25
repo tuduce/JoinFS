@@ -109,6 +109,12 @@ namespace Link
         short brakeRight;
 		float elevation;
 		char ground;
+		// the user aircraft's CG height above the ground, metres, measured while on the ground; NaN until then (plugin to app)
+		float clearance;
+		// ground placement of a remote aircraft, 0x01: place it on the local ground (app to plugin)
+		char placement;
+		// Adjust Height value for the shown model, metres, applied while placed on the local ground (app to plugin)
+		float groundOffset;
     };
 
     struct ObjectPositionMsg : public Msg

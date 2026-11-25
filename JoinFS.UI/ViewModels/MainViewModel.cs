@@ -396,6 +396,10 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Simulator.Sync(_services.Simulator.State);
         Network.Sync(_services.Network.State);
         FlightPlanLoad.Sync(_services.SimBrief.State);
+        // the strip shows the plan's airports from the tab in either view, so the tab follows the live plan even when it
+        // is not on screen - after an aircraft change the strip would otherwise go on showing the previous route
+        if (!(IsExpanded && SelectedTab == TabId.FlightPlan))
+            FlightPlan.Refresh();
         FollowScan();
         FollowStatus();
         ShowPasswordRequest();

@@ -245,6 +245,12 @@ public interface IFlightPlanStore
 {
     FlightPlanData Load();
     void Save(FlightPlanData plan);
+
+    /// <summary>
+    /// Counts the times the simulator reset the plan for another aircraft type (a new flight). A change means edits not yet
+    /// saved belong to the previous aircraft. Zero for a store whose plan the simulator never resets.
+    /// </summary>
+    int Resets => 0;
 }
 
 /// <summary>
@@ -258,6 +264,17 @@ public interface ISimBriefClient : IConnectionLink
     /// strip's button does; without, it is only returned, to be shown and committed with Save. Null when SimBrief has no plan for the user.
     /// </summary>
     Task<FlightPlanData?> FetchAsync(string username, bool commit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// As <see cref="FetchAsync(string, bool, CancellationToken)"/>, but a committed plan made for another aircraft type than the
+    /// simulator reports is only made the user's when <paramref name="confirmOtherType"/> says yes; otherwise nothing changes and
+    /// null is returned.
+    /// </summary>
+    Task<FlightPlanData?> FetchAsync(string username, bool commit, Func<FlightPlanData, Task<bool>> confirmOtherType, CancellationToken cancellationToken) =>
+        FetchAsync(username, commit, cancellationToken);
+
+    /// <summary>The ICAO type the simulator reports for the user's aircraft, empty while it reports none.</summary>
+    string SimAircraftType => "";
 
     /// <summary>Forgets the last fetch: the strip's button goes back to "not loaded". The plan itself stays.</summary>
     void Reset();
