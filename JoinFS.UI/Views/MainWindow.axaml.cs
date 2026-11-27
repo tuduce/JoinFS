@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Animation.Easings;
@@ -6,6 +7,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using JoinFS.UI.Models;
+using JoinFS.UI.Services;
 using JoinFS.UI.ViewModels;
 
 namespace JoinFS.UI.Views;
@@ -54,13 +57,120 @@ public partial class MainWindow : Window
         {
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
             _viewModel.FlightPlanLoad.PropertyChanged -= OnFlightPlanLoadChanged;
+            _viewModel.TabWindows.CollectionChanged -= OnTabWindowsChanged;
         }
         _viewModel = DataContext as MainViewModel;
         if (_viewModel is not null)
         {
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
             _viewModel.FlightPlanLoad.PropertyChanged += OnFlightPlanLoadChanged;
+            _viewModel.TabWindows.CollectionChanged += OnTabWindowsChanged;
         }
+    }
+
+    // ---- Tabs in windows of their own ----
+
+    private const double TabWindowCascade = 32;
+
+    // How much of a saved window's title bar must be on a screen for it to open there again: a window left on a screen that is gone opens
+    // in the middle of this one instead.
+    private const int TitleBarGrip = 40;
+
+    private readonly Dictionary<TabWindowViewModel, TabWindow> _tabWindows = [];
+
+    // A tab window that is moved or sized is saved once the movement has settled, as the main window is.
+    private DispatcherTimer? _tabSaveTimer;
+
+    /// <summary>The windows of the undocked tabs, open now.</summary>
+    internal IReadOnlyCollection<TabWindow> TabWindows => _tabWindows.Values;
+
+    private void OnTabWindowsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (_viewModel is null)
+            return;
+
+        // whatever the change, open what is listed and not yet open, and close what is open and no longer listed
+        foreach (TabWindowViewModel gone in _tabWindows.Keys.Except(_viewModel.TabWindows).ToList())
+            CloseTabWindow(gone);
+        foreach (TabWindowViewModel added in _viewModel.TabWindows.Except(_tabWindows.Keys).ToList())
+            OpenTabWindow(added);
+    }
+
+    private void OpenTabWindow(TabWindowViewModel viewModel)
+    {
+        TabWindow window = new() { DataContext = viewModel, Icon = Icon };
+        if (_viewModel?.Profile.TabWindowPlace(viewModel.Tab) is { } place && OnAScreen(place))
+        {
+            window.Width = Math.Max(window.MinWidth, place.Width);
+            window.Height = Math.Max(window.MinHeight, place.Height);
+            window.Position = new PixelPoint(place.X, place.Y);
+        }
+        else
+        {
+            // in the middle of the screen the main window is on, each next one a little down and to the right
+            PixelRect area = (Screens.ScreenFromWindow(this) ?? Screens.Primary)?.WorkingArea ?? new PixelRect(0, 0, 1920, 1080);
+            double scale = RenderScaling;
+            window.Width = Math.Min(window.Width, area.Width / scale - 2 * ScreenMargin);
+            window.Height = Math.Min(window.Height, area.Height / scale - 2 * ScreenMargin);
+            int offset = (int)(_tabWindows.Count * TabWindowCascade * scale);
+            window.Position = new PixelPoint(
+                area.X + (area.Width - (int)(window.Width * scale)) / 2 + offset,
+                area.Y + (area.Height - (int)(window.Height * scale)) / 2 + offset);
+        }
+
+        _tabWindows[viewModel] = window;
+        // closed by its own ✕: the view model puts the tab back, and the list change finds the window already gone
+        window.Closed += (_, _) => _tabWindows.Remove(viewModel);
+        // saved as it closes, while it is still where the user left it (the app closing closes it too)
+        window.Closing += (_, _) => SavePlace(viewModel.Tab, window);
+        window.PositionChanged += (_, _) => SaveTabWindowsSoon();
+        window.SizeChanged += (_, _) => SaveTabWindowsSoon();
+        window.Show();
+    }
+
+    private bool OnAScreen(WindowPlace place)
+    {
+        PixelPoint grip = new(place.X + TitleBarGrip, place.Y + TitleBarGrip / 4);
+        return Screens.All.Any(screen => screen.WorkingArea.Contains(grip));
+    }
+
+    private void SaveTabWindowsSoon()
+    {
+        if (_tabSaveTimer is null)
+        {
+            _tabSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
+            _tabSaveTimer.Tick += (_, _) =>
+            {
+                _tabSaveTimer.Stop();
+                foreach ((TabWindowViewModel viewModel, TabWindow window) in _tabWindows)
+                    SavePlace(viewModel.Tab, window);
+            };
+        }
+        _tabSaveTimer.Stop();
+        _tabSaveTimer.Start();
+    }
+
+    // Only a window in its normal state has a place of its own: a maximised or minimised one would come back that way, full or nowhere.
+    private void SavePlace(TabId tab, TabWindow window)
+    {
+        if (window.WindowState == WindowState.Normal && window.IsVisible)
+            _viewModel?.Profile.SaveTabWindowPlace(tab, new WindowPlace(window.Position.X, window.Position.Y,
+                (int)Math.Round(window.Width), (int)Math.Round(window.Height)));
+    }
+
+    private void CloseTabWindow(TabWindowViewModel viewModel)
+    {
+        if (_tabWindows.Remove(viewModel, out TabWindow? window))
+            window.Close();
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        // the tabs' windows go with the app's (left open they would keep it running), and open again at the next start
+        _viewModel?.OnShutdown();
+        foreach (TabWindow window in _tabWindows.Values.ToList())
+            window.Close();
     }
 
     private double CollapsedWidth =>
@@ -169,9 +279,19 @@ public partial class MainWindow : Window
         if (_viewModel?.IsExpanded == true)
             BeginResize(expanded: true);
 
-        // a recording that was never saved is offered back
         if (_viewModel is { } viewModel)
+        {
+            // the tabs that were in windows of their own when the app closed open so again; the main window stays in front, where a
+            // first-run or recovery card is asked
+            if (viewModel.Profile.UndockedTabs.Count > 0)
+            {
+                viewModel.RestoreUndockedTabs();
+                Activate();
+            }
+
+            // a recording that was never saved is offered back
             _ = viewModel.Recorder.OfferRecoveryAsync();
+        }
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -267,7 +387,7 @@ public partial class MainWindow : Window
         base.OnKeyDown(e);
 
         // Escape closes the overlay, except the first-run card, which has to be completed.
-        if (e.Key == Key.Escape && _viewModel?.Overlay is { IsDismissable: true } overlay)
+        if (e.Key == Key.Escape && _viewModel?.MainOverlay is { IsDismissable: true } overlay)
         {
             overlay.Close();
             e.Handled = true;

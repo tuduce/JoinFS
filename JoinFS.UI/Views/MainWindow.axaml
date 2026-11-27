@@ -86,8 +86,9 @@
     </DockPanel>
 
     <!-- Overlay: a scrim over the whole window and the card on it. One at a time, chosen by the data templates in App.axaml. -->
-    <Border IsVisible="{Binding IsOverlayOpen}" Background="{DynamicResource ScrimBrush}">
-      <ContentControl Classes="card" Content="{Binding Overlay}" />
+    <!-- A card that a tab in a window of its own opened is drawn over that window instead. -->
+    <Border IsVisible="{Binding IsMainOverlayOpen}" Background="{DynamicResource ScrimBrush}">
+      <ContentControl Classes="card" Content="{Binding MainOverlay}" />
     </Border>
   </Panel>
 </Window>

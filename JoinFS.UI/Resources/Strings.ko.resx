@@ -1278,4 +1278,16 @@
   <data name="Load" xml:space="preserve">
     <value>불러오기</value>
   </data>
+  <data name="Open in a separate window" xml:space="preserve">
+    <value>별도 창에서 열기</value>
+  </data>
+  <data name="Put back in the main window" xml:space="preserve">
+    <value>기본 창으로 되돌리기</value>
+  </data>
+  <data name="{0} is open in a separate window." xml:space="preserve">
+    <value>{0}이(가) 별도 창에 열려 있습니다.</value>
+  </data>
+  <data name="Show window" xml:space="preserve">
+    <value>창 표시</value>
+  </data>
 </root>

@@ -543,6 +543,23 @@ public sealed class UserSettings
     public int? WindowLeft { get; set; }
     public int? WindowBottom { get; set; }
 
+    /// <summary>Where the user left the window of each tab that was undocked. A tab never undocked has none.</summary>
+    public Dictionary<TabId, WindowPlace> TabWindowPlaces { get; set; } = [];
+
+    /// <summary>The tabs that were in windows of their own when the app closed, in the order they were undocked. They open so again.</summary>
+    public List<TabId> UndockedTabs { get; set; } = [];
+
+    /// <summary><see cref="UndockedTabs"/> as one line of text, for a store that keeps strings: <c>Session,Monitor</c>.</summary>
+    public static string FormatTabs(IEnumerable<TabId> tabs) => string.Join(",", tabs);
+
+    /// <summary>What <see cref="FormatTabs"/> wrote. A name that is not a tab (any more) is left out, and so is a second mention.</summary>
+    public static List<TabId> ParseTabs(string? text) =>
+        (text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(name => Enum.TryParse(name, out TabId tab) && Enum.IsDefined(tab) && !int.TryParse(name, out _) ? tab : (TabId?)null)
+            .OfType<TabId>()
+            .Distinct()
+            .ToList();
+
     // The broadcast options shared by Settings → Simulator and the Objects tab.
     public bool BroadcastTacpack { get; set; }
     public bool BroadcastEverything { get; set; }
@@ -552,6 +569,40 @@ public sealed class UserSettings
     public bool GenerateCsl { get; set; }
     public bool SkipCsl { get; set; }
     public bool GenerateLiveries { get; set; }
+}
+
+/// <summary>Where a window is and how big: its top-left corner in screen pixels, its size in the window's own units.</summary>
+public sealed record WindowPlace(int X, int Y, int Width, int Height)
+{
+    /// <summary>
+    /// The places of the tab windows as one line of text, for a store that keeps strings: <c>Session=100,80,960,600;Monitor=…</c>.
+    /// </summary>
+    public static string Format(IReadOnlyDictionary<TabId, WindowPlace> places) =>
+        string.Join(";", places.OrderBy(p => p.Key).Select(p =>
+            FormattableString.Invariant($"{p.Key}={p.Value.X},{p.Value.Y},{p.Value.Width},{p.Value.Height}")));
+
+    /// <summary>What <see cref="Format"/> wrote. A part that is not understood (an old tab, a broken number) is left out.</summary>
+    public static Dictionary<TabId, WindowPlace> Parse(string? text)
+    {
+        Dictionary<TabId, WindowPlace> places = [];
+        foreach (string part in (text ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            string[] nameAndPlace = part.Split('=');
+            if (nameAndPlace.Length != 2 || !Enum.TryParse(nameAndPlace[0], out TabId tab) || !Enum.IsDefined(tab))
+                continue;
+
+            int[] n = new int[4];
+            string[] numbers = nameAndPlace[1].Split(',');
+            if (numbers.Length != 4 || !numbers.Select((s, i) =>
+                    int.TryParse(s, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out n[i])).All(ok => ok))
+                continue;
+            if (n[2] <= 0 || n[3] <= 0)
+                continue;
+
+            places[tab] = new WindowPlace(n[0], n[1], n[2], n[3]);
+        }
+        return places;
+    }
 }
 
 public interface ISettingsStore

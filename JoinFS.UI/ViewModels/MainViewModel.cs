@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using JoinFS.UI.Localization;
@@ -40,9 +41,10 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         Network.PropertyChanged += OnConnectionChanged;
 
         Home = new HomeViewModel(this, services.Session, services.Traffic, services.Platform, services.MapTiles);
-        Hubs = new HubsViewModel(services.Hubs, services.Network, this);
+        Hubs = new HubsViewModel(services.Hubs, services.Network, new TabShell(this, TabId.Network));
         Session = new SessionViewModel(services.Session, Hints);
-        Aircraft = new AircraftViewModel(services.Traffic, services.Models, services.Variables, services.Platform, Profile, this, Hints);
+        Aircraft = new AircraftViewModel(services.Traffic, services.Models, services.Variables, services.Platform, Profile,
+            new TabShell(this, TabId.Aircraft), Hints);
         Objects = new ObjectsViewModel(services.Traffic, services.Models, Profile, this);
         ModelMatching = new ModelMatchingViewModel(services.Models, this);
         FlightPlan = new FlightPlanViewModel(services.FlightPlan, services.SimBrief, Profile, this);
@@ -59,6 +61,9 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         {
             if (e.PropertyName == nameof(UserInterfaceSettingsViewModel.MapStyle))
                 Home.MapStyle = Settings.UserInterface.MapStyle;
+            else if (e.PropertyName == nameof(UserInterfaceSettingsViewModel.AlwaysOnTop))
+                foreach (TabWindowViewModel window in TabWindows)
+                    window.RaiseAlwaysOnTopChanged();
         };
 
         // The strip's flight-plan button fetches from SimBrief. If a username is still needed the prompt comes first and
@@ -235,8 +240,13 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     [NotifyPropertyChangedFor(nameof(CurrentTab))]
     private TabId _selectedTab = TabId.Home;
 
-    /// <summary>The view model of the active tab. The view picks its screen from the type.</summary>
-    public object CurrentTab => SelectedTab switch
+    /// <summary>
+    /// The view model of the active tab, or what says that the tab is open in a window of its own. The view picks its screen from
+    /// the type.
+    /// </summary>
+    public object CurrentTab => WindowOf(SelectedTab)?.Placeholder ?? TabContent(SelectedTab);
+
+    private object TabContent(TabId tab) => tab switch
     {
         TabId.Home => Home,
         TabId.Network => Hubs,
@@ -271,11 +281,101 @@ public sealed partial class MainViewModel : ObservableObject, IShell
     // The release check runs in the background, so it is asked at each poll until it has an answer. The card is shown once per run.
     private bool _updateAnnounced;
 
+    /// <summary>The one card open, over the main window or over the window of the tab that opened it (<see cref="OverlayTab"/>).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
+    [NotifyPropertyChangedFor(nameof(IsOverlayOpen), nameof(MainOverlay), nameof(IsMainOverlayOpen))]
     private OverlayViewModel? _overlay;
 
     public bool IsOverlayOpen => Overlay is not null;
+
+    /// <summary>The undocked tab whose window shows <see cref="Overlay"/>, or null when the main window shows it.</summary>
+    public TabId? OverlayTab { get; private set; }
+
+    /// <summary>The card drawn over the main window: <see cref="Overlay"/> unless a tab window shows it.</summary>
+    public OverlayViewModel? MainOverlay => OverlayTab is null ? Overlay : null;
+
+    public bool IsMainOverlayOpen => MainOverlay is not null;
+
+    partial void OnOverlayChanged(OverlayViewModel? value)
+    {
+        if (value is null)
+            OverlayTab = null;
+        foreach (TabWindowViewModel window in TabWindows)
+            window.RaiseOverlayChanged();
+    }
+
+    // ---- Tabs in windows of their own
+
+    /// <summary>The tabs open in windows of their own, in the order they were undocked. The main window opens and closes the windows.</summary>
+    public ObservableCollection<TabWindowViewModel> TabWindows { get; } = [];
+
+    /// <summary>The tabs that can be shown in a window of their own: the lists a pilot may want to keep an eye on beside the simulator.</summary>
+    public static bool CanUndock(TabId tab) => tab is TabId.Network or TabId.Session or TabId.Aircraft or TabId.Monitor;
+
+    public bool IsUndocked(TabId tab) => WindowOf(tab) is not null;
+
+    private TabWindowViewModel? WindowOf(TabId tab) => TabWindows.FirstOrDefault(w => w.Tab == tab);
+
+    /// <summary>Opens <paramref name="tab"/> in a window of its own, or brings that window to the front when it has one already.</summary>
+    [RelayCommand]
+    public void Undock(TabId tab)
+    {
+        if (!CanUndock(tab))
+            return;
+        if (WindowOf(tab) is { } open)
+        {
+            open.ActivateCommand.Execute(null);
+            return;
+        }
+
+        string label = NavItems.Single(n => n.Tab == tab).Label;
+        TabWindows.Add(new TabWindowViewModel(this, tab, label, TabContent(tab)));
+        SaveUndockedTabs();
+        if (SelectedTab == tab)
+            OnPropertyChanged(nameof(CurrentTab));
+        RefreshTab(tab); // the window opens on what is true now
+    }
+
+    /// <summary>Undocks the tabs that were in windows of their own when the app last closed. Call it once, when the main window has opened.</summary>
+    public void RestoreUndockedTabs()
+    {
+        foreach (TabId tab in Profile.UndockedTabs.ToList())
+            Undock(tab);
+    }
+
+    // True once the app is closing: its tab windows close with it, and that must not count as putting them back.
+    private bool _shuttingDown;
+
+    /// <summary>
+    /// The main window is closing, and the tab windows with it. The tabs that are undocked now stay so for the next run, rather than being
+    /// saved as put back by their windows closing.
+    /// </summary>
+    public void OnShutdown() => _shuttingDown = true;
+
+    private void SaveUndockedTabs()
+    {
+        if (!_shuttingDown)
+            Profile.SaveUndockedTabs(TabWindows.Select(w => w.Tab));
+    }
+
+    /// <summary>
+    /// Puts <paramref name="tab"/> back in the main window. With <paramref name="show"/> the main window opens it; otherwise (its window
+    /// was closed) the main window stays as it is. A card the tab had open is closed with its window.
+    /// </summary>
+    public void Dock(TabId tab, bool show)
+    {
+        if (WindowOf(tab) is not { } window)
+            return;
+
+        if (OverlayTab == tab)
+            Overlay?.Close();
+        TabWindows.Remove(window);
+        SaveUndockedTabs();
+        if (SelectedTab == tab)
+            OnPropertyChanged(nameof(CurrentTab));
+        if (show)
+            GoTo(tab);
+    }
 
     private PasswordPromptViewModel? _passwordPrompt;
 
@@ -467,13 +567,21 @@ public sealed partial class MainViewModel : ObservableObject, IShell
         HasNewChat = false;
     }
 
-    /// <summary>Reads the live data of the tab that is on screen. Nothing is read for a tab nobody is looking at.</summary>
+    /// <summary>
+    /// Reads the live data of the tabs that are on screen: the one the main window shows and those in windows of their own. Nothing is
+    /// read for a tab nobody is looking at.
+    /// </summary>
     private void RefreshVisibleTab()
     {
-        if (!IsExpanded)
-            return;
+        foreach (TabWindowViewModel window in TabWindows)
+            RefreshTab(window.Tab);
+        if (IsExpanded && !IsUndocked(SelectedTab))
+            RefreshTab(SelectedTab);
+    }
 
-        switch (SelectedTab)
+    private void RefreshTab(TabId tab)
+    {
+        switch (tab)
         {
             case TabId.Home:
                 Home.Refresh();
@@ -670,28 +778,38 @@ public sealed partial class MainViewModel : ObservableObject, IShell
 
     // --- IShell ---
 
+    /// <summary>Opens <paramref name="tab"/>. A tab in a window of its own stays there, and that window comes to the front.</summary>
     public void GoTo(TabId tab)
     {
         IsExpanded = true; // first, so the tab that opens sees a window that is showing it
         SelectedTab = tab;
         if (tab == TabId.Chat)
             ChatSeen();
+        WindowOf(tab)?.ActivateCommand.Execute(null);
     }
 
-    public void ShowOverlay(OverlayViewModel overlay)
+    public void ShowOverlay(OverlayViewModel overlay) => ShowOverlay(overlay, from: null);
+
+    /// <summary>Shows <paramref name="overlay"/> over the window that shows tab <paramref name="from"/>: its own window while it is undocked, the main window otherwise.</summary>
+    internal void ShowOverlay(OverlayViewModel overlay, TabId? from)
     {
         overlay.CloseRequested += OnOverlayCloseRequested;
+        // set before the overlay, so the windows know where it goes when they hear of it
+        OverlayTab = from is { } tab && IsUndocked(tab) ? tab : null;
         Overlay = overlay;
     }
 
-    public async Task JoinAsync(AddressBookEntry hub)
+    public Task JoinAsync(AddressBookEntry hub) => JoinAsync(hub, from: null);
+
+    /// <param name="from">The tab that asked: the password prompt goes over the window that shows it.</param>
+    internal async Task JoinAsync(AddressBookEntry hub, TabId? from)
     {
         if (Network.IsConnecting)
             return;
 
         if (hub.RequiresPassword)
         {
-            ShowOverlay(new PasswordPromptViewModel(hub.Name, password => ConnectToAsync(hub, password)));
+            ShowOverlay(new PasswordPromptViewModel(hub.Name, password => ConnectToAsync(hub, password)), from);
             return;
         }
         await ConnectToAsync(hub, password: null);

@@ -1278,4 +1278,16 @@
   <data name="Load" xml:space="preserve">
     <value>Load</value>
   </data>
+  <data name="Open in a separate window" xml:space="preserve">
+    <value>Open in a separate window</value>
+  </data>
+  <data name="Put back in the main window" xml:space="preserve">
+    <value>Put back in the main window</value>
+  </data>
+  <data name="{0} is open in a separate window." xml:space="preserve">
+    <value>{0} is open in a separate window.</value>
+  </data>
+  <data name="Show window" xml:space="preserve">
+    <value>Show window</value>
+  </data>
 </root>

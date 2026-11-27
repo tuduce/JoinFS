@@ -32,6 +32,22 @@ closes: nothing is saved. The live app's title bar is the build name (for exampl
 Where the live app keeps what the wired screens change, under `%LOCALAPPDATA%\JoinFS-<build>\`: the address book is `bookmarks2.txt`
 (one `name=address` per line), and the app's log (`log-<port>.txt`) says "Saved N entries in the address book" each time.
 
+## Tabs in windows of their own
+
+Network Hubs, Session, Aircraft and Monitor have a button at the top right (`UndockButton`) that opens the tab in a window of its own
+(`TabWindow`, with the system's title bar, so it moves, sizes and snaps on its own). The main window shows "… is open in a separate window"
+in its place, with Show window and Put back; picking the tab in the sidebar brings its window to the front. The same button in that
+window, or closing it, puts the tab back. `MainViewModel.TabWindows` lists the undocked tabs (`CanUndock` says which may be) and the main
+window opens and closes their windows to match. An undocked tab is read at each poll like a tab on screen, also while the main window
+is collapsed. A card the tab opens (Substitute, Explain Match, a hub's password) goes over its own window: the tabs reach the shell through
+a `TabShell` that says which tab asks. Closing the window closes that card. Where each tab's window was and its size are kept between runs
+(`UserSettings.TabWindowPlaces`; the live app keeps them in the `TabWindowPlaces` setting, written by `WindowPlace.Format`), saved
+once a move or resize has settled and as the window closes. A maximised or minimised window keeps its last normal place. A window
+whose title bar would be on no screen (a monitor that is gone) opens in the middle of the main window's screen instead. Which tabs
+are undocked is kept too (`UserSettings.UndockedTabs`, the `UndockedTabs` setting), saved as a tab is undocked or put back; the
+tabs undocked when the app closes open in their windows again once the main window has opened (`RestoreUndockedTabs`). The main
+window closing closes the tab windows, which would otherwise count as putting them back, so it first calls `OnShutdown`.
+
 ## Live wiring
 
 The two connection buttons follow the real state. `MainViewModel.Poll()` (a UI timer calls it four times a second) reads each link's

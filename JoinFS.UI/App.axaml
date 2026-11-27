@@ -4,6 +4,8 @@
              xmlns:tvm="using:JoinFS.UI.ViewModels.Tabs"
              xmlns:tv="using:JoinFS.UI.Views.Tabs"
              xmlns:ov="using:JoinFS.UI.Views.Overlays"
+             xmlns:vm="using:JoinFS.UI.ViewModels"
+             xmlns:v="using:JoinFS.UI.Views"
              x:Class="JoinFS.UI.App"
              RequestedThemeVariant="Light">
 
@@ -55,6 +57,7 @@
     <DataTemplate DataType="tvm:ChatViewModel"><tv:ChatView /></DataTemplate>
     <DataTemplate DataType="tvm:MonitorViewModel"><tv:MonitorView /></DataTemplate>
     <DataTemplate DataType="tvm:SettingsViewModel"><tv:SettingsView /></DataTemplate>
+    <DataTemplate DataType="vm:UndockedTabViewModel"><v:UndockedTabView /></DataTemplate>
 
     <DataTemplate DataType="ovm:OnboardingViewModel"><ov:OnboardingView /></DataTemplate>
     <DataTemplate DataType="ovm:PasswordPromptViewModel"><ov:PasswordPromptView /></DataTemplate>

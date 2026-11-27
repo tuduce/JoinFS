@@ -1278,4 +1278,16 @@
   <data name="Load" xml:space="preserve">
     <value>Загрузить</value>
   </data>
+  <data name="Open in a separate window" xml:space="preserve">
+    <value>Открыть в отдельном окне</value>
+  </data>
+  <data name="Put back in the main window" xml:space="preserve">
+    <value>Вернуть в главное окно</value>
+  </data>
+  <data name="{0} is open in a separate window." xml:space="preserve">
+    <value>{0}: открыто в отдельном окне.</value>
+  </data>
+  <data name="Show window" xml:space="preserve">
+    <value>Показать окно</value>
+  </data>
 </root>
