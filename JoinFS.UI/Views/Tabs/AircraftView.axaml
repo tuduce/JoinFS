@@ -6,11 +6,12 @@
              x:Class="JoinFS.UI.Views.Tabs.AircraftView"
              x:DataType="tvm:AircraftViewModel">
   <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
-    <Grid ColumnDefinitions="*,Auto">
+    <Grid ColumnDefinitions="*,Auto,Auto">
       <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
         <TextBlock Text="{l:T 'Aircraft'}" Classes="h2" />
         <TextBlock Text="{Binding AircraftCount, StringFormat='({0})'}" Classes="count" />
       </StackPanel>
+      <c:UndockButton Grid.Column="2" Tab="Aircraft" Margin="12,0,0,0" VerticalAlignment="Center" />
     </Grid>
 
     <Border Grid.Row="1" Classes="card">

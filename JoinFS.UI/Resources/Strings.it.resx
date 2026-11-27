@@ -306,6 +306,9 @@
   <data name="Enter a port from 1 to 65535." xml:space="preserve">
     <value>Inserisci una porta da 1 a 65535.</value>
   </data>
+  <data name="Enter" xml:space="preserve">
+    <value>Entra</value>
+  </data>
   <data name="Enter Cockpit" xml:space="preserve">
     <value>Entra nel Cockpit</value>
   </data>
@@ -350,6 +353,9 @@
   </data>
   <data name="Flight Plan: " xml:space="preserve">
     <value>Piano di Volo: </value>
+  </data>
+  <data name="Follow" xml:space="preserve">
+    <value>Segui</value>
   </data>
   <data name="Follow '{0}'" xml:space="preserve">
     <value>Segui '{0}'</value>
@@ -1271,5 +1277,17 @@
   </data>
   <data name="Load" xml:space="preserve">
     <value>Carica</value>
+  </data>
+  <data name="Open in a separate window" xml:space="preserve">
+    <value>Apri in una finestra separata</value>
+  </data>
+  <data name="Put back in the main window" xml:space="preserve">
+    <value>Riporta nella finestra principale</value>
+  </data>
+  <data name="{0} is open in a separate window." xml:space="preserve">
+    <value>{0} è aperto in una finestra separata.</value>
+  </data>
+  <data name="Show window" xml:space="preserve">
+    <value>Mostra finestra</value>
   </data>
 </root>

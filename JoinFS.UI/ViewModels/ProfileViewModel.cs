@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using JoinFS.UI.Models;
 using JoinFS.UI.Services;
 
 namespace JoinFS.UI.ViewModels;
@@ -127,6 +128,29 @@ public sealed partial class ProfileViewModel : ObservableObject
     {
         _settings.WindowLeft = x;
         _settings.WindowBottom = y;
+        Save();
+    }
+
+    /// <summary>Where the user left the window of <paramref name="tab"/> when it was last undocked, or null if it never was.</summary>
+    public WindowPlace? TabWindowPlace(TabId tab) => _settings.TabWindowPlaces.GetValueOrDefault(tab);
+
+    public void SaveTabWindowPlace(TabId tab, WindowPlace place)
+    {
+        if (_settings.TabWindowPlaces.GetValueOrDefault(tab) == place)
+            return;
+        _settings.TabWindowPlaces[tab] = place;
+        Save();
+    }
+
+    /// <summary>The tabs that were in windows of their own when the app last closed.</summary>
+    public IReadOnlyList<TabId> UndockedTabs => _settings.UndockedTabs;
+
+    public void SaveUndockedTabs(IEnumerable<TabId> tabs)
+    {
+        List<TabId> list = tabs.ToList();
+        if (list.SequenceEqual(_settings.UndockedTabs))
+            return;
+        _settings.UndockedTabs = list;
         Save();
     }
 

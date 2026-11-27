@@ -32,6 +32,9 @@
   <c:IconData x:Key="IconMinimize" StrokeWidth="1.4" Stroke="M4 9H14" />
   <c:IconData x:Key="IconMaximize" StrokeWidth="1.4" Stroke="M4.5 4.5H13.5V13.5H4.5Z" />
   <c:IconData x:Key="IconClose" StrokeWidth="1.4" Stroke="M4.5 4.5L13.5 13.5M13.5 4.5L4.5 13.5" />
+  <!-- A tab out of the main window into one of its own, and back. -->
+  <c:IconData x:Key="IconUndock" StrokeWidth="1.4" Stroke="M8 3.5H3.5V14.5H14.5V10M10.5 3H15V7.5M15 3L8.5 9.5" />
+  <c:IconData x:Key="IconDock" StrokeWidth="1.4" Stroke="M8 3.5H3.5V14.5H14.5V10M15 3L9 9M9 4.5V9H13.5" />
   <c:IconData x:Key="IconExpand" StrokeWidth="1.4" Stroke="M10.5 3H15V7.5M15 3L9.5 8.5M7.5 15H3V10.5M3 15L8.5 9.5" />
 
   <!-- Recorder -->

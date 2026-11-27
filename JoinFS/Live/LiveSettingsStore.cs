@@ -32,6 +32,8 @@ namespace JoinFS.Live
             user.SimbriefUsername = string.IsNullOrWhiteSpace(s.SimBriefUsername) ? null : s.SimBriefUsername;
             user.WindowLeft = s.MainWindowAnchor.X == int.MinValue ? null : s.MainWindowAnchor.X;
             user.WindowBottom = s.MainWindowAnchor.Y == int.MinValue ? null : s.MainWindowAnchor.Y;
+            user.TabWindowPlaces = WindowPlace.Parse(s.TabWindowPlaces);
+            user.UndockedTabs = UserSettings.ParseTabs(s.UndockedTabs);
             user.BroadcastTacpack = s.BroadcastTacpack;
             user.BroadcastEverything = s.AutoBroadcast;
             user.ModelScanOnConnect = s.ModelScanOnConnection;
@@ -57,6 +59,8 @@ namespace JoinFS.Live
             s.Nickname = settings.Nickname ?? "";
             s.SimBriefUsername = settings.SimbriefUsername ?? "";
             s.MainWindowAnchor = new System.Drawing.Point(settings.WindowLeft ?? int.MinValue, settings.WindowBottom ?? int.MinValue);
+            s.TabWindowPlaces = WindowPlace.Format(settings.TabWindowPlaces);
+            s.UndockedTabs = UserSettings.FormatTabs(settings.UndockedTabs);
             s.BroadcastTacpack = settings.BroadcastTacpack;
             s.AutoBroadcast = settings.BroadcastEverything;
             s.ModelScanOnConnection = settings.ModelScanOnConnect;

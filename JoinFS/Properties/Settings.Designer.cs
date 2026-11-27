@@ -1714,5 +1714,29 @@ namespace JoinFS.Properties {
                 this["UnlinkedCslSources"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string TabWindowPlaces {
+            get {
+                return ((string)(this["TabWindowPlaces"]));
+            }
+            set {
+                this["TabWindowPlaces"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string UndockedTabs {
+            get {
+                return ((string)(this["UndockedTabs"]));
+            }
+            set {
+                this["UndockedTabs"] = value;
+            }
+        }
     }
 }

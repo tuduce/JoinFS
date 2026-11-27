@@ -180,7 +180,10 @@ public sealed class FakeTrafficSource : ITrafficSource
 
     public void SetRecording(string aircraftId, bool recording) => _recording[aircraftId] = recording;
     public void SetIgnored(string aircraftId, bool ignored) => _ignored[aircraftId] = ignored;
-    public void Follow(string aircraftId) { }
+    /// <summary>The aircraft last followed, so a test can see it.</summary>
+    public string? Followed { get; private set; }
+
+    public void Follow(string aircraftId) => Followed = aircraftId;
     public void EnterCockpit(string aircraftId) => InCockpit = !InCockpit;
     public void TrackHeading(string aircraftId) => _tracked = aircraftId;
     public void TrackBearing(string aircraftId) => _tracked = aircraftId;
@@ -478,7 +481,13 @@ public sealed class FakeRecorderSource : IRecorderSource
     public bool Empty => _aircraft.Count == 0 && _end == 0;
 
     public RecorderStatus GetStatus() => new(_recording, _playing, _paused, Empty, _playing || _recording ? _time : 0, _end);
-    public IReadOnlyList<RecordedAircraft> GetLoadedRecording() => [.. _aircraft];
+
+    /// <summary>
+    /// The aircraft of the recording. The fake traffic list does not list played aircraft, so while a take plays each one that is not
+    /// skipped stands for one of the sample aircraft, in order: that is what its Follow and Enter links act on.
+    /// </summary>
+    public IReadOnlyList<RecordedAircraft> GetLoadedRecording() =>
+        [.. _aircraft.Select((a, i) => _playing && !a.Skipped && i < SampleData.Aircraft.Count ? a with { TrafficId = SampleData.Aircraft[i].Id } : a)];
     public string LoadedRecordingName { get; private set; }
     public bool Loop { get; set; }
     public string RecordingFolder => @"C:\Recordings";

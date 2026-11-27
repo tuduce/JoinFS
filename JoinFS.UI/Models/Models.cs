@@ -134,7 +134,11 @@ public sealed record ChatMessage(string From, string Text, string Callsign = "",
 
 /// <param name="Id">Names the aircraft to the recorder, for the aircraft of a loaded recording.</param>
 /// <param name="Skipped">The aircraft is left out of playback.</param>
-public sealed record RecordedAircraft(string Callsign, string Model, string Id = "", bool Skipped = false);
+/// <param name="TrafficId">
+/// The id the aircraft has in the traffic list (<see cref="AircraftInfo.Id"/>) while it plays, for Follow and Enter Cockpit. It is only
+/// listed there while it plays; null when it can never be.
+/// </param>
+public sealed record RecordedAircraft(string Callsign, string Model, string Id = "", bool Skipped = false, string? TrafficId = null);
 
 /// <summary>What the recorder is doing, as the transport shows it.</summary>
 /// <param name="Time">Where playback or recording is, in seconds. Zero when it is doing neither.</param>

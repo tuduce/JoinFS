@@ -1,0 +1,34 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:JoinFS.UI.ViewModels"
+        x:Class="JoinFS.UI.Views.TabWindow"
+        x:DataType="vm:TabWindowViewModel"
+        Title="{Binding Title}"
+        Topmost="{Binding AlwaysOnTop}"
+        Width="960" Height="600" MinWidth="560" MinHeight="320"
+        WindowStartupLocation="Manual"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextBrush}"
+        FontFamily="Segoe UI, Inter, Arial"
+        FontSize="13">
+
+  <Window.Styles>
+    <Style Selector="ContentControl.card">
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="16" />
+    </Style>
+  </Window.Styles>
+
+  <!-- One tab, out of the main window, with the system's own title bar so it moves, sizes and snaps like any window. -->
+  <Panel>
+    <Border Padding="24">
+      <ContentControl Content="{Binding Content}" ClipToBounds="False" />
+    </Border>
+
+    <!-- A card the tab opened (Substitute, Explain Match, a password) goes over this window, where the user is. -->
+    <Border IsVisible="{Binding IsOverlayOpen}" Background="{DynamicResource ScrimBrush}">
+      <ContentControl Classes="card" Content="{Binding Overlay}" />
+    </Border>
+  </Panel>
+</Window>
