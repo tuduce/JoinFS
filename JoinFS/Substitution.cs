@@ -4027,8 +4027,10 @@ namespace JoinFS
 
 #if XPLANE
                 // plugin present but no generated CSL yet (older install, plugin copied by hand):
-                // generate it now so the user does not have to open the scan dialog
-                if (XPlaneCslFolder.NeedsGeneration(simFolder))
+                // generate it now so the user does not have to open the scan dialog. Never when the
+                // user switched generation off (it defaults to on), as for issue #230: they chose
+                // their own CSL packs and the generated ones can take tens of gigabytes.
+                if (main.settingsGenerateCsl && XPlaneCslFolder.NeedsGeneration(simFolder))
                 {
                     StartBackgroundScan(true);
                 }

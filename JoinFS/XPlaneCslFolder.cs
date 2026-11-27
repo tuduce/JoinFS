@@ -58,8 +58,15 @@ namespace JoinFS
         }
 
         /// <summary>
+        /// How deep below a package folder a model file is looked for. A generated package has it at
+        /// its root; a linked pack (X-CSL, Bluebell ...) usually one or two folders down.
+        /// </summary>
+        const int ModelFileDepth = 3;
+
+        /// <summary>
         /// True when the plugin is installed but no CSL package other than the shipped default
-        /// exists, i.e. the user would have no models until a generating scan runs
+        /// exists, i.e. the user would have no models until a generating scan runs. A linked pack
+        /// counts as a package, wherever inside it its model files are.
         /// </summary>
         public static bool NeedsGeneration(string simFolder)
         {
@@ -78,12 +85,27 @@ namespace JoinFS
             {
                 return Directory.EnumerateDirectories(cslFolder)
                     .Where(package => string.Equals(Path.GetFileName(package), ShippedPackage, StringComparison.OrdinalIgnoreCase) == false)
-                    .Any(package => File.Exists(Path.Combine(package, ModelFileName))) == false;
+                    .Any(HasModelFile) == false;
             }
             catch
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// True when a model file is in the package folder or a few folders below it
+        /// </summary>
+        static bool HasModelFile(string package)
+        {
+            EnumerationOptions options = new()
+            {
+                RecurseSubdirectories = true,
+                MaxRecursionDepth = ModelFileDepth,
+                IgnoreInaccessible = true,
+                MatchCasing = MatchCasing.CaseInsensitive,
+            };
+            return Directory.EnumerateFiles(package, ModelFileName, options).Any();
         }
     }
 }

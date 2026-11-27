@@ -94,6 +94,27 @@ public class XPlaneCslFolderTests : IDisposable
         Assert.True(XPlaneCslFolder.NeedsGeneration(simFolder));
     }
 
+    [Fact]
+    public void NeedsGeneration_LinkedPackWithModelFilesInSubfolders_ReturnsFalse()
+    {
+        // issue #230: X-CSL keeps one xsb_aircraft.txt per type folder, none at its root
+        Directory.CreateDirectory(Path.Combine(PluginFolder, "64"));
+        AddPackage("BB_GA");
+        AddPackage(Path.Combine(XPlaneCslLinks.LinkName("X-CSL"), "A320"));
+        AddPackage(Path.Combine(XPlaneCslLinks.LinkName("X-CSL"), "Airbus", "A321"));
+
+        Assert.False(XPlaneCslFolder.NeedsGeneration(simFolder));
+    }
+
+    [Fact]
+    public void NeedsGeneration_ModelFileOnlyUnderTheShippedPackage_ReturnsTrue()
+    {
+        Directory.CreateDirectory(Path.Combine(PluginFolder, "64"));
+        AddPackage(Path.Combine("BB_GA", "C172"));
+
+        Assert.True(XPlaneCslFolder.NeedsGeneration(simFolder));
+    }
+
     [Theory]
     [InlineData(@"C:\X-Plane 12", @"C:\X-Plane 12\Aircraft\Laminar Research\C172\c172.acf")]
     [InlineData(@"C:\X-Plane 12\", @"C:\X-Plane 12\Aircraft\Laminar Research\C172\c172.acf")]
