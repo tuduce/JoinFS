@@ -40,7 +40,7 @@ namespace JoinFS.Live
             List<RecordedAircraft> aircraft = [];
             foreach (Recorder.AircraftView view in main.recorder.AircraftSnapshot)
             {
-                aircraft.Add(new RecordedAircraft(view.Callsign, view.Model, view.Id.ToString(), view.Skipped));
+                aircraft.Add(new RecordedAircraft(view.Callsign, view.Model, view.Id.ToString(), view.Skipped, LiveTrafficSource.RecordedId(view.Id)));
             }
             return aircraft;
         }

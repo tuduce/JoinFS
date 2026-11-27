@@ -771,6 +771,76 @@ public class RecorderTests
         Assert.NotNull(recorder.LoadedAircraft[1].Tip);
     }
 
+    // ---- Follow and Enter on the loaded recording's aircraft
+
+    [Fact]
+    public void Follow_and_Enter_are_grey_while_the_take_does_not_play()
+    {
+        RecorderViewModel recorder = Open(new Rig());
+
+        Assert.All(recorder.LoadedAircraft, a =>
+        {
+            Assert.False(a.FollowCommand.CanExecute(null));
+            Assert.False(a.EnterCommand.CanExecute(null));
+            Assert.Equal("Enter", a.EnterLabel);
+        });
+    }
+
+    [Fact]
+    public void While_the_take_plays_Follow_follows_the_aircraft_the_traffic_list_has_for_it()
+    {
+        Rig rig = new();
+        RecorderViewModel recorder = Open(rig);
+        recorder.TogglePlayCommand.Execute(null);
+        LoadedAircraftViewModel aircraft = recorder.LoadedAircraft[2];
+
+        Assert.True(aircraft.FollowCommand.CanExecute(null));
+        aircraft.FollowCommand.Execute(null);
+
+        Assert.Equal(SampleData.Aircraft[2].Id, ((FakeTrafficSource)rig.Services.Traffic).Followed);
+        Assert.Contains(aircraft.Callsign, aircraft.FollowTip);
+    }
+
+    [Fact]
+    public void Enter_enters_the_cockpit_and_then_every_row_offers_to_leave_it()
+    {
+        Rig rig = new();
+        RecorderViewModel recorder = Open(rig);
+        recorder.TogglePlayCommand.Execute(null);
+
+        recorder.LoadedAircraft[1].EnterCommand.Execute(null);
+
+        Assert.True(rig.Services.Traffic.InCockpit);
+        Assert.All(recorder.LoadedAircraft, a =>
+        {
+            Assert.Equal("Leave", a.EnterLabel);
+            Assert.Equal("Leave Cockpit", a.EnterTip);
+            Assert.True(a.EnterCommand.CanExecute(null));
+        });
+
+        recorder.LoadedAircraft[4].EnterCommand.Execute(null);
+        Assert.False(rig.Services.Traffic.InCockpit);
+        Assert.Equal("Enter", recorder.LoadedAircraft[4].EnterLabel);
+    }
+
+    [Fact]
+    public async Task A_skipped_aircraft_cannot_be_followed_or_entered()
+    {
+        Rig rig = new();
+        RecorderViewModel recorder = Open(rig);
+        recorder.TogglePlayCommand.Execute(null);
+        LoadedAircraftViewModel aircraft = recorder.LoadedAircraft[2];
+        aircraft.IsChecked = false;
+        ((ConfirmViewModel)rig.Main.Overlay!).YesCommand.Execute(null);
+        await aircraft.Answered;
+
+        recorder.Refresh();
+
+        Assert.False(aircraft.FollowCommand.CanExecute(null));
+        Assert.False(aircraft.EnterCommand.CanExecute(null));
+        Assert.True(recorder.LoadedAircraft[1].FollowCommand.CanExecute(null));
+    }
+
     // ---- the tab follows the recorder
 
     [Fact]

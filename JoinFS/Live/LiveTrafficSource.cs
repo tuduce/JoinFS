@@ -626,8 +626,13 @@ namespace JoinFS.Live
         /// </summary>
         static string IdOf(Sim.Obj obj) =>
             obj.ownerNuid.Valid() ? "net:" + obj.ownerNuid + "/" + obj.netId
-            : obj.owner == Sim.Obj.Owner.Recorder ? "rec:" + obj.netId
+            : obj.owner == Sim.Obj.Owner.Recorder ? RecordedId(obj.netId)
             : "sim:" + obj.simId;
+
+        /// <summary>
+        /// The id of an aircraft the recorder plays: the recorder creates it in the sim under its own id, with no node
+        /// </summary>
+        internal static string RecordedId(uint recorderId) => "rec:" + recorderId;
 
         /// <summary>
         /// The owner, as the old Objects list named it

@@ -65,6 +65,7 @@ public sealed partial class RecordItemViewModel : ObservableObject
 /// <summary>
 /// An aircraft of the loaded recording, with the tick that says it plays. Unticking leaves it out of playback, and for now that is final:
 /// the tick goes grey and cannot be set again until the recording is loaded again. Because of that, unticking asks first.
+/// While the aircraft plays it is in the simulator, and its Follow and Enter links work as the Aircraft tab's do.
 /// </summary>
 public sealed partial class LoadedAircraftViewModel : ObservableObject
 {
@@ -73,7 +74,14 @@ public sealed partial class LoadedAircraftViewModel : ObservableObject
     private bool _skipped;
     private bool _asking;
 
-    public LoadedAircraftViewModel(RecordedAircraft aircraft, Action<string> skip, Func<LoadedAircraftViewModel, Task<bool>> confirm)
+    // the aircraft as the traffic list has it while it plays (null otherwise), and whether you are in another cockpit
+    private AircraftInfo? _live;
+    private bool _inCockpit;
+
+    /// <param name="follow">Follows the aircraft of the traffic list with this id.</param>
+    /// <param name="enter">Enters the cockpit of the aircraft of the traffic list with this id, or leaves the one you are in.</param>
+    public LoadedAircraftViewModel(RecordedAircraft aircraft, Action<string> skip, Func<LoadedAircraftViewModel, Task<bool>> confirm,
+        Action<string> follow, Action<string> enter)
     {
         Id = aircraft.Id;
         Callsign = aircraft.Callsign;
@@ -81,11 +89,41 @@ public sealed partial class LoadedAircraftViewModel : ObservableObject
         _skipped = aircraft.Skipped;
         _skip = skip;
         _confirm = confirm;
+        FollowCommand = new RelayCommand(() => { if (_live is { } live) follow(live.Id); },() => _live?.Can.HasFlag(AircraftActions.Follow) == true);
+        // leaving needs no aircraft: it leaves the cockpit you are in
+        EnterCommand = new RelayCommand(() => enter(_live?.Id ?? ""), () => _inCockpit || _live?.Can.HasFlag(AircraftActions.EnterCockpit) == true);
     }
 
     public string Id { get; }
     public string Callsign { get; }
     public string Model { get; }
+
+    /// <summary>Follows the aircraft. Only while it plays: before that it is not in the simulator.</summary>
+    public RelayCommand FollowCommand { get; }
+
+    /// <summary>Enters the aircraft's cockpit while it plays, or leaves the cockpit you are in, as in the Aircraft tab.</summary>
+    public RelayCommand EnterCommand { get; }
+
+    public string FollowTip => Loc.F("Follow '{0}'", Callsign);
+
+    /// <summary>Short, for the narrow list; the tooltip says it in full.</summary>
+    public string EnterLabel => _inCockpit ? Loc.T("Leave") : Loc.T("Enter");
+
+    public string EnterTip => _inCockpit ? Loc.T("Leave Cockpit") : Loc.T("Enter Cockpit");
+
+    /// <summary>Takes what the traffic list says of the aircraft now, which decides whether Follow and Enter can be used.</summary>
+    internal void UpdateLive(AircraftInfo? live, bool inCockpit)
+    {
+        _live = live;
+        if (_inCockpit != inCockpit)
+        {
+            _inCockpit = inCockpit;
+            OnPropertyChanged(nameof(EnterLabel));
+            OnPropertyChanged(nameof(EnterTip));
+        }
+        FollowCommand.NotifyCanExecuteChanged();
+        EnterCommand.NotifyCanExecuteChanged();
+    }
 
     /// <summary>Done when the question asked by the last unticking has been answered (for tests; nobody else waits for it).</summary>
     internal Task Answered { get; private set; } = Task.CompletedTask;
@@ -280,8 +318,9 @@ public sealed partial class RecorderViewModel : ObservableObject
             _syncingLoop = false;
         }
 
-        SyncLive();
-        SyncLoaded();
+        IReadOnlyList<AircraftInfo> traffic = _traffic.GetAircraft();
+        SyncLive(traffic);
+        SyncLoaded(traffic);
 
         ToggleRecordingCommand.NotifyCanExecuteChanged();
         TogglePlayCommand.NotifyCanExecuteChanged();
@@ -292,11 +331,11 @@ public sealed partial class RecorderViewModel : ObservableObject
         OnPropertyChanged(nameof(HasUnsavedRecording));
     }
 
-    private void SyncLive()
+    private void SyncLive(IReadOnlyList<AircraftInfo> traffic)
     {
         List<RecordItemViewModel> wanted = [];
         HashSet<string> seen = [];
-        foreach (AircraftInfo aircraft in _traffic.GetAircraft())
+        foreach (AircraftInfo aircraft in traffic)
         {
             // an aircraft that is played back, or that cannot be recorded for another reason, is not one to choose
             if (!aircraft.Can.HasFlag(AircraftActions.Record) || !seen.Add(aircraft.Id))
@@ -313,8 +352,13 @@ public sealed partial class RecorderViewModel : ObservableObject
         CollectionSync.Reconcile(LiveAircraft, wanted);
     }
 
-    private void SyncLoaded()
+    private void SyncLoaded(IReadOnlyList<AircraftInfo> traffic)
     {
+        Dictionary<string, AircraftInfo> trafficById = [];
+        foreach (AircraftInfo aircraft in traffic)
+            trafficById.TryAdd(aircraft.Id, aircraft);
+        bool inCockpit = _traffic.InCockpit;
+
         List<LoadedAircraftViewModel> wanted = [];
         HashSet<string> seen = [];
         foreach (RecordedAircraft aircraft in _source.GetLoadedRecording())
@@ -324,13 +368,28 @@ public sealed partial class RecorderViewModel : ObservableObject
             if (_loadedById.TryGetValue(aircraft.Id, out LoadedAircraftViewModel? item))
                 item.Update(aircraft);
             else
-                _loadedById[aircraft.Id] = item = new LoadedAircraftViewModel(aircraft, _source.SkipAircraft, ConfirmLeaveOutAsync);
+                _loadedById[aircraft.Id] = item = new LoadedAircraftViewModel(aircraft, _source.SkipAircraft, ConfirmLeaveOutAsync, Follow, EnterCockpit);
+            item.UpdateLive(aircraft.TrafficId is { } id ? trafficById.GetValueOrDefault(id) : null, inCockpit);
             wanted.Add(item);
         }
 
         foreach (string gone in _loadedById.Keys.Except(seen).ToList())
             _loadedById.Remove(gone);
         CollectionSync.Reconcile(LoadedAircraft, wanted);
+    }
+
+    // ---- Follow and Enter, on an aircraft of the loaded recording: what the Aircraft tab's links do
+
+    private void Follow(string trafficId)
+    {
+        _traffic.Follow(trafficId);
+        Refresh();
+    }
+
+    private void EnterCockpit(string trafficId)
+    {
+        _traffic.EnterCockpit(trafficId);
+        Refresh();
     }
 
     // ---- the transport

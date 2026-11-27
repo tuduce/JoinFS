@@ -306,6 +306,9 @@
   <data name="Enter a port from 1 to 65535." xml:space="preserve">
     <value>Saisissez un port de 1 à 65535.</value>
   </data>
+  <data name="Enter" xml:space="preserve">
+    <value>Entrer</value>
+  </data>
   <data name="Enter Cockpit" xml:space="preserve">
     <value>Entrer dans le Cockpit</value>
   </data>
@@ -350,6 +353,9 @@
   </data>
   <data name="Flight Plan: " xml:space="preserve">
     <value>Plan de vol : </value>
+  </data>
+  <data name="Follow" xml:space="preserve">
+    <value>Suivre</value>
   </data>
   <data name="Follow '{0}'" xml:space="preserve">
     <value>Suivre '{0}'</value>

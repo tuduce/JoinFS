@@ -306,6 +306,9 @@
   <data name="Enter a port from 1 to 65535." xml:space="preserve">
     <value>1에서 65535 사이의 포트를 입력하세요.</value>
   </data>
+  <data name="Enter" xml:space="preserve">
+    <value>입장</value>
+  </data>
   <data name="Enter Cockpit" xml:space="preserve">
     <value>조종석에 입장</value>
   </data>
@@ -350,6 +353,9 @@
   </data>
   <data name="Flight Plan: " xml:space="preserve">
     <value>비행 계획: </value>
+  </data>
+  <data name="Follow" xml:space="preserve">
+    <value>따라가기</value>
   </data>
   <data name="Follow '{0}'" xml:space="preserve">
     <value>'{0}' 따라가기</value>
