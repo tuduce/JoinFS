@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\JoinFS\JoinFS.csproj" AdditionalProperties="Configuration=FS2024-Debug" />
+    <ProjectReference Include="..\JoinFS.Fsd\JoinFS.Fsd.csproj" />
   </ItemGroup>
 
 </Project>

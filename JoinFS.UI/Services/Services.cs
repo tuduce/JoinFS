@@ -609,7 +609,44 @@ public sealed class Preferences
     public string XPlaneAddress { get; set; } = "";
     public bool Tcas { get; set; }
 
+    // ATC: the connection of an ATC client (EuroScope) on this PC. Off on a fresh install.
+    public bool AtcFsd { get; set; }
+    public int AtcFsdPort { get; set; } = AtcClientStatus.DefaultPort;
+
     public Preferences Clone() => (Preferences)MemberwiseClone();
+}
+
+/// <summary>What the connection of the ATC client is doing.</summary>
+public enum AtcClientState
+{
+    /// <summary>Nothing listens: the switch is off.</summary>
+    Off,
+
+    /// <summary>JoinFS waits for the ATC client (or a client is connected and has not logged in).</summary>
+    Listening,
+
+    /// <summary>The ATC client is logged in as a station.</summary>
+    Connected,
+
+    /// <summary>The switch is on but the port could not be opened.</summary>
+    Failed,
+}
+
+/// <param name="Port">The port in use (Listening, Connected) or asked for (Failed); 0 when off.</param>
+/// <param name="Callsign">The station the client logged in as, for Connected.</param>
+/// <param name="Frequency">Its frequency as written, "118.700", or empty while the client has not said it yet.</param>
+public sealed record AtcClientStatus(AtcClientState State, int Port = 0, string Callsign = "", string Frequency = "")
+{
+    /// <summary>The port an ATC client connects to unless told otherwise.</summary>
+    public const int DefaultPort = 6809;
+
+    public static AtcClientStatus Off { get; } = new(AtcClientState.Off);
+}
+
+/// <summary>Whether an ATC client is connected. The switch and the port are <see cref="Preferences"/>; this is only what is true now.</summary>
+public interface IAtcStatusSource
+{
+    AtcClientStatus Read();
 }
 
 /// <summary>
@@ -759,4 +796,5 @@ public sealed record AppServices(
     IModelScanSource ModelScan,
     IMapTileProvider MapTiles,
     IMessageSource Messages,
-    IShortcutSource Shortcuts);
+    IShortcutSource Shortcuts,
+    IAtcStatusSource Atc);

@@ -89,8 +89,19 @@ namespace JoinFS
         public AddressBook addressBook;
         public Log log;
         public Monitor monitor;
-        public Euroscope euroscope;
         public Whazzup whazzup;
+        /// <summary>The FSD server for the ATC client on this PC; null while the listener is off</summary>
+        public AtcGateway atcGateway;
+        FsdListener atcListener;
+
+        /// <summary>
+        /// This node's ATC presence: the logged-in station, else inactive. Replaced as a
+        /// whole by <see cref="RefreshLocalAtc"/> on the app thread, so any thread reads it without a lock.
+        /// </summary>
+        public LocalAtc LocalAtc => localAtc;
+        volatile LocalAtc localAtc = LocalAtc.Inactive;
+        AtcStationInfo localAtcStation;
+
         public Notes notes;
         public Stats stats;
         public VariableMgr variableMgr;
@@ -103,8 +114,6 @@ namespace JoinFS
         public string settingsNickname = "";
         public bool settingsConnectOnLaunch = false;
         public int settingsActivityCircle = DEFAULT_ACTIVITY_CIRCLE;
-        public bool settingsAtc = false;
-        public string settingsAtcAirport = "";
         public bool settingsHub = false;
         public string settingsHubDomain = "";
         public string settingsHubName = "";
@@ -114,6 +123,11 @@ namespace JoinFS
         public int settingsHubRelays = MeshManager.DefaultRelayBudget;
         public string settingsPassword = "";
         public bool settingsWhazzup = false;
+        /// <summary>Let an ATC client on this PC connect (setting AtcFsd or -fsd), docs/ATC/atc-fsd-plan.md D3</summary>
+        public bool settingsAtcFsd = false;
+        /// <summary>The command line had <c>-atc</c> or <c>-airport</c>: logged once at startup</summary>
+        bool oldAtcArgument = false;
+        public ushort settingsAtcFsdPort = DEFAULT_ATC_FSD_PORT;
         public bool settingsWhazzupPublic = false;
         public float settingsWhazzupDelay = 1.0f;
         public bool settingsMultiObjects = false;
@@ -241,6 +255,8 @@ namespace JoinFS
             }
 
             // close systems
+            atcListener?.Dispose();
+            atcGateway?.Shutdown();
             if (network != null)
             {
                 // leave session and stop the network thread
@@ -291,8 +307,6 @@ namespace JoinFS
                 settingsNickname = Settings.Default.Nickname;
                 settingsConnectOnLaunch = Settings.Default.ConnectOnLaunch;
                 settingsActivityCircle = Settings.Default.ActivityCircle;
-                settingsAtc = Settings.Default.Atc;
-                settingsAtcAirport = Settings.Default.AtcAirport.ToUpper();
                 settingsHub = Settings.Default.Hub;
                 settingsHubDomain = Settings.Default.HubAddress;
                 settingsHubName = Settings.Default.HubName;
@@ -302,6 +316,8 @@ namespace JoinFS
                 settingsPassword = Settings.Default.Password;
                 settingsWhazzup = Settings.Default.Whazzup;
                 settingsWhazzupPublic = Settings.Default.WhazzupGlobal;
+                settingsAtcFsd = Settings.Default.AtcFsd;
+                settingsAtcFsdPort = Settings.Default.AtcFsdPort;
                 settingsMultiObjects = Settings.Default.MultipleObjectsEveryone;
                 settingsIpv6 = Settings.Default.Ipv6;
                 settingsJfp2Only = Settings.Default.Jfp2Only;
@@ -551,19 +567,14 @@ namespace JoinFS
                                 break;
 
                             case "-atc":
-                                // enable ATC mode
-                                settingsAtc = true;
+                                // the old manual ATC mode is gone (docs/ATC/atc-fsd-plan.md D11): accepted and ignored, with a log line
+                                oldAtcArgument = true;
                                 break;
 
                             case "-airport":
-                                // next parameter
+                                oldAtcArgument = true;
+                                // its value is skipped too
                                 index++;
-                                // check for parameter
-                                if (index < args.Length)
-                                {
-                                    // write airport
-                                    settingsAtcAirport = args[index][..Math.Min(4, args[index].Length)].ToUpper();
-                                }
                                 break;
 
                             case "-autobroadcast":
@@ -578,6 +589,16 @@ namespace JoinFS
 
                             case "-global":
                                 doGlobal = true;
+                                break;
+
+                            case "-fsd":
+                                // let an ATC client connect, on the port that may follow
+                                settingsAtcFsd = true;
+                                if (index + 1 < args.Length && ushort.TryParse(args[index + 1], NumberStyles.None, CultureInfo.InvariantCulture, out ushort fsdPort) && fsdPort > 0)
+                                {
+                                    settingsAtcFsdPort = fsdPort;
+                                    index++;
+                                }
                                 break;
 
                             case "-whazzup":
@@ -821,9 +842,8 @@ namespace JoinFS
                                 Console.WriteLine("  --loop                 " + Resources.Strings.Tip_Loop);
                                 Console.WriteLine("  --activitycircle <nm>  " + Resources.Strings.Options_ActivityCircle);
                                 Console.WriteLine("  --follow <nm>          " + Resources.Strings.Options_Follow);
-                                Console.WriteLine("  --atc                  " + Resources.Strings.Options_Atc);
-                                Console.WriteLine("  --airport <code>       " + Resources.Strings.Options_Airport);
                                 Console.WriteLine("  --lowbandwidth         " + Resources.Strings.Tip_LowBandwidth);
+                                Console.WriteLine("  --fsd [port]           " + Resources.Strings.Tip_AtcFsd);
                                 Console.WriteLine("  --whazzup              " + Resources.Strings.Tip_Whazzup);
                                 Console.WriteLine("  --whazzup-public       " + Resources.Strings.Tip_WhazzupGlobal);
                                 Console.WriteLine("  --whazzupdelay <sec>   " + Resources.Strings.Options_WhazzupDelay);
@@ -1009,8 +1029,16 @@ namespace JoinFS
 #endif
                 recorder = new Recorder(this);
                 addressBook = new AddressBook(this);
-                euroscope = new Euroscope(this);
                 whazzup = new Whazzup(this);
+                if (settingsAtcFsd)
+                {
+                    StartAtcFsd();
+                }
+                RefreshLocalAtc();
+                if (oldAtcArgument)
+                {
+                    MonitorEvent("The command-line options -atc and -airport no longer do anything: to control, log in with an ATC client (for example EuroScope) and start JoinFS with -fsd or turn on the ATC client connection in Settings");
+                }
                 notes = new Notes(this);
                 stats = new Stats();
                 variableMgr = new VariableMgr(this);
@@ -1320,6 +1348,126 @@ namespace JoinFS
             scheduleHeightAdjustmentSave = true;
         }
 
+        /// <summary>The port an ATC client connects to, unless set</summary>
+        public const ushort DEFAULT_ATC_FSD_PORT = 6809;
+
+        /// <summary>
+        /// Start the listener for the ATC client on this PC and the gateway behind it. Nothing exists before this runs (D3).
+        /// </summary>
+        void StartAtcFsd()
+        {
+            atcFsdFailed = false;
+            uint vuidSquawk = VariableMgr.CreateVuid("transponder code:1");
+            // stage 9 (Variables.cs): MSFS sends its state as "transponder state:1", X-Plane under its dataref name, because the two
+            // number the states differently; the ident is one variable. A node that sends none of them is "unknown", shown as mode C.
+            uint vuidState = VariableMgr.CreateVuid("transponder state:1");
+            uint vuidXPlaneState = VariableMgr.CreateVuid("sim/cockpit/radios/transponder_mode");
+            uint vuidIdent = VariableMgr.CreateVuid("transponder ident:1");
+            var traffic = new SimViewTraffic(
+                () => sim?.View,
+                () => network?.LocalId ?? default,
+                nuid => network?.Peers.GetNodeName(nuid) ?? "",
+                aircraft => aircraft.variableSet?.GetInteger(vuidSquawk) ?? 0,
+                aircraft =>
+                {
+                    VariableMgr.Set variables = aircraft.variableSet;
+                    if (variables == null) return (AtcTransponder.Unknown, false);
+                    AtcTransponder mode =
+                        variables.TryGetInteger(vuidState, out int msfs) ? SimViewTraffic.FromMsfs(msfs) :
+                        variables.TryGetInteger(vuidXPlaneState, out int xplane) ? SimViewTraffic.FromXPlane(xplane) :
+                        AtcTransponder.Unknown;
+                    return (mode, variables.GetInteger(vuidIdent) != 0);
+                });
+            var gateway = new AtcGateway(MonitorEvent, traffic, network?.Atc);
+            var listener = new FsdListener(gateway, EnqueueCommand, MonitorEvent);
+            if (listener.Start(settingsAtcFsdPort))
+            {
+                atcGateway = gateway;
+                atcListener = listener;
+            }
+            else
+            {
+                listener.Dispose();
+                gateway.Shutdown();
+                atcFsdFailed = true;
+            }
+        }
+
+        /// <summary>The listener was asked for and could not be opened (the port is in use). Read under <see cref="conch"/>.</summary>
+        bool atcFsdFailed;
+
+        /// <summary>The port the ATC client listener is open on, or 0 while it is off. Read under <see cref="conch"/>.</summary>
+        public int AtcFsdPort => atcListener?.Port ?? 0;
+
+        /// <summary>See <see cref="atcFsdFailed"/>.</summary>
+        public bool AtcFsdFailed => atcFsdFailed;
+
+        /// <summary>
+        /// Turn the ATC client connection on or off, or move it to another port, while JoinFS runs (the settings card, plan stage 5).
+        /// Off closes the port and disconnects the client; the station goes with it. App thread only: the UI posts it with
+        /// <see cref="EnqueueCommand"/>.
+        /// </summary>
+        public void SetAtcFsd(bool enabled, ushort port)
+        {
+            settingsAtcFsd = enabled;
+            settingsAtcFsdPort = port;
+
+            atcListener?.Dispose();
+            atcListener = null;
+            atcGateway?.Shutdown();
+            atcGateway = null;
+            atcFsdFailed = false;
+
+            if (enabled)
+            {
+                StartAtcFsd();
+            }
+            // the station is gone (or never was): LocalAtc goes back to inactive, and peers are told
+            RefreshLocalAtc();
+        }
+
+        /// <summary>
+        /// Work out <see cref="LocalAtc"/> again, from the station (docs/ATC/atc-fsd-plan.md, stage 3).
+        /// The work loop calls it when the station changes. App thread (or startup).
+        /// A change a peer can see goes out as a <c>PeerInfo</c> at once.
+        /// </summary>
+        public void RefreshLocalAtc()
+        {
+            AtcStationInfo station = atcGateway?.Station;
+            LocalAtc next = LocalAtc.Resolve(station);
+            LocalAtc before = localAtc;
+            localAtcStation = station;
+            if (next == before) return;
+            localAtc = next;
+            if (!next.SamePresenceAs(before))
+            {
+                network?.Peers.SendPeerInfoToAll();
+            }
+        }
+
+        /// <summary>
+        /// Where this node's controller is, in degrees: the station's own position, else its airport's. False when neither is known.
+        /// </summary>
+        public bool TryGetLocalAtcPosition(out double latitude, out double longitude)
+        {
+            LocalAtc atc = localAtc;
+            if (atc.HasPosition)
+            {
+                latitude = Math.Min(90.0, Math.Max(-90.0, atc.Latitude));
+                longitude = Math.Min(180.0, Math.Max(-180.0, atc.Longitude));
+                return true;
+            }
+            if (airportList.TryGetValue(atc.Airport, out Airport airport))
+            {
+                latitude = Math.Min(90.0, Math.Max(-90.0, airport.latitude));
+                longitude = Math.Min(180.0, Math.Max(-180.0, airport.longitude));
+                return true;
+            }
+            latitude = 0.0;
+            longitude = 0.0;
+            return false;
+        }
+
         private readonly ConcurrentQueue<Action> _commandQueue = new();
 
         // Call this helper method instead of setting 'schedule* = true'
@@ -1387,8 +1535,9 @@ namespace JoinFS
                 {
                     // Sim and the Recorder run on the sim thread (SimService)
                     network.DoWork();
-                    euroscope.DoWork();
                     whazzup.DoWork();
+                    atcGateway?.Tick((long)(ElapsedTime * 1000.0));
+                    if (!ReferenceEquals(atcGateway?.Station, localAtcStation)) RefreshLocalAtc();
                     notes.DoWork();
 #if CONSOLE
                     webhookService?.DoWork();

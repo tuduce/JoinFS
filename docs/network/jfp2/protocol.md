@@ -17,6 +17,7 @@ MemberList, MemberAnnounce and MemberLeave (§5.10, §5.11); the choice between 
 (§5.12); RouteQuery and RouteAnswer and the bridge to nodes that speak legacy only (§5.13); endpoint
 candidates, IPv6 and the path of a link (§5.14); nodes with no IPv4 address and their alias (§5.15); the
 directory (§5.16); ObjectPosition, RemoveObject, PeerInfo, CommsRequest and NotesHistory (§9.4, §9.8);
+AtcStation and AtcRelay, the controllers' classes (§9.9);
 segments (§7.5) behind capability bit 0; name kind 2 (§4.3); the extension tags 4 and 5 (§5.4); schema
 version 2 of MemberList, MemberAnnounce and JoinResult.
 
@@ -243,7 +244,9 @@ internal partition, like any other class: a node sends them only on a session wh
 | 20 | PeerInfo | no | Edition 2, 9.4 |
 | 21 | CommsRequest | yes | Edition 2, 9.4 |
 | 22 | NotesHistory | yes | Edition 2, 9.8 (may need segments, 7.5) |
-| 23–254 | — | | Unassigned. |
+| 23 | AtcStation | no | Edition 2, 9.9 |
+| 24 | AtcRelay | yes | Edition 2, 9.9 |
+| 25–254 | — | | Unassigned. |
 | 255 | Extended | | Reserved, never assigned. |
 
 A sender MUST send only classes the receiver offered and the session agreed (§5.5). A message of
@@ -1191,6 +1194,8 @@ fits the 1,100-byte payload ceiling (§3.6) by construction. A sender cuts per �
 | CommsRequest | 1 | — | 1 |
 | PeerInfo | 22 + 4 prefixes = 30 | Nickname 32, AtcAirport 8, Version 32, Simulator 32 | 134 |
 | NotesHistory | 3 | per user 18 + 2 prefixes, Nickname 32, Callsign 32; per note 10 + 1 prefix, Text 768 | 255 × 1,100 = 280,500 (segments, §7.5) |
+| AtcStation | 26 + 2 prefixes = 30 | Callsign 12, Name 32 | 74 |
+| AtcRelay | 0 + 1 prefix = 2 | Line 1,000 | 1,002 |
 | Status | 34 + 8 prefixes = 50 | AppVersion 32, AtcAirport 8, Address 128, Name 64, About 512, Voip 128, NextEvent 128, Airport 8 | 1,058 |
 
 The largest, Status at 1,058 bytes, makes a 1,086-byte datagram with every header, 1,110 with the
@@ -1208,6 +1213,40 @@ late joiner the chat that was written before it came. Scope u8 (the CommsRequest
 user. The message is cut at 280,500 bytes, whole notes and then whole users from the end. It is the only class that
 needs segments (§7.5); a sender that cannot use them sends the same notes as Notes messages (5), one each, to
 the same effect except that a user without notes is not announced. Both reach the application as a bundle of notes.
+
+### 9.9 AtcStation and AtcRelay (classes 23 and 24, version 1)
+
+The two classes of the ATC clients on the mesh (`../../ATC/atc-fsd-plan.md` §4.5): a controller's client (an FSD client such as
+EuroScope) is connected to the node it runs next to, and these carry its station and its lines to the other nodes. They are
+carried by JFP2 only; legacy has no message for them and a node never sends them over legacy (§2.4). Each is offered and
+agreed like any class (§5.3, §5.5): a node sends one only to a neighbour, or through a relay hop, that agreed it, so a build
+or a relay without the classes is simply not sent them and nothing else changes for it. This section defines the bodies; the
+rules of the application (when a station is sent, how a line is checked and delivered) are the plan's and are not part of the wire.
+
+**AtcStation (23)**: the presence of one controller station on its node. Not guaranteed. The origin of the datagram is the
+node the station is on; there is no owner field.
+
+| Field | Type | Notes |
+|---|---|---|
+| Slot | u8 | 0 the main station, 1 its ATIS: one station per node and slot |
+| Flags | u8 | bit 0 Online; clear means the station logged off. The other bits are not assigned and are ignored on reading |
+| Facility | u8 | the FSD value: 0 OBS, 1 FSS, 2 DEL, 3 GND, 4 TWR, 5 APP, 6 CTR. Not interpreted by the wire; a reader keeps a value it does not know |
+| Rating | u8 | as the station's client sent it |
+| Visibility | u16 | nautical miles |
+| Frequency | u32 | kHz (128550 is 128.550 MHz); 0 for none |
+| Latitude, Longitude | f64 × 2 | degrees |
+| Callsign | string | at most 12 bytes: the whole callsign of the station (`EDDM_N_TWR`) |
+| Name | string | at most 32 bytes |
+
+The payload is 26 fixed bytes and the two strings. A node sends its stations to every member when one logs in or changes, to a
+member that just joined and every 10 s; a station that logs off is sent once with Online clear. A receiver drops a station it has
+not heard from for 35 s, and every station of a member that left.
+
+**AtcRelay (24)**: one FSD line that a station's client sent to a station on another node. Guaranteed, unicast. The payload is the
+string `Line`: the FSD line without its line ending, at most **1,000** bytes. A longer line is cut by the codec like any text
+(§4.2), which would break it, so a sender does not send a line that is longer. The origin of the datagram is the node the
+line comes from. A receiver does not take the line on trust: it checks the verb, the characters and that the line's sender is a
+station of the origin node before it passes the line to its client.
 
 ---
 
@@ -1237,7 +1276,7 @@ cited rule says.
 |---|---|---|---|
 | Flag bits (§3.2) | 8 bits | 0 Guaranteed, 1 Forwarded, 3 Internal; 2 Coalesced reserved | Drop the datagram |
 | Internal classes (§3.3) | u8 | 0 Hello, 1 HelloAck, 2 Join, 3 JoinResult, 4 MemberList, 5 MemberAnnounce, 6 MemberLeave, 7 RouteQuery, 8 RouteAnswer, 9 GuaranteedDone | Not agreed: drop, do not acknowledge |
-| Application classes (§3.3) | u8 | 0–22; 255 reserved as Extended | Not agreed: drop, do not acknowledge |
+| Application classes (§3.3) | u8 | 0–24; 255 reserved as Extended | Not agreed: drop, do not acknowledge |
 | Offer partitions (§5.3) | u8 | 0 application, 1 internal | Skip the offer |
 | Handshake `Result` (§5.2) | u8 | 0, 1, 2 | Read as "no session now" |
 | Handshake TLV tags (§5.4) | u16 | 1 Names, 2 Build, 3 ObservedEndPoint, 4 Admission, 5 Candidates | Skip |
@@ -1543,6 +1582,21 @@ FA 02 08 34 12 00 00 00                   magic, ProtoMajor 2, Internal, sender 
 
 A node of 26.6 reading this Hello skips every offer, tag and capability bit it does not know (§5.3, §5.4, §5.6) and agrees the ten application classes it has.
 
+**A.19 The Hello with the ATC classes**, pinned by `JoinFS.Tests/Jfp2/AtcHelloGoldenTests.cs`: the Hello of A.18 with the offers of AtcStation (23) and AtcRelay (24) appended after NotesHistory and the offer count raised. A.18 stays as it is, as the build before it sent it; nothing else of the Hello differs.
+
+```
+20 00                                     OfferCount: 32
+...                                       the offers of A.18 up to NotesHistory, unchanged
+00 17 01 01  00 18 01 01                  AtcStation, AtcRelay, each [1, 1]
+...                                       the internal offers, the tags and the rest as in A.18
+```
+
+The body of an AtcStation is pinned by `JoinFS.Tests/Jfp2/AtcCodecTests.cs`: for the station slot 1, online, facility 4, rating 9, visibility 258, 118.380 MHz, latitude 1.5, longitude -2.0, callsign `EDDM_TWR`, name `Al`:
+
+```
+01 01 04 09 02 01 6C CE 01 00 00 00 00 00 00 00 F8 3F 00 00 00 00 00 00 00 C0 08 00 45 44 44 4D 5F 54 57 52 02 00 41 6C
+```
+
 ---
 
 ## Appendix B. Constants
@@ -1586,6 +1640,7 @@ A node of 26.6 reading this Hello skips every offer, tag and capability bit it d
 |---|---|---|
 | 1 | 2026-10 | The wire of JoinFS 26.6: 8-byte names, per-origin guaranteed ids, field limits and the 1,200-byte ceiling, the observed endpoint, and defined handling of unknown values. The development history before this edition is `history/`. |
 | 2 | 2026-10 | Stand-alone JFP2 and IPv6 (`standalone-ipv6-plan.md`, stages 1 to 12). Name kind 2 (§4.3); Hello extension tags 4 `Admission` and 5 `Candidates` (§5.4); `Result` 2 (§5.2); capability bit 0 `Segments` (§5.6); internal classes 2 to 8 (Join, JoinResult, MemberList, MemberAnnounce, MemberLeave, RouteQuery, RouteAnswer); application classes 10 to 22 (the directory, ObjectPosition, RemoveObject, PeerInfo, CommsRequest, NotesHistory); schema version 2 of MemberList, MemberAnnounce and JoinResult; the sections §5.9 to §5.16, §7.5 and §9.8; examples A.3 to A.17. The envelope, the Hello fixed fields and offer layout, the flags and every class and tag of edition 1 are unchanged: the goldens of 26.6 (A.1, A.2) are untouched, and the Hello of this edition is pinned beside them (A.3, A.4, A.13). |
+| 2 | 2026-11 | Application classes 23 `AtcStation` and 24 `AtcRelay`, for the ATC clients on the mesh (`../../ATC/atc-fsd-plan.md`, stage 6): §3.3, §9.7, §9.9, §10.2 and the Hello of A.19. Appended after class 22, so no class, tag or number changes; the Hello of A.18 is kept as the one of the build before. A node without the classes does not agree them and is not sent them. |
 
 ---
 

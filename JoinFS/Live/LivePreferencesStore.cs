@@ -64,6 +64,9 @@ namespace JoinFS.Live
                 HubEvent = s.HubEvent ?? "",
                 XPlaneAddress = s.XPlanePluginAddress ?? "",
                 Tcas = s.TCAS,
+                // the saved setting, not what this run does: -fsd turns it on for one run without saving it
+                AtcFsd = s.AtcFsd,
+                AtcFsdPort = s.AtcFsdPort > 0 ? s.AtcFsdPort : Main.DEFAULT_ATC_FSD_PORT,
             };
             return applied.Clone();
         }
@@ -103,6 +106,8 @@ namespace JoinFS.Live
             s.HubEvent = next.HubEvent;
             s.XPlanePluginAddress = next.XPlaneAddress;
             s.TCAS = next.Tcas;
+            s.AtcFsd = next.AtcFsd;
+            s.AtcFsdPort = (ushort)Math.Clamp(next.AtcFsdPort, 1, ushort.MaxValue);
 
             // the app's own copies, which the network, WhazzUp and the simulator read
             main.settingsConnectOnLaunch = next.ConnectOnLaunch;
@@ -156,6 +161,15 @@ namespace JoinFS.Live
                 {
                     main.network.ScheduleCreate();
                 }
+            }
+
+            // the ATC client's listener starts, stops or moves to another port, on the app thread (it owns the gateway). A change of
+            // the port alone matters only while it is on. What this run does through -fsd is left alone until the switch is touched.
+            if (next.AtcFsd != previous.AtcFsd || (next.AtcFsd && next.AtcFsdPort != previous.AtcFsdPort))
+            {
+                bool atcOn = next.AtcFsd;
+                ushort atcPort = (ushort)Math.Clamp(next.AtcFsdPort, 1, ushort.MaxValue);
+                main.EnqueueCommand(() => main.SetAtcFsd(atcOn, atcPort));
             }
 
             int oldPort = PortInUse(previous);

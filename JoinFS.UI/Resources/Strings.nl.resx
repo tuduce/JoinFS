@@ -1233,6 +1233,30 @@
   <data name="Orange: more than {0} nm away." xml:space="preserve">
     <value>Oranje: meer dan {0} nm ver weg.</value>
   </data>
+  <data name="ATC" xml:space="preserve">
+    <value>ATC</value>
+  </data>
+  <data name="Let an ATC program on this PC, such as EuroScope, connect to JoinFS." xml:space="preserve">
+    <value>Laat een ATC-programma op deze pc, zoals EuroScope, verbinding maken met JoinFS.</value>
+  </data>
+  <data name="Enable ATC client connection" xml:space="preserve">
+    <value>ATC-clientverbinding inschakelen</value>
+  </data>
+  <data name="Port" xml:space="preserve">
+    <value>Poort</value>
+  </data>
+  <data name="Listening on port {0}" xml:space="preserve">
+    <value>Luistert op poort {0}</value>
+  </data>
+  <data name="Connected as {0}" xml:space="preserve">
+    <value>Verbonden als {0}</value>
+  </data>
+  <data name="Connected as {0} {1}" xml:space="preserve">
+    <value>Verbonden als {0} {1}</value>
+  </data>
+  <data name="Cannot listen on port {0}. Another program may be using it." xml:space="preserve">
+    <value>Kan niet luisteren op poort {0}. Mogelijk gebruikt een ander programma deze.</value>
+  </data>
   <data name="Other aircraft type" xml:space="preserve">
     <value>Ander vliegtuigtype</value>
   </data>

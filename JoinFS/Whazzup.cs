@@ -77,7 +77,7 @@ namespace JoinFS
         /// </summary>
         public void DoWork()
         {
-            // update euroscope
+            // update the whazzup file
             if (main.ElapsedTime > updateTime)
             {
                 // next update
@@ -173,7 +173,7 @@ namespace JoinFS
         List<string> clientList = [];
 
         /// <summary>
-        /// Update Euroscope file
+        /// Update the whazzup file
         /// </summary>
         void Update()
         {
@@ -192,22 +192,13 @@ namespace JoinFS
                     clientList.Clear();
 
                     // check for local ATC
-                    if (main.settingsAtc && main.settingsAtcAirport.Length > 0)
+                    LocalAtc localAtc = main.LocalAtc;
+                    if (localAtc.Active && localAtc.Airport.Length > 0)
                     {
-                        double latitude = 0.0;
-                        double longitude = 0.0;
-
-                        // check if airport is listed
-                        if (main.airportList.ContainsKey(main.settingsAtcAirport))
-                        {
-                            // convert to radians
-                            latitude = Math.Min(90.0, Math.Max(-90.0, main.airportList[main.settingsAtcAirport].latitude));
-                            longitude = Math.Min(180.0, Math.Max(-180.0, main.airportList[main.settingsAtcAirport].longitude));
-                        }
-                        // get ATC level
-                        int level = Settings.Default.AtcLevel;
-                        // write client entry for ATC
-                        clientList.Add(WriteClient(true, Atc.MakeAtcCallsign(main.settingsAtcAirport, level), main.settingsNickname, Settings.Default.AtcFrequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, level, main.settingsActivityCircle, true, 0));
+                        // the station's own position, else the airport's (0, 0 when it is not listed)
+                        main.TryGetLocalAtcPosition(out double latitude, out double longitude);
+                        // write client entry for ATC, under the station's whole callsign
+                        clientList.Add(WriteClient(true, localAtc.Callsign, main.settingsNickname, localAtc.Frequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, localAtc.Level, main.settingsActivityCircle, true, 0));
                     }
 
                     // check for simulator
@@ -285,8 +276,15 @@ namespace JoinFS
                                     latitude = Math.Min(90.0, Math.Max(-90.0, main.airportList[node.Value.atcAirport].latitude));
                                     longitude = Math.Min(180.0, Math.Max(-180.0, main.airportList[node.Value.atcAirport].longitude));
                                 }
+                                // a controller of this build also gives its whole callsign and where it is (stage 7)
+                                AtcRemoteStation station = node.Value.atcStation;
+                                if (station != null && node.Value.atcCallsign.Length > 0)
+                                {
+                                    latitude = station.Latitude;
+                                    longitude = station.Longitude;
+                                }
                                 // write client entry for ATC
-                                clientList.Add(WriteClient(true, Atc.MakeAtcCallsign(node.Value.atcAirport, node.Value.atcLevel), node.Value.nickname, node.Value.atcFrequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, node.Value.atcLevel, node.Value.activityCircle, true, 0));
+                                clientList.Add(WriteClient(true, node.Value.atcCallsign.Length > 0 ? node.Value.atcCallsign : Atc.MakeAtcCallsign(node.Value.atcAirport, node.Value.atcLevel),node.Value.nickname, node.Value.atcFrequency.ToString(CultureInfo.InvariantCulture), latitude, longitude, 0.0, 0, new Sim.FlightPlan(), "", "", 0, node.Value.atcLevel, node.Value.activityCircle, true, 0));
                             }
                         }
                     }

@@ -675,16 +675,14 @@ namespace JoinFS
             }
 
             // check for ATC mode and no user aircraft
-            if (main.settingsAtc && userAircraft == null)
+            if (main.LocalAtc.Active && userAircraft == null)
             {
-                // get airport code
-                string code = main.settingsAtcAirport;
-                // check if airport is listed
-                if (main.airportList.TryGetValue(code, out var airport))
+                // the station's own position, else its airport's, when that is listed
+                if (main.TryGetLocalAtcPosition(out double atcLatitude, out double atcLongitude))
                 {
                     // convert to radians
-                    userLatitude = Math.Min(90.0, Math.Max(-90.0, airport.latitude)) * (Math.PI / 180.0);
-                    userLongitude = Math.Min(180.0, Math.Max(-180.0, airport.longitude)) * (Math.PI / 180.0);
+                    userLatitude = atcLatitude * (Math.PI / 180.0);
+                    userLongitude = atcLongitude * (Math.PI / 180.0);
                 }
             }
 
@@ -904,15 +902,6 @@ namespace JoinFS
                             obj.takeControl = false;
                             // take control of the object
                             simconnect.ReleaseControl(obj.simId, Requests.RELEASE_AI);
-
-                            // check for aircraft and ATC mode
-                            if (obj is Aircraft && main.settingsAtc)
-                            {
-                                // set waypoint
-                                simconnect.SetWaypoint(obj.simId);
-                                // update ATC ID
-                                SetAtcId(obj as Aircraft);
-                            }
                         }
 
 //                        // check for no aerobatics

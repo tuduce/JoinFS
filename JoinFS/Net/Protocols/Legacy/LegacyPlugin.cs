@@ -59,9 +59,13 @@ namespace JoinFS.Net.Legacy
 
         public bool Accepts(ReadOnlySpan<byte> datagram) => datagram[0] == LegacyWire.VersionLowByte;
 
-        /// <summary>Everything, to every node it has a legacy link with - except Identity, which legacy carries inline in positions.</summary>
+        /// <summary>
+        /// Everything, to every node it has a legacy link with - except Identity, which legacy carries inline in positions,
+        /// and the two ATC kinds, which the frozen wire does not have (JFP2 only, docs/ATC/atc-fsd-plan.md D6).
+        /// </summary>
         public bool CanCarry(NodeId peer, MessageKind kind) =>
-            kind != MessageKind.Identity && !(host.Peers.TryGet(peer, out Peer known) && !known.LegacyLink);
+            kind != MessageKind.Identity && kind != MessageKind.AtcStation && kind != MessageKind.AtcRelay
+            && !(host.Peers.TryGet(peer, out Peer known) && !known.LegacyLink);
 
         public void Tick() => reliability.Tick();
 

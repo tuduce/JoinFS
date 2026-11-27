@@ -123,12 +123,6 @@
   <data name="Airship" xml:space="preserve">
     <value>Airship</value>
   </data>
-  <data name="AtcModeEnabled" xml:space="preserve">
-    <value>ATC Mode is enabled. This allows aircraft to be visible on radar, but has an adverse effect on the smooth movement of aircraft.</value>
-  </data>
-  <data name="AtcWarning" xml:space="preserve">
-    <value>With ATC mode enabled, network aircraft will be visible on the default radar. However, some aircraft may act in a strange manner while ATC mode is enabled.</value>
-  </data>
   <data name="BecomeAPatron" xml:space="preserve">
     <value>Patreon</value>
   </data>
@@ -203,12 +197,6 @@
   </data>
   <data name="Options_ActivityCircle" xml:space="preserve">
     <value>Sets the maximum distance in nautical miles that aircraft will be injected into the simulator.</value>
-  </data>
-  <data name="Options_Airport" xml:space="preserve">
-    <value>Specifies the airport this ATC is controlling from. For example, 'EGLL'.</value>
-  </data>
-  <data name="Options_Atc" xml:space="preserve">
-    <value>Enable ATC mode. Other users will see you marked as ATC.</value>
   </data>
   <data name="Options_Create" xml:space="preserve">
     <value>Create a new session if hub mode is not enabled</value>
@@ -309,14 +297,8 @@
   <data name="Tip_Active" xml:space="preserve">
     <value>Choose the colour to use when something in JoinFS is active</value>
   </data>
-  <data name="Tip_Airport" xml:space="preserve">
-    <value>The ICAO code for the airport you are controlling</value>
-  </data>
   <data name="Tip_AlwaysOnTop" xml:space="preserve">
     <value>Keep the JoinFS windows in the foreground</value>
-  </data>
-  <data name="Tip_ATC" xml:space="preserve">
-    <value>Let others know that you are providing ATC coverage at an airport or region</value>
   </data>
   <data name="Tip_AutoRefresh" xml:space="preserve">
     <value>Refresh all JoinFS windows every 30 seconds</value>
@@ -336,14 +318,8 @@
   <data name="Tip_EndTime" xml:space="preserve">
     <value>Length of the recording stored in the recorder</value>
   </data>
-  <data name="Tip_Euroscope" xml:space="preserve">
-    <value>Update the file 'euroscope.txt' with current aircraft data for showing in Euroscope</value>
-  </data>
   <data name="Tip_Follow" xml:space="preserve">
     <value>Set the distance you want your aircraft to be moved behind another aircraft. See View|Aircraft, 'Follow' option</value>
-  </data>
-  <data name="Tip_Frequency" xml:space="preserve">
-    <value>The radio frequency you are controlling on</value>
   </data>
   <data name="Tip_GlobalButton" xml:space="preserve">
     <value>Click to join the global public session</value>
@@ -377,9 +353,6 @@
   </data>
   <data name="Tip_JoinButton" xml:space="preserve">
     <value>Click to join the session at the given address</value>
-  </data>
-  <data name="Tip_Level" xml:space="preserve">
-    <value>The ATC level at which you are controlling</value>
   </data>
   <data name="Tip_LocalPort" xml:space="preserve">
     <value>Specify which UDP network port JoinFS will use - default is 6112</value>
@@ -446,6 +419,9 @@
   </data>
   <data name="Tip_Whazzup" xml:space="preserve">
     <value>Update the file 'whazzup.txt' with aircraft data to use in your own online maps</value>
+  </data>
+  <data name="Tip_AtcFsd" xml:space="preserve">
+    <value>Let an ATC client (EuroScope) on this PC connect and log in as a controller; the optional port defaults to 6809</value>
   </data>
   <data name="Tip_WhazzupAI" xml:space="preserve">
     <value>Include all AI aircraft in the 'whazzup.txt' file</value>

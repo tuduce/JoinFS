@@ -45,6 +45,8 @@ namespace JoinFS
         public readonly UserDirectory Users;
         public readonly HubHost HubHost;
         public readonly SessionComms Comms;
+        /// <summary>The controller stations of the session (ATC clients on the mesh, docs/ATC/atc-fsd-plan.md).</summary>
+        public readonly AtcSession Atc;
         readonly SimIngest simIngest;
 
         readonly MainSessionHost host;
@@ -79,13 +81,14 @@ namespace JoinFS
             service.AddPlugin(new Jfp2Plugin((ushort)System.Diagnostics.Stopwatch.GetTimestamp(), Main.Version + " " + Main.Name));
 
             Bootstrap = new NetBootstrap(service, host, main.settingsLocalAddress, Settings.Default.MyIp, host.Now);
-            Peers = new PeerTable(service, this, host, host, host, main.log, host, host, host);
+            Peers = new PeerTable(service, this, host, host, host, main.log, host, host);
             simIngest = new SimIngest(host, this, host, main.log, Peers, service, host);
             SimSender = new SimSender(service, this, host);
             Hubs = new HubDirectory(service, this, host, main.log, Bootstrap, host, host, host);
             Users = new UserDirectory(service, this, host, Hubs, Bootstrap, host, host, host);
             HubHost = new HubHost(service, this, host, host, Peers, Hubs, Users, host, host);
             Comms = new SessionComms(service, () => main.notes, host, host);
+            Atc = new AtcSession(service, this, host, host);
 
             // what the last run learned about the addresses that took no conversation over JFP2 (the network thread starts below, and runs these first)
             foreach (var (endPoint, seconds) in legacyOnly.Load())
@@ -95,6 +98,8 @@ namespace JoinFS
 
             // what one part learns that another acts on
             Peers.HubAnnounced += Hubs.SubmitHub;
+            Atc.StationChanged += Peers.OnAtcStation;
+            Atc.StationGone += Peers.OnAtcStationGone;
             Hubs.GlobalHubFound += endPoint => Join(endPoint, 0);
 
 #if !NO_HUBS
@@ -197,6 +202,7 @@ namespace JoinFS
                 Hubs.SubmitSeed(seed, Bootstrap.DialList(seed));
             }
             Peers.DoWork();
+            Atc.DoWork();
             Users.DoAddressBook();
 #if !NO_HUBS
             Users.DoOnlineUsers();
@@ -561,14 +567,17 @@ namespace JoinFS
                     break;
                 case NetworkEventKind.PeerJoined:
                     Peers.OnPeerJoined(e.Node, e.EndPoint);
+                    Atc.OnPeerJoined(e.Node);
                     break;
                 case NetworkEventKind.PeerEstablished:
                     Peers.OnPeerEstablished(e.Node);
                     Comms.OnPeerEstablished(e.Node);
+                    Atc.OnPeerEstablished(e.Node);
                     break;
                 case NetworkEventKind.PeerLeft:
                     Peers.OnPeerLeft(e.Node);
                     simIngest.OnPeerLeft(e.Node);
+                    Atc.OnPeerLeft(e.Node);
                     Bootstrap.OnPeerLeft(e.Node);
                     break;
                 case NetworkEventKind.EndPointObserved:
@@ -620,5 +629,8 @@ namespace JoinFS
 
         public void Handle(in MessageMeta meta, in CommsRequest message) => Comms.Handle(meta, message);
         public void Handle(in MessageMeta meta, in NotesBundle message) => Comms.Handle(meta, message);
+
+        public void Handle(in MessageMeta meta, in AtcStation message) => Atc.Handle(meta, message);
+        public void Handle(in MessageMeta meta, in AtcRelay message) => Atc.Handle(meta, message);
     }
 }

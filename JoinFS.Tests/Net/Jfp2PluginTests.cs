@@ -464,6 +464,13 @@ namespace JoinFS.Tests.Net
                 Nickname = Text(PeerInfoV1Codec.NicknameLimit), AtcAirport = Text(PeerInfoV1Codec.AtcAirportLimit),
                 Version = Text(PeerInfoV1Codec.VersionLimit), Simulator = Text(PeerInfoV1Codec.SimulatorLimit),
             }, false);
+            // the ATC clients (ATC stage 6): a station at the limits of its strings, and a line of the longest the codec allows
+            from.Core.SendTo(to.Id, new AtcStation
+            {
+                Slot = 1, Online = true, Facility = 6, Rating = 11, Visibility = 600, Frequency = 132_975, Latitude = 48.35, Longitude = 11.78,
+                Callsign = Text(AtcStationV1Codec.CallsignLimit), Name = Text(AtcStationV1Codec.NameLimit),
+            }, false);
+            from.Core.SendTo(to.Id, new AtcRelay { Line = Text(AtcRelayV1Codec.LineLimit) }, true);
             var entries = new List<VariableEntry>();
             for (uint vuid = 1; vuid <= 10; vuid++)
             {
@@ -580,6 +587,8 @@ namespace JoinFS.Tests.Net
                 [MessageClasses.RemoveObject] = RemoveObjectV1Codec.Size,
                 [MessageClasses.CommsRequest] = CommsRequestV1Codec.Size,
                 [MessageClasses.PeerInfo] = PeerInfoV1Codec.MaxSize,
+                [MessageClasses.AtcStation] = AtcStationV1Codec.MaxSize,
+                [MessageClasses.AtcRelay] = AtcRelayV1Codec.MaxSize,
             };
             foreach (ClassDescriptor c in Jfp2Profile.Default.Classes)
             {

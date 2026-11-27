@@ -64,6 +64,8 @@ namespace JoinFS
         int HubRelays { get; }
         string HubDomain { get; }
         bool Atc { get; }
+        /// <summary>The whole callsign of this node's controller position (<c>EDDM_N_TWR</c>); empty without one.</summary>
+        string AtcCallsign { get; }
         string AtcAirport { get; }
         int AtcLevel { get; }
         int AtcFrequency { get; }
@@ -90,13 +92,6 @@ namespace JoinFS
         bool IgnoreNode(ref Guid guid);
         bool ShareCockpit(NodeId nuid);
         bool MultipleObjects(NodeId nuid);
-    }
-
-    /// <summary>Told when a node starts or stops controlling (Euroscope).</summary>
-    public interface IAtcListener
-    {
-        void AddAtc(string airport, int level, int frequency);
-        void RemoveAtc(string airport, int level, int frequency);
     }
 
     /// <summary>

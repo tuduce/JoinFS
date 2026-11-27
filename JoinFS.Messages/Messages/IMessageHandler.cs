@@ -40,6 +40,10 @@ namespace JoinFS.Net
         void Handle(in MessageMeta meta, in CommsRequest message) { }
         void Handle(in MessageMeta meta, in NotesBundle message) { }
 
+        // ATC clients
+        void Handle(in MessageMeta meta, in AtcStation message) { }
+        void Handle(in MessageMeta meta, in AtcRelay message) { }
+
         // mesh
         void Handle(in MessageMeta meta, in JoinRequest message) { }
         void Handle(in MessageMeta meta, in JoinReply message) { }

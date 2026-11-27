@@ -73,6 +73,9 @@ namespace JoinFS.Tests.Session
         public int HubRelays { get; set; } = MeshManager.DefaultRelayBudget;
         public string HubDomain { get; set; } = "";
         public bool Atc { get; set; }
+        /// <summary>Airport plus level unless a test sets a whole callsign (a station's, <c>EDDM_N_TWR</c>).</summary>
+        public string AtcCallsign { get => atcCallsign ?? JoinFS.Atc.MakeAtcCallsign(AtcAirport, AtcLevel); set => atcCallsign = value; }
+        string atcCallsign;
         public string AtcAirport { get; set; } = "";
         public int AtcLevel { get; set; } = 2;
         public int AtcFrequency { get; set; } = 22800;
@@ -98,13 +101,6 @@ namespace JoinFS.Tests.Session
         public bool IgnoreNode(ref Guid guid) => false;
         public bool ShareCockpit(NodeId nuid) => SharingNodes.Contains(nuid);
         public bool MultipleObjects(NodeId nuid) => MultipleObjectNodes.Contains(nuid);
-    }
-
-    sealed class FakeAtc : IAtcListener
-    {
-        public readonly List<string> Calls = [];
-        public void AddAtc(string airport, int level, int frequency) => Calls.Add("add " + airport + " " + level + " " + frequency);
-        public void RemoveAtc(string airport, int level, int frequency) => Calls.Add("remove " + airport + " " + level + " " + frequency);
     }
 
     sealed class FakeUi : ISessionUi
@@ -183,7 +179,8 @@ namespace JoinFS.Tests.Session
         public Sim.Aircraft UserAircraft => null;
         public Sim.Aircraft FindUserAircraft(NodeId owner) => null;
         public void CountObjects(out ushort planes, out ushort helicopters, out ushort boats, out ushort vehicles) { planes = 1; helicopters = 2; boats = 3; vehicles = 4; }
-        public bool TryGetAirport(string code, out Main.Airport airport) { airport = default; return false; }
+        public readonly Dictionary<string, Main.Airport> Airports = [];
+        public bool TryGetAirport(string code, out Main.Airport airport) => Airports.TryGetValue(code, out airport);
     }
 
     /// <summary>The session's parts wired to fakes the way Network wires them to the app.</summary>
@@ -194,7 +191,6 @@ namespace JoinFS.Tests.Session
         public readonly FakeProfile Profile = new();
         public readonly FakeSim Sim = new();
         public readonly FakePolicy Policy = new();
-        public readonly FakeAtc Atc = new();
         public readonly FakeUi Ui = new();
         public readonly ManualClock Clock = new();
         public readonly FakeLog Log = new();
@@ -205,16 +201,20 @@ namespace JoinFS.Tests.Session
         public readonly HubDirectory Hubs;
         public readonly UserDirectory Users;
         public readonly HubHost Host;
+        public readonly AtcSession Stations;
 
         public SessionRig()
         {
             Clock.Advance(1000);
-            Peers = new PeerTable(Outbox, Session, Profile, Sim, Sim, Policy, Atc, Clock, Log);
+            Peers = new PeerTable(Outbox, Session, Profile, Sim, Sim, Policy, Clock, Log);
             Ingest = new SimIngest(Sim, Session, Profile, Policy, Peers, Outbox, Log);
             Hubs = new HubDirectory(Outbox, Session, Profile, Policy, EndPoints, Ui, Clock, Log);
             Users = new UserDirectory(Outbox, Session, Profile, Hubs, EndPoints, Ui, Clock, Log);
             Host = new HubHost(Outbox, Session, Profile, Sim, Peers, Hubs, Users, Clock, Log);
+            Stations = new AtcSession(Outbox, Session, Clock, Log);
             Peers.HubAnnounced += Hubs.SubmitHub;
+            Stations.StationChanged += Peers.OnAtcStation;
+            Stations.StationGone += Peers.OnAtcStationGone;
         }
 
         /// <summary>Metadata of a message from <paramref name="sender"/> at its default endpoint.</summary>

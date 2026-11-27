@@ -120,12 +120,6 @@
   <data name="Airliner" xml:space="preserve">
     <value>Passagiersvliegtuig</value>
   </data>
-  <data name="AtcModeEnabled" xml:space="preserve">
-    <value>ATC Mode is ingeschakeld. Hiermee kunnen vliegtuigen zichtbaar zijn op radar, maar het negatieve effect hebben op de gladde beweging van vliegtuigen.</value>
-  </data>
-  <data name="AtcWarning" xml:space="preserve">
-    <value>Met ATC-modus ingeschakeld, zullen netwerkvliegtuigen zichtbaar zijn op de standaardradar. Sommige vliegtuigen kunnen echter op een vreemde manier optreden terwijl de ATC-modus is ingeschakeld.</value>
-  </data>
   <data name="BecomeAPatron" xml:space="preserve">
     <value>Patreon</value>
   </data>
@@ -197,12 +191,6 @@
   </data>
   <data name="Options_ActivityCircle" xml:space="preserve">
     <value>Hiermee stelt u de maximale afstand in zeemijlen in waarmee vliegtuigen in de simulator worden geïnjecteerd.</value>
-  </data>
-  <data name="Options_Airport" xml:space="preserve">
-    <value>Specificeert de luchthaven van waaruit deze ATC bestuurt. Bijvoorbeeld 'EGLL'.</value>
-  </data>
-  <data name="Options_Atc" xml:space="preserve">
-    <value>Schakel ATC-modus in. Andere gebruikers zullen u zien gemarkeerd als ATC.</value>
   </data>
   <data name="Options_Create" xml:space="preserve">
     <value>Maak een nieuwe sessie als de hubmodus niet is ingeschakeld</value>
@@ -300,14 +288,8 @@
   <data name="Tip_Active" xml:space="preserve">
     <value>Kies de kleur die u wilt gebruiken wanneer iets in JoinFS actief is</value>
   </data>
-  <data name="Tip_Airport" xml:space="preserve">
-    <value>De ICAO-code voor de luchthaven die u beheert</value>
-  </data>
   <data name="Tip_AlwaysOnTop" xml:space="preserve">
     <value>Houd de JoinFS-vensters op de voorgrond</value>
-  </data>
-  <data name="Tip_ATC" xml:space="preserve">
-    <value>Laat anderen weten dat u ATC-dekking biedt op een luchthaven of regio</value>
   </data>
   <data name="Tip_AutoRefresh" xml:space="preserve">
     <value>Vernieuw alle JoinFS-vensters om de 30 seconden</value>
@@ -327,14 +309,8 @@
   <data name="Tip_EndTime" xml:space="preserve">
     <value>Lengte van de opname die is opgeslagen in de recorder</value>
   </data>
-  <data name="Tip_Euroscope" xml:space="preserve">
-    <value>Update het bestand 'euroscope.txt' met actuele vliegtuiggegevens voor weergave in Euroscope</value>
-  </data>
   <data name="Tip_Follow" xml:space="preserve">
     <value>Stel de afstand in waarop u wilt dat uw vliegtuig achter een ander vliegtuig wordt verplaatst. Zie Weergeven | Vliegtuigen, optie 'Volgen'</value>
-  </data>
-  <data name="Tip_Frequency" xml:space="preserve">
-    <value>De radiofrequentie waarop u bedient</value>
   </data>
   <data name="Tip_GlobalButton" xml:space="preserve">
     <value>Klik om deel te nemen aan de wereldwijde openbare sessie</value>
@@ -365,9 +341,6 @@
   </data>
   <data name="Tip_JoinButton" xml:space="preserve">
     <value>Klik om deel te nemen aan de sessie op het opgegeven adres</value>
-  </data>
-  <data name="Tip_Level" xml:space="preserve">
-    <value>Het ATC-niveau waarop u controleert</value>
   </data>
   <data name="Tip_LocalPort" xml:space="preserve">
     <value>Specificeer welke UDP-netwerkpoort JoinFS zal gebruiken - standaard is 6112</value>

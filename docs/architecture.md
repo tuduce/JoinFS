@@ -49,7 +49,7 @@ graph TB
     end
     subgraph APP["App work thread - Main.DoWork, ~5 ms, under Main.conch"]
         NET[Network - session layer]
-        OTHERS[Notes, Whazzup, Euroscope, CONSOLE services]
+        OTHERS[Notes, Whazzup, ATC gateway, CONSOLE services]
     end
     subgraph ST["Sim thread - SimService (no lock)"]
         SIM[Sim + SimConnect / XPlane link]
@@ -76,7 +76,7 @@ graph TB
 - **`Main`** (`Program.cs`) owns every subsystem as a public field. It runs one work loop,
   `DoWork()`, about every 5 ms, holding one lock, `Main.conch`. Each tick it runs, in order:
   1. `network.DoWork()`;
-  2. `euroscope.DoWork()`, `whazzup.DoWork()`, `notes.DoWork()`;
+  2. `whazzup.DoWork()`, the ATC gateway's `Tick` (when an ATC client is allowed), `notes.DoWork()`;
   3. in `CONSOLE` builds, the webhook and WebSocket services;
   4. queued `Main.EnqueueCommand` actions and `schedule*` flags.
 - **UI code** reads application state under `conch` from its poll timers. Other threads ask for work
@@ -129,7 +129,8 @@ read it freely; writers publish new collections.
 | **Network stack** | `Net/**` | Transport, protocol plugins, mesh, routing, translation (§5). |
 | `Notes` | `Notes.cs` | Text comms (channels, history). |
 | `Log` | `Log.cs` | Per-node user choices: ignore, share cockpit, allow multiple objects. |
-| `Whazzup`, `Euroscope` | `Whazzup.cs`, `Euroscope.cs` | Export traffic and ATC to third-party tools. |
+| `Whazzup` | `Whazzup.cs` | Exports traffic and ATC to third-party tools. |
+| ATC client gateway | `Atc/` (`AtcGateway`, `FsdListener`, `LocalAtc`), `JoinFS.Fsd/` | The one way to be a controller: an ATC client such as EuroScope on this PC logs in over FSD (loopback TCP; off unless the Settings "ATC" card or `-fsd` turns it on). The logged-in station is this node's `Main.LocalAtc`, which fills the ATC fields of `PeerInfo` and `Status`, the hub's user list and `Whazzup`; its traffic and controller-to-controller lines cross the mesh through `AtcSession`. Plan and decisions: `docs/ATC/atc-fsd-plan.md`; setup: `docs/ATC/euroscope-setup.md`. The old manual ATC mode (`-atc`, `-airport`, the ATC settings) and the `euroscope.txt` export were removed in stage 12; `-atc` and `-airport` are accepted, ignored and logged. |
 | `WebSocketServer`, `WebhookService` | same names | `CONSOLE` only: live data for external tools. |
 | `XPlane`, `XPlaneLink` | `XPlane.cs`, `XPlaneLink.cs` | Bridge to the native X-Plane plugin (`JoinFS-XP`) over a local UDP link that uses the legacy header format. Runs on the app thread; not part of the network stack. |
 | UI | `JoinFS.UI/`, `JoinFS/Live/` | Avalonia UI and its connection to the app, left out of `CONSOLE`. |
@@ -455,6 +456,7 @@ and knows nothing about wire formats. It is a small facade, `Network`, and eight
 | `UserDirectory` | online users by uuid; the uuid helpers | `Online`, `UserNuidRequest`/`UserNuid`; `Status` (address book) |
 | `HubHost` | this hub's own user list (`LocalUsers`) | `StatusRequest`, `UserListRequest`, `UserPositionsRequest` |
 | `SessionComms` | how many new peers to ask for comms history | `CommsRequest`, `Notes` |
+| `AtcSession` | the controller stations of the other nodes (one per callsign, soft state: 35 s), this node's own station and when to repeat it (every 10 s); the crossing-login rule; the relay counters (lines sent, received, dropped with the reason) | `AtcStation`, `AtcRelay`; peer joined, established, left. Sends the client's lines to the nodes of their stations, checks incoming lines (plan §4.4). Tells `AtcGateway` (through `IAtcMesh`) and `PeerTable` |
 
 **How the parts reach the rest of the app.** Through narrow interfaces
 (`Session/SessionInterfaces.cs`), not through `Main`:
@@ -464,13 +466,12 @@ and knows nothing about wire formats. It is a small facade, `Network`, and eight
   simulator state.
 - `ILocalProfile` is who we are plus the settings the session uses. `ISessionUi` is the windows the
   session refreshes. `ISessionLog` is the monitor. `IClock` is the app clock.
-- `IPeerPolicy` (ignore, share cockpit, extra objects) is implemented by `Log` itself, and
-  `IAtcListener` by the adapter over `Euroscope`.
+- `IPeerPolicy` (ignore, share cockpit, extra objects) is implemented by `Log` itself.
 - `IEndPointResolver` is implemented by `NetBootstrap`.
 
 `MainSessionHost` implements the app-facing ones over `Main`, the simulator, the recorder
 and `Settings`. It is the only session file that knows them, and it looks up the subsystems created
-after the network (recorder, euroscope, notes, address book) when they're used. When one part learns
+after the network (recorder, notes, address book) when they're used. When one part learns
 something another acts on, it raises an event that `Network` wires up: `PeerTable.HubAnnounced`
 feeds `HubDirectory.SubmitHub`, and `HubDirectory.GlobalHubFound` triggers a join.
 
@@ -517,7 +518,8 @@ functions in `SimMessageMapper`.
    scheduled `PeerInfo`.
 3. `NetBootstrap`: apply the downloaded my-IP and ban list; refresh the my-IP every 3 hours on a hub;
    reset the DNS cache daily. The seed hubs go to `HubDirectory.SubmitHub`.
-4. `PeerTable`: `PeerInfo` to every peer every 5 s.
+4. `PeerTable`: `PeerInfo` to every peer every 5 s. `AtcSession`: expire silent stations, repeat our own every 10 s, raise the
+   events of the changes since the last tick.
 5. `UserDirectory`: address-book status checks while the address book is open.
 6. Unless the build has no hubs:
    - `UserDirectory`: online announcements to hubs, and expiring users, every 60 s;
@@ -625,6 +627,8 @@ builds depend on them.
 | `Legacy/XPlaneLinkTests` | The X-Plane link framing matches what the native plugin expects. |
 | `Session/SimIngestTests` | The identity cache, filtering, shared cockpit, variables, events, flight plans and weather; and end to end, a position crossing the in-memory mesh over legacy or JFP2 reaches the simulator with the same identity. |
 | `Session/PeerTableTests` | What `PeerInfo` changes and reports (ATC, nickname, becoming a hub), what we share with whom, periodic and scheduled `PeerInfo`, name fallbacks. |
+| `Session/AtcSessionTests`, `Session/AtcSessionRelayTests`, `Net/AtcStationMeshTests`, `Atc/AtcGatewayRoutingTests` | The station table: sending on change, to a new member and every 10 s; expiry, member left, logoff notice, crossing logins, divided positions; relaying a line (one guaranteed unicast per node, the size limit, the checks of plan §4.4, the counters); gateway routing per row of plan §4.3; and gateways with fake clients over a `TestMesh` (behind a hub, a dead node, a taken callsign, a handoff between three stations). |
+| `Atc/*` (`FsdLineTests`, `FsdTypedTests`, `AtcGateway*Tests`, `LocalAtcTests`, …) | The FSD library (lines as typed values), the gateway on the app thread against a fake connection and a fake mesh: login and the `SERVER` answers, traffic to the client, ATIS, amendments, and `LocalAtc` (the logged-in station as this node's ATC presence, and `PeerInfo` with a station online). No manual ATC mode is left to test. |
 | `Session/DirectoryTests` | Hub discovery and caps per address, hub users, `hubs.dat` save/load, user lookup by uuid across hubs, online-user expiry, the address book, status replies. |
 
 `Net/TestMesh` runs any number of `NetworkCore` nodes on an `InMemoryNetwork` with a `ManualClock`.

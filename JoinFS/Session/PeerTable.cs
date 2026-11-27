@@ -25,6 +25,10 @@ namespace JoinFS
             public string atcAirport = "";
             public int atcLevel = 2;
             public int atcFrequency = 22800;
+            /// <summary>The whole callsign of the controller's station (<c>EDDM_N_TWR</c>) when the node announced one (stage 7); empty otherwise.</summary>
+            public string atcCallsign = "";
+            /// <summary>The main station the node announced, or null.</summary>
+            public AtcRemoteStation atcStation;
             public byte activityCircle = 40;
             public string version = "";
             public string simulator = "";
@@ -57,7 +61,6 @@ namespace JoinFS
         readonly ISimView simView;
         readonly ISimSink sim;
         readonly IPeerPolicy policy;
-        readonly IAtcListener atc;
         readonly IClock clock;
         readonly ISessionLog log;
 
@@ -66,7 +69,7 @@ namespace JoinFS
         /// <summary>A PeerInfo to send on the next tick (e.g. after changing cockpit sharing in the UI).</summary>
         NodeId schedulePeerInfo = new();
 
-        public PeerTable(INetworkOutbox outbox, ISessionState session, ILocalProfile profile, ISimView simView, ISimSink sim, IPeerPolicy policy, IAtcListener atc, IClock clock, ISessionLog log)
+        public PeerTable(INetworkOutbox outbox, ISessionState session, ILocalProfile profile, ISimView simView, ISimSink sim, IPeerPolicy policy, IClock clock, ISessionLog log)
         {
             this.outbox = outbox;
             this.session = session;
@@ -74,7 +77,6 @@ namespace JoinFS
             this.simView = simView;
             this.sim = sim;
             this.policy = policy;
-            this.atc = atc;
             this.clock = clock;
             this.log = log;
             // first periodic PeerInfo after one interval
@@ -133,19 +135,29 @@ namespace JoinFS
         /// <summary>Our PeerInfo to every node, every 5 s.</summary>
         public void DoWork()
         {
-            if (peerInfoTimer.Elapsed(clock.Now) && session.Connected)
+            if (peerInfoTimer.Elapsed(clock.Now))
             {
-                try
+                SendPeerInfoToAll();
+            }
+        }
+
+        /// <summary>Our PeerInfo to every node now (this node's ATC presence changed), while in a session.</summary>
+        public void SendPeerInfoToAll()
+        {
+            if (!session.Connected)
+            {
+                return;
+            }
+            try
+            {
+                foreach (PeerSnapshot peer in session.Snapshot.PeerList)
                 {
-                    foreach (PeerSnapshot peer in session.Snapshot.PeerList)
-                    {
-                        SendPeerInfo(peer.Id);
-                    }
+                    SendPeerInfo(peer.Id);
                 }
-                catch (Exception ex)
-                {
-                    log.Event("Failed to write SharedData message: " + ex.Message);
-                }
+            }
+            catch (Exception ex)
+            {
+                log.Event("Failed to write SharedData message: " + ex.Message);
             }
         }
 
@@ -195,22 +207,51 @@ namespace JoinFS
                 HubAnnounced?.Invoke(meta.EndPoint);
             }
             node.hub = info.Hub;
-            if (node.atc && info.Atc == false)
-            {
-                atc.RemoveAtc(node.atcAirport, node.atcLevel, node.atcFrequency);
-            }
             node.atcAirport = info.AtcAirport;
             node.atcLevel = info.AtcLevel;
             node.atcFrequency = info.AtcFrequency;
-            if (node.atc == false && info.Atc)
-            {
-                atc.AddAtc(node.atcAirport, node.atcLevel, node.atcFrequency);
-            }
             node.atc = info.Atc;
             node.activityCircle = info.ActivityCircle;
             node.version = info.Version;
             node.simulator = info.Simulator;
             node.simulatorConnected = info.SimulatorConnected;
+            ApplyStation(node);
+        }
+
+        // ------------------------------------------------------------------ stations (stage 7)
+
+        /// <summary>A node's main station came online or changed: it says what the node's <see cref="PeerInfo"/> only hints at.</summary>
+        public void OnAtcStation(AtcRemoteStation station)
+        {
+            if (station.Slot != 0 || !Nodes.TryGetValue(station.Node, out Node node)) return;
+            node.atcStation = station;
+            ApplyStation(node);
+        }
+
+        public void OnAtcStationGone(AtcRemoteStation station)
+        {
+            if (station.Slot != 0 || !Nodes.TryGetValue(station.Node, out Node node)) return;
+            node.atcStation = null;
+            node.atcCallsign = "";
+        }
+
+        /// <summary>
+        /// A station gives the whole callsign and the frequency in full: <see cref="PeerInfo"/> has airport, level and a signed
+        /// 16 bit frequency, which turns one above 132.767 MHz negative (R8). An observer is no controller, so it gives nothing.
+        /// </summary>
+        static void ApplyStation(Node node)
+        {
+            AtcRemoteStation station = node.atcStation;
+            if (station == null || station.Facility == Fsd.FsdFacility.Observer)
+            {
+                node.atcCallsign = "";
+                return;
+            }
+            node.atcCallsign = station.Callsign;
+            if (station.FrequencyKhz > 0)
+            {
+                node.atcFrequency = station.FrequencyKhz - Fsd.FsdFrequency.MinKhz;
+            }
         }
 
         // ------------------------------------------------------------------ queries
@@ -266,7 +307,9 @@ namespace JoinFS
         {
             if (GetNodeAtc(nuid, out string airport, out int level))
             {
-                return Atc.MakeAtcCallsign(airport, level);
+                // a controller of this build shows its whole callsign; an older build only tells airport and level
+                if (nuid.Invalid()) return profile.AtcCallsign;
+                return Nodes.TryGetValue(nuid, out Node node) && node.atcCallsign.Length > 0 ? node.atcCallsign : Atc.MakeAtcCallsign(airport, level);
             }
             return simView.FindUserAircraft(nuid)?.flightPlan.callsign ?? "";
         }
@@ -352,9 +395,9 @@ namespace JoinFS
 
         public string GetLocalCallsign()
         {
-            if (GetNodeAtc(new NodeId(), out string airport, out int level))
+            if (GetNodeAtc(new NodeId(), out _, out _))
             {
-                return Atc.MakeAtcCallsign(airport, level);
+                return profile.AtcCallsign;
             }
             return simView.UserCallsign;
         }

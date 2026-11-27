@@ -8,9 +8,9 @@ namespace JoinFS
     /// <summary>
     /// The application as the network session's parts see it: the one place in JoinFS/Session that
     /// knows about Main, the simulator, the recorder, the forms and Settings. Subsystems created
-    /// after the network (recorder, euroscope, notes, address book) are looked up when used.
+    /// after the network (recorder, notes, address book) are looked up when used.
     /// </summary>
-    sealed class MainSessionHost : ILocalProfile, ISimSink, ISimView, ISessionUi, ISessionLog, IClock, IAtcListener
+    sealed class MainSessionHost : ILocalProfile, ISimSink, ISimView, ISessionUi, ISessionLog, IClock
     {
         readonly Main main;
 
@@ -35,17 +35,19 @@ namespace JoinFS
         public uint Uuid => main.uuid;
         public string Nickname => main.settingsNickname;
         public bool Hub => main.settingsHub;
-        public bool FeedFullRate => main.settingsFeedFullRate;
+        // an ATC client on this PC needs every aircraft at the full rate, simulator or not (plan §4.7)
+        public bool FeedFullRate => main.settingsFeedFullRate || main.LocalAtc.StationOnline;
         public string HubName => main.settingsHubName;
         public string HubAbout => main.settingsHubAbout;
         public string HubVoip => main.settingsHubVoip;
         public string HubEvent => main.settingsHubEvent;
         public int HubRelays => main.settingsHubRelays;
         public string HubDomain => main.settingsHubDomain;
-        public bool Atc => main.settingsAtc;
-        public string AtcAirport => main.settingsAtcAirport;
-        public int AtcLevel => Settings.Default.AtcLevel;
-        public int AtcFrequency => Settings.Default.AtcFrequency;
+        public bool Atc => main.LocalAtc.Active;
+        public string AtcCallsign => main.LocalAtc.Callsign;
+        public string AtcAirport => main.LocalAtc.Airport;
+        public int AtcLevel => main.LocalAtc.Level;
+        public int AtcFrequency => main.LocalAtc.Frequency;
         public int ActivityCircle => main.settingsActivityCircle;
         public string MyIp => Settings.Default.MyIp;
         public bool MultipleObjects => main.settingsMultiObjects;
@@ -57,12 +59,6 @@ namespace JoinFS
         public string StoragePath => main.storagePath;
         public string DocumentsPath => main.documentsPath;
         public List<AddressBook.AddressBookEntry> AddressBook => main.addressBook?.entries ?? [];
-
-        // ------------------------------------------------------------------ IAtcListener
-
-        public void AddAtc(string airport, int level, int frequency) => main.euroscope?.AddAtc(airport, level, frequency);
-
-        public void RemoveAtc(string airport, int level, int frequency) => main.euroscope?.RemoveAtc(airport, level, frequency);
 
         // ------------------------------------------------------------------ ISimView
         // Read from the sim thread's snapshot (Sim.View): this runs on the app thread.

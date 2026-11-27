@@ -5,7 +5,7 @@ namespace JoinFS
 {
     /// <summary>
     /// ATC ground-station helpers (callsign, frequency formatting). Pure and stateless - not tied to
-    /// a simulator connection, unlike everything on Sim - used by Euroscope, Whazzup, the session and
+    /// a simulator connection, unlike everything on Sim - used by Whazzup, the session and
     /// the settings UI.
     /// </summary>
     public static class Atc

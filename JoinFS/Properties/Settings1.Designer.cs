@@ -86,18 +86,6 @@ namespace JoinFS.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string AtcAirport {
-            get {
-                return ((string)(this["AtcAirport"]));
-            }
-            set {
-                this["AtcAirport"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("")]
         public string HubAddress {
             get {
                 return ((string)(this["HubAddress"]));
@@ -638,42 +626,6 @@ namespace JoinFS.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
-        public bool Euroscope {
-            get {
-                return ((bool)(this["Euroscope"]));
-            }
-            set {
-                this["Euroscope"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("22800")]
-        public int AtcFrequency {
-            get {
-                return ((int)(this["AtcFrequency"]));
-            }
-            set {
-                this["AtcFrequency"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("2")]
-        public int AtcLevel {
-            get {
-                return ((int)(this["AtcLevel"]));
-            }
-            set {
-                this["AtcLevel"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
         public bool ListIgnoredHubs {
             get {
                 return ((bool)(this["ListIgnoredHubs"]));
@@ -992,18 +944,6 @@ namespace JoinFS.Properties {
             }
             set {
                 this["ActivityCircle"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
-        public bool Atc {
-            get {
-                return ((bool)(this["Atc"]));
-            }
-            set {
-                this["Atc"] = value;
             }
         }
         

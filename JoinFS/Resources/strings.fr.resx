@@ -120,12 +120,6 @@
   <data name="Airliner" xml:space="preserve">
     <value>AvionDeLigne</value>
   </data>
-  <data name="AtcModeEnabled" xml:space="preserve">
-    <value>Le Mode ATC est actif. Cela autorise la visibilité d'un appareil sur le radar, mais a aussi un effet négatif sur la fluidité du mouvement d'un appareil</value>
-  </data>
-  <data name="AtcWarning" xml:space="preserve">
-    <value>Avec le mode ATC actif, les appareils du réseau seront visibles sur le radar par défaut. Cependant quelques appareils peuvent se comporter de maniére curieuse quand le mode ATC est activé.</value>
-  </data>
   <data name="BecomeAPatron" xml:space="preserve">
     <value>Patreon</value>
   </data>
@@ -327,12 +321,6 @@
   <data name="Options_ActivityCircle" xml:space="preserve">
     <value>Définit la distance maximale en miles nautiques à laquelle l'avion sera injecté dans le simulateur.</value>
   </data>
-  <data name="Options_Airport" xml:space="preserve">
-    <value>Spécifie l'aéroport à partir duquel cet ATC contrôle. Par exemple, «EGLL».</value>
-  </data>
-  <data name="Options_Atc" xml:space="preserve">
-    <value>Activez le mode ATC. Les autres utilisateurs vous verront marqué comme ATC.</value>
-  </data>
   <data name="Options_Create" xml:space="preserve">
     <value>Créer une nouvelle session si le mode concentrateur n'est pas activé</value>
   </data>
@@ -369,14 +357,8 @@
   <data name="Tip_Active" xml:space="preserve">
     <value>Choisissez la couleur à utiliser lorsque quelque chose dans JoinFS est actif</value>
   </data>
-  <data name="Tip_Airport" xml:space="preserve">
-    <value>Le code OACI de l'aéroport que vous contrôlez</value>
-  </data>
   <data name="Tip_AlwaysOnTop" xml:space="preserve">
     <value>Gardez les fenêtres JoinFS au premier plan</value>
-  </data>
-  <data name="Tip_ATC" xml:space="preserve">
-    <value>Faites savoir aux autres que vous fournissez une couverture ATC dans un aéroport ou une région</value>
   </data>
   <data name="Tip_AutoRefresh" xml:space="preserve">
     <value>Actualisez toutes les fenêtres JoinFS toutes les 30 secondes</value>
@@ -396,14 +378,8 @@
   <data name="Tip_EndTime" xml:space="preserve">
     <value>Durée de l'enregistrement stocké dans l'enregistreur</value>
   </data>
-  <data name="Tip_Euroscope" xml:space="preserve">
-    <value>Mettre à jour le fichier 'euroscope.txt' avec les données actuelles de l'aéronef à afficher dans l'Euroscope</value>
-  </data>
   <data name="Tip_Follow" xml:space="preserve">
     <value>Définissez la distance à laquelle vous voulez que votre avion soit déplacé derrière un autre avion. Voir Afficher | Avion, option «Suivre»</value>
-  </data>
-  <data name="Tip_Frequency" xml:space="preserve">
-    <value>La fréquence radio que vous contrôlez</value>
   </data>
   <data name="Tip_GlobalButton" xml:space="preserve">
     <value>Cliquez pour rejoindre la session publique mondiale</value>
@@ -440,9 +416,6 @@
   </data>
   <data name="Tip_LabelColour" xml:space="preserve">
     <value>La couleur des étiquettes des avions injectés dans le simulateur</value>
-  </data>
-  <data name="Tip_Level" xml:space="preserve">
-    <value>Le niveau ATC auquel vous contrôlez</value>
   </data>
   <data name="Tip_LocalPort" xml:space="preserve">
     <value>Spécifiez le port réseau UDP que JoinFS utilisera - la valeur par défaut est 6112</value>

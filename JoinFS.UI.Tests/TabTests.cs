@@ -1506,14 +1506,14 @@ public class SettingsTests
     {
         SettingsViewModel normal = new Rig().Main.Settings;
         // Everyday settings first; what few pilots need (Hub Mode, X-Plane) last, under the "Advanced" caption.
-        Assert.Equal(["Profile", "Simulator", "Network", "User Interface", "Models", "Keyboard Shortcuts", "Variables", "Address Book", "Hub Mode (Public)"], normal.Sections.Select(s => s.Title));
+        Assert.Equal(["Profile", "Simulator", "Network", "User Interface", "Models", "Keyboard Shortcuts", "Variables", "Address Book", "ATC", "Hub Mode (Public)"], normal.Sections.Select(s => s.Title));
         Assert.All(normal.Sections, s => Assert.False(s.IsOpen));
         Assert.Null(normal.OpenSection);
         Assert.False(normal.IsXPlaneBuild);
         Assert.False(normal.Simulator.IsXPlaneBuild);
 
         SettingsViewModel xplane = new Rig(xplaneBuild: true).Main.Settings;
-        Assert.Equal(10, xplane.Sections.Count);
+        Assert.Equal(11, xplane.Sections.Count);
         Assert.Same(xplane.XPlane, xplane.Sections[^1]);
         Assert.Same(xplane.HubMode, xplane.Sections[^2]);
         Assert.True(xplane.Simulator.IsXPlaneBuild);

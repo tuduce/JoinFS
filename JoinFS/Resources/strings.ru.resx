@@ -123,12 +123,6 @@
   <data name="AskSimConnect" xml:space="preserve">
     <value>SimConnect требуется для Microsoft Flight Simulator, Prepar3D и FSX. Вы хотите его скачать?</value>
   </data>
-  <data name="AtcModeEnabled" xml:space="preserve">
-    <value>Режим ATC включен. Это позволяет видеть самолет на радаре, но отрицательно сказывается на плавности его движения.</value>
-  </data>
-  <data name="AtcWarning" xml:space="preserve">
-    <value>При включенном режиме УВД воздушные суда сети будут видны на радаре по умолчанию. Однако некоторые летательные аппараты могут вести себя странно, когда включен режим УВД.</value>
-  </data>
   <data name="BecomeAPatron" xml:space="preserve">
     <value>Патреон</value>
   </data>
@@ -206,12 +200,6 @@
   </data>
   <data name="Options_ActivityCircle" xml:space="preserve">
     <value>Устанавливает максимальное расстояние в морских милях, которое самолет будет вводить в симулятор.</value>
-  </data>
-  <data name="Options_Airport" xml:space="preserve">
-    <value>Определяет аэропорт, из которого контролируется УВД. Например, «EGLL».</value>
-  </data>
-  <data name="Options_Atc" xml:space="preserve">
-    <value>Включите режим ATC. Другие пользователи будут видеть вас отмеченным как ATC.</value>
   </data>
   <data name="Options_Create" xml:space="preserve">
     <value>Создайте новый сеанс, если режим концентратора не включен</value>
@@ -315,14 +303,8 @@
   <data name="Tip_Active" xml:space="preserve">
     <value>Выберите цвет, который будет использоваться, когда что-то в JoinFS активно</value>
   </data>
-  <data name="Tip_Airport" xml:space="preserve">
-    <value>Код ИКАО контролируемого вами аэропорта.</value>
-  </data>
   <data name="Tip_AlwaysOnTop" xml:space="preserve">
     <value>Держите окна JoinFS на переднем плане</value>
-  </data>
-  <data name="Tip_ATC" xml:space="preserve">
-    <value>Сообщите другим, что вы обеспечиваете покрытие УВД в аэропорту или регионе.</value>
   </data>
   <data name="Tip_AutoRefresh" xml:space="preserve">
     <value>Обновлять все окна JoinFS каждые 30 секунд</value>
@@ -342,14 +324,8 @@
   <data name="Tip_EndTime" xml:space="preserve">
     <value>Продолжительность записи, хранящейся в диктофоне</value>
   </data>
-  <data name="Tip_Euroscope" xml:space="preserve">
-    <value>Обновите файл "euroscope.txt" текущими данными о самолетах для отображения в Euroscope.</value>
-  </data>
   <data name="Tip_Follow" xml:space="preserve">
     <value>Установите расстояние, на которое вы хотите, чтобы ваш самолет двигался позади другого самолета. См. "Просмотр | Самолет", вариант "Следить"</value>
-  </data>
-  <data name="Tip_Frequency" xml:space="preserve">
-    <value>Радиочастота, которую вы контролируете</value>
   </data>
   <data name="Tip_GlobalButton" xml:space="preserve">
     <value>Нажмите, чтобы присоединиться к глобальной публичной сессии</value>
@@ -386,9 +362,6 @@
   </data>
   <data name="Tip_LabelColour" xml:space="preserve">
     <value>Цвет меток впрыснутых самолетов в симуляторе</value>
-  </data>
-  <data name="Tip_Level" xml:space="preserve">
-    <value>Уровень УВД, на котором вы контролируете</value>
   </data>
   <data name="Tip_LocalPort" xml:space="preserve">
     <value>Укажите, какой сетевой порт UDP будет использовать JoinFS - по умолчанию 6112</value>

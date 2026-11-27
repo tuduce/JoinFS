@@ -132,12 +132,6 @@
   <data name="AssignVariablesWarning" xml:space="preserve">
     <value>변수를 할당하기 전에 먼저 시뮬레이터를 시작해야 합니다.</value>
   </data>
-  <data name="AtcModeEnabled" xml:space="preserve">
-    <value>ATC 모드가 활성화되었습니다. 이를 통해 항공기는 레이더에서 볼 수 있지만 항공기의 원활한 이동에 부정적인 영향을 미칩니다.</value>
-  </data>
-  <data name="AtcWarning" xml:space="preserve">
-    <value>ATC 모드가 활성화되면 네트워크 항공기는 기본 레이더에서 볼 수 있습니다. 그러나 일부 항공기는 ATC 모드가 활성화되어 있는 동안 이상한 방식으로 작동할 수 있습니다.</value>
-  </data>
   <data name="BecomeAPatron" xml:space="preserve">
     <value>패트리온</value>
   </data>
@@ -254,12 +248,6 @@
   </data>
   <data name="Options_ActivityCircle" xml:space="preserve">
     <value>항공기가 시뮬레이터에 주입될 최대 거리를 해리로 설정합니다.</value>
-  </data>
-  <data name="Options_Airport" xml:space="preserve">
-    <value>이 ATC가 제어하는 ​​공항을 지정합니다. 예: 'EGLL'.</value>
-  </data>
-  <data name="Options_Atc" xml:space="preserve">
-    <value>ATC 모드를 활성화합니다. 다른 사용자는 귀하를 ATC로 표시한 것을 볼 수 있습니다.</value>
   </data>
   <data name="Options_Create" xml:space="preserve">
     <value>허브 모드가 활성화되지 않은 경우 새 세션 생성</value>
@@ -381,14 +369,8 @@
   <data name="Tip_Active" xml:space="preserve">
     <value>JoinFS의 항목이 활성화될 때 사용할 색상을 선택하십시오.</value>
   </data>
-  <data name="Tip_Airport" xml:space="preserve">
-    <value>귀하가 통제하는 공항의 ICAO 코드</value>
-  </data>
   <data name="Tip_AlwaysOnTop" xml:space="preserve">
     <value>JoinFS 창을 전경에 유지</value>
-  </data>
-  <data name="Tip_ATC" xml:space="preserve">
-    <value>공항이나 지역에서 ATC 서비스를 제공하고 있음을 다른 사람들에게 알리십시오.</value>
   </data>
   <data name="Tip_AutoRefresh" xml:space="preserve">
     <value>30초마다 모든 JoinFS 창 새로 고침</value>
@@ -408,14 +390,8 @@
   <data name="Tip_EndTime" xml:space="preserve">
     <value>레코더에 저장된 녹음 길이</value>
   </data>
-  <data name="Tip_Euroscope" xml:space="preserve">
-    <value>Euroscope에 표시하기 위해 현재 항공기 데이터로 'euroscope.txt' 파일 업데이트</value>
-  </data>
   <data name="Tip_Follow" xml:space="preserve">
     <value>기체가 다른 기체 뒤로 이동하려는 거리를 설정합니다. 보기|항공기, '팔로우' 옵션 참조</value>
-  </data>
-  <data name="Tip_Frequency" xml:space="preserve">
-    <value>제어하고 있는 무선 주파수</value>
   </data>
   <data name="Tip_GlobalButton" xml:space="preserve">
     <value>글로벌 공개 세션에 참여하려면 클릭하십시오.</value>
@@ -452,9 +428,6 @@
   </data>
   <data name="Tip_LabelColour" xml:space="preserve">
     <value>시뮬레이터에서 주입된 항공기의 라벨 색상</value>
-  </data>
-  <data name="Tip_Level" xml:space="preserve">
-    <value>ATC 레벨이되는 당신이 제어된다</value>
   </data>
   <data name="Tip_LocalPort" xml:space="preserve">
     <value>JoinFS가 사용할 UDP 네트워크 포트 지정 - 기본값은 6112입니다.</value>

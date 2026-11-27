@@ -173,6 +173,8 @@ local JFP2_APP_CLASS = {
     [14] = "UserPositions", [15] = "Online", [16] = "UserLookup", [17] = "UserLookupAnswer",
     -- the kinds legacy alone carried, and the notes history in segments (edition 2, §9.4, §9.8)
     [18] = "ObjectPosition", [19] = "RemoveObject", [20] = "PeerInfo", [21] = "CommsRequest", [22] = "NotesHistory",
+    -- the ATC clients on the mesh (§9.9)
+    [23] = "AtcStation", [24] = "AtcRelay",
 }
 
 -- Capability bits (docs/network/jfp2/protocol.md §5.6)
@@ -804,6 +806,29 @@ local function decode_jfp2_peer_info_v1(tree, buffer, offset)
     end
 end
 
+-- AtcStation (application class 23, §9.9): Slot u8, Flags u8, Facility u8, Rating u8, Visibility u16, Frequency u32 (kHz),
+-- Latitude and Longitude f64, then the strings Callsign and Name
+local function decode_jfp2_atc_station_v1(tree, buffer, offset)
+    if buffer:len() < offset + 26 then return end
+    local slot = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Slot: " .. slot .. " (" .. (({ [0] = "main station", [1] = "ATIS" })[slot] or "unknown") .. ")"); offset = offset + 1
+    local flags = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Flags: 0x" .. string.format("%02x", flags) .. (testbit(flags, 0) and " (Online)" or " (logged off)")); offset = offset + 1
+    local facility = buffer(offset, 1):uint()
+    tree:add(buffer(offset, 1), "Facility: " .. facility .. " (" ..
+        (({ [0] = "OBS", [1] = "FSS", [2] = "DEL", [3] = "GND", [4] = "TWR", [5] = "APP", [6] = "CTR" })[facility] or "unknown") .. ")"); offset = offset + 1
+    tree:add(buffer(offset, 1), "Rating: " .. buffer(offset, 1):uint()); offset = offset + 1
+    tree:add(buffer(offset, 2), "Visibility: " .. buffer(offset, 2):le_uint() .. " nm"); offset = offset + 2
+    local khz = buffer(offset, 4):le_uint()
+    tree:add(buffer(offset, 4), "Frequency: " .. khz .. " kHz (" .. string.format("%.3f", khz / 1000) .. " MHz)"); offset = offset + 4
+    tree:add(buffer(offset, 8), "Latitude: " .. buffer(offset, 8):le_float()); offset = offset + 8
+    tree:add(buffer(offset, 8), "Longitude: " .. buffer(offset, 8):le_float()); offset = offset + 8
+    for _, label in ipairs({ "Callsign", "Name" }) do
+        local s; s, offset = read_jfp2_string(buffer, offset)
+        tree:add(buffer(), label .. ": " .. s)
+    end
+end
+
 -- NotesHistory (application class 22, §9.8): Scope u8, UserCount u16, then per user Guid, Nickname, Callsign, NoteCount u16 and
 -- per note NoteId u32, Age f32, Channel u16, Text. Larger than a datagram, so it travels in segments (§7.5): only a message
 -- of one segment, or the first segment of several, starts at the Scope; a later segment is a piece of the middle and shows as bytes.
@@ -1172,6 +1197,11 @@ local function decode_jfp2_application(tree, buffer, offset, class, segmentIndex
         decode_jfp2_object_position_v1(tree, buffer, offset)
     elseif name == "PeerInfo" then
         decode_jfp2_peer_info_v1(tree, buffer, offset)
+    elseif name == "AtcStation" then
+        decode_jfp2_atc_station_v1(tree, buffer, offset)
+    elseif name == "AtcRelay" then
+        local s = read_jfp2_string(buffer, offset)
+        tree:add(buffer(offset, len - offset), "Line: " .. s)
     elseif name == "NotesHistory" then
         decode_jfp2_notes_history_v1(tree, buffer, offset, segmentIndex or 0, segmentCount or 1)
     elseif name == "RemoveObject" and len >= offset + 4 then

@@ -228,6 +228,11 @@ namespace JoinFS
             }
 
             /// <summary>
+            /// Get integer variable, telling a value that was never received from a value of 0
+            /// </summary>
+            public bool TryGetInteger(uint vuid, out int value) => integers.TryGetValue(vuid, out value);
+
+            /// <summary>
             /// Get float variable
             /// </summary>
             public float GetFloat(uint vuid)

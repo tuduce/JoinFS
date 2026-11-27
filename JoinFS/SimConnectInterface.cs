@@ -717,24 +717,6 @@ namespace JoinFS
             }
         }
 
-        public void SetWaypoint(uint simId)
-        {
-            if (!OnOwnerThread(() => SetWaypoint(simId))) return;
-            // initialise single waypoiny
-            SIMCONNECT_DATA_WAYPOINT[] wp = new SIMCONNECT_DATA_WAYPOINT[1];
-            wp[0].Flags = (uint)SIMCONNECT_WAYPOINT_FLAGS.SPEED_REQUESTED;
-#if !P3D
-            wp[0].percentThrottle = 0;
-#endif
-            wp[0].Latitude = 0;
-            wp[0].Longitude = 0;
-            // copy to object array
-            Object[] waypoint = new Object[wp.Length];
-            wp.CopyTo(waypoint, 0);
-            // set waypoint
-            SetData(Sim.Definitions.AIRCRAFT_WAYPOINTS, simId, waypoint);
-        }
-
         public void DoEvent(uint simId, Enum simEvent, uint data)
         {
             if (!OnOwnerThread(() => DoEvent(simId, simEvent, data))) return;

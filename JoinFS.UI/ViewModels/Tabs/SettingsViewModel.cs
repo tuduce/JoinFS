@@ -332,6 +332,85 @@ public sealed partial class NetworkSettingsViewModel : PersistedSettingsSectionV
     }
 }
 
+/// <summary>
+/// The connection of an ATC client (EuroScope) on this PC: the switch, the port, and what is true now. The listener starts and stops when
+/// the switch changes; the status is read from <see cref="IAtcStatusSource"/> by <see cref="Refresh"/>.
+/// </summary>
+public sealed partial class AtcSettingsViewModel : PersistedSettingsSectionViewModel
+{
+    private readonly IAtcStatusSource _status;
+
+    internal AtcSettingsViewModel(Action<SettingsSectionViewModel> toggle, PreferencesSession preferences, IAtcStatusSource status)
+        : base(Loc.T("ATC"), toggle, preferences)
+    {
+        _status = status;
+        _enabled = Prefs.AtcFsd;
+        _port = Prefs.AtcFsdPort.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Refresh();
+
+        // opening the card shows what is true now, not what was true when the window started
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(IsOpen) && IsOpen)
+                Refresh();
+        };
+    }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PortError))]
+    private bool _enabled;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PortError))]
+    private string _port;
+
+    /// <summary>The state of the connection, for the colour of the status line.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFailed), nameof(IsNotFailed))]
+    private AtcClientState _state = AtcClientState.Off;
+
+    public bool IsFailed => State == AtcClientState.Failed;
+    public bool IsNotFailed => State != AtcClientState.Failed;
+
+    /// <summary>One line: off, listening on a port, connected as a station, or why it cannot listen.</summary>
+    [ObservableProperty]
+    private string _statusText = "";
+
+    /// <summary>The port as typed, or null when it is not a port.</summary>
+    private int? ParsedPort =>
+        int.TryParse(Port.Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int port) && port is >= 1 and <= 65535 ? port : null;
+
+    /// <summary>Shown while the connection is on and what is typed is not a port; the port in use stays as it was.</summary>
+    public string? PortError => Enabled && ParsedPort is null ? Loc.T("Enter a port from 1 to 65535.") : null;
+
+    /// <summary>Reads what the connection is doing now. Called when the tab is on screen.</summary>
+    public void Refresh()
+    {
+        AtcClientStatus status = _status.Read();
+        State = status.State;
+        StatusText = status.State switch
+        {
+            AtcClientState.Listening => Loc.F("Listening on port {0}", status.Port),
+            AtcClientState.Connected when status.Frequency.Length > 0 => Loc.F("Connected as {0} {1}", status.Callsign, status.Frequency),
+            AtcClientState.Connected => Loc.F("Connected as {0}", status.Callsign),
+            AtcClientState.Failed => Loc.F("Cannot listen on port {0}. Another program may be using it.", status.Port),
+            _ => Loc.T("Off"),
+        };
+    }
+
+    private protected override bool Persists(string? property) => property is nameof(Enabled) or nameof(Port);
+
+    private protected override bool Write(Preferences p)
+    {
+        p.AtcFsd = Enabled;
+
+        // The port is opened when it is saved: only a whole, valid number replaces the port in use.
+        if (ParsedPort is int port)
+            p.AtcFsdPort = port;
+        return true;
+    }
+}
+
 /// <summary>One of the five fields a user fills in to publish their own hub. <paramref name="changed"/> is told when the value changes.</summary>
 public sealed partial class HubFieldViewModel(string label, string placeholder, Action? changed = null) : ObservableObject
 {
@@ -534,12 +613,12 @@ public sealed partial class VariableAssignmentViewModel : ObservableObject
     private void Edit() => _edit(this);
 }
 
-/// <summary>Settings tab: an accordion of nine cards (ten in the XPLANE build), all collapsed at first, at most one open.</summary>
+/// <summary>Settings tab: an accordion of ten cards (eleven in the XPLANE build), all collapsed at first, at most one open.</summary>
 public sealed class SettingsViewModel : ObservableObject
 {
     /// <param name="isXPlaneBuild">Only the XPLANE build has the X-Plane card.</param>
     public SettingsViewModel(ProfileViewModel profile, AddressBookViewModel addressBook, IPreferencesStore preferences, IVariablesCatalog variables, IModelCatalog models, IXPlanePluginInstaller xplaneInstaller, IXPlaneScanSource xplaneScan, IModelScanSource modelScan,
-        IShell shell, IPlatform platform, Func<bool> isSimulatorConnected, bool isXPlaneBuild, IShortcutSource shortcuts, Action<IEnumerable<ShortcutBinding>> shortcutsChanged)
+        IShell shell, IPlatform platform, Func<bool> isSimulatorConnected, bool isXPlaneBuild, IShortcutSource shortcuts, Action<IEnumerable<ShortcutBinding>> shortcutsChanged, IAtcStatusSource atcStatus)
     {
         PreferencesSession session = new(preferences);
         Profile = new ProfileSettingsViewModel(Toggle, session, profile);
@@ -548,6 +627,7 @@ public sealed class SettingsViewModel : ObservableObject
         UserInterface = new UserInterfaceSettingsViewModel(Toggle, session);
         Network = new NetworkSettingsViewModel(Toggle, session);
         HubMode = new HubModeSettingsViewModel(Toggle, session);
+        Atc = new AtcSettingsViewModel(Toggle, session, atcStatus);
         AddressBook = new AddressBookSettingsViewModel(Toggle, addressBook);
         XPlane = new XPlaneSettingsViewModel(Toggle, session, shell, xplaneInstaller, platform);
         IsXPlaneBuild = isXPlaneBuild;
@@ -556,9 +636,11 @@ public sealed class SettingsViewModel : ObservableObject
 
         // Everyday settings first, then the lists, then what few pilots need (the view puts the "Advanced" caption above the last ones).
         Sections = isXPlaneBuild
-            ? [Profile, Simulator, Network, UserInterface, Models, Shortcuts, Variables, AddressBook, HubMode, XPlane]
-            : [Profile, Simulator, Network, UserInterface, Models, Shortcuts, Variables, AddressBook, HubMode];
+            ? [Profile, Simulator, Network, UserInterface, Models, Shortcuts, Variables, AddressBook, Atc, HubMode, XPlane]
+            : [Profile, Simulator, Network, UserInterface, Models, Shortcuts, Variables, AddressBook, Atc, HubMode];
     }
+
+    public AtcSettingsViewModel Atc { get; }
 
     public ProfileSettingsViewModel Profile { get; }
     public SimulatorSettingsViewModel Simulator { get; }

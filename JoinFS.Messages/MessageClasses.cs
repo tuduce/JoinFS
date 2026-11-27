@@ -90,6 +90,12 @@ namespace JoinFS.Net.Jfp2
         /// <summary>The notes of several users as one guaranteed message, in as many segments as it takes (§7.5, §9.8).</summary>
         public const byte NotesHistory = 22;
 
+        // The ATC clients on the mesh (docs/ATC/atc-fsd-plan.md §4.5; protocol.md §9.9).
+        /// <summary>The presence of a controller station on its node, soft state (§9.9).</summary>
+        public const byte AtcStation = 23;
+        /// <summary>One FSD line of a controller's client for a station on another node (§9.9).</summary>
+        public const byte AtcRelay = 24;
+
         /// <summary>
         /// A class byte of 255 in either partition means "the real class id is a two-byte little-
         /// endian value immediately following this byte" - headroom past 255 classes per partition

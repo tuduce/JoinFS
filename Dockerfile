@@ -3,6 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
 WORKDIR /src
 COPY JoinFS/JoinFS.csproj JoinFS/
 COPY JoinFS.Messages/JoinFS.Messages.csproj JoinFS.Messages/
+COPY JoinFS.Fsd/JoinFS.Fsd.csproj JoinFS.Fsd/
 COPY JoinFS.Crypto/JoinFS.Crypto.csproj JoinFS.Crypto/
 COPY JoinFS.Recording.Format/JoinFS.Recording.Format.csproj JoinFS.Recording.Format/
 COPY JoinFS.Recording/JoinFS.Recording.csproj JoinFS.Recording/
